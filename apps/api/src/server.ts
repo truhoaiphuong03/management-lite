@@ -18,7 +18,12 @@ export async function startServer(
   config: ApiConfig,
   pool?: DatabasePool | null,
 ): Promise<RunningServer> {
-  const handler = createRequestHandler({ pool });
+  const handler = createRequestHandler({
+    pool,
+    csrfSecret: config.csrfSecret,
+    allowedOrigins: config.allowedOrigins,
+    isProduction: config.isProduction,
+  });
   const server = http.createServer(handler);
 
   await new Promise<void>((resolve, reject) => {

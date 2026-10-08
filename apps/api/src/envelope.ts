@@ -62,12 +62,15 @@ export function sendJson(
   res: http.ServerResponse,
   statusCode: number,
   body: SuccessEnvelope | ErrorEnvelope,
+  headers: Record<string, string | string[]> = {},
 ): void {
   const json = JSON.stringify(body);
-  res.writeHead(statusCode, {
+  const responseHeaders: http.OutgoingHttpHeaders = {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(json),
     'X-Request-Id': body.meta.request_id,
-  });
+    ...headers,
+  };
+  res.writeHead(statusCode, responseHeaders);
   res.end(json);
 }
