@@ -5,11 +5,11 @@ const bytes = readFileSync(new URL('manifest.json', root));
 const hash = (data) => createHash('sha256').update(data).digest('hex');
 if (
   hash(bytes) !==
-  'b3893a826e359a95b0a8fa0a8a15dfc4c2109f43c011284e06898c969830b436'
+  'b9a73278432bfad5f684aecde0809bd38a6ce92bf3d3f25a5d80c476151c08f9'
 )
   throw new Error('Canonical manifest changed');
 const manifest = JSON.parse(bytes);
-if (manifest.version !== '0.1.0-doc.19')
+if (manifest.version !== '0.1.0-doc.21')
   throw new Error('Wrong canonical version');
 for (const [path, expected] of Object.entries(manifest.documents)) {
   if (hash(readFileSync(new URL(path, root))) !== expected)
