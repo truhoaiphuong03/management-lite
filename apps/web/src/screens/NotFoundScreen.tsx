@@ -3,11 +3,13 @@ import { AppCard, AppButton } from '@management-lite/ui/components';
 
 export interface NotFoundScreenProps {
   isForbidden?: boolean;
+  message?: string;
   onGoHome: () => void;
 }
 
 export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
   isForbidden = false,
+  message,
   onGoHome,
 }) => {
   return (
@@ -51,9 +53,10 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
             marginBottom: '24px',
           }}
         >
-          {isForbidden
-            ? 'Bạn đang ở chế độ xem Nhân viên (Staff). Theo quy tắc RBAC-02, tuyến đường này chỉ dành riêng cho Chủ sở hữu (Owner) của workspace.'
-            : 'Đường dẫn bạn yêu cầu không tồn tại trong hệ thống hoặc đã được di chuyển.'}
+          {message ||
+            (isForbidden
+              ? 'Theo quy định bảo vệ phân quyền (RBAC), vai trò hiện tại không được phép truy cập tuyến đường này.'
+              : 'Đường dẫn bạn yêu cầu không tồn tại trong hệ thống hoặc đã được di chuyển.')}
         </p>
         <AppButton variant="primary" onClick={onGoHome}>
           Quay lại Trang tổng quan (Dashboard)

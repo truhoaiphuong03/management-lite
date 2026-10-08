@@ -5,6 +5,7 @@ export interface RouteMeta {
   path: string;
   title: string;
   ownerOnly?: boolean;
+  staffOnly?: boolean;
   implemented: boolean;
   category:
     | 'core'
@@ -133,6 +134,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     id: 'UI16',
     path: '/my-pay',
     title: 'Lương cá nhân của tôi',
+    staffOnly: true,
     implemented: false,
     category: 'payroll',
   },

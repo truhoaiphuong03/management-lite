@@ -6,6 +6,7 @@ export interface NavItem {
   path: string;
   icon: string;
   ownerOnly?: boolean;
+  staffOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -34,7 +35,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: '💰',
     ownerOnly: true,
   },
-  { id: 'my-pay', label: 'Lương cá nhân', path: '/my-pay', icon: '💵' },
+  {
+    id: 'my-pay',
+    label: 'Lương cá nhân',
+    path: '/my-pay',
+    icon: '💵',
+    staffOnly: true,
+  },
   {
     id: 'accounts',
     label: 'Tài khoản ACC',
@@ -65,7 +72,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 }) => {
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (role === 'staff' && item.ownerOnly) return false;
-    if (role === 'owner' && item.id === 'my-pay') return false; // C04/PAY-02: Owner has no payroll entry
+    if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
+      return false; // C04/PAY-02: Owner has no payroll entry
     return true;
   });
 

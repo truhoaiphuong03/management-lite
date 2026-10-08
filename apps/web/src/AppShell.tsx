@@ -33,7 +33,8 @@ export const AppShell: React.FC<AppShellProps> = ({
     const isPrimary = ['/', '/clock', '/reports'].includes(item.path);
     if (isPrimary) return false;
     if (role === 'staff' && item.ownerOnly) return false;
-    if (role === 'owner' && item.id === 'my-pay') return false;
+    if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
+      return false;
     return true;
   });
 

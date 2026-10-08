@@ -63,12 +63,23 @@ export const App: React.FC = () => {
 
   // 4. Dynamic route matching & RBAC resolution
   const { route: routeMeta, params } = matchRoute(currentPath);
-  const isForbidden = Boolean(routeMeta?.ownerOnly && role === 'staff');
+  const isForbidden = Boolean(
+    (routeMeta?.ownerOnly && role === 'staff') ||
+    (routeMeta?.staffOnly && role === 'owner'),
+  );
 
   const renderContent = () => {
     if (isForbidden) {
+      const message =
+        routeMeta?.staffOnly && role === 'owner'
+          ? 'Bạn đang ở chế độ xem Chủ sở hữu (Owner). Tuyến đường này dành riêng cho Nhân viên (theo quy tắc C04/PAY-02: Owner không có phiếu lương cá nhân).'
+          : 'Bạn đang ở chế độ xem Nhân viên (Staff). Theo quy tắc RBAC-02, tuyến đường này chỉ dành riêng cho Chủ sở hữu (Owner) của workspace.';
       return (
-        <NotFoundScreen isForbidden onGoHome={() => handleNavigate('/')} />
+        <NotFoundScreen
+          isForbidden
+          message={message}
+          onGoHome={() => handleNavigate('/')}
+        />
       );
     }
 

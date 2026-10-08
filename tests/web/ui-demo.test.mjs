@@ -103,7 +103,29 @@ test('routing engine matches exact routes, normalizes slashes, and extracts dyna
   assert.equal(accountDetailMatch.isExact, false);
   assert.equal(accountDetailMatch.params.id, 'ACC-101');
 
-  // 4. 404 / unknown routes
+  // 4. Valid encoded URL characters decode properly
+  const encodedMatch = matchRoute('/reports/B%C3%A1o%20c%C3%A1o%201');
+  assert.equal(encodedMatch.route?.id, 'UI10');
+  assert.equal(encodedMatch.params.id, 'Báo cáo 1');
+
+  // 5. Malformed percent-encoding safely returns 404 without throwing URIError
+  const malformedSamples = [
+    '/reports/%E0%A4%A',
+    '/reports/%',
+    '/reports/%ZZ',
+    '/payroll/%c0%af',
+    '/%FF%FF',
+  ];
+  for (const sample of malformedSamples) {
+    assert.doesNotThrow(() => {
+      const res = matchRoute(sample);
+      assert.equal(res.route, null);
+      assert.equal(res.isExact, false);
+      assert.deepEqual(res.params, {});
+    });
+  }
+
+  // 6. 404 / unknown routes
   const notFoundMatch = matchRoute('/unknown/route/path');
   assert.equal(notFoundMatch.route, null);
   assert.equal(notFoundMatch.isExact, false);
@@ -120,7 +142,7 @@ test('RBAC navigation filtering and access guard enforcement', async () => {
 
   // 1. Owner view in DesktopSidebar includes ownerOnly items and excludes my-pay
   const ownerVisible = NAV_ITEMS.filter((item) => {
-    if (item.id === 'my-pay') return false; // C04/PAY-02: Owner has no payroll entry
+    if (item.staffOnly || item.id === 'my-pay') return false; // C04/PAY-02: Owner has no payroll entry
     return true;
   });
   assert.ok(ownerVisible.some((i) => i.id === 'employees'));
@@ -149,22 +171,53 @@ test('RBAC navigation filtering and access guard enforcement', async () => {
 
   // Staff accessing owner-only route triggers forbidden state
   const isForbiddenForStaff = Boolean(
-    payrollRoute?.ownerOnly && staffRole === 'staff',
+    (payrollRoute?.ownerOnly && staffRole === 'staff') ||
+    (payrollRoute?.staffOnly && staffRole === 'owner'),
   );
   assert.equal(isForbiddenForStaff, true);
 
   // Owner accessing owner-only route is allowed
   const isForbiddenForOwner = Boolean(
-    payrollRoute?.ownerOnly && ownerRole === 'staff',
+    (payrollRoute?.ownerOnly && ownerRole === 'staff') ||
+    (payrollRoute?.staffOnly && ownerRole === 'owner'),
   );
   assert.equal(isForbiddenForOwner, false);
 
   // Staff accessing general route is allowed
   const clockRoute = matchRoute('/clock').route;
   const isClockForbiddenForStaff = Boolean(
-    clockRoute?.ownerOnly && staffRole === 'staff',
+    (clockRoute?.ownerOnly && staffRole === 'staff') ||
+    (clockRoute?.staffOnly && staffRole === 'owner'),
   );
   assert.equal(isClockForbiddenForStaff, false);
+
+  // 4. Owner direct access to /my-pay is blocked with 403 Forbidden
+  const myPayRoute = matchRoute('/my-pay').route;
+  assert.ok(myPayRoute);
+  assert.equal(myPayRoute.id, 'UI16');
+  assert.equal(myPayRoute.staffOnly, true);
+  assert.equal(myPayRoute.implemented, false);
+
+  const isMyPayForbiddenForOwner = Boolean(
+    (myPayRoute.ownerOnly && ownerRole === 'staff') ||
+    (myPayRoute.staffOnly && ownerRole === 'owner'),
+  );
+  assert.equal(
+    isMyPayForbiddenForOwner,
+    true,
+    'Owner accessing /my-pay directly must trigger forbidden state',
+  );
+
+  // 5. Staff direct access to /my-pay is allowed and reaches placeholder
+  const isMyPayForbiddenForStaff = Boolean(
+    (myPayRoute.ownerOnly && staffRole === 'staff') ||
+    (myPayRoute.staffOnly && staffRole === 'owner'),
+  );
+  assert.equal(
+    isMyPayForbiddenForStaff,
+    false,
+    'Staff accessing /my-pay directly must be allowed to view placeholder',
+  );
 });
 
 test('responsive breakpoints and touch target specifications adhere to canonical contract', async () => {
