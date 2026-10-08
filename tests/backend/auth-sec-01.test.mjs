@@ -159,6 +159,34 @@ test('AUTH-SEC-01 login rejects unsafe origin and media type before session crea
       { Origin: localOrigin, 'Content-Type': undefined },
       415,
     ],
+    ...[
+      ['parameter missing equals', 'application/json; charset'],
+      ['parameter missing value', 'application/json; charset='],
+      ['empty parameter', 'application/json;'],
+      ['double separator', 'application/json;; charset=utf-8'],
+      ['unterminated quote', 'application/json; charset="utf-8'],
+      ['quoted value suffix', 'application/json; charset="utf-8"junk'],
+      ['invalid charset', 'application/json; charset=invalid'],
+      ['latin1 charset', 'application/json; charset=iso-8859-1'],
+      ['utf16 charset', 'application/json; charset=utf-16'],
+      ['empty quoted charset', 'application/json; charset=""'],
+      [
+        'conflicting charset',
+        'application/json; charset=utf-8; charset=iso-8859-1',
+      ],
+      [
+        'conflicting charset reversed',
+        'application/json; charset=iso-8859-1; charset=utf-8',
+      ],
+      ['duplicate charset', 'application/json; charset=utf-8; charset=utf-8'],
+      ['comma joined media types', 'application/json, text/plain'],
+      ['unsupported parameter', 'application/json; boundary=abc'],
+      ['malformed extra parameter', 'application/json; charset=utf-8; broken'],
+    ].map(([name, contentType]) => [
+      name,
+      { Origin: localOrigin, 'Content-Type': contentType },
+      415,
+    ]),
   ];
   for (const [name, overrides, expected] of cases) {
     await t.test(name, async () => {
@@ -188,6 +216,14 @@ test('AUTH-SEC-01 login allows exact approved origin and absent-origin Referer f
     { Referer: `${secureOrigin}/login` },
     { Origin: localOrigin, 'Content-Type': 'application/json; charset=utf-8' },
     { Origin: localOrigin, 'Content-Type': 'Application/JSON; charset=UTF-8' },
+    {
+      Origin: localOrigin,
+      'Content-Type': 'application/json; charset="UTF-8"',
+    },
+    {
+      Origin: localOrigin,
+      'Content-Type': 'application/json ; charset = utf-8',
+    },
   ];
   for (const headers of cases) {
     const res = await request(port, {

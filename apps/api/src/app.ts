@@ -200,11 +200,14 @@ function requireLoginJson(req: http.IncomingMessage): void {
   const contentType = req.headers['content-type'];
   if (
     typeof contentType !== 'string' ||
-    contentType.split(';')[0]?.trim().toLowerCase() !== 'application/json'
+    // Accept only the supported JSON media type and a single optional UTF-8 charset.
+    !/^application\/json(?:[ \t]*;[ \t]*charset[ \t]*=[ \t]*(?:utf-8|"utf-8"))?[ \t]*$/i.test(
+      contentType.trim(),
+    )
   ) {
     throw new AuthError(
       'UNSUPPORTED_MEDIA_TYPE',
-      'Login requires application/json',
+      'Login requires application/json with an optional UTF-8 charset',
       415,
     );
   }
