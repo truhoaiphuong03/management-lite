@@ -1,10 +1,10 @@
+import * as argon2 from '@node-rs/argon2';
 import { hash, verify } from '@node-rs/argon2';
-import type { Algorithm } from '@node-rs/argon2';
 
 /**
- * Argon2id algorithm constant (value 2 in @node-rs/argon2 Algorithm enum).
+ * Argon2id algorithm constant from @node-rs/argon2 official enum.
  */
-export const ARGON2ID_ALGORITHM: Algorithm = 2 as unknown as Algorithm;
+export const ARGON2ID_ALGORITHM = argon2.Algorithm.Argon2id;
 
 /**
  * Standard OWASP-aligned configuration for Argon2id password hashing.
@@ -56,7 +56,7 @@ export function validatePasswordStrength(
 
 /**
  * Hashes a plaintext password using Argon2id with a secure per-hash random salt.
- * Never logs or retains the plaintext password.
+ * Plaintext passwords, password hashes, and credentials must never be written to logs.
  */
 export async function hashPassword(password: string): Promise<string> {
   const validation = validatePasswordStrength(password);

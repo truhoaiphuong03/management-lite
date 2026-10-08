@@ -1,13 +1,27 @@
 import crypto from 'node:crypto';
 
+export const MIN_CSPRNG_TOKEN_BYTES = 32;
+export const MAX_CSPRNG_TOKEN_BYTES = 1024;
+
 /**
  * Generates a cryptographically secure pseudo-random token with at least 256 bits of entropy.
- * Default 32 bytes = 256 bits -> 64-character lowercase hexadecimal string.
+ * Default byteLength is 32 bytes (256 bits), producing a 64-character hexadecimal string.
+ * Validates that byteLength is a finite safe integer between 32 and 1024 bytes.
  */
-export function generateCsprngToken(byteLength = 32): string {
-  if (byteLength < 32) {
-    throw new Error(
-      `CSPRNG token entropy must be at least 32 bytes (256 bits), received: ${byteLength}`,
+export function generateCsprngToken(
+  byteLength: number = MIN_CSPRNG_TOKEN_BYTES,
+): string {
+  if (typeof byteLength !== 'number' || !Number.isSafeInteger(byteLength)) {
+    throw new TypeError(
+      `byteLength must be a finite safe integer, received: ${String(byteLength)}`,
+    );
+  }
+  if (
+    byteLength < MIN_CSPRNG_TOKEN_BYTES ||
+    byteLength > MAX_CSPRNG_TOKEN_BYTES
+  ) {
+    throw new RangeError(
+      `byteLength must be between ${MIN_CSPRNG_TOKEN_BYTES} and ${MAX_CSPRNG_TOKEN_BYTES} bytes, received: ${byteLength}`,
     );
   }
   return crypto.randomBytes(byteLength).toString('hex');
@@ -15,7 +29,8 @@ export function generateCsprngToken(byteLength = 32): string {
 
 /**
  * Computes deterministic SHA-256 hash of a sensitive token (activation token, session token).
- * Only the hash is stored in the database or logged in audit metadata.
+ * Only the cryptographic hash is stored in the database for verification.
+ * Raw tokens, hashes, and secret-derived values must never be logged or exported to telemetry.
  */
 export function hashToken(token: string): string {
   if (typeof token !== 'string' || token.length === 0) {
@@ -43,15 +58,12 @@ export function timingSafeEqualTokens(a: string, b: string): boolean {
 }
 
 /**
- * Masks a secret string for safe logging/display (e.g., showing only prefix/suffix).
- * Returns '***' for very short secrets.
+ * Redacts a secret or sensitive value entirely to prevent disclosure.
+ * Returns a fixed sentinel string ('[REDACTED]') so that zero characters,
+ * prefixes, suffixes, or length indicators of the secret are ever exposed.
+ * Note: Raw secrets, tokens, and secret-derived values should never be logged.
  */
-export function maskSecret(value: unknown): string {
-  if (typeof value !== 'string' || value.length === 0) {
-    return '***';
-  }
-  if (value.length <= 8) {
-    return '***';
-  }
-  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+export function maskSecret(value?: unknown): string {
+  void value;
+  return '[REDACTED]';
 }
