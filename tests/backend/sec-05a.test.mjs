@@ -101,7 +101,10 @@ test('SEC-05A public collision error matches missing user and wrong password, wi
           port: server.address().port,
           path: '/api/v1/auth/login',
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            Origin: 'http://localhost:3000',
+            'Content-Type': 'application/json',
+          },
         },
         (res) => {
           let body = '';
