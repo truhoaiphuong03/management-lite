@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "dev:web": "npm run --workspace=@management-lite/web dev",
+    "dev:web:lan": "npm run --workspace=@management-lite/web dev:lan",
     "build:web": "npm run --workspace=@management-lite/web build",
     "test:web": "node --test tests/web/*.test.mjs",
     "test": "npm run build && node --test tests/foundation/*.test.mjs",
