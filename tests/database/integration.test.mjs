@@ -2,12 +2,22 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const root = resolve(__dirname, '../..');
 
 test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)', async (t) => {
+  // 1. Strict Isolation Gate: TEST_DATABASE_URL must be explicitly provided
+  const testUrl = process.env.TEST_DATABASE_URL?.trim();
+  if (!testUrl) {
+    t.skip(
+      '[BLOCKED] TEST_DATABASE_URL is not set. Live PostgreSQL integration test is BLOCKED. To run live integration tests, explicitly set TEST_DATABASE_URL pointing to an isolated test database (e.g. TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/management_lite_test). Automatic fallback to DATABASE_URL, PGDATABASE, or default databases is strictly disabled to prevent accidental connection or mutation of active databases.',
+    );
+    return;
+  }
+
   const { loadTestDatabaseConfig, assertSafeTestDatabase } = await import(
     `file://${resolve(root, 'dist/packages/database/src/config.js')}`
   );
@@ -25,68 +35,105 @@ test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)
     `file://${resolve(root, 'dist/packages/database/src/audit.js')}`
   );
 
-  // Enforce database safety guard: must be explicitly designated test database
+  // Enforce multi-factor database safety guard on testUrl
   const config = loadTestDatabaseConfig();
   assertSafeTestDatabase(config);
 
   const pool = createDatabasePool(config);
 
-  const health = await checkDatabaseHealth(pool);
-  if (!health.connected) {
-    await closeDatabasePool(pool);
-    t.skip(
-      `[BLOCKED] Real PostgreSQL instance is not available (${health.error || 'unreachable'}). Live database integration tests are BLOCKED. To reproduce: start a PostgreSQL 15+ container and run with TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/management_lite_test`,
-    );
-    return;
-  }
-
   try {
-    // 1. Initial migration run
+    const health = await checkDatabaseHealth(pool);
+    if (!health.connected) {
+      t.skip(
+        `[BLOCKED] Real PostgreSQL instance is not reachable (${health.error || 'unreachable'}). Live database integration tests are BLOCKED. Target: ${testUrl}. To reproduce: ensure an isolated PostgreSQL 15+ container is running and accessible.`,
+      );
+      return;
+    }
+
     const migrationFiles = loadMigrationFiles(
       resolve(root, 'packages/database/src/migrations'),
     );
-    const initialResult = await runMigrations(pool, migrationFiles);
-    assert.ok(initialResult.appliedCount >= 0);
 
-    // 2. Safe replay test (must not fail or alter schema)
-    const replayResult = await runMigrations(pool, migrationFiles);
-    assert.equal(replayResult.appliedCount, 0);
-    assert.equal(replayResult.alreadyAppliedCount, migrationFiles.length);
+    // 2. Repeatability: Execute integration workflow twice consecutively on the test database
+    for (let runIndex = 1; runIndex <= 2; runIndex++) {
+      await executeIntegrationWorkflow(pool, migrationFiles, runIndex, {
+        claimIdempotency,
+        completeIdempotency,
+        recordAuditEvent,
+        runMigrations,
+      });
+    }
+  } finally {
+    await closeDatabasePool(pool);
+  }
+});
 
-    // 3. Test workspace and user creation
-    const wsId = '11111111-1111-4111-8111-111111111111';
+async function executeIntegrationWorkflow(pool, migrationFiles, runIndex, ops) {
+  const {
+    claimIdempotency,
+    completeIdempotency,
+    recordAuditEvent,
+    runMigrations,
+  } = ops;
+
+  // A. Initial / Replay migration execution
+  const initialResult = await runMigrations(pool, migrationFiles);
+  assert.ok(initialResult.appliedCount >= 0);
+
+  // B. Safe replay test (must not fail or alter schema)
+  const replayResult = await runMigrations(pool, migrationFiles);
+  assert.equal(
+    replayResult.appliedCount,
+    0,
+    'Replay must apply 0 new migrations',
+  );
+  assert.equal(
+    replayResult.alreadyAppliedCount,
+    migrationFiles.length,
+    'Replay must recognize all migrations as applied',
+  );
+
+  // C. Generate unique per-run identifiers (zero hardcoded UUIDs, usernames, or keys)
+  const runToken = crypto.randomBytes(6).toString('hex');
+  const wsId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  const username = `user_${Date.now()}_r${runIndex}_${runToken}`;
+  const email = `user_${Date.now()}_r${runIndex}_${runToken}@integration.local`;
+  const opKey = `op_r${runIndex}_${runToken}`;
+  const reqId = `req_r${runIndex}_${runToken}`;
+  const entityId = `entity_r${runIndex}_${runToken}`;
+
+  try {
+    // D. Workspace and User creation
     await pool.query(
       `
       INSERT INTO workspaces (id, name, timezone, status)
-      VALUES ($1, 'Integration Test Workspace', 'Asia/Ho_Chi_Minh', 'active')
-      ON CONFLICT (id) DO NOTHING;
+      VALUES ($1, $2, 'Asia/Ho_Chi_Minh', 'active');
     `,
-      [wsId],
+      [wsId, `Integration Test Workspace ${runToken}`],
     );
 
-    const userId = '22222222-2222-4222-8222-222222222222';
     await pool.query(
       `
       INSERT INTO users (id, username_normalized, email_normalized, status)
-      VALUES ($1, 'testuser_pk01', 'test_pk01@example.com', 'active')
-      ON CONFLICT (id) DO NOTHING;
+      VALUES ($1, $2, $3, 'active');
     `,
-      [userId],
+      [userId, username, email],
     );
 
-    // 4. Test audit event recording and immutable guard
+    // E. Audit event recording and immutable guard
     const auditRes = await recordAuditEvent(pool, {
       workspaceId: wsId,
       actorUserId: userId,
       action: 'integration.test.created',
       entityType: 'test_entity',
-      entityId: 'ent-1',
-      requestId: 'req-integration-1',
-      metadata: { test_key: 'test_value', password: 'should_redact' },
+      entityId,
+      requestId: reqId,
+      metadata: { runIndex, runToken, password: 'should_redact' },
     });
     assert.ok(auditRes.id);
 
-    // 5. Test DB Guard: Prohibit UPDATE or DELETE on audit_events
+    // DB Guard: Prohibit UPDATE or DELETE on audit_events
     await assert.rejects(
       async () => {
         await pool.query('DELETE FROM audit_events WHERE id = $1', [
@@ -112,13 +159,12 @@ test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)
       },
     );
 
-    // 6. Test idempotency claim and replay
-    const opKey = 'op-integration-test-1';
+    // F. Idempotency claim, completion, and replay
     const claimRes1 = await claimIdempotency(pool, {
       workspaceId: wsId,
       actorUserId: userId,
       operationKey: opKey,
-      requestFingerprint: 'fp-integ-1',
+      requestFingerprint: `fp_${runToken}`,
     });
     assert.equal(claimRes1.status, 'claimed');
 
@@ -127,18 +173,30 @@ test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)
       actorUserId: userId,
       operationKey: opKey,
       responseCode: 201,
-      sanitizedResponse: { success: true },
+      sanitizedResponse: { success: true, runToken },
     });
 
     const claimRes2 = await claimIdempotency(pool, {
       workspaceId: wsId,
       actorUserId: userId,
       operationKey: opKey,
-      requestFingerprint: 'fp-integ-1',
+      requestFingerprint: `fp_${runToken}`,
     });
     assert.equal(claimRes2.status, 'replay');
     assert.equal(claimRes2.responseCode, 201);
   } finally {
-    await closeDatabasePool(pool);
+    // G. Safe cleanup scoped strictly to this run's identifiers
+    await pool
+      .query(
+        'DELETE FROM idempotency_records WHERE workspace_id = $1 AND actor_user_id = $2;',
+        [wsId, userId],
+      )
+      .catch(() => {});
+
+    // Note on audit_events & parent foreign keys:
+    // Per canonical Doc 20/58 and database trigger trg_audit_events_immutable, audit_events is strictly append-only.
+    // Rows cannot be modified or deleted. Because audit_events references workspace_id and actor_user_id
+    // with ON DELETE RESTRICT, parent workspace and user rows are preserved as immutable compliance records.
+    // Using distinct random UUIDs per run ensures complete isolation and zero collision across repeated runs.
   }
-});
+}

@@ -90,20 +90,22 @@ test('sanitizeErrorMessage strips credentials from error strings', async () => {
   assert.match(sanitizedParam, /password="\*\*\*"/);
 });
 
-test('isSafeTestDatabase and assertSafeTestDatabase enforce strict database isolation', async () => {
+test('isSafeTestDatabase and assertSafeTestDatabase enforce multi-factor database isolation', async () => {
   const { isSafeTestDatabase, assertSafeTestDatabase } = await import(
     `file://${resolve(root, 'dist/packages/database/src/config.js')}`
   );
 
+  const safeUrl = 'postgresql://usr:pass@localhost:5432/mglite_isolated_test';
+
   // 1. Rejects NODE_ENV === 'production'
   const prodCheck = isSafeTestDatabase(
     {
-      database: 'my_test_db',
+      connectionString: safeUrl,
       max: 5,
       idleTimeoutMillis: 1000,
       connectionTimeoutMillis: 1000,
     },
-    { NODE_ENV: 'production' },
+    { NODE_ENV: 'production', TEST_DATABASE_URL: safeUrl },
   );
   assert.equal(prodCheck.safe, false);
   assert.match(prodCheck.reason || '', /NODE_ENV is set to "production"/);
@@ -112,12 +114,12 @@ test('isSafeTestDatabase and assertSafeTestDatabase enforce strict database isol
     () => {
       assertSafeTestDatabase(
         {
-          database: 'my_test_db',
+          connectionString: safeUrl,
           max: 5,
           idleTimeoutMillis: 1000,
           connectionTimeoutMillis: 1000,
         },
-        { NODE_ENV: 'production' },
+        { NODE_ENV: 'production', TEST_DATABASE_URL: safeUrl },
       );
     },
     {
@@ -126,110 +128,171 @@ test('isSafeTestDatabase and assertSafeTestDatabase enforce strict database isol
     },
   );
 
-  // 2. Rejects default production database name 'management_lite'
-  const defaultDbCheck = isSafeTestDatabase(
+  // 2. Rejects NODE_ENV === 'staging'
+  const stagingCheck = isSafeTestDatabase(
     {
-      database: 'management_lite',
+      connectionString: safeUrl,
       max: 5,
       idleTimeoutMillis: 1000,
       connectionTimeoutMillis: 1000,
     },
+    { NODE_ENV: 'staging', TEST_DATABASE_URL: safeUrl },
+  );
+  assert.equal(stagingCheck.safe, false);
+  assert.match(stagingCheck.reason || '', /NODE_ENV is set to "staging"/);
+
+  // 3. Rejects missing connection string / TEST_DATABASE_URL
+  const missingCheck = isSafeTestDatabase(
+    { max: 5, idleTimeoutMillis: 1000, connectionTimeoutMillis: 1000 },
     { NODE_ENV: 'test' },
   );
-  assert.equal(defaultDbCheck.safe, false);
+  assert.equal(missingCheck.safe, false);
   assert.match(
-    defaultDbCheck.reason || '',
-    /default or production database name/,
+    missingCheck.reason || '',
+    /TEST_DATABASE_URL is not explicitly configured/,
   );
 
-  // 3. Rejects system databases (postgres, template1, master)
-  for (const sysDb of ['postgres', 'template1', 'master', 'defaultdb']) {
-    const sysCheck = isSafeTestDatabase(
+  // 4. Rejects remote production or staging hostnames
+  for (const dangerousHost of [
+    'prod-db.corp.net',
+    'production-cluster.io',
+    'live-aurora.aws.com',
+    'staging-db.internal',
+  ]) {
+    const hostCheck = isSafeTestDatabase(
       {
-        database: sysDb,
+        connectionString: `postgresql://usr:pass@${dangerousHost}:5432/my_test_db`,
         max: 5,
         idleTimeoutMillis: 1000,
         connectionTimeoutMillis: 1000,
       },
-      { NODE_ENV: 'test' },
+      {
+        NODE_ENV: 'test',
+        TEST_DATABASE_URL: `postgresql://usr:pass@${dangerousHost}:5432/my_test_db`,
+      },
     );
-    assert.equal(sysCheck.safe, false);
+    assert.equal(hostCheck.safe, false);
+    assert.match(hostCheck.reason || '', /production or staging host/);
   }
 
-  // 4. Rejects databases without 'test' in their name
+  // 5. Rejects system or default application database names
+  for (const sysDb of [
+    'management_lite',
+    'postgres',
+    'template1',
+    'master',
+    'defaultdb',
+    'production',
+    'staging',
+  ]) {
+    const sysCheck = isSafeTestDatabase(
+      {
+        connectionString: `postgresql://usr:pass@localhost:5432/${sysDb}`,
+        max: 5,
+        idleTimeoutMillis: 1000,
+        connectionTimeoutMillis: 1000,
+      },
+      {
+        NODE_ENV: 'test',
+        TEST_DATABASE_URL: `postgresql://usr:pass@localhost:5432/${sysDb}`,
+      },
+    );
+    assert.equal(sysCheck.safe, false);
+    assert.match(
+      sysCheck.reason || '',
+      /default, application, or system database name/,
+    );
+  }
+
+  // 6. Rejects databases without 'test' in their name
   const noTestCheck = isSafeTestDatabase(
     {
-      connectionString: 'postgresql://usr:pass@localhost:5432/crm_app_staging',
+      connectionString: 'postgresql://usr:pass@localhost:5432/crm_app',
       max: 5,
       idleTimeoutMillis: 1000,
       connectionTimeoutMillis: 1000,
     },
-    { NODE_ENV: 'test' },
+    {
+      NODE_ENV: 'test',
+      TEST_DATABASE_URL: 'postgresql://usr:pass@localhost:5432/crm_app',
+    },
   );
   assert.equal(noTestCheck.safe, false);
-  assert.match(noTestCheck.reason || '', /does not contain "test"/);
+  assert.match(noTestCheck.reason || '', /does not contain a test designation/);
 
-  // 5. Accepts database names explicitly containing 'test'
-  const validTestDb1 = isSafeTestDatabase(
+  // 7. Rejects invalid protocols
+  const protocolCheck = isSafeTestDatabase(
     {
-      database: 'management_lite_test',
+      connectionString: 'http://localhost:5432/test_db',
       max: 5,
       idleTimeoutMillis: 1000,
       connectionTimeoutMillis: 1000,
     },
-    { NODE_ENV: 'test' },
+    { NODE_ENV: 'test', TEST_DATABASE_URL: 'http://localhost:5432/test_db' },
   );
-  assert.equal(validTestDb1.safe, true);
+  assert.equal(protocolCheck.safe, false);
+  assert.match(protocolCheck.reason || '', /Invalid protocol/);
 
-  const validTestDb2 = isSafeTestDatabase(
+  // 8. Accepts properly isolated test database
+  const validCheck = isSafeTestDatabase(
     {
-      connectionString:
-        'postgresql://usr:pass@localhost:5432/mglite_isolated_test',
+      connectionString: safeUrl,
       max: 5,
       idleTimeoutMillis: 1000,
       connectionTimeoutMillis: 1000,
     },
-    { NODE_ENV: 'test' },
+    { NODE_ENV: 'test', TEST_DATABASE_URL: safeUrl },
   );
-  assert.equal(validTestDb2.safe, true);
+  assert.equal(validCheck.safe, true);
   assert.doesNotThrow(() => {
     assertSafeTestDatabase(
       {
-        connectionString:
-          'postgresql://usr:pass@localhost:5432/mglite_isolated_test',
+        connectionString: safeUrl,
         max: 5,
         idleTimeoutMillis: 1000,
         connectionTimeoutMillis: 1000,
       },
-      { NODE_ENV: 'test' },
+      { NODE_ENV: 'test', TEST_DATABASE_URL: safeUrl },
     );
   });
 });
 
-test('loadTestDatabaseConfig prioritizes TEST_DATABASE_URL and blocks non-test databases', async () => {
+test('loadTestDatabaseConfig requires explicit TEST_DATABASE_URL and blocks all fallbacks', async () => {
   const { loadTestDatabaseConfig } = await import(
     `file://${resolve(root, 'dist/packages/database/src/config.js')}`
   );
 
-  // 1. Defaults to management_lite_test when no env vars provided
-  const defaultConfig = loadTestDatabaseConfig({});
-  assert.equal(defaultConfig.database, 'management_lite_test');
-
-  // 2. Uses TEST_DATABASE_URL over DATABASE_URL
-  const config = loadTestDatabaseConfig({
-    DATABASE_URL: 'postgresql://localhost:5432/ignored_test_db',
-    TEST_DATABASE_URL: 'postgresql://localhost:5432/preferred_test_db',
-  });
-  assert.equal(
-    config.connectionString,
-    'postgresql://localhost:5432/preferred_test_db',
+  // 1. Throws fail-closed when TEST_DATABASE_URL is not set (zero fallback to defaults)
+  assert.throws(
+    () => {
+      loadTestDatabaseConfig({});
+    },
+    { message: /TEST_DATABASE_URL is not set/ },
   );
 
-  // 3. Fails closed if DATABASE_URL or TEST_DATABASE_URL points to non-test db
+  // 2. Throws fail-closed if only DATABASE_URL is set (no fallback)
   assert.throws(
     () => {
       loadTestDatabaseConfig({
-        DATABASE_URL: 'postgresql://localhost:5432/management_lite',
+        DATABASE_URL: 'postgresql://localhost:5432/management_lite_test',
+      });
+    },
+    { message: /TEST_DATABASE_URL is not set/ },
+  );
+
+  // 3. Succeeds when explicit TEST_DATABASE_URL is provided with an isolated test database
+  const validUrl =
+    'postgresql://testuser:testpass@localhost:5432/management_lite_test';
+  const config = loadTestDatabaseConfig({
+    TEST_DATABASE_URL: validUrl,
+  });
+  assert.equal(config.connectionString, validUrl);
+
+  // 4. Fails closed if TEST_DATABASE_URL points to non-test db
+  assert.throws(
+    () => {
+      loadTestDatabaseConfig({
+        TEST_DATABASE_URL: 'postgresql://localhost:5432/management_lite',
       });
     },
     { message: /\[Database Safety Guard\]/ },
