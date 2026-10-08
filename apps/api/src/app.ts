@@ -123,6 +123,93 @@ export function getClientIp(
   return remoteIp;
 }
 
+/** Reject malformed authority and request targets before route dispatch. */
+function parseRequestPath(req: http.IncomingMessage): string {
+  try {
+    const host = req.headers.host;
+    if (host !== undefined) {
+      if (typeof host !== 'string' || !host || /[\s/?#@\\,]/.test(host)) {
+        throw new Error('Invalid authority');
+      }
+      new URL(`http://${host}`);
+    }
+    const target = req.url;
+    if (
+      !target ||
+      !target.startsWith('/') ||
+      target.startsWith('//') ||
+      /[\s#\\]/.test(target) ||
+      /%(?![\da-f]{2})/i.test(target)
+    ) {
+      throw new Error('Invalid request target');
+    }
+    return new URL(target, 'http://localhost').pathname;
+  } catch {
+    throw new AuthError(
+      'VALIDATION_ERROR',
+      'Malformed request URL or Host',
+      400,
+    );
+  }
+}
+
+/** Login policy is separate from the existing authenticated-endpoint CSRF policy. */
+function requireLoginOrigin(
+  req: http.IncomingMessage,
+  allowedOrigins: string[],
+  isProduction: boolean,
+): void {
+  const origin = req.headers.origin;
+  const value = origin === undefined ? req.headers.referer : origin;
+  let allowed = false;
+  if (
+    typeof value === 'string' &&
+    /^https?:\/\/[^/?#]+(?:[/?#]|$)/.test(value) &&
+    !/[\s\\]/.test(value) &&
+    !/%(?![\da-f]{2})/i.test(value)
+  ) {
+    try {
+      const url = new URL(value);
+      const localHttp =
+        !isProduction &&
+        url.protocol === 'http:' &&
+        (url.hostname === 'localhost' ||
+          url.hostname === '[::1]' ||
+          /^127(?:\.\d{1,3}){3}$/.test(url.hostname));
+      allowed =
+        !url.username &&
+        !url.password &&
+        !url.hash &&
+        (origin === undefined || value === url.origin) &&
+        (url.protocol === 'https:' || localHttp) &&
+        allowedOrigins.includes(url.origin);
+    } catch {
+      allowed = false;
+    }
+  }
+  if (!allowed) {
+    throw new AuthError(
+      'FORBIDDEN',
+      'Login Origin or Referer is not allowed',
+      403,
+    );
+  }
+}
+
+function requireLoginJson(req: http.IncomingMessage): void {
+  const contentType = req.headers['content-type'];
+  if (
+    typeof contentType !== 'string' ||
+    contentType.split(';')[0]?.trim().toLowerCase() !== 'application/json'
+  ) {
+    throw new AuthError(
+      'UNSUPPORTED_MEDIA_TYPE',
+      'Login requires application/json',
+      415,
+    );
+  }
+}
+
 /**
  * Creates the HTTP request handler for the Management Lite backend API.
  */
@@ -187,14 +274,9 @@ export function createRequestHandler(
         ? headerRequestId
         : crypto.randomUUID();
 
-    const url = new URL(
-      req.url || '/',
-      `http://${req.headers.host || 'localhost'}`,
-    );
-    const pathname = url.pathname;
-    const method = req.method?.toUpperCase() || 'GET';
-
     try {
+      const pathname = parseRequestPath(req);
+      const method = req.method?.toUpperCase() || 'GET';
       // 2. Health / Liveness endpoint: GET /api/v1/health
       if (method === 'GET' && pathname === '/api/v1/health') {
         const body = createSuccessEnvelope(
@@ -244,6 +326,9 @@ export function createRequestHandler(
 
       // 4. POST /api/v1/auth/login
       if (method === 'POST' && pathname === '/api/v1/auth/login') {
+        requireLoginOrigin(req, allowedOrigins, isProduction);
+        requireLoginJson(req);
+
         if (!authService) {
           const body = createErrorEnvelope(
             'DATABASE_UNAVAILABLE',

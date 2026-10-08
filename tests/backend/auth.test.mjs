@@ -17,7 +17,12 @@ function makeRequest(url, options = {}) {
       port: parsedUrl.port,
       path: parsedUrl.pathname + parsedUrl.search,
       method: options.method || 'GET',
-      headers: options.headers || {},
+      headers: {
+        ...(parsedUrl.pathname === '/api/v1/auth/login'
+          ? { Origin: 'http://localhost:3000' }
+          : {}),
+        ...options.headers,
+      },
     };
 
     const req = http.request(reqOptions, (res) => {
