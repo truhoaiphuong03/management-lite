@@ -13,8 +13,14 @@
     "declaration": true,
     "rootDir": ".",
     "outDir": "dist",
-    "noEmitOnError": true
+    "noEmitOnError": true,
+    "jsx": "react-jsx"
   },
-  "include": ["apps/*/src/**/*.ts", "packages/*/src/**/*.ts"],
+  "include": [
+    "apps/*/src/**/*.ts",
+    "apps/*/src/**/*.tsx",
+    "packages/*/src/**/*.ts",
+    "packages/*/src/**/*.tsx"
+  ],
   "exclude": ["dist", "node_modules"]
 }
