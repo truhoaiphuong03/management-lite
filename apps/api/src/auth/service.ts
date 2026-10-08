@@ -161,6 +161,13 @@ export class AuthService {
       [normalizedIdentifier],
     );
 
+    // SEC-05A: reject ambiguous identity snapshots before password verification.
+    // SEC-05B namespace changes racing with session issuance remain unresolved.
+    const distinctUserIds = new Set(userRes.rows.map((row) => row.id));
+    if (distinctUserIds.size > 1) {
+      await verifyPassword(password, await getDummyHash());
+      throw new AuthError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+    }
     const userRow = userRes.rows[0];
 
     // Constant-time anti-enumeration when user does not exist, has no credentials, or is not active
