@@ -193,3 +193,111 @@ test('RateLimiter enforces sliding window limits, blocks abuse, and reports retr
   assert.equal(rAfterReset.allowed, true);
   assert.equal(rAfterReset.remaining, 2);
 });
+
+test('CSRF configuration fails closed in production when secret is missing, short, weak, or default', async () => {
+  const { loadApiConfig, DEV_DEFAULT_CSRF_SECRET } = await import(
+    `file://${resolve(root, 'dist/apps/api/src/config.js')}`
+  );
+  const { createRequestHandler } = await import(
+    `file://${resolve(root, 'dist/apps/api/src/app.js')}`
+  );
+
+  // 1. Missing CSRF_SECRET in production
+  assert.throws(
+    () => loadApiConfig({ NODE_ENV: 'production' }),
+    /FATAL: CSRF_SECRET environment variable is required in production/,
+  );
+
+  // 2. Secret too short (< 32 chars) in production
+  assert.throws(
+    () =>
+      loadApiConfig({ NODE_ENV: 'production', CSRF_SECRET: 'short_key_123' }),
+    /FATAL: CSRF_SECRET must be at least 32 characters in production/,
+  );
+
+  // 3. Dev default secret used in production
+  assert.throws(
+    () =>
+      loadApiConfig({
+        NODE_ENV: 'production',
+        CSRF_SECRET: DEV_DEFAULT_CSRF_SECRET,
+      }),
+    /FATAL: CSRF_SECRET in production must not use the development default secret/,
+  );
+
+  // 4. Repeated character or trivial weak secret in production
+  assert.throws(
+    () =>
+      loadApiConfig({
+        NODE_ENV: 'production',
+        CSRF_SECRET: 'a'.repeat(32),
+      }),
+    /FATAL: CSRF_SECRET in production is too weak/,
+  );
+
+  // 5. Valid strong production secret passes
+  const validProductionSecret =
+    'c09f87b6451e0f6b48d655f4124976c72834b9cf05952f4477123985faefcb50';
+  const validConfig = loadApiConfig({
+    NODE_ENV: 'production',
+    CSRF_SECRET: validProductionSecret,
+    TRUSTED_PROXIES: '10.0.0.1, 10.0.0.2',
+  });
+  assert.equal(validConfig.isProduction, true);
+  assert.equal(validConfig.csrfSecret, validProductionSecret);
+  assert.deepEqual(validConfig.trustedProxies, ['10.0.0.1', '10.0.0.2']);
+
+  // 6. createRequestHandler fails closed when instantiated in production without secure secret
+  assert.throws(
+    () => createRequestHandler({ isProduction: true }),
+    /FATAL: CSRF_SECRET environment variable is required in production/,
+  );
+  assert.throws(
+    () =>
+      createRequestHandler({
+        isProduction: true,
+        csrfSecret: DEV_DEFAULT_CSRF_SECRET,
+      }),
+    /FATAL: CSRF_SECRET in production must not use the development default secret/,
+  );
+});
+
+test('getClientIp ignores spoofed X-Forwarded-For headers from untrusted connections and respects trusted proxies', async () => {
+  const { getClientIp } = await import(
+    `file://${resolve(root, 'dist/apps/api/src/app.js')}`
+  );
+
+  // Fake request helper
+  function makeFakeReq(remoteAddress, xForwardedFor) {
+    return {
+      socket: { remoteAddress },
+      headers: xForwardedFor ? { 'x-forwarded-for': xForwardedFor } : {},
+    };
+  }
+
+  // Untrusted client: trustedProxies is empty (default)
+  const reqUntrusted = makeFakeReq('203.0.113.195', '198.51.100.1, 10.0.0.1');
+  const ip1 = getClientIp(reqUntrusted, []);
+  assert.equal(
+    ip1,
+    '203.0.113.195',
+    'Must ignore spoofed header when proxy untrusted',
+  );
+
+  // Untrusted client: trustedProxies configured with other IPs
+  const ip2 = getClientIp(reqUntrusted, ['10.0.0.1', '10.0.0.2']);
+  assert.equal(
+    ip2,
+    '203.0.113.195',
+    'Must ignore spoofed header when socket IP is not in trustedProxies',
+  );
+
+  // Trusted proxy connection: remoteAddress matches trustedProxies
+  const reqFromTrustedProxy = makeFakeReq('10.0.0.1', '203.0.113.50, 10.0.0.1');
+  const ip3 = getClientIp(reqFromTrustedProxy, ['10.0.0.1']);
+  assert.equal(
+    ip3,
+    '203.0.113.50',
+    'Must resolve real client IP when forwarded by trusted proxy',
+  );
+});

@@ -13,13 +13,38 @@ import {
   serializeSessionCookie,
   serializeClearSessionCookie,
 } from './cookie.js';
+import { DEV_DEFAULT_CSRF_SECRET } from './config.js';
 
 export interface AppDependencies {
   pool?: DatabasePool | null | undefined;
   authService?: AuthService;
   csrfSecret?: string;
   allowedOrigins?: string[];
+  trustedProxies?: string[];
   isProduction?: boolean;
+}
+
+/**
+ * Validates that an object contains ONLY the allowed keys.
+ * Fails closed with 400 VALIDATION_ERROR if any unknown field is present.
+ */
+function assertAllowedFields(body: unknown, allowedFields: string[]): void {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return;
+  }
+  const keys = Object.keys(body as Record<string, unknown>);
+  const unknownKeys = keys.filter((k) => !allowedFields.includes(k));
+  if (unknownKeys.length > 0) {
+    throw new AuthError(
+      'VALIDATION_ERROR',
+      `Unrecognized request field(s) not allowed: ${unknownKeys.join(', ')}`,
+      400,
+      unknownKeys.map((f) => ({
+        field: f,
+        message: `Unknown field '${f}' is not allowed`,
+      })),
+    );
+  }
 }
 
 /**
@@ -73,12 +98,29 @@ async function parseJsonBody<T = unknown>(
   });
 }
 
-function getClientIp(req: http.IncomingMessage): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
-    return forwarded.split(',')[0]!.trim();
+/**
+ * Securely resolves the client IP address.
+ * NEVER trusts client-supplied headers (X-Forwarded-For) unless the direct
+ * connecting peer (remoteAddress) is explicitly listed in trustedProxies.
+ */
+export function getClientIp(
+  req: http.IncomingMessage,
+  trustedProxies: string[] = [],
+): string {
+  const remoteIp = req.socket.remoteAddress || '127.0.0.1';
+
+  // Only trust forwarded headers if the immediate peer is explicitly in trustedProxies
+  if (trustedProxies.length > 0 && trustedProxies.includes(remoteIp)) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length > 0) {
+      const firstIp = forwarded.split(',')[0]?.trim();
+      if (firstIp && firstIp.length > 0) {
+        return firstIp;
+      }
+    }
   }
-  return req.socket.remoteAddress || '127.0.0.1';
+
+  return remoteIp;
 }
 
 /**
@@ -89,16 +131,49 @@ export function createRequestHandler(
 ): http.RequestListener {
   const isProduction =
     deps.isProduction ?? process.env['NODE_ENV'] === 'production';
-  const csrfSecret =
-    deps.csrfSecret ??
-    process.env['CSRF_SECRET'] ??
-    'mglite_dev_csrf_secret_min_32_bytes_safe_default_key_test';
+  const rawCsrfSecret = deps.csrfSecret ?? process.env['CSRF_SECRET'];
+
+  if (isProduction) {
+    if (!rawCsrfSecret || typeof rawCsrfSecret !== 'string') {
+      throw new Error(
+        'FATAL: CSRF_SECRET environment variable is required in production',
+      );
+    }
+    if (rawCsrfSecret.length < 32) {
+      throw new Error(
+        'FATAL: CSRF_SECRET must be at least 32 characters in production',
+      );
+    }
+    if (rawCsrfSecret === DEV_DEFAULT_CSRF_SECRET) {
+      throw new Error(
+        'FATAL: CSRF_SECRET in production must not use the development default secret',
+      );
+    }
+    if (
+      /^(.)\1+$/.test(rawCsrfSecret) ||
+      rawCsrfSecret === '12345678901234567890123456789012'
+    ) {
+      throw new Error('FATAL: CSRF_SECRET in production is too weak');
+    }
+  }
+
+  const csrfSecret = rawCsrfSecret || DEV_DEFAULT_CSRF_SECRET;
+
   const allowedOrigins = deps.allowedOrigins ?? [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:3002',
     'http://127.0.0.1:3002',
   ];
+
+  const trustedProxies =
+    deps.trustedProxies ??
+    (process.env['TRUSTED_PROXIES']
+      ? process.env['TRUSTED_PROXIES']
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : []);
 
   const authService =
     deps.authService ??
@@ -178,15 +253,15 @@ export function createRequestHandler(
           return sendJson(res, 503, body);
         }
 
-        const body = await parseJsonBody<{
-          identifier?: string;
-          password?: string;
-        }>(req);
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, ['identifier', 'password']);
 
-        const clientIp = getClientIp(req);
+        const clientIp = getClientIp(req, trustedProxies);
         const result = await authService.loginUser({
-          identifier: body.identifier ?? '',
-          password: body.password ?? '',
+          identifier:
+            typeof body['identifier'] === 'string' ? body['identifier'] : '',
+          password:
+            typeof body['password'] === 'string' ? body['password'] : '',
           clientIp,
           requestId,
         });
@@ -213,6 +288,9 @@ export function createRequestHandler(
           );
           return sendJson(res, 503, body);
         }
+
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, []);
 
         const sessionContext = await requireAuth(
           authService,
@@ -271,16 +349,14 @@ export function createRequestHandler(
         );
         requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
 
-        const body = await parseJsonBody<{
-          current_password?: unknown;
-          new_password?: unknown;
-        }>(req);
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, ['current_password', 'new_password']);
 
-        const clientIp = getClientIp(req);
+        const clientIp = getClientIp(req, trustedProxies);
         const result = await authService.changePassword({
           context: sessionContext,
-          currentPassword: body.current_password,
-          newPassword: body.new_password,
+          currentPassword: body['current_password'],
+          newPassword: body['new_password'],
           clientIp,
           requestId,
         });

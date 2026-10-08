@@ -22,6 +22,7 @@ export async function startServer(
     pool,
     csrfSecret: config.csrfSecret,
     allowedOrigins: config.allowedOrigins,
+    trustedProxies: config.trustedProxies,
     isProduction: config.isProduction,
   });
   const server = http.createServer(handler);

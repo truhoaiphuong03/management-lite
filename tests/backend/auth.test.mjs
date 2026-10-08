@@ -288,6 +288,22 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
     assert.equal(resEmpty.body.success, false);
     assert.equal(resEmpty.body.error.code, 'VALIDATION_ERROR');
 
+    // 1.1b Validation error: unknown request fields rejected per Doc 24
+    const resUnknown = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      body: {
+        identifier: userAUsername,
+        password: passwordA,
+        malicious_extra_field: 'injected',
+      },
+    });
+    assert.equal(resUnknown.status, 400);
+    assert.equal(resUnknown.body.success, false);
+    assert.equal(resUnknown.body.error.code, 'VALIDATION_ERROR');
+    assert.ok(
+      resUnknown.body.error.message.includes('Unrecognized request field'),
+    );
+
     // 1.2 Non-existent user -> 401 INVALID_CREDENTIALS (anti-enumeration)
     const resNonExistent = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
@@ -461,6 +477,22 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
     );
     assert.equal(resLogoutBadOrigin.status, 403);
 
+    // 3.2b Mutating request with unknown fields -> 400 VALIDATION_ERROR
+    const resLogoutUnknown = await makeRequest(
+      `${baseUrl}/api/v1/auth/logout`,
+      {
+        method: 'POST',
+        headers: {
+          Cookie: staffCookie,
+          Origin: allowedOrigin,
+          'X-CSRF-Token': staffCsrfToken,
+        },
+        body: { unexpected_payload: 123 },
+      },
+    );
+    assert.equal(resLogoutUnknown.status, 400);
+    assert.equal(resLogoutUnknown.body.error.code, 'VALIDATION_ERROR');
+
     // 3.3 Valid logout -> 204 No Content, Set-Cookie clears cookie, session revoked
     const resLogoutValid = await makeRequest(`${baseUrl}/api/v1/auth/logout`, {
       method: 'POST',
@@ -517,6 +549,26 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
       },
     );
     assert.equal(resPwNoCsrf.status, 403);
+
+    // 4.1b Unknown fields in password change -> 400 VALIDATION_ERROR
+    const resPwUnknown = await makeRequest(
+      `${baseUrl}/api/v1/auth/password/change`,
+      {
+        method: 'POST',
+        headers: {
+          Cookie: sessionCookieValue,
+          Origin: allowedOrigin,
+          'X-CSRF-Token': ownerCsrfToken,
+        },
+        body: {
+          current_password: passwordA,
+          new_password: 'NewOwnerPass_2026!',
+          unexpected_role: 'admin',
+        },
+      },
+    );
+    assert.equal(resPwUnknown.status, 400);
+    assert.equal(resPwUnknown.body.error.code, 'VALIDATION_ERROR');
 
     // 4.2 Invalid current password -> 401 INVALID_CREDENTIALS
     const resPwWrongCurrent = await makeRequest(
@@ -700,28 +752,159 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
     assert.equal(resExpiredAbs.status, 401);
 
     // -------------------------------------------------------------
-    // TEST 7: Rate Limiting (429 RATE_LIMITED)
+    // TEST 7: Rate Limiting & Proxy Spoofing Prevention
     // -------------------------------------------------------------
-    const rateLimitIp = `198.51.100.${runIndex}`;
-    for (let i = 1; i <= 5; i++) {
-      const resRateFail = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'X-Forwarded-For': rateLimitIp },
-        body: { identifier: userAUsername, password: 'WrongPasswordRateLimit' },
-      });
-      assert.equal(resRateFail.status, 401);
-    }
-    // 6th attempt exceeds maxAttempts (5) -> 429 RATE_LIMITED
-    const resRateLimited = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
-      method: 'POST',
-      headers: { 'X-Forwarded-For': rateLimitIp },
-      body: { identifier: userAUsername, password: 'WrongPasswordRateLimit' },
+    // With trustedProxies empty by default, an attacker attempts to bypass rate limiting
+    // by altering the X-Forwarded-For header on every request.
+    const spoofLimiter = (
+      await import(
+        `file://${resolve(root, 'dist/apps/api/src/rate-limiter.js')}`
+      )
+    ).RateLimiter;
+    const testLimiter = new spoofLimiter({ windowMs: 60000, maxAttempts: 3 });
+    const { AuthService } = await import(
+      `file://${resolve(root, 'dist/apps/api/src/auth/service.js')}`
+    );
+    const spoofService = new AuthService(pool, csrfSecret, {
+      loginLimiter: testLimiter,
     });
-    assert.equal(resRateLimited.status, 429);
-    assert.equal(resRateLimited.body.success, false);
-    assert.equal(resRateLimited.body.error.code, 'RATE_LIMITED');
+    const spoofHandler = createRequestHandler({
+      pool,
+      authService: spoofService,
+      csrfSecret,
+      allowedOrigins: [allowedOrigin],
+      trustedProxies: [], // NO proxies trusted
+    });
+    const spoofServer = http.createServer(spoofHandler);
+    await new Promise((res) => spoofServer.listen(0, '127.0.0.1', res));
+    const spoofPort = spoofServer.address().port;
+
+    try {
+      // 3 attempts with 3 different fake forwarded IPs
+      for (let i = 1; i <= 3; i++) {
+        const resFail = await makeRequest(
+          `http://127.0.0.1:${spoofPort}/api/v1/auth/login`,
+          {
+            method: 'POST',
+            headers: { 'X-Forwarded-For': `203.0.113.${i}` },
+            body: { identifier: userAUsername, password: 'WrongPasswordSpoof' },
+          },
+        );
+        assert.equal(resFail.status, 401);
+      }
+      // 4th attempt with yet another spoofed IP: MUST be blocked with 429 RATE_LIMITED
+      const resBlocked = await makeRequest(
+        `http://127.0.0.1:${spoofPort}/api/v1/auth/login`,
+        {
+          method: 'POST',
+          headers: { 'X-Forwarded-For': '203.0.113.99' },
+          body: { identifier: userAUsername, password: 'WrongPasswordSpoof' },
+        },
+      );
+      assert.equal(resBlocked.status, 429);
+      assert.equal(resBlocked.body.error.code, 'RATE_LIMITED');
+      assert.ok(
+        resBlocked.body.error.message.includes('Too many login attempts'),
+      );
+    } finally {
+      await new Promise((res) => spoofServer.close(res));
+    }
+
+    // -------------------------------------------------------------
+    // TEST 8: Session Race Safety & Concurrency
+    // -------------------------------------------------------------
+    // 8.1 Concurrent resolveSession vs logout:
+    // When a session is logged out concurrently, the atomic conditional update
+    // ensures the session cannot be extended or authenticated.
+    const raceSessionToken = generateCsprngToken(32);
+    const raceSessionHash = hashToken(raceSessionToken);
+    await pool.query(
+      `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at)
+       VALUES ($1, $2, $3, 2, now() + interval '30 minutes', now() + interval '12 hours');`,
+      [ws1Id, userAId, raceSessionHash],
+    );
+
+    const raceCookie = `mglite_session=${raceSessionToken}`;
+    const { generateCsrfToken } = await import(
+      `file://${resolve(root, 'dist/packages/security/src/csrf.js')}`
+    );
+    const raceCsrf = generateCsrfToken(raceSessionHash, csrfSecret);
+
+    // Launch concurrent /me queries and a logout
+    const raceOps = [
+      makeRequest(`${baseUrl}/api/v1/auth/me`, {
+        headers: { Cookie: raceCookie },
+      }),
+      makeRequest(`${baseUrl}/api/v1/auth/logout`, {
+        method: 'POST',
+        headers: {
+          Cookie: raceCookie,
+          Origin: allowedOrigin,
+          'X-CSRF-Token': raceCsrf,
+        },
+      }),
+      makeRequest(`${baseUrl}/api/v1/auth/me`, {
+        headers: { Cookie: raceCookie },
+      }),
+      makeRequest(`${baseUrl}/api/v1/auth/me`, {
+        headers: { Cookie: raceCookie },
+      }),
+    ];
+
+    const raceResults = await Promise.all(raceOps);
+    // Logout must succeed with 204 (or 401 if already invalidated)
+    assert.ok(raceResults.some((r) => r.status === 204));
+
+    // After completion, session row MUST have revoked_at populated
+    const checkDbRevoked = await pool.query(
+      `SELECT revoked_at, idle_expires_at FROM auth_sessions WHERE session_token_hash = $1;`,
+      [raceSessionHash],
+    );
     assert.ok(
-      resRateLimited.body.error.message.includes('Too many login attempts'),
+      checkDbRevoked.rows[0].revoked_at !== null,
+      'Session must be permanently marked revoked',
+    );
+
+    // All subsequent attempts must fail with 401
+    const resAfterAll = await makeRequest(`${baseUrl}/api/v1/auth/me`, {
+      headers: { Cookie: raceCookie },
+    });
+    assert.equal(resAfterAll.status, 401);
+
+    // 8.2 Concurrent password change with row locking:
+    // Sending concurrent password changes with the same original password
+    const pwRaceA = `RaceNewPassA_${runToken}_2026!`;
+    const pwRaceB = `RaceNewPassB_${runToken}_2026!`;
+
+    const concurrentPwOps = [
+      makeRequest(`${baseUrl}/api/v1/auth/password/change`, {
+        method: 'POST',
+        headers: {
+          Cookie: sessionCookieValue,
+          Origin: allowedOrigin,
+          'X-CSRF-Token': ownerCsrfToken,
+        },
+        body: { current_password: newPasswordA, new_password: pwRaceA },
+      }),
+      makeRequest(`${baseUrl}/api/v1/auth/password/change`, {
+        method: 'POST',
+        headers: {
+          Cookie: sessionCookieValue,
+          Origin: allowedOrigin,
+          'X-CSRF-Token': ownerCsrfToken,
+        },
+        body: { current_password: newPasswordA, new_password: pwRaceB },
+      }),
+    ];
+
+    const pwRaceResults = await Promise.all(concurrentPwOps);
+    // Because of SELECT ... FOR UPDATE, one of the transactions commits first,
+    // causing the second transaction to see the updated hash and fail with 401 INVALID_CREDENTIALS
+    const statuses = pwRaceResults.map((r) => r.status).sort();
+    assert.deepEqual(
+      statuses,
+      [200, 401],
+      'Row lock must serialize password changes',
     );
   } finally {
     await new Promise((res) => server.close(res));
