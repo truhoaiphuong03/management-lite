@@ -1,0 +1,5 @@
+docs/canonical/
+package-lock.json
+dist/
+node_modules/
+README.md
