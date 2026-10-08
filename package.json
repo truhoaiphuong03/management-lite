@@ -27,7 +27,8 @@
     "test:web": "node --test tests/web/*.test.mjs",
     "test:backend": "node --test tests/backend/*.test.mjs",
     "test:db": "node --test tests/database/*.test.mjs",
-    "test": "npm run build && node --test tests/foundation/*.test.mjs && node --test tests/database/*.test.mjs && node --test tests/backend/*.test.mjs",
+    "test:security": "node --test tests/security/*.test.mjs",
+    "test": "npm run build && node --test tests/foundation/*.test.mjs && node --test tests/security/*.test.mjs && node --test tests/database/*.test.mjs && node --test tests/backend/*.test.mjs",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "canonical:verify": "node scripts/verify-canonical.mjs"
   },

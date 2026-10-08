@@ -44,6 +44,12 @@ test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)
   const { recordAuditEvent } = await import(
     `file://${resolve(root, 'dist/packages/database/src/audit.js')}`
   );
+  const { hashPassword, verifyPassword } = await import(
+    `file://${resolve(root, 'dist/packages/security/src/password.js')}`
+  );
+  const { generateCsprngToken, hashToken } = await import(
+    `file://${resolve(root, 'dist/packages/security/src/tokens.js')}`
+  );
 
   // Enforce multi-factor database safety guard on testUrl
   const config = loadTestDatabaseConfig();
@@ -71,6 +77,10 @@ test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)
         completeIdempotency,
         recordAuditEvent,
         runMigrations,
+        hashPassword,
+        verifyPassword,
+        generateCsprngToken,
+        hashToken,
       });
     }
   } finally {
@@ -84,6 +94,10 @@ async function executeIntegrationWorkflow(pool, migrationFiles, runIndex, ops) {
     completeIdempotency,
     recordAuditEvent,
     runMigrations,
+    hashPassword,
+    verifyPassword,
+    generateCsprngToken,
+    hashToken,
   } = ops;
 
   // A. Initial / Replay migration execution
@@ -130,6 +144,107 @@ async function executeIntegrationWorkflow(pool, migrationFiles, runIndex, ops) {
     `,
       [userId, username, email],
     );
+
+    // E. M02 Tables Verification
+    // 1. Workspace Membership
+    const memberRes = await pool.query(
+      `
+      INSERT INTO workspace_memberships (workspace_id, user_id, role, status)
+      VALUES ($1, $2, 'owner', 'active')
+      RETURNING id, role, status;
+    `,
+      [wsId, userId],
+    );
+    assert.equal(memberRes.rows[0]?.role, 'owner');
+    assert.equal(memberRes.rows[0]?.status, 'active');
+
+    // Duplicate membership must fail unique constraint
+    await assert.rejects(
+      async () => {
+        await pool.query(
+          `INSERT INTO workspace_memberships (workspace_id, user_id, role, status) VALUES ($1, $2, 'staff', 'invited');`,
+          [wsId, userId],
+        );
+      },
+      { name: 'error' },
+    );
+
+    // 2. User Credentials (Argon2id)
+    const testPlainPassword = `SecurePass_${runToken}_2026!`;
+    const passwordHash = await hashPassword(testPlainPassword);
+    await pool.query(
+      `
+      INSERT INTO user_credentials (user_id, password_hash, credential_version)
+      VALUES ($1, $2, 1);
+    `,
+      [userId, passwordHash],
+    );
+    const isValidPass = await verifyPassword(testPlainPassword, passwordHash);
+    assert.equal(isValidPass, true);
+
+    // 3. Activation Invites
+    const staffUserId = crypto.randomUUID();
+    const staffUsername = `staff_${Date.now()}_r${runIndex}_${runToken}`;
+    const staffEmail = `staff_${Date.now()}_r${runIndex}_${runToken}@integration.local`;
+    await pool.query(
+      `INSERT INTO users (id, username_normalized, email_normalized, status) VALUES ($1, $2, $3, 'pending_activation');`,
+      [staffUserId, staffUsername, staffEmail],
+    );
+    await pool.query(
+      `INSERT INTO workspace_memberships (workspace_id, user_id, role, status) VALUES ($1, $2, 'staff', 'invited');`,
+      [wsId, staffUserId],
+    );
+
+    const rawInviteToken = generateCsprngToken(32);
+    const inviteTokenHash = hashToken(rawInviteToken);
+    const inviteRes = await pool.query(
+      `
+      INSERT INTO activation_invites (workspace_id, user_id, token_hash, status, expires_at)
+      VALUES ($1, $2, $3, 'queued', now() + interval '24 hours')
+      RETURNING id, status;
+    `,
+      [wsId, staffUserId, inviteTokenHash],
+    );
+    const inviteId = inviteRes.rows[0]?.id;
+    assert.ok(inviteId);
+    assert.equal(inviteRes.rows[0]?.status, 'queued');
+
+    // 4. Auth Sessions
+    const rawSessionToken = generateCsprngToken(32);
+    const sessionTokenHash = hashToken(rawSessionToken);
+    const sessionRes = await pool.query(
+      `
+      INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at)
+      VALUES ($1, $2, $3, 1, now() + interval '30 minutes', now() + interval '12 hours')
+      RETURNING id;
+    `,
+      [wsId, userId, sessionTokenHash],
+    );
+    assert.ok(sessionRes.rows[0]?.id);
+
+    // 5. Email Outbox & Delivery Attempts
+    const outboxRes = await pool.query(
+      `
+      INSERT INTO email_outbox (workspace_id, invite_id, message_type, status)
+      VALUES ($1, $2, 'activation_invite', 'pending')
+      RETURNING id, status;
+    `,
+      [wsId, inviteId],
+    );
+    const outboxId = outboxRes.rows[0]?.id;
+    assert.ok(outboxId);
+    assert.equal(outboxRes.rows[0]?.status, 'pending');
+
+    const attemptRes = await pool.query(
+      `
+      INSERT INTO email_delivery_attempts (workspace_id, outbox_id, attempt_no, outcome)
+      VALUES ($1, $2, 1, 'queued')
+      RETURNING id, outcome;
+    `,
+      [wsId, outboxId],
+    );
+    assert.ok(attemptRes.rows[0]?.id);
+    assert.equal(attemptRes.rows[0]?.outcome, 'queued');
 
     // E. Audit event recording and immutable guard
     const auditRes = await recordAuditEvent(pool, {

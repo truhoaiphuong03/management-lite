@@ -18,7 +18,7 @@ test('calculateChecksum produces deterministic SHA-256 for SQL strings', async (
   assert.match(calculateChecksum(sql1), /^[a-f0-9]{64}$/);
 });
 
-test('loadMigrationFiles loads M00 and M01 migrations in deterministic sequence', async () => {
+test('loadMigrationFiles loads M00, M01, and M02 migrations in deterministic sequence', async () => {
   const { loadMigrationFiles } = await import(
     `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
   );
@@ -27,13 +27,96 @@ test('loadMigrationFiles loads M00 and M01 migrations in deterministic sequence'
     resolve(root, 'packages/database/src/migrations'),
   );
 
-  assert.equal(migrations.length, 2);
+  assert.equal(migrations.length, 3);
   assert.equal(migrations[0]?.id, '0001_m00_prerequisites');
   assert.equal(migrations[1]?.id, '0002_m01_workspace_user_audit_idempotency');
+  assert.equal(migrations[2]?.id, '0003_m02_auth_membership_session_outbox');
 
   // Assert valid SHA-256 checksums
   assert.match(migrations[0]?.checksum || '', /^[a-f0-9]{64}$/);
   assert.match(migrations[1]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[2]?.checksum || '', /^[a-f0-9]{64}$/);
+});
+
+test('M02 migration SQL conforms strictly to canonical doc 20, 21, and 36 specifications', async () => {
+  const { loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const migrations = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+  const m02 = migrations.find(
+    (m) => m.id === '0003_m02_auth_membership_session_outbox',
+  );
+  assert.ok(m02);
+
+  const sql = m02.sql;
+
+  // 1. workspace_memberships
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS workspace_memberships/);
+  assert.match(
+    sql,
+    /role text NOT NULL CHECK \(role IN \('owner', 'staff'\)\)/,
+  );
+  assert.match(
+    sql,
+    /status text NOT NULL DEFAULT 'invited' CHECK \(status IN \('invited', 'active', 'suspended'\)\)/,
+  );
+  assert.match(
+    sql,
+    /CONSTRAINT uq_workspace_memberships_workspace_user UNIQUE \(workspace_id, user_id\)/,
+  );
+  assert.match(
+    sql,
+    /CONSTRAINT uq_workspace_memberships_workspace_id UNIQUE \(workspace_id, id\)/,
+  );
+
+  // 2. user_credentials
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS user_credentials/);
+  assert.match(sql, /password_hash text NOT NULL/);
+  assert.match(
+    sql,
+    /credential_version integer NOT NULL DEFAULT 1 CHECK \(credential_version > 0\)/,
+  );
+
+  // 3. activation_invites
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS activation_invites/);
+  assert.match(
+    sql,
+    /CONSTRAINT uq_activation_invites_token_hash UNIQUE \(token_hash\)/,
+  );
+  assert.match(
+    sql,
+    /status text NOT NULL DEFAULT 'queued' CHECK \(status IN \('queued', 'issued', 'used', 'revoked', 'expired'\)\)/,
+  );
+  assert.match(
+    sql,
+    /FOREIGN KEY\s*\(workspace_id,\s*user_id\)\s*REFERENCES\s*workspace_memberships\s*\(workspace_id,\s*user_id\)/,
+  );
+
+  // 4. auth_sessions
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS auth_sessions/);
+  assert.match(
+    sql,
+    /CONSTRAINT uq_auth_sessions_token_hash UNIQUE \(session_token_hash\)/,
+  );
+  assert.match(
+    sql,
+    /FOREIGN KEY\s*\(workspace_id,\s*user_id\)\s*REFERENCES\s*workspace_memberships\s*\(workspace_id,\s*user_id\)/,
+  );
+
+  // 5. email_outbox & email_delivery_attempts
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS email_outbox/);
+  assert.match(
+    sql,
+    /FOREIGN KEY\s*\(workspace_id,\s*invite_id\)\s*REFERENCES\s*activation_invites\s*\(workspace_id,\s*id\)/,
+  );
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS email_delivery_attempts/);
+  assert.match(
+    sql,
+    /FOREIGN KEY\s*\(workspace_id,\s*outbox_id\)\s*REFERENCES\s*email_outbox\s*\(workspace_id,\s*id\)/,
+  );
 });
 
 test('M01 migration SQL conforms strictly to canonical doc 20, 21, and 58 specifications', async () => {
