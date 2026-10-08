@@ -22,8 +22,12 @@
     "dev:web": "npm run --workspace=@management-lite/web dev",
     "dev:web:lan": "npm run --workspace=@management-lite/web dev:lan",
     "build:web": "npm run --workspace=@management-lite/web build",
+    "dev:api": "npm run build && node dist/apps/api/src/main.js",
+    "migrate": "npm run build && node scripts/migrate.mjs",
     "test:web": "node --test tests/web/*.test.mjs",
-    "test": "npm run build && node --test tests/foundation/*.test.mjs",
+    "test:backend": "node --test tests/backend/*.test.mjs",
+    "test:db": "node --test tests/database/*.test.mjs",
+    "test": "npm run build && node --test tests/foundation/*.test.mjs && node --test tests/database/*.test.mjs && node --test tests/backend/*.test.mjs",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "canonical:verify": "node scripts/verify-canonical.mjs"
   },

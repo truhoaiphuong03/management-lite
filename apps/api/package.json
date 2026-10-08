@@ -2,5 +2,15 @@
   "name": "@management-lite/api",
   "version": "0.1.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./envelope": "./src/envelope.ts",
+    "./app": "./src/app.ts",
+    "./server": "./src/server.ts"
+  },
+  "dependencies": {
+    "@management-lite/database": "*"
+  }
 }
