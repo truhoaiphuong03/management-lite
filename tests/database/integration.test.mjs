@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 const root = resolve(__dirname, '../..');
 
 test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)', async (t) => {
-  const { loadDatabaseConfig } = await import(
+  const { loadTestDatabaseConfig, assertSafeTestDatabase } = await import(
     `file://${resolve(root, 'dist/packages/database/src/config.js')}`
   );
   const { createDatabasePool, checkDatabaseHealth, closeDatabasePool } =
@@ -25,14 +25,17 @@ test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)
     `file://${resolve(root, 'dist/packages/database/src/audit.js')}`
   );
 
-  const config = loadDatabaseConfig();
+  // Enforce database safety guard: must be explicitly designated test database
+  const config = loadTestDatabaseConfig();
+  assertSafeTestDatabase(config);
+
   const pool = createDatabasePool(config);
 
   const health = await checkDatabaseHealth(pool);
   if (!health.connected) {
     await closeDatabasePool(pool);
     t.skip(
-      `[BLOCKED] Real PostgreSQL instance is not available (${health.error || 'unreachable'}). Live database integration tests are BLOCKED. To reproduce: start a PostgreSQL 15+ container and run with DATABASE_URL=postgresql://user:pass@localhost:5432/dbname`,
+      `[BLOCKED] Real PostgreSQL instance is not available (${health.error || 'unreachable'}). Live database integration tests are BLOCKED. To reproduce: start a PostgreSQL 15+ container and run with TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/management_lite_test`,
     );
     return;
   }

@@ -82,3 +82,33 @@ test('recordAuditEvent persists append-only sanitized audit row', async () => {
   assert.equal(metadataParam.employee_code, 'EMP-100');
   assert.equal(metadataParam.temporary_password, '[REDACTED]');
 });
+
+test('audit_events immutability trigger definition strictly prohibits UPDATE and DELETE', async () => {
+  const { loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const migrations = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+  const m01 = migrations.find(
+    (m) => m.id === '0002_m01_workspace_user_audit_idempotency',
+  );
+  assert.ok(m01, 'M01 migration must exist');
+
+  // Trigger function must raise exception on any mutation
+  assert.match(
+    m01.sql,
+    /CREATE OR REPLACE FUNCTION prevent_audit_events_mutation\(\)/,
+  );
+  assert.match(
+    m01.sql,
+    /RAISE EXCEPTION 'audit_events is append-only: % operation prohibited', TG_OP;/,
+  );
+
+  // Trigger must be defined BEFORE UPDATE OR DELETE FOR EACH ROW
+  assert.match(
+    m01.sql,
+    /CREATE TRIGGER trg_audit_events_immutable\s+BEFORE UPDATE OR DELETE ON audit_events\s+FOR EACH ROW EXECUTE FUNCTION prevent_audit_events_mutation\(\);/,
+  );
+});

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DatabasePool } from './pool.js';
 import { sanitizeErrorMessage } from './config.js';
+import { EMBEDDED_MIGRATIONS } from './migrations/catalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,10 +42,41 @@ export function calculateChecksum(sql: string): string {
   return crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
-import { EMBEDDED_MIGRATIONS } from './migrations/catalog.js';
+/**
+ * Asserts strict 1:1 parity between filesystem migration files and embedded catalog migrations.
+ * Prevents drift, divergent schema versions, or unauthenticated migration sources.
+ */
+export function assertMigrationParity(
+  fileMigrations: MigrationFile[],
+  catalogMigrations: MigrationFile[],
+): void {
+  if (fileMigrations.length !== catalogMigrations.length) {
+    throw new Error(
+      `Migration catalog divergence: filesystem has ${fileMigrations.length} migrations, but embedded catalog has ${catalogMigrations.length}. Migration sources must have strict 1:1 parity.`,
+    );
+  }
+
+  for (let i = 0; i < fileMigrations.length; i++) {
+    const file = fileMigrations[i];
+    const cat = catalogMigrations[i];
+
+    if (!file || !cat || file.id !== cat.id) {
+      throw new Error(
+        `Migration catalog divergence at index ${i}: filesystem has id "${file?.id}", but embedded catalog has id "${cat?.id}".`,
+      );
+    }
+
+    if (file.checksum !== cat.checksum) {
+      throw new Error(
+        `Migration checksum divergence for "${file.id}": filesystem checksum (${file.checksum}) does not match embedded catalog checksum (${cat.checksum}). Single source of truth violated.`,
+      );
+    }
+  }
+}
 
 /**
  * Loads migration files from filesystem or embedded catalog sorted in strict lexicographical order.
+ * Enforces strict checksum and content parity between filesystem and embedded catalog.
  */
 export function loadMigrationFiles(migrationsDir?: string): MigrationFile[] {
   let targetDir = migrationsDir;
@@ -83,7 +115,7 @@ export function loadMigrationFiles(migrationsDir?: string): MigrationFile[] {
     return EMBEDDED_MIGRATIONS;
   }
 
-  return entries.map((filename) => {
+  const loadedFiles = entries.map((filename) => {
     const filePath = path.join(targetDir, filename);
     const sql = fs.readFileSync(filePath, 'utf8');
     const id = path.basename(filename, '.sql');
@@ -93,6 +125,13 @@ export function loadMigrationFiles(migrationsDir?: string): MigrationFile[] {
       checksum: calculateChecksum(sql),
     };
   });
+
+  // Strict verification: When both filesystem files and embedded catalog exist, enforce 1:1 parity
+  if (EMBEDDED_MIGRATIONS && EMBEDDED_MIGRATIONS.length > 0) {
+    assertMigrationParity(loadedFiles, EMBEDDED_MIGRATIONS);
+  }
+
+  return loadedFiles;
 }
 
 /**

@@ -142,3 +142,211 @@ test('runMigrations fails closed when migration checksum mismatch is detected', 
     },
   );
 });
+
+test('runMigrations acquires and releases PostgreSQL advisory lock around execution', async () => {
+  const { runMigrations } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const queryLog = [];
+  const mockClient = {
+    query: async (sql, params) => {
+      queryLog.push({ sql: sql.trim(), params });
+      if (sql.includes('SELECT id, checksum')) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    },
+    release: () => {
+      queryLog.push({ sql: 'CLIENT_RELEASED' });
+    },
+  };
+  const mockPool = { connect: async () => mockClient };
+
+  const testMigrations = [
+    {
+      id: '0001_test',
+      sql: 'CREATE TABLE lock_test (id int);',
+      checksum: 'chk_1',
+    },
+  ];
+
+  await runMigrations(mockPool, testMigrations);
+
+  // Assert lock is acquired first
+  assert.equal(queryLog[0]?.sql, 'SELECT pg_advisory_lock($1)');
+  assert.deepEqual(queryLog[0]?.params, ['8273645192837461']);
+
+  // Assert unlock is executed in finally, before client release
+  const unlockIdx = queryLog.findIndex((q) =>
+    q.sql.includes('SELECT pg_advisory_unlock($1)'),
+  );
+  assert.ok(unlockIdx > 0, 'Advisory unlock must be executed');
+  assert.deepEqual(queryLog[unlockIdx]?.params, ['8273645192837461']);
+
+  const releaseIdx = queryLog.findIndex((q) => q.sql === 'CLIENT_RELEASED');
+  assert.ok(releaseIdx > unlockIdx, 'Client must be released after unlock');
+});
+
+test('runMigrations executes BEGIN, rolls back on error, does not record failed migration, and releases lock', async () => {
+  const { runMigrations } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const queryLog = [];
+  const mockClient = {
+    query: async (sql, params) => {
+      queryLog.push({ sql: sql.trim(), params });
+      if (sql.includes('SELECT id, checksum')) {
+        return { rows: [] };
+      }
+      if (sql.includes('FAILING_SQL')) {
+        throw new Error('syntax error at or near "FAILING_SQL"');
+      }
+      return { rows: [] };
+    },
+    release: () => {
+      queryLog.push({ sql: 'CLIENT_RELEASED' });
+    },
+  };
+  const mockPool = { connect: async () => mockClient };
+
+  const testMigrations = [
+    {
+      id: '0001_fail_test',
+      sql: 'FAILING_SQL;',
+      checksum: 'chk_fail',
+    },
+  ];
+
+  await assert.rejects(
+    async () => {
+      await runMigrations(mockPool, testMigrations);
+    },
+    {
+      name: 'Error',
+      message:
+        /Migration failed at "0001_fail_test": syntax error at or near "FAILING_SQL"/,
+    },
+  );
+
+  // Assert BEGIN was called
+  const beginIdx = queryLog.findIndex((q) => q.sql === 'BEGIN');
+  assert.ok(
+    beginIdx !== -1,
+    'BEGIN must be called for transactional migration',
+  );
+
+  // Assert ROLLBACK was called
+  const rollbackIdx = queryLog.findIndex((q) => q.sql === 'ROLLBACK');
+  assert.ok(rollbackIdx !== -1, 'ROLLBACK must be called when migration fails');
+  assert.ok(rollbackIdx > beginIdx, 'ROLLBACK must occur after BEGIN');
+
+  // Assert failed migration was NOT inserted into schema_migrations
+  const insertMigration = queryLog.find((q) =>
+    q.sql.includes('INSERT INTO schema_migrations'),
+  );
+  assert.equal(
+    insertMigration,
+    undefined,
+    'Failed migration must never be recorded in schema_migrations',
+  );
+
+  // Assert unlock was called even after failure
+  const unlockIdx = queryLog.findIndex((q) =>
+    q.sql.includes('SELECT pg_advisory_unlock($1)'),
+  );
+  assert.ok(
+    unlockIdx > rollbackIdx,
+    'Lock must be released in finally block after rollback',
+  );
+});
+
+test('runMigrations safe replay skips already applied migrations without executing SQL or transactions', async () => {
+  const { runMigrations } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const queryLog = [];
+  const mockClient = {
+    query: async (sql, params) => {
+      queryLog.push({ sql: sql.trim(), params });
+      if (sql.includes('SELECT id, checksum')) {
+        return {
+          rows: [
+            {
+              id: '0001_m00',
+              checksum: 'chk_00',
+              applied_at: new Date(),
+              execution_time_ms: 5,
+            },
+            {
+              id: '0002_m01',
+              checksum: 'chk_01',
+              applied_at: new Date(),
+              execution_time_ms: 10,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    },
+    release: () => {},
+  };
+  const mockPool = { connect: async () => mockClient };
+
+  const testMigrations = [
+    { id: '0001_m00', sql: 'CREATE EXTENSION pgcrypto;', checksum: 'chk_00' },
+    { id: '0002_m01', sql: 'CREATE TABLE workspaces;', checksum: 'chk_01' },
+  ];
+
+  const result = await runMigrations(mockPool, testMigrations);
+
+  assert.equal(result.appliedCount, 0);
+  assert.equal(result.alreadyAppliedCount, 2);
+  assert.deepEqual(result.appliedIds, []);
+
+  // Assert no BEGIN, COMMIT, or INSERT INTO schema_migrations occurred
+  assert.ok(!queryLog.some((q) => q.sql === 'BEGIN'));
+  assert.ok(
+    !queryLog.some((q) => q.sql.includes('INSERT INTO schema_migrations')),
+  );
+});
+
+test('migration SQL files and embedded catalog have strict 1:1 parity in count, IDs, checksums, and content', async () => {
+  const { loadMigrationFiles, assertMigrationParity } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+  const { EMBEDDED_MIGRATIONS } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrations/catalog.js')}`
+  );
+
+  const fsFiles = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+
+  assert.equal(
+    fsFiles.length,
+    EMBEDDED_MIGRATIONS.length,
+    'Count of filesystem .sql files must match embedded catalog',
+  );
+
+  // Run the parity assertion function
+  assert.doesNotThrow(() => {
+    assertMigrationParity(fsFiles, EMBEDDED_MIGRATIONS);
+  });
+
+  // Verify detailed content equality
+  for (let i = 0; i < fsFiles.length; i++) {
+    const fsMig = fsFiles[i];
+    const embMig = EMBEDDED_MIGRATIONS[i];
+
+    assert.equal(fsMig.id, embMig.id);
+    assert.equal(fsMig.checksum, embMig.checksum);
+    assert.equal(
+      fsMig.sql.replace(/\r\n/g, '\n').trim(),
+      embMig.sql.replace(/\r\n/g, '\n').trim(),
+      `Normalized SQL content must match for ${fsMig.id}`,
+    );
+  }
+});
