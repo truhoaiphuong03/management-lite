@@ -2,5 +2,19 @@
   "name": "@management-lite/database",
   "version": "0.1.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./pool": "./src/pool.ts",
+    "./migrator": "./src/migrator.ts",
+    "./idempotency": "./src/idempotency.ts",
+    "./audit": "./src/audit.ts"
+  },
+  "dependencies": {
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
 }
