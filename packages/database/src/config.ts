@@ -97,18 +97,27 @@ export function sanitizeDatabaseConfig(
 /**
  * Sanitizes error messages by scrubbing connection strings, passwords, or hostnames.
  */
+/**
+ * Sanitizes error messages by scrubbing connection strings, passwords, or hostnames.
+ */
 export function sanitizeErrorMessage(rawMessage: string): string {
   if (!rawMessage) return 'Unknown database error';
 
   let sanitized = rawMessage;
 
-  // Mask postgres URLs: postgresql://user:password@host:port/dbname
+  // Mask postgres URLs: postgresql://user:password@host:port/dbname or postgres://:password@host
   sanitized = sanitized.replace(
-    /(postgres(?:ql)?:\/\/[^:]+:)([^@]+)(@)/gi,
+    /(postgres(?:ql)?:\/\/[^:@\s]*:)([^@\s]+)(@)/gi,
     '$1***$3',
   );
 
-  // Mask password=xyz or password 'xyz'
+  // Mask user:pass in any remaining postgres url patterns
+  sanitized = sanitized.replace(
+    /(postgres(?:ql)?:\/\/)([^:@\s]+):([^@\s]+)(@)/gi,
+    '$1$2:***$4',
+  );
+
+  // Mask password=xyz or password 'xyz' or password: "xyz"
   sanitized = sanitized.replace(
     /(password\s*[=:]\s*['"]?)[^\s,'"]+(['"]?)/gi,
     '$1***$2',
@@ -123,9 +132,39 @@ export interface TestDatabaseSafetyResult {
   databaseName?: string;
 }
 
+export interface TestInstanceConfirmation {
+  confirmed: boolean;
+  reason?: string;
+}
+
 /**
- * Validates that a database target is strictly isolated and explicitly designated for testing.
- * Multi-factor verification:
+ * Validates the confirmation protocol for dedicated test instances.
+ * Automated tests must NEVER assume a database is safely isolated merely
+ * because its hostname is local, its database name includes 'test', or NODE_ENV is set.
+ * Explicit confirmation (CONFIRM_ISOLATED_TEST_DB=true) is required to certify that
+ * the target instance is dedicated, disposable, and intended for test execution.
+ */
+export function verifyTestInstanceConfirmation(
+  env: Record<string, string | undefined> = process.env,
+): TestInstanceConfirmation {
+  const confirmed = env['CONFIRM_ISOLATED_TEST_DB']?.trim().toLowerCase();
+  if (confirmed !== 'true' && confirmed !== '1') {
+    return {
+      confirmed: false,
+      reason:
+        'Unconfirmed test instance. Automated tests cannot declare database isolation based solely on database name, hostname, or NODE_ENV. To prevent data corruption or pollution in existing/shared databases, an isolated test instance must be explicitly confirmed by setting CONFIRM_ISOLATED_TEST_DB=true.',
+    };
+  }
+  return { confirmed: true };
+}
+
+/**
+ * Validates that a database target conforms to safety invariants.
+ * IMPORTANT: Naming and hostname checks are necessary baseline filters, but
+ * NEVER constitute sole proof of test instance isolation. Genuine isolation
+ * requires an explicitly confirmed dedicated instance (verifyTestInstanceConfirmation).
+ *
+ * Baseline safety invariants:
  * 1. Must be explicitly specified via TEST_DATABASE_URL (no fallback to DATABASE_URL or defaults).
  * 2. NODE_ENV must NOT be 'production' or 'staging'.
  * 3. Protocol must be postgresql: or postgres:.
@@ -258,8 +297,9 @@ export function assertSafeTestDatabase(
 
 /**
  * Loads database configuration specifically for test execution.
- * STRICT ISOLATION CONTRACT:
+ * STRICT ISOLATION & CONFIRMATION CONTRACT:
  * - Requires explicit TEST_DATABASE_URL.
+ * - Requires explicit confirmation CONFIRM_ISOLATED_TEST_DB=true.
  * - Absolutely NO automatic fallback to DATABASE_URL, PGDATABASE, or default databases.
  * - Enforces assertSafeTestDatabase multi-factor verification.
  */
@@ -271,6 +311,11 @@ export function loadTestDatabaseConfig(
     throw new Error(
       '[Database Safety Guard] TEST_DATABASE_URL is not set. Live integration tests require an explicitly designated TEST_DATABASE_URL. Automatic fallback to DATABASE_URL, PGDATABASE, or default databases is strictly prohibited.',
     );
+  }
+
+  const confirmation = verifyTestInstanceConfirmation(env);
+  if (!confirmation.confirmed) {
+    throw new Error(`[Database Safety Guard] ${confirmation.reason}`);
   }
 
   const maxPool = Number.parseInt(env['DB_POOL_MAX'] || '5', 10);

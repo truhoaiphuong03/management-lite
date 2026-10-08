@@ -9,11 +9,21 @@ const __dirname = dirname(__filename);
 const root = resolve(__dirname, '../..');
 
 test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)', async (t) => {
-  // 1. Strict Isolation Gate: TEST_DATABASE_URL must be explicitly provided
+  // 1. Strict Isolation & Confirmation Gate:
+  // Requires explicit TEST_DATABASE_URL AND explicit confirmation CONFIRM_ISOLATED_TEST_DB=true.
+  // Automated tests never assume database isolation based solely on database name, hostname, or NODE_ENV.
   const testUrl = process.env.TEST_DATABASE_URL?.trim();
-  if (!testUrl) {
+  const confirmed =
+    process.env.CONFIRM_ISOLATED_TEST_DB === 'true' ||
+    process.env.CONFIRM_ISOLATED_TEST_DB === '1';
+
+  if (!testUrl || !confirmed) {
+    const missing = [];
+    if (!testUrl) missing.push('TEST_DATABASE_URL');
+    if (!confirmed) missing.push('CONFIRM_ISOLATED_TEST_DB=true');
+
     t.skip(
-      '[BLOCKED] TEST_DATABASE_URL is not set. Live PostgreSQL integration test is BLOCKED. To run live integration tests, explicitly set TEST_DATABASE_URL pointing to an isolated test database (e.g. TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/management_lite_test). Automatic fallback to DATABASE_URL, PGDATABASE, or default databases is strictly disabled to prevent accidental connection or mutation of active databases.',
+      `[BLOCKED] Dedicated test database instance not confirmed (missing: ${missing.join(', ')}). Live database integration tests require an explicitly confirmed, isolated test instance. Tests will not connect or execute against unconfirmed databases. Automated tests never assume isolation based solely on hostname, db name, or NODE_ENV. To reproduce: start an isolated PostgreSQL 15+ container and run with TEST_DATABASE_URL and CONFIRM_ISOLATED_TEST_DB=true.`,
     );
     return;
   }
@@ -45,7 +55,7 @@ test('live PostgreSQL integration (migrations, replay, audit guard, idempotency)
     const health = await checkDatabaseHealth(pool);
     if (!health.connected) {
       t.skip(
-        `[BLOCKED] Real PostgreSQL instance is not reachable (${health.error || 'unreachable'}). Live database integration tests are BLOCKED. Target: ${testUrl}. To reproduce: ensure an isolated PostgreSQL 15+ container is running and accessible.`,
+        `[BLOCKED] Real PostgreSQL instance is not reachable (${health.error || 'unreachable'}). Live database integration tests are BLOCKED. To reproduce: ensure an isolated PostgreSQL 15+ container is running and accessible via TEST_DATABASE_URL with CONFIRM_ISOLATED_TEST_DB=true.`,
       );
       return;
     }
@@ -185,18 +195,11 @@ async function executeIntegrationWorkflow(pool, migrationFiles, runIndex, ops) {
     assert.equal(claimRes2.status, 'replay');
     assert.equal(claimRes2.responseCode, 201);
   } finally {
-    // G. Safe cleanup scoped strictly to this run's identifiers
-    await pool
-      .query(
-        'DELETE FROM idempotency_records WHERE workspace_id = $1 AND actor_user_id = $2;',
-        [wsId, userId],
-      )
-      .catch(() => {});
-
-    // Note on audit_events & parent foreign keys:
+    // Note on audit_events & append-only retention:
     // Per canonical Doc 20/58 and database trigger trg_audit_events_immutable, audit_events is strictly append-only.
     // Rows cannot be modified or deleted. Because audit_events references workspace_id and actor_user_id
     // with ON DELETE RESTRICT, parent workspace and user rows are preserved as immutable compliance records.
     // Using distinct random UUIDs per run ensures complete isolation and zero collision across repeated runs.
+    // Real data is never deleted, maintaining strict append-only audit integrity.
   }
 }

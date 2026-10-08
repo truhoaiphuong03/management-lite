@@ -257,15 +257,46 @@ test('isSafeTestDatabase and assertSafeTestDatabase enforce multi-factor databas
   });
 });
 
-test('loadTestDatabaseConfig requires explicit TEST_DATABASE_URL and blocks all fallbacks', async () => {
+test('verifyTestInstanceConfirmation enforces explicit operator confirmation of test instances', async () => {
+  const { verifyTestInstanceConfirmation } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/config.js')}`
+  );
+
+  // 1. Unconfirmed when variable is unset
+  const res1 = verifyTestInstanceConfirmation({});
+  assert.equal(res1.confirmed, false);
+  assert.match(res1.reason || '', /Unconfirmed test instance/);
+
+  // 2. Unconfirmed when variable is not 'true' or '1'
+  const res2 = verifyTestInstanceConfirmation({
+    CONFIRM_ISOLATED_TEST_DB: 'false',
+  });
+  assert.equal(res2.confirmed, false);
+
+  // 3. Confirmed when explicitly set to 'true' or '1'
+  assert.equal(
+    verifyTestInstanceConfirmation({ CONFIRM_ISOLATED_TEST_DB: 'true' })
+      .confirmed,
+    true,
+  );
+  assert.equal(
+    verifyTestInstanceConfirmation({ CONFIRM_ISOLATED_TEST_DB: '1' }).confirmed,
+    true,
+  );
+});
+
+test('loadTestDatabaseConfig requires both explicit TEST_DATABASE_URL and CONFIRM_ISOLATED_TEST_DB=true', async () => {
   const { loadTestDatabaseConfig } = await import(
     `file://${resolve(root, 'dist/packages/database/src/config.js')}`
   );
 
+  const validUrl =
+    'postgresql://testuser:testpass@localhost:5432/management_lite_test';
+
   // 1. Throws fail-closed when TEST_DATABASE_URL is not set (zero fallback to defaults)
   assert.throws(
     () => {
-      loadTestDatabaseConfig({});
+      loadTestDatabaseConfig({ CONFIRM_ISOLATED_TEST_DB: 'true' });
     },
     { message: /TEST_DATABASE_URL is not set/ },
   );
@@ -275,26 +306,130 @@ test('loadTestDatabaseConfig requires explicit TEST_DATABASE_URL and blocks all 
     () => {
       loadTestDatabaseConfig({
         DATABASE_URL: 'postgresql://localhost:5432/management_lite_test',
+        CONFIRM_ISOLATED_TEST_DB: 'true',
       });
     },
     { message: /TEST_DATABASE_URL is not set/ },
   );
 
-  // 3. Succeeds when explicit TEST_DATABASE_URL is provided with an isolated test database
-  const validUrl =
-    'postgresql://testuser:testpass@localhost:5432/management_lite_test';
+  // 3. Throws fail-closed if TEST_DATABASE_URL is set but CONFIRM_ISOLATED_TEST_DB is missing
+  assert.throws(
+    () => {
+      loadTestDatabaseConfig({
+        TEST_DATABASE_URL: validUrl,
+      });
+    },
+    { message: /Unconfirmed test instance/ },
+  );
+
+  // 4. Succeeds when both TEST_DATABASE_URL and CONFIRM_ISOLATED_TEST_DB=true are provided
   const config = loadTestDatabaseConfig({
     TEST_DATABASE_URL: validUrl,
+    CONFIRM_ISOLATED_TEST_DB: 'true',
   });
   assert.equal(config.connectionString, validUrl);
 
-  // 4. Fails closed if TEST_DATABASE_URL points to non-test db
+  // 5. Fails closed if TEST_DATABASE_URL points to non-test db
   assert.throws(
     () => {
       loadTestDatabaseConfig({
         TEST_DATABASE_URL: 'postgresql://localhost:5432/management_lite',
+        CONFIRM_ISOLATED_TEST_DB: 'true',
       });
     },
     { message: /\[Database Safety Guard\]/ },
+  );
+});
+
+test('credential protection: sensitive credentials in TEST_DATABASE_URL are never leaked in logs, error messages, or safety check results', async () => {
+  const {
+    isSafeTestDatabase,
+    assertSafeTestDatabase,
+    sanitizeDatabaseConfig,
+    sanitizeErrorMessage,
+    loadTestDatabaseConfig,
+  } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/config.js')}`
+  );
+
+  const fakeSecret = 'SUPER_SECRET_FAKE_PASSWORD_9876543210';
+  const fakeSecretUrl = `postgresql://app_user:${fakeSecret}@localhost:5432/management_lite_test`;
+
+  // 1. sanitizeDatabaseConfig redacts the secret
+  const sanitized = sanitizeDatabaseConfig({
+    connectionString: fakeSecretUrl,
+    max: 5,
+    idleTimeoutMillis: 1000,
+    connectionTimeoutMillis: 1000,
+  });
+  const sanitizedJson = JSON.stringify(sanitized);
+  assert.ok(
+    !sanitizedJson.includes(fakeSecret),
+    'sanitized config must not leak fake password',
+  );
+  assert.ok(sanitizedJson.includes('***'));
+
+  // 2. sanitizeErrorMessage redacts fake password in postgres URL and error text
+  const rawError = `Connection failed to ${fakeSecretUrl} using password="${fakeSecret}"`;
+  const sanitizedErr = sanitizeErrorMessage(rawError);
+  assert.ok(
+    !sanitizedErr.includes(fakeSecret),
+    'sanitized error message must not leak fake password',
+  );
+  assert.ok(sanitizedErr.includes('***'));
+
+  // 3. Rejection / validation error message from isSafeTestDatabase / assertSafeTestDatabase never echoes raw credentials
+  const invalidUrlWithSecret = `postgresql://app_user:${fakeSecret}@prod-host.internal:5432/management_lite`;
+  const result = isSafeTestDatabase(
+    {
+      connectionString: invalidUrlWithSecret,
+      max: 5,
+      idleTimeoutMillis: 1000,
+      connectionTimeoutMillis: 1000,
+    },
+    { NODE_ENV: 'test', TEST_DATABASE_URL: invalidUrlWithSecret },
+  );
+  assert.equal(result.safe, false);
+  assert.ok(
+    !result.reason?.includes(fakeSecret),
+    'rejection reason must not contain password',
+  );
+
+  assert.throws(
+    () => {
+      assertSafeTestDatabase(
+        {
+          connectionString: invalidUrlWithSecret,
+          max: 5,
+          idleTimeoutMillis: 1000,
+          connectionTimeoutMillis: 1000,
+        },
+        { NODE_ENV: 'test', TEST_DATABASE_URL: invalidUrlWithSecret },
+      );
+    },
+    (err) => {
+      assert.ok(
+        !err.message.includes(fakeSecret),
+        'thrown exception must not contain password',
+      );
+      return true;
+    },
+  );
+
+  // 4. loadTestDatabaseConfig rejection never echoes raw password in error message
+  assert.throws(
+    () => {
+      loadTestDatabaseConfig({
+        TEST_DATABASE_URL: invalidUrlWithSecret,
+        CONFIRM_ISOLATED_TEST_DB: 'true',
+      });
+    },
+    (err) => {
+      assert.ok(
+        !err.message.includes(fakeSecret),
+        'loadTestDatabaseConfig error must not leak password',
+      );
+      return true;
+    },
   );
 });
