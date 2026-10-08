@@ -2,5 +2,13 @@
   "name": "@management-lite/security",
   "version": "0.1.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./password": "./src/password.ts",
+    "./tokens": "./src/tokens.ts"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "2.2.2"
+  }
 }
