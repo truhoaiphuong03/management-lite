@@ -5,6 +5,10 @@ import { DashboardScreen } from './screens/DashboardScreen.js';
 import { ClockScreen } from './screens/ClockScreen.js';
 import { ReportsScreen } from './screens/ReportsScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
+import { EmployeesScreen } from './screens/EmployeesScreen.js';
+import { EmployeeNewScreen } from './screens/EmployeeNewScreen.js';
+import { EmployeeDetailScreen } from './screens/EmployeeDetailScreen.js';
+import { ActivateScreen } from './screens/ActivateScreen.js';
 import { NotFoundScreen } from './screens/NotFoundScreen.js';
 import { PlaceholderScreen } from './screens/PlaceholderScreen.js';
 import { matchRoute } from './router.js';
@@ -121,6 +125,11 @@ export const App: React.FC = () => {
     );
   }
 
+  // If viewing activate screen (accessible anonymously with token)
+  if (currentPath.startsWith('/activate')) {
+    return <ActivateScreen onNavigate={handleNavigate} />;
+  }
+
   // If viewing login screen
   if (!isLoggedIn || currentPath === '/login') {
     return <LoginScreen onLogin={handleLogin} />;
@@ -164,6 +173,20 @@ export const App: React.FC = () => {
         return <ClockScreen />;
       case '/reports':
         return <ReportsScreen />;
+      case '/employees':
+        return <EmployeesScreen onNavigate={handleNavigate} />;
+      case '/employees/new':
+        return <EmployeeNewScreen onNavigate={handleNavigate} />;
+      case '/employees/:id':
+        return (
+          <EmployeeDetailScreen
+            employeeId={params['id'] || ''}
+            role={role}
+            onNavigate={handleNavigate}
+          />
+        );
+      case '/activate':
+        return <ActivateScreen onNavigate={handleNavigate} />;
       case '/settings':
         return (
           <SettingsScreen

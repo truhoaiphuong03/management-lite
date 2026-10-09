@@ -214,6 +214,34 @@ async function main() {
         [workspaceId, staffId],
       );
 
+      // Ensure Owner Employee Profile
+      const existingOwnerEmp = await client.query(
+        `SELECT id FROM employees WHERE workspace_id = $1 AND user_id = $2;`,
+        [workspaceId, ownerId],
+      );
+      if (existingOwnerEmp.rows.length === 0) {
+        await client.query(
+          `INSERT INTO employees (workspace_id, user_id, employee_code, full_name, employment_status, is_payroll_eligible)
+           VALUES ($1, $2, 'OWNER', 'Chủ sở hữu', 'active', false)
+           ON CONFLICT (workspace_id, employee_code) DO NOTHING;`,
+          [workspaceId, ownerId],
+        );
+      }
+
+      // Ensure Staff Employee Profile
+      const existingStaffEmp = await client.query(
+        `SELECT id FROM employees WHERE workspace_id = $1 AND user_id = $2;`,
+        [workspaceId, staffId],
+      );
+      if (existingStaffEmp.rows.length === 0) {
+        await client.query(
+          `INSERT INTO employees (workspace_id, user_id, employee_code, full_name, employment_status, is_payroll_eligible)
+           VALUES ($1, $2, 'NV001', 'Nhân viên 01', 'active', true)
+           ON CONFLICT (workspace_id, employee_code) DO NOTHING;`,
+          [workspaceId, staffId],
+        );
+      }
+
       // Audit Record
       await client.query(
         `

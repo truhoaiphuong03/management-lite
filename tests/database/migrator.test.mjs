@@ -18,7 +18,7 @@ test('calculateChecksum produces deterministic SHA-256 for SQL strings', async (
   assert.match(calculateChecksum(sql1), /^[a-f0-9]{64}$/);
 });
 
-test('loadMigrationFiles loads M00, M01, M02, and M02b migrations in deterministic sequence', async () => {
+test('loadMigrationFiles loads M00, M01, M02, M02b, and M03 migrations in deterministic sequence', async () => {
   const { loadMigrationFiles } = await import(
     `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
   );
@@ -27,17 +27,61 @@ test('loadMigrationFiles loads M00, M01, M02, and M02b migrations in determinist
     resolve(root, 'packages/database/src/migrations'),
   );
 
-  assert.equal(migrations.length, 4);
+  assert.equal(migrations.length, 5);
   assert.equal(migrations[0]?.id, '0001_m00_prerequisites');
   assert.equal(migrations[1]?.id, '0002_m01_workspace_user_audit_idempotency');
   assert.equal(migrations[2]?.id, '0003_m02_auth_membership_session_outbox');
   assert.equal(migrations[3]?.id, '0004_m02b_user_workspace_bindings');
+  assert.equal(migrations[4]?.id, '0005_m03_employees');
 
   // Assert valid SHA-256 checksums
   assert.match(migrations[0]?.checksum || '', /^[a-f0-9]{64}$/);
   assert.match(migrations[1]?.checksum || '', /^[a-f0-9]{64}$/);
   assert.match(migrations[2]?.checksum || '', /^[a-f0-9]{64}$/);
   assert.match(migrations[3]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[4]?.checksum || '', /^[a-f0-9]{64}$/);
+});
+
+test('M03 migration SQL conforms strictly to canonical doc 20, 21, and 25 HR employee specifications', async () => {
+  const { loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const migrations = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+  const m03 = migrations.find((m) => m.id === '0005_m03_employees');
+  assert.ok(m03);
+
+  // Table definition
+  assert.match(m03.sql, /CREATE TABLE IF NOT EXISTS employees/);
+  assert.match(
+    m03.sql,
+    /workspace_id uuid NOT NULL REFERENCES workspaces\(id\) ON DELETE RESTRICT/,
+  );
+  assert.match(
+    m03.sql,
+    /user_id uuid NULL REFERENCES users\(id\) ON DELETE RESTRICT/,
+  );
+  assert.match(m03.sql, /employee_code text NOT NULL/);
+  assert.match(m03.sql, /full_name text NOT NULL/);
+  assert.match(
+    m03.sql,
+    /CHECK \(employment_status IN \('invited', 'active', 'suspended', 'archived'\)\)/,
+  );
+  assert.match(m03.sql, /is_payroll_eligible boolean NOT NULL DEFAULT true/);
+  assert.match(
+    m03.sql,
+    /CONSTRAINT uq_employees_workspace_code UNIQUE \(workspace_id, employee_code\)/,
+  );
+  assert.match(
+    m03.sql,
+    /FOREIGN KEY\s*\(workspace_id,\s*user_id\)\s*REFERENCES\s*workspace_memberships\s*\(workspace_id,\s*user_id\)/,
+  );
+  assert.match(
+    m03.sql,
+    /CREATE UNIQUE INDEX IF NOT EXISTS ix_employees_user\s+ON employees\s*\(workspace_id,\s*user_id\)\s+WHERE user_id IS NOT NULL/,
+  );
 });
 
 test('M02b migration SQL conforms strictly to canonical doc 03, 04, 20, 21, and 36 C06 specifications', async () => {

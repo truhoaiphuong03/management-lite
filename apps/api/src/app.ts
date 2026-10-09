@@ -8,16 +8,22 @@ import {
   sendJson,
 } from './envelope.js';
 import { AuthService, AuthError } from './auth/service.js';
+import { EmployeeService } from './employees/service.js';
 import { requireAuth, requireCsrf, extractSessionToken } from './auth/guard.js';
 import {
   serializeSessionCookie,
   serializeClearSessionCookie,
 } from './cookie.js';
 import { DEV_DEFAULT_CSRF_SECRET } from './config.js';
+import type {
+  CreateEmployeeRequestBody,
+  UpdateEmployeeRequestBody,
+} from '../../../packages/contracts/src/employees.js';
 
 export interface AppDependencies {
   pool?: DatabasePool | null | undefined;
   authService?: AuthService;
+  employeeService?: EmployeeService;
   csrfSecret?: string;
   allowedOrigins?: string[];
   trustedProxies?: string[];
@@ -271,6 +277,9 @@ export function createRequestHandler(
     deps.authService ??
     (deps.pool ? new AuthService(deps.pool, csrfSecret) : null);
 
+  const employeeService =
+    deps.employeeService ?? (deps.pool ? new EmployeeService(deps.pool) : null);
+
   return async (req: http.IncomingMessage, res: http.ServerResponse) => {
     // 1. Assign deterministic or header-provided request_id
     const headerRequestId = req.headers['x-request-id'];
@@ -454,7 +463,261 @@ export function createRequestHandler(
         return sendJson(res, 200, createSuccessEnvelope(result, requestId));
       }
 
-      // 8. Default 404 for unknown endpoints (Doc 24 compliant)
+      // 8. POST /api/v1/auth/activate (Anonymous)
+      if (method === 'POST' && pathname === '/api/v1/auth/activate') {
+        requireLoginOrigin(req, allowedOrigins, isProduction);
+        requireLoginJson(req);
+
+        if (!authService) {
+          const body = createErrorEnvelope(
+            'DATABASE_UNAVAILABLE',
+            'Authentication service is unavailable',
+            requestId,
+          );
+          return sendJson(res, 503, body);
+        }
+
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, ['token', 'new_password']);
+
+        const clientIp = getClientIp(req, trustedProxies);
+        const result = await authService.activateAccount({
+          token: typeof body['token'] === 'string' ? body['token'] : '',
+          newPassword:
+            typeof body['new_password'] === 'string'
+              ? body['new_password']
+              : '',
+          clientIp,
+          requestId,
+        });
+
+        return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+      }
+
+      // 9. GET /api/v1/employees/me (Self employee profile)
+      if (method === 'GET' && pathname === '/api/v1/employees/me') {
+        if (!authService || !employeeService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        const emp = await employeeService.getEmployeeMe(sessionContext);
+        return sendJson(res, 200, createSuccessEnvelope(emp, requestId));
+      }
+
+      // 10. GET /api/v1/employees (List employees - Owner only)
+      if (method === 'GET' && pathname === '/api/v1/employees') {
+        if (!authService || !employeeService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        const parsedUrl = new URL(req.url || '/', 'http://localhost');
+        const status = parsedUrl.searchParams.get('status') || undefined;
+        const limitStr = parsedUrl.searchParams.get('limit');
+        const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+        const cursor = parsedUrl.searchParams.get('cursor') || undefined;
+
+        const list = await employeeService.listEmployees(sessionContext, {
+          status,
+          limit,
+          cursor,
+        });
+        return sendJson(res, 200, createSuccessEnvelope(list, requestId));
+      }
+
+      // 11. POST /api/v1/employees (Create employee - Owner only)
+      if (method === 'POST' && pathname === '/api/v1/employees') {
+        if (!authService || !employeeService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, [
+          'employee_code',
+          'full_name',
+          'email',
+          'username',
+        ]);
+
+        const result = await employeeService.createEmployee(
+          sessionContext,
+          body as unknown as CreateEmployeeRequestBody,
+          requestId,
+        );
+        return sendJson(res, 201, createSuccessEnvelope(result, requestId));
+      }
+
+      // 12. Dynamic /api/v1/employees/:id routes
+      const employeeRouteMatch = pathname.match(
+        /^\/api\/v1\/employees\/([a-zA-Z0-9_-]+)(?:\/(suspend|reactivate|activation-invites|activation-status))?$/,
+      );
+
+      if (employeeRouteMatch) {
+        if (!authService || !employeeService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const empId = employeeRouteMatch[1]!;
+        const subAction = employeeRouteMatch[2];
+
+        if (subAction === 'suspend' && method === 'POST') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, ['reason']);
+
+          const ifMatch = req.headers['if-match'];
+          const result = await employeeService.suspendEmployee(
+            sessionContext,
+            empId,
+            String(body['reason'] || ''),
+            ifMatch,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (subAction === 'reactivate' && method === 'POST') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, ['reason']);
+
+          const ifMatch = req.headers['if-match'];
+          const result = await employeeService.reactivateEmployee(
+            sessionContext,
+            empId,
+            String(body['reason'] || ''),
+            ifMatch,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (subAction === 'activation-invites' && method === 'POST') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+          const result = await employeeService.issueActivationInvite(
+            sessionContext,
+            empId,
+            requestId,
+          );
+          return sendJson(res, 202, createSuccessEnvelope(result, requestId));
+        }
+
+        if (subAction === 'activation-status' && method === 'GET') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          const result = await employeeService.getActivationStatus(
+            sessionContext,
+            empId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (!subAction && method === 'GET') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          const emp = await employeeService.getEmployeeById(
+            sessionContext,
+            empId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(emp, requestId));
+        }
+
+        if (!subAction && method === 'PATCH') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, ['full_name', 'is_payroll_eligible']);
+
+          const ifMatch = req.headers['if-match'];
+          const result = await employeeService.updateEmployee(
+            sessionContext,
+            empId,
+            body as unknown as UpdateEmployeeRequestBody,
+            ifMatch,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+      }
+
+      // Default 404 for unknown endpoints (Doc 24 compliant)
       const body = createErrorEnvelope(
         'NOT_FOUND',
         `Endpoint ${method} ${pathname} not found`,

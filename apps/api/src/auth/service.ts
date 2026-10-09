@@ -671,4 +671,134 @@ export class AuthService {
 
     return { message: 'Password changed successfully' };
   }
+
+  /**
+   * Activates an employee account using an invite token and sets the initial password.
+   * Atomic across user_credentials, users, workspace_memberships, employees, and activation_invites.
+   */
+  async activateAccount(params: {
+    token: string;
+    newPassword: string;
+    clientIp: string;
+    requestId: string;
+  }): Promise<{ message: string }> {
+    const { token, newPassword, clientIp, requestId } = params;
+
+    const rateCheck = this.loginLimiter.check(clientIp);
+    if (!rateCheck.allowed) {
+      throw new AuthError('RATE_LIMITED', 'Too many activation attempts', 429);
+    }
+
+    if (!token || typeof token !== 'string') {
+      throw new AuthError('VALIDATION_ERROR', 'Token is required', 400);
+    }
+
+    const validation = validatePasswordStrength(newPassword);
+    if (!validation.valid || typeof newPassword !== 'string') {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        validation.reason || 'Invalid password',
+        400,
+      );
+    }
+
+    const newPasswordHash = await hashPassword(newPassword);
+    const tokenHash = hashToken(token.trim());
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const inviteRes = await client.query<{
+        id: string;
+        workspace_id: string;
+        user_id: string;
+        status: string;
+        expires_at: Date;
+      }>(
+        `SELECT id, workspace_id, user_id, status, expires_at FROM activation_invites WHERE token_hash = $1 FOR UPDATE;`,
+        [tokenHash],
+      );
+
+      const invite = inviteRes.rows[0];
+      if (!invite || invite.status !== 'issued') {
+        throw new AuthError(
+          'INVITE_EXPIRED',
+          'Activation invite is invalid, already used, or revoked',
+          410,
+        );
+      }
+
+      if (new Date(invite.expires_at) < new Date()) {
+        await client.query(
+          `UPDATE activation_invites SET status = 'expired' WHERE id = $1;`,
+          [invite.id],
+        );
+        throw new AuthError(
+          'INVITE_EXPIRED',
+          'Activation invite has expired',
+          410,
+        );
+      }
+
+      // Upsert credentials
+      await client.query(
+        `
+        INSERT INTO user_credentials (user_id, password_hash, credential_version)
+        VALUES ($1, $2, 1)
+        ON CONFLICT (user_id)
+        DO UPDATE SET password_hash = $2, credential_version = user_credentials.credential_version + 1, password_changed_at = now();
+      `,
+        [invite.user_id, newPasswordHash],
+      );
+
+      // Activate user
+      await client.query(
+        `UPDATE users SET status = 'active', version = version + 1 WHERE id = $1;`,
+        [invite.user_id],
+      );
+
+      // Activate workspace membership
+      await client.query(
+        `UPDATE workspace_memberships SET status = 'active', updated_at = now(), version = version + 1 WHERE workspace_id = $1 AND user_id = $2;`,
+        [invite.workspace_id, invite.user_id],
+      );
+
+      // Activate employee profile
+      await client.query(
+        `UPDATE employees SET employment_status = 'active', updated_at = now(), version = version + 1 WHERE workspace_id = $1 AND user_id = $2;`,
+        [invite.workspace_id, invite.user_id],
+      );
+
+      // Consume invite
+      await client.query(
+        `UPDATE activation_invites SET status = 'used', consumed_at = now() WHERE id = $1;`,
+        [invite.id],
+      );
+
+      // Record audit event
+      await recordAuditEvent(client, {
+        workspaceId: invite.workspace_id,
+        actorUserId: invite.user_id,
+        action: 'user.activated',
+        entityType: 'user',
+        entityId: invite.user_id,
+        requestId,
+        metadata: {
+          client_ip: clientIp,
+        },
+      });
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return {
+      message: 'Tài khoản đã được kích hoạt thành công. Vui lòng đăng nhập.',
+    };
+  }
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AppCard,
   AppButton,
@@ -6,6 +6,7 @@ import {
   StatusBadge,
 } from '@management-lite/ui/components';
 import type { UserRole } from '../types.js';
+import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 
 export interface SettingsScreenProps {
   role: UserRole;
@@ -15,18 +16,148 @@ export interface SettingsScreenProps {
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   role,
-  onChangeRole,
   onLogout,
 }) => {
+  const [profile, setProfile] = useState<EmployeeData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch('/api/v1/employees/me', {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(data.data);
+        }
+      } catch {
+        // Silently ignore if employee profile doesn't exist
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
   return (
     <div>
       <PageHeader
-        title="Cài đặt hệ thống"
-        subtitle="Thông tin cấu hình không gian làm việc và phiên đăng nhập (UI20)"
-        badge={<StatusBadge status="neutral" label="UI20 DEMO" />}
+        title="Cài đặt & Hồ sơ cá nhân"
+        subtitle="Thông tin cá nhân, không gian làm việc và phiên đăng nhập bảo mật (UI20)"
+        badge={
+          <StatusBadge
+            status={role === 'owner' ? 'neutral' : 'success'}
+            label={role === 'owner' ? '👑 Chủ sở hữu' : '👤 Nhân viên'}
+          />
+        }
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Real Profile Card */}
+        <AppCard padding="20px">
+          <h3
+            style={{
+              fontSize: '16px',
+              fontWeight: 600,
+              color: '#F8FAFC',
+              marginBottom: '8px',
+            }}
+          >
+            Hồ sơ nhân sự của tôi
+          </h3>
+          <p
+            style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
+          >
+            Thông tin nhân sự gắn liền với tài khoản của bạn trong không gian
+            làm việc hiện tại.
+          </p>
+
+          {loading ? (
+            <div style={{ color: '#94A3B8', fontSize: '14px' }}>
+              Đang tải thông tin cá nhân...
+            </div>
+          ) : profile ? (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '12px',
+                backgroundColor: '#0B1220',
+                padding: '16px',
+                borderRadius: '8px',
+                border: '1px solid #334155',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Mã nhân viên
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    color: '#14B8A6',
+                    marginTop: '2px',
+                  }}
+                >
+                  {profile.employee_code}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Họ và tên
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {profile.full_name}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Email tài khoản
+                </div>
+                <div
+                  style={{
+                    fontSize: '14px',
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {profile.user?.email || '—'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Trạng thái hồ sơ
+                </div>
+                <div
+                  style={{
+                    fontSize: '14px',
+                    color: '#10B981',
+                    fontWeight: 600,
+                    marginTop: '2px',
+                  }}
+                >
+                  {profile.employment_status === 'active'
+                    ? 'Đang hoạt động'
+                    : profile.employment_status}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ color: '#94A3B8', fontSize: '13px' }}>
+              Tài khoản đang đăng nhập với vai trò Quản trị viên (Chủ sở hữu).
+            </div>
+          )}
+        </AppCard>
+
         {/* Workspace context card (C06 invariant) */}
         <AppCard padding="20px">
           <h3
@@ -58,21 +189,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           >
             <div>
               <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Tên Workspace
-              </div>
-              <div
-                style={{
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  color: '#F8FAFC',
-                  marginTop: '2px',
-                }}
-              >
-                Studio Media Lite V0.1
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
                 Múi giờ chuẩn (IANA)
               </div>
               <div
@@ -88,7 +204,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </div>
             <div>
               <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Trạng thái vận hành
+                Tiêu chuẩn bảo mật
               </div>
               <div
                 style={{
@@ -98,13 +214,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   marginTop: '2px',
                 }}
               >
-                Đang hoạt động (Active)
+                C06 Multi-Tenant Isolated
               </div>
             </div>
           </div>
         </AppCard>
 
-        {/* Demo role switch card */}
+        {/* Security & Logout card */}
         <AppCard padding="20px">
           <h3
             style={{
@@ -114,52 +230,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               marginBottom: '8px',
             }}
           >
-            Chuyển đổi góc nhìn Demo (Chỉ áp dụng trong bản trình diễn)
+            Phiên làm việc & Đăng xuất
           </h3>
           <p
             style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
           >
-            Bấm chọn để kiểm tra sự khác biệt giữa giao diện Owner và Staff theo
-            RBAC-02.
+            Đăng xuất sẽ hủy phiên làm việc hiện tại trên máy chủ và xóa cookie
+            phiên bảo mật.
           </p>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <AppButton
-              variant={role === 'owner' ? 'primary' : 'secondary'}
-              onClick={() => onChangeRole('owner')}
-            >
-              👑 Xem với vai trò Chủ sở hữu (Owner)
-            </AppButton>
-            <AppButton
-              variant={role === 'staff' ? 'primary' : 'secondary'}
-              onClick={() => onChangeRole('staff')}
-            >
-              👤 Xem với vai trò Nhân viên (Staff)
-            </AppButton>
-          </div>
-        </AppCard>
-
-        {/* Security & Reauth Card (C05 invariant) */}
-        <AppCard padding="20px">
-          <h3
-            style={{
-              fontSize: '16px',
-              fontWeight: 600,
-              color: '#F8FAFC',
-              marginBottom: '8px',
-            }}
-          >
-            Bảo mật & Quản lý tài khoản (C05 & SEC-02)
-          </h3>
-          <p
-            style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
-          >
-            Mọi thao tác nhạy cảm (như xem hoặc cập nhật secret tài khoản mạng
-            xã hội ở UI18) đều bắt buộc xác thực lại (reauthentication) một lần
-            và có thời hạn tối đa 5 phút.
-          </p>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <AppButton variant="secondary" onClick={onLogout}>
-              🔒 Đăng xuất khỏi Demo
+          <div style={{ maxWidth: '200px' }}>
+            <AppButton variant="destructive" fullWidth onClick={onLogout}>
+              Đăng xuất tài khoản
             </AppButton>
           </div>
         </AppCard>
