@@ -4,6 +4,11 @@ import {
   AppButton,
   PageHeader,
   StatusBadge,
+  ClockIcon,
+  InfoIcon,
+  FileTextIcon,
+  BanknoteIcon,
+  SettingsIcon,
 } from '@management-lite/ui/components';
 import type { UserRole } from '../types.js';
 
@@ -31,8 +36,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         }
         actions={
           <div style={{ display: 'flex', gap: '8px' }}>
-            <AppButton variant="primary" onClick={() => onNavigate('/clock')}>
-              ⏱️ Vào Chấm công
+            <AppButton
+              variant="primary"
+              onClick={() => onNavigate('/clock')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <ClockIcon size={16} />
+              <span>Vào Chấm công</span>
             </AppButton>
           </div>
         }
@@ -51,7 +65,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           gap: '10px',
         }}
       >
-        <span style={{ fontSize: '20px' }}>💡</span>
+        <InfoIcon size={20} style={{ color: '#14B8A6' }} />
         <div style={{ fontSize: '13px', color: '#F8FAFC' }}>
           <strong>Chế độ xem trước (FT-01 Demo):</strong> Dữ liệu trên màn hình
           là giao diện mẫu. Mọi thao tác trên trang demo không làm thay đổi cơ
@@ -237,7 +251,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           style={{ cursor: 'pointer' }}
           onClick={() => onNavigate('/clock')}
         >
-          <div style={{ fontSize: '24px', marginBottom: '8px' }}>⏱️</div>
+          <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
+            <ClockIcon size={24} />
+          </div>
           <div
             style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
           >
@@ -254,7 +270,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           style={{ cursor: 'pointer' }}
           onClick={() => onNavigate('/reports')}
         >
-          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📝</div>
+          <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
+            <FileTextIcon size={24} />
+          </div>
           <div
             style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
           >
@@ -272,7 +290,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             style={{ cursor: 'pointer' }}
             onClick={() => onNavigate('/payroll')}
           >
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>💰</div>
+            <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
+              <BanknoteIcon size={24} />
+            </div>
             <div
               style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
             >
@@ -290,7 +310,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           style={{ cursor: 'pointer' }}
           onClick={() => onNavigate('/settings')}
         >
-          <div style={{ fontSize: '24px', marginBottom: '8px' }}>⚙️</div>
+          <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
+            <SettingsIcon size={24} />
+          </div>
           <div
             style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
           >

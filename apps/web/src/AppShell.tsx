@@ -3,6 +3,12 @@ import {
   DesktopSidebar,
   MobileBottomNav,
   NAV_ITEMS,
+  BuildingIcon,
+  CrownIcon,
+  UserIcon,
+  LogOutIcon,
+  CloseIcon,
+  NavIcon,
 } from '@management-lite/ui/components';
 import type { UserRole } from './types.js';
 
@@ -68,26 +74,37 @@ export const AppShell: React.FC<AppShellProps> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '18px' }}>🏢</span>
+          <BuildingIcon size={18} style={{ color: '#14B8A6' }} />
           <span style={{ color: '#F8FAFC', fontWeight: 700 }}>
             Management Lite
           </span>
           <span
             style={{
-              padding: '2px 8px',
+              padding: '3px 10px',
               borderRadius: '9999px',
               backgroundColor:
                 role === 'owner'
-                  ? 'rgba(20, 184, 166, 0.2)'
-                  : 'rgba(56, 189, 248, 0.2)',
+                  ? 'rgba(20, 184, 166, 0.15)'
+                  : 'rgba(56, 189, 248, 0.15)',
               color: role === 'owner' ? '#14B8A6' : '#38BDF8',
+              border: `1px solid ${
+                role === 'owner'
+                  ? 'rgba(20, 184, 166, 0.3)'
+                  : 'rgba(56, 189, 248, 0.3)'
+              }`,
               fontSize: '11px',
-              fontWeight: 700,
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
             }}
           >
-            {role === 'owner'
-              ? '👑 Chủ sở hữu (Owner)'
-              : '👤 Nhân viên (Staff)'}
+            {role === 'owner' ? (
+              <CrownIcon size={13} />
+            ) : (
+              <UserIcon size={13} />
+            )}
+            <span>{role === 'owner' ? 'Chủ sở hữu' : 'Nhân viên'}</span>
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -96,18 +113,25 @@ export const AppShell: React.FC<AppShellProps> = ({
               type="button"
               onClick={onLogout}
               style={{
+                boxSizing: 'border-box',
                 minHeight: '32px',
-                padding: '4px 12px',
+                padding: '4px 10px',
                 borderRadius: '6px',
-                border: '1px solid #475569',
-                backgroundColor: 'transparent',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                backgroundColor: 'rgba(239, 68, 68, 0.05)',
                 color: '#EF4444',
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition:
+                  'background-color 0.15s ease, border-color 0.15s ease',
               }}
             >
-              Đăng xuất
+              <LogOutIcon size={13} />
+              <span>Đăng xuất</span>
             </button>
           )}
         </div>
@@ -193,10 +217,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                 type="button"
                 onClick={() => setIsMoreOpen(false)}
                 style={{
+                  boxSizing: 'border-box',
                   border: 'none',
                   backgroundColor: 'transparent',
                   color: '#94A3B8',
-                  fontSize: '20px',
                   cursor: 'pointer',
                   minHeight: '44px',
                   minWidth: '44px',
@@ -205,7 +229,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   justifyContent: 'center',
                 }}
               >
-                ✕
+                <CloseIcon size={20} />
               </button>
             </div>
 
@@ -222,12 +246,17 @@ export const AppShell: React.FC<AppShellProps> = ({
                   type="button"
                   onClick={() => handleMobileNav(item.path)}
                   style={{
+                    boxSizing: 'border-box',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
                     padding: '12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
+                    border: '1px solid',
+                    borderColor:
+                      currentPath === item.path
+                        ? 'rgba(20, 184, 166, 0.3)'
+                        : '#334155',
                     backgroundColor:
                       currentPath === item.path
                         ? 'rgba(20, 184, 166, 0.15)'
@@ -238,9 +267,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                     textAlign: 'left',
                     cursor: 'pointer',
                     minHeight: '44px',
+                    transition:
+                      'background-color 0.15s ease, border-color 0.15s ease',
                   }}
                 >
-                  <span style={{ fontSize: '20px' }}>{item.icon}</span>
+                  <NavIcon id={item.id} size={20} />
                   <span>{item.label}</span>
                 </button>
               ))}

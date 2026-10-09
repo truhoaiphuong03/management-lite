@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { AppCard, AppButton, PageHeader } from '@management-lite/ui/components';
+import {
+  AppCard,
+  AppButton,
+  PageHeader,
+  CheckCircleIcon,
+  AlertTriangleIcon,
+  CopyIcon,
+} from '@management-lite/ui/components';
 
 export interface EmployeeNewScreenProps {
   onNavigate: (path: string) => void;
@@ -82,8 +89,20 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               lineHeight: 1.5,
             }}
           >
-            🎉 <strong>Hồ sơ nhân viên đã sẵn sàng!</strong>
-            <div style={{ marginTop: '8px', color: '#F8FAFC' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '6px',
+              }}
+            >
+              <CheckCircleIcon size={20} />
+              <strong style={{ fontSize: '15px' }}>
+                Hồ sơ nhân viên đã sẵn sàng!
+              </strong>
+            </div>
+            <div style={{ color: '#F8FAFC' }}>
               Hãy gửi liên kết bảo mật bên dưới cho nhân viên để họ tự thiết lập
               mật khẩu và đăng nhập. Mật khẩu không bao giờ được gửi qua tin
               nhắn dạng rõ.
@@ -125,8 +144,15 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 navigator.clipboard.writeText(createdInviteUrl);
                 alert('Đã sao chép liên kết kích hoạt vào bộ nhớ tạm!');
               }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                justifyContent: 'center',
+              }}
             >
-              Sao chép liên kết
+              <CopyIcon size={16} />
+              <span>Sao chép liên kết</span>
             </AppButton>
             <AppButton
               variant="secondary"
@@ -159,9 +185,13 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               marginBottom: '20px',
               fontSize: '13px',
               color: '#EF4444',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
-            ⚠️ {errorMessage}
+            <AlertTriangleIcon size={18} />
+            <span>{errorMessage}</span>
           </div>
         )}
 

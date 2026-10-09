@@ -4,6 +4,11 @@ import {
   AppButton,
   PageHeader,
   StatusBadge,
+  AlertTriangleIcon,
+  PlayIcon,
+  PauseIcon,
+  StopIcon,
+  RotateCcwIcon,
 } from '@management-lite/ui/components';
 
 type ShiftState = 'idle' | 'working' | 'paused' | 'completed';
@@ -110,11 +115,17 @@ export const ClockScreen: React.FC = () => {
           marginBottom: '24px',
           fontSize: '13px',
           color: '#F59E0B',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
         }}
       >
-        ⚠️ <strong>MÔ PHỎNG NON-PERSISTENT (FT-01 DEMO):</strong> Trạng thái
-        chấm công dưới đây chỉ lưu tạm trong bộ nhớ trình duyệt, không gọi API
-        hay ghi vào bảng `attendance_shifts`.
+        <AlertTriangleIcon size={18} />
+        <div>
+          <strong>MÔ PHỎNG NON-PERSISTENT (FT-01 DEMO):</strong> Trạng thái chấm
+          công dưới đây chỉ lưu tạm trong bộ nhớ trình duyệt, không gọi API hay
+          ghi vào bảng `attendance_shifts`.
+        </div>
       </div>
 
       <div
@@ -187,8 +198,19 @@ export const ClockScreen: React.FC = () => {
             }}
           >
             {shiftState === 'idle' && (
-              <AppButton variant="primary" fullWidth onClick={handleClockIn}>
-                🟢 Vào ca (Clock-In)
+              <AppButton
+                variant="primary"
+                fullWidth
+                onClick={handleClockIn}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  justifyContent: 'center',
+                }}
+              >
+                <PlayIcon size={16} />
+                <span>Vào ca (Clock-In)</span>
               </AppButton>
             )}
 
@@ -196,17 +218,31 @@ export const ClockScreen: React.FC = () => {
               <>
                 <AppButton
                   variant="secondary"
-                  style={{ flex: 1 }}
+                  style={{
+                    flex: 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    justifyContent: 'center',
+                  }}
                   onClick={handlePause}
                 >
-                  ⏸️ Tạm nghỉ (Break)
+                  <PauseIcon size={16} />
+                  <span>Tạm nghỉ</span>
                 </AppButton>
                 <AppButton
                   variant="destructive"
-                  style={{ flex: 1 }}
+                  style={{
+                    flex: 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    justifyContent: 'center',
+                  }}
                   onClick={handleClockOut}
                 >
-                  🔴 Hết ca (Clock-Out)
+                  <StopIcon size={16} />
+                  <span>Hết ca</span>
                 </AppButton>
               </>
             )}
@@ -215,17 +251,31 @@ export const ClockScreen: React.FC = () => {
               <>
                 <AppButton
                   variant="primary"
-                  style={{ flex: 1 }}
+                  style={{
+                    flex: 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    justifyContent: 'center',
+                  }}
                   onClick={handleResume}
                 >
-                  ▶️ Tiếp tục làm
+                  <PlayIcon size={16} />
+                  <span>Tiếp tục làm</span>
                 </AppButton>
                 <AppButton
                   variant="destructive"
-                  style={{ flex: 1 }}
+                  style={{
+                    flex: 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    justifyContent: 'center',
+                  }}
                   onClick={handleClockOut}
                 >
-                  🔴 Hết ca
+                  <StopIcon size={16} />
+                  <span>Hết ca</span>
                 </AppButton>
               </>
             )}
@@ -235,8 +285,15 @@ export const ClockScreen: React.FC = () => {
                 variant="secondary"
                 fullWidth
                 onClick={handleResetDemo}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  justifyContent: 'center',
+                }}
               >
-                🔄 Đặt lại demo ca mới
+                <RotateCcwIcon size={16} />
+                <span>Đặt lại demo ca mới</span>
               </AppButton>
             )}
           </div>

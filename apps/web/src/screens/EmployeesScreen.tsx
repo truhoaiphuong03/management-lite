@@ -7,6 +7,11 @@ import {
   LoadingState,
   ErrorState,
   EmptyState,
+  PlusIcon,
+  CheckIcon,
+  CloseIcon,
+  LinkIcon,
+  CopyIcon,
 } from '@management-lite/ui/components';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 
@@ -158,8 +163,10 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           <AppButton
             variant="primary"
             onClick={() => onNavigate('/employees/new')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            + Thêm nhân sự
+            <PlusIcon size={16} />
+            <span>Thêm nhân sự</span>
           </AppButton>
         }
       />
@@ -180,18 +187,27 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
             alignItems: 'center',
           }}
         >
-          <span>✅ {actionSuccess}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckIcon size={18} />
+            <span>{actionSuccess}</span>
+          </div>
           <button
+            type="button"
             onClick={() => setActionSuccess(null)}
             style={{
               background: 'none',
               border: 'none',
               color: '#10B981',
               cursor: 'pointer',
-              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px',
+              minHeight: '32px',
+              minWidth: '32px',
             }}
           >
-            ✕
+            <CloseIcon size={16} />
           </button>
         </div>
       )}
@@ -203,9 +219,17 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           style={{ marginBottom: '20px', border: '1px solid #14B8A6' }}
         >
           <div
-            style={{ color: '#14B8A6', fontWeight: 600, marginBottom: '8px' }}
+            style={{
+              color: '#14B8A6',
+              fontWeight: 600,
+              marginBottom: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
           >
-            🔗 Liên kết kích hoạt tài khoản nhân viên:
+            <LinkIcon size={18} />
+            <span>Liên kết kích hoạt tài khoản nhân viên:</span>
           </div>
           <div
             style={{
@@ -228,8 +252,14 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                 navigator.clipboard.writeText(activeInviteUrl);
                 alert('Đã sao chép liên kết kích hoạt vào bộ nhớ tạm!');
               }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
             >
-              Sao chép liên kết
+              <CopyIcon size={16} />
+              <span>Sao chép liên kết</span>
             </AppButton>
             <AppButton
               variant="secondary"
@@ -259,8 +289,10 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
         ].map((tab) => (
           <button
             key={tab.key}
+            type="button"
             onClick={() => setStatusFilter(tab.key)}
             style={{
+              boxSizing: 'border-box',
               padding: '8px 16px',
               borderRadius: '6px',
               border: '1px solid',
@@ -272,8 +304,11 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               color: statusFilter === tab.key ? '#14B8A6' : '#94A3B8',
               fontSize: '13px',
               fontWeight: 600,
+              lineHeight: 1.2,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
+              transition:
+                'border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease',
             }}
           >
             {tab.label}
@@ -289,7 +324,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       ) : employees.length === 0 ? (
         <EmptyState
           title="Chưa có nhân viên nào"
-          description="Bấm nút '+ Thêm nhân sự' phía trên để mời nhân viên đầu tiên vào cửa hàng."
+          description="Bấm nút 'Thêm nhân sự' phía trên để mời nhân viên đầu tiên vào cửa hàng."
           action={
             <AppButton
               variant="primary"
@@ -361,10 +396,10 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                   gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#64748B' }}>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
                   {emp.is_payroll_eligible
-                    ? '✅ Tính lương tự động'
-                    : 'ℹ️ Không tính lương (Owner)'}
+                    ? 'Tính lương tự động'
+                    : 'Không tính lương (Owner)'}
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <AppButton

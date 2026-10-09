@@ -48,7 +48,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         badge={
           <StatusBadge
             status={role === 'owner' ? 'neutral' : 'success'}
-            label={role === 'owner' ? '👑 Chủ sở hữu' : '👤 Nhân viên'}
+            label={role === 'owner' ? 'Chủ sở hữu' : 'Nhân viên'}
           />
         }
       />

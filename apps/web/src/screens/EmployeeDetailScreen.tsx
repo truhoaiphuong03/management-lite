@@ -6,6 +6,11 @@ import {
   StatusBadge,
   LoadingState,
   ErrorState,
+  CheckIcon,
+  CloseIcon,
+  LinkIcon,
+  CopyIcon,
+  ArrowLeftIcon,
 } from '@management-lite/ui/components';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 import type { UserRole } from '../types.js';
@@ -226,20 +231,30 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
             fontSize: '14px',
             display: 'flex',
             justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          <span>✅ {actionNotice}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckIcon size={18} />
+            <span>{actionNotice}</span>
+          </div>
           <button
+            type="button"
             onClick={() => setActionNotice(null)}
             style={{
               background: 'none',
               border: 'none',
               color: '#10B981',
               cursor: 'pointer',
-              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px',
+              minHeight: '32px',
+              minWidth: '32px',
             }}
           >
-            ✕
+            <CloseIcon size={16} />
           </button>
         </div>
       )}
@@ -251,9 +266,17 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
           style={{ marginBottom: '20px', border: '1px solid #14B8A6' }}
         >
           <div
-            style={{ color: '#14B8A6', fontWeight: 600, marginBottom: '8px' }}
+            style={{
+              color: '#14B8A6',
+              fontWeight: 600,
+              marginBottom: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
           >
-            🔗 Liên kết kích hoạt tài khoản nhân viên:
+            <LinkIcon size={18} />
+            <span>Liên kết kích hoạt tài khoản nhân viên:</span>
           </div>
           <div
             style={{
@@ -276,8 +299,14 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 navigator.clipboard.writeText(activeInviteUrl);
                 alert('Đã sao chép liên kết kích hoạt vào bộ nhớ tạm!');
               }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
             >
-              Sao chép liên kết
+              <CopyIcon size={16} />
+              <span>Sao chép liên kết</span>
             </AppButton>
             <AppButton
               variant="secondary"
@@ -498,8 +527,14 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
             <AppButton
               variant="secondary"
               onClick={() => onNavigate('/employees')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
             >
-              ← Quay lại danh sách
+              <ArrowLeftIcon size={16} />
+              <span>Quay lại danh sách</span>
             </AppButton>
           </div>
         )}

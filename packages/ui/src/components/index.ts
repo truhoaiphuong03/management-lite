@@ -6,3 +6,4 @@ export * from './EmptyState.js';
 export * from './LoadingState.js';
 export * from './ErrorState.js';
 export * from './Navigation.js';
+export * from './Icons.js';

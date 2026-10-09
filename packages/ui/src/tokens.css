@@ -41,6 +41,20 @@ body {
   min-height: 100vh;
 }
 
+/* Layout stability for interactive elements without shifts */
+button,
+input,
+select,
+textarea {
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
 /* Base focus styles for accessibility */
 :focus-visible {
   outline: 2px solid var(--primary-color);

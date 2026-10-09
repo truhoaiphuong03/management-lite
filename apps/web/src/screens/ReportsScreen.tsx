@@ -5,6 +5,10 @@ import {
   PageHeader,
   StatusBadge,
   EmptyState,
+  EyeIcon,
+  FileTextIcon,
+  InfoIcon,
+  PlusIcon,
 } from '@management-lite/ui/components';
 
 export const ReportsScreen: React.FC = () => {
@@ -45,8 +49,20 @@ export const ReportsScreen: React.FC = () => {
               onClick={() =>
                 setViewMode(viewMode === 'list' ? 'empty' : 'list')
               }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
             >
-              {viewMode === 'list' ? '👁️ Xem Empty State' : '📋 Xem Danh sách'}
+              {viewMode === 'list' ? (
+                <EyeIcon size={16} />
+              ) : (
+                <FileTextIcon size={16} />
+              )}
+              <span>
+                {viewMode === 'list' ? 'Xem Empty State' : 'Xem Danh sách'}
+              </span>
             </AppButton>
           </div>
         }
@@ -61,22 +77,36 @@ export const ReportsScreen: React.FC = () => {
           marginBottom: '24px',
           fontSize: '13px',
           color: '#F8FAFC',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
         }}
       >
-        💡 <strong>QUY TẮC C02:</strong> Nhân viên sau khi nộp báo cáo
-        (submitted) có thể nộp phiên bản chỉnh sửa mới (revision). Phiên bản cũ
-        vẫn được lưu trữ bất biến (immutable), có thời gian và người nộp rõ
-        ràng.
+        <InfoIcon size={20} style={{ color: '#14B8A6' }} />
+        <div>
+          <strong>QUY TẮC C02:</strong> Nhân viên sau khi nộp báo cáo
+          (submitted) có thể nộp phiên bản chỉnh sửa mới (revision). Phiên bản
+          cũ vẫn được lưu trữ bất biến (immutable), có thời gian và người nộp rõ
+          ràng.
+        </div>
       </div>
 
       {viewMode === 'empty' ? (
         <EmptyState
           title="Chưa có báo cáo công việc nào"
           description="Hôm nay bạn chưa tạo báo cáo công việc. Bấm nút dưới để tạo bản nháp đầu tiên."
-          icon="📝"
+          icon={<FileTextIcon size={40} />}
           action={
-            <AppButton variant="primary">
-              ➕ Tạo báo cáo mới (UI09 demo)
+            <AppButton
+              variant="primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <PlusIcon size={16} />
+              <span>Tạo báo cáo mới (UI09 demo)</span>
             </AppButton>
           }
         />
@@ -146,9 +176,16 @@ export const ReportsScreen: React.FC = () => {
               <div style={{ display: 'flex', gap: '8px' }}>
                 <AppButton
                   variant="secondary"
-                  style={{ fontSize: '13px', minHeight: '36px' }}
+                  style={{
+                    fontSize: '13px',
+                    minHeight: '36px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
                 >
-                  📄 Xem chi tiết & Lịch sử phiên bản (UI10)
+                  <FileTextIcon size={14} />
+                  <span>Xem chi tiết & Lịch sử phiên bản (UI10)</span>
                 </AppButton>
               </div>
             </AppCard>

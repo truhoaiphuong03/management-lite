@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { AppCard, AppButton, PageHeader } from '@management-lite/ui/components';
+import {
+  AppCard,
+  AppButton,
+  PageHeader,
+  CheckCircleIcon,
+  AlertTriangleIcon,
+  ArrowLeftIcon,
+} from '@management-lite/ui/components';
 
 export interface ActivateScreenProps {
   onNavigate: (path: string) => void;
@@ -106,9 +113,13 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                   color: '#10B981',
                   fontSize: '14px',
                   lineHeight: 1.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
                 }}
               >
-                ✅ {successMessage}
+                <CheckCircleIcon size={20} />
+                <span>{successMessage}</span>
               </div>
               <AppButton
                 variant="primary"
@@ -131,9 +142,13 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     fontSize: '13px',
                     color: '#EF4444',
                     lineHeight: 1.4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
                   }}
                 >
-                  ⚠️ {errorMessage}
+                  <AlertTriangleIcon size={18} />
+                  <span>{errorMessage}</span>
                 </div>
               )}
 
@@ -261,9 +276,13 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     color: '#14B8A6',
                     fontSize: '13px',
                     cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
                   }}
                 >
-                  ← Đã có tài khoản? Đăng nhập
+                  <ArrowLeftIcon size={14} />
+                  <span>Đã có tài khoản? Đăng nhập</span>
                 </button>
               </div>
             </form>

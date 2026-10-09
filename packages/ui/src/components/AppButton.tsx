@@ -54,6 +54,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
       type="button"
       disabled={isDisabled}
       style={{
+        boxSizing: 'border-box',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -66,9 +67,12 @@ export const AppButton: React.FC<AppButtonProps> = ({
         color: colors.text,
         fontSize: '15px',
         fontWeight: 600,
+        lineHeight: 1.2,
+        userSelect: 'none',
         cursor: isDisabled ? 'not-allowed' : 'pointer',
         opacity: isDisabled ? 0.6 : 1,
-        transition: 'opacity 0.15s ease, background-color 0.15s ease',
+        transition:
+          'opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, filter 0.15s ease',
         width: fullWidth ? '100%' : 'auto',
         position: 'relative',
         ...style,

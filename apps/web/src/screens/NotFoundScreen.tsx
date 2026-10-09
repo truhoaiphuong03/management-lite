@@ -1,5 +1,10 @@
 import React from 'react';
-import { AppCard, AppButton } from '@management-lite/ui/components';
+import {
+  AppCard,
+  AppButton,
+  SearchIcon,
+  ShieldAlertIcon,
+} from '@management-lite/ui/components';
 
 export interface NotFoundScreenProps {
   isForbidden?: boolean;
@@ -30,8 +35,19 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
           padding: '40px 24px',
         }}
       >
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>
-          {isForbidden ? '🚫' : '🔍'}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginBottom: '16px',
+            color: isForbidden ? '#EF4444' : '#64748B',
+          }}
+        >
+          {isForbidden ? (
+            <ShieldAlertIcon size={48} />
+          ) : (
+            <SearchIcon size={48} />
+          )}
         </div>
         <h2
           style={{

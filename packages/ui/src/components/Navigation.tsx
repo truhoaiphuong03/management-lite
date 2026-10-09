@@ -1,4 +1,5 @@
 import React from 'react';
+import { BuildingIcon, NavIcon, MenuIcon } from './Icons.js';
 
 export interface NavItem {
   id: string;
@@ -10,53 +11,58 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Tổng quan', path: '/', icon: '📊' },
-  { id: 'clock', label: 'Chấm công', path: '/clock', icon: '⏱️' },
-  { id: 'reports', label: 'Báo cáo', path: '/reports', icon: '📝' },
-  { id: 'attendance', label: 'Lịch sử công', path: '/attendance', icon: '📅' },
+  { id: 'dashboard', label: 'Tổng quan', path: '/', icon: 'dashboard' },
+  { id: 'clock', label: 'Chấm công', path: '/clock', icon: 'clock' },
+  { id: 'reports', label: 'Báo cáo', path: '/reports', icon: 'reports' },
+  {
+    id: 'attendance',
+    label: 'Lịch sử công',
+    path: '/attendance',
+    icon: 'attendance',
+  },
   {
     id: 'attendance-review',
     label: 'Duyệt công',
     path: '/attendance/review',
-    icon: '✅',
+    icon: 'attendance-review',
     ownerOnly: true,
   },
   {
     id: 'employees',
     label: 'Nhân sự',
     path: '/employees',
-    icon: '👥',
+    icon: 'employees',
     ownerOnly: true,
   },
   {
     id: 'payroll',
     label: 'Bảng lương',
     path: '/payroll',
-    icon: '💰',
+    icon: 'payroll',
     ownerOnly: true,
   },
   {
     id: 'my-pay',
     label: 'Lương cá nhân',
     path: '/my-pay',
-    icon: '💵',
+    icon: 'my-pay',
     staffOnly: true,
   },
   {
     id: 'accounts',
     label: 'Tài khoản ACC',
     path: '/accounts',
-    icon: '🔐',
+    icon: 'accounts',
     ownerOnly: true,
   },
   {
     id: 'audit',
     label: 'Nhật ký Audit',
     path: '/audit',
-    icon: '📋',
+    icon: 'audit',
     ownerOnly: true,
   },
-  { id: 'settings', label: 'Cài đặt', path: '/settings', icon: '⚙️' },
+  { id: 'settings', label: 'Cài đặt', path: '/settings', icon: 'settings' },
 ];
 
 export interface DesktopSidebarProps {
@@ -89,6 +95,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         position: 'sticky',
         top: 0,
         flexShrink: 0,
+        boxSizing: 'border-box',
       }}
     >
       <div
@@ -98,9 +105,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
+          boxSizing: 'border-box',
         }}
       >
-        <span style={{ fontSize: '24px' }}>🏢</span>
+        <BuildingIcon size={24} style={{ color: '#14B8A6' }} />
         <div>
           <div style={{ fontWeight: 700, fontSize: '15px', color: '#F8FAFC' }}>
             Management Lite
@@ -130,26 +138,32 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               type="button"
               onClick={() => onNavigate(item.path)}
               style={{
+                boxSizing: 'border-box',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
                 padding: '10px 12px',
                 borderRadius: '8px',
-                border: 'none',
+                border: '1px solid',
+                borderColor: isActive
+                  ? 'rgba(20, 184, 166, 0.3)'
+                  : 'transparent',
                 backgroundColor: isActive
                   ? 'rgba(20, 184, 166, 0.15)'
                   : 'transparent',
                 color: isActive ? '#14B8A6' : '#94A3B8',
                 fontWeight: isActive ? 600 : 500,
                 fontSize: '14px',
+                lineHeight: 1.2,
                 textAlign: 'left',
                 cursor: 'pointer',
                 minHeight: '44px',
                 width: '100%',
-                transition: 'background-color 0.15s ease, color 0.15s ease',
+                transition:
+                  'background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',
               }}
             >
-              <span style={{ fontSize: '18px' }}>{item.icon}</span>
+              <NavIcon id={item.id} size={18} />
               <span>{item.label}</span>
             </button>
           );
@@ -193,9 +207,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   // Mobile bottom navigation max 4 primary destinations: Dashboard, Clock, Reports, More
   const primaryTabs = [
-    { label: 'Tổng quan', path: '/', icon: '📊' },
-    { label: 'Chấm công', path: '/clock', icon: '⏱️' },
-    { label: 'Báo cáo', path: '/reports', icon: '📝' },
+    { id: 'dashboard', label: 'Tổng quan', path: '/' },
+    { id: 'clock', label: 'Chấm công', path: '/clock' },
+    { id: 'reports', label: 'Báo cáo', path: '/reports' },
   ];
 
   return (
@@ -212,6 +226,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         alignItems: 'center',
         justifyContent: 'space-around',
         zIndex: 50,
+        boxSizing: 'border-box',
       }}
       aria-label="Mobile bottom navigation"
     >
@@ -235,10 +250,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               backgroundColor: 'transparent',
               color: isActive ? '#14B8A6' : '#94A3B8',
               cursor: 'pointer',
-              gap: '2px',
+              gap: '4px',
+              boxSizing: 'border-box',
+              padding: '6px 0',
+              transition: 'color 0.15s ease',
             }}
           >
-            <span style={{ fontSize: '18px' }}>{tab.icon}</span>
+            <NavIcon id={tab.id} size={20} />
             <span
               style={{ fontSize: '11px', fontWeight: isActive ? 600 : 500 }}
             >
@@ -264,10 +282,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           backgroundColor: 'transparent',
           color: isMoreOpen ? '#14B8A6' : '#94A3B8',
           cursor: 'pointer',
-          gap: '2px',
+          gap: '4px',
+          boxSizing: 'border-box',
+          padding: '6px 0',
+          transition: 'color 0.15s ease',
         }}
       >
-        <span style={{ fontSize: '18px' }}>☰</span>
+        <MenuIcon size={20} />
         <span style={{ fontSize: '11px', fontWeight: isMoreOpen ? 600 : 500 }}>
           Thêm
         </span>

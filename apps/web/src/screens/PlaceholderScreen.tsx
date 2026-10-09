@@ -4,6 +4,7 @@ import {
   AppButton,
   PageHeader,
   StatusBadge,
+  ConstructionIcon,
 } from '@management-lite/ui/components';
 import type { RouteMeta } from '../types.js';
 
@@ -32,7 +33,16 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
       />
 
       <AppCard padding="32px" style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '44px', marginBottom: '16px' }}>🚧</div>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginBottom: '16px',
+            color: '#F59E0B',
+          }}
+        >
+          <ConstructionIcon size={44} />
+        </div>
         <h3
           style={{
             fontSize: '20px',

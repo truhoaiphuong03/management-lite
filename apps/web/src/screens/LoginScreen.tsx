@@ -3,6 +3,8 @@ import {
   AppButton,
   AppCard,
   StatusBadge,
+  BuildingIcon,
+  AlertTriangleIcon,
 } from '@management-lite/ui/components';
 import type { UserRole } from '../types.js';
 
@@ -72,7 +74,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     >
       <AppCard style={{ maxWidth: '440px', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ fontSize: '40px', marginBottom: '12px' }}>🏢</div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              marginBottom: '12px',
+              color: '#14B8A6',
+            }}
+          >
+            <BuildingIcon size={44} />
+          </div>
           <h2
             style={{ fontSize: '22px', fontWeight: 700, marginBottom: '6px' }}
           >
@@ -104,9 +115,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
               fontSize: '13px',
               color: '#EF4444',
               lineHeight: 1.4,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
-            ⚠️ {errorMessage}
+            <AlertTriangleIcon size={18} />
+            <span>{errorMessage}</span>
           </div>
         )}
 
