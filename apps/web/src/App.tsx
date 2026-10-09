@@ -170,7 +170,7 @@ export const App: React.FC = () => {
       case '/':
         return <DashboardScreen role={role} onNavigate={handleNavigate} />;
       case '/clock':
-        return <ClockScreen />;
+        return <ClockScreen role={role} onNavigate={handleNavigate} />;
       case '/reports':
         return <ReportsScreen />;
       case '/employees':

@@ -37,6 +37,7 @@ export interface AuthMeResponseData {
   active_workspace: ActiveWorkspaceData;
   permissions: string[];
   memberships: WorkspaceMembershipSummary[];
+  csrf_token?: string | undefined;
 }
 
 export interface ChangePasswordRequestBody {

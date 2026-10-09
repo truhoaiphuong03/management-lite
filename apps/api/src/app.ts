@@ -9,21 +9,29 @@ import {
 } from './envelope.js';
 import { AuthService, AuthError } from './auth/service.js';
 import { EmployeeService } from './employees/service.js';
+import { AttendanceService } from './attendance/service.js';
 import { requireAuth, requireCsrf, extractSessionToken } from './auth/guard.js';
 import {
   serializeSessionCookie,
   serializeClearSessionCookie,
 } from './cookie.js';
+import { generateCsrfToken } from '../../../packages/security/src/csrf.js';
 import { DEV_DEFAULT_CSRF_SECRET } from './config.js';
 import type {
   CreateEmployeeRequestBody,
   UpdateEmployeeRequestBody,
 } from '../../../packages/contracts/src/employees.js';
+import type {
+  ReviewShiftRequestBody,
+  CreateCorrectionRequestBody,
+  DecideCorrectionRequestBody,
+} from '../../../packages/contracts/src/attendance.js';
 
 export interface AppDependencies {
   pool?: DatabasePool | null | undefined;
   authService?: AuthService;
   employeeService?: EmployeeService;
+  attendanceService?: AttendanceService;
   csrfSecret?: string;
   allowedOrigins?: string[];
   trustedProxies?: string[];
@@ -280,6 +288,10 @@ export function createRequestHandler(
   const employeeService =
     deps.employeeService ?? (deps.pool ? new EmployeeService(deps.pool) : null);
 
+  const attendanceService =
+    deps.attendanceService ??
+    (deps.pool ? new AttendanceService(deps.pool) : null);
+
   return async (req: http.IncomingMessage, res: http.ServerResponse) => {
     // 1. Assign deterministic or header-provided request_id
     const headerRequestId = req.headers['x-request-id'];
@@ -426,8 +438,19 @@ export function createRequestHandler(
           isProduction,
         );
         const authMeData = await authService.getAuthMe(sessionContext);
+        const csrfToken = generateCsrfToken(
+          sessionContext.sessionTokenHash,
+          csrfSecret,
+        );
 
-        return sendJson(res, 200, createSuccessEnvelope(authMeData, requestId));
+        return sendJson(
+          res,
+          200,
+          createSuccessEnvelope(
+            { ...authMeData, csrf_token: csrfToken },
+            requestId,
+          ),
+        );
       }
 
       // 7. POST /api/v1/auth/password/change
@@ -715,6 +738,220 @@ export function createRequestHandler(
           );
           return sendJson(res, 200, createSuccessEnvelope(result, requestId));
         }
+      }
+
+      // ==========================================
+      // ATTENDANCE MODULE ROUTES (UI04, UI05, UI06, UI07)
+      // ==========================================
+
+      // 13. GET /api/v1/attendance/me (Self current shift & recent history)
+      if (method === 'GET' && pathname === '/api/v1/attendance/me') {
+        if (!authService || !attendanceService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        const data = await attendanceService.getAttendanceMe(sessionContext);
+        return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+      }
+
+      // 14. POST /api/v1/attendance/shifts (Clock in)
+      if (method === 'POST' && pathname === '/api/v1/attendance/shifts') {
+        if (!authService || !attendanceService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+        const data = await attendanceService.clockIn(sessionContext, requestId);
+        return sendJson(res, 201, createSuccessEnvelope(data, requestId));
+      }
+
+      // 15. GET /api/v1/attendance/shifts (List workspace shifts - Owner only)
+      if (method === 'GET' && pathname === '/api/v1/attendance/shifts') {
+        if (!authService || !attendanceService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        const parsedUrl = new URL(req.url || '/', 'http://localhost');
+        const employee_id =
+          parsedUrl.searchParams.get('employee_id') || undefined;
+        const from_date = parsedUrl.searchParams.get('from_date') || undefined;
+        const to_date = parsedUrl.searchParams.get('to_date') || undefined;
+        const run_state = parsedUrl.searchParams.get('run_state') || undefined;
+        const review_state =
+          parsedUrl.searchParams.get('review_state') || undefined;
+        const limitStr = parsedUrl.searchParams.get('limit');
+        const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+
+        const data = await attendanceService.listShifts(sessionContext, {
+          employee_id,
+          from_date,
+          to_date,
+          run_state,
+          review_state,
+          limit,
+        });
+        return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+      }
+
+      // 16. Dynamic /api/v1/attendance/shifts/:id/(breaks|resume|clock-out|reviews|correction-requests)
+      const shiftActionMatch = pathname.match(
+        /^\/api\/v1\/attendance\/shifts\/([a-zA-Z0-9_-]+)\/(breaks|resume|clock-out|reviews|correction-requests)$/,
+      );
+
+      if (shiftActionMatch && method === 'POST') {
+        if (!authService || !attendanceService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const shiftId = shiftActionMatch[1]!;
+        const action = shiftActionMatch[2];
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+        if (action === 'breaks') {
+          const result = await attendanceService.startBreak(
+            sessionContext,
+            shiftId,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (action === 'resume') {
+          const result = await attendanceService.resumeBreak(
+            sessionContext,
+            shiftId,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (action === 'clock-out') {
+          const result = await attendanceService.clockOut(
+            sessionContext,
+            shiftId,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (action === 'reviews') {
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, ['decision', 'reason']);
+          const result = await attendanceService.reviewShift(
+            sessionContext,
+            shiftId,
+            body as unknown as ReviewShiftRequestBody,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (action === 'correction-requests') {
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, [
+            'reason',
+            'claimed_clock_out_at',
+            'evidence_note',
+          ]);
+          const result = await attendanceService.createCorrectionRequest(
+            sessionContext,
+            shiftId,
+            body as unknown as CreateCorrectionRequestBody,
+            requestId,
+          );
+          return sendJson(res, 201, createSuccessEnvelope(result, requestId));
+        }
+      }
+
+      // 17. Dynamic /api/v1/attendance/correction-requests/:id/decide
+      const decideCorrectionMatch = pathname.match(
+        /^\/api\/v1\/attendance\/correction-requests\/([a-zA-Z0-9_-]+)\/decide$/,
+      );
+
+      if (decideCorrectionMatch && method === 'POST') {
+        if (!authService || !attendanceService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const crId = decideCorrectionMatch[1]!;
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, ['decision', 'reason', 'clock_out_at']);
+
+        const result = await attendanceService.decideCorrectionRequest(
+          sessionContext,
+          crId,
+          body as unknown as DecideCorrectionRequestBody,
+          requestId,
+        );
+        return sendJson(res, 200, createSuccessEnvelope(result, requestId));
       }
 
       // Default 404 for unknown endpoints (Doc 24 compliant)
