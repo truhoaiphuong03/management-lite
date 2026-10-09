@@ -18,7 +18,7 @@ test('calculateChecksum produces deterministic SHA-256 for SQL strings', async (
   assert.match(calculateChecksum(sql1), /^[a-f0-9]{64}$/);
 });
 
-test('loadMigrationFiles loads M00, M01, M02, M02b, M03, and M04 migrations in deterministic sequence', async () => {
+test('loadMigrationFiles loads M00, M01, M02, M02b, M03, M04, and M05 migrations in deterministic sequence', async () => {
   const { loadMigrationFiles } = await import(
     `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
   );
@@ -27,13 +27,14 @@ test('loadMigrationFiles loads M00, M01, M02, M02b, M03, and M04 migrations in d
     resolve(root, 'packages/database/src/migrations'),
   );
 
-  assert.equal(migrations.length, 6);
+  assert.equal(migrations.length, 7);
   assert.equal(migrations[0]?.id, '0001_m00_prerequisites');
   assert.equal(migrations[1]?.id, '0002_m01_workspace_user_audit_idempotency');
   assert.equal(migrations[2]?.id, '0003_m02_auth_membership_session_outbox');
   assert.equal(migrations[3]?.id, '0004_m02b_user_workspace_bindings');
   assert.equal(migrations[4]?.id, '0005_m03_employees');
   assert.equal(migrations[5]?.id, '0006_m04_attendance');
+  assert.equal(migrations[6]?.id, '0007_m05_reports');
 
   // Assert valid SHA-256 checksums
   assert.match(migrations[0]?.checksum || '', /^[a-f0-9]{64}$/);
@@ -42,6 +43,34 @@ test('loadMigrationFiles loads M00, M01, M02, M02b, M03, and M04 migrations in d
   assert.match(migrations[3]?.checksum || '', /^[a-f0-9]{64}$/);
   assert.match(migrations[4]?.checksum || '', /^[a-f0-9]{64}$/);
   assert.match(migrations[5]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[6]?.checksum || '', /^[a-f0-9]{64}$/);
+});
+
+test('M05 migration SQL conforms strictly to canonical doc 03, 05, 19, 20, 21, 22, 25, 36, 50 report specifications', async () => {
+  const { loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const migrations = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+  const m05 = migrations.find((m) => m.id === '0007_m05_reports');
+  assert.ok(m05);
+
+  // Table definitions
+  assert.match(m05.sql, /CREATE TABLE IF NOT EXISTS daily_reports/);
+  assert.match(m05.sql, /CREATE TABLE IF NOT EXISTS daily_report_entries/);
+  assert.match(m05.sql, /CREATE TABLE IF NOT EXISTS daily_report_revisions/);
+  assert.match(m05.sql, /CHECK \(status IN \('draft', 'submitted'\)\)/);
+  assert.match(
+    m05.sql,
+    /uq_daily_reports_employee_day UNIQUE \(workspace_id, employee_id, report_date\)/,
+  );
+  assert.match(
+    m05.sql,
+    /uq_daily_report_revisions_number UNIQUE \(workspace_id, report_id, revision_number\)/,
+  );
+  assert.match(m05.sql, /trg_daily_report_revisions_immutable/);
 });
 
 test('M04 migration SQL conforms strictly to canonical doc 05, 14, 19, 20, 22, 25, 36 attendance specifications', async () => {

@@ -10,6 +10,7 @@ import {
 import { AuthService, AuthError } from './auth/service.js';
 import { EmployeeService } from './employees/service.js';
 import { AttendanceService } from './attendance/service.js';
+import { ReportsService } from './reports/service.js';
 import { requireAuth, requireCsrf, extractSessionToken } from './auth/guard.js';
 import {
   serializeSessionCookie,
@@ -26,12 +27,18 @@ import type {
   CreateCorrectionRequestBody,
   DecideCorrectionRequestBody,
 } from '../../../packages/contracts/src/attendance.js';
+import type {
+  CreateReportRequestBody,
+  UpdateReportRequestBody,
+  ReviseReportRequestBody,
+} from '../../../packages/contracts/src/reports.js';
 
 export interface AppDependencies {
   pool?: DatabasePool | null | undefined;
   authService?: AuthService;
   employeeService?: EmployeeService;
   attendanceService?: AttendanceService;
+  reportsService?: ReportsService;
   csrfSecret?: string;
   allowedOrigins?: string[];
   trustedProxies?: string[];
@@ -291,6 +298,9 @@ export function createRequestHandler(
   const attendanceService =
     deps.attendanceService ??
     (deps.pool ? new AttendanceService(deps.pool) : null);
+
+  const reportsService =
+    deps.reportsService ?? (deps.pool ? new ReportsService(deps.pool) : null);
 
   return async (req: http.IncomingMessage, res: http.ServerResponse) => {
     // 1. Assign deterministic or header-provided request_id
@@ -952,6 +962,248 @@ export function createRequestHandler(
           requestId,
         );
         return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+      }
+
+      // ==========================================
+      // REPORTS MODULE ROUTES (UI08, UI09, UI10, REP C02)
+      // ==========================================
+
+      // 18. GET /api/v1/reports/me (Self daily reports list)
+      if (method === 'GET' && pathname === '/api/v1/reports/me') {
+        if (!authService || !reportsService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        const parsedUrl = new URL(req.url || '/', 'http://localhost');
+        const start_date =
+          parsedUrl.searchParams.get('start_date') || undefined;
+        const end_date = parsedUrl.searchParams.get('end_date') || undefined;
+        const status = parsedUrl.searchParams.get('status') || undefined;
+        const limitStr = parsedUrl.searchParams.get('limit');
+        const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+
+        const data = await reportsService.getReportsMe(sessionContext, {
+          start_date,
+          end_date,
+          status,
+          limit,
+        });
+        return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+      }
+
+      // 19. GET /api/v1/reports/daily (Workspace reports list - Owner only)
+      if (method === 'GET' && pathname === '/api/v1/reports/daily') {
+        if (!authService || !reportsService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        const parsedUrl = new URL(req.url || '/', 'http://localhost');
+        const employee_id =
+          parsedUrl.searchParams.get('employee_id') || undefined;
+        const start_date =
+          parsedUrl.searchParams.get('start_date') || undefined;
+        const end_date = parsedUrl.searchParams.get('end_date') || undefined;
+        const status = parsedUrl.searchParams.get('status') || undefined;
+        const limitStr = parsedUrl.searchParams.get('limit');
+        const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+
+        const data = await reportsService.listDailyReports(sessionContext, {
+          employee_id,
+          start_date,
+          end_date,
+          status,
+          limit,
+        });
+        return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+      }
+
+      // 20. POST /api/v1/reports/daily (Create daily report draft)
+      if (method === 'POST' && pathname === '/api/v1/reports/daily') {
+        if (!authService || !reportsService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, ['report_date', 'entries', 'notes']);
+
+        const data = await reportsService.createReport(
+          sessionContext,
+          body as unknown as CreateReportRequestBody,
+        );
+        return sendJson(res, 201, createSuccessEnvelope(data, requestId));
+      }
+
+      // 21. Dynamic /api/v1/reports/daily/:id/(submit|revisions)
+      const reportActionMatch = pathname.match(
+        /^\/api\/v1\/reports\/daily\/([a-zA-Z0-9_-]+)\/(submit|revisions)$/,
+      );
+
+      if (reportActionMatch) {
+        if (!authService || !reportsService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const reportId = reportActionMatch[1]!;
+        const action = reportActionMatch[2];
+
+        if (action === 'submit' && method === 'POST') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+          const ifMatch = req.headers['if-match'];
+          const result = await reportsService.submitReport(
+            sessionContext,
+            reportId,
+            ifMatch,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (action === 'revisions' && method === 'POST') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, ['entries', 'notes', 'reason']);
+
+          const ifMatch = req.headers['if-match'];
+          const result = await reportsService.reviseReport(
+            sessionContext,
+            reportId,
+            body as unknown as ReviseReportRequestBody,
+            ifMatch,
+          );
+          return sendJson(res, 201, createSuccessEnvelope(result, requestId));
+        }
+
+        if (action === 'revisions' && method === 'GET') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          const revisions = await reportsService.listRevisions(
+            sessionContext,
+            reportId,
+          );
+          return sendJson(
+            res,
+            200,
+            createSuccessEnvelope(revisions, requestId),
+          );
+        }
+      }
+
+      // 22. Dynamic /api/v1/reports/daily/:id (GET detail, PATCH update draft)
+      const reportDetailMatch = pathname.match(
+        /^\/api\/v1\/reports\/daily\/([a-zA-Z0-9_-]+)$/,
+      );
+
+      if (reportDetailMatch) {
+        if (!authService || !reportsService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const reportId = reportDetailMatch[1]!;
+
+        if (method === 'GET') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          const report = await reportsService.getReportById(
+            sessionContext,
+            reportId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(report, requestId));
+        }
+
+        if (method === 'PATCH') {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, ['entries', 'notes']);
+
+          const ifMatch = req.headers['if-match'];
+          const result = await reportsService.updateDraftReport(
+            sessionContext,
+            reportId,
+            body as unknown as UpdateReportRequestBody,
+            ifMatch,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
       }
 
       // Default 404 for unknown endpoints (Doc 24 compliant)
