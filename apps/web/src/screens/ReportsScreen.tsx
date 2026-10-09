@@ -2008,7 +2008,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       backgroundColor: '#0F172A',
                       borderRadius: '8px',
                       border: '1px solid #1E293B',
-                      overflow: 'hidden',
+                      overflowX: 'auto',
                     }}
                   >
                     <table

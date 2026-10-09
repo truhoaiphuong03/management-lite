@@ -91,9 +91,9 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         borderRight: '1px solid #334155',
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
+        height: 'calc(100vh - 44px)',
         position: 'sticky',
-        top: 0,
+        top: '44px',
         flexShrink: 0,
         boxSizing: 'border-box',
       }}
@@ -179,13 +179,13 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         }}
       >
         <div>
-          Vai trò demo:{' '}
-          <strong style={{ color: '#F8FAFC', textTransform: 'capitalize' }}>
-            {role}
+          Vai trò:{' '}
+          <strong style={{ color: '#F8FAFC' }}>
+            {role === 'owner' ? 'Chủ sở hữu' : 'Nhân viên'}
           </strong>
         </div>
-        <div style={{ marginTop: '2px', color: '#F59E0B' }}>
-          ● Demo presentation
+        <div style={{ marginTop: '2px', color: '#10B981' }}>
+          ● Phiên trực tuyến
         </div>
       </div>
     </aside>

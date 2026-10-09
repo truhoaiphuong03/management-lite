@@ -52,7 +52,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         }
       />
 
-      {/* Demo status alert */}
+      {/* System status alert */}
       <div
         style={{
           padding: '12px 16px',
@@ -67,9 +67,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       >
         <InfoIcon size={20} style={{ color: '#14B8A6' }} />
         <div style={{ fontSize: '13px', color: '#F8FAFC' }}>
-          <strong>Chế độ xem trước (FT-01 Demo):</strong> Dữ liệu trên màn hình
-          là giao diện mẫu. Mọi thao tác trên trang demo không làm thay đổi cơ
-          sở dữ liệu backend.
+          <strong>Hệ thống Quản lý V0.1:</strong> Các phân hệ Chấm công (ATT),
+          Báo cáo (REP), Nhân sự (EMP) hoạt động trực tiếp với dữ liệu
+          PostgreSQL theo bảo mật chuẩn C06.
         </div>
       </div>
 
