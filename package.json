@@ -25,6 +25,7 @@
     "dev:api": "npm run build && node dist/apps/api/src/main.js",
     "migrate": "npm run build && node scripts/migrate.mjs",
     "bootstrap:owner": "npm run build && node scripts/bootstrap-owner.mjs",
+    "admin:create": "npm run build && node scripts/add-admin.mjs",
     "test:web": "node --test tests/web/*.test.mjs",
     "test:backend": "node --test tests/backend/*.test.mjs",
     "test:db": "node --test tests/database/*.test.mjs",
