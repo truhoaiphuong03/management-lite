@@ -19,6 +19,12 @@ export default defineConfig(() => {
       port: 3001,
       strictPort: true,
       host: isLan ? '0.0.0.0' : '127.0.0.1',
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:3002',
+          changeOrigin: false,
+        },
+      },
     },
     resolve: {
       alias: {

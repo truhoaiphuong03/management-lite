@@ -10,7 +10,7 @@ export interface AppShellProps {
   currentPath: string;
   onNavigate: (path: string) => void;
   role: UserRole;
-  onChangeRole: (newRole: UserRole) => void;
+  onLogout?: () => void;
   children: React.ReactNode;
 }
 
@@ -18,7 +18,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   currentPath,
   onNavigate,
   role,
-  onChangeRole,
+  onLogout,
   children,
 }) => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -46,55 +46,75 @@ export const AppShell: React.FC<AppShellProps> = ({
         backgroundColor: '#0B1220',
       }}
     >
-      {/* Persistent DEMO MODE top banner */}
-      <div
+      {/* Real Session Top Header */}
+      <header
         style={{
           position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
-          height: '36px',
-          backgroundColor: '#F59E0B',
-          color: '#0B1220',
+          height: '44px',
+          backgroundColor: '#151F30',
+          borderBottom: '1px solid #334155',
+          color: '#F8FAFC',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 16px',
-          fontSize: '12px',
-          fontWeight: 700,
+          fontSize: '13px',
+          fontWeight: 600,
           zIndex: 100,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+          boxSizing: 'border-box',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>⚠️</span>
-          <span>
-            CHẾ ĐỘ TRÌNH DIỄN (DEMO MODE) — KHÔNG THỰC HIỆN THAO TÁC THẬT
+          <span style={{ fontSize: '18px' }}>🏢</span>
+          <span style={{ color: '#F8FAFC', fontWeight: 700 }}>
+            Management Lite
+          </span>
+          <span
+            style={{
+              padding: '2px 8px',
+              borderRadius: '9999px',
+              backgroundColor:
+                role === 'owner'
+                  ? 'rgba(20, 184, 166, 0.2)'
+                  : 'rgba(56, 189, 248, 0.2)',
+              color: role === 'owner' ? '#14B8A6' : '#38BDF8',
+              fontSize: '11px',
+              fontWeight: 700,
+            }}
+          >
+            {role === 'owner'
+              ? '👑 Chủ sở hữu (Owner)'
+              : '👤 Nhân viên (Staff)'}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontWeight: 500 }}>Góc nhìn:</span>
-          <button
-            type="button"
-            onClick={() => onChangeRole(role === 'owner' ? 'staff' : 'owner')}
-            style={{
-              padding: '2px 8px',
-              borderRadius: '4px',
-              border: '1px solid #0B1220',
-              backgroundColor: '#0B1220',
-              color: '#F8FAFC',
-              fontSize: '11px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            {role === 'owner' ? '👑 Owner' : '👤 Staff'} (Đổi)
-          </button>
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              style={{
+                minHeight: '32px',
+                padding: '4px 12px',
+                borderRadius: '6px',
+                border: '1px solid #475569',
+                backgroundColor: 'transparent',
+                color: '#EF4444',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Đăng xuất
+            </button>
+          )}
         </div>
-      </div>
+      </header>
 
       {/* Desktop Sidebar (hidden on mobile via CSS media query in style) */}
-      <div className="desktop-sidebar-wrapper" style={{ marginTop: '36px' }}>
+      <div className="desktop-sidebar-wrapper" style={{ marginTop: '44px' }}>
         <DesktopSidebar
           currentPath={currentPath}
           onNavigate={onNavigate}
@@ -106,7 +126,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       <main
         style={{
           flex: 1,
-          marginTop: '36px',
+          marginTop: '44px',
           marginBottom: '68px', // Space for mobile bottom nav
           padding: '20px 16px',
           maxWidth: '1200px',

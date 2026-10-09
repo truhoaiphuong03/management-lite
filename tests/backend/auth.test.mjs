@@ -200,8 +200,12 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
       `INSERT INTO workspace_memberships (workspace_id, user_id, role, status) VALUES ($1, $2, 'owner', 'active');`,
       [ws1Id, userAId],
     );
+    await pool.query(
+      `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version) VALUES ($1, $2, 'active', 1);`,
+      [ws1Id, userAId],
+    );
 
-    // User B (Staff in ws1, exactly 1 active membership)
+    // User B (Staff in ws1, exactly 1 active membership and active binding)
     const userBId = crypto.randomUUID();
     const userBUsername = `staff_${Date.now()}_r${runIndex}_${runToken}`;
     const userBEmail = `staff_${Date.now()}_r${runIndex}_${runToken}@test.local`;
@@ -218,6 +222,10 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
     );
     await pool.query(
       `INSERT INTO workspace_memberships (workspace_id, user_id, role, status) VALUES ($1, $2, 'staff', 'active');`,
+      [ws1Id, userBId],
+    );
+    await pool.query(
+      `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version) VALUES ($1, $2, 'active', 1);`,
       [ws1Id, userBId],
     );
 

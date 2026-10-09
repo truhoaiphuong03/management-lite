@@ -21,7 +21,8 @@ export const App: React.FC = () => {
 
   const [currentPath, setCurrentPath] = useState<string>(getInitialPath);
   const [role, setRole] = useState<UserRole>('owner');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isCheckingSession, setIsCheckingSession] = useState<boolean>(true);
 
   // 2. Synchronize with browser Back and Forward buttons (popstate)
   useEffect(() => {
@@ -36,7 +37,41 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // 3. Navigation handler synchronizes browser URL (History API)
+  // 3. Check active session on initial load
+  useEffect(() => {
+    let active = true;
+    const checkSession = async () => {
+      try {
+        const res = await fetch('/api/v1/auth/me', {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const body = await res.json();
+          if (body.success && active) {
+            const userRole = body.data?.active_workspace?.role as UserRole;
+            if (userRole) setRole(userRole);
+            setIsLoggedIn(true);
+            if (window.location.pathname === '/login') {
+              handleNavigate('/');
+            }
+          }
+        } else if (active) {
+          setIsLoggedIn(false);
+        }
+      } catch {
+        if (active) setIsLoggedIn(false);
+      } finally {
+        if (active) setIsCheckingSession(false);
+      }
+    };
+
+    checkSession();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // 4. Navigation handler synchronizes browser URL (History API)
   const handleNavigate = (path: string) => {
     if (typeof window !== 'undefined' && window.location.pathname !== path) {
       window.history.pushState(null, '', path);
@@ -51,10 +86,40 @@ export const App: React.FC = () => {
     handleNavigate('/');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/v1/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+    } catch {
+      // Ignore logout transport errors, proceed to clear local state
+    }
     setIsLoggedIn(false);
     handleNavigate('/login');
   };
+
+  // If checking session on startup
+  if (isCheckingSession) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#0B1220',
+          color: '#14B8A6',
+          fontSize: '15px',
+          fontWeight: 600,
+        }}
+      >
+        Đang khởi động phiên làm việc...
+      </div>
+    );
+  }
 
   // If viewing login screen
   if (!isLoggedIn || currentPath === '/login') {
@@ -124,7 +189,7 @@ export const App: React.FC = () => {
       currentPath={currentPath}
       onNavigate={handleNavigate}
       role={role}
-      onChangeRole={setRole}
+      onLogout={handleLogout}
     >
       {renderContent()}
     </AppShell>

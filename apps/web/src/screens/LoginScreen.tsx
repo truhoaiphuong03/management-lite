@@ -11,12 +11,53 @@ export interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
-  const [selectedRole, setSelectedRole] = useState<UserRole>('owner');
-  const [username, setUsername] = useState('demo_owner');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleRoleSelect = (role: UserRole) => {
-    setSelectedRole(role);
-    setUsername(role === 'owner' ? 'demo_owner' : 'demo_staff');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = identifier.trim();
+    if (!cleanId || !password) {
+      setErrorMessage('Vui lòng nhập đầy đủ tài khoản và mật khẩu.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          identifier: cleanId,
+          password,
+        }),
+      });
+
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        setErrorMessage(
+          body.error?.message ||
+            'Đăng nhập không thành công. Vui lòng kiểm tra lại.',
+        );
+        return;
+      }
+
+      const role = body.data?.active_workspace?.role as UserRole;
+      onLogin(role || 'staff');
+    } catch {
+      setErrorMessage(
+        'Không thể kết nối đến máy chủ API. Vui lòng thử lại sau.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -45,150 +86,124 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
               alignItems: 'center',
             }}
           >
-            <StatusBadge status="warning" label="UI01 DEMO" />
+            <StatusBadge status="success" label="V0.1 Live Auth" />
             <span style={{ fontSize: '13px', color: '#94A3B8' }}>
-              Management Lite V0.1
+              Management Lite
             </span>
           </div>
         </div>
 
-        <div
-          style={{
-            padding: '12px',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            marginBottom: '20px',
-            fontSize: '13px',
-            color: '#F59E0B',
-            lineHeight: 1.4,
-          }}
-        >
-          ⚠️ <strong>LƯU Ý DEMO:</strong> Không nhập mật khẩu thật. Đây là giao
-          diện trình diễn độc lập trên localhost, không gửi dữ liệu tới server
-          production.
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label
-            style={{
-              display: 'block',
-              fontSize: '14px',
-              marginBottom: '6px',
-              color: '#94A3B8',
-            }}
-          >
-            Chọn vai trò xem trước:
-          </label>
+        {errorMessage && (
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '8px',
+              padding: '12px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              marginBottom: '20px',
+              fontSize: '13px',
+              color: '#EF4444',
+              lineHeight: 1.4,
             }}
           >
-            <button
-              type="button"
-              onClick={() => handleRoleSelect('owner')}
-              style={{
-                minHeight: '44px',
-                borderRadius: '8px',
-                border: `1px solid ${selectedRole === 'owner' ? '#14B8A6' : '#334155'}`,
-                backgroundColor:
-                  selectedRole === 'owner'
-                    ? 'rgba(20, 184, 166, 0.15)'
-                    : '#0B1220',
-                color: selectedRole === 'owner' ? '#14B8A6' : '#94A3B8',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              👑 Chủ sở hữu (Owner)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRoleSelect('staff')}
-              style={{
-                minHeight: '44px',
-                borderRadius: '8px',
-                border: `1px solid ${selectedRole === 'staff' ? '#14B8A6' : '#334155'}`,
-                backgroundColor:
-                  selectedRole === 'staff'
-                    ? 'rgba(20, 184, 166, 0.15)'
-                    : '#0B1220',
-                color: selectedRole === 'staff' ? '#14B8A6' : '#94A3B8',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              👤 Nhân viên (Staff)
-            </button>
+            ⚠️ {errorMessage}
           </div>
-        </div>
+        )}
 
-        <div style={{ marginBottom: '16px' }}>
-          <label
-            style={{
-              display: 'block',
-              fontSize: '14px',
-              marginBottom: '6px',
-              color: '#94A3B8',
-            }}
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '16px' }}>
+            <label
+              htmlFor="identifier"
+              style={{
+                display: 'block',
+                fontSize: '14px',
+                marginBottom: '6px',
+                color: '#94A3B8',
+              }}
+            >
+              Tên đăng nhập hoặc Email:
+            </label>
+            <input
+              id="identifier"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="owner hoặc staff@management-lite.local"
+              disabled={isLoading}
+              style={{
+                width: '100%',
+                minHeight: '44px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid #334155',
+                backgroundColor: '#0B1220',
+                color: '#F8FAFC',
+                fontSize: '14px',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '24px' }}>
+            <label
+              htmlFor="password"
+              style={{
+                display: 'block',
+                fontSize: '14px',
+                marginBottom: '6px',
+                color: '#94A3B8',
+              }}
+            >
+              Mật khẩu:
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••••••"
+              disabled={isLoading}
+              style={{
+                width: '100%',
+                minHeight: '44px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid #334155',
+                backgroundColor: '#0B1220',
+                color: '#F8FAFC',
+                fontSize: '14px',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <AppButton
+            variant="primary"
+            fullWidth
+            type="submit"
+            disabled={isLoading}
           >
-            Tên người dùng demo:
-          </label>
-          <input
-            type="text"
-            readOnly
-            value={username}
-            style={{
-              width: '100%',
-              minHeight: '44px',
-              padding: '0 12px',
-              borderRadius: '8px',
-              border: '1px solid #334155',
-              backgroundColor: '#0B1220',
-              color: '#F8FAFC',
-              fontSize: '14px',
-            }}
-          />
-        </div>
+            {isLoading ? 'Đang xác thực...' : 'Đăng nhập'}
+          </AppButton>
+        </form>
 
-        <div style={{ marginBottom: '24px' }}>
-          <label
-            style={{
-              display: 'block',
-              fontSize: '14px',
-              marginBottom: '6px',
-              color: '#94A3B8',
-            }}
-          >
-            Mật khẩu mô phỏng:
-          </label>
-          <input
-            type="password"
-            readOnly
-            value="••••••••••••"
-            style={{
-              width: '100%',
-              minHeight: '44px',
-              padding: '0 12px',
-              borderRadius: '8px',
-              border: '1px solid #334155',
-              backgroundColor: '#0B1220',
-              color: '#94A3B8',
-              fontSize: '14px',
-            }}
-          />
-        </div>
-
-        <AppButton
-          variant="primary"
-          fullWidth
-          onClick={() => onLogin(selectedRole)}
+        <div
+          style={{
+            marginTop: '20px',
+            paddingTop: '16px',
+            borderTop: '1px solid #1E293B',
+            textAlign: 'center',
+            fontSize: '12px',
+            color: '#64748B',
+          }}
         >
-          Vào xem Dashboard ({selectedRole === 'owner' ? 'Owner' : 'Staff'})
-        </AppButton>
+          Hệ thống bảo vệ phiên làm việc theo tiêu chuẩn bảo mật C06
+        </div>
       </AppCard>
     </div>
   );

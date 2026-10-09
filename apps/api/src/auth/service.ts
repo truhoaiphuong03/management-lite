@@ -189,15 +189,12 @@ export class AuthService {
     // Reset rate limiter on successful credentials
     this.loginLimiter.reset(clientIp);
 
-    // 4. Resolve C06 active workspace binding
-    // Architectural Note: An active membership represents membership existence.
-    // A preauthorized active binding is an explicitly provisioned binding authorizing login session context.
-    // When 0 active memberships exist: fail closed 409 WORKSPACE_CONTEXT_UNRESOLVED.
-    // When > 1 active memberships exist: without an explicit preauthorized binding flag/table,
-    // the backend cannot determine which workspace was preauthorized, and MUST fail closed 409.
-    // Client-supplied workspace_id is NEVER accepted as authority.
-    const membershipRes = await this.pool.query<{
-      membership_id: string;
+    // 4. Resolve C06 active workspace binding (preauthorized active context)
+    // Canonical Doc 30/36: POST /auth/login succeeds only if exactly one preauthorized
+    // active binding is resolved from user_workspace_bindings.
+    // If zero or multiple active bindings exist, fail closed with 409 WORKSPACE_CONTEXT_UNRESOLVED.
+    const bindingRes = await this.pool.query<{
+      binding_id: string;
       workspace_id: string;
       role: UserRole;
       membership_status: string;
@@ -207,25 +204,28 @@ export class AuthService {
     }>(
       `
       SELECT
-        wm.id AS membership_id,
-        wm.workspace_id,
+        uwb.id AS binding_id,
+        uwb.workspace_id,
         wm.role,
         wm.status AS membership_status,
         w.name AS workspace_name,
         w.timezone,
         w.status AS workspace_status
-      FROM workspace_memberships wm
-      JOIN workspaces w ON w.id = wm.workspace_id
-      WHERE wm.user_id = $1
+      FROM user_workspace_bindings uwb
+      JOIN workspace_memberships wm
+        ON wm.workspace_id = uwb.workspace_id AND wm.user_id = uwb.user_id
+      JOIN workspaces w ON w.id = uwb.workspace_id
+      WHERE uwb.user_id = $1
+        AND uwb.status = 'active'
         AND wm.status = 'active'
         AND w.status = 'active'
     `,
       [userRow.id],
     );
 
-    const activeMemberships = membershipRes.rows;
+    const activeBindings = bindingRes.rows;
 
-    if (activeMemberships.length === 0) {
+    if (activeBindings.length === 0 || activeBindings.length > 1) {
       throw new AuthError(
         'WORKSPACE_CONTEXT_UNRESOLVED',
         'Workspace context could not be resolved',
@@ -233,15 +233,7 @@ export class AuthService {
       );
     }
 
-    if (activeMemberships.length > 1) {
-      throw new AuthError(
-        'WORKSPACE_CONTEXT_UNRESOLVED',
-        'Workspace context could not be resolved',
-        409,
-      );
-    }
-
-    const chosenMembership = activeMemberships[0]!;
+    const chosenMembership = activeBindings[0]!;
 
     // 5. Issue session with CSPRNG token (32 bytes = 256 bits entropy)
     const sessionToken = generateCsprngToken(32);
@@ -369,12 +361,14 @@ export class AuthService {
       UPDATE auth_sessions s
       SET last_seen_at = $1,
           idle_expires_at = LEAST($2, s.absolute_expires_at)
-      FROM users u, user_credentials uc, workspace_memberships wm, workspaces w
+      FROM users u, user_credentials uc, workspace_memberships wm, workspaces w, user_workspace_bindings uwb
       WHERE s.session_token_hash = $3
         AND s.user_id = u.id
         AND uc.user_id = s.user_id
         AND wm.workspace_id = s.workspace_id AND wm.user_id = s.user_id
         AND w.id = s.workspace_id
+        AND uwb.user_id = s.user_id AND uwb.workspace_id = s.workspace_id
+        AND uwb.status = 'active'
         AND s.revoked_at IS NULL
         AND s.idle_expires_at > $1
         AND s.absolute_expires_at > $1

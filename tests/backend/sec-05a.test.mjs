@@ -31,7 +31,11 @@ function fixture(rows) {
   const pool = {
     query: async (sql, params) => {
       queries.push({ sql, params });
-      if (sql.includes('FROM workspace_memberships wm')) return { rows: [] };
+      if (
+        sql.includes('FROM workspace_memberships wm') ||
+        sql.includes('FROM user_workspace_bindings uwb')
+      )
+        return { rows: [] };
       assert.ok(sql.includes('FROM users u'));
       return { rows };
     },
