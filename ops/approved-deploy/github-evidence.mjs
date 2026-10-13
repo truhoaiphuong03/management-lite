@@ -1,60 +1,60 @@
 // Read-only, one-shot authenticated provenance verifier. Never log response bodies or tokens.
 // Call only from a protected host controller; GITHUB_READ_TOKEN is process-local, read-only.
 export async function getGitHubEvidence(approval, token) {
-  if (!token) throw Error("GITHUB_CREDENTIAL_UNAVAILABLE");
+  if (!token) throw Error('GITHUB_CREDENTIAL_UNAVAILABLE');
   const prefix =
-    "https://api.github.com/repos/truhoaiphuong03/management-lite/";
+    'https://api.github.com/repos/truhoaiphuong03/management-lite/';
   const get = async (suffix) => {
     const r = await fetch(prefix + suffix, {
       headers: {
-        Authorization: "Bearer " + token,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
       },
       signal: AbortSignal.timeout(15000),
-      redirect: "error",
+      redirect: 'error',
     });
-    if (!r.ok) throw Error("GITHUB_METADATA_UNAVAILABLE");
+    if (!r.ok) throw Error('GITHUB_METADATA_UNAVAILABLE');
     return r.json();
   };
-  for (const k of ["runId", "runAttempt", "artifactId"])
+  for (const k of ['runId', 'runAttempt', 'artifactId'])
     if (!Number.isSafeInteger(approval[k]) || approval[k] < 1)
-      throw Error("INVALID_CI_ID");
+      throw Error('INVALID_CI_ID');
   if (
     !/^[a-f0-9]{40}$/.test(approval.commit) ||
-    approval.sourceBranch !== "main"
+    approval.sourceBranch !== 'main'
   )
-    throw Error("INVALID_RELEASE_SOURCE");
+    throw Error('INVALID_RELEASE_SOURCE');
   const [repo, run, artifact, branch, compare, jobs] = await Promise.all([
-    get(""),
-    get("actions/runs/" + approval.runId + "/attempts/" + approval.runAttempt),
-    get("actions/artifacts/" + approval.artifactId),
-    get("branches/main"),
-    get("compare/" + approval.commit + "...main"),
+    get(''),
+    get('actions/runs/' + approval.runId + '/attempts/' + approval.runAttempt),
+    get('actions/artifacts/' + approval.artifactId),
+    get('branches/main'),
+    get('compare/' + approval.commit + '...main'),
     get(
-      "actions/runs/" +
+      'actions/runs/' +
         approval.runId +
-        "/attempts/" +
+        '/attempts/' +
         approval.runAttempt +
-        "/jobs?per_page=100",
+        '/jobs?per_page=100',
     ),
   ]);
   if (jobs.total_count !== jobs.jobs.length)
-    throw Error("CI_JOB_PAGINATION_REVIEW_REQUIRED");
-  const required = ["release-tests", "windows-package"];
+    throw Error('CI_JOB_PAGINATION_REVIEW_REQUIRED');
+  const required = ['release-tests', 'windows-package'];
   const jobsPassed = required.every((name) =>
     jobs.jobs.some(
       (j) =>
         j.name === name &&
-        j.status === "completed" &&
-        j.conclusion === "success",
+        j.status === 'completed' &&
+        j.conclusion === 'success',
     ),
   );
   if (
     artifact.workflow_run?.id !== approval.runId ||
     artifact.workflow_run?.head_sha !== approval.commit
   )
-    throw Error("ARTIFACT_RUN_MISMATCH");
+    throw Error('ARTIFACT_RUN_MISMATCH');
   return {
     authenticated: true,
     repositoryId: repo.id,
@@ -69,9 +69,9 @@ export async function getGitHubEvidence(approval, token) {
     conclusion: run.conclusion,
     artifactName: artifact.name,
     artifactExpired: artifact.expired,
-    artifactSHA256: (artifact.digest || "").replace(/^sha256:/, ""),
+    artifactSHA256: (artifact.digest || '').replace(/^sha256:/, ''),
     commitOnSourceBranch:
-      ["ahead", "identical"].includes(compare.status) &&
+      ['ahead', 'identical'].includes(compare.status) &&
       compare.merge_base_commit?.sha === approval.commit,
     branchProtected: branch.protected === true,
     testsPassed: jobsPassed,
