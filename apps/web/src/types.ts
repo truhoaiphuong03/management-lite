@@ -1,4 +1,4 @@
-export type UserRole = 'owner' | 'staff';
+export type UserRole = 'owner' | 'admin' | 'staff';
 
 export interface RouteMeta {
   id: string;

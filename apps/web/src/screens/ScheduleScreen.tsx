@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AppCard,
   AppButton,
@@ -12,13 +12,9 @@ import {
   CloseIcon,
   UserIcon,
   RotateCcwIcon,
+  EyeIcon,
   InfoIcon,
 } from '@management-lite/ui/components';
-import {
-  ActionIconButton,
-  Pagination,
-  clampPage,
-} from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 import type {
   ScheduleData,
@@ -41,6 +37,7 @@ interface DayFormItem {
   dayIndex: number; // 1 = Monday, ..., 7 = Sunday
   isWorking: boolean;
   startTime: string; // HH:mm
+  notes?: string; // Ghi chú công việc / ca
 }
 
 const VIETNAMESE_DAYS = [
@@ -112,7 +109,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   // CSRF token
   const [csrfToken, setCsrfToken] = useState<string>('');
 
-  // Staff state
+  const isAdminOrOwner = role === 'admin' || role === 'owner';
+  const [activeTab, setActiveTab] = useState<'my_schedule' | 'staff_schedules'>('my_schedule');
+
+  // Staff / Self schedule state
   const [mySchedule, setMySchedule] = useState<ScheduleData | null>(null);
   const [myEntries, setMyEntries] = useState<ScheduleEntryData[]>([]);
   const [myRevisions, setMyRevisions] = useState<ScheduleRevisionData[]>([]);
@@ -124,15 +124,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   // Revisions modal
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
 
-  // Owner state
+  // Owner / Admin state
   const [allSchedules, setAllSchedules] = useState<ScheduleData[]>([]);
   const [employees, setEmployees] = useState<EmployeeData[]>([]);
-  const [employeesError, setEmployeesError] = useState<string | null>(null);
-  const [employeesLoading, setEmployeesLoading] = useState<boolean>(false);
   const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [ownerPage, setOwnerPage] = useState<number>(0);
-  const [ownerPageSize, setOwnerPageSize] = useState<number>(20);
   const [ownerDetailSchedule, setOwnerDetailSchedule] =
     useState<ScheduleData | null>(null);
   const [ownerDetailRevisions, setOwnerDetailRevisions] = useState<
@@ -146,132 +141,49 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Q65-05: Multi-page employee selector generation and abort management
-  const employeesFetchIdRef = useRef<number>(0);
-  const employeesAbortControllerRef = useRef<AbortController | null>(null);
-
   // Initialize CSRF and initial data
   useEffect(() => {
-    const controller = new AbortController();
-    initAuthAndData(controller.signal);
-    return () => {
-      controller.abort();
-      employeesAbortControllerRef.current?.abort();
-    };
+    initAuthAndData();
   }, [role]);
 
-  // When selected week changes, re-fetch
+  // When selected week or active tab changes, re-fetch
   useEffect(() => {
-    if (role === 'staff') {
+    if (!isAdminOrOwner || activeTab === 'my_schedule') {
       fetchStaffSchedule(selectedMonday);
     } else {
       fetchOwnerSchedules(selectedMonday);
     }
-  }, [selectedMonday, role]);
+  }, [selectedMonday, role, activeTab]);
 
-  const initAuthAndData = async (signal?: AbortSignal) => {
+  const initAuthAndData = async () => {
     try {
-      const authInit: RequestInit = { credentials: 'include' };
-      if (signal) authInit.signal = signal;
-      const authRes = await fetch('/api/v1/auth/me', authInit);
+      const authRes = await fetch('/api/v1/auth/me', {
+        credentials: 'include',
+      });
       if (authRes.ok) {
         const authData = await authRes.json();
-        if (signal?.aborted) return;
         if (authData.data?.csrf_token) {
           setCsrfToken(authData.data.csrf_token);
         }
       }
 
-      if (role === 'owner') {
-        await fetchEmployees(signal);
+      if (isAdminOrOwner) {
+        await fetchEmployees();
       }
     } catch {
       // Ignore transport errors on mount
     }
   };
 
-  const fetchEmployees = async (externalSignal?: AbortSignal) => {
-    if (employeesAbortControllerRef.current) {
-      employeesAbortControllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    employeesAbortControllerRef.current = controller;
-    const requestId = ++employeesFetchIdRef.current;
-
-    const isAborted = () =>
-      controller.signal.aborted ||
-      Boolean(externalSignal?.aborted) ||
-      requestId !== employeesFetchIdRef.current;
-
-    setEmployeesLoading(true);
-    setEmployeesError(null);
+  const fetchEmployees = async () => {
     try {
-      const all: EmployeeData[] = [];
-      const seenIds = new Set<string>();
-      const seenCursors = new Set<string>();
-      let cursor: string | null = null;
-      let page = 0;
-      const maxPages = 20;
-
-      while (page < maxPages) {
-        if (isAborted()) return;
-        page++;
-        const url: string = cursor
-          ? `/api/v1/employees?limit=50&cursor=${encodeURIComponent(cursor)}`
-          : '/api/v1/employees?limit=50';
-        const res = await fetch(url, {
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        if (isAborted()) return;
-        if (!res.ok) {
-          throw new Error(
-            `Lỗi tải danh sách nhân viên (HTTP ${res.status}). Danh sách có thể chưa đầy đủ.`,
-          );
-        }
+      const res = await fetch('/api/v1/employees', { credentials: 'include' });
+      if (res.ok) {
         const body = await res.json();
-        if (isAborted()) return;
-        const items: EmployeeData[] = body.data?.items || [];
-        for (const item of items) {
-          if (!seenIds.has(item.id)) {
-            seenIds.add(item.id);
-            all.push(item);
-          }
-        }
-        cursor = body.data?.next_cursor || null;
-        if (cursor) {
-          if (seenCursors.has(cursor)) {
-            throw new Error(
-              'Phát hiện vòng lặp phân trang cursor từ máy chủ. Danh sách có thể chưa đầy đủ.',
-            );
-          }
-          seenCursors.add(cursor);
-        }
-        if (!cursor || items.length === 0) break;
+        setEmployees(body.data?.items || []);
       }
-
-      if (isAborted()) return;
-
-      if (cursor && page >= maxPages) {
-        setEmployees(all);
-        setEmployeesError(
-          `Đã tải tối đa ${maxPages} trang (${all.length} nhân viên). Danh sách có thể chưa đầy đủ.`,
-        );
-        return;
-      }
-
-      setEmployees(all);
-      setEmployeesError(null);
-    } catch (err: unknown) {
-      if (isAborted()) return;
-      if (err instanceof Error && err.name === 'AbortError') return;
-      setEmployeesError(
-        err instanceof Error ? err.message : 'Lỗi tải danh sách nhân viên',
-      );
-    } finally {
-      if (!isAborted()) {
-        setEmployeesLoading(false);
-      }
+    } catch {
+      // Ignored
     }
   };
 
@@ -358,6 +270,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
           isWorking: Boolean(entry),
           startTime:
             entry && entry.start_time ? entry.start_time.slice(0, 5) : '08:00',
+          notes: entry?.notes || '',
         };
       }),
     );
@@ -424,6 +337,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
           work_date: d.dateStr,
           day_of_week: d.dayIndex,
           start_time: d.startTime,
+          ...(d.notes?.trim() ? { notes: d.notes.trim() } : {}),
         })),
       };
 
@@ -486,6 +400,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
           work_date: d.dateStr,
           day_of_week: d.dayIndex,
           start_time: d.startTime,
+          ...(d.notes?.trim() ? { notes: d.notes.trim() } : {}),
         })),
         ...(editReason.trim() ? { reason: editReason.trim() } : {}),
       };
@@ -554,11 +469,63 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       <PageHeader
         title="Lịch làm việc"
         subtitle={
-          role === 'staff'
+          !isAdminOrOwner || activeTab === 'my_schedule'
             ? 'Đăng ký và điều chỉnh lịch làm việc theo tuần'
             : 'Theo dõi lịch làm việc đã đăng ký của nhân sự'
         }
       />
+
+      {/* Admin/Owner Tabs */}
+      {isAdminOrOwner && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('my_schedule')}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '8px',
+              border:
+                activeTab === 'my_schedule'
+                  ? '1px solid #14B8A6'
+                  : '1px solid #334155',
+              backgroundColor:
+                activeTab === 'my_schedule'
+                  ? 'rgba(20, 184, 166, 0.15)'
+                  : '#1E293B',
+              color: activeTab === 'my_schedule' ? '#14B8A6' : '#94A3B8',
+              fontWeight: 600,
+              fontSize: '14px',
+              cursor: 'pointer',
+              minHeight: '44px',
+            }}
+          >
+            Lịch của tôi (Đăng ký lịch)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('staff_schedules')}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '8px',
+              border:
+                activeTab === 'staff_schedules'
+                  ? '1px solid #14B8A6'
+                  : '1px solid #334155',
+              backgroundColor:
+                activeTab === 'staff_schedules'
+                  ? 'rgba(20, 184, 166, 0.15)'
+                  : '#1E293B',
+              color: activeTab === 'staff_schedules' ? '#14B8A6' : '#94A3B8',
+              fontWeight: 600,
+              fontSize: '14px',
+              cursor: 'pointer',
+              minHeight: '44px',
+            }}
+          >
+            Lịch tất cả nhân sự
+          </button>
+        </div>
+      )}
 
       {/* Global Alerts */}
       {successMessage && (
@@ -717,9 +684,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       </AppCard>
 
       {/* ========================================================================= */}
-      {/* STAFF VIEW                                                                */}
+      {/* STAFF / SELF SCHEDULE VIEW                                                */}
       {/* ========================================================================= */}
-      {role === 'staff' && (
+      {(!isAdminOrOwner || activeTab === 'my_schedule') && (
         <div>
           {scheduleLoading ? (
             <LoadingState message="Đang tải lịch làm việc..." />
@@ -902,6 +869,18 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 >
                                   {formatDateDisplay(entry.work_date)}
                                 </div>
+                                {entry.notes && (
+                                  <div
+                                    style={{
+                                      fontSize: '12px',
+                                      color: '#CBD5E1',
+                                      marginTop: '2px',
+                                      fontStyle: 'italic',
+                                    }}
+                                  >
+                                    Ghi chú: {entry.notes}
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -1074,51 +1053,98 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                         </div>
                       </label>
 
-                      {/* Right: Start Time Picker (only enabled if isWorking is true) */}
+                      {/* Right: Start Time Picker and Notes */}
                       <div
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '8px',
+                          gap: '12px',
+                          flexWrap: 'wrap',
+                          justifyContent: 'flex-end',
                         }}
                       >
-                        <span
+                        <div
                           style={{
-                            fontSize: '13px',
-                            color: dayItem.isWorking ? '#CBD5E1' : '#64748B',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
                           }}
                         >
-                          Giờ bắt đầu:
-                        </span>
-                        <input
-                          type="time"
-                          value={dayItem.startTime}
-                          disabled={!dayItem.isWorking}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setDayEntries((prev) =>
-                              prev.map((item, idx) =>
-                                idx === index
-                                  ? { ...item, startTime: val }
-                                  : item,
-                              ),
-                            );
-                          }}
-                          style={{
-                            backgroundColor: dayItem.isWorking
-                              ? '#0F172A'
-                              : '#1E293B',
-                            color: dayItem.isWorking ? '#F8FAFC' : '#64748B',
-                            border: `1px solid ${dayItem.isWorking ? '#14B8A6' : '#334155'}`,
-                            borderRadius: '6px',
-                            padding: '6px 10px',
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            minHeight: '44px',
-                            boxSizing: 'border-box',
-                            cursor: dayItem.isWorking ? 'text' : 'not-allowed',
-                          }}
-                        />
+                          <span
+                            style={{
+                              fontSize: '13px',
+                              color: dayItem.isWorking ? '#CBD5E1' : '#64748B',
+                            }}
+                          >
+                            Giờ bắt đầu:
+                          </span>
+                          <input
+                            type="time"
+                            value={dayItem.startTime}
+                            disabled={!dayItem.isWorking}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setDayEntries((prev) =>
+                                prev.map((item, idx) =>
+                                  idx === index
+                                    ? { ...item, startTime: val }
+                                    : item,
+                                ),
+                              );
+                            }}
+                            style={{
+                              backgroundColor: dayItem.isWorking
+                                ? '#0F172A'
+                                : '#1E293B',
+                              color: dayItem.isWorking ? '#F8FAFC' : '#64748B',
+                              border: `1px solid ${dayItem.isWorking ? '#14B8A6' : '#334155'}`,
+                              borderRadius: '6px',
+                              padding: '6px 10px',
+                              fontSize: '14px',
+                              fontWeight: 600,
+                              minHeight: '44px',
+                              boxSizing: 'border-box',
+                              cursor: dayItem.isWorking ? 'text' : 'not-allowed',
+                            }}
+                          />
+                        </div>
+
+                        {dayItem.isWorking && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <input
+                              type="text"
+                              placeholder="Ghi chú ca (tùy chọn)..."
+                              value={dayItem.notes || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setDayEntries((prev) =>
+                                  prev.map((item, idx) =>
+                                    idx === index
+                                      ? { ...item, notes: val }
+                                      : item,
+                                  ),
+                                );
+                              }}
+                              style={{
+                                backgroundColor: '#0F172A',
+                                color: '#F8FAFC',
+                                border: '1px solid #334155',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '13px',
+                                minHeight: '44px',
+                                minWidth: '180px',
+                                boxSizing: 'border-box',
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1200,11 +1226,11 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* OWNER VIEW                                                                 */}
+      {/* OWNER / ADMIN VIEW: ALL STAFF SCHEDULES                                    */}
       {/* ========================================================================= */}
-      {role === 'owner' && (
+      {isAdminOrOwner && activeTab === 'staff_schedules' && (
         <div>
-          {/* Owner Notice Banner */}
+          {/* Owner / Admin Notice Banner */}
           <div
             style={{
               backgroundColor: 'rgba(56, 189, 248, 0.1)',
@@ -1222,9 +1248,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
           >
             <InfoIcon size={18} />
             <span>
-              Chủ sở hữu có quyền xem lịch và lịch sử điều chỉnh của nhân sự.
-              Theo quy tắc RBAC-SCH-02, Chủ sở hữu không được chỉnh sửa lịch
-              thay cho nhân viên.
+              Chủ sở hữu / Quản lý có quyền xem lịch và lịch sử điều chỉnh của nhân sự.
+              Theo quy tắc RBAC-SCH-02, Quản lý không được chỉnh sửa lịch thay cho nhân viên.
             </span>
           </div>
 
@@ -1236,44 +1261,6 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               boxSizing: 'border-box',
             }}
           >
-            {employeesError && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  marginBottom: '10px',
-                  backgroundColor: '#451A1A',
-                  border: '1px solid #7F1D1D',
-                  borderRadius: '6px',
-                  color: '#FCA5A5',
-                  fontSize: '12px',
-                  gap: '8px',
-                }}
-              >
-                <span>⚠️ {employeesError}</span>
-                <button
-                  type="button"
-                  onClick={() => fetchEmployees()}
-                  disabled={employeesLoading}
-                  style={{
-                    backgroundColor: '#DC2626',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '4px 10px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    minHeight: '36px',
-                    minWidth: '44px',
-                  }}
-                >
-                  {employeesLoading ? 'Đang tải...' : 'Thử lại'}
-                </button>
-              </div>
-            )}
             <div
               style={{
                 display: 'flex',
@@ -1290,33 +1277,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   Lọc theo nhân sự:
                 </span>
               </div>
-              <input
-                type="text"
-                data-testid="schedule-search-input"
-                placeholder="Tìm theo tên hoặc mã nhân viên..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setOwnerPage(0);
-                }}
-                style={{
-                  backgroundColor: '#1E293B',
-                  border: '1px solid #334155',
-                  borderRadius: '6px',
-                  color: '#F8FAFC',
-                  padding: '8px 12px',
-                  fontSize: '13px',
-                  minHeight: '44px',
-                  boxSizing: 'border-box',
-                  flex: '1 1 200px',
-                }}
-              />
               <select
                 value={filterEmployeeId}
-                onChange={(e) => {
-                  setFilterEmployeeId(e.target.value);
-                  setOwnerPage(0);
-                }}
+                onChange={(e) => setFilterEmployeeId(e.target.value)}
                 style={{
                   backgroundColor: '#1E293B',
                   border: '1px solid #334155',
@@ -1337,19 +1300,6 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   </option>
                 ))}
               </select>
-              {(searchQuery || filterEmployeeId !== 'all') && (
-                <AppButton
-                  variant="secondary"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setFilterEmployeeId('all');
-                    setOwnerPage(0);
-                  }}
-                  style={{ minHeight: '44px', fontSize: '13px' }}
-                >
-                  Xóa lọc
-                </AppButton>
-              )}
             </div>
           </AppCard>
 
@@ -1358,67 +1308,19 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             <LoadingState message="Đang tải danh sách lịch nhân viên..." />
           ) : (
             (() => {
-              const query = searchQuery.trim().toLowerCase();
-              const filtered = allSchedules.filter((s: ScheduleData) => {
-                if (filterEmployeeId !== 'all' && s.employee_id !== filterEmployeeId) {
-                  return false;
-                }
-                if (query) {
-                  const emp = employees.find((e) => e.id === s.employee_id);
-                  const sName = (s.employee_name || '').toLowerCase();
-                  const sCode = (s.employee_code || '').toLowerCase();
-                  const empName = emp ? emp.full_name.toLowerCase() : '';
-                  const empCode = emp ? emp.employee_code.toLowerCase() : '';
-                  return (
-                    sName.includes(query) ||
-                    sCode.includes(query) ||
-                    empName.includes(query) ||
-                    empCode.includes(query)
-                  );
-                }
-                return true;
-              });
-              const safePage = clampPage(
-                ownerPage,
-                filtered.length,
-                ownerPageSize,
-              );
+              const filtered =
+                filterEmployeeId === 'all'
+                  ? allSchedules
+                  : allSchedules.filter(
+                      (s: ScheduleData) => s.employee_id === filterEmployeeId,
+                    );
 
-              if (allSchedules.length === 0) {
+              if (filtered.length === 0) {
                 return (
                   <EmptyState
                     title="Chưa có lịch làm việc"
                     description="Chưa có nhân sự nào đăng ký lịch làm việc trong tuần này."
                   />
-                );
-              }
-
-              if (filtered.length === 0) {
-                return (
-                  <div
-                    data-testid="schedule-empty-search"
-                    style={{
-                      textAlign: 'center',
-                      padding: '32px 16px',
-                      backgroundColor: '#1E293B',
-                      borderRadius: '8px',
-                      border: '1px dashed #334155',
-                    }}
-                  >
-                    <p style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '12px' }}>
-                      Không tìm thấy lịch làm việc phù hợp với từ khóa hoặc bộ lọc đã chọn.
-                    </p>
-                    <AppButton
-                      variant="secondary"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setFilterEmployeeId('all');
-                        setOwnerPage(0);
-                      }}
-                    >
-                      Xóa bộ lọc &amp; tìm kiếm
-                    </AppButton>
-                  </div>
                 );
               }
 
@@ -1430,179 +1332,175 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     gap: '16px',
                   }}
                 >
-                  {filtered
-                    .slice(
-                      safePage * ownerPageSize,
-                      (safePage + 1) * ownerPageSize,
-                    )
-                    .map((schedule: ScheduleData) => {
-                      const workingEntries = schedule.entries || [];
-                      return (
-                        <AppCard
-                          key={schedule.id}
-                          style={{ padding: '16px', boxSizing: 'border-box' }}
+                  {filtered.map((schedule: ScheduleData) => {
+                    const workingEntries = schedule.entries || [];
+                    return (
+                      <AppCard
+                        key={schedule.id}
+                        style={{ padding: '16px', boxSizing: 'border-box' }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px',
+                            borderBottom: '1px solid #334155',
+                            paddingBottom: '12px',
+                            marginBottom: '12px',
+                          }}
                         >
                           <div
                             style={{
                               display: 'flex',
-                              flexWrap: 'wrap',
                               alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '12px',
-                              borderBottom: '1px solid #334155',
-                              paddingBottom: '12px',
-                              marginBottom: '12px',
+                              gap: '10px',
                             }}
                           >
                             <div
                               style={{
+                                backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                                color: '#38BDF8',
+                                padding: '8px',
+                                borderRadius: '8px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '10px',
+                                justifyContent: 'center',
                               }}
                             >
+                              <UserIcon size={18} />
+                            </div>
+                            <div>
                               <div
                                 style={{
-                                  backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                                  color: '#38BDF8',
-                                  padding: '8px',
-                                  borderRadius: '8px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
+                                  fontSize: '15px',
+                                  fontWeight: 700,
+                                  color: '#F8FAFC',
                                 }}
                               >
-                                <UserIcon size={18} />
+                                {schedule.employee_name || 'Nhân viên'}
                               </div>
-                              <div>
-                                <div
-                                  style={{
-                                    fontSize: '15px',
-                                    fontWeight: 700,
-                                    color: '#F8FAFC',
-                                  }}
-                                >
-                                  {schedule.employee_name || 'Nhân viên'}
-                                </div>
-                                <div
-                                  style={{ fontSize: '12px', color: '#94A3B8' }}
-                                >
-                                  Mã NV: {schedule.employee_code || '--'} • Bản
-                                  ghi v{schedule.version} (Lần #
-                                  {schedule.current_revision})
-                                </div>
+                              <div
+                                style={{ fontSize: '12px', color: '#94A3B8' }}
+                              >
+                                Mã NV: {schedule.employee_code || '--'} • Bản
+                                ghi v{schedule.version} (Lần #
+                                {schedule.current_revision})
                               </div>
-                            </div>
-
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                              }}
-                            >
-                              <StatusBadge
-                                status={
-                                  schedule.status === 'registered'
-                                    ? 'success'
-                                    : 'muted'
-                                }
-                                label={
-                                  schedule.status === 'registered'
-                                    ? 'Đã đăng ký'
-                                    : 'Đã hủy'
-                                }
-                              />
-                              <ActionIconButton
-                                action="view"
-                                label="Xem chi tiết & Lịch sử"
-                                {...(schedule.employee_name
-                                  ? { target: schedule.employee_name }
-                                  : {})}
-                                testId={`schedule-view-${schedule.id}`}
-                                onClick={() => handleOpenOwnerDetail(schedule)}
-                              />
                             </div>
                           </div>
 
-                          {/* Display ONLY selected working days with start time */}
-                          {workingEntries.length === 0 ? (
-                            <div
-                              style={{
-                                fontSize: '13px',
-                                color: '#94A3B8',
-                                fontStyle: 'italic',
-                              }}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }}
+                          >
+                            <StatusBadge
+                              status={
+                                schedule.status === 'registered'
+                                  ? 'success'
+                                  : 'muted'
+                              }
+                              label={
+                                schedule.status === 'registered'
+                                  ? 'Đã đăng ký'
+                                  : 'Đã hủy'
+                              }
+                            />
+                            <AppButton
+                              variant="secondary"
+                              onClick={() => handleOpenOwnerDetail(schedule)}
+                              style={{ minHeight: '44px' }}
                             >
-                              Nhân viên không đăng ký ngày làm việc nào trong
-                              tuần này.
-                            </div>
-                          ) : (
-                            <div
-                              style={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '8px',
-                              }}
-                            >
-                              {workingEntries.map((e: ScheduleEntryData) => {
-                                const dayName =
-                                  VIETNAMESE_DAYS[e.day_of_week - 1] ||
-                                  `Thứ ${e.day_of_week}`;
-                                return (
-                                  <div
-                                    key={e.id || e.work_date}
+                              <EyeIcon
+                                size={16}
+                                style={{ marginRight: '6px' }}
+                              />
+                              Xem chi tiết & Lịch sử
+                            </AppButton>
+                          </div>
+                        </div>
+
+                        {/* Display ONLY selected working days with start time */}
+                        {workingEntries.length === 0 ? (
+                          <div
+                            style={{
+                              fontSize: '13px',
+                              color: '#94A3B8',
+                              fontStyle: 'italic',
+                            }}
+                          >
+                            Nhân viên không đăng ký ngày làm việc nào trong tuần
+                            này.
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '8px',
+                            }}
+                          >
+                            {workingEntries.map((e: ScheduleEntryData) => {
+                              const dayName =
+                                VIETNAMESE_DAYS[e.day_of_week - 1] ||
+                                `Thứ ${e.day_of_week}`;
+                              return (
+                                <div
+                                  key={e.id || e.work_date}
+                                  style={{
+                                    backgroundColor: '#1E293B',
+                                    border: '1px solid #334155',
+                                    borderRadius: '6px',
+                                    padding: '8px 12px',
+                                    fontSize: '13px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    boxSizing: 'border-box',
+                                  }}
+                                >
+                                  <span
                                     style={{
-                                      backgroundColor: '#1E293B',
-                                      border: '1px solid #334155',
-                                      borderRadius: '6px',
-                                      padding: '8px 12px',
-                                      fontSize: '13px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '8px',
-                                      boxSizing: 'border-box',
+                                      fontWeight: 600,
+                                      color: '#14B8A6',
                                     }}
                                   >
+                                    {dayName} ({formatDateDisplay(e.work_date)}
+                                    ):
+                                  </span>
+                                  <span
+                                    style={{
+                                      color: '#F8FAFC',
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {e.start_time
+                                      ? e.start_time.slice(0, 5)
+                                      : '--:--'}
+                                  </span>
+                                  {e.notes && (
                                     <span
                                       style={{
-                                        fontWeight: 600,
-                                        color: '#14B8A6',
+                                        color: '#94A3B8',
+                                        fontSize: '11px',
+                                        fontStyle: 'italic',
                                       }}
                                     >
-                                      {dayName} (
-                                      {formatDateDisplay(e.work_date)}
-                                      ):
+                                      ({e.notes})
                                     </span>
-                                    <span
-                                      style={{
-                                        color: '#F8FAFC',
-                                        fontWeight: 700,
-                                      }}
-                                    >
-                                      {e.start_time
-                                        ? e.start_time.slice(0, 5)
-                                        : '--:--'}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </AppCard>
-                      );
-                    })}
-                  <Pagination
-                    testId="schedule-owner-pager"
-                    total={filtered.length}
-                    page={safePage}
-                    pageSize={ownerPageSize}
-                    onPage={setOwnerPage}
-                    onPageSize={(n) => {
-                      setOwnerPageSize(n);
-                      setOwnerPage(0);
-                    }}
-                  />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </AppCard>
+                    );
+                  })}
                 </div>
               );
             })()
@@ -1914,9 +1812,23 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                             boxSizing: 'border-box',
                           }}
                         >
-                          <span style={{ fontWeight: 600, color: '#F8FAFC' }}>
-                            {dayName} ({formatDateDisplay(e.work_date)})
-                          </span>
+                          <div>
+                            <span style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                              {dayName} ({formatDateDisplay(e.work_date)})
+                            </span>
+                            {e.notes && (
+                              <div
+                                style={{
+                                  fontSize: '12px',
+                                  color: '#94A3B8',
+                                  marginTop: '2px',
+                                  fontStyle: 'italic',
+                                }}
+                              >
+                                Ghi chú: {e.notes}
+                              </div>
+                            )}
+                          </div>
                           <span style={{ color: '#10B981', fontWeight: 700 }}>
                             Bắt đầu:{' '}
                             {e.start_time ? e.start_time.slice(0, 5) : '--:--'}

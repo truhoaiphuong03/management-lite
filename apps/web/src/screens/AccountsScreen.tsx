@@ -37,9 +37,10 @@ import type {
   AccountPlatform,
   AccountSecretType,
 } from '@management-lite/contracts';
+import type { UserRole } from '../types.js';
 
 export interface AccountsScreenProps {
-  role?: 'owner' | 'staff';
+  role?: UserRole;
   accountId?: string | undefined;
   onNavigate?: (path: string) => void;
 }

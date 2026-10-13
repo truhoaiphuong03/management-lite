@@ -144,7 +144,7 @@ export const NAV_GROUPS: NavGroup[] = [
 export interface DesktopSidebarProps {
   currentPath: string;
   onNavigate: (path: string) => void;
-  role: 'owner' | 'staff';
+  role: 'owner' | 'admin' | 'staff';
   isOwnerVerified?: boolean | undefined;
   version?: string;
 }
@@ -331,7 +331,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <div>
           Vai trò:{' '}
           <strong style={{ color: '#F8FAFC' }}>
-            {role === 'owner' ? 'Chủ sở hữu' : 'Nhân viên'}
+            {role === 'owner' ? 'Chủ sở hữu' : role === 'admin' ? 'Quản lý' : 'Nhân viên'}
           </strong>
         </div>
         <div style={{ marginTop: '2px', color: '#10B981' }}>
@@ -347,7 +347,7 @@ export interface MobileBottomNavProps {
   onNavigate: (path: string) => void;
   onOpenMore?: () => void;
   isMoreOpen?: boolean;
-  role?: 'owner' | 'staff' | undefined;
+  role?: 'owner' | 'admin' | 'staff' | undefined;
   isOwnerVerified?: boolean | undefined;
 }
 

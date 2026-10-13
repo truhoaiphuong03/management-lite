@@ -27,7 +27,7 @@ export class AttendanceService {
    */
   private async getEmployeeForUser(
     context: AuthenticatedContext,
-  ): Promise<{ id: string; employee_code: string; full_name: string } | null> {
+  ): Promise<{ id: string; employee_code: string; full_name: string; employment_status: string } | null> {
     const res = await this.pool.query<{
       id: string;
       employee_code: string;
@@ -40,8 +40,50 @@ export class AttendanceService {
       [context.workspace.id, context.user.id],
     );
 
-    if (res.rows.length === 0) return null;
-    return res.rows[0]!;
+    if (res.rows.length > 0) return res.rows[0]!;
+
+    // Fallback 1: Safe auto-link for unlinked employee profile with exact verified identifier
+    const username = (context.user.username || '').trim().toLowerCase();
+    if (!username) return null;
+
+    const candidateRes = await this.pool.query<{
+      id: string;
+      employee_code: string;
+      full_name: string;
+      employment_status: string;
+    }>(
+      `SELECT id, employee_code, full_name, employment_status
+       FROM employees
+       WHERE workspace_id = $1 AND user_id IS NULL
+         AND (
+           LOWER(employee_code) = $2
+           OR ($3 = 'owner' AND employee_code IN ('OWNER', 'OWNER_01'))
+         )
+       FOR UPDATE;`,
+      [context.workspace.id, username, context.workspace.role],
+    );
+
+    // Only link if exactly 1 unambiguous match exists; never overwrite employment_status
+    if (candidateRes.rows.length === 1) {
+      const candidate = candidateRes.rows[0]!;
+      const updateRes = await this.pool.query<{
+        id: string;
+        employee_code: string;
+        full_name: string;
+        employment_status: string;
+      }>(
+        `UPDATE employees
+         SET user_id = $1, updated_at = now()
+         WHERE id = $2 AND user_id IS NULL
+         RETURNING id, employee_code, full_name, employment_status;`,
+        [context.user.id, candidate.id],
+      );
+      if (updateRes.rows.length > 0) {
+        return updateRes.rows[0]!;
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -263,6 +305,14 @@ export class AttendanceService {
       throw new AuthError(
         'FORBIDDEN',
         'Tài khoản chưa được liên kết với hồ sơ nhân viên trong chi nhánh này.',
+        403,
+      );
+    }
+
+    if (employee.employment_status !== 'active') {
+      throw new AuthError(
+        'FORBIDDEN',
+        'Hồ sơ nhân viên chưa được kích hoạt hoặc đang bị tạm ngưng.',
         403,
       );
     }

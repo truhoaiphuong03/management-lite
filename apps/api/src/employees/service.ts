@@ -364,21 +364,13 @@ export class EmployeeService {
   ): Promise<CreateEmployeeResponseData> {
     requireRole(['owner'], context);
 
-    const code = (body.employee_code || '').trim();
+    let code = (body.employee_code || '').trim();
     const fullName = (body.full_name || '').trim();
     const email = (body.email || '').trim().toLowerCase();
-    const username = (body.username || email.split('@')[0] || code)
+    const username = (body.username || email.split('@')[0] || (code ? code.toLowerCase() : 'staff'))
       .trim()
       .toLowerCase();
 
-    if (!code) {
-      throw new AuthError(
-        'VALIDATION_ERROR',
-        'Mã nhân viên không được để trống',
-        400,
-        [{ field: 'employee_code', message: 'Mã nhân viên bắt buộc' }],
-      );
-    }
     if (!fullName) {
       throw new AuthError(
         'VALIDATION_ERROR',
@@ -397,17 +389,34 @@ export class EmployeeService {
     try {
       await client.query('BEGIN');
 
-      // 1. Check unique employee_code in workspace
-      const existingCode = await client.query(
-        `SELECT id FROM employees WHERE workspace_id = $1 AND employee_code = $2 FOR UPDATE;`,
-        [context.workspace.id, code],
-      );
-      if (existingCode.rows.length > 0) {
-        throw new AuthError(
-          'CONFLICT',
-          `Mã nhân viên "${code}" đã tồn tại trong workspace này`,
-          409,
+      // 1. Auto-generate or check unique employee_code in workspace
+      if (!code) {
+        // Prevent concurrent MAX + 1 race conditions using transaction-scoped advisory lock per workspace
+        await client.query(
+          `SELECT pg_advisory_xact_lock(hashtext('emp_code_' || $1));`,
+          [context.workspace.id],
         );
+
+        const countRes = await client.query<{ max_num: number | null }>(
+          `SELECT COALESCE(MAX(SUBSTRING(employee_code FROM '^NV([0-9]+)$')::integer), 0) AS max_num
+           FROM employees
+           WHERE workspace_id = $1 AND employee_code ~ '^NV[0-9]+$';`,
+          [context.workspace.id],
+        );
+        const nextNum = (countRes.rows[0]?.max_num || 0) + 1;
+        code = `NV${String(nextNum).padStart(3, '0')}`;
+      } else {
+        const existingCode = await client.query(
+          `SELECT id FROM employees WHERE workspace_id = $1 AND employee_code = $2 FOR UPDATE;`,
+          [context.workspace.id, code],
+        );
+        if (existingCode.rows.length > 0) {
+          throw new AuthError(
+            'CONFLICT',
+            `Mã nhân viên "${code}" đã tồn tại trong workspace này`,
+            409,
+          );
+        }
       }
 
       // 2. Check / Create User
@@ -440,11 +449,20 @@ export class EmployeeService {
         userId = userInsert.rows[0]!.id;
       }
 
-      // 3. Insert workspace_membership
+      if (body.role && body.role !== 'staff') {
+        throw new AuthError(
+          'NOT_IMPLEMENTED',
+          'Chức năng phân quyền admin khi tạo nhân viên chưa được hỗ trợ trong baseline CP2.2 do ràng buộc cơ sở dữ liệu workspace_memberships_role_check chỉ chấp nhận owner hoặc staff. Cần phê duyệt migration từ Owner.',
+          400,
+        );
+      }
+
+      // 3. Insert workspace_membership with staff role (only owner/staff supported in CP2.2)
+      const memberRole = 'staff';
       await client.query(
-        `INSERT INTO workspace_memberships (workspace_id, user_id, role, status) VALUES ($1, $2, 'staff', 'invited')
-         ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = 'staff', status = 'invited';`,
-        [context.workspace.id, userId],
+        `INSERT INTO workspace_memberships (workspace_id, user_id, role, status) VALUES ($1, $2, $3, 'invited')
+         ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = $3, status = 'invited';`,
+        [context.workspace.id, userId, memberRole],
       );
 
       // 4. Insert user_workspace_binding
@@ -508,6 +526,7 @@ export class EmployeeService {
 
       return {
         id: employeeId,
+        user_id: userId,
         employee_code: code,
         full_name: fullName,
         employment_status: 'invited',
