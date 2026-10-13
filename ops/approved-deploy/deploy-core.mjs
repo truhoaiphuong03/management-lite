@@ -168,7 +168,10 @@ export function validateApproval(
     'CI_SOURCE_MISMATCH',
   );
   requireThat(
-    github.event === 'workflow_dispatch' &&
+    github.event ===
+      (policy.environment === 'sandbox'
+        ? policy.releaseEvent || 'workflow_dispatch'
+        : 'workflow_dispatch') &&
       github.status === 'completed' &&
       github.conclusion === 'success',
     'CI_NOT_APPROVED_RELEASE_BUILD',
@@ -253,6 +256,15 @@ export async function deploy({
   let lock;
   try {
     lock = fs.openSync(lockFile, 'wx');
+    fs.writeFileSync(
+      lock,
+      JSON.stringify({
+        pid: process.pid,
+        nonce: crypto.randomUUID(),
+        created: new Date().toISOString(),
+      }),
+    );
+    fs.fsyncSync(lock);
   } catch {
     throw Error('DEPLOYMENT_LOCKED');
   }
@@ -307,6 +319,9 @@ export async function deploy({
       packageSHA256: approval.packageSHA256,
       schemaSHA256: approval.schemaSHA256,
       directory: payloadDirectory,
+      manifest,
+      envelope,
+      packageFile,
     };
     // Persist anti-replay watermark and previous target BEFORE touching processes.
     atomicJSON(stateFile, {
@@ -318,6 +333,7 @@ export async function deploy({
     switched = true;
     await hooks.stop();
     await hooks.start(next);
+    if (hooks.afterStart) await hooks.afterStart(next);
     requireThat(await hooks.health(next), 'HEALTH_FAILED');
     atomicJSON(stateFile, {
       sequence: approval.sequence,
@@ -388,5 +404,121 @@ export async function deploy({
       fs.closeSync(lock);
       fs.unlinkSync(lockFile);
     }
+  }
+}
+
+// Recovery can only restore a previously signed package inside an explicitly marked sandbox.
+export async function recoverInterruptedDeployment({ root, policy, hooks }) {
+  requireThat(
+    policy.environment === 'sandbox' &&
+      fs.existsSync(path.join(root, 'SANDBOX_ONLY')),
+    'PRODUCTION_ADAPTER_NOT_INSTALLED',
+  );
+  const lockFile = path.join(root, 'deploy.lock'),
+    stateFile = path.join(root, 'state.json');
+  if (fs.existsSync(lockFile)) {
+    let owner;
+    try {
+      owner = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
+    } catch {
+      throw Error('UNVERIFIED_LOCK_OWNER');
+    }
+    requireThat(
+      Number.isSafeInteger(owner.pid) &&
+        owner.pid > 0 &&
+        typeof owner.nonce === 'string',
+      'UNVERIFIED_LOCK_OWNER',
+    );
+    let absent = false;
+    try {
+      process.kill(owner.pid, 0);
+    } catch (e) {
+      if (e.code === 'ESRCH') absent = true;
+    }
+    requireThat(absent, 'RECOVERY_OWNER_STILL_RUNNING');
+    // Recheck the nonce before reclaiming a lock; never kill another process.
+    requireThat(
+      JSON.parse(fs.readFileSync(lockFile, 'utf8')).nonce === owner.nonce,
+      'LOCK_CHANGED',
+    );
+    fs.renameSync(lockFile, lockFile + '.stale-' + owner.nonce);
+  }
+  const lock = fs.openSync(lockFile, 'wx');
+  fs.writeFileSync(
+    lock,
+    JSON.stringify({
+      pid: process.pid,
+      nonce: crypto.randomUUID(),
+      created: new Date().toISOString(),
+    }),
+  );
+  fs.fsyncSync(lock);
+  try {
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    requireThat(
+      ['SWITCHING', 'ROLLING_BACK'].includes(state.status),
+      'NO_INTERRUPTED_DEPLOYMENT',
+    );
+    const stable =
+      state.status === 'SWITCHING' ? state.previous : state.current;
+    if (stable) {
+      requireThat(
+        crypto.verify(
+          null,
+          Buffer.from(stable.envelope.payload),
+          policy.approvalPublicKey,
+          Buffer.from(stable.envelope.signature, 'base64'),
+        ),
+        'RECOVERY_SIGNATURE_INVALID',
+      );
+      const priorApproval = JSON.parse(stable.envelope.payload);
+      requireThat(
+        priorApproval.commit === stable.commit &&
+          priorApproval.packageSHA256 === stable.packageSHA256 &&
+          priorApproval.schemaSHA256 === stable.schemaSHA256,
+        'RECOVERY_TARGET_MISMATCH',
+      );
+      requireThat(
+        digest(fs.readFileSync(stable.packageFile)) === stable.packageSHA256,
+        'RECOVERY_PACKAGE_CHANGED',
+      );
+      verifyPayload(stable.directory, stable.manifest, priorApproval);
+      requireThat(
+        await hooks.preflight(priorApproval),
+        'RECOVERY_PREFLIGHT_FAILED',
+      );
+    }
+    await hooks.stop();
+    if (stable) {
+      await hooks.start(stable);
+      requireThat(await hooks.health(stable), 'RECOVERY_HEALTH_FAILED');
+    }
+    atomicJSON(stateFile, {
+      sequence: state.sequence,
+      status: stable ? 'RECOVERED_PREVIOUS' : 'STOPPED_FIRST_RELEASE',
+      current: stable || null,
+      failedCommit: state.failedCommit || state.current?.commit || null,
+    });
+    fs.appendFileSync(
+      path.join(root, 'journal.jsonl'),
+      JSON.stringify({
+        at: new Date().toISOString(),
+        state: 'RECOVERED_PREVIOUS',
+        commit: stable?.commit || null,
+        sequence: state.sequence,
+      }) + '\n',
+    );
+    return {
+      status: stable ? 'RECOVERED_PREVIOUS' : 'STOPPED_FIRST_RELEASE',
+      commit: stable?.commit || null,
+      sequence: state.sequence,
+    };
+  } catch {
+    const existing = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    atomicJSON(stateFile, { ...existing, status: 'MANUAL_INTERVENTION' });
+    throw Error('RECOVERY_FAILED_MANUAL_INTERVENTION');
+  } finally {
+    fs.closeSync(lock);
+    fs.unlinkSync(lockFile);
   }
 }

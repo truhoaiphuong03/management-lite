@@ -5,6 +5,8 @@ import cp from 'node:child_process';
 import { digest, inventory } from './deploy-core.mjs';
 const root = process.cwd(),
   sha = process.env.RELEASE_COMMIT;
+if (process.env.NODE_ENV !== 'production')
+  throw Error('PRODUCTION_BUILD_MODE_REQUIRED');
 if (!/^[a-f0-9]{40}$/.test(sha || ''))
   throw Error('EXACT_RELEASE_COMMIT_REQUIRED');
 if (
@@ -56,6 +58,21 @@ fs.writeFileSync(
   path.join(payload, 'package.json'),
   JSON.stringify({ type: 'module', private: true }),
 );
+const version = { commit: sha, version: '0.1.0', target: 'windows-x64' };
+fs.writeFileSync(
+  path.join(payload, 'dist/apps/api/src/build-version.json'),
+  JSON.stringify(version),
+);
+fs.writeFileSync(
+  path.join(payload, 'web/release-version.json'),
+  JSON.stringify(version),
+);
+const { EMBEDDED_MIGRATIONS } = await import(
+  'file:///' +
+    path
+      .join(root, 'dist/packages/database/src/migrations/catalog.js')
+      .replaceAll('\\', '/')
+);
 const schemaSHA256 = digest(
   fs.readFileSync(
     path.join(root, 'dist/packages/database/src/migrations/catalog.js'),
@@ -68,6 +85,7 @@ const manifest = {
   commit: sha,
   schemaSHA256,
   migration: 'none',
+  migrations: EMBEDDED_MIGRATIONS.map(({ id, checksum }) => ({ id, checksum })),
   files,
 };
 fs.writeFileSync(

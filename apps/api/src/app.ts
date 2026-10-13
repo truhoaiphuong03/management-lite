@@ -1,5 +1,6 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
+import { readReleaseVersion } from './release.js';
 import type { DatabasePool } from '../../../packages/database/src/pool.js';
 import { checkDatabaseHealth } from '../../../packages/database/src/pool.js';
 import {
@@ -34,6 +35,13 @@ export function createRequestHandler(
     const method = req.method?.toUpperCase() || 'GET';
 
     try {
+      if (method === 'GET' && pathname === '/api/v1/version') {
+        return sendJson(
+          res,
+          200,
+          createSuccessEnvelope(readReleaseVersion(), requestId),
+        );
+      }
       // 2. Health / Liveness endpoint: GET /api/v1/health
       if (method === 'GET' && pathname === '/api/v1/health') {
         const body = createSuccessEnvelope(
