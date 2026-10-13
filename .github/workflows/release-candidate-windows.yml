@@ -86,7 +86,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm install --global npm@10.9.2
-      - run: npm ci
+      - run: npm ci --include=dev
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
@@ -107,3 +107,4 @@ jobs:
           include-hidden-files: false
 # NO production job, no push trigger, no self-hosted runner, no server secrets.
 # Publish CI artifact first; owner signs exact SHA/run/attempt/artifact/digest separately.
+
