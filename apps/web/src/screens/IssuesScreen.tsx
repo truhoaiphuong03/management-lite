@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import {
   PageHeader,
   AppCard,
@@ -18,6 +24,8 @@ import type {
   IssueData,
   IssueStatus,
   IssueType,
+  IssueSeverity,
+  IssueTestResult,
   IssueActivityData,
   IssueGroupCounts,
   ListIssuesResponseData,
@@ -56,15 +64,87 @@ function getStatusBadge(status: IssueStatus): {
     case 'open':
       return { status: 'neutral', label: 'Mới (Open)' };
     case 'analyzing':
-      return { status: 'warning', label: 'Đang phân tích' };
+      return { status: 'warning', label: 'AI đang phân tích' };
     case 'fixing':
-      return { status: 'warning', label: 'Đang sửa' };
+      return { status: 'warning', label: 'Đang sửa (Fixing)' };
+    case 'testing':
+      return { status: 'warning', label: 'Đang test (Testing)' };
+    case 'deploying':
+      return { status: 'warning', label: 'Đang deploy' };
+    case 'verifying':
+      return { status: 'warning', label: 'Đang xác minh' };
+    case 'fixed':
+      return { status: 'success', label: 'Đã sửa (Fixed)' };
+    case 'reopened':
+      return { status: 'error', label: 'Mở lại (Reopened)' };
+    case 'waiting_for_owner':
+      return { status: 'warning', label: 'Chờ Owner nghiệm thu' };
     case 'awaiting_owner':
-      return { status: 'warning', label: 'Đã sửa — Chờ duyệt' };
+      return { status: 'warning', label: 'Chờ Owner duyệt' };
     case 'closed':
       return { status: 'success', label: 'Đã đóng' };
     default:
       return { status: 'muted', label: status };
+  }
+}
+
+function getSeverityBadge(severity?: IssueSeverity): {
+  bg: string;
+  color: string;
+  border: string;
+  label: string;
+} | null {
+  if (!severity) return null;
+  switch (severity) {
+    case 'P0':
+      return {
+        bg: 'rgba(239, 68, 68, 0.2)',
+        color: '#EF4444',
+        border: '#EF4444',
+        label: 'P0 - Khẩn cấp',
+      };
+    case 'P1':
+      return {
+        bg: 'rgba(249, 115, 22, 0.2)',
+        color: '#F97316',
+        border: '#F97316',
+        label: 'P1 - Cao',
+      };
+    case 'P2':
+      return {
+        bg: 'rgba(234, 179, 8, 0.2)',
+        color: '#EAB308',
+        border: '#EAB308',
+        label: 'P2 - Trung bình',
+      };
+    case 'P3':
+      return {
+        bg: 'rgba(100, 116, 139, 0.2)',
+        color: '#94A3B8',
+        border: '#64748B',
+        label: 'P3 - Thấp',
+      };
+    default:
+      return null;
+  }
+}
+
+function getTestResultBadge(testResult?: IssueTestResult | null): {
+  color: string;
+  label: string;
+} | null {
+  if (!testResult) return null;
+  switch (testResult) {
+    case 'passed':
+      return { color: '#10B981', label: 'Test: PASS' };
+    case 'failed':
+      return { color: '#EF4444', label: 'Test: FAIL' };
+    case 'manual':
+      return { color: '#A855F7', label: 'Test: Thủ công' };
+    case 'pending':
+      return { color: '#F59E0B', label: 'Test: Chờ chạy' };
+    default:
+      return null;
   }
 }
 
@@ -417,11 +497,22 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
       const statusMeta = getStatusBadge(issue.status);
       const detailUrl = `${origin}/issues/${issue.id}`;
 
-      lines.push(`### [Vấn đề #${index + 1}] ${issue.title}`);
+      lines.push(
+        `### [Vấn đề #${index + 1}] ${issue.bug_code ? `[${issue.bug_code}] ` : ''}${issue.title}`,
+      );
       lines.push(`- **Mã định danh (ID):** \`${issue.id}\``);
+      if (issue.bug_code) {
+        lines.push(`- **Mã BUG:** \`${issue.bug_code}\``);
+      }
+      if (issue.severity) {
+        lines.push(`- **Mức độ (Severity):** \`${issue.severity}\``);
+      }
       lines.push(
         `- **Trạng thái thực tế:** \`${issue.status}\` (${statusMeta.label})`,
       );
+      if (issue.test_result) {
+        lines.push(`- **Kết quả kiểm thử:** \`${issue.test_result}\``);
+      }
       lines.push(
         `- **Phân loại:** ${issue.type === 'bug' ? 'Lỗi (Bug)' : 'Cải tiến (Improvement)'}`,
       );
@@ -437,6 +528,9 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
       );
       lines.push(`- **Phiên bản dữ liệu:** v${issue.version}`);
       lines.push(`- **Người báo cáo:** ${issue.reporter_name || 'Owner'}`);
+      if (issue.github_issue_url) {
+        lines.push(`- **GitHub Issue:** ${issue.github_issue_url}`);
+      }
       lines.push(`- **Liên kết chi tiết:** ${detailUrl}`);
       lines.push('');
       lines.push(`#### Mô tả nguyên văn:`);
@@ -445,6 +539,31 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           ? issue.description
           : '(Không có mô tả chi tiết)',
       );
+      if (issue.gemini_analysis) {
+        lines.push('');
+        lines.push('#### Phân tích từ Gemini AI:');
+        if (issue.gemini_analysis.summary) {
+          lines.push(`- **Tóm tắt sự cố:** ${issue.gemini_analysis.summary}`);
+        }
+        if (issue.gemini_analysis.root_cause) {
+          lines.push(
+            `- **Nguyên nhân gốc rễ:** ${issue.gemini_analysis.root_cause}`,
+          );
+        }
+        if (issue.gemini_analysis.suggested_fix) {
+          lines.push(
+            `- **Đề xuất giải pháp:** ${issue.gemini_analysis.suggested_fix}`,
+          );
+        }
+        if (
+          Array.isArray(issue.gemini_analysis.affected_files) &&
+          issue.gemini_analysis.affected_files.length > 0
+        ) {
+          lines.push(
+            `- **File ảnh hưởng:** ${issue.gemini_analysis.affected_files.join(', ')}`,
+          );
+        }
+      }
       lines.push('');
       lines.push(`#### Lịch sử xử lý & Ghi chú (Activities):`);
       if (!activities || activities.length === 0) {
@@ -713,15 +832,17 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
               >
                 <option value="">Tất cả trạng thái</option>
                 <option value="open">Mới (Open)</option>
-                <option value="in_progress">Đang sửa (In Progress)</option>
-                <option value="awaiting_owner">
-                  Đã sửa — Chờ duyệt (Awaiting Owner)
+                <option value="analyzing">AI đang phân tích (Analyzing)</option>
+                <option value="fixing">Đang sửa (Fixing)</option>
+                <option value="testing">Đang kiểm thử (Testing)</option>
+                <option value="deploying">Đang deploy (Deploying)</option>
+                <option value="verifying">Đang xác minh (Verifying)</option>
+                <option value="fixed">Đã sửa (Fixed)</option>
+                <option value="reopened">Mở lại (Reopened)</option>
+                <option value="waiting_for_owner">
+                  Chờ Owner duyệt (Waiting for Owner)
                 </option>
                 <option value="closed">Đã đóng (Closed)</option>
-                <option value="analyzing">Đang phân tích (Analyzing)</option>
-                <option value="fixing">Đang sửa (Fixing)</option>
-                <option value="active">Đang hoạt động (Active)</option>
-                <option value="archived">Lưu trữ (Archived / Closed)</option>
               </select>
             </div>
 
@@ -993,10 +1114,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
             title="Không tìm thấy vấn đề phù hợp"
             description={`Không có vấn đề nào khớp với từ khóa "${searchQuery}".`}
             action={
-              <AppButton
-                variant="secondary"
-                onClick={() => setSearchQuery('')}
-              >
+              <AppButton variant="secondary" onClick={() => setSearchQuery('')}>
                 Xóa tìm kiếm
               </AppButton>
             }
@@ -1007,6 +1125,8 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           {filteredIssues.map((issue) => {
             const statusMeta = getStatusBadge(issue.status);
             const typeMeta = getTypeBadge(issue.type);
+            const severityMeta = getSeverityBadge(issue.severity);
+            const testResultMeta = getTestResultBadge(issue.test_result);
             const isSelected = selectedIssuesMap.has(issue.id);
 
             return (
@@ -1043,7 +1163,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
+                      gap: '8px',
                       flexWrap: 'wrap',
                     }}
                   >
@@ -1070,6 +1190,25 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                       />
                     </div>
 
+                    {/* Bug Code Badge */}
+                    {issue.bug_code && (
+                      <span
+                        data-testid={`badge-bug-code-${issue.id}`}
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: 'rgba(20, 184, 166, 0.15)',
+                          color: '#14B8A6',
+                          border: '1px solid rgba(20, 184, 166, 0.4)',
+                          fontFamily: 'monospace',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {issue.bug_code}
+                      </span>
+                    )}
+
                     <StatusBadge
                       status={typeMeta.status}
                       label={typeMeta.label}
@@ -1078,6 +1217,61 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                       status={statusMeta.status}
                       label={statusMeta.label}
                     />
+
+                    {/* Severity Badge */}
+                    {severityMeta && (
+                      <span
+                        data-testid={`badge-severity-${issue.id}`}
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: severityMeta.bg,
+                          color: severityMeta.color,
+                          border: `1px solid ${severityMeta.border}`,
+                          fontSize: '11px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {severityMeta.label}
+                      </span>
+                    )}
+
+                    {/* Test Result Badge */}
+                    {testResultMeta && (
+                      <span
+                        data-testid={`badge-test-result-${issue.id}`}
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                          color: testResultMeta.color,
+                          border: `1px solid ${testResultMeta.color}`,
+                          fontSize: '11px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {testResultMeta.label}
+                      </span>
+                    )}
+
+                    {/* Reopen Count */}
+                    {typeof issue.reopen_count === 'number' &&
+                      issue.reopen_count > 0 && (
+                        <span
+                          style={{
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            color: '#EF4444',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Mở lại {issue.reopen_count}x
+                        </span>
+                      )}
+
                     <span
                       style={{
                         padding: '2px 8px',
@@ -1124,6 +1318,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                         lineHeight: 1.4,
                       }}
                     >
+                      {issue.bug_code ? `[${issue.bug_code}] ` : ''}
                       {issue.title}
                     </h3>
                     <p
@@ -1141,6 +1336,39 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     >
                       {issue.description}
                     </p>
+
+                    {/* Gemini AI summary snippet */}
+                    {issue.gemini_analysis?.summary && (
+                      <div
+                        data-testid={`gemini-summary-${issue.id}`}
+                        style={{
+                          marginTop: '8px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                          fontSize: '12px',
+                          color: '#38BDF8',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <span style={{ fontWeight: 700, flexShrink: 0 }}>
+                          🤖 Gemini AI:
+                        </span>
+                        <span
+                          style={{
+                            color: '#CBD5E1',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {issue.gemini_analysis.summary}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div
@@ -1153,7 +1381,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   >
                     <ActionIconButton
                       action="view"
-                      target={`Vấn đề ${issue.id.slice(0, 8)}`}
+                      target={`Vấn đề ${issue.bug_code || issue.id.slice(0, 8)}`}
                       onClick={() => onNavigate(`/issues/${issue.id}`)}
                       testId={`btn-view-issue-${issue.id}`}
                     />

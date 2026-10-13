@@ -20,6 +20,8 @@ import type {
   IssueActivityData,
   IssueStatus,
   IssueType,
+  IssueSeverity,
+  IssueTestResult,
   IssueActivityAction,
   IssueDetailResponseData,
 } from '../../../../packages/contracts/src/issues.js';
@@ -57,17 +59,89 @@ function getStatusBadge(status: IssueStatus): {
 } {
   switch (status) {
     case 'open':
-      return { status: 'neutral', label: 'Mở (Open)' };
+      return { status: 'neutral', label: 'Mới (Open)' };
     case 'analyzing':
-      return { status: 'warning', label: 'Đang phân tích' };
+      return { status: 'warning', label: 'AI đang phân tích' };
     case 'fixing':
-      return { status: 'warning', label: 'Đang sửa' };
+      return { status: 'warning', label: 'Đang sửa (Fixing)' };
+    case 'testing':
+      return { status: 'warning', label: 'Đang test (Testing)' };
+    case 'deploying':
+      return { status: 'warning', label: 'Đang deploy' };
+    case 'verifying':
+      return { status: 'warning', label: 'Đang xác minh' };
+    case 'fixed':
+      return { status: 'success', label: 'Đã sửa (Fixed)' };
+    case 'reopened':
+      return { status: 'error', label: 'Mở lại (Reopened)' };
+    case 'waiting_for_owner':
+      return { status: 'warning', label: 'Chờ Owner nghiệm thu' };
     case 'awaiting_owner':
       return { status: 'warning', label: 'Chờ Owner duyệt' };
     case 'closed':
       return { status: 'success', label: 'Đã đóng' };
     default:
       return { status: 'muted', label: status };
+  }
+}
+
+function getSeverityBadge(severity?: IssueSeverity): {
+  bg: string;
+  color: string;
+  border: string;
+  label: string;
+} | null {
+  if (!severity) return null;
+  switch (severity) {
+    case 'P0':
+      return {
+        bg: 'rgba(239, 68, 68, 0.2)',
+        color: '#EF4444',
+        border: '#EF4444',
+        label: 'P0 - Khẩn cấp',
+      };
+    case 'P1':
+      return {
+        bg: 'rgba(249, 115, 22, 0.2)',
+        color: '#F97316',
+        border: '#F97316',
+        label: 'P1 - Cao',
+      };
+    case 'P2':
+      return {
+        bg: 'rgba(234, 179, 8, 0.2)',
+        color: '#EAB308',
+        border: '#EAB308',
+        label: 'P2 - Trung bình',
+      };
+    case 'P3':
+      return {
+        bg: 'rgba(100, 116, 139, 0.2)',
+        color: '#94A3B8',
+        border: '#64748B',
+        label: 'P3 - Thấp',
+      };
+    default:
+      return null;
+  }
+}
+
+function getTestResultBadge(testResult?: IssueTestResult | null): {
+  color: string;
+  label: string;
+} | null {
+  if (!testResult) return null;
+  switch (testResult) {
+    case 'passed':
+      return { color: '#10B981', label: 'Test: PASS' };
+    case 'failed':
+      return { color: '#EF4444', label: 'Test: FAIL' };
+    case 'manual':
+      return { color: '#A855F7', label: 'Test: Thủ công' };
+    case 'pending':
+      return { color: '#F59E0B', label: 'Test: Chờ chạy' };
+    default:
+      return null;
   }
 }
 
@@ -100,6 +174,18 @@ function getActivityActionBadge(action: IssueActivityAction): {
       return { status: 'success', label: 'Xác nhận khắc phục (Đóng)' };
     case 'reopened':
       return { status: 'error', label: 'Mở lại vấn đề' };
+    case 'gemini_analyzed':
+      return { status: 'warning', label: '🤖 Gemini AI phân tích' };
+    case 'pr_linked':
+      return { status: 'neutral', label: 'Liên kết Pull Request' };
+    case 'deploy_linked':
+      return { status: 'warning', label: 'Đã deploy commit' };
+    case 'test_verified':
+      return { status: 'success', label: 'Kiểm thử xác minh' };
+    case 'marked_fixed':
+      return { status: 'success', label: 'Tự động đánh dấu FIXED' };
+    case 'waiting_owner':
+      return { status: 'warning', label: 'Chờ Owner nghiệm thu' };
     default:
       return { status: 'muted', label: action };
   }
@@ -123,6 +209,12 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [copyError, setCopyError] = useState<string | null>(null);
 
+  // Gemini AI Analysis state
+  const [analyzing, setAnalyzing] = useState<boolean>(false);
+  const [analyzeSuccess, setAnalyzeSuccess] = useState<string | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   // Fix Confirmation & Reopen action states
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -141,6 +233,53 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
   const requestSeqRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const handleAnalyzeWithGemini = async () => {
+    if (!issue) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    setAnalyzeSuccess(null);
+
+    try {
+      const res = await fetch(
+        `/api/v1/issues/${encodeURIComponent(issue.id)}/analyze`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+          },
+        },
+      );
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        throw new Error(
+          errBody?.error?.message || `Lỗi phân tích Gemini (${res.status})`,
+        );
+      }
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        setIssue(json.data.issue);
+        setAnalyzeSuccess(
+          'Phân tích sự cố bằng Gemini AI thành công! Đã cập nhật giả thuyết nguyên nhân và giải pháp đề xuất.',
+        );
+        setTimeout(() => setAnalyzeSuccess(null), 6000);
+        void fetchDetail();
+      }
+    } catch (err: unknown) {
+      setAnalyzeError(
+        err instanceof Error
+          ? err.message
+          : 'Không thể thực hiện phân tích Gemini AI.',
+      );
+      setTimeout(() => setAnalyzeError(null), 8000);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const handleCopyIssuePrompt = async () => {
     if (!issue) return;
     const origin =
@@ -152,9 +291,16 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
     const detailUrl = `${origin}/issues/${issue.id}`;
 
     const lines: string[] = [
-      `# BÁO CÁO LỖI: ${issue.title}`,
+      `# BÁO CÁO LỖI: ${issue.bug_code ? `[${issue.bug_code}] ` : ''}${issue.title}`,
       `- **Mã định danh (ID):** \`${issue.id}\``,
+      ...(issue.bug_code ? [`- **Mã BUG:** \`${issue.bug_code}\``] : []),
+      ...(issue.severity
+        ? [`- **Mức độ (Severity):** \`${issue.severity}\``]
+        : []),
       `- **Trạng thái thực tế:** \`${issue.status}\` (${statusMeta.label})`,
+      ...(issue.test_result
+        ? [`- **Kết quả kiểm thử:** \`${issue.test_result}\``]
+        : []),
       `- **Phân loại:** ${issue.type === 'bug' ? 'Lỗi (Bug)' : 'Cải tiến'}`,
       `- **Phân hệ / Module:** ${moduleName}`,
       `- **Đường dẫn màn hình (Route):** \`${issue.route_template}\``,
@@ -162,15 +308,59 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
       `- **Thời gian cập nhật:** ${formatTimestamp(issue.updated_at)}`,
       `- **Phiên bản dữ liệu:** v${issue.version}`,
       `- **Người báo cáo:** ${issue.reporter_name || 'Owner'}`,
+      ...(issue.github_issue_url
+        ? [`- **GitHub Issue:** ${issue.github_issue_url}`]
+        : []),
+      ...(issue.deploy_sha
+        ? [`- **Deploy SHA:** \`${issue.deploy_sha}\``]
+        : []),
       `- **Liên kết chi tiết:** ${detailUrl}`,
       '',
       `## Nội dung chi tiết (Mô tả nguyên văn):`,
       issue.description && issue.description.trim()
         ? issue.description
         : '(Không có mô tả chi tiết)',
-      '',
-      `## Lịch sử xử lý & Ghi chú (Activities):`,
     ];
+
+    if (issue.gemini_analysis) {
+      lines.push('');
+      lines.push('## Phân tích kỹ thuật từ Gemini AI:');
+      if (issue.gemini_analysis.summary) {
+        lines.push(`- **Tóm tắt sự cố:** ${issue.gemini_analysis.summary}`);
+      }
+      if (issue.gemini_analysis.root_cause) {
+        lines.push(
+          `- **Nguyên nhân gốc rễ:** ${issue.gemini_analysis.root_cause}`,
+        );
+      }
+      if (issue.gemini_analysis.suggested_fix) {
+        lines.push(
+          `- **Đề xuất sửa đổi:** ${issue.gemini_analysis.suggested_fix}`,
+        );
+      }
+      if (
+        Array.isArray(issue.gemini_analysis.affected_files) &&
+        issue.gemini_analysis.affected_files.length > 0
+      ) {
+        lines.push(
+          `- **File ảnh hưởng:** ${issue.gemini_analysis.affected_files.join(', ')}`,
+        );
+      }
+      if (
+        Array.isArray(issue.gemini_analysis.suggested_tests) &&
+        issue.gemini_analysis.suggested_tests.length > 0
+      ) {
+        lines.push(
+          `- **Kiểm thử đề xuất:** ${issue.gemini_analysis.suggested_tests.join(', ')}`,
+        );
+      }
+      lines.push(
+        `- **Khả năng tự động kiểm thử:** ${issue.gemini_analysis.can_auto_verify ? 'Có thể tự động test' : 'Cần kiểm thử thủ công'}`,
+      );
+    }
+
+    lines.push('');
+    lines.push(`## Lịch sử xử lý & Ghi chú (Activities):`);
 
     if (!activities || activities.length === 0) {
       lines.push('- *Chưa có lịch sử hoạt động ghi nhận.*');
@@ -546,6 +736,8 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
 
   const statusMeta = getStatusBadge(issue.status);
   const typeMeta = getTypeBadge(issue.type);
+  const severityMeta = getSeverityBadge(issue.severity);
+  const testResultMeta = getTestResultBadge(issue.test_result);
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
@@ -584,6 +776,32 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             flexWrap: 'wrap',
           }}
         >
+          {/* Gemini AI Bug Analysis Button */}
+          {isOwner && (
+            <AppButton
+              variant="secondary"
+              onClick={handleAnalyzeWithGemini}
+              data-testid="btn-analyze-gemini"
+              disabled={analyzing || actionLoading}
+              style={{
+                minHeight: '44px',
+                minWidth: '44px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                color: '#38BDF8',
+                borderColor: '#38BDF8',
+                backgroundColor: 'rgba(56, 189, 248, 0.08)',
+              }}
+            >
+              <span>
+                {analyzing
+                  ? 'AI đang phân tích...'
+                  : '🤖 Phân tích bằng Gemini AI'}
+              </span>
+            </AppButton>
+          )}
+
           {isOwner && issue.status !== 'closed' && (
             <AppButton
               variant="primary"
@@ -675,8 +893,10 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
 
       {/* Page Header */}
       <PageHeader
-        title={issue.title}
-        subtitle={`ID: ${issue.id} • Phiên bản: v${issue.version}`}
+        title={
+          issue.bug_code ? `[${issue.bug_code}] ${issue.title}` : issue.title
+        }
+        subtitle={`ID: ${issue.id} • Phiên bản: v${issue.version}${issue.bug_code ? ` • Mã: ${issue.bug_code}` : ''}`}
         actions={
           <div
             style={{
@@ -686,11 +906,155 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               flexWrap: 'wrap',
             }}
           >
+            {issue.bug_code && (
+              <span
+                data-testid="detail-badge-bug-code"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(20, 184, 166, 0.15)',
+                  color: '#14B8A6',
+                  border: '1px solid rgba(20, 184, 166, 0.4)',
+                  fontFamily: 'monospace',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                }}
+              >
+                {issue.bug_code}
+              </span>
+            )}
             <StatusBadge status={typeMeta.status} label={typeMeta.label} />
             <StatusBadge status={statusMeta.status} label={statusMeta.label} />
+            {severityMeta && (
+              <span
+                data-testid="detail-badge-severity"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  backgroundColor: severityMeta.bg,
+                  color: severityMeta.color,
+                  border: `1px solid ${severityMeta.border}`,
+                  fontSize: '12px',
+                  fontWeight: 700,
+                }}
+              >
+                {severityMeta.label}
+              </span>
+            )}
+            {testResultMeta && (
+              <span
+                data-testid="detail-badge-test-result"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                  color: testResultMeta.color,
+                  border: `1px solid ${testResultMeta.color}`,
+                  fontSize: '12px',
+                  fontWeight: 700,
+                }}
+              >
+                {testResultMeta.label}
+              </span>
+            )}
+            {typeof issue.reopen_count === 'number' &&
+              issue.reopen_count > 0 && (
+                <span
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    color: '#EF4444',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                  }}
+                >
+                  Mở lại {issue.reopen_count}x
+                </span>
+              )}
           </div>
         }
       />
+
+      {/* Action Notification Banners */}
+      {analyzeSuccess && (
+        <div
+          data-testid="analyze-success-banner"
+          style={{
+            backgroundColor: 'rgba(56, 189, 248, 0.15)',
+            border: '1px solid #38BDF8',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            color: '#38BDF8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            fontSize: '14px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircleIcon size={18} />
+            <span>{analyzeSuccess}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAnalyzeSuccess(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#38BDF8',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'inline-flex',
+            }}
+            aria-label="Đóng thông báo"
+          >
+            <CloseIcon size={16} />
+          </button>
+        </div>
+      )}
+
+      {analyzeError && (
+        <div
+          data-testid="analyze-error-banner"
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid #EF4444',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            color: '#F87171',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            fontSize: '14px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangleIcon size={18} />
+            <span>{analyzeError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAnalyzeError(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#F87171',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'inline-flex',
+            }}
+            aria-label="Đóng thông báo lỗi"
+          >
+            <CloseIcon size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Action Notification Banners */}
       {actionSuccess && (
@@ -808,6 +1172,444 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             <CloseIcon size={16} />
           </button>
         </div>
+      )}
+
+      {/* 1. Gemini AI Analysis Card */}
+      {issue.gemini_analysis && (
+        <AppCard
+          data-testid="gemini-analysis-card"
+          style={{
+            marginBottom: '24px',
+            padding: '24px',
+            border: '1px solid rgba(56, 189, 248, 0.4)',
+            background:
+              'linear-gradient(180deg, rgba(56, 189, 248, 0.05) 0%, rgba(15, 23, 42, 0.6) 100%)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderBottom: '1px solid rgba(56, 189, 248, 0.25)',
+              paddingBottom: '12px',
+              marginBottom: '16px',
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '20px' }}>🤖</span>
+              <h3
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#38BDF8',
+                  margin: 0,
+                }}
+              >
+                Phân tích kỹ thuật & Đề xuất sửa đổi từ Gemini AI
+              </h3>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {issue.gemini_analysis.model && (
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: '#94A3B8',
+                    fontFamily: 'monospace',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+                  }}
+                >
+                  Model: {issue.gemini_analysis.model}
+                </span>
+              )}
+              {issue.gemini_analysis.analyzed_at && (
+                <span style={{ fontSize: '12px', color: '#64748B' }}>
+                  {formatTimestamp(issue.gemini_analysis.analyzed_at)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+          >
+            {/* Summary */}
+            {issue.gemini_analysis.summary && (
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#94A3B8',
+                    marginBottom: '4px',
+                  }}
+                >
+                  Tóm tắt sự cố:
+                </span>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '14px',
+                    color: '#F8FAFC',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {issue.gemini_analysis.summary}
+                </p>
+              </div>
+            )}
+
+            {/* Root Cause Hypothesis */}
+            {issue.gemini_analysis.root_cause && (
+              <div
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                  border: '1px solid #334155',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: '#F59E0B',
+                    marginBottom: '6px',
+                  }}
+                >
+                  🔍 Giả thuyết nguyên nhân gốc rễ (Root Cause Hypothesis):
+                </span>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '13px',
+                    color: '#E2E8F0',
+                    lineHeight: 1.6,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {issue.gemini_analysis.root_cause}
+                </p>
+              </div>
+            )}
+
+            {/* Suggested Fix */}
+            {issue.gemini_analysis.suggested_fix && (
+              <div
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                  border: '1px solid #334155',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: '#10B981',
+                    marginBottom: '6px',
+                  }}
+                >
+                  💡 Hướng dẫn sửa đổi đề xuất cho Anty:
+                </span>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '13px',
+                    color: '#E2E8F0',
+                    lineHeight: 1.6,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {issue.gemini_analysis.suggested_fix}
+                </p>
+              </div>
+            )}
+
+            {/* Affected Files & Suggested Tests */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '16px',
+              }}
+            >
+              {Array.isArray(issue.gemini_analysis.affected_files) &&
+                issue.gemini_analysis.affected_files.length > 0 && (
+                  <div>
+                    <span
+                      style={{
+                        display: 'block',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: '#94A3B8',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      File mã nguồn nghi vấn bị ảnh hưởng:
+                    </span>
+                    <div
+                      style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}
+                    >
+                      {issue.gemini_analysis.affected_files.map((file, idx) => (
+                        <span
+                          key={idx}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: '#0F172A',
+                            border: '1px solid #334155',
+                            fontFamily: 'monospace',
+                            fontSize: '12px',
+                            color: '#38BDF8',
+                          }}
+                        >
+                          {file}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {Array.isArray(issue.gemini_analysis.suggested_tests) &&
+                issue.gemini_analysis.suggested_tests.length > 0 && (
+                  <div>
+                    <span
+                      style={{
+                        display: 'block',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: '#94A3B8',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      Ca kiểm thử hồi quy đề xuất:
+                    </span>
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: '18px',
+                        color: '#CBD5E1',
+                        fontSize: '13px',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {issue.gemini_analysis.suggested_tests.map(
+                        (test, idx) => (
+                          <li key={idx}>{test}</li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
+            </div>
+
+            {/* Feasibility for Auto-Verification */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                paddingTop: '8px',
+                borderTop: '1px solid rgba(56, 189, 248, 0.15)',
+              }}
+            >
+              <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Khả năng tự động kiểm thử:
+              </span>
+              {issue.gemini_analysis.can_auto_verify ? (
+                <span
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    color: '#34D399',
+                    border: '1px solid #10B981',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                  }}
+                >
+                  ✓ Có thể kiểm thử tự động (CI/CD Automated Verification)
+                </span>
+              ) : (
+                <span
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    color: '#FBBF24',
+                    border: '1px solid #F59E0B',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                  }}
+                >
+                  ⚠ Cần Owner nghiệm thu thủ công (Waiting for Owner)
+                </span>
+              )}
+            </div>
+          </div>
+        </AppCard>
+      )}
+
+      {/* 2. CI/CD & Deployment Verification Panel */}
+      {(issue.github_issue_url ||
+        issue.deploy_sha ||
+        issue.pr_number ||
+        issue.test_result) && (
+        <AppCard
+          data-testid="cicd-verification-card"
+          style={{ marginBottom: '24px', padding: '24px' }}
+        >
+          <h3
+            style={{
+              fontSize: '16px',
+              fontWeight: 700,
+              color: '#F8FAFC',
+              marginBottom: '16px',
+              borderBottom: '1px solid #334155',
+              paddingBottom: '8px',
+            }}
+          >
+            Liên kết Triển khai & Xác minh (CI/CD Verification)
+          </h3>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '16px',
+            }}
+          >
+            {issue.github_issue_url && (
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                    marginBottom: '4px',
+                  }}
+                >
+                  GitHub Issue liên kết:
+                </span>
+                <a
+                  href={issue.github_issue_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: '#38BDF8',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  #{issue.github_issue_number || 'Issue'} ↗
+                </a>
+              </div>
+            )}
+
+            {issue.pr_number && (
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                    marginBottom: '4px',
+                  }}
+                >
+                  Pull Request:
+                </span>
+                <span
+                  style={{
+                    color: '#F8FAFC',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                  }}
+                >
+                  PR #{issue.pr_number}
+                </span>
+              </div>
+            )}
+
+            {issue.deploy_sha && (
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                    marginBottom: '4px',
+                  }}
+                >
+                  Commit SHA đã deploy:
+                </span>
+                <span
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: '#0F172A',
+                    border: '1px solid #334155',
+                    color: '#A5B4FC',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                  }}
+                >
+                  {issue.deploy_sha.slice(0, 10)}
+                </span>
+              </div>
+            )}
+
+            {issue.test_result && (
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                    marginBottom: '4px',
+                  }}
+                >
+                  Kết quả kiểm thử:
+                </span>
+                <span
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    backgroundColor:
+                      issue.test_result === 'passed'
+                        ? 'rgba(16, 185, 129, 0.15)'
+                        : issue.test_result === 'failed'
+                          ? 'rgba(239, 68, 68, 0.15)'
+                          : 'rgba(245, 158, 11, 0.15)',
+                    color:
+                      issue.test_result === 'passed'
+                        ? '#34D399'
+                        : issue.test_result === 'failed'
+                          ? '#F87171'
+                          : '#FBBF24',
+                    border: `1px solid ${issue.test_result === 'passed' ? '#10B981' : issue.test_result === 'failed' ? '#EF4444' : '#F59E0B'}`,
+                    fontSize: '12px',
+                    fontWeight: 700,
+                  }}
+                >
+                  {issue.test_result.toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
+        </AppCard>
       )}
 
       {/* Main Metadata Card */}
@@ -959,6 +1761,132 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             {issue.description}
           </div>
         </div>
+
+        {/* Client Environment Context */}
+        {issue.metadata_context &&
+          Object.keys(issue.metadata_context).length > 0 && (
+            <div
+              data-testid="metadata-context-box"
+              style={{
+                marginTop: '20px',
+                padding: '14px 16px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                border: '1px solid #1E293B',
+              }}
+            >
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#94A3B8',
+                  marginBottom: '8px',
+                }}
+              >
+                Môi trường client ghi nhận lúc báo lỗi:
+              </span>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '10px',
+                  fontSize: '12px',
+                }}
+              >
+                {Boolean(issue.metadata_context.url) && (
+                  <div>
+                    <span style={{ color: '#64748B' }}>URL: </span>
+                    <span style={{ color: '#CBD5E1', wordBreak: 'break-all' }}>
+                      {String(issue.metadata_context.url)}
+                    </span>
+                  </div>
+                )}
+                {Boolean(issue.metadata_context.release_sha) && (
+                  <div>
+                    <span style={{ color: '#64748B' }}>Release SHA: </span>
+                    <code style={{ color: '#A5B4FC', fontFamily: 'monospace' }}>
+                      {String(issue.metadata_context.release_sha).slice(0, 12)}
+                    </code>
+                  </div>
+                )}
+                {Boolean(issue.metadata_context.error_id) && (
+                  <div>
+                    <span style={{ color: '#64748B' }}>Error ID: </span>
+                    <code style={{ color: '#F87171', fontFamily: 'monospace' }}>
+                      {String(issue.metadata_context.error_id)}
+                    </code>
+                  </div>
+                )}
+                {Boolean(issue.metadata_context.request_id) && (
+                  <div>
+                    <span style={{ color: '#64748B' }}>Request ID: </span>
+                    <code style={{ color: '#94A3B8', fontFamily: 'monospace' }}>
+                      {String(issue.metadata_context.request_id)}
+                    </code>
+                  </div>
+                )}
+                {Boolean(issue.metadata_context.user_agent) && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <span style={{ color: '#64748B' }}>Trình duyệt: </span>
+                    <span style={{ color: '#94A3B8', wordBreak: 'break-all' }}>
+                      {String(issue.metadata_context.user_agent)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        {/* Screenshot Viewer */}
+        {issue.screenshot_url && (
+          <div data-testid="screenshot-viewer" style={{ marginTop: '20px' }}>
+            <span
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#94A3B8',
+                marginBottom: '8px',
+              }}
+            >
+              Ảnh chụp màn hình sự cố:
+            </span>
+            <div
+              style={{
+                display: 'inline-block',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                border: '1px solid #334155',
+                cursor: 'pointer',
+                maxHeight: '260px',
+                backgroundColor: '#0F172A',
+              }}
+              onClick={() => setSelectedImage(issue.screenshot_url || null)}
+            >
+              <img
+                src={issue.screenshot_url}
+                alt="Ảnh chụp màn hình lỗi"
+                style={{
+                  maxHeight: '260px',
+                  maxWidth: '100%',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+            </div>
+            <span
+              style={{
+                display: 'block',
+                fontSize: '11px',
+                color: '#64748B',
+                marginTop: '4px',
+              }}
+            >
+              (Bấm vào ảnh để phóng to)
+            </span>
+          </div>
+        )}
       </AppCard>
 
       {/* Activity Timeline Card */}
@@ -1514,6 +2442,71 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 </AppButton>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {selectedImage && (
+        <div
+          data-testid="screenshot-modal"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+          }}
+          onClick={() => setSelectedImage(null)}
+        >
+          <div
+            style={{
+              position: 'relative',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedImage(null)}
+              data-testid="btn-close-screenshot-modal"
+              style={{
+                position: 'absolute',
+                top: '-40px',
+                right: '0',
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                color: '#FFFFFF',
+                fontSize: '24px',
+                cursor: 'pointer',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ✕
+            </button>
+            <img
+              src={selectedImage}
+              alt="Ảnh phóng to"
+              style={{
+                maxWidth: '90vw',
+                maxHeight: '85vh',
+                objectFit: 'contain',
+                borderRadius: '8px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+              }}
+            />
           </div>
         </div>
       )}

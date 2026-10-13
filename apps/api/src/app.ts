@@ -61,9 +61,11 @@ import { FinanceService } from './finance/service.js';
 import { FinanceValidationError } from '../../../packages/contracts/src/finance.js';
 import type {
   CreateIssueRequest,
+  CreateReportRequest,
   UpdateIssueRequest,
   ConfirmFixRequest,
   ReopenIssueRequest,
+  VerifyIssueRequest,
   ListIssuesQuery,
   IssueStatus,
   IssueType,
@@ -2393,12 +2395,7 @@ export function createRequestHandler(
 
           const result = await issuesService.createReport(
             sessionContext,
-            rawBody as {
-              title?: string;
-              description: string;
-              route_template?: string;
-              module_name?: string;
-            },
+            rawBody as unknown as CreateReportRequest,
             requestId,
             idempotencyKey,
           );
@@ -2419,7 +2416,7 @@ export function createRequestHandler(
       // Strictly Owner-only. Requires C06 Workspace isolation, If-Match, Idempotency
       // =======================================================================
       const issuesRouteMatch = pathname.match(
-        /^\/api\/v1\/issues(?:\/([a-zA-Z0-9_-]+)(?:\/(confirm-fix|reopen))?)?$/,
+        /^\/api\/v1\/issues(?:\/([a-zA-Z0-9_-]+)(?:\/(confirm-fix|reopen|analyze|verify))?)?$/,
       );
 
       if (issuesRouteMatch) {
@@ -2577,6 +2574,34 @@ export function createRequestHandler(
           return sendJson(res, 200, createSuccessEnvelope(result, requestId));
         }
 
+        // 7. POST /api/v1/issues/:id/analyze - Gemini AI Bug Analysis
+        if (issueId && subAction === 'analyze' && method === 'POST') {
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+          const result = await issuesService.analyzeIssue(
+            sessionContext,
+            issueId,
+            requestId,
+          );
+
+          res.setHeader('ETag', `"${result.issue.version}"`);
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        // 8. POST /api/v1/issues/:id/verify - Verify Fix (Passed/Failed/Manual)
+        if (issueId && subAction === 'verify' && method === 'POST') {
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+          const rawBody = await parseJsonBody<Record<string, unknown>>(req);
+          const result = await issuesService.verifyIssueFix(
+            sessionContext,
+            issueId,
+            rawBody as unknown as VerifyIssueRequest,
+            requestId,
+          );
+
+          res.setHeader('ETag', `"${result.version}"`);
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
         const body = createErrorEnvelope(
           'NOT_FOUND',
           `Endpoint ${method} ${pathname} not found`,
@@ -2620,6 +2645,7 @@ export function createRequestHandler(
       }
 
       // Global error fallback: sanitized, zero credential leaks, no stack traces
+      console.error(`[INTERNAL_SERVER_ERROR] [req:${requestId}]`, err);
       const body = createErrorEnvelope(
         'INTERNAL_SERVER_ERROR',
         'An unexpected internal error occurred',

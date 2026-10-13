@@ -45,6 +45,9 @@ export interface BugReportSnapshotPayload {
   description: string;
   route_template: string;
   module_name: string;
+  severity?: 'P0' | 'P1' | 'P2' | 'P3' | undefined;
+  screenshot_url?: string | undefined;
+  metadata_context?: Record<string, unknown> | undefined;
 }
 
 export interface PendingBugReport {
@@ -333,6 +336,9 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [severity, setSeverity] = useState<'P0' | 'P1' | 'P2' | 'P3'>('P2');
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -548,6 +554,29 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
     setPendingSnapshot(null);
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMessage('Ảnh đính kèm vượt quá 2MB. Vui lòng chọn ảnh nhỏ hơn.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (typeof event.target?.result === 'string') {
+        setScreenshotUrl(event.target.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearImage = () => {
+    setScreenshotUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -636,6 +665,8 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
       return;
     }
 
+    const currentKey = idempotencyKeyRef.current;
+
     // FIX-03: If retrying an unknown request, use exact snapshot payload without modification
     let payloadToSubmit: BugReportSnapshotPayload;
     if (isUnknownOutcome && pendingSnapshot) {
@@ -644,6 +675,10 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
         description: pendingSnapshot.description,
         route_template: pendingSnapshot.route_template,
         module_name: pendingSnapshot.module_name,
+        severity: pendingSnapshot.severity || severity,
+        screenshot_url:
+          pendingSnapshot.screenshot_url || screenshotUrl || undefined,
+        metadata_context: pendingSnapshot.metadata_context,
       };
     } else {
       const moduleName = getModuleNameFromPath(currentPath);
@@ -652,10 +687,28 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
         description, // Preserve verbatim description (no trim)
         route_template: currentPath || '/',
         module_name: moduleName,
+        severity,
+        screenshot_url: screenshotUrl || undefined,
+        metadata_context: {
+          url:
+            typeof window !== 'undefined' ? window.location.href : currentPath,
+          route_template: currentPath || '/',
+          client_timestamp: new Date().toISOString(),
+          user_agent:
+            typeof navigator !== 'undefined' ? navigator.userAgent : '',
+          error_id: `ERR-${Date.now().toString(36).toUpperCase()}`,
+          request_id: currentKey,
+          release_sha:
+            (typeof window !== 'undefined' &&
+              (window as unknown as { __LIVE_SHA__?: string }).__LIVE_SHA__) ||
+            (typeof document !== 'undefined' &&
+              document
+                .querySelector('meta[name="release-sha"]')
+                ?.getAttribute('content')) ||
+            'production-live',
+        },
       };
     }
-
-    const currentKey = idempotencyKeyRef.current;
 
     // FIX-04: FAIL-CLOSED PERSISTENCE CHECK BEFORE HTTP POST
     const writePreRes = writePendingReportToStorage(
@@ -1127,6 +1180,146 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     minHeight: '90px',
                   }}
                 />
+              </div>
+
+              {/* Severity Selection */}
+              <div style={{ marginBottom: '16px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#E2E8F0',
+                    marginBottom: '8px',
+                  }}
+                >
+                  Mức độ nghiêm trọng
+                </label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { id: 'P0', label: 'P0 - Khẩn cấp', color: '#EF4444' },
+                    { id: 'P1', label: 'P1 - Cao', color: '#F97316' },
+                    { id: 'P2', label: 'P2 - Bình thường', color: '#38BDF8' },
+                    { id: 'P3', label: 'P3 - Thấp', color: '#94A3B8' },
+                  ].map((item) => {
+                    const isSelected = severity === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() =>
+                          setSeverity(item.id as 'P0' | 'P1' | 'P2' | 'P3')
+                        }
+                        disabled={isFormLocked}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: isSelected
+                            ? `2px solid ${item.color}`
+                            : '1px solid #334155',
+                          backgroundColor: isSelected
+                            ? 'rgba(56, 189, 248, 0.15)'
+                            : '#1E293B',
+                          color: isSelected ? '#FFFFFF' : '#94A3B8',
+                          fontSize: '12px',
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: isFormLocked ? 'not-allowed' : 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Screenshot Upload */}
+              <div style={{ marginBottom: '20px' }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  style={{ display: 'none' }}
+                  disabled={isFormLocked}
+                />
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#E2E8F0',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Ảnh chụp sự cố (Tùy chọn)
+                </label>
+                {screenshotUrl ? (
+                  <div
+                    style={{
+                      position: 'relative',
+                      display: 'inline-block',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      border: '1px solid #334155',
+                      maxWidth: '100%',
+                    }}
+                  >
+                    <img
+                      src={screenshotUrl}
+                      alt="Ảnh đính kèm"
+                      style={{
+                        maxHeight: '120px',
+                        maxWidth: '100%',
+                        display: 'block',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleClearImage}
+                      disabled={isFormLocked}
+                      style={{
+                        position: 'absolute',
+                        top: '4px',
+                        right: '4px',
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        border: 'none',
+                        color: '#EF4444',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                      }}
+                      title="Xóa ảnh"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isFormLocked}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      border: '1px dashed #475569',
+                      backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                      color: '#94A3B8',
+                      fontSize: '13px',
+                      cursor: isFormLocked ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    📷 Chọn ảnh chụp màn hình (tối đa 2MB)
+                  </button>
+                )}
               </div>
 
               {/* Action Buttons */}

@@ -8,16 +8,23 @@ import {
 } from '../../../../packages/database/src/idempotency.js';
 import { AuthError, type AuthenticatedContext } from '../auth/service.js';
 import { requireRole } from '../auth/guard.js';
+import { BugAnalyzer } from '../ai-core/bug-analyzer.js';
+import { GitHubSyncService } from './github-sync.js';
 import type {
   IssueData,
   IssueActivityData,
   IssueType,
   IssueStatus,
+  IssueSeverity,
+  IssueTestResult,
+  GeminiAnalysisResult,
   CreateIssueRequest,
   CreateReportRequest,
   UpdateIssueRequest,
   ConfirmFixRequest,
   ReopenIssueRequest,
+  VerifyIssueRequest,
+  AnalyzeIssueResponseData,
   ListIssuesQuery,
   ListIssuesResponseData,
   IssueDetailResponseData,
@@ -32,18 +39,30 @@ function validateUuid(v: unknown, fieldName = 'id'): string {
     typeof v !== 'string' ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
   ) {
-    fail('VALIDATION_ERROR', `Mã định danh ${fieldName} không đúng định dạng UUID.`, 400);
+    fail(
+      'VALIDATION_ERROR',
+      `Mã định danh ${fieldName} không đúng định dạng UUID.`,
+      400,
+    );
   }
   return v.toLowerCase();
 }
 
 function validateRouteTemplate(route: unknown): string {
   if (typeof route !== 'string' || !route.trim()) {
-    fail('VALIDATION_ERROR', 'Đường dẫn giao diện (route_template) là bắt buộc.', 400);
+    fail(
+      'VALIDATION_ERROR',
+      'Đường dẫn giao diện (route_template) là bắt buộc.',
+      400,
+    );
   }
   const trimmed = route.trim();
   if (trimmed.length > 128) {
-    fail('VALIDATION_ERROR', 'Đường dẫn giao diện không được vượt quá 128 ký tự.', 400);
+    fail(
+      'VALIDATION_ERROR',
+      'Đường dẫn giao diện không được vượt quá 128 ký tự.',
+      400,
+    );
   }
   if (!trimmed.startsWith('/')) {
     fail('VALIDATION_ERROR', 'Đường dẫn giao diện phải bắt đầu bằng "/".', 400);
@@ -56,14 +75,25 @@ function validateRouteTemplate(route: unknown): string {
     );
   }
   if (!/^\/[a-zA-Z0-9_\-\/:]*$/.test(trimmed)) {
-    fail('VALIDATION_ERROR', 'Đường dẫn giao diện chứa ký tự không hợp lệ.', 400);
+    fail(
+      'VALIDATION_ERROR',
+      'Đường dẫn giao diện chứa ký tự không hợp lệ.',
+      400,
+    );
   }
   return trimmed;
 }
 
-function checkVersionMatch(currentVersion: number, ifMatchHeader: string | undefined): void {
+function checkVersionMatch(
+  currentVersion: number,
+  ifMatchHeader: string | undefined,
+): void {
   if (!ifMatchHeader) {
-    fail('PRECONDITION_REQUIRED', 'Tiêu đề If-Match là bắt buộc cho thao tác cập nhật.', 428);
+    fail(
+      'PRECONDITION_REQUIRED',
+      'Tiêu đề If-Match là bắt buộc cho thao tác cập nhật.',
+      428,
+    );
   }
   const cleanMatch = ifMatchHeader.replace(/^"|"$/g, '').trim();
   const matchNum = Number(cleanMatch);
@@ -78,7 +108,11 @@ function checkVersionMatch(currentVersion: number, ifMatchHeader: string | undef
 
 function validateIdempotencyKey(key: unknown): string {
   if (typeof key !== 'string' || !key.trim()) {
-    fail('VALIDATION_ERROR', 'Tiêu đề Idempotency-Key là bắt buộc đối với thao tác này.', 400);
+    fail(
+      'VALIDATION_ERROR',
+      'Tiêu đề Idempotency-Key là bắt buộc đối với thao tác này.',
+      400,
+    );
   }
   const cleanKey = key.trim();
   if (!/^[\x21-\x7e]{1,128}$/.test(cleanKey)) {
@@ -88,7 +122,19 @@ function validateIdempotencyKey(key: unknown): string {
 }
 
 export class IssuesService {
-  constructor(private readonly pool: DatabasePool) {}
+  private readonly bugAnalyzer: BugAnalyzer;
+  private readonly githubSync: GitHubSyncService;
+
+  constructor(
+    private readonly pool: DatabasePool,
+    options: {
+      bugAnalyzer?: BugAnalyzer;
+      githubSync?: GitHubSyncService;
+    } = {},
+  ) {
+    this.bugAnalyzer = options.bugAnalyzer || new BugAnalyzer();
+    this.githubSync = options.githubSync || new GitHubSyncService();
+  }
 
   /**
    * Helper to ensure active Owner role
@@ -112,9 +158,33 @@ export class IssuesService {
       route_template: String(row.route_template),
       status: row.status as IssueStatus,
       version: Number(row.version),
+      bug_code: row.bug_code ? String(row.bug_code) : undefined,
+      severity: (row.severity as IssueSeverity) || 'P2',
+      gemini_analysis:
+        row.gemini_analysis && typeof row.gemini_analysis === 'object'
+          ? (row.gemini_analysis as GeminiAnalysisResult)
+          : {},
+      github_issue_number:
+        row.github_issue_number != null
+          ? Number(row.github_issue_number)
+          : null,
+      github_issue_url: row.github_issue_url
+        ? String(row.github_issue_url)
+        : null,
+      pr_number: row.pr_number != null ? Number(row.pr_number) : null,
+      deploy_sha: row.deploy_sha ? String(row.deploy_sha) : null,
+      test_result: (row.test_result as IssueTestResult) || null,
+      reopen_count: Number(row.reopen_count || 0),
+      metadata_context:
+        row.metadata_context && typeof row.metadata_context === 'object'
+          ? (row.metadata_context as Record<string, unknown>)
+          : {},
+      screenshot_url: row.screenshot_url ? String(row.screenshot_url) : null,
       created_at: new Date(String(row.created_at)).toISOString(),
       updated_at: new Date(String(row.updated_at)).toISOString(),
-      closed_at: row.closed_at ? new Date(String(row.closed_at)).toISOString() : null,
+      closed_at: row.closed_at
+        ? new Date(String(row.closed_at)).toISOString()
+        : null,
     };
   }
 
@@ -129,7 +199,8 @@ export class IssuesService {
       actor_user_id: String(row.actor_user_id),
       actor_name: row.actor_name ? String(row.actor_name) : undefined,
       action: row.action as IssueActivityData['action'],
-      metadata_sanitized: (row.metadata_sanitized as Record<string, unknown>) || {},
+      metadata_sanitized:
+        (row.metadata_sanitized as Record<string, unknown>) || {},
       created_at: new Date(String(row.created_at)).toISOString(),
     };
   }
@@ -151,7 +222,15 @@ export class IssuesService {
       fail('VALIDATION_ERROR', 'Payload yêu cầu không hợp lệ.', 400);
     }
 
-    const allowedFields = ['type', 'title', 'description', 'route_template'];
+    const allowedFields = [
+      'type',
+      'title',
+      'description',
+      'route_template',
+      'severity',
+      'screenshot_url',
+      'metadata_context',
+    ];
     for (const key of Object.keys(body)) {
       if (!allowedFields.includes(key)) {
         fail('VALIDATION_ERROR', `Trường không được phép: '${key}'.`, 400);
@@ -159,7 +238,11 @@ export class IssuesService {
     }
 
     if (!body.type || !['bug', 'improvement'].includes(body.type)) {
-      fail('VALIDATION_ERROR', 'Loại vấn đề (type) phải là "bug" hoặc "improvement".', 400);
+      fail(
+        'VALIDATION_ERROR',
+        'Loại vấn đề (type) phải là "bug" hoặc "improvement".',
+        400,
+      );
     }
 
     if (typeof body.title !== 'string' || !body.title.trim()) {
@@ -171,7 +254,11 @@ export class IssuesService {
     }
 
     if (typeof body.description !== 'string' || !body.description.trim()) {
-      fail('VALIDATION_ERROR', 'Mô tả chi tiết (description) là bắt buộc.', 400);
+      fail(
+        'VALIDATION_ERROR',
+        'Mô tả chi tiết (description) là bắt buộc.',
+        400,
+      );
     }
     const cleanDescription = body.description.trim();
     if (cleanDescription.length > 4000) {
@@ -179,13 +266,29 @@ export class IssuesService {
     }
 
     const cleanRoute = validateRouteTemplate(body.route_template);
+    const cleanSeverity =
+      body.severity && ['P0', 'P1', 'P2', 'P3'].includes(body.severity)
+        ? body.severity
+        : 'P2';
+    const cleanScreenshot =
+      typeof body.screenshot_url === 'string'
+        ? body.screenshot_url.slice(0, 500000)
+        : null;
+    const cleanMeta =
+      body.metadata_context && typeof body.metadata_context === 'object'
+        ? body.metadata_context
+        : {};
 
     const client: PoolClient = await this.pool.connect();
     try {
       await client.query('BEGIN');
 
       // Idempotency claim (mandatory)
-      const fingerprint = computeRequestFingerprint('POST', '/api/v1/issues', body);
+      const fingerprint = computeRequestFingerprint(
+        'POST',
+        '/api/v1/issues',
+        body,
+      );
       const claim = await claimIdempotency(client, {
         workspaceId: context.workspace.id,
         actorUserId: context.user.id,
@@ -198,7 +301,11 @@ export class IssuesService {
         return claim.sanitizedResponse as unknown as IssueData;
       }
       if (claim.status === 'mismatch') {
-        fail('CONFLICT', 'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.', 409);
+        fail(
+          'CONFLICT',
+          'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.',
+          409,
+        );
       }
       if (claim.status === 'in_progress') {
         fail('CONFLICT', 'Yêu cầu trùng lặp đang được xử lý đồng thời.', 409);
@@ -213,9 +320,12 @@ export class IssuesService {
           title,
           description,
           route_template,
+          severity,
+          screenshot_url,
+          metadata_context,
           status,
           version
-        ) VALUES ($1, $2, $3, $4, $5, $6, 'open', 1)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open', 1)
         RETURNING *`,
         [
           context.workspace.id,
@@ -224,6 +334,9 @@ export class IssuesService {
           cleanTitle,
           cleanDescription,
           cleanRoute,
+          cleanSeverity,
+          cleanScreenshot,
+          JSON.stringify(cleanMeta),
         ],
       );
       const createdRow = issueRes.rows[0];
@@ -244,6 +357,7 @@ export class IssuesService {
           JSON.stringify({
             type: body.type,
             route_template: cleanRoute,
+            severity: cleanSeverity,
           }),
         ],
       );
@@ -260,6 +374,7 @@ export class IssuesService {
           type: body.type,
           title: cleanTitle,
           route_template: cleanRoute,
+          bug_code: createdRow.bug_code,
         },
       });
 
@@ -275,6 +390,32 @@ export class IssuesService {
       });
 
       await client.query('COMMIT');
+
+      // Sync with GitHub Issue in background
+      if (body.type === 'bug' && createdRow.bug_code) {
+        void this.githubSync
+          .createIssue({
+            bugCode: createdRow.bug_code,
+            title: cleanTitle,
+            description: cleanDescription,
+            routeTemplate: cleanRoute,
+            severity: cleanSeverity,
+            metadata: cleanMeta as Record<string, unknown>,
+            screenshotUrl: cleanScreenshot || undefined,
+          })
+          .then(async (gh) => {
+            if (gh && gh.issueNumber > 0) {
+              await this.pool
+                .query(
+                  `UPDATE issues SET github_issue_number = $1, github_issue_url = $2 WHERE id = $3`,
+                  [gh.issueNumber, gh.issueUrl, createdRow.id],
+                )
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
+
       return issueData;
     } catch (err) {
       await client.query('ROLLBACK');
@@ -296,14 +437,20 @@ export class IssuesService {
   ): Promise<IssueData> {
     requireRole(['owner', 'staff'], context);
 
-    const validIdempotencyKey = idempotencyKey ? validateIdempotencyKey(idempotencyKey) : undefined;
+    const validIdempotencyKey = idempotencyKey
+      ? validateIdempotencyKey(idempotencyKey)
+      : undefined;
 
     if (!body || typeof body !== 'object') {
       fail('VALIDATION_ERROR', 'Payload yêu cầu không hợp lệ.', 400);
     }
 
     if (typeof body.description !== 'string' || !body.description.trim()) {
-      fail('VALIDATION_ERROR', 'Nội dung mô tả lỗi (description) là bắt buộc.', 400);
+      fail(
+        'VALIDATION_ERROR',
+        'Nội dung mô tả lỗi (description) là bắt buộc.',
+        400,
+      );
     }
     if (body.description.length > 3500) {
       fail('VALIDATION_ERROR', 'Mô tả không được vượt quá 3500 ký tự.', 400);
@@ -314,7 +461,10 @@ export class IssuesService {
 
     let cleanTitle = typeof body.title === 'string' ? body.title.trim() : '';
     if (!cleanTitle) {
-      const truncated = rawDescription.trim().slice(0, 60).replace(/\r?\n/g, ' ');
+      const truncated = rawDescription
+        .trim()
+        .slice(0, 60)
+        .replace(/\r?\n/g, ' ');
       cleanTitle = `[Báo lỗi] ${truncated}${rawDescription.trim().length > 60 ? '...' : ''}`;
     }
     if (cleanTitle.length > 255) {
@@ -335,13 +485,30 @@ export class IssuesService {
         ? body.module_name.trim().slice(0, 64)
         : '';
 
+    const cleanSeverity =
+      body.severity && ['P0', 'P1', 'P2', 'P3'].includes(body.severity)
+        ? body.severity
+        : 'P2';
+    const cleanScreenshot =
+      typeof body.screenshot_url === 'string'
+        ? body.screenshot_url.slice(0, 500000)
+        : null;
+    const cleanMeta =
+      body.metadata_context && typeof body.metadata_context === 'object'
+        ? body.metadata_context
+        : {};
+
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
 
       // Idempotency claim (FIX-03A)
       if (validIdempotencyKey) {
-        const fingerprint = computeRequestFingerprint('POST', '/api/v1/reports', body);
+        const fingerprint = computeRequestFingerprint(
+          'POST',
+          '/api/v1/reports',
+          body,
+        );
         const claim = await claimIdempotency(client, {
           workspaceId: context.workspace.id,
           actorUserId: context.user.id,
@@ -354,7 +521,11 @@ export class IssuesService {
           return claim.sanitizedResponse as unknown as IssueData;
         }
         if (claim.status === 'mismatch') {
-          fail('CONFLICT', 'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.', 409);
+          fail(
+            'CONFLICT',
+            'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.',
+            409,
+          );
         }
         if (claim.status === 'in_progress') {
           fail('CONFLICT', 'Yêu cầu trùng lặp đang được xử lý đồng thời.', 409);
@@ -369,11 +540,14 @@ export class IssuesService {
           title,
           description,
           route_template,
+          severity,
+          screenshot_url,
+          metadata_context,
           status,
           version,
           created_at,
           updated_at
-        ) VALUES ($1, $2, 'bug', $3, $4, $5, 'open', 1, clock_timestamp(), clock_timestamp())
+        ) VALUES ($1, $2, 'bug', $3, $4, $5, $6, $7, $8, 'open', 1, clock_timestamp(), clock_timestamp())
         RETURNING *
       `;
       const res = await client.query(insertQuery, [
@@ -382,6 +556,9 @@ export class IssuesService {
         cleanTitle,
         rawDescription,
         cleanRoute,
+        cleanSeverity,
+        cleanScreenshot,
+        JSON.stringify(cleanMeta),
       ]);
       const createdRow = res.rows[0];
 
@@ -402,6 +579,7 @@ export class IssuesService {
             source: 'ui_report_widget',
             module_name: cleanModule || undefined,
             route_template: cleanRoute,
+            severity: cleanSeverity,
             reporter_role: context.workspace.role,
           }),
         ],
@@ -417,6 +595,8 @@ export class IssuesService {
         metadata: {
           route_template: cleanRoute,
           module_name: cleanModule,
+          bug_code: createdRow.bug_code,
+          severity: cleanSeverity,
         },
       });
 
@@ -436,6 +616,31 @@ export class IssuesService {
       }
 
       await client.query('COMMIT');
+
+      // Sync with GitHub Issue in background
+      if (createdRow.bug_code) {
+        void this.githubSync
+          .createIssue({
+            bugCode: createdRow.bug_code,
+            title: cleanTitle,
+            description: rawDescription,
+            routeTemplate: cleanRoute,
+            severity: cleanSeverity,
+            metadata: cleanMeta as Record<string, unknown>,
+            screenshotUrl: cleanScreenshot || undefined,
+          })
+          .then(async (gh) => {
+            if (gh && gh.issueNumber > 0) {
+              await this.pool
+                .query(
+                  `UPDATE issues SET github_issue_number = $1, github_issue_url = $2 WHERE id = $3`,
+                  [gh.issueNumber, gh.issueUrl, createdRow.id],
+                )
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
 
       return issueData;
     } catch (err) {
@@ -472,14 +677,28 @@ export class IssuesService {
     // Filter by status or active/archived tabs or groups
     if (query.status) {
       if (query.status === 'active') {
-        filterClauses += ` AND i.status IN ('open', 'analyzing', 'fixing', 'awaiting_owner')`;
+        filterClauses += ` AND i.status IN ('open', 'analyzing', 'fixing', 'testing', 'deploying', 'verifying', 'reopened', 'waiting_for_owner', 'awaiting_owner')`;
       } else if (query.status === 'archived') {
-        filterClauses += ` AND i.status = 'closed'`;
+        filterClauses += ` AND i.status IN ('closed', 'fixed')`;
       } else if (query.status === 'in_progress') {
-        filterClauses += ` AND i.status IN ('analyzing', 'fixing')`;
+        filterClauses += ` AND i.status IN ('analyzing', 'fixing', 'testing', 'deploying', 'verifying')`;
       } else if (query.status === 'new') {
         filterClauses += ` AND i.status = 'open'`;
-      } else if (['open', 'analyzing', 'fixing', 'awaiting_owner', 'closed'].includes(query.status)) {
+      } else if (
+        [
+          'open',
+          'analyzing',
+          'fixing',
+          'testing',
+          'deploying',
+          'verifying',
+          'fixed',
+          'reopened',
+          'waiting_for_owner',
+          'awaiting_owner',
+          'closed',
+        ].includes(query.status)
+      ) {
         params.push(query.status);
         filterClauses += ` AND i.status = $${params.length}`;
       } else {
@@ -490,7 +709,9 @@ export class IssuesService {
     // Cursor pagination (created_at DESC, id DESC)
     if (query.cursor) {
       try {
-        const decodedStr = Buffer.from(query.cursor, 'base64url').toString('utf8');
+        const decodedStr = Buffer.from(query.cursor, 'base64url').toString(
+          'utf8',
+        );
         const decoded = JSON.parse(decodedStr);
         if (
           !decoded ||
@@ -498,7 +719,9 @@ export class IssuesService {
           typeof decoded.created_at !== 'string' ||
           typeof decoded.id !== 'string' ||
           isNaN(Date.parse(decoded.created_at)) ||
-          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded.id)
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            decoded.id,
+          )
         ) {
           throw new Error('Malformed cursor');
         }
@@ -506,7 +729,11 @@ export class IssuesService {
         filterClauses += ` AND (i.created_at, i.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`;
       } catch (err: unknown) {
         if (err instanceof AuthError) throw err;
-        fail('INVALID_CURSOR', 'Mã phân trang (cursor) không hợp lệ hoặc bị lỗi định dạng.', 400);
+        fail(
+          'INVALID_CURSOR',
+          'Mã phân trang (cursor) không hợp lệ hoặc bị lỗi định dạng.',
+          400,
+        );
       }
     }
 
@@ -514,10 +741,10 @@ export class IssuesService {
     const countsRes = await this.pool.query(
       `SELECT
          COUNT(*)::int AS all_count,
-         COUNT(*) FILTER (WHERE status = 'open')::int AS open_count,
-         COUNT(*) FILTER (WHERE status IN ('analyzing', 'fixing'))::int AS in_progress_count,
-         COUNT(*) FILTER (WHERE status = 'awaiting_owner')::int AS awaiting_owner_count,
-         COUNT(*) FILTER (WHERE status = 'closed')::int AS closed_count
+         COUNT(*) FILTER (WHERE status IN ('open', 'reopened'))::int AS open_count,
+         COUNT(*) FILTER (WHERE status IN ('analyzing', 'fixing', 'testing', 'deploying', 'verifying'))::int AS in_progress_count,
+         COUNT(*) FILTER (WHERE status IN ('awaiting_owner', 'waiting_for_owner'))::int AS awaiting_owner_count,
+         COUNT(*) FILTER (WHERE status IN ('closed', 'fixed'))::int AS closed_count
        FROM issues
        WHERE workspace_id = $1`,
       [context.workspace.id],
@@ -620,10 +847,24 @@ export class IssuesService {
       fail('VALIDATION_ERROR', 'Payload cập nhật không hợp lệ.', 400);
     }
 
-    const allowedFields = ['title', 'description', 'type', 'status', 'reason'];
+    const allowedFields = [
+      'title',
+      'description',
+      'type',
+      'status',
+      'reason',
+      'severity',
+      'pr_number',
+      'deploy_sha',
+      'test_result',
+    ];
     for (const key of Object.keys(body)) {
       if (!allowedFields.includes(key)) {
-        fail('VALIDATION_ERROR', `Trường không được phép cập nhật: '${key}'.`, 400);
+        fail(
+          'VALIDATION_ERROR',
+          `Trường không được phép cập nhật: '${key}'.`,
+          400,
+        );
       }
     }
 
@@ -649,7 +890,11 @@ export class IssuesService {
         return claim.sanitizedResponse as unknown as IssueData;
       }
       if (claim.status === 'mismatch') {
-        fail('CONFLICT', 'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.', 409);
+        fail(
+          'CONFLICT',
+          'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.',
+          409,
+        );
       }
       if (claim.status === 'in_progress') {
         fail('CONFLICT', 'Yêu cầu trùng lặp đang được xử lý đồng thời.', 409);
@@ -668,9 +913,11 @@ export class IssuesService {
       const current = curRes.rows[0];
       checkVersionMatch(Number(current.version), ifMatch);
 
-      // C-01: Validate reason strictly for awaiting_owner -> fixing
+      // C-01: Validate reason strictly for awaiting_owner/waiting_for_owner -> fixing
       const isAwaitingOwnerToFixing =
-        current.status === 'awaiting_owner' && body.status === 'fixing';
+        (current.status === 'awaiting_owner' ||
+          current.status === 'waiting_for_owner') &&
+        body.status === 'fixing';
 
       let cleanReason: string | undefined;
       if (isAwaitingOwnerToFixing) {
@@ -706,10 +953,10 @@ export class IssuesService {
       let statusChanged = false;
       if (body.status !== undefined && body.status !== current.status) {
         // Disallow closing via generic PATCH
-        if (body.status === 'closed') {
+        if (body.status === 'closed' || body.status === 'fixed') {
           fail(
             'CANONICAL_VIOLATION',
-            'Để đóng vấn đề, Owner phải thực hiện qua endpoint xác nhận sửa lỗi POST /confirm-fix.',
+            'Để đóng vấn đề, Owner phải thực hiện qua endpoint xác nhận sửa lỗi POST /confirm-fix hoặc /verify.',
             400,
           );
         }
@@ -723,12 +970,20 @@ export class IssuesService {
           );
         }
 
-        // Allowed transitions: open -> analyzing -> fixing -> awaiting_owner
+        // Lifecycle transitions:
+        // OPEN -> ANALYZING -> FIXING -> TESTING -> DEPLOYING -> VERIFYING -> FIXED / REOPENED / WAITING_FOR_OWNER
         const allowedTransitions: Record<string, string[]> = {
-          open: ['analyzing'],
-          analyzing: ['fixing'],
-          fixing: ['awaiting_owner'],
-          awaiting_owner: ['fixing'], // Can move back to fixing if rework needed
+          open: ['analyzing', 'fixing'],
+          analyzing: ['fixing', 'open'],
+          fixing: ['testing', 'awaiting_owner', 'waiting_for_owner'],
+          testing: ['deploying', 'verifying', 'fixing'],
+          deploying: ['verifying', 'fixing'],
+          verifying: ['fixed', 'reopened', 'waiting_for_owner'],
+          fixed: ['reopened'],
+          reopened: ['analyzing', 'fixing'],
+          waiting_for_owner: ['fixed', 'fixing', 'reopened'],
+          awaiting_owner: ['fixing'],
+          closed: ['reopened'],
         };
 
         const validNext = allowedTransitions[current.status] || [];
@@ -753,7 +1008,11 @@ export class IssuesService {
         }
         const clean = body.title.trim();
         if (clean.length > 255) {
-          fail('VALIDATION_ERROR', 'Tiêu đề không được vượt quá 255 ký tự.', 400);
+          fail(
+            'VALIDATION_ERROR',
+            'Tiêu đề không được vượt quá 255 ký tự.',
+            400,
+          );
         }
         if (clean !== current.title) {
           targetTitle = clean;
@@ -770,7 +1029,11 @@ export class IssuesService {
         }
         const clean = body.description.trim();
         if (clean.length > 4000) {
-          fail('VALIDATION_ERROR', 'Mô tả không được vượt quá 4000 ký tự.', 400);
+          fail(
+            'VALIDATION_ERROR',
+            'Mô tả không được vượt quá 4000 ký tự.',
+            400,
+          );
         }
         if (clean !== current.description) {
           targetDesc = clean;
@@ -783,7 +1046,11 @@ export class IssuesService {
       let typeChanged = false;
       if (body.type !== undefined) {
         if (!['bug', 'improvement'].includes(body.type)) {
-          fail('VALIDATION_ERROR', 'Loại vấn đề phải là "bug" hoặc "improvement".', 400);
+          fail(
+            'VALIDATION_ERROR',
+            'Loại vấn đề phải là "bug" hoặc "improvement".',
+            400,
+          );
         }
         if (body.type !== current.type) {
           targetType = body.type;
@@ -791,7 +1058,65 @@ export class IssuesService {
         }
       }
 
-      if (!statusChanged && !titleChanged && !descChanged && !typeChanged) {
+      // Validate severity if supplied
+      let targetSeverity = current.severity || 'P2';
+      let severityChanged = false;
+      if (body.severity !== undefined) {
+        if (!['P0', 'P1', 'P2', 'P3'].includes(body.severity)) {
+          fail(
+            'VALIDATION_ERROR',
+            'Mức độ nghiêm trọng (severity) phải là P0, P1, P2, hoặc P3.',
+            400,
+          );
+        }
+        if (body.severity !== current.severity) {
+          targetSeverity = body.severity;
+          severityChanged = true;
+        }
+      }
+
+      // Validate pr_number if supplied
+      let targetPr = current.pr_number;
+      let prChanged = false;
+      if (body.pr_number !== undefined) {
+        targetPr = body.pr_number != null ? Number(body.pr_number) : null;
+        prChanged = true;
+      }
+
+      // Validate deploy_sha if supplied
+      let targetDeploySha = current.deploy_sha;
+      let deployShaChanged = false;
+      if (body.deploy_sha !== undefined) {
+        targetDeploySha = body.deploy_sha
+          ? body.deploy_sha.trim().slice(0, 64)
+          : null;
+        deployShaChanged = true;
+      }
+
+      // Validate test_result if supplied
+      let targetTestResult = current.test_result;
+      let testResultChanged = false;
+      if (body.test_result !== undefined) {
+        if (
+          body.test_result !== null &&
+          !['pending', 'passed', 'failed', 'manual'].includes(body.test_result)
+        ) {
+          fail('VALIDATION_ERROR', 'Kết quả kiểm thử không hợp lệ.', 400);
+        }
+        targetTestResult = body.test_result;
+        testResultChanged = true;
+      }
+
+      if (
+        !statusChanged &&
+        !titleChanged &&
+        !descChanged &&
+        !typeChanged &&
+        !severityChanged &&
+        !prChanged &&
+        !deployShaChanged &&
+        !testResultChanged
+      ) {
         await client.query('COMMIT');
         return this.mapIssueRow(current);
       }
@@ -803,15 +1128,23 @@ export class IssuesService {
              description = $2,
              type = $3,
              status = $4,
-             version = $5,
+             severity = $5,
+             pr_number = $6,
+             deploy_sha = $7,
+             test_result = $8,
+             version = $9,
              updated_at = clock_timestamp()
-         WHERE workspace_id = $6 AND id = $7
+         WHERE workspace_id = $10 AND id = $11
          RETURNING *`,
         [
           targetTitle,
           targetDesc,
           targetType,
           targetStatus,
+          targetSeverity,
+          targetPr,
+          targetDeploySha,
+          targetTestResult,
           newVersion,
           context.workspace.id,
           issueId,
@@ -946,7 +1279,11 @@ export class IssuesService {
         return claim.sanitizedResponse as unknown as IssueData;
       }
       if (claim.status === 'mismatch') {
-        fail('CONFLICT', 'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.', 409);
+        fail(
+          'CONFLICT',
+          'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.',
+          409,
+        );
       }
       if (claim.status === 'in_progress') {
         fail('CONFLICT', 'Yêu cầu trùng lặp đang được xử lý đồng thời.', 409);
@@ -964,8 +1301,12 @@ export class IssuesService {
       const current = curRes.rows[0];
       checkVersionMatch(Number(current.version), ifMatch);
 
-      if (current.status === 'closed') {
-        fail('INVALID_STATE_TRANSITION', 'Vấn đề này đã được đóng trước đó.', 400);
+      if (current.status === 'closed' || current.status === 'fixed') {
+        fail(
+          'INVALID_STATE_TRANSITION',
+          'Vấn đề này đã được đóng hoặc xác nhận sửa trước đó.',
+          400,
+        );
       }
 
       const cleanComment =
@@ -976,7 +1317,7 @@ export class IssuesService {
       const newVersion = Number(current.version) + 1;
       const updateRes = await client.query(
         `UPDATE issues
-         SET status = 'closed',
+         SET status = 'fixed',
              closed_at = clock_timestamp(),
              version = $1,
              updated_at = clock_timestamp()
@@ -1001,7 +1342,7 @@ export class IssuesService {
           context.user.id,
           JSON.stringify({
             previous_status: current.status,
-            to_status: 'closed',
+            to_status: 'fixed',
             comment: cleanComment,
             version: newVersion,
           }),
@@ -1018,7 +1359,7 @@ export class IssuesService {
         requestId,
         metadata: {
           previous_status: current.status,
-          new_status: 'closed',
+          new_status: 'fixed',
           previous_version: current.version,
           new_version: newVersion,
         },
@@ -1036,6 +1377,16 @@ export class IssuesService {
       });
 
       await client.query('COMMIT');
+
+      // Sync GitHub issue close
+      if (closedRow.github_issue_number) {
+        void this.githubSync.updateIssueStatus(
+          closedRow.github_issue_number,
+          'closed',
+          `✅ **Owner đã nghiệm thu và xác nhận sửa lỗi thành công!**${cleanComment ? `\n> Ghi chú: ${cleanComment}` : ''}`,
+        );
+      }
+
       return closedData;
     } catch (err) {
       await client.query('ROLLBACK');
@@ -1061,11 +1412,19 @@ export class IssuesService {
     const validIdempotencyKey = validateIdempotencyKey(idempotencyKey);
 
     if (!body || typeof body.reason !== 'string' || !body.reason.trim()) {
-      fail('VALIDATION_ERROR', 'Lý do mở lại vấn đề (reason) là bắt buộc.', 400);
+      fail(
+        'VALIDATION_ERROR',
+        'Lý do mở lại vấn đề (reason) là bắt buộc.',
+        400,
+      );
     }
     const cleanReason = body.reason.trim();
     if (cleanReason.length > 1000) {
-      fail('VALIDATION_ERROR', 'Lý do mở lại không được vượt quá 1000 ký tự.', 400);
+      fail(
+        'VALIDATION_ERROR',
+        'Lý do mở lại không được vượt quá 1000 ký tự.',
+        400,
+      );
     }
 
     const client: PoolClient = await this.pool.connect();
@@ -1090,7 +1449,11 @@ export class IssuesService {
         return claim.sanitizedResponse as unknown as IssueData;
       }
       if (claim.status === 'mismatch') {
-        fail('CONFLICT', 'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.', 409);
+        fail(
+          'CONFLICT',
+          'Trùng khóa Idempotency với nội dung yêu cầu khác nhau.',
+          409,
+        );
       }
       if (claim.status === 'in_progress') {
         fail('CONFLICT', 'Yêu cầu trùng lặp đang được xử lý đồng thời.', 409);
@@ -1108,20 +1471,30 @@ export class IssuesService {
       const current = curRes.rows[0];
       checkVersionMatch(Number(current.version), ifMatch);
 
-      if (current.status !== 'closed') {
-        fail('INVALID_STATE_TRANSITION', 'Chỉ có thể mở lại vấn đề đang ở trạng thái closed.', 400);
+      if (
+        !['closed', 'fixed', 'waiting_for_owner', 'awaiting_owner'].includes(
+          current.status,
+        )
+      ) {
+        fail(
+          'INVALID_STATE_TRANSITION',
+          'Chỉ có thể mở lại vấn đề đang ở trạng thái closed, fixed, hoặc chờ duyệt.',
+          400,
+        );
       }
 
       const newVersion = Number(current.version) + 1;
+      const newReopenCount = Number(current.reopen_count || 0) + 1;
       const updateRes = await client.query(
         `UPDATE issues
-         SET status = 'open',
+         SET status = 'reopened',
              closed_at = NULL,
-             version = $1,
+             reopen_count = $1,
+             version = $2,
              updated_at = clock_timestamp()
-         WHERE workspace_id = $2 AND id = $3
+         WHERE workspace_id = $3 AND id = $4
          RETURNING *`,
-        [newVersion, context.workspace.id, issueId],
+        [newReopenCount, newVersion, context.workspace.id, issueId],
       );
       const reopenedRow = updateRes.rows[0];
 
@@ -1139,9 +1512,10 @@ export class IssuesService {
           issueId,
           context.user.id,
           JSON.stringify({
-            previous_status: 'closed',
-            to_status: 'open',
+            previous_status: current.status,
+            to_status: 'reopened',
             reason: cleanReason,
+            reopen_count: newReopenCount,
             version: newVersion,
           }),
         ],
@@ -1156,10 +1530,11 @@ export class IssuesService {
         entityId: issueId,
         requestId,
         metadata: {
-          previous_status: 'closed',
-          new_status: 'open',
+          previous_status: current.status,
+          new_status: 'reopened',
           previous_version: current.version,
           new_version: newVersion,
+          reopen_count: newReopenCount,
         },
       });
 
@@ -1175,9 +1550,404 @@ export class IssuesService {
       });
 
       await client.query('COMMIT');
+
+      // Sync GitHub issue reopen
+      if (reopenedRow.github_issue_number) {
+        void this.githubSync.updateIssueStatus(
+          reopenedRow.github_issue_number,
+          'open',
+          `🔄 **Vấn đề đã được mở lại (Lần ${newReopenCount})**\n> Lý do: ${cleanReason}`,
+        );
+      }
+
       return reopenedData;
     } catch (err) {
       await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 7. POST /api/v1/issues/:id/analyze: Gemini AI Analysis for Bug
+   * Owner-only. Transitions status to 'analyzing', calls Gemini, updates issue with structured analysis,
+   * transitions status to 'fixing', and records audit + activity.
+   */
+  async analyzeIssue(
+    context: AuthenticatedContext,
+    id: string,
+    requestId: string,
+  ): Promise<AnalyzeIssueResponseData> {
+    this.assertOwner(context);
+    const issueId = validateUuid(id, 'issue_id');
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const curRes = await client.query(
+        `SELECT i.*, u.username_normalized AS reporter_name
+         FROM issues i
+         LEFT JOIN users u ON i.reporter_user_id = u.id
+         WHERE i.workspace_id = $1 AND i.id = $2 FOR UPDATE OF i`,
+        [context.workspace.id, issueId],
+      );
+
+      if (curRes.rows.length === 0) {
+        fail('NOT_FOUND', 'Không tìm thấy vấn đề (issue) yêu cầu.', 404);
+      }
+
+      const current = curRes.rows[0];
+
+      // Record interim status 'analyzing'
+      await client.query(
+        `UPDATE issues
+         SET status = 'analyzing',
+             updated_at = clock_timestamp()
+         WHERE workspace_id = $1 AND id = $2`,
+        [context.workspace.id, issueId],
+      );
+
+      await client.query('COMMIT');
+
+      // Execute AI Analysis outside transaction to avoid long db lock
+      const analysis = await this.bugAnalyzer.analyze({
+        title: current.title,
+        description: current.description,
+        route_template: current.route_template,
+        metadata_context: current.metadata_context as Record<string, unknown>,
+      });
+
+      const nextClient = await this.pool.connect();
+      try {
+        await nextClient.query('BEGIN');
+
+        const newVersion = Number(current.version) + 1;
+        const targetSeverity = analysis.severity || current.severity || 'P2';
+        const targetStatus =
+          current.status === 'open' ? 'fixing' : current.status;
+
+        const updateRes = await nextClient.query(
+          `UPDATE issues
+           SET gemini_analysis = $1,
+               severity = $2,
+               status = $3,
+               version = $4,
+               updated_at = clock_timestamp()
+           WHERE workspace_id = $5 AND id = $6
+           RETURNING *`,
+          [
+            JSON.stringify(analysis),
+            targetSeverity,
+            targetStatus,
+            newVersion,
+            context.workspace.id,
+            issueId,
+          ],
+        );
+        const updatedRow = updateRes.rows[0];
+
+        // Insert Activity
+        await nextClient.query(
+          `INSERT INTO issue_activity (
+            workspace_id,
+            issue_id,
+            actor_user_id,
+            action,
+            metadata_sanitized,
+            created_at
+          ) VALUES ($1, $2, $3, 'gemini_analyzed', $4, clock_timestamp())`,
+          [
+            context.workspace.id,
+            issueId,
+            context.user.id,
+            JSON.stringify({
+              summary: analysis.summary,
+              root_cause: analysis.root_cause,
+              severity: targetSeverity,
+              can_auto_verify: analysis.can_auto_verify,
+              affected_files: analysis.affected_files,
+              version: newVersion,
+            }),
+          ],
+        );
+
+        // Record Audit Event
+        await recordAuditEvent(nextClient, {
+          workspaceId: context.workspace.id,
+          actorUserId: context.user.id,
+          action: 'issue.gemini_analyzed',
+          entityType: 'issue',
+          entityId: issueId,
+          requestId,
+          metadata: {
+            bug_code: updatedRow.bug_code,
+            severity: targetSeverity,
+            can_auto_verify: analysis.can_auto_verify,
+          },
+        });
+
+        await nextClient.query('COMMIT');
+
+        const issueData: IssueData = {
+          ...this.mapIssueRow(updatedRow),
+          reporter_name: current.reporter_name,
+        };
+
+        return {
+          issue: issueData,
+          analysis,
+        };
+      } finally {
+        nextClient.release();
+      }
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 8. POST /api/v1/issues/:id/verify: Automated or Manual Fix Verification
+   * Verifies the bug against deployed commit SHA and test results.
+   * - passed -> fixed (closed_at set, marked_fixed activity)
+   * - failed -> reopened (reopened activity, reopen_count incremented)
+   * - manual -> waiting_for_owner (waiting_owner activity)
+   */
+  async verifyIssueFix(
+    context: AuthenticatedContext,
+    id: string,
+    body: VerifyIssueRequest,
+    requestId: string,
+  ): Promise<IssueData> {
+    this.assertOwner(context);
+    const issueId = validateUuid(id, 'issue_id');
+
+    if (!body || typeof body !== 'object') {
+      fail('VALIDATION_ERROR', 'Payload xác minh không hợp lệ.', 400);
+    }
+
+    if (
+      !body.commit_sha ||
+      typeof body.commit_sha !== 'string' ||
+      !body.commit_sha.trim()
+    ) {
+      fail(
+        'VALIDATION_ERROR',
+        'Mã commit SHA đã deploy (commit_sha) là bắt buộc.',
+        400,
+      );
+    }
+    const cleanCommitSha = body.commit_sha.trim();
+
+    if (
+      !body.test_result ||
+      !['passed', 'failed', 'manual', 'pending'].includes(body.test_result)
+    ) {
+      fail(
+        'VALIDATION_ERROR',
+        'Kết quả kiểm thử (test_result) phải là "passed", "failed", "manual", hoặc "pending".',
+        400,
+      );
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const curRes = await client.query(
+        `SELECT i.*, u.username_normalized AS reporter_name
+         FROM issues i
+         LEFT JOIN users u ON i.reporter_user_id = u.id
+         WHERE i.workspace_id = $1 AND i.id = $2 FOR UPDATE OF i`,
+        [context.workspace.id, issueId],
+      );
+
+      if (curRes.rows.length === 0) {
+        fail('NOT_FOUND', 'Không tìm thấy vấn đề (issue) yêu cầu.', 404);
+      }
+
+      const current = curRes.rows[0];
+      const newVersion = Number(current.version) + 1;
+
+      let nextStatus = current.status;
+      let nextClosedAt: Date | null = current.closed_at
+        ? new Date(current.closed_at)
+        : null;
+      let newReopenCount = Number(current.reopen_count || 0);
+
+      if (body.test_result === 'passed') {
+        nextStatus = 'fixed';
+        nextClosedAt = new Date();
+      } else if (body.test_result === 'failed') {
+        nextStatus = 'reopened';
+        nextClosedAt = null;
+        newReopenCount += 1;
+      } else if (body.test_result === 'manual') {
+        nextStatus = 'waiting_for_owner';
+      }
+
+      const updateRes = await client.query(
+        `UPDATE issues
+         SET status = $1,
+             test_result = $2,
+             deploy_sha = $3,
+             closed_at = $4,
+             reopen_count = $5,
+             version = $6,
+             updated_at = clock_timestamp()
+         WHERE workspace_id = $7 AND id = $8
+         RETURNING *`,
+        [
+          nextStatus,
+          body.test_result,
+          cleanCommitSha,
+          nextClosedAt,
+          newReopenCount,
+          newVersion,
+          context.workspace.id,
+          issueId,
+        ],
+      );
+      const updatedRow = updateRes.rows[0];
+
+      // Record Activity: test_verified
+      await client.query(
+        `INSERT INTO issue_activity (
+          workspace_id,
+          issue_id,
+          actor_user_id,
+          action,
+          metadata_sanitized,
+          created_at
+        ) VALUES ($1, $2, $3, 'test_verified', $4, clock_timestamp())`,
+        [
+          context.workspace.id,
+          issueId,
+          context.user.id,
+          JSON.stringify({
+            commit_sha: cleanCommitSha,
+            test_result: body.test_result,
+            test_output: body.test_output
+              ? body.test_output.slice(0, 1000)
+              : undefined,
+            verified_by: body.verified_by || context.user.username,
+            version: newVersion,
+          }),
+        ],
+      );
+
+      // Record subsequent milestone activity if fixed, reopened or manual
+      if (body.test_result === 'passed') {
+        await client.query(
+          `INSERT INTO issue_activity (
+            workspace_id,
+            issue_id,
+            actor_user_id,
+            action,
+            metadata_sanitized,
+            created_at
+          ) VALUES ($1, $2, $3, 'marked_fixed', $4, clock_timestamp())`,
+          [
+            context.workspace.id,
+            issueId,
+            context.user.id,
+            JSON.stringify({
+              deploy_sha: cleanCommitSha,
+              auto_verified: true,
+              version: newVersion,
+            }),
+          ],
+        );
+      } else if (body.test_result === 'failed') {
+        await client.query(
+          `INSERT INTO issue_activity (
+            workspace_id,
+            issue_id,
+            actor_user_id,
+            action,
+            metadata_sanitized,
+            created_at
+          ) VALUES ($1, $2, $3, 'reopened', $4, clock_timestamp())`,
+          [
+            context.workspace.id,
+            issueId,
+            context.user.id,
+            JSON.stringify({
+              deploy_sha: cleanCommitSha,
+              reopen_count: newReopenCount,
+              reason: 'Kiểm thử tự động trên môi trường triển khai thất bại.',
+              version: newVersion,
+            }),
+          ],
+        );
+      } else if (body.test_result === 'manual') {
+        await client.query(
+          `INSERT INTO issue_activity (
+            workspace_id,
+            issue_id,
+            actor_user_id,
+            action,
+            metadata_sanitized,
+            created_at
+          ) VALUES ($1, $2, $3, 'waiting_owner', $4, clock_timestamp())`,
+          [
+            context.workspace.id,
+            issueId,
+            context.user.id,
+            JSON.stringify({
+              deploy_sha: cleanCommitSha,
+              reason:
+                'Lỗi không thể kiểm tra tự động, chuyển sang chờ Owner nghiệm thu trực tiếp.',
+              version: newVersion,
+            }),
+          ],
+        );
+      }
+
+      // Record Audit Event
+      await recordAuditEvent(client, {
+        workspaceId: context.workspace.id,
+        actorUserId: context.user.id,
+        action: `issue.verified_${body.test_result}`,
+        entityType: 'issue',
+        entityId: issueId,
+        requestId,
+        metadata: {
+          deploy_sha: cleanCommitSha,
+          status: nextStatus,
+          test_result: body.test_result,
+        },
+      });
+
+      await client.query('COMMIT');
+
+      // GitHub sync in background
+      if (updatedRow.github_issue_number) {
+        if (body.test_result === 'passed') {
+          void this.githubSync.updateIssueStatus(
+            updatedRow.github_issue_number,
+            'closed',
+            `✅ **Đã kiểm thử và xác minh thành công trên Windows Server!**\n- Commit SHA: \`${cleanCommitSha}\`\n- Trạng thái: \`FIXED\``,
+          );
+        } else if (body.test_result === 'failed') {
+          void this.githubSync.updateIssueStatus(
+            updatedRow.github_issue_number,
+            'open',
+            `❌ **Kiểm thử tự động sau deploy thất bại!**\n- Commit SHA: \`${cleanCommitSha}\`\n- Trạng thái: \`REOPENED\`\n\`\`\`\n${body.test_output || 'Kiểm thử không đạt'}\n\`\`\``,
+          );
+        }
+      }
+
+      return {
+        ...this.mapIssueRow(updatedRow),
+        reporter_name: current.reporter_name,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
       throw err;
     } finally {
       client.release();

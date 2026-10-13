@@ -4,15 +4,45 @@ export type IssueStatus =
   | 'open'
   | 'analyzing'
   | 'fixing'
+  | 'testing'
+  | 'deploying'
+  | 'verifying'
+  | 'fixed'
+  | 'reopened'
+  | 'waiting_for_owner'
   | 'awaiting_owner'
   | 'closed';
+
+export type IssueSeverity = 'P0' | 'P1' | 'P2' | 'P3';
+
+export type IssueTestResult = 'pending' | 'passed' | 'failed' | 'manual';
 
 export type IssueActivityAction =
   | 'created'
   | 'edited'
   | 'status_changed'
   | 'fix_confirmed'
-  | 'reopened';
+  | 'reopened'
+  | 'gemini_analyzed'
+  | 'pr_linked'
+  | 'deploy_linked'
+  | 'test_verified'
+  | 'marked_fixed'
+  | 'waiting_owner';
+
+export interface GeminiAnalysisResult {
+  analyzed_at?: string;
+  model?: string;
+  summary?: string;
+  root_cause?: string;
+  affected_files?: string[];
+  suggested_fix?: string;
+  severity?: IssueSeverity;
+  can_auto_verify?: boolean;
+  suggested_tests?: string[];
+  error?: string;
+  [key: string]: unknown;
+}
 
 export interface IssueData {
   id: string;
@@ -25,6 +55,17 @@ export interface IssueData {
   route_template: string;
   status: IssueStatus;
   version: number;
+  bug_code?: string | undefined;
+  severity?: IssueSeverity | undefined;
+  gemini_analysis?: GeminiAnalysisResult | undefined;
+  github_issue_number?: number | null | undefined;
+  github_issue_url?: string | null | undefined;
+  pr_number?: number | null | undefined;
+  deploy_sha?: string | null | undefined;
+  test_result?: IssueTestResult | null | undefined;
+  reopen_count?: number | undefined;
+  metadata_context?: Record<string, unknown> | undefined;
+  screenshot_url?: string | null | undefined;
   created_at: string;
   updated_at: string;
   closed_at: string | null;
@@ -46,6 +87,9 @@ export interface CreateIssueRequest {
   title: string;
   description: string;
   route_template: string;
+  severity?: IssueSeverity | undefined;
+  screenshot_url?: string | undefined;
+  metadata_context?: Record<string, unknown> | undefined;
 }
 
 export interface CreateReportRequest {
@@ -53,6 +97,19 @@ export interface CreateReportRequest {
   description: string;
   route_template?: string | undefined;
   module_name?: string | undefined;
+  severity?: IssueSeverity | undefined;
+  screenshot_url?: string | undefined;
+  metadata_context?:
+    | {
+        url?: string;
+        release_sha?: string;
+        error_id?: string;
+        request_id?: string;
+        user_agent?: string;
+        client_timestamp?: string;
+        [key: string]: unknown;
+      }
+    | undefined;
 }
 
 export interface UpdateIssueRequest {
@@ -60,6 +117,12 @@ export interface UpdateIssueRequest {
   description?: string | undefined;
   type?: IssueType | undefined;
   status?: IssueStatus | undefined;
+  severity?: IssueSeverity | undefined;
+  github_issue_number?: number | null | undefined;
+  github_issue_url?: string | null | undefined;
+  pr_number?: number | null | undefined;
+  deploy_sha?: string | null | undefined;
+  test_result?: IssueTestResult | null | undefined;
   reason?: string | undefined;
 }
 
@@ -71,6 +134,18 @@ export interface ReopenIssueRequest {
   reason: string;
 }
 
+export interface VerifyIssueRequest {
+  commit_sha: string;
+  test_result: IssueTestResult;
+  test_output?: string | undefined;
+  verified_by?: string | undefined;
+}
+
+export interface AnalyzeIssueResponseData {
+  issue: IssueData;
+  analysis: GeminiAnalysisResult;
+}
+
 export interface IssueGroupCounts {
   all: number;
   open: number;
@@ -80,7 +155,8 @@ export interface IssueGroupCounts {
 }
 
 export interface ListIssuesQuery {
-  status?: IssueStatus | 'active' | 'archived' | 'in_progress' | 'new' | undefined;
+  status?:
+    IssueStatus | 'active' | 'archived' | 'in_progress' | 'new' | undefined;
   type?: IssueType | undefined;
   cursor?: string | undefined;
   limit?: number | undefined;
