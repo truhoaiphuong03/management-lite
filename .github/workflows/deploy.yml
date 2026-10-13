@@ -62,11 +62,12 @@ jobs:
     runs-on: [self-hosted, Windows, X64, management-lite-deploy]
     timeout-minutes: 15
     steps:
-      - name: Execute Windows Safe Deployment
+      - name: Prepare and Execute Windows Safe Deployment
         shell: cmd
         run: |
           set COMMIT_SHA=${{ inputs.commit_sha }}
           if "%COMMIT_SHA%"=="" set COMMIT_SHA=${{ github.sha }}
           set FORCE_FLAG=
           if "${{ inputs.force }}"=="true" set FORCE_FLAG=-Force
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Continue'; Write-Host '=== PRE-SYNCING REPOSITORIES UNDER C:\HoaiPhuong-Server ==='; Get-ChildItem -Path 'C:\HoaiPhuong-Server' -Filter '.git' -Recurse -Hidden -Directory | ForEach-Object { $repo = $_.Parent.FullName; Write-Host ('Fetching all objects for ' + $repo); git -C $repo fetch origin --all --tags; git -C $repo fetch origin release/management-lite-web-test-clean:refs/remotes/origin/release/management-lite-web-test-clean; git -C $repo fetch origin %COMMIT_SHA% }; Write-Host '=== SCRIPT INSPECTION ==='; Get-Content -Path 'C:\HoaiPhuong-Server\scripts\Deploy-ManagementLite.ps1' -TotalCount 100"
           powershell -NoProfile -ExecutionPolicy Bypass -File "C:\HoaiPhuong-Server\scripts\Deploy-ManagementLite.ps1" -CommitSha %COMMIT_SHA% %FORCE_FLAG%
