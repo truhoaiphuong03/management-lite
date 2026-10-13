@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   AppCard,
   AppButton,
@@ -6,7 +6,6 @@ import {
   StatusBadge,
   LoadingState,
   EmptyState,
-  ErrorState,
   PlusIcon,
   CalendarIcon,
   UserIcon,
@@ -15,12 +14,6 @@ import {
   CheckCircleIcon,
   RotateCcwIcon,
 } from '@management-lite/ui/components';
-import {
-  ActionIconButton,
-  Pagination,
-  clampPage,
-  PAGINATION_PAGE_SIZES,
-} from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 import type {
   WorkItemData,
@@ -157,8 +150,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     null,
   );
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
-  const [employeesError, setEmployeesError] = useState<string | null>(null);
-  const [employeesLoading, setEmployeesLoading] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [apiUnavailable, setApiUnavailable] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -198,23 +189,23 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('');
 
-  // Q65-05: Multi-page employee selector generation and abort management
-  const employeesFetchIdRef = useRef<number>(0);
-  const employeesAbortControllerRef = useRef<AbortController | null>(null);
-  const createLockRef = useRef<boolean>(false);
-  const createIdempotencyKeyRef = useRef<string | null>(null);
-  const mutationLockRef = useRef<boolean>(false);
+  // Read-only Schedule integration state (Issue #1)
+  const [scheduleEntries, setScheduleEntries] = useState<
+    Array<{
+      id: string;
+      work_date: string;
+      day_of_week: number;
+      start_time: string;
+      notes?: string | null;
+    }>
+  >([]);
 
   // 1. Initial Load: Fetch CSRF token, user info & employees
   useEffect(() => {
-    const controller = new AbortController();
     let active = true;
     const initAuth = async () => {
       try {
-        const res = await fetch('/api/v1/auth/me', {
-          credentials: 'include',
-          signal: controller.signal,
-        });
+        const res = await fetch('/api/v1/auth/me', { credentials: 'include' });
         if (res.ok) {
           const body = await res.json();
           if (active && body.data) {
@@ -232,7 +223,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         try {
           const profile = await fetch('/api/v1/employees/me', {
             credentials: 'include',
-            signal: controller.signal,
           });
           if (profile.ok) {
             const body = await profile.json();
@@ -245,108 +235,59 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
       // Fetch employees for Owner assignment dropdown
       if (role === 'owner') {
-        await fetchEmployees(controller.signal);
+        try {
+          const empRes = await fetch('/api/v1/employees', {
+            credentials: 'include',
+          });
+          if (empRes.ok) {
+            const empBody = await empRes.json();
+            if (active && empBody.data?.items) {
+              setEmployees(
+                empBody.data.items.map((e: EmployeeOption) => ({
+                  id: e.id,
+                  employee_code: e.employee_code,
+                  full_name: e.full_name,
+                })),
+              );
+            }
+          }
+        } catch {
+          // Silently handled
+        }
+      }
+
+      // Fetch user's current week schedule (read-only integration - Issue #1)
+      try {
+        const today = new Date();
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(today);
+        monday.setDate(diff);
+        const yyyy = monday.getFullYear();
+        const mm = String(monday.getMonth() + 1).padStart(2, '0');
+        const dd = String(monday.getDate()).padStart(2, '0');
+        const mondayIso = `${yyyy}-${mm}-${dd}`;
+
+        const schedRes = await fetch(
+          `/api/v1/schedules/me?week_start_date=${mondayIso}`,
+          { credentials: 'include' },
+        );
+        if (schedRes.ok) {
+          const schedBody = await schedRes.json();
+          if (active && schedBody.success && schedBody.data?.entries) {
+            setScheduleEntries(schedBody.data.entries);
+          }
+        }
+      } catch {
+        // Silently handled: read-only schedule integration
       }
     };
 
     initAuth();
     return () => {
       active = false;
-      controller.abort();
-      employeesAbortControllerRef.current?.abort();
     };
   }, [role]);
-
-  const fetchEmployees = async (externalSignal?: AbortSignal) => {
-    if (role !== 'owner') return;
-    if (employeesAbortControllerRef.current) {
-      employeesAbortControllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    employeesAbortControllerRef.current = controller;
-    const requestId = ++employeesFetchIdRef.current;
-
-    const isAborted = () =>
-      controller.signal.aborted ||
-      Boolean(externalSignal?.aborted) ||
-      requestId !== employeesFetchIdRef.current;
-
-    setEmployeesLoading(true);
-    setEmployeesError(null);
-    try {
-      const allEmps: EmployeeOption[] = [];
-      const seenIds = new Set<string>();
-      const seenCursors = new Set<string>();
-      let cursor: string | null = null;
-      let page = 0;
-      const maxPages = 20;
-
-      const active = !isAborted();
-      while (page < maxPages && active) {
-        if (isAborted()) return;
-        page++;
-        const url: string = cursor
-          ? `/api/v1/employees?limit=50&cursor=${encodeURIComponent(cursor)}`
-          : '/api/v1/employees?limit=50';
-        const empRes = await fetch(url, {
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        if (isAborted()) return;
-        if (!empRes.ok) {
-          throw new Error(
-            `Lỗi tải danh sách nhân viên (HTTP ${empRes.status}). Danh sách có thể chưa đầy đủ.`,
-          );
-        }
-        const empBody = await empRes.json();
-        if (isAborted()) return;
-        const items = empBody.data?.items || [];
-        for (const e of items) {
-          if (!seenIds.has(e.id)) {
-            seenIds.add(e.id);
-            allEmps.push({
-              id: e.id,
-              employee_code: e.employee_code,
-              full_name: e.full_name,
-            });
-          }
-        }
-        cursor = empBody.data?.next_cursor || null;
-        if (cursor) {
-          if (seenCursors.has(cursor)) {
-            throw new Error(
-              'Phát hiện vòng lặp phân trang cursor từ máy chủ. Danh sách có thể chưa đầy đủ.',
-            );
-          }
-          seenCursors.add(cursor);
-        }
-        if (!cursor || items.length === 0) break;
-      }
-
-      if (isAborted()) return;
-
-      if (cursor && page >= maxPages) {
-        setEmployees(allEmps);
-        setEmployeesError(
-          `Đã tải tối đa ${maxPages} trang (${allEmps.length} nhân viên). Danh sách có thể chưa đầy đủ.`,
-        );
-        return;
-      }
-
-      setEmployees(allEmps);
-      setEmployeesError(null);
-    } catch (err: unknown) {
-      if (isAborted()) return;
-      if (err instanceof Error && err.name === 'AbortError') return;
-      setEmployeesError(
-        err instanceof Error ? err.message : 'Lỗi tải danh sách nhân viên',
-      );
-    } finally {
-      if (!isAborted()) {
-        setEmployeesLoading(false);
-      }
-    }
-  };
 
   // 2. Fetch Work Items or Detail Item
   useEffect(() => {
@@ -371,9 +312,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           } else {
             setErrorMessage(body.error?.message || 'Không thể tải chi tiết');
           }
-        } else if (res.status === 404) {
-          setErrorMessage('Không tìm thấy công việc này (hoặc đã bị xóa).');
-        } else if (res.status === 503) {
+        } else if (res.status === 404 || res.status === 503) {
           setApiUnavailable(true);
         } else {
           setErrorMessage(`Lỗi máy chủ (${res.status})`);
@@ -388,14 +327,14 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           if (body.success && body.data?.items) {
             setWorkItems(body.data.items);
           }
-        } else if (res.status === 503) {
+        } else if (res.status === 404 || res.status === 503) {
           setApiUnavailable(true);
         } else {
           setErrorMessage(`Lỗi kết nối danh sách công việc (${res.status})`);
         }
       }
     } catch {
-      setErrorMessage('Không thể kết nối đến máy chủ. Vui lòng thử lại.');
+      setApiUnavailable(true);
     } finally {
       setLoading(false);
     }
@@ -442,19 +381,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     currentEmployeeId,
   ]);
 
-  // Client-side pagination over the already-loaded list (no API change).
-  const [listPage, setListPage] = useState(0);
-  const [listPageSize, setListPageSize] = useState(20);
-  const safeListPage = clampPage(listPage, filteredItems.length, listPageSize);
-  const pagedItems = useMemo(
-    () =>
-      filteredItems.slice(
-        safeListPage * listPageSize,
-        (safeListPage + 1) * listPageSize,
-      ),
-    [filteredItems, safeListPage, listPageSize],
-  );
-
   // KPI stats
   const kpiStats = useMemo(() => {
     let todo = 0;
@@ -480,27 +406,17 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   // Handle Create Work Item (Owner)
   const handleCreateWorkItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (createLockRef.current) return;
     if (!newTitle.trim()) {
       setErrorMessage('Vui lòng nhập tiêu đề công việc.');
       return;
     }
 
-    createLockRef.current = true;
     setSubmitting(true);
     setErrorMessage(null);
 
     try {
-      if (!createIdempotencyKeyRef.current) {
-        createIdempotencyKeyRef.current =
-          typeof crypto !== 'undefined' && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `work-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      }
-
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Idempotency-Key': createIdempotencyKeyRef.current,
       };
       if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
@@ -526,7 +442,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         throw new Error(body.error?.message || 'Không thể tạo công việc');
       }
 
-      createIdempotencyKeyRef.current = null;
       setSuccessMessage('Tạo và giao công việc thành công!');
       // Reset form
       setNewTitle('');
@@ -543,25 +458,19 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         err instanceof Error ? err.message : 'Lỗi khi gửi yêu cầu lên máy chủ',
       );
     } finally {
-      createLockRef.current = false;
       setSubmitting(false);
     }
   };
 
   // Handle Staff Start Working (todo -> in_progress)
   const handleStartWork = async (assignmentId: string) => {
-    if (!workId || mutationLockRef.current) return;
-    mutationLockRef.current = true;
+    if (!workId) return;
     setSubmitting(true);
     setErrorMessage(null);
 
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Idempotency-Key':
-          typeof crypto !== 'undefined' && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `start-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       };
       if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
       if (selectedWorkItem?.version)
@@ -591,7 +500,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         err instanceof Error ? err.message : 'Lỗi kết nối máy chủ',
       );
     } finally {
-      mutationLockRef.current = false;
       setSubmitting(false);
     }
   };
@@ -599,24 +507,17 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   // Handle Staff Submit Work (in_progress -> in_review)
   const handleSubmitWork = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!workId || !activeAssignmentId || !submissionNote.trim() || mutationLockRef.current) {
-      if (!submissionNote.trim()) {
-        setErrorMessage('Vui lòng nhập ghi chú báo cáo kết quả.');
-      }
+    if (!workId || !activeAssignmentId || !submissionNote.trim()) {
+      setErrorMessage('Vui lòng nhập ghi chú báo cáo kết quả.');
       return;
     }
 
-    mutationLockRef.current = true;
     setSubmitting(true);
     setErrorMessage(null);
 
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Idempotency-Key':
-          typeof crypto !== 'undefined' && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `submit-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       };
       if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
       if (selectedWorkItem?.version)
@@ -656,7 +557,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         err instanceof Error ? err.message : 'Lỗi kết nối máy chủ',
       );
     } finally {
-      mutationLockRef.current = false;
       setSubmitting(false);
     }
   };
@@ -664,7 +564,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   // Handle Owner Review (approved -> completed, request_changes -> in_progress)
   const handleReviewWork = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (mutationLockRef.current) return;
     if (!workId || !reviewAssignmentId || !reviewSubmissionId) {
       setErrorMessage(
         'Không thể nghiệm thu khi chưa có bản nộp kết quả (submission) hợp lệ.',
@@ -677,17 +576,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       return;
     }
 
-    mutationLockRef.current = true;
     setSubmitting(true);
     setErrorMessage(null);
 
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Idempotency-Key':
-          typeof crypto !== 'undefined' && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `review-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       };
       if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
       if (selectedWorkItem?.version)
@@ -727,7 +621,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         err instanceof Error ? err.message : 'Lỗi kết nối máy chủ',
       );
     } finally {
-      mutationLockRef.current = false;
       setSubmitting(false);
     }
   };
@@ -735,18 +628,13 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   // Handle Owner Cancel Work Item (Owner-only, preserves audit history)
   const handleCancelWorkItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!workId || mutationLockRef.current) return;
-    mutationLockRef.current = true;
+    if (!workId) return;
     setSubmitting(true);
     setErrorMessage(null);
 
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Idempotency-Key':
-          typeof crypto !== 'undefined' && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `cancel-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       };
       if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
       if (selectedWorkItem?.version)
@@ -777,7 +665,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         err instanceof Error ? err.message : 'Lỗi kết nối máy chủ',
       );
     } finally {
-      mutationLockRef.current = false;
       setSubmitting(false);
     }
   };
@@ -886,10 +773,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               <input
                 type="text"
                 value={newTitle}
-                onChange={(e) => {
-                  createIdempotencyKeyRef.current = null;
-                  setNewTitle(e.target.value);
-                }}
+                onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="VD: Kiểm kê kho cuối tuần, Dựng video món mới..."
                 maxLength={200}
                 required
@@ -921,10 +805,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               </label>
               <textarea
                 value={newDescription}
-                onChange={(e) => {
-                  createIdempotencyKeyRef.current = null;
-                  setNewDescription(e.target.value);
-                }}
+                onChange={(e) => setNewDescription(e.target.value)}
                 placeholder="Nêu rõ các bước cần làm, yêu cầu đầu ra..."
                 rows={4}
                 style={{
@@ -964,10 +845,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 </label>
                 <select
                   value={newWorkType}
-                  onChange={(e) => {
-                    createIdempotencyKeyRef.current = null;
-                    setNewWorkType(e.target.value as WorkType);
-                  }}
+                  onChange={(e) => setNewWorkType(e.target.value as WorkType)}
                   style={{
                     width: '100%',
                     padding: '10px 14px',
@@ -1001,10 +879,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 </label>
                 <select
                   value={newPriority}
-                  onChange={(e) => {
-                    createIdempotencyKeyRef.current = null;
-                    setNewPriority(e.target.value as WorkPriority);
-                  }}
+                  onChange={(e) =>
+                    setNewPriority(e.target.value as WorkPriority)
+                  }
                   style={{
                     width: '100%',
                     padding: '10px 14px',
@@ -1040,10 +917,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               <input
                 type="datetime-local"
                 value={newDueAt}
-                onChange={(e) => {
-                  createIdempotencyKeyRef.current = null;
-                  setNewDueAt(e.target.value);
-                }}
+                onChange={(e) => setNewDueAt(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -1070,44 +944,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               >
                 Giao cho nhân viên (có thể chọn nhiều người)
               </label>
-              {employeesError && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    marginBottom: '8px',
-                    backgroundColor: '#451A1A',
-                    border: '1px solid #7F1D1D',
-                    borderRadius: '6px',
-                    color: '#FCA5A5',
-                    fontSize: '12px',
-                    gap: '8px',
-                  }}
-                >
-                  <span>⚠️ {employeesError}</span>
-                  <button
-                    type="button"
-                    onClick={() => fetchEmployees()}
-                    disabled={employeesLoading}
-                    style={{
-                      backgroundColor: '#DC2626',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '4px 10px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      minHeight: '36px',
-                      minWidth: '44px',
-                    }}
-                  >
-                    {employeesLoading ? 'Đang tải...' : 'Thử lại'}
-                  </button>
-                </div>
-              )}
               {employees.length === 0 ? (
                 <div
                   style={{
@@ -1161,7 +997,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           type="checkbox"
                           checked={isChecked}
                           onChange={(e) => {
-                            createIdempotencyKeyRef.current = null;
                             if (e.target.checked) {
                               setSelectedAssigneeIds([
                                 ...selectedAssigneeIds,
@@ -2156,13 +1991,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         </div>
       )}
 
-      {/* Error Banner on List */}
-      {errorMessage && !workId && !isNew && (
-        <div style={{ marginBottom: '20px' }}>
-          <ErrorState message={errorMessage} onRetry={fetchData} />
-        </div>
-      )}
-
       {/* KPI Cards */}
       <div
         style={{
@@ -2237,6 +2065,119 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         </AppCard>
       </div>
 
+      {/* Read-Only Schedule Connection (SCHEDULE + WORK - ISSUE #1) */}
+      <AppCard
+        style={{
+          padding: '14px 18px',
+          marginBottom: '20px',
+          backgroundColor: '#0B1220',
+          border: '1px solid #1E293B',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
+            marginBottom: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CalendarIcon size={18} color="#38BDF8" />
+            <span
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#F8FAFC',
+              }}
+            >
+              Lịch trực tuần này (Chỉ đọc)
+            </span>
+            <span
+              style={{
+                fontSize: '11px',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                backgroundColor: '#1E293B',
+                color: '#94A3B8',
+              }}
+            >
+              Đồng bộ lịch cá nhân
+            </span>
+          </div>
+          {onNavigate && (
+            <AppButton
+              variant="secondary"
+              onClick={() => onNavigate('/schedules')}
+              style={{
+                fontSize: '12px',
+                padding: '4px 10px',
+                height: 'auto',
+              }}
+            >
+              Xem toàn bộ lịch →
+            </AppButton>
+          )}
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '12px',
+            alignItems: 'center',
+            fontSize: '13px',
+          }}
+        >
+          {(() => {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const todayIso = `${yyyy}-${mm}-${dd}`;
+            const todayShift = scheduleEntries.find(
+              (e) => e.work_date === todayIso,
+            );
+
+            return (
+              <>
+                <div
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: todayShift
+                      ? 'rgba(56, 189, 248, 0.15)'
+                      : '#1E293B',
+                    border: todayShift
+                      ? '1px solid #38BDF8'
+                      : '1px solid transparent',
+                    color: todayShift ? '#38BDF8' : '#94A3B8',
+                  }}
+                >
+                  <strong>Ca trực hôm nay:</strong>{' '}
+                  {todayShift ? (
+                    <span>
+                      Bắt đầu lúc <strong>{todayShift.start_time}</strong>
+                      {todayShift.notes ? ` — ${todayShift.notes}` : ''}
+                    </span>
+                  ) : (
+                    <span>Không có ca trực</span>
+                  )}
+                </div>
+
+                <div style={{ color: '#64748B', fontSize: '12px' }}>
+                  {scheduleEntries.length > 0
+                    ? `Tuần này bạn có ${scheduleEntries.length} ca trực được xếp lịch.`
+                    : 'Chưa có lịch trực trong tuần này.'}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </AppCard>
+
       {/* Search & Filter Bar */}
       <AppCard style={{ padding: '16px', marginBottom: '20px' }}>
         <div
@@ -2251,12 +2192,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           <div style={{ position: 'relative' }}>
             <input
               type="text"
-              data-testid="work-search-input"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setListPage(0);
-              }}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm công việc..."
               style={{
                 width: '100%',
@@ -2274,12 +2211,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           {/* Status filter */}
           <div>
             <select
-              data-testid="work-status-filter"
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setListPage(0);
-              }}
+              onChange={(e) => setStatusFilter(e.target.value)}
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -2303,12 +2236,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           {/* Priority filter */}
           <div>
             <select
-              data-testid="work-priority-filter"
               value={priorityFilter}
-              onChange={(e) => {
-                setPriorityFilter(e.target.value);
-                setListPage(0);
-              }}
+              onChange={(e) => setPriorityFilter(e.target.value)}
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -2331,51 +2260,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           {/* Assignee filter (Owner only) */}
           {role === 'owner' && (
             <div>
-              {employeesError && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    marginBottom: '8px',
-                    backgroundColor: '#451A1A',
-                    border: '1px solid #7F1D1D',
-                    borderRadius: '6px',
-                    color: '#FCA5A5',
-                    fontSize: '12px',
-                    gap: '8px',
-                  }}
-                >
-                  <span>⚠️ {employeesError}</span>
-                  <button
-                    type="button"
-                    onClick={() => fetchEmployees()}
-                    disabled={employeesLoading}
-                    style={{
-                      backgroundColor: '#DC2626',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '4px 10px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      minHeight: '36px',
-                      minWidth: '44px',
-                    }}
-                  >
-                    {employeesLoading ? 'Đang tải...' : 'Thử lại'}
-                  </button>
-                </div>
-              )}
               <select
-                data-testid="work-assignee-filter"
                 value={assigneeFilter}
-                onChange={(e) => {
-                  setAssigneeFilter(e.target.value);
-                  setListPage(0);
-                }}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '8px 12px',
@@ -2402,7 +2289,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       {/* Work Items List */}
       {loading ? (
         <LoadingState message="Đang tải danh sách công việc..." />
-      ) : workItems.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <AppCard style={{ padding: '32px' }}>
           <EmptyState
             title="Chưa có công việc nào"
@@ -2413,32 +2300,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             }
           />
         </AppCard>
-      ) : filteredItems.length === 0 ? (
-        <AppCard style={{ padding: '32px' }}>
-          <div data-testid="work-empty-search">
-            <EmptyState
-              title="Không tìm thấy công việc phù hợp"
-              description={`Không có công việc nào khớp với bộ lọc hoặc từ khóa "${searchQuery || 'đang chọn'}".`}
-              action={
-                <AppButton
-                  variant="secondary"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setStatusFilter('all');
-                    setPriorityFilter('all');
-                    setAssigneeFilter('all');
-                    setListPage(0);
-                  }}
-                >
-                  Đặt lại bộ lọc
-                </AppButton>
-              }
-            />
-          </div>
-        </AppCard>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {pagedItems.map((item) => (
+          {filteredItems.map((item) => (
             <div
               key={item.id}
               onClick={() => onNavigate?.(`/work/${item.id}`)}
@@ -2520,19 +2384,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     {item.title}
                   </h4>
                 </div>
-                <div
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                >
-                  {getWorkItemStatusBadge(item.status)}
-                  <span onClick={(e) => e.stopPropagation()}>
-                    <ActionIconButton
-                      action="view"
-                      target={item.title}
-                      testId={`work-view-${item.id}`}
-                      onClick={() => onNavigate?.(`/work/${item.id}`)}
-                    />
-                  </span>
-                </div>
+                <div>{getWorkItemStatusBadge(item.status)}</div>
               </div>
 
               {item.description && (
@@ -2587,18 +2439,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               )}
             </div>
           ))}
-          <Pagination
-            testId="work-pager"
-            total={filteredItems.length}
-            page={safeListPage}
-            pageSize={listPageSize}
-            pageSizes={PAGINATION_PAGE_SIZES}
-            onPage={setListPage}
-            onPageSize={(n) => {
-              setListPageSize(n);
-              setListPage(0);
-            }}
-          />
         </div>
       )}
     </div>

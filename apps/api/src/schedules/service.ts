@@ -40,6 +40,41 @@ export class SchedulesService {
     );
 
     if (res.rows.length === 0 || !res.rows[0]) {
+      // Check if an existing unlinked employee record matches unambiguously
+      const userRes = await client.query<{ username_normalized: string }>(
+        `SELECT username_normalized FROM users WHERE id = $1;`,
+        [userId],
+      );
+      const username = (userRes.rows[0]?.username_normalized || '').trim().toLowerCase();
+
+      if (username) {
+        const candidateRes = await client.query<{
+          id: string;
+          full_name: string;
+          employee_code: string;
+          employment_status: string;
+        }>(
+          `SELECT id, full_name, employee_code, employment_status
+           FROM employees
+           WHERE workspace_id = $1 AND user_id IS NULL
+             AND (
+               LOWER(employee_code) = $2
+               OR (EXISTS (SELECT 1 FROM workspace_memberships WHERE workspace_id = $1 AND user_id = $3 AND role = 'owner' AND status = 'active') AND employee_code IN ('OWNER', 'OWNER_01'))
+             )
+           FOR UPDATE;`,
+          [workspaceId, username, userId],
+        );
+
+        if (candidateRes.rows.length === 1 && candidateRes.rows[0]!.employment_status === 'active') {
+          const candidate = candidateRes.rows[0]!;
+          await client.query(
+            `UPDATE employees SET user_id = $1, updated_at = now() WHERE id = $2 AND user_id IS NULL;`,
+            [userId, candidate.id],
+          );
+          return candidate;
+        }
+      }
+
       throw new AuthError(
         'EMPLOYEE_NOT_FOUND',
         'Active employee profile required in workspace to register or manage schedule',
@@ -662,7 +697,7 @@ export class SchedulesService {
     weekStartDate?: string,
     employeeIdFilter?: string,
   ): Promise<ScheduleListResponseData> {
-    requireRole(['owner'], ctx);
+    requireRole(['owner', 'admin'], ctx);
 
     const weekStart = weekStartDate
       ? this.getMonday(weekStartDate)
@@ -744,8 +779,8 @@ export class SchedulesService {
 
     const schedule = schedRes.rows[0];
 
-    // RBAC: Owner can view any schedule. Staff can ONLY view their own schedule!
-    if (ctx.workspace.role !== 'owner') {
+    // RBAC: Owner and Admin can view any schedule. Staff can ONLY view their own schedule!
+    if (ctx.workspace.role !== 'owner' && ctx.workspace.role !== 'admin') {
       const emp = await this.resolveEmployeeForUser(
         this.pool,
         ctx.workspace.id,

@@ -20,6 +20,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
+  const [role, setRole] = useState<'staff' | 'admin'>('staff');
   const [csrfToken, setCsrfToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -50,8 +51,8 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employeeCode.trim() || !fullName.trim() || !email.trim()) {
-      setErrorMessage('Vui lòng điền đầy đủ Mã nhân viên, Họ tên và Email.');
+    if (!fullName.trim() || !email.trim()) {
+      setErrorMessage('Vui lòng điền đầy đủ Họ tên và Email.');
       return;
     }
 
@@ -71,10 +72,11 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
         headers,
         credentials: 'include',
         body: JSON.stringify({
-          employee_code: employeeCode.trim(),
+          employee_code: employeeCode.trim() || undefined,
           full_name: fullName.trim(),
           email: email.trim(),
           username: username.trim() || undefined,
+          role,
         }),
       });
 
@@ -239,15 +241,14 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 color: '#94A3B8',
               }}
             >
-              Mã nhân viên (duy nhất):{' '}
-              <span style={{ color: '#EF4444' }}>*</span>
+              Mã nhân viên (tùy chọn, để trống để tự động tạo mã):
             </label>
             <input
               id="empCode"
               type="text"
               value={employeeCode}
               onChange={(e) => setEmployeeCode(e.target.value)}
-              placeholder="VD: NV002, NV_CREATOR"
+              placeholder="VD: NV002 (để trống hệ thống tự tạo NV001...)"
               disabled={isLoading}
               style={{
                 width: '100%',
@@ -262,6 +263,41 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 boxSizing: 'border-box',
               }}
             />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label
+              htmlFor="empRole"
+              style={{
+                display: 'block',
+                fontSize: '14px',
+                marginBottom: '6px',
+                color: '#94A3B8',
+              }}
+            >
+              Chức vụ / Phân quyền: <span style={{ color: '#EF4444' }}>*</span>
+            </label>
+            <select
+              id="empRole"
+              value={role}
+              onChange={(e) => setRole(e.target.value as 'staff' | 'admin')}
+              disabled={isLoading}
+              style={{
+                width: '100%',
+                minHeight: '44px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid #334155',
+                backgroundColor: '#0B1220',
+                color: '#F8FAFC',
+                fontSize: '14px',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            >
+              <option value="staff">Nhân viên (Staff) - Mặc định</option>
+              <option value="admin" disabled>Quản trị viên (Admin) - Cần migration nâng cấp schema để kích hoạt</option>
+            </select>
           </div>
 
           <div style={{ marginBottom: '16px' }}>

@@ -29,9 +29,10 @@ import type {
   CreateStorageReceiptRequest,
   CreateTrashRequestResponseData,
 } from '@management-lite/contracts';
+import type { UserRole } from '../types.js';
 
 export interface StorageScreenProps {
-  role?: 'owner' | 'staff';
+  role?: UserRole;
   folderId?: string | undefined;
   onNavigate?: (path: string) => void;
 }

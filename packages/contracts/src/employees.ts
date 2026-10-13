@@ -22,14 +22,16 @@ export interface EmployeeData {
 }
 
 export interface CreateEmployeeRequestBody {
-  employee_code: string;
+  employee_code?: string;
   full_name: string;
   email: string;
   username?: string;
+  role?: 'staff' | 'admin';
 }
 
 export interface CreateEmployeeResponseData {
   id: string;
+  user_id?: string;
   employee_code: string;
   full_name: string;
   employment_status: EmploymentStatus;

@@ -979,6 +979,7 @@ export function createRequestHandler(
           'full_name',
           'email',
           'username',
+          'role',
         ]);
 
         const result = await employeeService.createEmployee(
