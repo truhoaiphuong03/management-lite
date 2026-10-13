@@ -1,0 +1,26 @@
+name: Approved deploy controller tests
+on:
+  pull_request:
+    paths:
+      - ops/approved-deploy/**
+      - .github/workflows/deploy-controller-tests.yml
+      - .github/workflows/release-candidate-windows.yml
+  push:
+    branches: [main]
+    paths:
+      - ops/approved-deploy/**
+      - .github/workflows/deploy-controller-tests.yml
+permissions:
+  contents: read
+jobs:
+  controller-tests:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version-file: .nvmrc
+      - run: node --test ops/approved-deploy/gate-tests.mjs
+      - run: pwsh -NoProfile -File ops/approved-deploy/extraction-tests.ps1
+# Tests only. This workflow has no server credentials or deployment steps.

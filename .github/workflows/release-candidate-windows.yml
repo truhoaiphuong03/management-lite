@@ -1,0 +1,93 @@
+name: Approved release candidate
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Full SHA at main HEAD; builds candidate only, does not deploy
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: release-candidate-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  release-tests:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Isolated synthetic CI database only. Pin image digest before activation.
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: postgres
+          POSTGRES_DB: management_lite_ci_test
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d management_lite_ci_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      REQUESTED_COMMIT: ${{ inputs.commit }}
+      TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/management_lite_ci_test
+      CONFIRM_ISOLATED_TEST_DB: "true"
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Validate immutable source
+        shell: bash
+        run: |
+          [[ "$REQUESTED_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          test "$REQUESTED_COMMIT" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@10.9.2
+      - run: npm ci
+      - name: Test with real isolated PostgreSQL and no skipped checks
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run verify | tee ci-tests.log
+          ! grep -Eq '^# skipped [1-9]' ci-tests.log
+      - run: npm run build:web
+      - run: npm run test:web
+      - run: npm audit --audit-level=high
+  windows-package:
+    needs: release-tests
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      RELEASE_COMMIT: ${{ inputs.commit }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@10.9.2
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run build:web
+      - run: npm run test:web
+      - run: npm run test:backend
+      - run: npm run test:security
+      - run: npm audit --audit-level=high
+      - name: Package Windows runtime and manifest
+        run: node ops/approved-deploy/package-release.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: management-lite-windows-${{ inputs.commit }}
+          path: release-output/
+          if-no-files-found: error
+          retention-days: 30
+          include-hidden-files: false
+# NO production job, no push trigger, no self-hosted runner, no server secrets.
+# Publish CI artifact first; owner signs exact SHA/run/attempt/artifact/digest separately.

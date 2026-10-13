@@ -1,0 +1,15 @@
+{
+  "environment": "production",
+  "enabled": false,
+  "hold": true,
+  "activationApproved": false,
+  "repository": "truhoaiphuong03/management-lite",
+  "repositoryId": 1410248474,
+  "sourceBranch": "main",
+  "workflowPath": ".github/workflows/release-candidate-windows.yml",
+  "approvalPublicKey": null,
+  "independentBackupRequired": true,
+  "automaticMigrations": false,
+  "productionServiceAdapterInstalled": false,
+  "note": "Template only. Production stays disabled until owner confirmation, protected policy provisioning, verified independent backup and real staging acceptance."
+}
