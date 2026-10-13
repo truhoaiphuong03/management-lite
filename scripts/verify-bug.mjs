@@ -30,7 +30,19 @@ const testCmd = getArg(
   'node --test tests/backend/bug-ai-management.test.mjs',
 );
 const manualOnly = hasFlag('--manual');
-const adminPassword = process.env.ADMIN_PASSWORD || '12345678';
+let adminPassword = process.env.ADMIN_PASSWORD;
+if (!adminPassword && existsSync('C:/HoaiPhuong-Server/config/test-secrets/api.env')) {
+  try {
+    const envLines = readFileSync('C:/HoaiPhuong-Server/config/test-secrets/api.env', 'utf8').split('\n');
+    for (const line of envLines) {
+      if (line.startsWith('ADMIN_PASSWORD=')) {
+        adminPassword = line.substring('ADMIN_PASSWORD='.length).trim();
+        break;
+      }
+    }
+  } catch {}
+}
+if (!adminPassword) adminPassword = '12345678';
 
 console.log('=== AUTOMATED BUG VERIFICATION PIPELINE ===');
 console.log(`Commit SHA: ${commitSha}`);

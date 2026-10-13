@@ -143,7 +143,9 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
       for (const line of secretEnv.split('\n')) {
         if (line.startsWith('DATABASE_URL=')) {
           testUrl = line.substring('DATABASE_URL='.length).trim();
-          break;
+        }
+        if (line.startsWith('ADMIN_PASSWORD=')) {
+          process.env.ADMIN_PASSWORD = line.substring('ADMIN_PASSWORD='.length).trim();
         }
       }
     } catch {}
@@ -363,7 +365,7 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
   );
 
   await t.test(
-    '4.3 Verify fix via POST /api/v1/issues/:id/verify: test_result=passed -> fixed',
+    '4.3 Verify fix via POST /api/v1/issues/:id/verify: test_result=passed -> awaiting_owner, then Owner confirms -> fixed',
     async () => {
       const deploySha = 'a1b2c3d4e5f6789012345678901234567890abcd';
       const verifyPayload = {
@@ -383,12 +385,31 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
       const data = res.json?.data;
       assert.equal(
         data.status,
-        'fixed',
-        'Status must transition to fixed when passed',
+        'awaiting_owner',
+        'Status must transition to awaiting_owner when passed (never auto-close to fixed)',
       );
       assert.equal(data.test_result, 'passed');
       assert.equal(data.deploy_sha, deploySha);
+      assert.equal(data.closed_at, null, 'closed_at must be null while awaiting_owner');
       currentVersion = data.version;
+
+      // Owner confirms and closes issue
+      const confirmRes = await apiRequest(
+        `/api/v1/issues/${testIssueId}/confirm-fix`,
+        'POST',
+        { comment: 'Owner verified fix on production' },
+        ownerCookie,
+        ownerCsrf,
+        {
+          'idempotency-key': `confirm-${Date.now()}`,
+          'if-match': `"${currentVersion}"`,
+        },
+      );
+      assert.equal(confirmRes.status, 200, 'Owner confirm-fix must succeed');
+      const confirmed = confirmRes.json?.data;
+      assert.equal(confirmed.status, 'fixed', 'Status only becomes fixed upon Owner confirmation');
+      assert.ok(confirmed.closed_at, 'closed_at must be populated after Owner confirms');
+      currentVersion = confirmed.version;
     },
   );
 
@@ -479,8 +500,8 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
       const data = res.json?.data;
       assert.equal(
         data.status,
-        'waiting_for_owner',
-        'Status must transition to waiting_for_owner',
+        'awaiting_owner',
+        'Status must transition to awaiting_owner',
       );
       assert.equal(data.test_result, 'manual');
     },
@@ -499,7 +520,7 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
       assert.equal(res.status, 200, 'Must fetch detail');
       const data = res.json?.data;
       assert.equal(data.issue.bug_code, testBugCode);
-      assert.equal(data.issue.status, 'waiting_for_owner');
+      assert.equal(data.issue.status, 'awaiting_owner');
 
       const activityActions = data.activities.map((a) => a.action);
       assert.ok(

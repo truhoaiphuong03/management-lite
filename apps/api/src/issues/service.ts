@@ -1780,14 +1780,14 @@ export class IssuesService {
       let newReopenCount = Number(current.reopen_count || 0);
 
       if (body.test_result === 'passed') {
-        nextStatus = 'fixed';
-        nextClosedAt = new Date();
+        nextStatus = 'awaiting_owner';
+        nextClosedAt = null;
       } else if (body.test_result === 'failed') {
         nextStatus = 'reopened';
         nextClosedAt = null;
         newReopenCount += 1;
       } else if (body.test_result === 'manual') {
-        nextStatus = 'waiting_for_owner';
+        nextStatus = 'awaiting_owner';
       }
 
       const updateRes = await client.query(
