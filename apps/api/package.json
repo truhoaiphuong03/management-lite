@@ -8,9 +8,16 @@
     "./config": "./src/config.ts",
     "./envelope": "./src/envelope.ts",
     "./app": "./src/app.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./cookie": "./src/cookie.ts",
+    "./rate-limiter": "./src/rate-limiter.ts",
+    "./auth/service": "./src/auth/service.ts",
+    "./auth/guard": "./src/auth/guard.ts"
   },
   "dependencies": {
-    "@management-lite/database": "*"
+    "@management-lite/contracts": "*",
+    "@management-lite/database": "*",
+    "@management-lite/security": "*",
+    "sharp": "0.35.5"
   }
 }

@@ -248,6 +248,30 @@ export function isSafeTestDatabase(
     };
   }
 
+  // Reject if test database targets the exact same database as DATABASE_URL
+  const liveUrlStr = env['DATABASE_URL']?.trim();
+  if (liveUrlStr) {
+    try {
+      const liveParsed = new URL(liveUrlStr);
+      const testHost = parsedUrl.hostname.toLowerCase();
+      const liveHost = liveParsed.hostname.toLowerCase();
+      const testPort = parsedUrl.port || '5432';
+      const livePort = liveParsed.port || '5432';
+      const testDb = parsedUrl.pathname.replace(/^\//, '').toLowerCase();
+      const liveDb = liveParsed.pathname.replace(/^\//, '').toLowerCase();
+
+      if (testHost === liveHost && testPort === livePort && testDb === liveDb) {
+        return {
+          safe: false,
+          databaseName: dbName,
+          reason: `Prohibited: TEST_DATABASE_URL targets the exact same database as DATABASE_URL ("${dbName}" on ${testHost}:${testPort}). Test database must be isolated from the application database.`,
+        };
+      }
+    } catch {
+      // If DATABASE_URL is malformed, skip comparison
+    }
+  }
+
   const prohibitedExact = new Set([
     'management_lite',
     'postgres',

@@ -51,7 +51,8 @@ test('route registry defines canonical V0.1 screens with RBAC guards', async () 
   assert.equal(ROUTE_REGISTRY['/activate']?.implemented, false);
   assert.equal(ROUTE_REGISTRY['/attendance']?.implemented, false);
   assert.equal(ROUTE_REGISTRY['/attendance/corrections']?.implemented, false);
-  assert.equal(ROUTE_REGISTRY['/payroll']?.implemented, false);
+  // Implemented in V0.2 PAY-01
+  assert.equal(ROUTE_REGISTRY['/payroll']?.implemented, true);
 
   // Owner only route guards per RBAC-02
   assert.equal(ROUTE_REGISTRY['/attendance/review']?.ownerOnly, true);
@@ -196,7 +197,8 @@ test('RBAC navigation filtering and access guard enforcement', async () => {
   assert.ok(myPayRoute);
   assert.equal(myPayRoute.id, 'UI16');
   assert.equal(myPayRoute.staffOnly, true);
-  assert.equal(myPayRoute.implemented, false);
+  // Implemented in V0.2 PAY-01
+  assert.equal(myPayRoute.implemented, true);
 
   const isMyPayForbiddenForOwner = Boolean(
     (myPayRoute.ownerOnly && ownerRole === 'staff') ||

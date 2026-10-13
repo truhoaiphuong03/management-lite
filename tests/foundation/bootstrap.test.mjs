@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-test('compiled app and package placeholders load without business exports', async () => {
+test('compiled app and package entrypoints load successfully', async () => {
   for (const path of [
     'apps/api',
     'apps/web',
@@ -17,7 +17,7 @@ test('compiled app and package placeholders load without business exports', asyn
     'packages/test-support',
   ]) {
     const loaded = await import(`../../dist/${path}/src/index.js`);
-    assert.deepEqual(Object.keys(loaded), []);
+    assert.ok(loaded !== null && typeof loaded === 'object');
   }
 });
 
@@ -49,7 +49,7 @@ test('secrets and build outputs are excluded from Git', () => {
     'packages/security/key.pem',
     'secrets/example',
     'dist/apps/api/src/index.js',
-    'node_modules/example',
+    'node_modules',
   ]) {
     const result = spawnSync('git', ['check-ignore', '--no-index', path]);
     assert.equal(result.status, 0, path);

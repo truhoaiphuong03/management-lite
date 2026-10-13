@@ -76,26 +76,24 @@ test('C06-DB-01: isolated schema clean install, replay, and checksum integrity',
       );
       assert.equal(
         cleanInstallResult.appliedCount,
-        4,
-        'Clean install must apply all 4 migrations in order',
+        migrationFiles.length,
+        'Clean install must apply all migrations in order',
       );
       assert.equal(
         cleanInstallResult.alreadyAppliedCount,
         0,
         'Clean install must have 0 previously applied migrations',
       );
-      assert.deepEqual(cleanInstallResult.appliedIds, [
-        '0001_m00_prerequisites',
-        '0002_m01_workspace_user_audit_idempotency',
-        '0003_m02_auth_membership_session_outbox',
-        '0004_m02b_user_workspace_bindings',
-      ]);
+      assert.deepEqual(
+        cleanInstallResult.appliedIds,
+        migrationFiles.map((m) => m.id),
+      );
 
       // 2. Verify all recorded checksums match canonical file checksums without manual modification
       const ledgerRes = await isolatedPool.query(
         `SELECT id, checksum FROM schema_migrations ORDER BY id ASC;`,
       );
-      assert.equal(ledgerRes.rows.length, 4);
+      assert.equal(ledgerRes.rows.length, migrationFiles.length);
       for (let i = 0; i < migrationFiles.length; i++) {
         const file = migrationFiles[i];
         const row = ledgerRes.rows[i];
@@ -116,8 +114,8 @@ test('C06-DB-01: isolated schema clean install, replay, and checksum integrity',
       );
       assert.equal(
         replayResult.alreadyAppliedCount,
-        4,
-        'Replay must recognize all 4 migrations as already applied',
+        migrationFiles.length,
+        'Replay must recognize all migrations as already applied',
       );
     } finally {
       await isolatedPool.end();

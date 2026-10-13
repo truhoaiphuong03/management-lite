@@ -1,0 +1,16 @@
+# Proposal only. Do not install over an existing IIS/Caddy configuration.
+ql.hoaiphuong.click {
+    handle /api/* {
+        reverse_proxy 127.0.0.1:3002
+    }
+    handle /release-version.json {
+        root * C:/ManagementLite/current/web
+        header Cache-Control "no-store"
+        file_server
+    }
+    handle {
+        root * C:/ManagementLite/current/web
+        try_files {path} /index.html
+        file_server
+    }
+}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { AppCard } from './AppCard.js';
 import { AppButton } from './AppButton.js';
+import { AlertTriangleIcon } from './Icons.js';
 
 export interface ErrorStateProps {
   title?: string;
@@ -26,7 +27,9 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       }}
       role="alert"
     >
-      <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
+      <div style={{ color: '#EF4444', marginBottom: '12px' }}>
+        <AlertTriangleIcon size={36} />
+      </div>
       <h3
         style={{
           fontSize: '18px',

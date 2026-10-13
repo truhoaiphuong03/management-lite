@@ -18,7 +18,7 @@ test('calculateChecksum produces deterministic SHA-256 for SQL strings', async (
   assert.match(calculateChecksum(sql1), /^[a-f0-9]{64}$/);
 });
 
-test('loadMigrationFiles loads M00, M01, M02, and M02b migrations in deterministic sequence', async () => {
+test('loadMigrationFiles preserves existing migrations and FIN-01A in deterministic catalog sequence', async () => {
   const { loadMigrationFiles } = await import(
     `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
   );
@@ -27,17 +27,227 @@ test('loadMigrationFiles loads M00, M01, M02, and M02b migrations in determinist
     resolve(root, 'packages/database/src/migrations'),
   );
 
-  assert.equal(migrations.length, 4);
+  const { EMBEDDED_MIGRATIONS } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrations/catalog.js')}`
+  );
+  const ids = migrations.map((migration) => migration.id);
+  assert.equal(migrations.length, EMBEDDED_MIGRATIONS.length);
+  assert.deepEqual(
+    ids,
+    EMBEDDED_MIGRATIONS.map((migration) => migration.id),
+  );
+  assert.equal(new Set(ids).size, ids.length);
+  assert.deepEqual(ids, [...ids].sort());
   assert.equal(migrations[0]?.id, '0001_m00_prerequisites');
   assert.equal(migrations[1]?.id, '0002_m01_workspace_user_audit_idempotency');
   assert.equal(migrations[2]?.id, '0003_m02_auth_membership_session_outbox');
   assert.equal(migrations[3]?.id, '0004_m02b_user_workspace_bindings');
+  assert.equal(migrations[4]?.id, '0005_m03_employees');
+  assert.equal(migrations[5]?.id, '0006_m04_attendance');
+  assert.equal(migrations[6]?.id, '0007_m05_reports');
+  assert.equal(migrations[7]?.id, '0008_m06_schedules');
+  assert.equal(migrations[8]?.id, '0009_m07_payroll');
+  assert.equal(migrations[9]?.id, '0010_m08_work');
+  assert.equal(migrations[10]?.id, '0011_m06_accounts');
+  assert.equal(migrations[11]?.id, '0012_m09_storage');
+  assert.equal(migrations[12]?.id, '0013_m10_issues');
+  assert.equal(migrations[13]?.id, '0014_fin01a');
+  assert.equal(migrations[14]?.id, '0015_fin_receipt_time');
+  assert.equal(migrations[15]?.id, '0016_fin_plan');
+  assert.equal(
+    migrations[13]?.checksum,
+    'd9749f571e9d9fc9940a846448be84920fab08dd2d6874cc8e41be07659aaa29',
+  );
+  for (const migration of migrations) {
+    assert.match(migration.checksum, /^[a-f0-9]{64}$/);
+  }
 
   // Assert valid SHA-256 checksums
   assert.match(migrations[0]?.checksum || '', /^[a-f0-9]{64}$/);
   assert.match(migrations[1]?.checksum || '', /^[a-f0-9]{64}$/);
   assert.match(migrations[2]?.checksum || '', /^[a-f0-9]{64}$/);
   assert.match(migrations[3]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[4]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[5]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[6]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[7]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[8]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[9]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[10]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[11]?.checksum || '', /^[a-f0-9]{64}$/);
+  assert.match(migrations[12]?.checksum || '', /^[a-f0-9]{64}$/);
+});
+
+test('M10 migration SQL conforms strictly to ISSUES LITE V0.1 specifications', async () => {
+  const { loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const migrations = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+  const m10 = migrations.find((m) => m.id === '0013_m10_issues');
+  assert.ok(m10);
+
+  // Table definitions
+  assert.match(m10.sql, /CREATE TABLE IF NOT EXISTS issues/);
+  assert.match(m10.sql, /CREATE TABLE IF NOT EXISTS issue_activity/);
+  assert.match(m10.sql, /CHECK \(type IN \('bug', 'improvement'\)\)/);
+  assert.match(
+    m10.sql,
+    /CHECK \(status IN \('open', 'analyzing', 'fixing', 'awaiting_owner', 'closed'\)\)/,
+  );
+  assert.match(
+    m10.sql,
+    /CHECK \(action IN \('created', 'edited', 'status_changed', 'fix_confirmed', 'reopened'\)\)/,
+  );
+  assert.match(m10.sql, /uq_issues_workspace_id UNIQUE \(workspace_id, id\)/);
+  assert.match(
+    m10.sql,
+    /fk_issues_workspace_reporter\s+FOREIGN KEY \(workspace_id, reporter_user_id\)\s+REFERENCES workspace_memberships \(workspace_id, user_id\)\s+ON DELETE RESTRICT/,
+  );
+  assert.match(
+    m10.sql,
+    /fk_issue_activity_issue\s+FOREIGN KEY \(workspace_id, issue_id\)\s+REFERENCES issues \(workspace_id, id\)\s+ON DELETE RESTRICT/,
+  );
+  assert.match(
+    m10.sql,
+    /fk_issue_activity_workspace_actor\s+FOREIGN KEY \(workspace_id, actor_user_id\)\s+REFERENCES workspace_memberships \(workspace_id, user_id\)\s+ON DELETE RESTRICT/,
+  );
+  assert.match(m10.sql, /trg_issue_activity_immutable/);
+  assert.match(m10.sql, /prevent_issue_activity_mutation/);
+});
+
+test('M06 migration SQL conforms strictly to SCOPE-EXT-01 SCHEDULE-01 R09 specifications', async () => {
+  const { loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const migrations = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+  const m06 = migrations.find((m) => m.id === '0008_m06_schedules');
+  assert.ok(m06);
+
+  // Table definitions
+  assert.match(m06.sql, /CREATE TABLE IF NOT EXISTS staff_schedules/);
+  assert.match(m06.sql, /CREATE TABLE IF NOT EXISTS staff_schedule_entries/);
+  assert.match(m06.sql, /CREATE TABLE IF NOT EXISTS staff_schedule_revisions/);
+  assert.match(m06.sql, /CHECK \(status IN \('registered', 'cancelled'\)\)/);
+  assert.match(m06.sql, /CHECK \(day_of_week BETWEEN 1 AND 7\)/);
+  assert.match(
+    m06.sql,
+    /CHECK \(start_time ~ '\^\(\[01\]\[0-9\]\|2\[0-3\]\):\[0-5\]\[0-9\]\$'\)/,
+  );
+  assert.match(
+    m06.sql,
+    /uq_staff_schedules_employee_week UNIQUE \(workspace_id, employee_id, week_start_date\)/,
+  );
+  assert.match(
+    m06.sql,
+    /uq_staff_schedule_revisions_number UNIQUE \(workspace_id, schedule_id, revision_number\)/,
+  );
+  assert.match(m06.sql, /trg_staff_schedule_revisions_immutable/);
+});
+
+test('M05 migration SQL conforms strictly to canonical doc 03, 05, 19, 20, 21, 22, 25, 36, 50 report specifications', async () => {
+  const { loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const migrations = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+  const m05 = migrations.find((m) => m.id === '0007_m05_reports');
+  assert.ok(m05);
+
+  // Table definitions
+  assert.match(m05.sql, /CREATE TABLE IF NOT EXISTS daily_reports/);
+  assert.match(m05.sql, /CREATE TABLE IF NOT EXISTS daily_report_entries/);
+  assert.match(m05.sql, /CREATE TABLE IF NOT EXISTS daily_report_revisions/);
+  assert.match(m05.sql, /CHECK \(status IN \('draft', 'submitted'\)\)/);
+  assert.match(
+    m05.sql,
+    /uq_daily_reports_employee_day UNIQUE \(workspace_id, employee_id, report_date\)/,
+  );
+  assert.match(
+    m05.sql,
+    /uq_daily_report_revisions_number UNIQUE \(workspace_id, report_id, revision_number\)/,
+  );
+  assert.match(m05.sql, /trg_daily_report_revisions_immutable/);
+});
+
+test('M04 migration SQL conforms strictly to canonical doc 05, 14, 19, 20, 22, 25, 36 attendance specifications', async () => {
+  const { loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const migrations = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+  const m04 = migrations.find((m) => m.id === '0006_m04_attendance');
+  assert.ok(m04);
+
+  // Table definitions
+  assert.match(m04.sql, /CREATE TABLE IF NOT EXISTS attendance_shifts/);
+  assert.match(m04.sql, /CREATE TABLE IF NOT EXISTS attendance_breaks/);
+  assert.match(m04.sql, /CREATE TABLE IF NOT EXISTS attendance_shift_versions/);
+  assert.match(m04.sql, /CREATE TABLE IF NOT EXISTS attendance_approvals/);
+  assert.match(
+    m04.sql,
+    /CREATE TABLE IF NOT EXISTS attendance_correction_requests/,
+  );
+  assert.match(m04.sql, /CREATE TABLE IF NOT EXISTS attendance_adjustments/);
+  assert.match(
+    m04.sql,
+    /CHECK \(run_state IN \('working', 'paused', 'completed'\)\)/,
+  );
+  assert.match(
+    m04.sql,
+    /CHECK \(review_state IN \('unreviewed', 'approved', 'rejected', 'needs_review'\)\)/,
+  );
+});
+
+test('M03 migration SQL conforms strictly to canonical doc 20, 21, and 25 HR employee specifications', async () => {
+  const { loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+  );
+
+  const migrations = loadMigrationFiles(
+    resolve(root, 'packages/database/src/migrations'),
+  );
+  const m03 = migrations.find((m) => m.id === '0005_m03_employees');
+  assert.ok(m03);
+
+  // Table definition
+  assert.match(m03.sql, /CREATE TABLE IF NOT EXISTS employees/);
+  assert.match(
+    m03.sql,
+    /workspace_id uuid NOT NULL REFERENCES workspaces\(id\) ON DELETE RESTRICT/,
+  );
+  assert.match(
+    m03.sql,
+    /user_id uuid NULL REFERENCES users\(id\) ON DELETE RESTRICT/,
+  );
+  assert.match(m03.sql, /employee_code text NOT NULL/);
+  assert.match(m03.sql, /full_name text NOT NULL/);
+  assert.match(
+    m03.sql,
+    /CHECK \(employment_status IN \('invited', 'active', 'suspended', 'archived'\)\)/,
+  );
+  assert.match(m03.sql, /is_payroll_eligible boolean NOT NULL DEFAULT true/);
+  assert.match(
+    m03.sql,
+    /CONSTRAINT uq_employees_workspace_code UNIQUE \(workspace_id, employee_code\)/,
+  );
+  assert.match(
+    m03.sql,
+    /FOREIGN KEY\s*\(workspace_id,\s*user_id\)\s*REFERENCES\s*workspace_memberships\s*\(workspace_id,\s*user_id\)/,
+  );
+  assert.match(
+    m03.sql,
+    /CREATE UNIQUE INDEX IF NOT EXISTS ix_employees_user\s+ON employees\s*\(workspace_id,\s*user_id\)\s+WHERE user_id IS NOT NULL/,
+  );
 });
 
 test('M02b migration SQL conforms strictly to canonical doc 03, 04, 20, 21, and 36 C06 specifications', async () => {

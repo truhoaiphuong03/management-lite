@@ -1,0 +1,1253 @@
+import type { DatabasePool } from '../../../../packages/database/src/pool.js';
+import { recordAuditEvent } from '../../../../packages/database/src/audit.js';
+import {
+  hashPassword,
+  verifyPassword,
+} from '../../../../packages/security/src/password.js';
+import { validatePasswordStrength } from '../../../../packages/security/src/password.js';
+import {
+  generateCsprngToken,
+  hashToken,
+} from '../../../../packages/security/src/tokens.js';
+import { generateCsrfToken } from '../../../../packages/security/src/csrf.js';
+import type {
+  ActiveWorkspaceData,
+  AuthMeResponseData,
+  AuthUserData,
+  LoginResponseData,
+  UserRole,
+  WorkspaceMembershipSummary,
+} from '../../../../packages/contracts/src/auth.js';
+import { RateLimiter } from '../rate-limiter.js';
+
+export class AuthError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly statusCode: number,
+    public readonly details: Array<{
+      field?: string;
+      message: string;
+      code?: string;
+    }> = [],
+  ) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+export interface AuthenticatedContext {
+  sessionId: string;
+  sessionTokenHash: string;
+  user: AuthUserData;
+  workspace: ActiveWorkspaceData;
+}
+
+let cachedDummyHash: string | null = null;
+async function getDummyHash(): Promise<string> {
+  if (!cachedDummyHash) {
+    cachedDummyHash = await hashPassword('dummy_auth_placeholder_constant_pw');
+  }
+  return cachedDummyHash;
+}
+
+export const OWNER_PERMISSIONS = [
+  'employees:read',
+  'employees:manage',
+  'attendance:read',
+  'attendance:clock',
+  'attendance:review',
+  'payroll:read',
+  'payroll:manage',
+  'reports:read',
+  'accounts:manage',
+  'audit:read',
+] as const;
+
+export const STAFF_PERMISSIONS = [
+  'employees:read_self',
+  'attendance:clock',
+  'attendance:read_self',
+  'payroll:read_self',
+  'reports:read_self',
+  'reports:write_self',
+] as const;
+
+export class AuthService {
+  public readonly loginLimiter: RateLimiter;
+  public readonly changePasswordLimiter: RateLimiter;
+  public readonly forgotPasswordLimiter: RateLimiter;
+  public readonly forgotPasswordAccountLimiter: RateLimiter;
+  public readonly resetPasswordLimiter: RateLimiter;
+
+  constructor(
+    private readonly pool: DatabasePool,
+    private readonly csrfSecret: string,
+    options: {
+      loginLimiter?: RateLimiter;
+      changePasswordLimiter?: RateLimiter;
+      forgotPasswordLimiter?: RateLimiter;
+      forgotPasswordAccountLimiter?: RateLimiter;
+      resetPasswordLimiter?: RateLimiter;
+    } = {},
+  ) {
+    this.loginLimiter =
+      options.loginLimiter ??
+      new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
+    this.changePasswordLimiter =
+      options.changePasswordLimiter ??
+      new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
+    this.forgotPasswordLimiter =
+      options.forgotPasswordLimiter ??
+      new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
+    this.forgotPasswordAccountLimiter =
+      options.forgotPasswordAccountLimiter ??
+      new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
+    this.resetPasswordLimiter =
+      options.resetPasswordLimiter ??
+      new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
+  }
+
+  /**
+   * Authenticates user credentials and resolves active workspace binding under C06.
+   * Enforces rate limiting, constant-time verification, transactional session+audit creation,
+   * and fail-closed binding resolution.
+   */
+  public async loginUser(params: {
+    identifier: string;
+    password: string;
+    clientIp: string;
+    requestId: string;
+  }): Promise<{ sessionToken: string; responseData: LoginResponseData }> {
+    const { identifier, password, clientIp, requestId } = params;
+
+    if (
+      typeof identifier !== 'string' ||
+      typeof password !== 'string' ||
+      identifier.trim().length === 0 ||
+      password.length === 0
+    ) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Identifier and password are required',
+        400,
+        [
+          {
+            field: 'identifier',
+            message: 'Must be a non-empty string',
+          },
+        ],
+      );
+    }
+
+    // 1. Rate limiting check (using verified client IP)
+    const rateCheck = this.loginLimiter.increment(clientIp);
+    if (!rateCheck.allowed) {
+      throw new AuthError(
+        'RATE_LIMITED',
+        `Too many login attempts. Please retry after ${rateCheck.retryAfterSeconds} seconds.`,
+        429,
+      );
+    }
+
+    const normalizedIdentifier = identifier.trim().toLowerCase();
+
+    // 2. Query user identity & credentials
+    const userRes = await this.pool.query<{
+      id: string;
+      username_normalized: string;
+      email_normalized: string;
+      user_status: string;
+      password_hash: string | null;
+      credential_version: number | null;
+    }>(
+      `
+      SELECT
+        u.id,
+        u.username_normalized,
+        u.email_normalized,
+        u.status AS user_status,
+        uc.password_hash,
+        uc.credential_version
+      FROM users u
+      LEFT JOIN user_credentials uc ON uc.user_id = u.id
+      WHERE u.username_normalized = $1 OR u.email_normalized = $1
+    `,
+      [normalizedIdentifier],
+    );
+
+    // SEC-05A: reject ambiguous identity snapshots before password verification.
+    // SEC-05B namespace changes racing with session issuance remain unresolved.
+    const distinctUserIds = new Set(userRes.rows.map((row) => row.id));
+    if (distinctUserIds.size > 1) {
+      await verifyPassword(password, await getDummyHash());
+      throw new AuthError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+    }
+    const userRow = userRes.rows[0];
+
+    // Constant-time anti-enumeration when user does not exist, has no credentials, or is not active
+    if (
+      !userRow ||
+      !userRow.password_hash ||
+      userRow.user_status !== 'active'
+    ) {
+      await verifyPassword(password, await getDummyHash());
+      throw new AuthError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+    }
+
+    // 3. Verify Argon2id password hash
+    const passwordMatch = await verifyPassword(password, userRow.password_hash);
+    if (!passwordMatch) {
+      throw new AuthError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+    }
+
+    // Reset rate limiter on successful credentials
+    this.loginLimiter.reset(clientIp);
+
+    // 4. Resolve C06 active workspace binding (preauthorized active context)
+    // Canonical Doc 30/36: POST /auth/login succeeds only if exactly one preauthorized
+    // active binding is resolved from user_workspace_bindings.
+    // If zero or multiple active bindings exist, fail closed with 409 WORKSPACE_CONTEXT_UNRESOLVED.
+    const bindingRes = await this.pool.query<{
+      binding_id: string;
+      workspace_id: string;
+      role: UserRole;
+      membership_status: string;
+      workspace_name: string;
+      timezone: string;
+      workspace_status: string;
+    }>(
+      `
+      SELECT
+        uwb.id AS binding_id,
+        uwb.workspace_id,
+        wm.role,
+        wm.status AS membership_status,
+        w.name AS workspace_name,
+        w.timezone,
+        w.status AS workspace_status
+      FROM user_workspace_bindings uwb
+      JOIN workspace_memberships wm
+        ON wm.workspace_id = uwb.workspace_id AND wm.user_id = uwb.user_id
+      JOIN workspaces w ON w.id = uwb.workspace_id
+      WHERE uwb.user_id = $1
+        AND uwb.status = 'active'
+        AND wm.status = 'active'
+        AND w.status = 'active'
+    `,
+      [userRow.id],
+    );
+
+    const activeBindings = bindingRes.rows;
+
+    if (activeBindings.length === 0 || activeBindings.length > 1) {
+      let detailMessage = 'Workspace context could not be resolved';
+      const details: Array<{ field?: string; message: string }> = [];
+
+      if (activeBindings.length === 0) {
+        const memCheck = await this.pool.query<{
+          status: string;
+          role: string;
+          workspace_status: string;
+        }>(
+          `SELECT wm.status, wm.role, w.status as workspace_status
+           FROM workspace_memberships wm
+           JOIN workspaces w ON w.id = wm.workspace_id
+           WHERE wm.user_id = $1`,
+          [userRow.id],
+        );
+
+        if (memCheck.rows.length === 0) {
+          detailMessage =
+            'Tài khoản chưa được phân quyền vào không gian làm việc nào';
+          details.push({
+            message:
+              'Tài khoản chưa có tư cách thành viên (workspace_memberships) trong hệ thống.',
+          });
+        } else if (memCheck.rows.some((m) => m.status === 'suspended')) {
+          detailMessage =
+            'Tài khoản đang bị tạm ngưng công tác trong không gian làm việc này';
+          details.push({
+            field: 'membership_status',
+            message:
+              'Tư cách thành viên (membership) của tài khoản đang ở trạng thái tạm ngưng (suspended).',
+          });
+        } else if (memCheck.rows.some((m) => m.workspace_status !== 'active')) {
+          detailMessage =
+            'Không gian làm việc đang bị khóa hoặc không hoạt động';
+          details.push({
+            field: 'workspace_status',
+            message:
+              'Không gian làm việc (workspace) đang ở trạng thái không hoạt động.',
+          });
+        } else {
+          detailMessage =
+            'Chưa thiết lập liên kết không gian làm việc mặc định (C06 binding unresolved)';
+          details.push({
+            message:
+              'Chưa có bản ghi liên kết hợp lệ trong user_workspace_bindings.',
+          });
+        }
+      } else {
+        detailMessage = 'Phát hiện xung đột nhiều ngữ cảnh làm việc đồng thời';
+        details.push({
+          message:
+            'Tồn tại nhiều active bindings mà không có preauthorized binding duy nhất.',
+        });
+      }
+
+      throw new AuthError(
+        'WORKSPACE_CONTEXT_UNRESOLVED',
+        detailMessage,
+        409,
+        details,
+      );
+    }
+
+    const chosenMembership = activeBindings[0]!;
+
+    // 5. Issue session with CSPRNG token (32 bytes = 256 bits entropy)
+    const sessionToken = generateCsprngToken(32);
+    const sessionTokenHash = hashToken(sessionToken);
+
+    const now = new Date();
+    const idleExpiresAt = new Date(now.getTime() + 30 * 60 * 1000); // 30m idle timeout
+    const absoluteExpiresAt = new Date(now.getTime() + 12 * 60 * 60 * 1000); // 12h absolute timeout
+
+    // 6. Transactional session insertion & audit event creation
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const sessionRes = await client.query<{ id: string }>(
+        `
+        INSERT INTO auth_sessions (
+          workspace_id,
+          user_id,
+          session_token_hash,
+          credential_version_at_issue,
+          created_at,
+          last_seen_at,
+          idle_expires_at,
+          absolute_expires_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $5, $6, $7)
+        RETURNING id;
+      `,
+        [
+          chosenMembership.workspace_id,
+          userRow.id,
+          sessionTokenHash,
+          userRow.credential_version ?? 1,
+          now.toISOString(),
+          idleExpiresAt.toISOString(),
+          absoluteExpiresAt.toISOString(),
+        ],
+      );
+
+      const sessionId = sessionRes.rows[0]!.id;
+
+      await recordAuditEvent(client, {
+        workspaceId: chosenMembership.workspace_id,
+        actorUserId: userRow.id,
+        action: 'auth.login',
+        entityType: 'auth_session',
+        entityId: sessionId,
+        requestId,
+        metadata: {
+          client_ip: clientIp,
+        },
+      });
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    // 7. Cryptographic CSRF token bound to session token hash
+    const csrfToken = generateCsrfToken(sessionTokenHash, this.csrfSecret);
+
+    return {
+      sessionToken,
+      responseData: {
+        user: {
+          id: userRow.id,
+          username: userRow.username_normalized,
+          email: userRow.email_normalized,
+        },
+        active_workspace: {
+          id: chosenMembership.workspace_id,
+          name: chosenMembership.workspace_name,
+          timezone: chosenMembership.timezone,
+          role: chosenMembership.role,
+        },
+        session_expires_at: absoluteExpiresAt.toISOString(),
+        csrf_token: csrfToken,
+      },
+    };
+  }
+
+  /**
+   * Resolves and verifies an active session from a raw session token using an
+   * atomic conditional UPDATE.
+   *
+   * Concurrency Safety Guarantee:
+   * - Locks the session row and checks all state invariants (revoked_at IS NULL,
+   *   idle unexpired, absolute unexpired, credential_version match, user/membership/workspace active)
+   *   in a single atomic PostgreSQL statement.
+   * - If a concurrent logout, password change, or suspension occurred, the UPDATE affects 0 rows,
+   *   guaranteeing that an expired/revoked/invalid session is NEVER extended and fails closed.
+   */
+  public async resolveSession(
+    sessionToken: string | undefined,
+  ): Promise<AuthenticatedContext | null> {
+    if (!sessionToken || typeof sessionToken !== 'string') {
+      return null;
+    }
+
+    const sessionTokenHash = hashToken(sessionToken);
+    const now = new Date();
+    const nextIdle = new Date(now.getTime() + 30 * 60 * 1000);
+
+    const res = await this.pool.query<{
+      session_id: string;
+      workspace_id: string;
+      user_id: string;
+      session_token_hash: string;
+      credential_version_at_issue: number;
+      created_at: string;
+      last_seen_at: string;
+      idle_expires_at: string;
+      absolute_expires_at: string;
+      username_normalized: string;
+      email_normalized: string;
+      role: UserRole;
+      workspace_name: string;
+      timezone: string;
+    }>(
+      `
+      UPDATE auth_sessions s
+      SET last_seen_at = $1,
+          idle_expires_at = LEAST($2, s.absolute_expires_at)
+      FROM users u, user_credentials uc, workspace_memberships wm, workspaces w, user_workspace_bindings uwb
+      WHERE s.session_token_hash = $3
+        AND s.user_id = u.id
+        AND uc.user_id = s.user_id
+        AND wm.workspace_id = s.workspace_id AND wm.user_id = s.user_id
+        AND w.id = s.workspace_id
+        AND uwb.user_id = s.user_id AND uwb.workspace_id = s.workspace_id
+        AND uwb.status = 'active'
+        AND s.revoked_at IS NULL
+        AND s.idle_expires_at > $1
+        AND s.absolute_expires_at > $1
+        AND s.credential_version_at_issue = uc.credential_version
+        AND u.status = 'active'
+        AND wm.status = 'active'
+        AND w.status = 'active'
+      RETURNING
+        s.id AS session_id,
+        s.workspace_id,
+        s.user_id,
+        s.session_token_hash,
+        s.credential_version_at_issue,
+        s.created_at,
+        s.last_seen_at,
+        s.idle_expires_at,
+        s.absolute_expires_at,
+        u.username_normalized,
+        u.email_normalized,
+        wm.role,
+        w.name AS workspace_name,
+        w.timezone;
+    `,
+      [now.toISOString(), nextIdle.toISOString(), sessionTokenHash],
+    );
+
+    const row = res.rows[0];
+    if (!row) {
+      return null;
+    }
+
+    return {
+      sessionId: row.session_id,
+      sessionTokenHash: row.session_token_hash,
+      user: {
+        id: row.user_id,
+        username: row.username_normalized,
+        email: row.email_normalized,
+      },
+      workspace: {
+        id: row.workspace_id,
+        name: row.workspace_name,
+        timezone: row.timezone,
+        role: row.role,
+      },
+    };
+  }
+
+  /**
+   * Revokes the current session and records audit event transactionally.
+   * Repeat-safe: returns cleanly without error if session already revoked or invalid.
+   */
+  public async logoutSession(params: {
+    sessionToken: string | undefined;
+    requestId: string;
+  }): Promise<void> {
+    const { sessionToken, requestId } = params;
+    if (!sessionToken || typeof sessionToken !== 'string') {
+      return;
+    }
+
+    const sessionTokenHash = hashToken(sessionToken);
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const res = await client.query<{
+        id: string;
+        workspace_id: string;
+        user_id: string;
+      }>(
+        `
+        UPDATE auth_sessions
+        SET revoked_at = now()
+        WHERE session_token_hash = $1 AND revoked_at IS NULL
+        RETURNING id, workspace_id, user_id;
+      `,
+        [sessionTokenHash],
+      );
+
+      const revokedSession = res.rows[0];
+      if (revokedSession) {
+        await recordAuditEvent(client, {
+          workspaceId: revokedSession.workspace_id,
+          actorUserId: revokedSession.user_id,
+          action: 'auth.logout',
+          entityType: 'auth_session',
+          entityId: revokedSession.id,
+          requestId,
+        });
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Retrieves profile, active workspace, permissions, and memberships for the current session.
+   */
+  public async getAuthMe(
+    context: AuthenticatedContext,
+  ): Promise<AuthMeResponseData> {
+    const membershipRes = await this.pool.query<{
+      workspace_id: string;
+      workspace_name: string;
+      role: UserRole;
+      status: string;
+    }>(
+      `
+      SELECT
+        wm.workspace_id,
+        w.name AS workspace_name,
+        wm.role,
+        wm.status
+      FROM workspace_memberships wm
+      JOIN workspaces w ON w.id = wm.workspace_id
+      WHERE wm.user_id = $1
+      ORDER BY wm.created_at ASC
+    `,
+      [context.user.id],
+    );
+
+    const permissions =
+      context.workspace.role === 'owner'
+        ? [...OWNER_PERMISSIONS]
+        : [...STAFF_PERMISSIONS];
+
+    const memberships: WorkspaceMembershipSummary[] = membershipRes.rows.map(
+      (m) => ({
+        workspace_id: m.workspace_id,
+        workspace_name: m.workspace_name,
+        role: m.role,
+        status: m.status,
+      }),
+    );
+
+    return {
+      user: context.user,
+      active_workspace: context.workspace,
+      permissions,
+      memberships,
+    };
+  }
+
+  /**
+   * Changes the authenticated user's password.
+   * Acquires row-level lock on user_credentials to serialize concurrent password changes.
+   * Increments credential_version, invalidates all other sessions, and rotates current session.
+   */
+  public async changePassword(params: {
+    context: AuthenticatedContext;
+    currentPassword: unknown;
+    newPassword: unknown;
+    clientIp: string;
+    requestId: string;
+  }): Promise<{ message: string }> {
+    const { context, currentPassword, newPassword, clientIp, requestId } =
+      params;
+
+    // 1. Rate limit check
+    const rateCheck = this.changePasswordLimiter.increment(clientIp);
+    if (!rateCheck.allowed) {
+      throw new AuthError(
+        'RATE_LIMITED',
+        `Too many password change attempts. Please retry after ${rateCheck.retryAfterSeconds} seconds.`,
+        429,
+      );
+    }
+
+    // 2. Validate current password provided
+    if (typeof currentPassword !== 'string' || currentPassword.length === 0) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Current password is required',
+        400,
+        [
+          {
+            field: 'current_password',
+            message: 'Must be a non-empty string',
+          },
+        ],
+      );
+    }
+
+    // 3. Validate new password strength
+    const validation = validatePasswordStrength(newPassword);
+    if (!validation.valid || typeof newPassword !== 'string') {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        validation.reason || 'Invalid new password',
+        400,
+        [
+          {
+            field: 'new_password',
+            message: validation.reason || 'Invalid password',
+          },
+        ],
+      );
+    }
+
+    // 4. Hash new password with Argon2id before transaction to minimize lock duration
+    const newPasswordHash = await hashPassword(newPassword);
+
+    // 5. Transactional update with row-level lock to prevent concurrent password modification races
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const credRes = await client.query<{ password_hash: string }>(
+        `SELECT password_hash FROM user_credentials WHERE user_id = $1 FOR UPDATE`,
+        [context.user.id],
+      );
+
+      const credRow = credRes.rows[0];
+      if (!credRow) {
+        throw new AuthError(
+          'INVALID_CREDENTIALS',
+          'Current password verification failed',
+          401,
+        );
+      }
+
+      const currentMatches = await verifyPassword(
+        currentPassword,
+        credRow.password_hash,
+      );
+      if (!currentMatches) {
+        throw new AuthError(
+          'INVALID_CREDENTIALS',
+          'Current password verification failed',
+          401,
+        );
+      }
+
+      // Reset rate limiter on successful credentials
+      this.changePasswordLimiter.reset(clientIp);
+
+      const updateCredRes = await client.query<{
+        credential_version: number;
+      }>(
+        `
+        UPDATE user_credentials
+        SET password_hash = $1,
+            credential_version = credential_version + 1,
+            password_changed_at = now()
+        WHERE user_id = $2
+        RETURNING credential_version;
+      `,
+        [newPasswordHash, context.user.id],
+      );
+
+      const newVersion = updateCredRes.rows[0]!.credential_version;
+
+      // Invalidate all other active sessions of this user
+      await client.query(
+        `
+        UPDATE auth_sessions
+        SET revoked_at = now()
+        WHERE user_id = $1 AND id != $2 AND revoked_at IS NULL;
+      `,
+        [context.user.id, context.sessionId],
+      );
+
+      // Rotate current session credential_version_at_issue to match new credential version
+      await client.query(
+        `
+        UPDATE auth_sessions
+        SET credential_version_at_issue = $1
+        WHERE id = $2;
+      `,
+        [newVersion, context.sessionId],
+      );
+
+      // Record audit event transactionally
+      await recordAuditEvent(client, {
+        workspaceId: context.workspace.id,
+        actorUserId: context.user.id,
+        action: 'auth.password_change',
+        entityType: 'user',
+        entityId: context.user.id,
+        requestId,
+        metadata: {
+          client_ip: clientIp,
+        },
+      });
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return { message: 'Password changed successfully' };
+  }
+
+  /**
+   * Activates an employee account using an invite token and sets the initial password.
+   * Atomic across user_credentials, users, workspace_memberships, employees, and activation_invites.
+   */
+  async activateAccount(params: {
+    token: string;
+    newPassword: string;
+    clientIp: string;
+    requestId: string;
+  }): Promise<{ message: string }> {
+    const { token, newPassword, clientIp, requestId } = params;
+
+    const rateCheck = this.loginLimiter.check(clientIp);
+    if (!rateCheck.allowed) {
+      throw new AuthError('RATE_LIMITED', 'Too many activation attempts', 429);
+    }
+
+    if (!token || typeof token !== 'string') {
+      throw new AuthError('VALIDATION_ERROR', 'Token is required', 400);
+    }
+
+    const validation = validatePasswordStrength(newPassword);
+    if (!validation.valid || typeof newPassword !== 'string') {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        validation.reason || 'Invalid password',
+        400,
+      );
+    }
+
+    const newPasswordHash = await hashPassword(newPassword);
+    const tokenHash = hashToken(token.trim());
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const inviteRes = await client.query<{
+        id: string;
+        workspace_id: string;
+        user_id: string;
+        status: string;
+        expires_at: Date;
+      }>(
+        `SELECT id, workspace_id, user_id, status, expires_at FROM activation_invites WHERE token_hash = $1 FOR UPDATE;`,
+        [tokenHash],
+      );
+
+      const invite = inviteRes.rows[0];
+      if (!invite || invite.status !== 'issued') {
+        throw new AuthError(
+          'INVITE_EXPIRED',
+          'Activation invite is invalid, already used, or revoked',
+          410,
+        );
+      }
+
+      if (new Date(invite.expires_at) < new Date()) {
+        await client.query(
+          `UPDATE activation_invites SET status = 'expired' WHERE id = $1;`,
+          [invite.id],
+        );
+        throw new AuthError(
+          'INVITE_EXPIRED',
+          'Activation invite has expired',
+          410,
+        );
+      }
+
+      // Upsert credentials
+      await client.query(
+        `
+        INSERT INTO user_credentials (user_id, password_hash, credential_version)
+        VALUES ($1, $2, 1)
+        ON CONFLICT (user_id)
+        DO UPDATE SET password_hash = $2, credential_version = user_credentials.credential_version + 1, password_changed_at = now();
+      `,
+        [invite.user_id, newPasswordHash],
+      );
+
+      // Activate user
+      await client.query(
+        `UPDATE users SET status = 'active', version = version + 1 WHERE id = $1;`,
+        [invite.user_id],
+      );
+
+      // Activate workspace membership
+      await client.query(
+        `UPDATE workspace_memberships SET status = 'active', updated_at = now(), version = version + 1 WHERE workspace_id = $1 AND user_id = $2;`,
+        [invite.workspace_id, invite.user_id],
+      );
+
+      // Activate employee profile
+      await client.query(
+        `UPDATE employees SET employment_status = 'active', updated_at = now(), version = version + 1 WHERE workspace_id = $1 AND user_id = $2;`,
+        [invite.workspace_id, invite.user_id],
+      );
+
+      // Consume invite
+      await client.query(
+        `UPDATE activation_invites SET status = 'used', consumed_at = now() WHERE id = $1;`,
+        [invite.id],
+      );
+
+      // Record audit event
+      await recordAuditEvent(client, {
+        workspaceId: invite.workspace_id,
+        actorUserId: invite.user_id,
+        action: 'user.activated',
+        entityType: 'user',
+        entityId: invite.user_id,
+        requestId,
+        metadata: {
+          client_ip: clientIp,
+        },
+      });
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return {
+      message: 'Tài khoản đã được kích hoạt thành công. Vui lòng đăng nhập.',
+    };
+  }
+
+  /**
+   * Requests a password reset token for the given email address.
+   * Follows anti-enumeration pattern (generic response), single-use CSPRNG token with 15m TTL,
+   * SHA-256 token hash storage, and explicit EMAIL_DELIVERY_BLOCKED audit logging.
+   */
+  async requestPasswordReset(params: {
+    email: string;
+    clientIp: string;
+    requestId: string;
+  }): Promise<{
+    message: string;
+    delivery_status: 'EMAIL_DELIVERY_BLOCKED';
+  }> {
+    const { email, clientIp, requestId } = params;
+
+    if (!email || typeof email !== 'string' || email.trim().length === 0) {
+      throw new AuthError('VALIDATION_ERROR', 'Email is required', 400, [
+        { field: 'email', message: 'Email is required' },
+      ]);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    // Anti-enumeration & privacy: Key account limiter by SHA-256 hash of normalized email to never store raw email in memory keys
+    const accountLimiterKey = `acc:${hashToken(normalizedEmail)}`;
+
+    const ipRateCheck = this.forgotPasswordLimiter.increment(clientIp);
+    const accountRateCheck =
+      this.forgotPasswordAccountLimiter.increment(accountLimiterKey);
+
+    if (!ipRateCheck.allowed || !accountRateCheck.allowed) {
+      const retryAfter = Math.max(
+        ipRateCheck.allowed ? 0 : ipRateCheck.retryAfterSeconds,
+        accountRateCheck.allowed ? 0 : accountRateCheck.retryAfterSeconds,
+      );
+      throw new AuthError(
+        'RATE_LIMITED',
+        'Quá nhiều yêu cầu khôi phục mật khẩu. Vui lòng thử lại sau ít phút.',
+        429,
+        [{ message: `Thử lại sau ${retryAfter} giây` }],
+      );
+    }
+
+    const genericResponse: {
+      message: string;
+      delivery_status: 'EMAIL_DELIVERY_BLOCKED';
+    } = {
+      message:
+        'Nếu email tồn tại trong hệ thống và hợp lệ, hướng dẫn đặt lại mật khẩu đã được xử lý.',
+      delivery_status: 'EMAIL_DELIVERY_BLOCKED',
+    };
+
+    const client = await this.pool.connect();
+    try {
+      const userRes = await client.query<{
+        id: string;
+        email_normalized: string;
+        status: string;
+        email_verified: boolean;
+        email_verified_at: Date | null;
+      }>(
+        `SELECT id, email_normalized, status, email_verified, email_verified_at
+         FROM users
+         WHERE email_normalized = $1
+         LIMIT 1;`,
+        [normalizedEmail],
+      );
+
+      const user = userRes.rows[0];
+      if (!user || user.status !== 'active' || !user.email_verified) {
+        // Anti-enumeration: return standard generic response without disclosing
+        // account existence or verification state.
+        if (user && !user.email_verified) {
+          const workspaceId = await this.resolveUserWorkspaceId(client, user.id);
+          await recordAuditEvent(client, {
+            workspaceId,
+            actorUserId: user.id,
+            action: 'auth.password_reset_unverified_ignored',
+            entityType: 'user',
+            entityId: user.id,
+            requestId,
+            metadata: {
+              client_ip: clientIp,
+              delivery_status: 'EMAIL_DELIVERY_BLOCKED',
+              reason: 'EMAIL_NOT_VERIFIED',
+            },
+          });
+        }
+        return genericResponse;
+      }
+
+      await client.query('BEGIN');
+
+      // Generate CSPRNG token (32 bytes = 64 hex characters)
+      const rawToken = generateCsprngToken(32);
+      const tokenHash = hashToken(rawToken);
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15-minute TTL
+
+      // Invalidate any existing unused reset tokens for this user
+      await client.query(
+        `UPDATE password_reset_tokens SET consumed_at = now() WHERE user_id = $1 AND consumed_at IS NULL;`,
+        [user.id],
+      );
+
+      // Insert new hashed token
+      await client.query(
+        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, request_ip) VALUES ($1, $2, $3, $4);`,
+        [user.id, tokenHash, expiresAt, clientIp],
+      );
+
+      // Resolve workspace for audit event
+      const workspaceId = await this.resolveUserWorkspaceId(client, user.id);
+
+      // Record audit event (sanitized, zero token leakage)
+      await recordAuditEvent(client, {
+        workspaceId,
+        actorUserId: user.id,
+        action: 'auth.password_reset_requested',
+        entityType: 'user',
+        entityId: user.id,
+        requestId,
+        metadata: {
+          client_ip: clientIp,
+          delivery_status: 'EMAIL_DELIVERY_BLOCKED',
+        },
+      });
+
+      await client.query('COMMIT');
+
+      return genericResponse;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Resets password using a single-use token.
+   * Validates token hash, expiry (15m TTL), password strength policy,
+   * updates credentials, revokes all active sessions, and logs sanitized audit event.
+   */
+  async resetPasswordWithToken(params: {
+    token: string;
+    newPassword: string;
+    clientIp: string;
+    requestId: string;
+  }): Promise<{ message: string }> {
+    const { token, newPassword, clientIp, requestId } = params;
+
+    const rateCheck = this.resetPasswordLimiter.increment(clientIp);
+    if (!rateCheck.allowed) {
+      throw new AuthError(
+        'RATE_LIMITED',
+        'Quá nhiều yêu cầu đặt lại mật khẩu. Vui lòng thử lại sau ít phút.',
+        429,
+        [{ message: `Thử lại sau ${rateCheck.retryAfterSeconds} giây` }],
+      );
+    }
+
+    if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Mã khôi phục không được để trống',
+        400,
+      );
+    }
+
+    const validation = validatePasswordStrength(newPassword);
+    if (!validation.valid || typeof newPassword !== 'string') {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        validation.reason || 'Mật khẩu không đáp ứng chính sách bảo mật',
+        400,
+      );
+    }
+
+    const newPasswordHash = await hashPassword(newPassword);
+    const tokenHash = hashToken(token.trim());
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const tokenRes = await client.query<{
+        id: string;
+        user_id: string;
+        expires_at: Date;
+        consumed_at: Date | null;
+      }>(
+        `SELECT id, user_id, expires_at, consumed_at FROM password_reset_tokens WHERE token_hash = $1 FOR UPDATE;`,
+        [tokenHash],
+      );
+
+      const record = tokenRes.rows[0];
+      if (!record || record.consumed_at !== null) {
+        throw new AuthError(
+          'INVALID_TOKEN',
+          'Mã khôi phục không hợp lệ hoặc đã được sử dụng',
+          400,
+        );
+      }
+
+      // Concurrency serialization: Acquire exclusive row lock on the user record
+      // to strictly serialize concurrent resets for the same user across all transactions.
+      await client.query(`SELECT id FROM users WHERE id = $1 FOR UPDATE;`, [
+        record.user_id,
+      ]);
+
+      // Re-verify that this token was not consumed while waiting for the user lock
+      const recheckRes = await client.query<{ consumed_at: Date | null }>(
+        `SELECT consumed_at FROM password_reset_tokens WHERE id = $1;`,
+        [record.id],
+      );
+      if (!recheckRes.rows[0] || recheckRes.rows[0].consumed_at !== null) {
+        throw new AuthError(
+          'INVALID_TOKEN',
+          'Mã khôi phục không hợp lệ hoặc đã được sử dụng',
+          400,
+        );
+      }
+
+      if (new Date(record.expires_at) < new Date()) {
+        await client.query(
+          `UPDATE password_reset_tokens SET consumed_at = now() WHERE id = $1;`,
+          [record.id],
+        );
+        throw new AuthError(
+          'TOKEN_EXPIRED',
+          'Mã khôi phục đã hết hạn. Vui lòng yêu cầu mã mới.',
+          400,
+        );
+      }
+
+      // Atomically invalidate ALL active recovery tokens of this user in the same transaction
+      await client.query(
+        `UPDATE password_reset_tokens SET consumed_at = now() WHERE user_id = $1 AND consumed_at IS NULL;`,
+        [record.user_id],
+      );
+
+      // Update credentials and bump credential_version
+      await client.query(
+        `
+        INSERT INTO user_credentials (user_id, password_hash, credential_version)
+        VALUES ($1, $2, 1)
+        ON CONFLICT (user_id)
+        DO UPDATE SET password_hash = $2, credential_version = user_credentials.credential_version + 1, password_changed_at = now();
+      `,
+        [record.user_id, newPasswordHash],
+      );
+
+      // Revoke all active sessions for this user
+      await client.query(
+        `UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL;`,
+        [record.user_id],
+      );
+
+      // Resolve workspace for audit event
+      const workspaceId = await this.resolveUserWorkspaceId(client, record.user_id);
+
+      // Record audit event
+      await recordAuditEvent(client, {
+        workspaceId,
+        actorUserId: record.user_id,
+        action: 'auth.password_reset_completed',
+        entityType: 'user',
+        entityId: record.user_id,
+        requestId,
+        metadata: {
+          client_ip: clientIp,
+        },
+      });
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    this.resetPasswordLimiter.reset(clientIp);
+
+    return {
+      message:
+        'Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập bằng mật khẩu mới.',
+    };
+  }
+
+  /**
+   * Records verifiable proof of email ownership and marks user email as verified.
+   * Enforces that email verification requires explicit proof, not merely users.status=active.
+   */
+  async verifyEmailWithProof(params: {
+    userId: string;
+    proofType: string;
+    proofMetadata?: Record<string, unknown>;
+  }): Promise<{ success: boolean }> {
+    const { userId, proofType, proofMetadata } = params;
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const userRes = await client.query<{ id: string; email_normalized: string }>(
+        `SELECT id, email_normalized FROM users WHERE id = $1 FOR UPDATE;`,
+        [userId],
+      );
+      const user = userRes.rows[0];
+      if (!user) {
+        throw new AuthError('NOT_FOUND', 'User not found', 404);
+      }
+
+      const proofRecord = JSON.stringify({
+        proofType,
+        metadata: proofMetadata || {},
+        verifiedAt: new Date().toISOString(),
+      });
+
+      await client.query(
+        `UPDATE users
+         SET email_verified = true,
+             email_verified_at = now(),
+             email_verification_proof = $2
+         WHERE id = $1;`,
+        [userId, proofRecord],
+      );
+
+      await client.query(
+        `INSERT INTO email_verifications (user_id, email_normalized, token_hash, proof_type, proof_metadata, verified_at)
+         VALUES ($1, $2, $3, $4, $5, now());`,
+        [
+          userId,
+          user.email_normalized,
+          hashToken(`proof_${userId}_${Date.now()}`),
+          proofType,
+          proofMetadata ? JSON.stringify(proofMetadata) : null,
+        ],
+      );
+
+      const workspaceId = await this.resolveUserWorkspaceId(client, userId);
+      await recordAuditEvent(client, {
+        workspaceId,
+        actorUserId: userId,
+        action: 'auth.email_verified',
+        entityType: 'user',
+        entityId: userId,
+        requestId: 'internal-email-verification',
+        metadata: {
+          proof_type: proofType,
+        },
+      });
+
+      await client.query('COMMIT');
+      return { success: true };
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async resolveUserWorkspaceId(
+    client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: Array<{ id?: string; workspace_id?: string }> }> },
+    userId: string,
+  ): Promise<string> {
+    const wsRes = await client.query(
+      `SELECT workspace_id FROM workspace_memberships WHERE user_id = $1 LIMIT 1;`,
+      [userId],
+    );
+    const workspaceId = wsRes.rows[0]?.workspace_id;
+    if (workspaceId) return workspaceId;
+
+    const fallbackWsRes = await client.query(
+      `SELECT id FROM workspaces LIMIT 1;`,
+    );
+    return fallbackWsRes.rows[0]?.id || '00000000-0000-0000-0000-000000000000';
+  }
+}

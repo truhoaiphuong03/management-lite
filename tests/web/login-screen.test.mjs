@@ -1,0 +1,221 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const root = resolve(__dirname, '../..');
+
+test('MGL-AUTH-LOGIN-UI-18: LoginScreen source code static security and accessibility invariants', () => {
+  const sourcePath = resolve(root, 'apps/web/src/screens/LoginScreen.tsx');
+  const source = readFileSync(sourcePath, 'utf8');
+
+  // 1. Zero plaintext storage in browser storage
+  assert.ok(
+    !source.includes('localStorage.setItem('),
+    'Plaintext password or credentials must NEVER be stored in localStorage',
+  );
+  assert.ok(
+    !source.includes('sessionStorage.setItem('),
+    'Plaintext password or credentials must NEVER be stored in sessionStorage',
+  );
+  assert.ok(
+    !source.includes('document.cookie'),
+    'Plaintext password must NEVER be written to document.cookie directly',
+  );
+
+  // 2. Form and autofill attributes for browser password managers
+  assert.ok(
+    source.includes('<form onSubmit={handleSubmit} method="post" noValidate>'),
+    'Form must use method="post" and noValidate for browser password managers',
+  );
+  assert.ok(
+    source.includes('name="username"'),
+    'Username/identifier input must specify name="username" for autofill',
+  );
+  assert.ok(
+    source.includes('autoComplete="username"'),
+    'Username/identifier input must specify autoComplete="username"',
+  );
+  assert.ok(
+    source.includes('name="password"'),
+    'Password input must specify name="password" for autofill',
+  );
+  assert.ok(
+    source.includes('autoComplete="current-password"'),
+    'Password input must specify autoComplete="current-password"',
+  );
+
+  // 3. Password visibility toggle hidden by default
+  assert.ok(
+    source.includes("const [showPassword, setShowPassword] = useState(false);"),
+    'Password must be hidden (showPassword=false) by default',
+  );
+  assert.ok(
+    source.includes("type={showPassword ? 'text' : 'password'}"),
+    'Input type must conditionally toggle between password and text',
+  );
+  assert.ok(
+    source.includes("aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}"),
+    'Toggle button must provide accessible Vietnamese aria-label',
+  );
+
+  // 4. Clear Vietnamese validation messages
+  assert.ok(
+    source.includes('Vui lòng nhập tên đăng nhập và mật khẩu.'),
+    'Must provide clear Vietnamese empty input validation',
+  );
+  assert.ok(
+    source.includes('Vui lòng nhập tên đăng nhập hoặc email.'),
+    'Must provide clear Vietnamese missing identifier validation',
+  );
+  assert.ok(
+    source.includes('Vui lòng nhập mật khẩu.'),
+    'Must provide clear Vietnamese missing password validation',
+  );
+  assert.ok(
+    source.includes('Tên đăng nhập hoặc mật khẩu không chính xác.'),
+    'Must provide clear Vietnamese 401 error message',
+  );
+  assert.ok(
+    source.includes('Quá nhiều lần thử đăng nhập.'),
+    'Must provide clear Vietnamese 429 rate limit error message',
+  );
+  assert.ok(
+    source.includes('Không thể kết nối đến máy chủ API.'),
+    'Must provide clear Vietnamese network failure error message',
+  );
+
+  // 5. Design token adherence
+  assert.ok(source.includes('#0B1220'), 'Must use #0B1220 dark canvas token');
+  assert.ok(source.includes('#151F30'), 'Must use #151F30 card surface token');
+  assert.ok(source.includes('#334155'), 'Must use #334155 border token');
+  assert.ok(source.includes('#14B8A6'), 'Must use #14B8A6 primary teal token');
+});
+
+test('MGL-AUTH-LOGIN-UI-FIX-21: Two-column desktop and single-column mobile responsive layout invariants', () => {
+  const sourcePath = resolve(root, 'apps/web/src/screens/LoginScreen.tsx');
+  const source = readFileSync(sourcePath, 'utf8');
+
+  // Two-column desktop wrapper & classes
+  assert.ok(source.includes('login-card-container'), 'Must define login-card-container class');
+  assert.ok(source.includes('login-brand-panel'), 'Must define login-brand-panel for desktop branding');
+  assert.ok(source.includes('login-form-panel'), 'Must define login-form-panel for form section');
+  assert.ok(source.includes('mobile-brand-header'), 'Must define mobile-brand-header for mobile view');
+
+  // Media query rules for responsive switching
+  assert.ok(source.includes('@media (max-width: 768px)'), 'Must include 768px responsive breakpoint');
+  assert.ok(source.includes('.login-brand-panel {'), 'Must configure desktop brand panel style');
+
+  // Left column visual identity content
+  assert.ok(source.includes('Ca &amp; Chấm công') || source.includes('Ca & Chấm công'), 'Must showcase Ca & Chấm công feature');
+  assert.ok(source.includes('Công việc &amp; Báo cáo') || source.includes('Công việc & Báo cáo'), 'Must showcase Công việc & Báo cáo feature');
+  assert.ok(source.includes('Bảo mật &amp; Phân quyền') || source.includes('Bảo mật & Phân quyền'), 'Must showcase Bảo mật & Phân quyền feature');
+
+  // Strict avoidance of unapproved elements
+  assert.ok(!source.toLowerCase().includes('qr code') && !source.includes('qr-code'), 'Must NOT introduce unapproved QR code login');
+  assert.ok(!source.includes('language-select') && !source.includes('select-language'), 'Must NOT introduce unapproved language switcher');
+});
+
+test('MGL-AUTH-LOGIN-UI-FIX-21: Forgot Password modal accessibility, focus management, and keyboard trap invariants', () => {
+  const sourcePath = resolve(root, 'apps/web/src/screens/LoginScreen.tsx');
+  const source = readFileSync(sourcePath, 'utf8');
+
+  // Modal accessibility attributes
+  assert.ok(source.includes('role="dialog"'), 'Modal must have role="dialog"');
+  assert.ok(source.includes('aria-modal="true"'), 'Modal must have aria-modal="true"');
+  assert.ok(source.includes('aria-labelledby="forgot-password-modal-title"'), 'Modal must have aria-labelledby');
+  assert.ok(source.includes('aria-describedby="forgot-password-modal-desc"'), 'Modal must have aria-describedby');
+
+  // Keyboard trap and Escape handler
+  assert.ok(source.includes("e.key === 'Escape'"), 'Must handle Escape key to close modal');
+  assert.ok(source.includes("e.key === 'Tab'"), 'Must trap Tab / Shift+Tab keyboard focus inside modal');
+  assert.ok(source.includes('document.body.style.overflow = \'hidden\''), 'Must lock body scroll while modal is active');
+
+  // Focus restore to trigger button
+  assert.ok(source.includes('forgotTriggerRef.current?.focus()'), 'Must restore focus to trigger button upon modal close');
+
+  // Accessible close button
+  assert.ok(source.includes('aria-label="Đóng hộp thoại khôi phục mật khẩu"'), 'Close button must have accessible Vietnamese aria-label');
+
+  // Safe recovery guidance content
+  assert.ok(source.includes('Khôi phục quyền truy cập'), 'Modal title must be present');
+  assert.ok(source.includes('Nhân viên (Staff)'), 'Modal must provide guidance for Staff');
+  assert.ok(source.includes('Chủ sở hữu (Owner)'), 'Modal must provide guidance for Owner');
+});
+
+test('MGL-AUTH-LOGIN-UI-FIX-21: Remember Me honest disabled state and accurate 12-hour session guidance', () => {
+  const sourcePath = resolve(root, 'apps/web/src/screens/LoginScreen.tsx');
+  const source = readFileSync(sourcePath, 'utf8');
+
+  // Honest disabled state
+  assert.ok(source.includes('Ghi nhớ đăng nhập'), 'Remember Me label must be present');
+  assert.ok(source.includes('disabled') && source.includes('checked={false}'), 'Remember Me checkbox must be disabled and unchecked');
+  assert.ok(source.includes('Chưa hỗ trợ'), 'Must display "Chưa hỗ trợ" badge explaining feature is not yet available');
+
+  // Accurate cookie & session guidance
+  assert.ok(source.includes('12 giờ'), 'Must explain 12-hour HttpOnly cookie lifetime');
+  assert.ok(!source.includes('khi đóng trình duyệt'), 'Must NOT claim session expires when browser closes');
+});
+
+test('MGL-AUTH-LOGIN-UI-18 & FIX-21: LoginScreen runtime React static markup rendering', async () => {
+  const { LoginScreen } = await import(
+    `file://${resolve(root, 'dist/apps/web/src/screens/LoginScreen.js')}`
+  );
+
+  const markup = renderToStaticMarkup(
+    React.createElement(LoginScreen, {
+      onLogin: () => {},
+    }),
+  );
+
+  // 1. Responsive two-column structure and branding
+  assert.ok(markup.includes('login-card-container'), 'Must render login-card-container');
+  assert.ok(markup.includes('login-brand-panel'), 'Must render login-brand-panel');
+  assert.ok(markup.includes('login-form-panel'), 'Must render login-form-panel');
+  assert.ok(
+    !markup.includes('Phiên bảo mật C06'),
+    'Must NOT render visible C06 security badge (MGL-UI-CLEANUP-VERSION-24)',
+  );
+  assert.ok(
+    markup.includes('Hệ thống quản lý nội bộ') || markup.includes('0.1.0-dev'),
+    'Must render subtle system branding note with version',
+  );
+  assert.ok(
+    !markup.includes('Argon2id • HttpOnly Session Cookie'),
+    'Must NOT render developer technical jargon in login footer',
+  );
+
+  // 2. Autofill and inputs
+  assert.ok(markup.includes('method="post"'), 'Must render form with method="post"');
+  assert.ok(
+    markup.includes('name="username"') && /autocomplete="username"/i.test(markup),
+    'Must render username input with autocomplete="username"',
+  );
+  assert.ok(
+    markup.includes('name="password"') &&
+      markup.includes('type="password"') &&
+      /autocomplete="current-password"/i.test(markup),
+    'Must render password input with type="password" and autocomplete="current-password"',
+  );
+
+  // 3. Password toggle
+  assert.ok(
+    markup.includes('aria-label="Hiện mật khẩu"'),
+    'Must render password toggle button with aria-label="Hiện mật khẩu"',
+  );
+
+  // 4. Remember Me: disabled and accurate 12-hour text
+  assert.ok(markup.includes('Ghi nhớ đăng nhập'), 'Must render "Ghi nhớ đăng nhập"');
+  assert.ok(markup.includes('disabled=""'), 'Checkbox must be disabled');
+  assert.ok(markup.includes('Chưa hỗ trợ'), 'Must render "Chưa hỗ trợ" tag');
+  assert.ok(markup.includes('12 giờ'), 'Must include 12-hour session explanation');
+
+  // 5. Forgot Password trigger
+  assert.ok(markup.includes('Quên mật khẩu?'), 'Must render "Quên mật khẩu?" button');
+  assert.ok(markup.includes('Đăng nhập'), 'Must render submit button');
+});

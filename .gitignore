@@ -11,3 +11,7 @@ coverage/
 secrets/
 .DS_Store
 *.log
+-e 
+# Private receipt images
+data/receipts/
+

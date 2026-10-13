@@ -1,4 +1,6 @@
 import React from 'react';
+import { NavIcon } from './Icons.js';
+import { SYSTEM_VERSION } from '../../../contracts/src/version.js';
 
 export interface NavItem {
   id: string;
@@ -10,72 +12,196 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Tổng quan', path: '/', icon: '📊' },
-  { id: 'clock', label: 'Chấm công', path: '/clock', icon: '⏱️' },
-  { id: 'reports', label: 'Báo cáo', path: '/reports', icon: '📝' },
-  { id: 'attendance', label: 'Lịch sử công', path: '/attendance', icon: '📅' },
+  {
+    id: 'finance',
+    label: 'Thu chi cá nhân',
+    path: '/finance',
+    icon: 'accounts',
+    ownerOnly: true,
+  },
+  { id: 'dashboard', label: 'Tổng quan', path: '/', icon: 'dashboard' },
+  { id: 'clock', label: 'Chấm công', path: '/clock', icon: 'clock' },
+  {
+    id: 'schedule',
+    label: 'Lịch làm việc',
+    path: '/schedule',
+    icon: 'schedule',
+  },
+  { id: 'reports', label: 'Báo cáo', path: '/reports', icon: 'reports' },
+  { id: 'work', label: 'Công việc', path: '/work', icon: 'work' },
+  { id: 'storage', label: 'Tệp & Drive', path: '/storage', icon: 'storage' },
+  {
+    id: 'attendance',
+    label: 'Lịch sử công',
+    path: '/attendance',
+    icon: 'attendance',
+  },
   {
     id: 'attendance-review',
     label: 'Duyệt công',
     path: '/attendance/review',
-    icon: '✅',
+    icon: 'attendance-review',
     ownerOnly: true,
   },
   {
     id: 'employees',
     label: 'Nhân sự',
     path: '/employees',
-    icon: '👥',
+    icon: 'employees',
     ownerOnly: true,
   },
   {
     id: 'payroll',
     label: 'Bảng lương',
     path: '/payroll',
-    icon: '💰',
+    icon: 'payroll',
     ownerOnly: true,
   },
   {
     id: 'my-pay',
     label: 'Lương cá nhân',
     path: '/my-pay',
-    icon: '💵',
+    icon: 'my-pay',
     staffOnly: true,
   },
   {
     id: 'accounts',
     label: 'Tài khoản ACC',
     path: '/accounts',
-    icon: '🔐',
+    icon: 'accounts',
     ownerOnly: true,
   },
   {
     id: 'audit',
     label: 'Nhật ký Audit',
     path: '/audit',
-    icon: '📋',
+    icon: 'audit',
     ownerOnly: true,
   },
-  { id: 'settings', label: 'Cài đặt', path: '/settings', icon: '⚙️' },
+  {
+    id: 'issues',
+    label: 'Sổ tay Issues',
+    path: '/issues',
+    icon: 'issues',
+    ownerOnly: true,
+  },
+  { id: 'settings', label: 'Cài đặt', path: '/settings', icon: 'settings' },
+];
+
+export interface NavGroup {
+  id: string;
+  title: string;
+  path: string;
+  icon: string;
+  itemIds: string[];
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    id: 'overview',
+    title: 'Tổng quan',
+    path: '/',
+    icon: 'dashboard',
+    itemIds: ['dashboard'],
+  },
+  {
+    id: 'attendance',
+    title: 'Ca & Chấm công',
+    path: '/groups/attendance',
+    icon: 'clock',
+    itemIds: ['clock', 'schedule', 'attendance', 'attendance-review'],
+  },
+  {
+    id: 'work',
+    title: 'Công việc',
+    path: '/groups/work',
+    icon: 'work',
+    itemIds: ['work', 'reports', 'storage'],
+  },
+  {
+    id: 'hr-payroll',
+    title: 'Nhân sự & Lương',
+    path: '/groups/hr-payroll',
+    icon: 'employees',
+    itemIds: ['employees', 'payroll', 'my-pay'],
+  },
+  {
+    id: 'finance',
+    title: 'Thu chi cá nhân',
+    path: '/finance',
+    icon: 'accounts',
+    itemIds: ['finance'],
+  },
+  {
+    id: 'admin',
+    title: 'Quản trị',
+    path: '/groups/admin',
+    icon: 'settings',
+    itemIds: ['accounts', 'audit', 'issues', 'settings'],
+  },
 ];
 
 export interface DesktopSidebarProps {
   currentPath: string;
   onNavigate: (path: string) => void;
   role: 'owner' | 'staff';
+  isOwnerVerified?: boolean | undefined;
+  version?: string;
 }
+
+export const isGroupActiveForPath = (
+  currentPath: string,
+  group: { path: string; itemIds: string[] },
+  itemMap: Map<string, NavItem>,
+): boolean => {
+  if (group.path === '/') {
+    return currentPath === '/';
+  }
+  if (currentPath === group.path || currentPath.startsWith(group.path + '/')) {
+    return true;
+  }
+  return group.itemIds.some((id) => {
+    const item = itemMap.get(id);
+    if (!item) return false;
+    if (item.path === '/') return currentPath === '/';
+    return currentPath === item.path || currentPath.startsWith(item.path + '/');
+  });
+};
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   currentPath,
   onNavigate,
   role,
+  isOwnerVerified,
+  version = SYSTEM_VERSION,
 }) => {
-  const visibleItems = NAV_ITEMS.filter((item) => {
+  const isItemVisible = (item: NavItem) => {
+    if (
+      (item.id === 'issues' || item.id === 'finance') &&
+      (isOwnerVerified !== true || role !== 'owner')
+    )
+      return false;
     if (role === 'staff' && item.ownerOnly) return false;
     if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
       return false; // C04/PAY-02: Owner has no payroll entry
     return true;
-  });
+  };
+
+  const itemMap = new Map<string, NavItem>(
+    NAV_ITEMS.map((item) => [item.id, item]),
+  );
+
+  const visibleGroups = NAV_GROUPS.map((group) => {
+    const items = group.itemIds
+      .map((id) => itemMap.get(id))
+      .filter(
+        (item): item is NavItem => item !== undefined && isItemVisible(item),
+      );
+    return {
+      ...group,
+      items,
+    };
+  }).filter((group) => group.items.length > 0);
 
   return (
     <aside
@@ -85,30 +211,47 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         borderRight: '1px solid #334155',
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
+        height: 'calc(100vh - 44px)',
         position: 'sticky',
-        top: 0,
+        top: '44px',
         flexShrink: 0,
+        boxSizing: 'border-box',
       }}
     >
       <div
         style={{
-          padding: '20px 16px',
+          padding: '14px 16px',
           borderBottom: '1px solid #334155',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
+          justifyContent: 'space-between',
+          boxSizing: 'border-box',
         }}
       >
-        <span style={{ fontSize: '24px' }}>🏢</span>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: '15px', color: '#F8FAFC' }}>
-            Management Lite
-          </div>
-          <div style={{ fontSize: '12px', color: '#14B8A6', fontWeight: 600 }}>
-            V0.1 Demo
-          </div>
-        </div>
+        <span
+          style={{
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            fontWeight: 700,
+            color: '#64748B',
+          }}
+        >
+          Hệ thống
+        </span>
+        <span
+          style={{
+            fontSize: '11px',
+            fontWeight: 600,
+            color: '#94A3B8',
+            backgroundColor: 'rgba(30, 41, 59, 0.8)',
+            padding: '2px 7px',
+            borderRadius: '4px',
+            border: '1px solid #334155',
+          }}
+        >
+          v{version}
+        </span>
       </div>
 
       <nav
@@ -116,41 +259,62 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           padding: '16px 8px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '4px',
+          gap: '6px',
           overflowY: 'auto',
           flex: 1,
         }}
         aria-label="Desktop navigation"
       >
-        {visibleItems.map((item) => {
-          const isActive = currentPath === item.path;
+        {visibleGroups.map((group) => {
+          const isGroupActive = isGroupActiveForPath(
+            currentPath,
+            group,
+            itemMap,
+          );
           return (
             <button
-              key={item.id}
+              key={group.id}
               type="button"
-              onClick={() => onNavigate(item.path)}
+              onClick={() => onNavigate(group.path)}
+              title={group.items.map((i) => i.label).join(', ')}
               style={{
+                boxSizing: 'border-box',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
-                padding: '10px 12px',
+                padding: '10px 14px',
                 borderRadius: '8px',
-                border: 'none',
-                backgroundColor: isActive
+                border: '1px solid',
+                borderColor: isGroupActive
+                  ? 'rgba(20, 184, 166, 0.3)'
+                  : 'transparent',
+                backgroundColor: isGroupActive
                   ? 'rgba(20, 184, 166, 0.15)'
                   : 'transparent',
-                color: isActive ? '#14B8A6' : '#94A3B8',
-                fontWeight: isActive ? 600 : 500,
-                fontSize: '14px',
+                color: isGroupActive ? '#14B8A6' : '#94A3B8',
+                fontWeight: isGroupActive ? 600 : 500,
                 textAlign: 'left',
                 cursor: 'pointer',
                 minHeight: '44px',
                 width: '100%',
-                transition: 'background-color 0.15s ease, color 0.15s ease',
+                transition:
+                  'background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',
               }}
             >
-              <span style={{ fontSize: '18px' }}>{item.icon}</span>
-              <span>{item.label}</span>
+              <NavIcon id={group.icon} size={20} />
+              <span
+                style={{
+                  fontSize: '14px',
+                  lineHeight: 1.2,
+                  color: isGroupActive ? '#14B8A6' : '#F8FAFC',
+                  fontWeight: isGroupActive ? 600 : 500,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {group.title}
+              </span>
             </button>
           );
         })}
@@ -165,13 +329,13 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         }}
       >
         <div>
-          Vai trò demo:{' '}
-          <strong style={{ color: '#F8FAFC', textTransform: 'capitalize' }}>
-            {role}
+          Vai trò:{' '}
+          <strong style={{ color: '#F8FAFC' }}>
+            {role === 'owner' ? 'Chủ sở hữu' : 'Nhân viên'}
           </strong>
         </div>
-        <div style={{ marginTop: '2px', color: '#F59E0B' }}>
-          ● Demo presentation
+        <div style={{ marginTop: '2px', color: '#10B981' }}>
+          ● Phiên trực tuyến
         </div>
       </div>
     </aside>
@@ -181,22 +345,45 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 export interface MobileBottomNavProps {
   currentPath: string;
   onNavigate: (path: string) => void;
-  onOpenMore: () => void;
-  isMoreOpen: boolean;
+  onOpenMore?: () => void;
+  isMoreOpen?: boolean;
+  role?: 'owner' | 'staff' | undefined;
+  isOwnerVerified?: boolean | undefined;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   currentPath,
   onNavigate,
-  onOpenMore,
-  isMoreOpen,
+  role = 'owner',
+  isOwnerVerified = false,
 }) => {
-  // Mobile bottom navigation max 4 primary destinations: Dashboard, Clock, Reports, More
-  const primaryTabs = [
-    { label: 'Tổng quan', path: '/', icon: '📊' },
-    { label: 'Chấm công', path: '/clock', icon: '⏱️' },
-    { label: 'Báo cáo', path: '/reports', icon: '📝' },
-  ];
+  const isItemVisible = (item: NavItem) => {
+    if (
+      (item.id === 'issues' || item.id === 'finance') &&
+      (isOwnerVerified !== true || role !== 'owner')
+    )
+      return false;
+    if (role === 'staff' && item.ownerOnly) return false;
+    if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
+      return false;
+    return true;
+  };
+
+  const itemMap = new Map<string, NavItem>(
+    NAV_ITEMS.map((item) => [item.id, item]),
+  );
+
+  const visibleGroups = NAV_GROUPS.map((group) => {
+    const items = group.itemIds
+      .map((id) => itemMap.get(id))
+      .filter(
+        (item): item is NavItem => item !== undefined && isItemVisible(item),
+      );
+    return {
+      ...group,
+      items,
+    };
+  }).filter((group) => group.items.length > 0);
 
   return (
     <nav
@@ -212,16 +399,17 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         alignItems: 'center',
         justifyContent: 'space-around',
         zIndex: 50,
+        boxSizing: 'border-box',
       }}
       aria-label="Mobile bottom navigation"
     >
-      {primaryTabs.map((tab) => {
-        const isActive = currentPath === tab.path && !isMoreOpen;
+      {visibleGroups.map((group) => {
+        const isGroupActive = isGroupActiveForPath(currentPath, group, itemMap);
         return (
           <button
-            key={tab.path}
+            key={group.id}
             type="button"
-            onClick={() => onNavigate(tab.path)}
+            onClick={() => onNavigate(group.path)}
             style={{
               flex: 1,
               display: 'flex',
@@ -233,45 +421,31 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               minWidth: '44px',
               border: 'none',
               backgroundColor: 'transparent',
-              color: isActive ? '#14B8A6' : '#94A3B8',
+              color: isGroupActive ? '#14B8A6' : '#94A3B8',
               cursor: 'pointer',
-              gap: '2px',
+              gap: '3px',
+              boxSizing: 'border-box',
+              padding: '4px 0',
+              transition: 'color 0.15s ease',
             }}
           >
-            <span style={{ fontSize: '18px' }}>{tab.icon}</span>
+            <NavIcon id={group.icon} size={18} />
             <span
-              style={{ fontSize: '11px', fontWeight: isActive ? 600 : 500 }}
+              style={{
+                fontSize: '10px',
+                fontWeight: isGroupActive ? 600 : 500,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '68px',
+                textAlign: 'center',
+              }}
             >
-              {tab.label}
+              {group.title}
             </span>
           </button>
         );
       })}
-
-      <button
-        type="button"
-        onClick={onOpenMore}
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          minHeight: '44px',
-          minWidth: '44px',
-          border: 'none',
-          backgroundColor: 'transparent',
-          color: isMoreOpen ? '#14B8A6' : '#94A3B8',
-          cursor: 'pointer',
-          gap: '2px',
-        }}
-      >
-        <span style={{ fontSize: '18px' }}>☰</span>
-        <span style={{ fontSize: '11px', fontWeight: isMoreOpen ? 600 : 500 }}>
-          Thêm
-        </span>
-      </button>
     </nav>
   );
 };

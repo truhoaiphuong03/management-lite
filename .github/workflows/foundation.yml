@@ -1,25 +1,46 @@
-name: PK-00 foundation
+name: Management Lite CI
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  foundation:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ci_test
+          POSTGRES_DB: postgres
+          # Disposable CI-only value, not a production secret.
+          POSTGRES_PASSWORD: ci-only-${{ github.run_id }}-${{ github.run_attempt }}
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci_test -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      CI_DATABASE_PASSWORD: ci-only-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm install --global npm@10.9.2
-      - run: npm ci
-      - run: npm run verify
-      - run: npm audit --audit-level=high
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run build:web
+      - name: Selected regression, fresh database per file
+        run: node scripts/deployment/ci-isolated-tests.mjs
+      - name: Deployment syntax and isolated simulation
+        shell: pwsh
+        run: ./scripts/deployment/Test-DeploymentSimulation.ps1

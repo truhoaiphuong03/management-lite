@@ -1,17 +1,22 @@
 import React from 'react';
 import { AppCard } from './AppCard.js';
+import { Spinner } from './Spinner.js';
+import { TOKENS } from '../tokens.js';
 
 export interface LoadingStateProps {
   message?: string;
   minHeight?: string;
+  cardVariant?: 'default' | 'subtle' | 'bordered';
 }
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
   message = 'Đang tải dữ liệu...',
   minHeight = '200px',
+  cardVariant = 'default',
 }) => {
   return (
     <AppCard
+      variant={cardVariant}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -23,17 +28,16 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       aria-live="polite"
       aria-busy="true"
     >
-      <div
+      <Spinner size="lg" color={TOKENS.colors.primary} />
+      <p
         style={{
-          width: '32px',
-          height: '32px',
-          border: '3px solid #334155',
-          borderTopColor: '#14B8A6',
-          borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite',
+          fontSize: TOKENS.typography.fontSize.md,
+          color: TOKENS.colors.muted,
+          margin: 0,
         }}
-      />
-      <p style={{ fontSize: '14px', color: '#94A3B8' }}>{message}</p>
+      >
+        {message}
+      </p>
     </AppCard>
   );
 };

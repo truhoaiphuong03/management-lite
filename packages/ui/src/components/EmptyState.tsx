@@ -1,19 +1,29 @@
 import React from 'react';
 import { AppCard } from './AppCard.js';
+import { InboxIcon } from './Icons.js';
 
 export interface EmptyStateProps {
   title: string;
   description: string;
-  icon?: string;
+  icon?: React.ReactNode;
   action?: React.ReactNode;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   description,
-  icon = '📭',
+  icon,
   action,
 }) => {
+  const renderedIcon =
+    icon === undefined ? (
+      <InboxIcon size={40} />
+    ) : typeof icon === 'string' ? (
+      <span style={{ fontSize: '32px' }}>{icon}</span>
+    ) : (
+      icon
+    );
+
   return (
     <AppCard
       style={{
@@ -26,11 +36,15 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       }}
     >
       <div
-        style={{ fontSize: '40px', marginBottom: '16px' }}
-        role="img"
-        aria-label="Icon"
+        style={{
+          color: '#64748B',
+          marginBottom: '16px',
+          display: 'flex',
+          justifyContent: 'center',
+        }}
+        aria-hidden="true"
       >
-        {icon}
+        {renderedIcon}
       </div>
       <h3
         style={{

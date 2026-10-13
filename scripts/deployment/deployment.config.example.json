@@ -1,0 +1,24 @@
+{
+  "Enabled": false,
+  "Environment": "production",
+  "AllowSimulation": false,
+  "Root": "C:\\ManagementLite",
+  "ApiService": "ManagementLiteApi",
+  "NodePath": "C:\\Program Files\\nodejs\\node.exe",
+  "PgBin": "C:\\Program Files\\PostgreSQL\\REPLACE_AFTER_SURVEY\\bin",
+  "Database": {
+    "Host": "127.0.0.1",
+    "Port": 5432,
+    "Name": "REPLACE_AFTER_SURVEY",
+    "ExpectedSystemIdentifier": "REPLACE_AFTER_SURVEY",
+    "BackupUser": "REPLACE_WITH_READONLY_BACKUP_ROLE",
+    "PassFile": "C:\\ManagementLite\\protected\\backup.pgpass"
+  },
+  "ProtectedConfigBackup": "C:\\ManagementLite\\protected-backups\\latest-encrypted-config.backup",
+  "DataPaths": ["C:\\ManagementLite\\shared\\receipts"],
+  "ApiHealthBase": "http://127.0.0.1:3002",
+  "WebHealthBase": "https://ql.hoaiphuong.click",
+  "SmokeScript": "C:\\ManagementLite\\controller\\Test-CriticalSmoke.ps1",
+  "SimulationSchema": "simulation-only",
+  "SimulationFailSha": ""
+}

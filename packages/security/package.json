@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./password": "./src/password.ts",
-    "./tokens": "./src/tokens.ts"
+    "./tokens": "./src/tokens.ts",
+    "./csrf": "./src/csrf.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.2"

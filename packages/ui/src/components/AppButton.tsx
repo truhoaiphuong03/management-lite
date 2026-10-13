@@ -1,105 +1,278 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { TOKENS } from '../tokens.js';
+import { Spinner } from './Spinner.js';
 
 export interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'destructive' | 'quiet';
+  size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
+  loadingText?: string;
   fullWidth?: boolean;
-  children: React.ReactNode;
+  icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
+  children?: React.ReactNode;
 }
 
 export const AppButton: React.FC<AppButtonProps> = ({
   variant = 'primary',
+  size = 'md',
   isLoading = false,
+  loadingText,
   fullWidth = false,
+  icon,
+  iconPosition = 'left',
   disabled,
   children,
+  className,
   style,
+  onMouseEnter,
+  onMouseLeave,
+  onMouseDown,
+  onMouseUp,
   ...props
 }) => {
-  const getColors = () => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isActive, setIsActive] = useState(false);
+
+  const isIconOnly = !children && Boolean(icon);
+  const isDisabled = disabled || isLoading;
+
+  const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
         return {
-          bg: '#14B8A6',
-          text: '#0B1220',
-          border: '#14B8A6',
+          bg: isActive
+            ? TOKENS.colors.primaryActive
+            : isHovered && !isDisabled
+              ? TOKENS.colors.primaryHover
+              : TOKENS.colors.primary,
+          text: TOKENS.colors.inverse,
+          border: isActive
+            ? TOKENS.colors.primaryActive
+            : isHovered && !isDisabled
+              ? TOKENS.colors.primaryHover
+              : TOKENS.colors.primary,
+          spinnerColor: 'current',
         };
       case 'destructive':
         return {
-          bg: '#EF4444',
-          text: '#F8FAFC',
-          border: '#EF4444',
+          bg: isActive
+            ? TOKENS.colors.dangerActive
+            : isHovered && !isDisabled
+              ? TOKENS.colors.dangerHover
+              : TOKENS.colors.danger,
+          text: TOKENS.colors.text,
+          border: isActive
+            ? TOKENS.colors.dangerActive
+            : isHovered && !isDisabled
+              ? TOKENS.colors.dangerHover
+              : TOKENS.colors.danger,
+          spinnerColor: 'current',
         };
       case 'quiet':
         return {
-          bg: 'transparent',
-          text: '#F8FAFC',
+          bg: isActive
+            ? 'rgba(255, 255, 255, 0.1)'
+            : isHovered && !isDisabled
+              ? 'rgba(255, 255, 255, 0.06)'
+              : 'transparent',
+          text:
+            isHovered && !isDisabled
+              ? TOKENS.colors.primary
+              : TOKENS.colors.text,
           border: 'transparent',
+          spinnerColor: TOKENS.colors.primary,
         };
       case 'secondary':
       default:
         return {
-          bg: '#151F30',
-          text: '#F8FAFC',
-          border: '#334155',
+          bg: isActive
+            ? TOKENS.colors.surfaceActive
+            : isHovered && !isDisabled
+              ? TOKENS.colors.surfaceHover
+              : TOKENS.colors.surface,
+          text: TOKENS.colors.text,
+          border:
+            isHovered && !isDisabled
+              ? TOKENS.colors.borderHover
+              : TOKENS.colors.border,
+          spinnerColor: TOKENS.colors.primary,
         };
     }
   };
 
-  const colors = getColors();
-  const isDisabled = disabled || isLoading;
+  const getSizeStyles = () => {
+    switch (size) {
+      case 'sm':
+        return {
+          minHeight: TOKENS.touchTarget.minHeight, // 44px
+          minWidth: isIconOnly
+            ? TOKENS.touchTarget.minWidth
+            : TOKENS.touchTarget.minWidth, // 44px
+          padding: isIconOnly ? '0' : '0 12px',
+          fontSize: TOKENS.typography.fontSize.base,
+          spinnerSize: 14,
+          gap: '6px',
+        };
+      case 'lg':
+        return {
+          minHeight: '48px',
+          minWidth: isIconOnly ? '48px' : '48px',
+          padding: isIconOnly ? '0' : '0 20px',
+          fontSize: TOKENS.typography.fontSize.lg,
+          spinnerSize: 18,
+          gap: '10px',
+        };
+      case 'md':
+      default:
+        return {
+          minHeight: TOKENS.touchTarget.minHeight, // 44px
+          minWidth: isIconOnly
+            ? TOKENS.touchTarget.minWidth
+            : TOKENS.touchTarget.minWidth,
+          padding: isIconOnly ? '0' : '0 16px',
+          fontSize: TOKENS.typography.fontSize.md,
+          spinnerSize: 16,
+          gap: '8px',
+        };
+    }
+  };
+
+  const variantStyles = getVariantStyles();
+  const sizeStyles = getSizeStyles();
 
   return (
     <button
       type="button"
+      className={className}
       disabled={isDisabled}
+      aria-busy={isLoading ? 'true' : undefined}
+      onMouseEnter={(e) => {
+        setIsHovered(true);
+        onMouseEnter?.(e);
+      }}
+      onMouseLeave={(e) => {
+        setIsHovered(false);
+        setIsActive(false);
+        onMouseLeave?.(e);
+      }}
+      onMouseDown={(e) => {
+        if (!isDisabled) setIsActive(true);
+        onMouseDown?.(e);
+      }}
+      onMouseUp={(e) => {
+        setIsActive(false);
+        onMouseUp?.(e);
+      }}
       style={{
+        boxSizing: 'border-box',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '44px',
-        minWidth: '44px',
-        padding: '0 16px',
-        borderRadius: '8px',
-        border: `1px solid ${colors.border}`,
-        backgroundColor: colors.bg,
-        color: colors.text,
-        fontSize: '15px',
-        fontWeight: 600,
+        minHeight: sizeStyles.minHeight,
+        minWidth: sizeStyles.minWidth,
+        width: fullWidth ? '100%' : 'auto',
+        padding: sizeStyles.padding,
+        borderRadius: TOKENS.radii.sm, // 8px
+        border: `1px solid ${variantStyles.border}`,
+        backgroundColor: variantStyles.bg,
+        color: variantStyles.text,
+        fontSize: sizeStyles.fontSize,
+        fontWeight: TOKENS.typography.fontWeight.semibold,
+        lineHeight: TOKENS.typography.lineHeight.tight,
+        userSelect: 'none',
         cursor: isDisabled ? 'not-allowed' : 'pointer',
         opacity: isDisabled ? 0.6 : 1,
-        transition: 'opacity 0.15s ease, background-color 0.15s ease',
-        width: fullWidth ? '100%' : 'auto',
+        transition:
+          'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease',
+        transform: isActive && !isDisabled ? 'scale(0.98)' : 'none',
         position: 'relative',
+        overflow: 'hidden',
+        gap: sizeStyles.gap,
         ...style,
       }}
       {...props}
     >
-      {/* Reserved spinner width to prevent layout shifts during loading */}
+      {/* Zero-jitter loading mechanism:
+        When isLoading=true, original content is ALWAYS kept in the layout tree with visibility: hidden.
+        This guarantees the button keeps its EXACT original width and avoids UI jumps, even with long loadingText!
+      */}
       {isLoading ? (
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-          aria-live="polite"
-        >
+        <>
+          <span
+            aria-hidden="true"
+            style={{
+              visibility: 'hidden',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: sizeStyles.gap,
+            }}
+          >
+            {icon && iconPosition === 'left' && icon}
+            {children}
+            {icon && iconPosition === 'right' && icon}
+          </span>
           <span
             style={{
-              width: '16px',
-              height: '16px',
-              border: `2px solid currentColor`,
-              borderRightColor: 'transparent',
-              borderRadius: '50%',
-              display: 'inline-block',
-              animation: 'spin 0.75s linear infinite',
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: sizeStyles.gap,
+              padding: '0 8px',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
+              maxWidth: '100%',
+              pointerEvents: 'none',
             }}
-          />
-          <span>Đang xử lý...</span>
-        </span>
+          >
+            {loadingText ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Spinner
+                    size={sizeStyles.spinnerSize}
+                    color={variantStyles.spinnerColor}
+                  />
+                </span>
+                <span
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    fontSize: sizeStyles.fontSize,
+                    lineHeight: TOKENS.typography.lineHeight.tight,
+                    flexShrink: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  {loadingText}
+                </span>
+              </>
+            ) : (
+              <Spinner
+                size={sizeStyles.spinnerSize}
+                color={variantStyles.spinnerColor}
+              />
+            )}
+          </span>
+        </>
       ) : (
-        children
+        <>
+          {icon && iconPosition === 'left' && icon}
+          {children}
+          {icon && iconPosition === 'right' && icon}
+        </>
       )}
     </button>
   );

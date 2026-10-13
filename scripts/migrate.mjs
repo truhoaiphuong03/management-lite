@@ -1,23 +1,24 @@
+import { loadExplicitDatabaseConfig } from './explicit-database.mjs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const root = resolve(__dirname, '..');
 
 async function main() {
-  const { loadDatabaseConfig, sanitizeDatabaseConfig } = await import(
-    `file://${resolve(root, 'dist/packages/database/src/config.js')}`
+  const { sanitizeDatabaseConfig } = await import(
+    pathToFileURL(resolve(root, 'dist/packages/database/src/config.js')).href
   );
   const { createDatabasePool, closeDatabasePool, checkDatabaseHealth } =
     await import(
-      `file://${resolve(root, 'dist/packages/database/src/pool.js')}`
+      pathToFileURL(resolve(root, 'dist/packages/database/src/pool.js')).href
     );
   const { runMigrations, loadMigrationFiles } = await import(
-    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
+    pathToFileURL(resolve(root, 'dist/packages/database/src/migrator.js')).href
   );
 
-  const config = loadDatabaseConfig();
+  const config = loadExplicitDatabaseConfig();
   console.log('Loaded database configuration:', sanitizeDatabaseConfig(config));
 
   const pool = createDatabasePool(config);
