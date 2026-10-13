@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs';
+import http from 'node:http';
 import pg from 'pg';
 import {
   redactSensitiveData,
@@ -214,7 +215,24 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
   // =========================================================================
   // PART 4: FULL LIFECYCLE API INTEGRATION TEST
   // =========================================================================
-  const apiBase = process.env.QA_API_BASE || 'http://127.0.0.1:3002';
+  let apiBase = process.env.QA_API_BASE;
+  let inProcessServer = null;
+  if (!apiBase) {
+    const { createRequestHandler } = await import(
+      '../../dist/apps/api/src/app.js'
+    );
+    const handler = createRequestHandler({
+      pool,
+      csrfSecret: 'bug_management_test_csrf_secret_min_32_bytes!',
+      allowedOrigins: ['https://ql.hoaiphuong.click', 'http://127.0.0.1:3000', 'http://127.0.0.1'],
+      isProduction: false,
+    });
+    inProcessServer = http.createServer(handler);
+    await new Promise((res) => inProcessServer.listen(0, '127.0.0.1', res));
+    const addr = inProcessServer.address();
+    apiBase = `http://127.0.0.1:${addr.port}`;
+    t.after(() => new Promise((res) => inProcessServer.close(res)));
+  }
   const origin = process.env.QA_WEB_BASE || 'https://ql.hoaiphuong.click';
 
   async function apiRequest(
