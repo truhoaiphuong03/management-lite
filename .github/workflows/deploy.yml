@@ -1,0 +1,71 @@
+name: Management Lite Auto Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - release/management-lite-web-test-clean
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Commit SHA to deploy (leave blank for latest)'
+        required: false
+        type: string
+      force:
+        description: 'Force re-deploy even if same SHA'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: management-lite-auto-deploy
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: Continuous Integration (Lint, Types, Build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm install --global npm@10.9.2
+          npm ci --no-audit --no-fund
+
+      - name: Run Lint
+        run: npm run lint
+
+      - name: Run Typecheck
+        run: npm run typecheck
+
+      - name: Build API
+        run: npm run build
+
+      - name: Build Web
+        run: npm run build:web
+
+  deploy:
+    name: Windows Server Production Deploy
+    needs: ci
+    runs-on: [self-hosted, Windows, X64, management-lite-deploy]
+    timeout-minutes: 15
+    steps:
+      - name: Execute Windows Safe Deployment
+        shell: powershell
+        run: |
+          $sha = if ("${{ inputs.commit_sha }}" -ne "") { "${{ inputs.commit_sha }}" } else { "${{ github.sha }}" }
+          $forceFlag = if ("${{ inputs.force }}" -eq "true") { "-Force" } else { "" }
+          Write-Host "Triggering deployment for commit: $sha (Force: $forceFlag)"
+          powershell -NoProfile -ExecutionPolicy Bypass -File "C:\HoaiPhuong-Server\scripts\Deploy-ManagementLite.ps1" -CommitSha $sha $forceFlag
