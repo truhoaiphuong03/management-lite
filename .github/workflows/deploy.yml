@@ -63,9 +63,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Execute Windows Safe Deployment
-        shell: powershell
+        shell: cmd
         run: |
-          $sha = if ("${{ inputs.commit_sha }}" -ne "") { "${{ inputs.commit_sha }}" } else { "${{ github.sha }}" }
-          $forceFlag = if ("${{ inputs.force }}" -eq "true") { "-Force" } else { "" }
-          Write-Host "Triggering deployment for commit: $sha (Force: $forceFlag)"
-          powershell -NoProfile -ExecutionPolicy Bypass -File "C:\HoaiPhuong-Server\scripts\Deploy-ManagementLite.ps1" -CommitSha $sha $forceFlag
+          set COMMIT_SHA=${{ inputs.commit_sha }}
+          if "%COMMIT_SHA%"=="" set COMMIT_SHA=${{ github.sha }}
+          set FORCE_FLAG=
+          if "${{ inputs.force }}"=="true" set FORCE_FLAG=-Force
+          powershell -NoProfile -ExecutionPolicy Bypass -File "C:\HoaiPhuong-Server\scripts\Deploy-ManagementLite.ps1" -CommitSha %COMMIT_SHA% %FORCE_FLAG%
