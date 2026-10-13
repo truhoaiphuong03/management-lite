@@ -39,7 +39,9 @@ test('Function verification: live AUTH, ACC atomic rollback, ATT overnight', asy
     )
   ).rows[0];
   assert.equal(proof.id, expected);
-  assert.equal(proof.port, target.port);
+  // GitHub Actions forwards host port 55432 to PostgreSQL's internal port 5432.
+  // Verify the server's actual listening port without confusing it with the host mapping.
+  assert.equal(proof.port, '5432');
   assert.equal(proof.db, target.pathname.slice(1));
   await runMigrations(
     pool,
