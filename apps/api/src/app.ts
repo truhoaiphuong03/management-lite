@@ -781,16 +781,24 @@ export function createRequestHandler(
           'confirmPassword',
         ]);
 
-        const currentPassword = (body['current_password'] ?? body['currentPassword']) as string | undefined;
-        const newPassword = (body['new_password'] ?? body['newPassword']) as string | undefined;
-        const confirmPassword = (body['confirm_password'] ?? body['confirmPassword']) as string | undefined;
+        const currentPassword = (body['current_password'] ??
+          body['currentPassword']) as string | undefined;
+        const newPassword = (body['new_password'] ?? body['newPassword']) as
+          string | undefined;
+        const confirmPassword = (body['confirm_password'] ??
+          body['confirmPassword']) as string | undefined;
 
         if (confirmPassword !== undefined && confirmPassword !== newPassword) {
           throw new AuthError(
             'VALIDATION_ERROR',
             'Xác nhận mật khẩu mới không khớp (Confirm password does not match new password)',
             400,
-            [{ field: 'confirm_password', message: 'Mật khẩu xác nhận không khớp' }],
+            [
+              {
+                field: 'confirm_password',
+                message: 'Mật khẩu xác nhận không khớp',
+              },
+            ],
           );
         }
 
@@ -1782,11 +1790,12 @@ export function createRequestHandler(
       }
 
       const workPath = pathname.match(
-        /^\/api\/v1\/work-items(?:\/([a-f0-9-]{36})(?:\/(cancel|assignments)(?:\/([a-f0-9-]{36})\/(start|submissions|reviews)(?:\/([a-f0-9-]{36})\/(reviews))?)?)?)?$/i,
+        /^\/api\/v1\/work-items(?:\/([a-f0-9-]{36})(?:\/(cancel|assignments|schedule-links)(?:\/([a-f0-9-]{36})\/(start|submissions|reviews)(?:\/([a-f0-9-]{36})\/(reviews))?)?)?)?$/i,
       );
       if (workPath) {
         if (
-          (workPath[2] === 'cancel' && workPath[3]) ||
+          (['cancel', 'schedule-links'].includes(workPath[2] ?? '') &&
+            workPath[3]) ||
           (workPath[5] && workPath[4] !== 'submissions')
         )
           throw new AuthError('NOT_FOUND', 'Endpoint not found', 404);
@@ -1815,19 +1824,21 @@ export function createRequestHandler(
                 ? 'edit'
                 : method === 'POST' && section === 'cancel'
                   ? 'cancel'
-                  : method === 'POST' &&
-                      section === 'assignments' &&
-                      !assignment
-                    ? 'assign'
-                    : method === 'POST' && assignment
-                      ? operation === 'start'
-                        ? 'start'
-                        : operation === 'submissions' && !submission
-                          ? 'submit'
-                          : operation === 'reviews' || submission
-                            ? 'review'
-                            : null
-                      : null;
+                  : method === 'POST' && section === 'schedule-links'
+                    ? 'schedule'
+                    : method === 'POST' &&
+                        section === 'assignments' &&
+                        !assignment
+                      ? 'assign'
+                      : method === 'POST' && assignment
+                        ? operation === 'start'
+                          ? 'start'
+                          : operation === 'submissions' && !submission
+                            ? 'submit'
+                            : operation === 'reviews' || submission
+                              ? 'review'
+                              : null
+                        : null;
           if (!action)
             throw new AuthError('NOT_FOUND', 'Endpoint not found', 404);
           requireCsrf(req, auth, csrfSecret, allowedOrigins);

@@ -22,6 +22,7 @@ import type {
   WorkPriority,
   WorkAssignmentStatus,
   WorkReviewDecision,
+  WorkAssignmentData,
 } from '../../../../packages/contracts/src/work.js';
 
 export interface WorkScreenProps {
@@ -149,6 +150,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   const [selectedWorkItem, setSelectedWorkItem] = useState<WorkItemData | null>(
     null,
   );
+  const [scheduleDate, setScheduleDate] = useState('');
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [apiUnavailable, setApiUnavailable] = useState<boolean>(false);
@@ -319,7 +321,13 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         }
       } else if (!isNew) {
         // Fetch list
-        const res = await fetch('/api/v1/work-items', {
+        const query = new URLSearchParams(window.location.search);
+        const scheduleFilter = new URLSearchParams();
+        for (const key of ['schedule_id', 'work_date']) {
+          const value = query.get(key);
+          if (value) scheduleFilter.set(key, value);
+        }
+        const res = await fetch(`/api/v1/work-items?${scheduleFilter}`, {
           credentials: 'include',
         });
         if (res.ok) {
@@ -404,6 +412,80 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   }, [workItems, role, currentEmployeeId]);
 
   // Handle Create Work Item (Owner)
+  const handleScheduleLink = async (
+    assignment: WorkAssignmentData,
+    date: string,
+    remove = false,
+  ) => {
+    if (!workId || !selectedWorkItem || !date) {
+      setErrorMessage('Chọn ngày làm việc trước.');
+      return;
+    }
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      let scheduleId: string | null = null;
+      if (!remove) {
+        const monday = new Date(`${date}T00:00:00Z`);
+        monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() || 7) + 1);
+        const schedules = await fetch(
+          `/api/v1/schedules?week_start_date=${monday.toISOString().slice(0, 10)}`,
+          { credentials: 'include' },
+        );
+        const data = await schedules.json();
+        if (!schedules.ok)
+          throw new Error(data.error?.message || 'Không tải được lịch');
+        const match = data.data?.items?.find(
+          (s: {
+            id: string;
+            employee_id: string;
+            entries?: Array<{ work_date: string }>;
+          }) =>
+            s.employee_id === assignment.employee_id &&
+            s.entries?.some((e) => e.work_date === date),
+        );
+        if (!match)
+          throw new Error(
+            'Nhân viên chưa đăng ký ca trong ngày này. Hãy đăng ký lịch trước khi xếp việc.',
+          );
+        scheduleId = match.id;
+      }
+      const response = await fetch(
+        `/api/v1/work-items/${workId}/schedule-links`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+            'If-Match': `"${selectedWorkItem.version}"`,
+            'Idempotency-Key': crypto.randomUUID(),
+          },
+          body: JSON.stringify({
+            assignment_id: assignment.id,
+            schedule_id: scheduleId,
+            work_date: date,
+          }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error?.message || 'Không lưu được liên kết lịch');
+      setSelectedWorkItem(data.data);
+      setSuccessMessage(
+        remove
+          ? 'Đã gỡ công việc khỏi ngày làm việc.'
+          : 'Đã xếp công việc vào ca đã đăng ký.',
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Không thể liên kết lịch',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleCreateWorkItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) {
@@ -1322,6 +1404,71 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     </div>
                   </div>
                   <div>{getAssignmentStatusBadge(assignment.status)}</div>
+                </div>
+
+                <div style={{ marginBottom: '16px', color: '#CBD5E1' }}>
+                  <strong>Lịch thực hiện</strong>
+                  {(assignment.schedule_links || []).map((link) => (
+                    <div
+                      key={link.work_date}
+                      style={{
+                        display: 'flex',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                        marginTop: '8px',
+                      }}
+                    >
+                      <a href="/schedules" style={{ color: '#14B8A6' }}>
+                        {link.work_date} · {link.start_time} ·{' '}
+                        {link.status === 'registered'
+                          ? 'Ca đã đăng ký'
+                          : 'Lịch đã hủy'}
+                      </a>
+                      {role === 'owner' &&
+                        item.status !== 'completed' &&
+                        item.status !== 'cancelled' && (
+                          <AppButton
+                            disabled={submitting}
+                            onClick={() =>
+                              handleScheduleLink(
+                                assignment,
+                                link.work_date,
+                                true,
+                              )
+                            }
+                          >
+                            Gỡ khỏi lịch
+                          </AppButton>
+                        )}
+                    </div>
+                  ))}
+                  {role === 'owner' &&
+                    item.status !== 'completed' &&
+                    item.status !== 'cancelled' && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '10px',
+                          flexWrap: 'wrap',
+                          marginTop: '10px',
+                        }}
+                      >
+                        <input
+                          aria-label={`Ngày xếp việc ${assignment.full_name || assignment.employee_id}`}
+                          type="date"
+                          value={scheduleDate}
+                          onChange={(e) => setScheduleDate(e.target.value)}
+                        />
+                        <AppButton
+                          disabled={submitting || !scheduleDate}
+                          onClick={() =>
+                            handleScheduleLink(assignment, scheduleDate)
+                          }
+                        >
+                          Xếp vào lịch làm việc
+                        </AppButton>
+                      </div>
+                    )}
                 </div>
 
                 {/* Latest Review Feedback if changes requested */}

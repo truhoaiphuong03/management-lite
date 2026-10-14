@@ -1495,6 +1495,9 @@ BEGIN
 END $$;
 `;
 
+export const WORK_SCHEDULE_LINKS_SQL =
+  "-- Stable links to the employee's registered date, not replaceable entry IDs.\n-- Deferred date FK permits existing schedule revision delete/reinsert in one transaction.\nALTER TABLE work_assignments ADD CONSTRAINT uq_work_assignment_employee UNIQUE(workspace_id,id,employee_id);\nALTER TABLE staff_schedules ADD CONSTRAINT uq_schedule_employee_identity UNIQUE(workspace_id,id,employee_id);\nALTER TABLE staff_schedule_entries ADD CONSTRAINT uq_schedule_entry_workspace_date UNIQUE(workspace_id,schedule_id,work_date);\nCREATE TABLE work_schedule_links (\n  workspace_id uuid NOT NULL,\n  assignment_id uuid NOT NULL,\n  employee_id uuid NOT NULL,\n  schedule_id uuid NOT NULL,\n  work_date date NOT NULL,\n  linked_by uuid NOT NULL REFERENCES users(id),\n  linked_at timestamptz NOT NULL DEFAULT now(),\n  PRIMARY KEY(workspace_id,assignment_id,work_date),\n  FOREIGN KEY(workspace_id,assignment_id,employee_id) REFERENCES work_assignments(workspace_id,id,employee_id) ON DELETE RESTRICT,\n  FOREIGN KEY(workspace_id,schedule_id,employee_id) REFERENCES staff_schedules(workspace_id,id,employee_id) ON DELETE RESTRICT,\n  CONSTRAINT fk_work_schedule_registered_date FOREIGN KEY(workspace_id,schedule_id,work_date) REFERENCES staff_schedule_entries(workspace_id,schedule_id,work_date) DEFERRABLE INITIALLY DEFERRED\n);\nCREATE INDEX ix_work_schedule_date ON work_schedule_links(workspace_id,schedule_id,work_date);\n";
+
 export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
   {
     id: '0001_m00_prerequisites',
@@ -1596,5 +1599,10 @@ export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
     id: '0021_m11_bug_ai_management',
     sql: M11_BUG_AI_MANAGEMENT_SQL,
     checksum: calculateChecksum(M11_BUG_AI_MANAGEMENT_SQL),
+  },
+  {
+    id: '0022_work_schedule_links',
+    sql: WORK_SCHEDULE_LINKS_SQL,
+    checksum: calculateChecksum(WORK_SCHEDULE_LINKS_SQL),
   },
 ];

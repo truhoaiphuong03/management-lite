@@ -110,7 +110,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   const [csrfToken, setCsrfToken] = useState<string>('');
 
   const isAdminOrOwner = role === 'admin' || role === 'owner';
-  const [activeTab, setActiveTab] = useState<'my_schedule' | 'staff_schedules'>('my_schedule');
+  const [activeTab, setActiveTab] = useState<'my_schedule' | 'staff_schedules'>(
+    'my_schedule',
+  );
 
   // Staff / Self schedule state
   const [mySchedule, setMySchedule] = useState<ScheduleData | null>(null);
@@ -868,6 +870,16 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   style={{ fontSize: '13px', color: '#94A3B8' }}
                                 >
                                   {formatDateDisplay(entry.work_date)}
+                                  <a
+                                    style={{
+                                      display: 'block',
+                                      color: '#14B8A6',
+                                      marginTop: '6px',
+                                    }}
+                                    href={`/work?schedule_id=${mySchedule?.id}&work_date=${entry.work_date}`}
+                                  >
+                                    Công việc trong ca
+                                  </a>
                                 </div>
                                 {entry.notes && (
                                   <div
@@ -1104,7 +1116,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               fontWeight: 600,
                               minHeight: '44px',
                               boxSizing: 'border-box',
-                              cursor: dayItem.isWorking ? 'text' : 'not-allowed',
+                              cursor: dayItem.isWorking
+                                ? 'text'
+                                : 'not-allowed',
                             }}
                           />
                         </div>
@@ -1248,8 +1262,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
           >
             <InfoIcon size={18} />
             <span>
-              Chủ sở hữu / Quản lý có quyền xem lịch và lịch sử điều chỉnh của nhân sự.
-              Theo quy tắc RBAC-SCH-02, Quản lý không được chỉnh sửa lịch thay cho nhân viên.
+              Chủ sở hữu / Quản lý có quyền xem lịch và lịch sử điều chỉnh của
+              nhân sự. Theo quy tắc RBAC-SCH-02, Quản lý không được chỉnh sửa
+              lịch thay cho nhân viên.
             </span>
           </div>
 
@@ -1471,6 +1486,15 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   >
                                     {dayName} ({formatDateDisplay(e.work_date)}
                                     ):
+                                    <a
+                                      style={{
+                                        display: 'block',
+                                        color: '#14B8A6',
+                                      }}
+                                      href={`/work?schedule_id=${schedule.id}&work_date=${e.work_date}`}
+                                    >
+                                      Công việc trong ca
+                                    </a>
                                   </span>
                                   <span
                                     style={{

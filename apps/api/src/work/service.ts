@@ -284,6 +284,15 @@ export class WorkService {
       )
     ).rows;
     for (const a of assignments) {
+      a.schedule_links = (
+        await c.query(
+          `SELECT l.schedule_id,to_char(l.work_date,'YYYY-MM-DD') AS work_date,e.start_time,s.status
+           FROM work_schedule_links l JOIN staff_schedules s ON s.workspace_id=l.workspace_id AND s.id=l.schedule_id
+           JOIN staff_schedule_entries e ON e.workspace_id=l.workspace_id AND e.schedule_id=l.schedule_id AND e.work_date=l.work_date
+           WHERE l.workspace_id=$1 AND l.assignment_id=$2 ORDER BY l.work_date`,
+          [auth.workspace.id, a.id],
+        )
+      ).rows;
       a.submissions = (
         await c.query(
           'SELECT * FROM work_submissions WHERE workspace_id=$1 AND assignment_id=$2 ORDER BY revision_number',
@@ -305,7 +314,16 @@ export class WorkService {
   }
   async list(auth: AuthenticatedContext, q: URLSearchParams) {
     for (const k of q.keys())
-      if (!['status', 'priority', 'assignee_id', 'search'].includes(k))
+      if (
+        ![
+          'status',
+          'priority',
+          'assignee_id',
+          'search',
+          'schedule_id',
+          'work_date',
+        ].includes(k)
+      )
         fail('VALIDATION_ERROR', 'Invalid filter', 400);
     const status = q.get('status') ?? 'all',
       priority = q.get('priority'),
@@ -324,6 +342,9 @@ export class WorkService {
     )
       fail('VALIDATION_ERROR', 'Invalid filter', 400);
     if (q.has('assignee_id')) uuid(q.get('assignee_id'));
+    if (q.has('schedule_id')) uuid(q.get('schedule_id'));
+    if (q.has('work_date') && !/^\d{4}-\d{2}-\d{2}$/.test(q.get('work_date')!))
+      fail('VALIDATION_ERROR', 'Invalid work date', 400);
     return this.read(auth, false, async (c) => {
       const own =
         auth.workspace.role === 'owner' ? null : await this.employee(c, auth);
@@ -332,8 +353,17 @@ export class WorkService {
       const filter = own ?? q.get('assignee_id');
       const rows = (
         await c.query(
-          "SELECT w.id FROM work_items w WHERE w.workspace_id=$1 AND ($2='all' OR w.status=$2) AND ($3::text IS NULL OR w.priority=$3) AND strpos(lower(w.title),lower($4))>0 AND ($5::uuid IS NULL OR EXISTS(SELECT 1 FROM work_assignments a WHERE a.workspace_id=w.workspace_id AND a.work_item_id=w.id AND a.employee_id=$5)) ORDER BY w.created_at DESC,w.id",
-          [auth.workspace.id, status, priority, search, filter],
+          `SELECT w.id FROM work_items w WHERE w.workspace_id=$1 AND ($2='all' OR w.status=$2) AND ($3::text IS NULL OR w.priority=$3) AND strpos(lower(w.title),lower($4))>0 AND ($5::uuid IS NULL OR EXISTS(SELECT 1 FROM work_assignments a WHERE a.workspace_id=w.workspace_id AND a.work_item_id=w.id AND a.employee_id=$5))
+           AND (($6::uuid IS NULL AND $7::date IS NULL) OR EXISTS(SELECT 1 FROM work_schedule_links l JOIN work_assignments a ON a.workspace_id=l.workspace_id AND a.id=l.assignment_id WHERE a.workspace_id=w.workspace_id AND a.work_item_id=w.id AND ($5::uuid IS NULL OR a.employee_id=$5) AND ($6::uuid IS NULL OR l.schedule_id=$6) AND ($7::date IS NULL OR l.work_date=$7))) ORDER BY w.created_at DESC,w.id`,
+          [
+            auth.workspace.id,
+            status,
+            priority,
+            search,
+            filter,
+            q.get('schedule_id'),
+            q.get('work_date'),
+          ],
         )
       ).rows;
       const items = [];
@@ -433,7 +463,9 @@ export class WorkService {
     key: string | undefined,
     requestId: string,
   ) {
-    const owner = ['edit', 'assign', 'review', 'cancel'].includes(action);
+    const owner = ['edit', 'assign', 'review', 'cancel', 'schedule'].includes(
+      action,
+    );
     const allowed: Record<string, string[]> = {
       edit: ['title', 'description', 'work_type', 'priority', 'due_at'],
       assign: ['employee_ids', 'stage'],
@@ -441,6 +473,7 @@ export class WorkService {
       submit: ['submission_note', 'attachments'],
       review: ['submission_id', 'decision', 'feedback'],
       cancel: ['reason'],
+      schedule: ['assignment_id', 'schedule_id', 'work_date'],
     };
     fields(body, allowed[action] ?? []);
     return this.write(
@@ -459,7 +492,73 @@ export class WorkService {
         checkVersion(item.version, match);
         if (item.status === 'cancelled')
           fail('INVALID_TRANSITION', 'Work item is closed', 409);
-        if (action === 'edit') {
+        if (action === 'schedule') {
+          if (item.status === 'completed')
+            fail(
+              'INVALID_TRANSITION',
+              'Completed work cannot be rescheduled',
+              409,
+            );
+          const aid = uuid(body.assignment_id);
+          const date = body.work_date;
+          if (
+            typeof date !== 'string' ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+            !Number.isFinite(Date.parse(date)) ||
+            new Date(date).toISOString().slice(0, 10) !== date
+          )
+            fail('VALIDATION_ERROR', 'Invalid work date', 400);
+          const assignment = (
+            await c.query(
+              'SELECT employee_id FROM work_assignments WHERE workspace_id=$1 AND work_item_id=$2 AND id=$3',
+              [auth.workspace.id, id, aid],
+            )
+          ).rows[0];
+          if (!assignment) fail('NOT_FOUND', 'Assignment not found', 404);
+          if (body.schedule_id === null) {
+            await c.query(
+              'DELETE FROM work_schedule_links WHERE workspace_id=$1 AND assignment_id=$2 AND work_date=$3',
+              [auth.workspace.id, aid, date],
+            );
+          } else {
+            const sid = uuid(body.schedule_id);
+            const schedule = await c.query(
+              `SELECT s.id FROM staff_schedules s JOIN staff_schedule_entries e ON e.workspace_id=s.workspace_id AND e.schedule_id=s.id JOIN employees emp ON emp.workspace_id=s.workspace_id AND emp.id=s.employee_id WHERE s.workspace_id=$1 AND s.id=$2 AND s.employee_id=$3 AND s.status='registered' AND emp.employment_status='active' AND e.work_date=$4 FOR SHARE OF s,emp`,
+              [auth.workspace.id, sid, assignment.employee_id, date],
+            );
+            if (!schedule.rowCount)
+              fail(
+                'NOT_FOUND',
+                'No registered shift for this assignee and date',
+                404,
+              );
+            await c.query(
+              `INSERT INTO work_schedule_links(workspace_id,assignment_id,employee_id,schedule_id,work_date,linked_by) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(workspace_id,assignment_id,work_date) DO UPDATE SET schedule_id=EXCLUDED.schedule_id,linked_by=EXCLUDED.linked_by,linked_at=now()`,
+              [
+                auth.workspace.id,
+                aid,
+                assignment.employee_id,
+                sid,
+                date,
+                auth.user.id,
+              ],
+            );
+          }
+          await this.aggregate(c, auth, id);
+          await recordAuditEvent(c, {
+            workspaceId: auth.workspace.id,
+            actorUserId: auth.user.id,
+            action: 'work.schedule_link_changed',
+            entityType: 'work_item',
+            entityId: id,
+            requestId,
+            metadata: {
+              assignment_id: aid,
+              schedule_id: body.schedule_id,
+              work_date: date,
+            },
+          });
+        } else if (action === 'edit') {
           const attrs = attributes(body);
           if (!Object.keys(attrs).length)
             fail('VALIDATION_ERROR', 'No editable attributes', 400);

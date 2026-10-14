@@ -38,13 +38,16 @@ test('WORK rev03 isolated PostgreSQL lifecycle, contracts, security and concurre
         for (let i = 0; i < 10; i++)
           assert.equal(migrations[i].checksum, EMBEDDED_MIGRATIONS[i].checksum);
         await pool.query(
-          'DROP TABLE IF EXISTS work_reviews, work_submissions, work_assignments, work_items CASCADE;' +
+          'DROP TABLE IF EXISTS work_schedule_links, work_reviews, work_submissions, work_assignments, work_items CASCADE;' +
+            'ALTER TABLE staff_schedules DROP CONSTRAINT IF EXISTS uq_schedule_employee_identity CASCADE;' +
+            'ALTER TABLE staff_schedule_entries DROP CONSTRAINT IF EXISTS uq_schedule_entry_workspace_date CASCADE;' +
             'DROP FUNCTION IF EXISTS work_history_immutable, work_assignment_guard, work_submission_guard, work_review_guard, work_item_guard, work_aggregate_consistent CASCADE;' +
-            "DELETE FROM schema_migrations WHERE id = '0010_m08_work';",
+            "DELETE FROM schema_migrations WHERE id IN ('0010_m08_work', '0022_work_schedule_links');",
         );
         await runMigrations(pool, migrations.slice(0, 9));
         assert.deepEqual((await runMigrations(pool, migrations)).appliedIds, [
           '0010_m08_work',
+          '0022_work_schedule_links',
         ]);
         assert.equal((await runMigrations(pool, migrations)).appliedCount, 0);
         const bad = migrations.map((x) => ({ ...x }));

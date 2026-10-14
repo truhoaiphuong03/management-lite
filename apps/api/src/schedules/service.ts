@@ -45,7 +45,9 @@ export class SchedulesService {
         `SELECT username_normalized FROM users WHERE id = $1;`,
         [userId],
       );
-      const username = (userRes.rows[0]?.username_normalized || '').trim().toLowerCase();
+      const username = (userRes.rows[0]?.username_normalized || '')
+        .trim()
+        .toLowerCase();
 
       if (username) {
         const candidateRes = await client.query<{
@@ -65,7 +67,10 @@ export class SchedulesService {
           [workspaceId, username, userId],
         );
 
-        if (candidateRes.rows.length === 1 && candidateRes.rows[0]!.employment_status === 'active') {
+        if (
+          candidateRes.rows.length === 1 &&
+          candidateRes.rows[0]!.employment_status === 'active'
+        ) {
           const candidate = candidateRes.rows[0]!;
           await client.query(
             `UPDATE employees SET user_id = $1, updated_at = now() WHERE id = $2 AND user_id IS NULL;`,
@@ -683,6 +688,18 @@ export class SchedulesService {
       };
     } catch (err) {
       await client.query('ROLLBACK');
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'constraint' in err &&
+        err.constraint === 'fk_work_schedule_registered_date'
+      ) {
+        throw new AuthError(
+          'SCHEDULE_HAS_ASSIGNED_WORK',
+          'Ngày làm việc còn công việc đã xếp. Hãy gỡ hoặc chuyển công việc trước khi xóa ngày này.',
+          409,
+        );
+      }
       throw err;
     } finally {
       client.release();

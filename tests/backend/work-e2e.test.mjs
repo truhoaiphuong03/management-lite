@@ -36,11 +36,6 @@ test('WORK-01 E2E: Complete Owner/Staff lifecycle, RBAC, reviews, concurrency, a
     const migrations = loadMigrationFiles(
       resolve('packages/database/src/migrations'),
     );
-    await pool.query(
-      'DROP TABLE IF EXISTS work_reviews, work_submissions, work_assignments, work_items CASCADE;' +
-        'DROP FUNCTION IF EXISTS work_history_immutable, work_assignment_guard, work_submission_guard, work_review_guard, work_item_guard, work_aggregate_consistent CASCADE;' +
-        "DELETE FROM schema_migrations WHERE id = '0010_m08_work';",
-    );
     await runMigrations(pool, migrations);
 
     // 2. Set up test workspaces

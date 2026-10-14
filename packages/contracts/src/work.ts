@@ -60,6 +60,14 @@ export interface WorkAssignmentData {
   assigned_by?: string | undefined;
   assigned_at: string; // ISO 8601 UTC
   submissions?: WorkSubmissionData[] | undefined;
+  schedule_links?:
+    | Array<{
+        schedule_id: string;
+        work_date: string;
+        start_time: string;
+        status: string;
+      }>
+    | undefined;
   latest_review?: WorkReviewData | null | undefined;
 }
 
