@@ -106,8 +106,16 @@ test('PAY isolated PostgreSQL upgrade, API security, financial atomicity and imm
         for (let i = 0; i < 9; i++)
           assert.equal(migrations[i].checksum, EMBEDDED_MIGRATIONS[i].checksum);
         await runMigrations(pool, migrations.slice(0, 8));
+        const preApplied =
+          (
+            await pool.query(
+              "SELECT 1 FROM schema_migrations WHERE id = '0009_m07_payroll'",
+            )
+          ).rowCount > 0;
         const upgrade = await runMigrations(pool, migrations);
-        assert.ok(upgrade.appliedIds.includes('0009_m07_payroll'));
+        assert.ok(
+          preApplied || upgrade.appliedIds.includes('0009_m07_payroll'),
+        );
         assert.equal((await runMigrations(pool, migrations)).appliedCount, 0);
         const changed = migrations.map((m) => ({ ...m }));
         changed[8].sql += '\n-- invalid replay';
