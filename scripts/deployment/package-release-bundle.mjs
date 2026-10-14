@@ -95,47 +95,11 @@ const copyFiltered = (srcDir, destDir) => {
   }
 };
 
-// 3. Assemble bundle contents
-if (typeArg === 'web' || typeArg === 'full') {
-  console.log('[PACKAGER] Copying web production bundle (apps/web/dist)...');
-  if (!fs.existsSync('apps/web/dist/index.html')) {
-    throw new Error('Web bundle not built! Run "npm run build:web" first.');
-  }
-  copyFiltered('apps/web/dist', path.join(bundleStageDir, 'web'));
-
-  // Write release-version.json inside web root for client-side version verification
-  fs.writeFileSync(
-    path.join(bundleStageDir, 'web/release-version.json'),
-    JSON.stringify(
-      {
-        sha: headSha,
-        type: typeArg,
-        builtAt: new Date().toISOString(),
-      },
-      null,
-      2,
-    ),
-  );
-}
-
+// 3. Compute database schema identity from migration SQL files
 let migrationsMetadata = [];
 let schemaIdentity = null;
 
-if (typeArg === 'full') {
-  console.log('[PACKAGER] Copying API and packages distribution (dist/)...');
-  if (!fs.existsSync('dist/apps/api') || !fs.existsSync('dist/packages')) {
-    throw new Error('API bundle not built! Run "npm run build" first.');
-  }
-  copyFiltered('dist/apps/api', path.join(bundleStageDir, 'dist/apps/api'));
-  copyFiltered('dist/packages', path.join(bundleStageDir, 'dist/packages'));
-
-  console.log('[PACKAGER] Copying database migrations...');
-  copyFiltered(
-    'packages/database/src/migrations',
-    path.join(bundleStageDir, 'migrations'),
-  );
-
-  // Compute database schema identity from migration SQL files
+if (fs.existsSync('packages/database/src/migrations')) {
   const migrationFiles = fs
     .readdirSync('packages/database/src/migrations')
     .filter((f) => f.endsWith('.sql'))
@@ -154,6 +118,63 @@ if (typeArg === 'full') {
   });
 
   schemaIdentity = hashString(JSON.stringify(migrationsMetadata));
+}
+
+const builtAtIso = new Date().toISOString();
+
+// 4. Assemble bundle contents
+if (typeArg === 'web' || typeArg === 'full') {
+  console.log('[PACKAGER] Copying web production bundle (apps/web/dist)...');
+  if (!fs.existsSync('apps/web/dist/index.html')) {
+    throw new Error('Web bundle not built! Run "npm run build:web" first.');
+  }
+  copyFiltered('apps/web/dist', path.join(bundleStageDir, 'web'));
+
+  // Write release-version.json inside web root for client-side & controller version verification
+  fs.writeFileSync(
+    path.join(bundleStageDir, 'web/release-version.json'),
+    JSON.stringify(
+      {
+        sha: headSha,
+        component: 'web',
+        type: typeArg,
+        schemaIdentity,
+        builtAt: builtAtIso,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+if (typeArg === 'full') {
+  console.log('[PACKAGER] Copying API and packages distribution (dist/)...');
+  if (!fs.existsSync('dist/apps/api') || !fs.existsSync('dist/packages')) {
+    throw new Error('API bundle not built! Run "npm run build" first.');
+  }
+  copyFiltered('dist/apps/api', path.join(bundleStageDir, 'dist/apps/api'));
+  copyFiltered('dist/packages', path.join(bundleStageDir, 'dist/packages'));
+
+  fs.writeFileSync(
+    path.join(bundleStageDir, 'dist/release-version.json'),
+    JSON.stringify(
+      {
+        sha: headSha,
+        component: 'api',
+        type: typeArg,
+        schemaIdentity,
+        builtAt: builtAtIso,
+      },
+      null,
+      2,
+    ),
+  );
+
+  console.log('[PACKAGER] Copying database migrations...');
+  copyFiltered(
+    'packages/database/src/migrations',
+    path.join(bundleStageDir, 'migrations'),
+  );
 
   // Sanitize package.json for runtime execution
   const rootPkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
@@ -173,7 +194,7 @@ if (typeArg === 'full') {
   );
 }
 
-// 4. Generate manifest with SHA-256 hashes of all bundled files
+// 5. Generate manifest with SHA-256 hashes of all bundled files
 console.log('[PACKAGER] Generating file integrity manifest...');
 const fileManifest = [];
 const walkFiles = (dir) => {
@@ -199,7 +220,7 @@ const manifest = {
   manifestVersion: '1.0',
   type: typeArg,
   sha: headSha,
-  builtAt: new Date().toISOString(),
+  builtAt: builtAtIso,
   targetEngine: 'Node >=22.14.0',
   fileCount: fileManifest.length,
   schemaIdentity,
@@ -207,14 +228,16 @@ const manifest = {
   files: fileManifest,
 };
 
-fs.writeFileSync(
-  path.join(bundleStageDir, 'manifest.json'),
-  JSON.stringify(manifest, null, 2),
-);
+const manifestJsonPath = path.join(bundleStageDir, 'manifest.json');
+fs.writeFileSync(manifestJsonPath, JSON.stringify(manifest, null, 2));
+const manifestSha256 = hashFile(manifestJsonPath);
 
-// 5. Create final zip / tar archive
-const artifactName = `management-lite-${typeArg}-${headSha.slice(0, 10)}`;
-const tarPath = path.join(outDir, `${artifactName}.tar.gz`);
+// 6. Create final tar.gz archive + .sha256 + .provenance.json
+const artifactName = `management-lite-${typeArg}-${headSha}`;
+const tarFilename = `${artifactName}.tar.gz`;
+const tarPath = path.join(outDir, tarFilename);
+const sha256Path = `${tarPath}.sha256`;
+const provenancePath = `${tarPath}.provenance.json`;
 
 console.log(`[PACKAGER] Creating archive: ${tarPath}...`);
 execFileSync('tar', ['-czf', tarPath, '-C', bundleStageDir, '.']);
@@ -222,22 +245,22 @@ execFileSync('tar', ['-czf', tarPath, '-C', bundleStageDir, '.']);
 const bundleSha256 = hashFile(tarPath);
 const bundleSize = fs.statSync(tarPath).size;
 
-// Write provenance record alongside archive
+fs.writeFileSync(sha256Path, `${bundleSha256}  ${tarFilename}\n`, 'utf8');
+
 const provenanceRecord = {
-  artifact: `${artifactName}.tar.gz`,
+  artifact: tarFilename,
   sha256: bundleSha256,
+  manifestSha256,
   sizeBytes: bundleSize,
   type: typeArg,
   commitSha: headSha,
   fileCount: fileManifest.length,
-  builtAt: manifest.builtAt,
+  builtAt: builtAtIso,
   schemaIdentity,
+  migrationCount: migrationsMetadata.length,
 };
 
-fs.writeFileSync(
-  path.join(outDir, `${artifactName}.provenance.json`),
-  JSON.stringify(provenanceRecord, null, 2),
-);
+fs.writeFileSync(provenancePath, JSON.stringify(provenanceRecord, null, 2), 'utf8');
 
 // Clean up temporary stage directory
 fs.rmSync(bundleStageDir, { recursive: true, force: true });
@@ -246,4 +269,5 @@ console.log('=== PACKAGING SUCCESSFUL ===');
 console.log(`Artifact:   ${tarPath}`);
 console.log(`Size:       ${(bundleSize / 1024).toFixed(1)} KB`);
 console.log(`SHA-256:    ${bundleSha256}`);
-console.log(`Provenance: ${path.join(outDir, `${artifactName}.provenance.json`)}`);
+console.log(`Checksum:   ${sha256Path}`);
+console.log(`Provenance: ${provenancePath}`);

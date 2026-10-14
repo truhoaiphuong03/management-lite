@@ -117,7 +117,57 @@ test('Option 1 CI/CD architecture: automatic CI on push/PR without deploy, singl
         false,
         `Deploy workflow ${file} must not trigger on push`,
       );
+      assert.equal(
+        content.includes("if: github.ref == 'refs/heads/main'"),
+        true,
+        'deploy.yml must restrict execution to refs/heads/main',
+      );
+      assert.equal(
+        content.includes('artifact_sha256') &&
+          content.includes('schema_sha256') &&
+          content.includes('run_attempt') &&
+          content.includes('workflow_path'),
+        true,
+        'deploy.yml must bind artifact_sha256, schema_sha256, run_attempt, and workflow_path in ci-run-receipt',
+      );
+    }
+    assert.equal(
+      content.includes('node-version-file: .nvmrc') &&
+        content.includes('npm install --global npm@10.9.2'),
+      true,
+      `Workflow ${file} must lock exact Node version via .nvmrc (22.14.0) and npm@10.9.2 required by scripts/check-toolchain.mjs`,
+    );
+    const usesMatches = [...content.matchAll(/^\s*-?\s*uses:\s*([^\s#]+)/gm)];
+    for (const m of usesMatches) {
+      assert.match(
+        m[1],
+        /@[0-9a-f]{40}$/,
+        `Workflow ${file} action ${m[1]} must be pinned to a full 40-char commit SHA`,
+      );
     }
   }
+
+  const controllerPath = fileURLToPath(
+    new URL(
+      '../../scripts/deployment/Deploy-SemiAutoWindows.ps1',
+      import.meta.url,
+    ),
+  );
+  const controllerCode = fs.readFileSync(controllerPath, 'utf8');
+  assert.equal(
+    controllerCode.includes('npm run build'),
+    false,
+    'Deploy-SemiAutoWindows.ps1 must never fall back to local host compilation (npm run build)',
+  );
+  assert.equal(
+    controllerCode.includes('REJECTED_ARTIFACT_MISSING') &&
+      controllerCode.includes('REJECTED_INDEPENDENT_CI_VERIFICATION_FAILED') &&
+      controllerCode.includes('REJECTED_GITHUB_API_CI_VERIFICATION_FAILED') &&
+      controllerCode.includes('ROLLBACK_FAILED_MANUAL_INTERVENTION') &&
+      controllerCode.includes('Invoke-AtomicRuntimeSwap') &&
+      controllerCode.includes('UNSAFE_TAR_TYPE'),
+    true,
+    'Deploy-SemiAutoWindows.ps1 must enforce mandatory artifact, CI receipt, live GitHub API, atomic same-volume swap, TAR header symlink/hardlink rejection, and rollback MANUAL_INTERVENTION states',
+  );
 });
 

@@ -14,7 +14,17 @@ param(
   [Parameter(Mandatory = $false)]
   [string]$CiRunId = '1',
   [Parameter(Mandatory = $false)]
+  [int]$CiRunAttempt = 1,
+  [Parameter(Mandatory = $false)]
   [string]$CiStatus = 'SUCCESS',
+  [Parameter(Mandatory = $false)]
+  [string]$WorkflowPath = '.github/workflows/deploy.yml',
+  [Parameter(Mandatory = $false)]
+  [string]$SourceBranch = 'main',
+  [Parameter(Mandatory = $false)]
+  [string]$SchemaSha256 = '',
+  [Parameter(Mandatory = $false)]
+  [string]$GitHubApiBaseUrl = 'https://api.github.com',
   [Parameter(Mandatory = $false)]
   [int]$Sequence = 1,
   [Parameter(Mandatory = $false)]
@@ -86,12 +96,17 @@ const policy = {
   repository: 'truhoaiphuong03/management-lite',
   allowed_approvers: ['Owner', 'truhoaiphuong03'],
   require_independent_ci_receipt: true,
+  require_github_api_verification: true,
+  github_api_base_url: process.argv[4] || 'https://api.github.com',
+  allowed_ci_events: ['workflow_dispatch'],
+  allowed_workflow_paths: ['.github/workflows/deploy.yml'],
+  allowed_source_branch: 'main',
   trusted_public_key_sha256: pubSha256,
   trusted_public_key_pem: pubPem
 };
 fs.writeFileSync(process.argv[3], JSON.stringify(policy, null, 2), 'utf8');
 "@
-  & $node -e $jsKeyGen $privPath $pubPath $polPath
+  & $node -e $jsKeyGen $privPath $pubPath $polPath $GitHubApiBaseUrl
   if ($LASTEXITCODE -ne 0) {
     throw 'Failed to generate Ed25519 keypair and policy.'
   }
@@ -109,8 +124,12 @@ $normalizedArtifactHash = $ArtifactSha256.Trim().ToLowerInvariant()
 if ($normalizedArtifactHash -notmatch '^[0-9a-f]{64}$') {
   throw "Invalid ArtifactSha256 '$ArtifactSha256'. Must be a 64-character hexadecimal SHA-256 digest."
 }
-if ($CiRunId -notmatch '^[0-9]+$') {
-  throw "Invalid CiRunId '$CiRunId'. Must be numeric."
+$normalizedSchemaHash = $SchemaSha256.Trim().ToLowerInvariant()
+if ($normalizedSchemaHash -notmatch '^[0-9a-f]{64}$') {
+  throw "Invalid SchemaSha256 '$SchemaSha256'. Must be a 64-character hexadecimal SHA-256 digest."
+}
+if ($CiRunId -notmatch '^[0-9]+$' -or $CiRunAttempt -lt 1) {
+  throw "Invalid CiRunId '$CiRunId' or CiRunAttempt '$CiRunAttempt'."
 }
 if ([string]::IsNullOrWhiteSpace($ApprovedBy)) {
   throw 'ApprovedBy is mandatory.'
@@ -152,8 +171,12 @@ $payloadObj = [ordered]@{
   repository        = 'truhoaiphuong03/management-lite'
   approved_sha      = $normalizedSha
   artifact_sha256   = $normalizedArtifactHash
+  schema_sha256     = $normalizedSchemaHash
   ci_run_id         = $CiRunId.Trim()
+  ci_run_attempt    = [int]$CiRunAttempt
   ci_status         = $CiStatus.Trim().ToUpperInvariant()
+  workflow_path     = $WorkflowPath.Trim()
+  source_branch     = $SourceBranch.Trim()
   sequence          = [int]$Sequence
   approved_by       = $ApprovedBy.Trim()
   windows_principal = $winPrincipal
@@ -168,8 +191,12 @@ $envelope = [ordered]@{
   status                 = 'APPROVED'
   approved_sha           = $normalizedSha
   artifact_sha256        = $normalizedArtifactHash
+  schema_sha256          = $normalizedSchemaHash
   ci_run_id              = $CiRunId.Trim()
+  ci_run_attempt         = [int]$CiRunAttempt
   ci_status              = $CiStatus.Trim().ToUpperInvariant()
+  workflow_path          = $WorkflowPath.Trim()
+  source_branch          = $SourceBranch.Trim()
   sequence               = [int]$Sequence
   approved_by            = $ApprovedBy.Trim()
   windows_principal      = $winPrincipal
@@ -217,7 +244,11 @@ $auditEntry = [ordered]@{
   sequence          = [int]$Sequence
   approved_sha      = $normalizedSha
   artifact_sha256   = $normalizedArtifactHash
+  schema_sha256     = $normalizedSchemaHash
   ci_run_id         = $CiRunId.Trim()
+  ci_run_attempt    = [int]$CiRunAttempt
+  workflow_path     = $WorkflowPath.Trim()
+  source_branch     = $SourceBranch.Trim()
   approved_by       = $ApprovedBy.Trim()
   windows_principal = $winPrincipal
   allow_migration   = [bool]$AllowMigration
@@ -232,7 +263,7 @@ Set-ReleaseGateAcl -TargetPath $parentDir
 Write-Host "[OK] Ed25519-signed Owner SHA approval recorded at: $ManifestPath"
 Write-Host "     SHA             : $normalizedSha"
 Write-Host "     Artifact SHA256 : $normalizedArtifactHash"
-Write-Host "     CI Run ID       : $CiRunId ($CiStatus)"
+Write-Host "     CI Run ID       : $CiRunId (attempt=$CiRunAttempt, status=$CiStatus, workflow=$WorkflowPath, branch=$SourceBranch)"
 Write-Host "     Sequence        : $Sequence"
 Write-Host "     Approved By     : $($payloadObj.approved_by) ($winPrincipal)"
 Write-Host "     Audit Hash      : $entryHash"
