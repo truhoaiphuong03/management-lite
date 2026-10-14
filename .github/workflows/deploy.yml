@@ -1,149 +1,95 @@
-name: Management Lite Semi-Auto CI/CD (Cryptographic Owner Gate)
+name: Management Lite Release Artifact Builder (Option 1 - Hosted CI Only)
 
 on:
-  push:
-    branches:
-      - main
-      - release/management-lite-web-test-clean
-      - feat/windows-unified-baseline
-  pull_request:
-    branches:
-      - main
-      - release/management-lite-web-test-clean
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: 'Target 40-char commit SHA to deploy (Must match Ed25519-signed Owner approval)'
+        description: 'Target 40-char commit SHA to verify, build, and package into immutable release bundle'
         required: true
         type: string
-      artifact_sha256:
-        description: '64-char SHA-256 of the CI-built release bundle approved by Owner'
-        required: true
-        type: string
-      ci_run_id:
-        description: 'Numeric CI Run ID that passed for this exact 40-char SHA'
-        required: true
-        type: string
-      allow_migration:
-        description: 'Allow database migration (Requires allow_migration=true in signed Owner manifest)'
-        required: false
-        type: boolean
-        default: false
-      force:
-        description: 'Force re-deploy even if same SHA is already live'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
-  group: management-lite-semi-auto-cicd-${{ github.event_name == 'workflow_dispatch' && 'deploy' || github.ref }}
+  group: management-lite-release-artifact-${{ inputs.commit_sha }}
   cancel-in-progress: false
 
 jobs:
-  ci:
-    name: Continuous Integration & Release Bundle Packaging
+  ci-verify-and-package:
+    name: Verify Exact SHA, Run Full CI & Package Immutable Bundle (Zero Self-Hosted Runner)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout exact immutable commit
+      - name: Validate 40-Character Hex Commit SHA
+        run: |
+          if [[ ! "${{ inputs.commit_sha }}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "ERROR: commit_sha must be a 40-character lowercase hexadecimal Git SHA."
+            exit 1
+          fi
+
+      - name: Checkout Exact Immutable Commit SHA
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.commit_sha || github.sha }}
+          ref: ${{ inputs.commit_sha }}
           persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.14.0
-          cache: npm
+          node-version: '22'
+          cache: 'npm'
 
-      - name: Install dependencies
+      - name: Verify Checked-Out HEAD Matches Requested SHA
         run: |
-          npm install --global npm@10.9.2
-          npm ci --no-audit --no-fund
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          if [ "$ACTUAL_SHA" != "${{ inputs.commit_sha }}" ]; then
+            echo "ERROR: Checked out SHA ($ACTUAL_SHA) does not match requested SHA (${{ inputs.commit_sha }})"
+            exit 1
+          fi
 
-      - name: Run Lint
-        run: npm run lint
+      - name: Install Dependencies
+        run: npm ci --no-audit --no-fund
 
-      - name: Run Typecheck
-        run: npm run typecheck
-
-      - name: Build API
-        run: npm run build
-
-      - name: Build Web
-        run: npm run build:web
-
-      - name: Run Security & CI Policy Tests
+      - name: Lint & Typecheck
         run: |
-          npm run test:security
-          node --test tests/backend/cicd-policy.test.mjs
+          npm run lint
+          npm run typecheck
 
-      - name: Run Web UI & RBAC Test Suites
+      - name: Run Unit, Contract & Web Security Tests
         run: |
-          node --test tests/web/issues-screen.test.mjs tests/web/schedule-screen.test.mjs tests/web/work-screen.test.mjs tests/web/staff-screen.test.mjs tests/web/attendance-screen.test.mjs tests/web/payroll-screen.test.mjs tests/web/reports-screen.test.mjs tests/web/rbac-visibility.test.mjs
+          npm test
+          node --test tests/web/*.test.mjs tests/backend/cicd-policy.test.mjs
 
-      - name: Run Bug AI Management Unit Tests
-        run: node --test tests/backend/bug-ai-management.test.mjs
-
-      - name: Package Immutable Release Bundle & Record SHA-256
+      - name: Build Backend API & Frontend Web
         run: |
-          node scripts/deployment/package-release-bundle.mjs --type=full --out=release-bundle
+          npm run build
+          npm run build:web
 
-      - name: Upload Verified Release Bundle
+      - name: Package Immutable Release Bundle & Independent CI Run Receipt
+        run: |
+          node scripts/deployment/package-release-bundle.mjs --type=full --out=.artifacts/release
+          cat <<EOF > .artifacts/release/ci-run-receipt-${{ inputs.commit_sha }}.json
+          {
+            "id": "${{ github.run_id }}",
+            "run_id": "${{ github.run_id }}",
+            "head_sha": "${{ inputs.commit_sha }}",
+            "status": "completed",
+            "conclusion": "success",
+            "event": "${{ github.event_name }}",
+            "repository": "${{ github.repository }}",
+            "generated_at_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          }
+          EOF
+
+      - name: Upload Immutable Release Artifact & CI Receipt
         uses: actions/upload-artifact@v4
         with:
-          name: management-lite-release-${{ inputs.commit_sha || github.sha }}
-          path: release-bundle/
-          if-no-files-found: error
-          retention-days: 30
-
-  deploy:
-    name: Windows Server Production Deploy (Ed25519 Owner Approval Gate)
-    if: github.event_name == 'workflow_dispatch'
-    needs: ci
-    environment: production
-    runs-on: [self-hosted, Windows, X64, management-lite-deploy]
-    timeout-minutes: 15
-    steps:
-      - name: Download CI-Verified Release Bundle
-        uses: actions/download-artifact@v4
-        with:
           name: management-lite-release-${{ inputs.commit_sha }}
-          path: ${{ runner.temp }}\ml-release-${{ github.run_id }}
-
-      - name: Execute Hardened Semi-Auto Deployment with Ed25519 Signature & Checksum Verification
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $sha = "${{ inputs.commit_sha }}".Trim().ToLowerInvariant()
-          $artHash = "${{ inputs.artifact_sha256 }}".Trim().ToLowerInvariant()
-          $ciRun = "${{ inputs.ci_run_id }}".Trim()
-          $bundleDir = "${{ runner.temp }}\ml-release-${{ github.run_id }}"
-          $bundleFile = Get-ChildItem -LiteralPath $bundleDir -Filter "management-lite-full-*.tar.gz" -File | Select-Object -First 1
-          if (-not $bundleFile) {
-            throw "BLOCKED: Verified release bundle .tar.gz not found in downloaded artifact."
-          }
-          $deployArgs = @(
-            '-NoProfile',
-            '-ExecutionPolicy', 'Bypass',
-            '-File', 'C:\HoaiPhuong-Server\scripts\Deploy-SemiAutoWindows.ps1',
-            '-CommitSha', $sha,
-            '-ArtifactPath', $bundleFile.FullName,
-            '-ArtifactSha256', $artHash,
-            '-CiRunId', $ciRun
-          )
-          if ("${{ inputs.allow_migration }}" -ne "true") {
-            $deployArgs += '-SkipMigration'
-          }
-          if ("${{ inputs.force }}" -eq "true") {
-            $deployArgs += '-Force'
-          }
-          & powershell @deployArgs
-          if ($LASTEXITCODE -ne 0) {
-            throw "Deployment failed with exit code $LASTEXITCODE"
-          }
+          path: |
+            .artifacts/release/management-lite-full-*.tar.gz
+            .artifacts/release/management-lite-full-*.tar.gz.sha256
+            .artifacts/release/management-lite-full-*.tar.gz.provenance.json
+            .artifacts/release/ci-run-receipt-${{ inputs.commit_sha }}.json
+          retention-days: 30
+          if-no-files-found: error

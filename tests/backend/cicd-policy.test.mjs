@@ -78,3 +78,28 @@ test('Deployment policy rejects unapproved SHA, untrusted CI and missing Owner p
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('Option 1 CI/CD architecture: zero GitHub workflows use self-hosted runner or push auto-deploy', () => {
+  const workflowsDir = fileURLToPath(
+    new URL('../../.github/workflows', import.meta.url),
+  );
+  const files = fs
+    .readdirSync(workflowsDir)
+    .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'));
+  assert.ok(files.length > 0, 'Must have workflow files');
+  for (const file of files) {
+    const content = fs.readFileSync(path.join(workflowsDir, file), 'utf8');
+    assert.equal(
+      content.includes('self-hosted'),
+      false,
+      `Workflow ${file} must not dispatch jobs to self-hosted Windows runner under Option 1`,
+    );
+    if (file.startsWith('deploy')) {
+      assert.equal(
+        /^\s*push\s*:/m.test(content),
+        false,
+        `Deploy workflow ${file} must not trigger on push`,
+      );
+    }
+  }
+});

@@ -20,6 +20,7 @@ $shaNew = (git -c safe.directory=* -C $devRepo rev-parse HEAD).Trim().ToLowerInv
 $sandboxRoot = Join-Path ([IO.Path]::GetTempPath()) ('ml-sec-sandbox-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 $sandboxTarget = Join-Path $sandboxRoot 'apps\management-lite'
 $gateDir = Join-Path $sandboxRoot 'config\release-gate'
+$secretsDir = Join-Path $sandboxRoot 'config\test-secrets'
 $ownerKeysDir = Join-Path $sandboxRoot 'owner-offline-keys'
 $attackerKeysDir = Join-Path $sandboxRoot 'attacker-keys'
 $bundleDir = Join-Path $sandboxRoot 'bundles'
@@ -27,12 +28,25 @@ $bundleDir = Join-Path $sandboxRoot 'bundles'
 $policyPath = Join-Path $gateDir 'release-gate-policy.json'
 $manifestPath = Join-Path $gateDir 'approved-release.json'
 $auditLogPath = Join-Path $gateDir 'approval-audit.jsonl'
+$ciReceiptPath = Join-Path $gateDir 'ci-run-receipt.json'
 $ownerPrivKey = Join-Path $ownerKeysDir 'owner-approval-private.pem'
 $attackerPrivKey = Join-Path $attackerKeysDir 'owner-approval-private.pem'
+$sandboxSecretEnv = Join-Path $secretsDir 'api.env'
 
 $passed = 0
 function Assert-True([bool]$Cond, [string]$Msg) {
   if (-not $Cond) { throw "ASSERTION FAILED: $Msg" }
+}
+function Write-CiReceipt([string]$RunId, [string]$HeadSha, [string]$Status = 'completed', [string]$Conclusion = 'success', [string]$Event = 'push') {
+  @{
+    id         = $RunId
+    run_id     = $RunId
+    head_sha   = $HeadSha
+    status     = $Status
+    conclusion = $Conclusion
+    event      = $Event
+    repository = 'truhoaiphuong03/management-lite'
+  } | ConvertTo-Json | Set-Content -LiteralPath $ciReceiptPath -Encoding UTF8 -Force
 }
 function Run-Scenario([string]$Name, [scriptblock]$Body) {
   Write-Host "`n--- SCENARIO: $Name ---" -ForegroundColor Cyan
@@ -59,9 +73,13 @@ $prodDbRowsBefore = Get-ProdDbRowSum
 
 try {
   Write-Host "=== INITIALIZING ISOLATED SECURITY SANDBOX AT: $sandboxRoot ===" -ForegroundColor Yellow
-  foreach ($d in @((Join-Path $sandboxRoot 'apps'), (Join-Path $sandboxRoot 'backups\postgres'), $gateDir, $ownerKeysDir, $attackerKeysDir, $bundleDir, (Join-Path $sandboxRoot 'reports'), (Join-Path $sandboxRoot 'logs'))) {
+  foreach ($d in @((Join-Path $sandboxRoot 'apps'), (Join-Path $sandboxRoot 'backups\postgres'), $gateDir, $secretsDir, $ownerKeysDir, $attackerKeysDir, $bundleDir, (Join-Path $sandboxRoot 'reports'), (Join-Path $sandboxRoot 'logs'))) {
     New-Item -ItemType Directory -Path $d -Force | Out-Null
   }
+
+  # Seed synthetic sandbox secret file to verify zero-secret-copying & preservation
+  Set-Content -LiteralPath $sandboxSecretEnv -Value "PORT=3002`nSYNTHETIC_SANDBOX_KEY=DO_NOT_TOUCH_OR_COPY" -Encoding UTF8 -Force
+  $secretHashBefore = (Get-FileHash -LiteralPath $sandboxSecretEnv -Algorithm SHA256).Hash
 
   # Clone dev repo into isolated sandbox target at baseline shaOld
   git clone --quiet $devRepo $sandboxTarget
@@ -76,10 +94,13 @@ try {
   @{ sha = $shaOld; component = 'web' } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $sandboxTarget 'apps\web\dist\release-version.json') -Encoding UTF8 -Force
   Set-Content -LiteralPath (Join-Path $sandboxRoot 'reports\current-live-sha.txt') -Value $shaOld -Encoding UTF8 -Force
 
-  # Generate Owner Ed25519 keypair + policy, and separate Attacker Ed25519 keypair
-  & $approveScript -GenerateKeyPairOnly -KeyOutDir $ownerKeysDir
+  # Generate Owner Ed25519 keypair + policy (off-server vault), and separate Attacker Ed25519 keypair
+  & $approveScript -GenerateKeyPairOnly -KeyOutDir $ownerKeysDir -PrivateKeyOutPath $ownerPrivKey
   Copy-Item -LiteralPath (Join-Path $ownerKeysDir 'release-gate-policy.json') -Destination $policyPath -Force
-  & $approveScript -GenerateKeyPairOnly -KeyOutDir $attackerKeysDir
+  & $approveScript -GenerateKeyPairOnly -KeyOutDir $attackerKeysDir -PrivateKeyOutPath $attackerPrivKey
+
+  # Write valid independent CI receipt for Run 501
+  Write-CiReceipt -RunId '501' -HeadSha $shaNew -Status 'completed' -Conclusion 'success' -Event 'push'
 
   # Package a real verified Full Release Bundle for shaNew (HEAD of devRepo)
   Push-Location $devRepo
@@ -118,7 +139,7 @@ try {
   Run-Scenario '3. Negative: Missing Signed Approval Manifest Rejected' {
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     Assert-True $rejected 'Deploy without manifest must fail closed'
     $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
@@ -130,7 +151,7 @@ try {
     & $approveScript -CommitSha $shaNew -ArtifactSha256 $validBundleHash -CiRunId '501' -Sequence 1 -ApprovedBy 'Owner' -PrivateKeyPath $attackerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     Assert-True $rejected 'Forged Ed25519 signature must be rejected'
     $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
@@ -140,14 +161,13 @@ try {
   # 5. Tampered Approval Manifest Rejected
   Run-Scenario '5. Negative: Post-Signing Tampering of approved-release.json Rejected' {
     & $approveScript -CommitSha $shaOld -ArtifactSha256 $validBundleHash -CiRunId '501' -Sequence 1 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
-    # Tamper with approved_sha in manifest JSON on disk without re-signing
     $tampered = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     $tampered.approved_sha = $shaNew
     $tampered | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifestPath -Encoding UTF8 -Force
 
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     Assert-True $rejected 'Tampered manifest must be rejected'
     $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
@@ -160,7 +180,7 @@ try {
     $env:GITHUB_EVENT_NAME = 'push'
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     finally { Remove-Item Env:GITHUB_EVENT_NAME -ErrorAction SilentlyContinue }
     Assert-True $rejected 'Push event trigger must be blocked'
@@ -172,7 +192,7 @@ try {
   Run-Scenario '7. Negative: Short 7-Char Commit SHA Rejected' {
     $rejected = $false
     try {
-      & $deployScript -CommitSha 'a68c3c5' -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha 'a68c3c5' -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     Assert-True $rejected 'Short SHA must be rejected'
     $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
@@ -184,7 +204,7 @@ try {
     & $approveScript -CommitSha $shaNew -ArtifactSha256 $validBundleHash -CiRunId '501' -CiStatus 'FAILURE' -Sequence 1 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     Assert-True $rejected 'Failed CI status must be rejected'
     $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
@@ -200,7 +220,7 @@ try {
 
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $tamperedArchive -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $tamperedArchive -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     Assert-True $rejected 'Tampered archive must be rejected'
     $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
@@ -212,7 +232,6 @@ try {
     $repackDir = Join-Path $bundleDir 'repack'
     New-Item -ItemType Directory -Path $repackDir -Force | Out-Null
     tar -xzf $validBundle.FullName -C $repackDir
-    # Modify dist/apps/api/src/main.js without updating manifest.json
     Add-Content -LiteralPath (Join-Path $repackDir 'dist\apps\api\src\main.js') -Value "`n// injected-post-ci"
     $repackedTar = Join-Path $bundleDir 'repacked-tampered.tar.gz'
     tar -czf $repackedTar -C $repackDir .
@@ -221,7 +240,7 @@ try {
     & $approveScript -CommitSha $shaNew -ArtifactSha256 $repackedHash -CiRunId '501' -CiStatus 'SUCCESS' -Sequence 1 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $repackedTar -ArtifactSha256 $repackedHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $repackedTar -ArtifactSha256 $repackedHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     Assert-True $rejected 'Internal file tampering against manifest.json must be rejected'
     $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
@@ -235,7 +254,7 @@ try {
     $heldLock = [IO.File]::Open($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     finally {
       $heldLock.Dispose()
@@ -251,17 +270,58 @@ try {
     @{ status = 'IN_PROGRESS'; sha = $shaNew; started_at_utc = (Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $sandboxRoot 'reports\deployment-state.json') -Encoding UTF8 -Force
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     Assert-True $rejected 'Interrupted IN_PROGRESS state must block blind retry'
     $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
     Assert-True ($latest.status -eq 'REJECTED_INTERRUPTED_STATE_REQUIRES_RECOVERY') "Expected REJECTED_INTERRUPTED_STATE_REQUIRES_RECOVERY, got $($latest.status)"
   }
 
-  # 13. SANDBOX DEPLOY TEST (Cryptographically Signed Approval + Verified Bundle + Dual Web/API Running SHA Proof + ACL Check)
-  Run-Scenario '13. SANDBOX_DEPLOY_TEST: Cryptographic Approval + Verified Bundle Cutover + Dual Web/API SHA Proofs' {
+  # 13. Private Key Exposure on Host Rejected (P0 Requirement 4)
+  Run-Scenario '13. Negative: Private Key Left in Server release-gate or runner Directory Rejected' {
+    $leakedKeyPath = Join-Path $gateDir 'owner-approval-private.pem'
+    Copy-Item -LiteralPath $ownerPrivKey -Destination $leakedKeyPath -Force
+    $signBlocked = $false
+    $deployBlocked = $false
+    try {
+      try {
+        & $approveScript -CommitSha $shaNew -ArtifactSha256 $validBundleHash -CiRunId '501' -CiStatus 'SUCCESS' -Sequence 1 -ApprovedBy 'Owner' -PrivateKeyPath $leakedKeyPath -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
+      } catch {
+        if ($_.Exception.Message -match 'SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE') { $signBlocked = $true }
+      }
+      try {
+        & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      } catch {
+        $deployBlocked = $true
+      }
+      $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
+      Assert-True $signBlocked 'Approve-ReleaseSha.ps1 must reject signing when private key is inside release-gate'
+      Assert-True ($deployBlocked -and $latest.status -eq 'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST') "Expected REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST, got $($latest.status)"
+    } finally {
+      Remove-Item -LiteralPath $leakedKeyPath -Force -ErrorAction SilentlyContinue
+    }
+  }
+
+  # 14. Self-Declared ci_status=SUCCESS Rejected When Independent CI Receipt Shows Failure (P0 Requirement 7)
+  Run-Scenario '14. Negative: Self-Declared ci_status=SUCCESS Rejected When Independent CI Receipt Shows Failure' {
     & $approveScript -CommitSha $shaNew -ArtifactSha256 $validBundleHash -CiRunId '501' -CiStatus 'SUCCESS' -Sequence 1 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
-    & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -RecoverInterrupted -SandboxMode -SkipBuildInSandbox
+    Write-CiReceipt -RunId '501' -HeadSha $shaNew -Status 'completed' -Conclusion 'failure' -Event 'push'
+    $rejected = $false
+    try {
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+    } catch { $rejected = $true }
+    finally {
+      Write-CiReceipt -RunId '501' -HeadSha $shaNew -Status 'completed' -Conclusion 'success' -Event 'push'
+    }
+    Assert-True $rejected 'Deploy must reject when independent CI receipt shows failure despite manifest self-declaring SUCCESS'
+    $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
+    Assert-True ($latest.status -eq 'REJECTED_INDEPENDENT_CI_VERIFICATION_FAILED') "Expected REJECTED_INDEPENDENT_CI_VERIFICATION_FAILED, got $($latest.status)"
+  }
+
+  # 15. SANDBOX DEPLOY TEST (Cryptographically Signed Approval + Independent CI Receipt + Verified Bundle + Dual Web/API Running SHA Proof)
+  Run-Scenario '15. SANDBOX_DEPLOY_TEST: Cryptographic Approval + Independent CI Receipt + Verified Bundle Cutover' {
+    & $approveScript -CommitSha $shaNew -ArtifactSha256 $validBundleHash -CiRunId '501' -CiStatus 'SUCCESS' -Sequence 1 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
+    & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -RecoverInterrupted -SandboxMode -SkipBuildInSandbox
 
     $headAfter = (git -c safe.directory=* -C $sandboxTarget rev-parse HEAD).Trim().ToLowerInvariant()
     $liveShaAfter = (Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\current-live-sha.txt') -Raw).Trim().ToLowerInvariant()
@@ -276,24 +336,23 @@ try {
     Assert-True ($webVer.sha -eq $shaNew -and $apiVer.sha -eq $shaNew) "Both Web and API release-version.json must record $shaNew"
     Assert-True ($runningComp.api_sha -eq $shaNew -and $runningComp.web_sha -eq $shaNew -and $runningComp.artifact_sha256 -eq $validBundleHash) 'running-components-sha.json must record exact Web/API SHA and artifact digest'
 
-    # Verify ACL on release-gate has explicit DENY for LOCAL SERVICE / NETWORK SERVICE
     $aclOut = (& icacls.exe $gateDir) -join "`n"
     Assert-True ($aclOut -match 'LOCAL SERVICE:.*\(DENY\)' -or $aclOut -match 'NETWORK SERVICE:.*\(DENY\)') 'release-gate ACL must explicitly deny write to service principals'
   }
 
-  # 14. Anti-Replay Sequence Watermark Blocks Replaying Sequence 1
-  Run-Scenario '14. Negative: Approval Replay Attack (Sequence <= Watermark) Blocked' {
+  # 16. Anti-Replay Sequence Watermark Blocks Replaying Sequence 1
+  Run-Scenario '16. Negative: Approval Replay Attack (Sequence <= Watermark) Blocked' {
     $rejected = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -Force -SandboxMode -SkipBuildInSandbox
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -Force -SandboxMode -SkipBuildInSandbox
     } catch { $rejected = $true }
     Assert-True $rejected 'Replaying sequence 1 approval must be blocked by watermark'
     $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
     Assert-True ($latest.status -eq 'REJECTED_APPROVAL_REPLAY') "Expected REJECTED_APPROVAL_REPLAY, got $($latest.status)"
   }
 
-  # 15. SANDBOX ROLLBACK TEST & ZERO-DB-MUTATION GUARANTEE
-  Run-Scenario '15. SANDBOX_ROLLBACK_TEST: Post-Cutover Health Failure Triggers Atomic Rollback with Zero DB Mutation' {
+  # 17. SANDBOX ROLLBACK TEST & ZERO-DB-MUTATION + SECRET PRESERVATION GUARANTEE
+  Run-Scenario '17. SANDBOX_ROLLBACK_TEST: Post-Cutover Health Failure Triggers Atomic Rollback + Preserves Secrets & DB' {
     git -c safe.directory=* -C $sandboxTarget checkout --quiet -f $shaOld
     Set-Content -LiteralPath (Join-Path $sandboxTarget 'dist\apps\api\src\main.js') -Value "// sentinel-main-$shaOld" -Encoding UTF8 -Force
     Set-Content -LiteralPath (Join-Path $sandboxTarget 'apps\web\dist\index.html') -Value "<html>sentinel-web-$shaOld</html>" -Encoding UTF8 -Force
@@ -304,13 +363,13 @@ try {
     $sandboxDbRowsBeforeRollback = Get-SandboxDbRowSum
     $prodDbRowsBeforeRollback = Get-ProdDbRowSum
 
-    # Sign new Sequence = 2 approval
+    Write-CiReceipt -RunId '502' -HeadSha $shaNew -Status 'completed' -Conclusion 'success' -Event 'push'
     & $approveScript -CommitSha $shaNew -ArtifactSha256 $validBundleHash -CiRunId '502' -CiStatus 'SUCCESS' -Sequence 2 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
 
     Start-Sleep -Seconds 1
     $rolledBack = $false
     try {
-      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '502' -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox -SimulateHealthFailure
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '502' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox -SimulateHealthFailure
     } catch { $rolledBack = $true }
     Assert-True $rolledBack 'Deploy with -SimulateHealthFailure must throw and roll back'
 
@@ -324,6 +383,8 @@ try {
 
     $sandboxDbRowsAfterRollback = Get-SandboxDbRowSum
     $prodDbRowsAfterRollback = Get-ProdDbRowSum
+    $secretHashAfter = (Get-FileHash -LiteralPath $sandboxSecretEnv -Algorithm SHA256).Hash
+    $snapshotEnvFiles = @(Get-ChildItem -LiteralPath (Join-Path $sandboxRoot 'backups') -Recurse -File -Filter '*.env' -ErrorAction SilentlyContinue)
 
     Assert-True ($headAfterRb -eq $shaOld) "Git HEAD must roll back to $shaOld"
     Assert-True ($liveShaAfterRb -eq $shaOld) "current-live-sha.txt must roll back to $shaOld"
@@ -333,6 +394,8 @@ try {
     Assert-True ($latest.status -eq 'ROLLED_BACK' -and $latest.previous_sha -eq $shaOld) 'latest-deployment.json must record ROLLED_BACK and previous_sha'
     Assert-True ($sandboxDbRowsBeforeRollback -eq $sandboxDbRowsAfterRollback) 'Rollback must not create or modify any rows in sandbox DB'
     Assert-True ($prodDbRowsBeforeRollback -eq $prodDbRowsAfterRollback) 'Rollback must not create or modify any rows in production DB'
+    Assert-True ($secretHashBefore -eq $secretHashAfter) 'api.env secret file must remain 100% untouched across deploy and rollback'
+    Assert-True ($snapshotEnvFiles.Count -eq 0) 'Pre-deploy snapshots must contain zero .env secret copies'
   }
 
   # Final Production Integrity Verification

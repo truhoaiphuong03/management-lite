@@ -9,6 +9,8 @@ param(
   [string]$ArtifactSha256 = '',
   [Parameter(Mandatory = $false)]
   [string]$CiRunId = '1',
+  [Parameter(Mandatory = $false)]
+  [string]$CiRunReceiptPath = '',
   [string]$PolicyPath = 'C:\HoaiPhuong-Server\config\release-gate\release-gate-policy.json',
   [string]$ApprovalManifestPath = 'C:\HoaiPhuong-Server\config\release-gate\approved-release.json',
   [switch]$Force,
@@ -176,6 +178,27 @@ if ($normalizedSha -notmatch '^[0-9a-f]{40}$') {
   throw "GATE REJECTED: CommitSha '$CommitSha' must be a full 40-character hexadecimal Git SHA."
 }
 
+# 2B. OFF-SERVER KEY CUSTODY ENFORCEMENT (REJECT IF ANY PRIVATE KEY IS LEFT IN SERVER RELEASE-GATE OR RUNNER)
+$gateScanDirs = @(
+  (Split-Path -Path $PolicyPath -Parent),
+  (Split-Path -Path $ApprovalManifestPath -Parent),
+  (Join-Path $ServerRoot 'runner')
+) | Select-Object -Unique
+foreach ($scanDir in $gateScanDirs) {
+  if ($scanDir -and (Test-Path -LiteralPath $scanDir)) {
+    $suspectKeyFiles = @(Get-ChildItem -LiteralPath $scanDir -File -ErrorAction SilentlyContinue | Where-Object {
+      $_.Name -match '(?i)(private|\.key$|\.pfx$|\.p12$)' -or (
+        $_.Extension -eq '.pem' -and ((Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue) -match 'PRIVATE KEY')
+      )
+    })
+    if ($suspectKeyFiles.Count -gt 0) {
+      $exposedNames = ($suspectKeyFiles | ForEach-Object { $_.Name }) -join ', '
+      Record-DeployResult -Status 'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST' -Sha $normalizedSha -Message "Private key file detected in host gate/runner directory ($exposedNames)" -DurationMs 0
+      throw "GATE REJECTED: Owner private key exposure detected on host ($exposedNames). Private signing key must never reside in release-gate or runner directories."
+    }
+  }
+}
+
 # 3. CRYPTOGRAPHIC ED25519 OWNER APPROVAL GATE
 if (-not (Test-Path -LiteralPath $PolicyPath)) {
   Record-DeployResult -Status 'REJECTED_NO_POLICY' -Sha $normalizedSha -Message "Missing release-gate-policy.json at $PolicyPath" -DurationMs 0
@@ -259,10 +282,46 @@ if ((-not $SkipMigration) -and (-not [bool]$signedPayload.allow_migration)) {
   throw 'GATE REJECTED: Migration requested (-SkipMigration:$false), but signed Owner manifest has allow_migration=false.'
 }
 
-# 4. CI STATUS & CI RUN ID GATE
+# 4. CI STATUS & INDEPENDENT CI RECEIPT VERIFICATION GATE
 if ($signedPayload.ci_status -ne 'SUCCESS' -or $signedPayload.ci_run_id -ne $CiRunId.Trim()) {
   Record-DeployResult -Status 'REJECTED_CI_NOT_PASSED' -Sha $normalizedSha -Message "CI check failed or mismatched (signed status=$($signedPayload.ci_status), run_id=$($signedPayload.ci_run_id), requested=$CiRunId)" -DurationMs 0
   throw "GATE REJECTED: Exact-SHA CI has not passed (ci_status='$($signedPayload.ci_status)', ci_run_id='$($signedPayload.ci_run_id)')."
+}
+
+$requireCiReceipt = $false
+if ($policy.PSObject.Properties.Name -contains 'require_independent_ci_receipt') {
+  $requireCiReceipt = [bool]$policy.require_independent_ci_receipt
+}
+$resolvedCiReceipt = $CiRunReceiptPath
+if ([string]::IsNullOrWhiteSpace($resolvedCiReceipt)) {
+  $gateDir = Split-Path -Path $PolicyPath -Parent
+  $candidate1 = Join-Path $gateDir "ci-run-receipt-$normalizedSha.json"
+  $candidate2 = Join-Path $gateDir 'ci-run-receipt.json'
+  if (Test-Path -LiteralPath $candidate1) { $resolvedCiReceipt = $candidate1 }
+  elseif (Test-Path -LiteralPath $candidate2) { $resolvedCiReceipt = $candidate2 }
+}
+
+if ($requireCiReceipt -or (-not [string]::IsNullOrWhiteSpace($resolvedCiReceipt))) {
+  if ([string]::IsNullOrWhiteSpace($resolvedCiReceipt) -or (-not (Test-Path -LiteralPath $resolvedCiReceipt))) {
+    Record-DeployResult -Status 'REJECTED_INDEPENDENT_CI_VERIFICATION_FAILED' -Sha $normalizedSha -Message 'Missing independent CI run receipt JSON required by policy' -DurationMs 0
+    throw 'GATE REJECTED: Independent CI run receipt JSON is missing (do not rely solely on self-declared ci_status).'
+  }
+  $ciReceipt = Get-Content -LiteralPath $resolvedCiReceipt -Raw | ConvertFrom-Json
+  $receiptRunId = if ($ciReceipt.PSObject.Properties.Name -contains 'run_id') { [string]$ciReceipt.run_id } elseif ($ciReceipt.PSObject.Properties.Name -contains 'id') { [string]$ciReceipt.id } else { '' }
+  $receiptSha = if ($ciReceipt.PSObject.Properties.Name -contains 'head_sha') { [string]$ciReceipt.head_sha } else { '' }
+  $receiptStatus = if ($ciReceipt.PSObject.Properties.Name -contains 'status') { [string]$ciReceipt.status } else { '' }
+  $receiptConclusion = if ($ciReceipt.PSObject.Properties.Name -contains 'conclusion') { [string]$ciReceipt.conclusion } else { '' }
+  $receiptEvent = if ($ciReceipt.PSObject.Properties.Name -contains 'event') { [string]$ciReceipt.event } else { 'push' }
+
+  if ($receiptRunId.Trim() -ne $CiRunId.Trim() -or
+      $receiptSha.Trim().ToLowerInvariant() -ne $normalizedSha -or
+      $receiptStatus.Trim().ToLowerInvariant() -ne 'completed' -or
+      $receiptConclusion.Trim().ToLowerInvariant() -ne 'success' -or
+      $receiptEvent.Trim().ToLowerInvariant() -in @('pull_request', 'pull_request_target')) {
+    Record-DeployResult -Status 'REJECTED_INDEPENDENT_CI_VERIFICATION_FAILED' -Sha $normalizedSha -Message "Independent CI receipt verification failed (run=$receiptRunId, sha=$receiptSha, status=$receiptStatus, conclusion=$receiptConclusion, event=$receiptEvent)" -DurationMs 0
+    throw "GATE REJECTED: Independent CI receipt verification failed (run=$receiptRunId, sha=$receiptSha, status=$receiptStatus, conclusion=$receiptConclusion, event=$receiptEvent)."
+  }
+  Write-DeployLog "Independent CI Run Receipt verified (RunId=$receiptRunId, HeadSha=$receiptSha, Conclusion=$receiptConclusion)."
 }
 
 # 5. ANTI-REPLAY SEQUENCE WATERMARK GATE

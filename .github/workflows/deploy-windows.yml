@@ -1,59 +1,63 @@
-name: Approved Windows deployment
+name: Windows Release Artifact Builder (Option 1 - Hosted Only)
 on:
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: Full SHA approved by Owner, with successful main CI
+        description: Full 40-char SHA candidate for Windows release bundle
         required: true
         type: string
       ci_run_id:
-        description: Successful push-to-main CI run for exactly that SHA
+        description: Successful CI run ID for that exact SHA
         required: true
         type: string
+
 permissions:
   contents: read
   actions: read
+
 concurrency:
-  group: management-lite-deployment
+  group: management-lite-windows-artifact-${{ inputs.commit_sha }}
   cancel-in-progress: false
+
 jobs:
-  build:
+  build-windows-artifact:
+    name: Build & Package Immutable Windows Artifact (Hosted Runner Only)
     if: github.ref == 'refs/heads/main' && vars.CD_ENABLED == 'true'
     runs-on: windows-latest
     timeout-minutes: 30
     env:
       RELEASE_SHA: ${{ inputs.commit_sha }}
       CI_RUN_ID: ${{ inputs.ci_run_id }}
-      CD_ENABLED: ${{ vars.CD_ENABLED }}
-      QA_APPROVED_SHA: ${{ vars.QA_APPROVED_SHA }}
-      PRODUCTION_OWNER_LOGIN: ${{ vars.PRODUCTION_OWNER_LOGIN }}
     steps:
-      - name: Protected workflow controller
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-          path: controller
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 22.14.0
-      - name: Exact CI and production approval policy
-        working-directory: controller
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/deployment/verify-release-request.mjs
-      - name: Immutable candidate on hosted builder
+      - name: Validate SHA & CI Run ID Format
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_SHA -notmatch '^[0-9a-f]{40}$') {
+            throw "REJECTED_INVALID_SHA: commit_sha must be a 40-character lowercase hex SHA."
+          }
+          if ($env:CI_RUN_ID -notmatch '^[0-9]+$') {
+            throw "REJECTED_INVALID_CI_RUN_ID: ci_run_id must be numeric."
+          }
+
+      - name: Checkout Candidate SHA
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ inputs.commit_sha }}
           persist-credentials: false
           path: candidate
-      - name: Build Windows native dependencies and static web
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.14.0
+
+      - name: Build Windows Release Bundle & Provenance
         working-directory: candidate
+        shell: pwsh
         run: |
-          npm install --global npm@10.9.2
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $actualSha = (git rev-parse HEAD).Trim()
+          if ($actualSha -ne $env:RELEASE_SHA) {
+            throw "REJECTED_SHA_MISMATCH: Checked out $actualSha != $env:RELEASE_SHA"
+          }
           npm ci --no-audit --no-fund
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           npm run typecheck
@@ -62,57 +66,19 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           npm run build:web
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+          node scripts/deployment/package-release.mjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          node ../controller/scripts/deployment/package-release.mjs
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
           [IO.Compression.ZipFile]::CreateFromDirectory((Resolve-Path release-bundle).Path, (Join-Path $PWD 'release.zip'))
-          (Get-FileHash release.zip -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content release.zip.sha256
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          $hash = (Get-FileHash release.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $hash | Set-Content release.zip.sha256 -NoNewline
+
+      - name: Upload Immutable Windows Release Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: windows-release-${{ github.run_id }}
+          name: windows-release-${{ inputs.commit_sha }}
           path: |
             candidate/release.zip
             candidate/release.zip.sha256
           retention-days: 30
           if-no-files-found: error
-  staging:
-    needs: build
-    environment: staging
-    runs-on:
-      group: management-lite-staging
-      labels: [self-hosted, Windows, X64, ml-staging-deploy]
-    timeout-minutes: 20
-    steps:
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: windows-release-${{ github.run_id }}
-          path: incoming
-      - name: Trusted installed staging controller, no checkout or npm
-        shell: pwsh
-        env:
-          RELEASE_SHA: ${{ inputs.commit_sha }}
-        run: |
-          $digest=(Get-Content incoming/release.zip.sha256 -Raw).Trim()
-          & 'C:\ManagementLiteStaging\controller\Deploy-Release.ps1' -ConfigPath 'C:\ManagementLiteStaging\controller\deployment.config.json' -Archive (Resolve-Path incoming/release.zip).Path -Sha $env:RELEASE_SHA -ArchiveSha256 $digest
-  production:
-    needs: [build, staging]
-    environment:
-      name: production
-      url: https://ql.hoaiphuong.click
-    runs-on:
-      group: management-lite-production
-      labels: [self-hosted, Windows, X64, ml-production-deploy]
-    timeout-minutes: 20
-    steps:
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: windows-release-${{ github.run_id }}
-          path: incoming
-      - name: Owner-approved installed production controller
-        shell: pwsh
-        env:
-          RELEASE_SHA: ${{ inputs.commit_sha }}
-        run: |
-          $digest=(Get-Content incoming/release.zip.sha256 -Raw).Trim()
-          & 'C:\ManagementLite\controller\Deploy-Release.ps1' -ConfigPath 'C:\ManagementLite\controller\deployment.config.json' -Archive (Resolve-Path incoming/release.zip).Path -Sha $env:RELEASE_SHA -ArchiveSha256 $digest

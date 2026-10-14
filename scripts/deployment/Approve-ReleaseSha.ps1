@@ -6,6 +6,8 @@ param(
   [Parameter(Mandatory = $false)]
   [string]$KeyOutDir,
   [Parameter(Mandatory = $false)]
+  [string]$PrivateKeyOutPath,
+  [Parameter(Mandatory = $false)]
   [string]$CommitSha,
   [Parameter(Mandatory = $false)]
   [string]$ArtifactSha256,
@@ -58,7 +60,15 @@ if ($GenerateKeyPairOnly) {
   if (-not (Test-Path -LiteralPath $KeyOutDir)) {
     New-Item -ItemType Directory -Path $KeyOutDir -Force | Out-Null
   }
-  $privPath = Join-Path $KeyOutDir 'owner-approval-private.pem'
+  $privPath = if (-not [string]::IsNullOrWhiteSpace($PrivateKeyOutPath)) {
+    $privParent = Split-Path -Path $PrivateKeyOutPath -Parent
+    if (-not (Test-Path -LiteralPath $privParent)) {
+      New-Item -ItemType Directory -Path $privParent -Force | Out-Null
+    }
+    $PrivateKeyOutPath
+  } else {
+    Join-Path $KeyOutDir 'owner-approval-private.pem'
+  }
   $pubPath = Join-Path $KeyOutDir 'owner-approval-public.pem'
   $polPath = Join-Path $KeyOutDir 'release-gate-policy.json'
 
@@ -75,6 +85,7 @@ const policy = {
   version: 1,
   repository: 'truhoaiphuong03/management-lite',
   allowed_approvers: ['Owner', 'truhoaiphuong03'],
+  require_independent_ci_receipt: true,
   trusted_public_key_sha256: pubSha256,
   trusted_public_key_pem: pubPem
 };
@@ -85,7 +96,7 @@ fs.writeFileSync(process.argv[3], JSON.stringify(policy, null, 2), 'utf8');
     throw 'Failed to generate Ed25519 keypair and policy.'
   }
   Set-ReleaseGateAcl -TargetPath $KeyOutDir
-  Write-Host "[OK] Generated Ed25519 Owner keypair and release-gate-policy.json in $KeyOutDir"
+  Write-Host "[OK] Generated Ed25519 Owner public policy in $KeyOutDir (Private key at $privPath)"
   return
 }
 
@@ -109,6 +120,16 @@ if ([string]::IsNullOrWhiteSpace($PrivateKeyPath) -or -not (Test-Path -LiteralPa
 }
 if (-not (Test-Path -LiteralPath $PolicyPath)) {
   throw "Release gate policy not found at '$PolicyPath'."
+}
+
+# Enforce off-server / isolated key custody: Private key must NEVER reside inside release-gate or runner directories
+$resolvedPrivPath = [IO.Path]::GetFullPath($PrivateKeyPath)
+$resolvedGateDir = [IO.Path]::GetFullPath((Split-Path -Path $ManifestPath -Parent))
+$resolvedPolicyDir = [IO.Path]::GetFullPath((Split-Path -Path $PolicyPath -Parent))
+if ($resolvedPrivPath.StartsWith($resolvedGateDir + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+    $resolvedPrivPath.StartsWith($resolvedPolicyDir + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+    $resolvedPrivPath -match '(?i)\\runner\\') {
+  throw "SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE: Owner Ed25519 private key ($resolvedPrivPath) must not be stored inside the server release-gate or runner directory."
 }
 
 $policy = Get-Content -LiteralPath $PolicyPath -Raw | ConvertFrom-Json
