@@ -471,6 +471,64 @@ test('MVP Phase 3 ATT: Clock in/out, Break, History, Owner review, Correction, a
         },
       );
       assert.equal(staffListDenied.status, 403);
+
+      // 18. Verify net worked_seconds calculation & correction rejection + audit trail
+      const versionCheck = await pool.query(
+        `SELECT worked_seconds, version_number FROM attendance_shift_versions WHERE shift_id = $1 ORDER BY version_number DESC LIMIT 1;`,
+        [shiftId],
+      );
+      assert.equal(versionCheck.rows.length, 1);
+      assert.ok(
+        Number(versionCheck.rows[0].worked_seconds) >= 0,
+        'Net worked_seconds after subtracting breaks must be non-negative',
+      );
+
+      // Submit and reject a correction request on shiftId, and verify audit log
+      const crRejectReq = await makeRequest(
+        `${baseUrl}/api/v1/attendance/shifts/${shiftId}/correction-requests`,
+        {
+          method: 'POST',
+          headers: {
+            Cookie: staffAuth.cookie,
+            Origin: allowedOrigin,
+            'X-CSRF-Token': staffAuth.csrfToken,
+          },
+          body: {
+            reason: 'Xin điều chỉnh giờ kết thúc thêm 2 tiếng',
+            claimed_clock_out_at: new Date(Date.now() + 7200000).toISOString(),
+          },
+        },
+      );
+      assert.equal(crRejectReq.status, 201);
+      const rejectCrId = crRejectReq.body.data.id;
+
+      const rejectDecideRes = await makeRequest(
+        `${baseUrl}/api/v1/attendance/correction-requests/${rejectCrId}/decide`,
+        {
+          method: 'POST',
+          headers: {
+            Cookie: ownerAuth.cookie,
+            Origin: allowedOrigin,
+            'X-CSRF-Token': ownerAuth.csrfToken,
+          },
+          body: {
+            decision: 'reject',
+            reason: 'Không khớp dữ liệu camera quầy',
+          },
+        },
+      );
+      assert.equal(rejectDecideRes.status, 200);
+      assert.equal(rejectDecideRes.body.data.status, 'rejected');
+
+      // Verify audit events recorded for attendance actions and correction decisions
+      const attAuditRes = await pool.query(
+        `SELECT action FROM audit_events WHERE workspace_id = $1 AND action LIKE 'attendance.%';`,
+        [wsId],
+      );
+      assert.ok(
+        attAuditRes.rows.length >= 4,
+        'Audit log must record attendance shift and correction events',
+      );
     } finally {
       await new Promise((res) => server.close(res));
     }
