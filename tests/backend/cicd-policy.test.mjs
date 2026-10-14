@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 test('Deployment policy rejects unapproved SHA, untrusted CI and missing Owner protection', () => {
   const dir = fs.mkdtempSync(
@@ -44,7 +44,7 @@ test('Deployment policy rejects unapproved SHA, untrusted CI and missing Owner p
       GITHUB_TOKEN: 'synthetic-test-token-not-real',
     };
     const run = (scenario, override = {}) =>
-      spawnSync(process.execPath, ['--import', mock, script], {
+      spawnSync(process.execPath, ['--import', pathToFileURL(mock).href, script], {
         cwd: dir,
         encoding: 'utf8',
         env: { ...base, POLICY_CASE: scenario, ...override },

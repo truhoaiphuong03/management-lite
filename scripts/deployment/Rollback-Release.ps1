@@ -1,4 +1,4 @@
-#requires -Version 7.4
+#requires -Version 5.1
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$ConfigPath, [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$Sha, [switch]$Simulation)
 Import-Module (Join-Path $PSScriptRoot 'Release.Common.psm1') -Force

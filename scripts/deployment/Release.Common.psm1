@@ -1,12 +1,14 @@
-# PowerShell 7. No migrations, npm, git checkout, or database restore in this controller.
+# Compatible with Windows PowerShell 5.1 and PowerShell 7+. No migrations, npm, git checkout, or database restore in this controller.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 
 function Read-DeployConfig([string]$Path, [switch]$Simulation) {
     $c = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
     if ($c.Enabled -ne $true) { throw 'Deployment is disabled locally.' }
     if ($Simulation -and ($c.Environment -ne 'staging' -or !$c.AllowSimulation)) { throw 'Simulation requires isolated staging.' }
-    if (!$Simulation -and !$IsWindows) { throw 'Real deployment requires Windows.' }
+    $isWinHost = ($PSVersionTable.PSVersion.Major -le 5) -or ([bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue))
+    if (!$Simulation -and !$isWinHost) { throw 'Real deployment requires Windows.' }
     if ($c.Environment -notin @('staging','production')) { throw 'Invalid environment.' }
     if (!(Test-Path -LiteralPath (Join-Path $c.Root '.management-lite-managed-root'))) { throw 'Managed-root marker missing.' }
     if ((Get-Item -LiteralPath $c.Root).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Root must not be a link.' }

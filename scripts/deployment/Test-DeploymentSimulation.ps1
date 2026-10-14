@@ -1,6 +1,7 @@
 # Focused controller integration tests. Temporary staging files only; no service, DB, DNS or secrets.
-#requires -Version 7.4
+#requires -Version 5.1
 $ErrorActionPreference='Stop'
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $passed=0
 $qa=Join-Path ([IO.Path]::GetTempPath()) ('management-lite-deployment-qa-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $qa | Out-Null
@@ -14,7 +15,7 @@ function Fixture([string]$Sha,[string]$Schema='qa-schema') {
     Set-Content -LiteralPath (Join-Path $d 'package.json') -Value '{"type":"module"}'
     Set-Content -LiteralPath (Join-Path $d 'web/index.html') -Value '<html>QA only</html>'
     Set-Content -LiteralPath (Join-Path $d 'web/release-version.json') -Value ('{"sha":"'+$Sha+'"}')
-    $files=@(Get-ChildItem -LiteralPath $d -File -Recurse | ForEach-Object {@{path=[IO.Path]::GetRelativePath($d,$_.FullName).Replace('\','/');sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
+    $files=@(Get-ChildItem -LiteralPath $d -File -Recurse | ForEach-Object {@{path=$_.FullName.Substring($d.Length).TrimStart('\','/').Replace('\','/');sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
     @{sha=$Sha;platform='win32';arch='x64';node='22.14.0';schemaIdentity=$Schema;migrations=@();files=$files}|ConvertTo-Json -Depth 6|Set-Content -LiteralPath (Join-Path $d 'release.json')
     $zip=Join-Path $qa ($Sha+'.zip');[IO.Compression.ZipFile]::CreateFromDirectory($d,$zip)
     return @{dir=$d;zip=$zip;digest=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()}
