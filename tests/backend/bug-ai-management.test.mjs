@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import fs from 'node:fs';
 import http from 'node:http';
 import pg from 'pg';
 import {
@@ -128,45 +127,40 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
   );
 
   // =========================================================================
-  // PART 3: DATABASE SCHEMA & MIGRATION 21 VERIFICATION (LIVE / TEST DB)
+  // PART 3: DATABASE SCHEMA & MIGRATION 21 VERIFICATION (ISOLATED TEST DB)
   // =========================================================================
-  let testUrl =
-    process.env.TEST_DATABASE_URL?.trim() || process.env.DATABASE_URL?.trim();
-  if (
-    !testUrl &&
-    fs.existsSync('C:/HoaiPhuong-Server/config/test-secrets/api.env')
-  ) {
-    try {
-      const secretEnv = fs.readFileSync(
-        'C:/HoaiPhuong-Server/config/test-secrets/api.env',
-        'utf8',
-      );
-      for (const line of secretEnv.split('\n')) {
-        if (line.startsWith('DATABASE_URL=')) {
-          testUrl = line.substring('DATABASE_URL='.length).trim();
-        }
-        if (line.startsWith('ADMIN_PASSWORD=')) {
-          process.env.ADMIN_PASSWORD = line.substring('ADMIN_PASSWORD='.length).trim();
-        }
-      }
-    } catch {}
-  }
-  const confirmed =
-    process.env.CONFIRM_ISOLATED_TEST_DB === 'true' ||
-    process.env.CONFIRM_ISOLATED_TEST_DB === '1' ||
-    Boolean(testUrl && testUrl.includes('management_lite_test'));
+  const { loadTestDatabaseConfig, assertSafeTestDatabase } = await import(
+    '../../dist/packages/database/src/config.js'
+  );
+  const { runMigrations, loadMigrationFiles } = await import(
+    '../../dist/packages/database/src/migrator.js'
+  );
+  const { hashPassword } = await import(
+    '../../dist/packages/security/src/password.js'
+  );
+  const { resolve } = await import('node:path');
+  const crypto = await import('node:crypto');
 
-  if (!testUrl || !confirmed) {
+  let dbConfig;
+  try {
+    dbConfig = loadTestDatabaseConfig();
+    assertSafeTestDatabase(dbConfig);
+  } catch {
     t.skip(
-      'Live test database not configured - set TEST_DATABASE_URL and CONFIRM_ISOLATED_TEST_DB=1',
+      'Isolated test database not configured - set TEST_DATABASE_URL and CONFIRM_ISOLATED_TEST_DB=true',
     );
     return;
   }
 
-  const pool = new pg.Pool({ connectionString: testUrl, max: 5 });
+  const pool = new pg.Pool({ connectionString: dbConfig.connectionString, max: 5 });
   t.after(async () => {
     await pool.end();
   });
+
+  await runMigrations(
+    pool,
+    loadMigrationFiles(resolve('packages/database/src/migrations')),
+  );
 
   await t.test(
     '3. Database has Migration 21 applied with sequence and all columns',
@@ -215,25 +209,51 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
   // =========================================================================
   // PART 4: FULL LIFECYCLE API INTEGRATION TEST
   // =========================================================================
-  let apiBase = process.env.QA_API_BASE;
-  let inProcessServer = null;
-  if (!apiBase) {
-    const { createRequestHandler } = await import(
-      '../../dist/apps/api/src/app.js'
-    );
-    const handler = createRequestHandler({
-      pool,
-      csrfSecret: 'bug_management_test_csrf_secret_min_32_bytes!',
-      allowedOrigins: ['https://ql.hoaiphuong.click', 'http://127.0.0.1:3000', 'http://127.0.0.1'],
-      isProduction: false,
-    });
-    inProcessServer = http.createServer(handler);
-    await new Promise((res) => inProcessServer.listen(0, '127.0.0.1', res));
-    const addr = inProcessServer.address();
-    apiBase = `http://127.0.0.1:${addr.port}`;
-    t.after(() => new Promise((res) => inProcessServer.close(res)));
-  }
-  const origin = process.env.QA_WEB_BASE || 'https://ql.hoaiphuong.click';
+  const { createRequestHandler } = await import(
+    '../../dist/apps/api/src/app.js'
+  );
+  const handler = createRequestHandler({
+    pool,
+    csrfSecret: 'bug_management_test_csrf_secret_min_32_bytes!',
+    allowedOrigins: [
+      'https://ql.hoaiphuong.click',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1',
+    ],
+    isProduction: false,
+  });
+  const inProcessServer = http.createServer(handler);
+  await new Promise((res) => inProcessServer.listen(0, '127.0.0.1', res));
+  const addr = inProcessServer.address();
+  const apiBase = `http://127.0.0.1:${addr.port}`;
+  t.after(() => new Promise((res) => inProcessServer.close(res)));
+  const origin = 'https://ql.hoaiphuong.click';
+
+  // Seed isolated workspace + Owner user fixture
+  const wsId = crypto.randomUUID();
+  const ownerId = crypto.randomUUID();
+  const ownerUsername = `bug_ai_owner_${Date.now()}`;
+  const ownerPass = 'BugAiOwnerPass2026!';
+  await pool.query(
+    `INSERT INTO workspaces (id, name, timezone, status) VALUES ($1, $2, 'Asia/Ho_Chi_Minh', 'active');`,
+    [wsId, `BugAI_WS_${Date.now()}`],
+  );
+  await pool.query(
+    `INSERT INTO users (id, username_normalized, email_normalized, status) VALUES ($1, $2, $3, 'active');`,
+    [ownerId, ownerUsername, `${ownerUsername}@example.invalid`],
+  );
+  await pool.query(
+    `INSERT INTO user_credentials (user_id, password_hash, credential_version) VALUES ($1, $2, 1);`,
+    [ownerId, await hashPassword(ownerPass)],
+  );
+  await pool.query(
+    `INSERT INTO workspace_memberships (workspace_id, user_id, role, status) VALUES ($1, $2, 'owner', 'active');`,
+    [wsId, ownerId],
+  );
+  await pool.query(
+    `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version) VALUES ($1, $2, 'active', 1);`,
+    [wsId, ownerId],
+  );
 
   async function apiRequest(
     path,
@@ -278,16 +298,11 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
     return setCookieHeader.split(';')[0].trim();
   }
 
-  // Login as Owner (admin / 12345678)
   const loginRes = await apiRequest('/api/v1/auth/login', 'POST', {
-    identifier: 'admin',
-    password: process.env.ADMIN_PASSWORD || '12345678',
+    identifier: ownerUsername,
+    password: ownerPass,
   });
-
-  if (loginRes.status !== 200) {
-    t.skip(`API login not available at ${apiBase} (status ${loginRes.status})`);
-    return;
-  }
+  assert.equal(loginRes.status, 200, 'Isolated Owner login must succeed');
 
   const ownerCookie = extractCookie(loginRes.setCookie);
   const ownerCsrf = loginRes.json?.data?.csrf_token;

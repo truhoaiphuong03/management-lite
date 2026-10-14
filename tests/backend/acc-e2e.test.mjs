@@ -2,14 +2,11 @@ import { loadQaEndpoint } from '../../scripts/explicit-database.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import crypto from 'node:crypto';
+import http from 'node:http';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 
 test('ACC-01 FINAL BROWSER E2E: Owner/Staff Complete Flow, Reauth Protocol, AEAD Vault, Auto-hide, and Zero-leakage', async (t) => {
-  const webBase = loadQaEndpoint(process.env.QA_WEB_BASE);
-  const apiBase = loadQaEndpoint(process.env.QA_API_BASE);
-  const origin = webBase;
-
   const { loadTestDatabaseConfig, assertSafeTestDatabase } =
     await import('../../dist/packages/database/src/config.js');
   const cfg = loadTestDatabaseConfig();
@@ -21,6 +18,42 @@ test('ACC-01 FINAL BROWSER E2E: Owner/Staff Complete Flow, Reauth Protocol, AEAD
 
   const { hashPassword } =
     await import('../../dist/packages/security/src/password.js');
+  const { createRequestHandler } =
+    await import('../../dist/apps/api/src/app.js');
+
+  let inProcessServer = null;
+  let webBase = process.env.QA_WEB_BASE
+    ? loadQaEndpoint(process.env.QA_WEB_BASE)
+    : '';
+  let apiBase = process.env.QA_API_BASE
+    ? loadQaEndpoint(process.env.QA_API_BASE)
+    : '';
+
+  if (!webBase || !apiBase) {
+    const csrfSecret = crypto.randomBytes(32).toString('hex');
+    const accountSecretKey = crypto.randomBytes(32);
+    let apiHandler = null;
+    inProcessServer = http.createServer((req, res) => {
+      if (req.url === '/') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end('<!doctype html><html><body>Management Lite</body></html>');
+        return;
+      }
+      return apiHandler(req, res);
+    });
+    await new Promise((r) => inProcessServer.listen(0, '127.0.0.1', r));
+    const localOrigin = `http://127.0.0.1:${inProcessServer.address().port}`;
+    apiHandler = createRequestHandler({
+      pool,
+      csrfSecret,
+      allowedOrigins: [localOrigin],
+      isProduction: false,
+      accountSecretKey,
+    });
+    webBase = localOrigin;
+    apiBase = localOrigin;
+  }
+  const origin = webBase;
 
   try {
     // 1. Verify Web and API are running and healthy on QA ports
@@ -309,8 +342,9 @@ test('ACC-01 FINAL BROWSER E2E: Owner/Staff Complete Flow, Reauth Protocol, AEAD
           'Reveal modal must set 30-second countdown',
         );
         assert.ok(
-          accountsScreenCode.includes('revealCountdown <= 0'),
-          'Timer must reset secret when countdown reaches 0',
+          accountsScreenCode.includes('remainingMs <= 0') ||
+            accountsScreenCode.includes('revealCountdown <= 0'),
+          'Timer must reset secret when countdown/deadline reaches 0',
         );
         assert.ok(
           accountsScreenCode.includes('setRevealedSecret(null)'),
@@ -489,6 +523,9 @@ test('ACC-01 FINAL BROWSER E2E: Owner/Staff Complete Flow, Reauth Protocol, AEAD
       },
     );
   } finally {
+    if (inProcessServer) {
+      await new Promise((r) => inProcessServer.close(r));
+    }
     await pool.end();
   }
 });

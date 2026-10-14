@@ -4,26 +4,6 @@ import crypto from 'node:crypto';
 import http from 'node:http';
 
 test('COMPREHENSIVE BUSINESS LOGIC E2E: Deep verification of all 13 core domains on isolated QA DB', async (t) => {
-  if (!process.env.TEST_DATABASE_URL) {
-    try {
-      const fs = await import('node:fs');
-      const secretEnvPath = 'C:/HoaiPhuong-Server/config/test-secrets/api.env';
-      if (fs.existsSync(secretEnvPath)) {
-        const content = fs.readFileSync(secretEnvPath, 'utf8');
-        const match = content.match(/DATABASE_URL=(.+)/);
-        if (match && match[1]) {
-          const rawUrl = match[1].trim();
-          const parsed = new URL(rawUrl);
-          parsed.pathname = '/management_lite_integration_test';
-          process.env.TEST_DATABASE_URL = parsed.toString();
-          process.env.CONFIRM_ISOLATED_TEST_DB = 'true';
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }
-
   if (
     !process.env.TEST_DATABASE_URL ||
     process.env.CONFIRM_ISOLATED_TEST_DB !== 'true'
@@ -41,7 +21,7 @@ test('COMPREHENSIVE BUSINESS LOGIC E2E: Deep verification of all 13 core domains
 
   const { createDatabasePool, closeDatabasePool } =
     await import('../../dist/packages/database/src/pool.js');
-  const pool = createDatabasePool(cfg);
+  let pool = createDatabasePool(cfg);
 
   const { hashPassword } =
     await import('../../dist/packages/security/src/password.js');
@@ -73,7 +53,7 @@ test('COMPREHENSIVE BUSINESS LOGIC E2E: Deep verification of all 13 core domains
       }),
     );
     await new Promise((r) => server.listen(0, '127.0.0.1', r));
-    const baseUrl = 'http://127.0.0.1:' + server.address().port;
+    let baseUrl = 'http://127.0.0.1:' + server.address().port;
 
     // Helper: make request with session cookie and CSRF
     async function apiRequest(
@@ -1327,6 +1307,102 @@ test('COMPREHENSIVE BUSINESS LOGIC E2E: Deep verification of all 13 core domains
         assert.equal(halfUp(1799n), 0);
         // Exactly integer:
         assert.equal(halfUp(360000000n), 100000);
+      },
+    );
+
+    // =========================================================================
+    // DOMAIN 14: SANDBOX SERVICE RESTART & DATA PERSISTENCE (CORE-07 #7)
+    // =========================================================================
+    await t.test(
+      'Domain 14: Sandbox Service Restart - Full HTTP server & DB pool stop/restart preserves sessions, employees, schedules, attendance, payroll, finance, and audit data',
+      async () => {
+        // 14.1 Stop initial server and close initial DB pool completely
+        await new Promise((r) => server.close(r));
+        server = null;
+        await closeDatabasePool(pool);
+
+        // 14.2 Re-initialize fresh DB pool and start new HTTP server instance
+        pool = createDatabasePool(cfg);
+        server = http.createServer(
+          createRequestHandler({
+            pool,
+            csrfSecret,
+            allowedOrigins: [origin],
+            isProduction: false,
+            accountSecretKey,
+          }),
+        );
+        await new Promise((r) => server.listen(0, '127.0.0.1', r));
+        baseUrl = 'http://127.0.0.1:' + server.address().port;
+
+        // 14.3 Verify Owner and Staff sessions persist across restart
+        const ownerMe = await apiRequest('/api/v1/auth/me', owner);
+        assert.equal(ownerMe.status, 200, 'Owner session persists across restart');
+        assert.equal(ownerMe.data.data.active_workspace.id, workspaceId);
+
+        const staffMe = await apiRequest('/api/v1/auth/me', staffActive);
+        assert.equal(staffMe.status, 200, 'Staff session persists across restart');
+        assert.equal(staffMe.data.data.active_workspace.role, 'staff');
+
+        // 14.4 Verify Employees & Attendance persist
+        const empList = await apiRequest('/api/v1/employees', owner);
+        assert.equal(empList.status, 200);
+        assert.ok(empList.data.data.items.length >= 2, 'Employees persisted');
+
+        const attList = await apiRequest('/api/v1/attendance/shifts', owner);
+        assert.equal(attList.status, 200);
+        assert.ok(attList.data.data.shifts.length >= 1, 'Attendance shifts persisted');
+
+        // 14.5 Verify Schedules & Work Items persist
+        const schedList = await apiRequest(
+          '/api/v1/schedules?week_start_date=2026-10-19',
+          owner,
+        );
+        assert.equal(schedList.status, 200);
+        assert.ok(schedList.data.data.items.length >= 1, 'Schedules persisted');
+
+        const workList = await apiRequest('/api/v1/work-items', owner);
+        assert.equal(workList.status, 200);
+        assert.ok(workList.data.data.items.length >= 1, 'Work items persisted');
+
+        // 14.6 Verify Payroll Overview & Staff Re-login + Self-Service Payslip persist
+        const payRes = await apiRequest(
+          '/api/v1/payroll/periods/2026-10',
+          owner,
+        );
+        assert.equal(payRes.status, 200);
+        assert.ok(payRes.data.data, 'Payroll overview persisted');
+
+        const staff1ReLogin = await apiRequest('/api/v1/auth/login', null, {
+          identifier: staff1Email,
+          password: staff1Password,
+        });
+        assert.equal(staff1ReLogin.status, 200);
+        staff1.cookie = staff1ReLogin.headers.get('set-cookie').split(';')[0];
+        staff1.csrf = staff1ReLogin.data.data.csrf_token;
+
+        const myPayRes = await apiRequest(
+          '/api/v1/payroll/periods/2026-10/me',
+          staff1,
+        );
+        assert.equal(myPayRes.status, 200);
+        assert.ok(myPayRes.data.data, 'Staff payslip persisted');
+
+        // 14.7 Verify Finance entries, summary balance, and audit logs persist
+        const finRes = await apiRequest('/api/v1/fin/entries', owner);
+        assert.equal(finRes.status, 200);
+        assert.ok(finRes.data.data.items.length >= 2, 'Finance entries persisted');
+
+        const finSumRes = await apiRequest(
+          '/api/v1/fin/summary?period=month&anchor=2026-10-14',
+          owner,
+        );
+        assert.equal(finSumRes.status, 200);
+        assert.equal(finSumRes.data.data.net_vnd, '6500000', 'Finance summary net balance persisted');
+
+        const auditRes = await apiRequest('/api/v1/audit?limit=50', owner);
+        assert.equal(auditRes.status, 200);
+        assert.ok(auditRes.data.data.items.length >= 10, 'Audit logs persisted');
       },
     );
   } finally {
