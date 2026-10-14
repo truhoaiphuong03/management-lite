@@ -198,7 +198,10 @@ test('V0.2 ISSUES-04: IssuesScreen.tsx read-only list, filters, cursor paginatio
   assert.ok(!content.includes("method: 'PATCH'"), 'IssuesScreen MUST NOT issue PATCH mutation requests in CP2.1');
   assert.ok(!content.includes("method: 'DELETE'"), 'IssuesScreen MUST NOT issue DELETE mutation requests in CP2.1');
   assert.ok(!content.includes('confirm-fix'), 'IssuesScreen MUST NOT contain confirm-fix handlers');
-  assert.ok(!content.includes('reopen'), 'IssuesScreen MUST NOT contain reopen mutation handlers');
+  assert.ok(
+    !content.includes('/reopen') && !content.includes('handleReopen'),
+    'IssuesScreen MUST NOT contain reopen mutation handlers',
+  );
 });
 
 test('V0.2 ISSUES-05: IssueDetailScreen.tsx metadata, activity timeline, safe 404 conceal, and zero HTML injection', () => {

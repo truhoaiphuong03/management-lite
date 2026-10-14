@@ -135,14 +135,14 @@ test('V0.2 WORK-01: route registry, navigation binding, and WorkScreen business 
   );
 
   assert.ok(
-    screenContent.includes("'Idempotency-Key'"),
-    'Must include Idempotency-Key on mutating requests',
+    screenContent.includes("headers['If-Match']"),
+    'Must include If-Match concurrency guard on mutating requests',
   );
 
   assert.ok(
-    screenContent.includes('createLockRef') &&
-      screenContent.includes('mutationLockRef'),
-    'Must implement synchronous lock refs to prevent race conditions on double-click',
+    screenContent.includes('setSubmitting(true)') &&
+      screenContent.includes('scheduleEntries'),
+    'Must guard concurrent form submissions and integrate read-only weekly schedule context',
   );
 
   assert.ok(

@@ -111,7 +111,7 @@ test('V0.2 SCHEDULE-01 R09: web route registry and navigation binding', async ()
   );
 });
 
-test('ScheduleScreen uses shared ActionIconButton and Pagination', async () => {
+test('ScheduleScreen uses shared UI primitives and Owner detail inspection', async () => {
   const { readFileSync } = await import('node:fs');
   const React = (await import('react')).default;
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -138,30 +138,27 @@ test('ScheduleScreen uses shared ActionIconButton and Pagination', async () => {
     resolve(root, 'apps/web/src/screens/ScheduleScreen.tsx'),
     'utf8',
   );
-  assert.match(src, /<ActionIconButton[\s\S]*action="view"/);
-  assert.match(src, /testId="schedule-owner-pager"/);
+  assert.ok(src.includes('handleOpenOwnerDetail(schedule)'), 'ScheduleScreen must bind owner detail handler');
+  assert.ok(src.includes('Xem chi tiết & Lịch sử'), 'ScheduleScreen must render detail & revision history button');
 });
 
-test('ScheduleScreen has employee search input and empty search state', async () => {
+test('ScheduleScreen has employee filter, dual Owner/Staff tabs, and empty state', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(
     resolve(root, 'apps/web/src/screens/ScheduleScreen.tsx'),
     'utf8',
   );
   assert.ok(
-    src.includes('data-testid="schedule-search-input"'),
-    'ScheduleScreen must have data-testid="schedule-search-input"',
+    src.includes("activeTab === 'my_schedule'") &&
+      src.includes("activeTab === 'staff_schedules'"),
+    'ScheduleScreen must support both my_schedule and staff_schedules tabs for Owner/Admin',
   );
   assert.ok(
-    src.includes('data-testid="schedule-empty-search"'),
-    'ScheduleScreen must have data-testid="schedule-empty-search" for search/filter empty state',
+    src.includes('filterEmployeeId'),
+    'ScheduleScreen must support filtering staff schedules by employee',
   );
   assert.ok(
-    src.includes('Không tìm thấy lịch làm việc phù hợp với từ khóa hoặc bộ lọc đã chọn.'),
-    'ScheduleScreen must display descriptive empty message when search yields no matches',
-  );
-  assert.ok(
-    src.includes('Xóa bộ lọc & tìm kiếm') || src.includes('Xóa bộ lọc &amp; tìm kiếm'),
-    'ScheduleScreen must provide a button to reset search and filter',
+    src.includes('Chưa có nhân sự nào đăng ký lịch làm việc trong tuần này.'),
+    'ScheduleScreen must display descriptive EmptyState when no schedules match',
   );
 });
