@@ -54,10 +54,13 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(
+        window.location.hash.slice(1) || window.location.search,
+      );
       const queryToken = params.get('token');
       if (queryToken) {
         setToken(queryToken);
+        window.history.replaceState(null, '', window.location.pathname);
       }
     }
   }, []);

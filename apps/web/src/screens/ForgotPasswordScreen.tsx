@@ -129,8 +129,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 lineHeight: '1.5',
               }}
             >
-              Nhập địa chỉ email tài khoản quản trị để nhận hướng dẫn đặt lại
-              mật khẩu.
+              Nhập địa chỉ email tài khoản để nhận hướng dẫn đặt lại mật khẩu.
             </p>
           </div>
 
@@ -169,28 +168,39 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 </span>
               </div>
 
-              {/* Delivery notice */}
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: '#F59E0B',
-                  backgroundColor: 'rgba(245, 158, 11, 0.08)',
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid rgba(245, 158, 11, 0.2)',
-                  lineHeight: '1.5',
-                }}
-              >
-                <strong>Trạng thái gửi thư:</strong>{' '}
-                <span style={{ color: '#EF4444', fontWeight: 600 }}>
-                  {successData.deliveryStatus}
-                </span>
-                <p style={{ margin: '6px 0 0 0', color: '#CBD5E1' }}>
-                  Hệ thống chưa cấu hình dịch vụ gửi email ngoài (SMTP). Luồng
-                  gửi mã đến hộp thư thực tế đang bị tạm dừng theo chính sách an
-                  toàn. Không hỗ trợ bỏ qua bước nhận mã qua email.
+              {/* Global availability only; never expose recipient delivery outcomes. */}
+              {successData.deliveryStatus === 'EMAIL_DELIVERY_BLOCKED' ? (
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#F59E0B',
+                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(245, 158, 11, 0.2)',
+                    lineHeight: '1.5',
+                  }}
+                >
+                  <strong>Trạng thái gửi thư:</strong>{' '}
+                  <span style={{ color: '#EF4444', fontWeight: 600 }}>
+                    {successData.deliveryStatus}
+                  </span>
+                  <p style={{ margin: '6px 0 0 0', color: '#CBD5E1' }}>
+                    Dịch vụ email chưa được cấu hình. Vui lòng liên hệ quản trị
+                    để khôi phục khả năng gửi email.
+                  </p>
+                </div>
+              ) : (
+                <p style={{ fontSize: '13px', color: '#CBD5E1' }}>
+                  Nếu tài khoản đủ điều kiện, bạn sẽ nhận được email chứa liên
+                  kết và mã xác minh dùng một lần, có hiệu lực 15 phút. Kiểm tra
+                  cả thư rác. Bạn cũng có thể nhập mã tại trang đặt lại mật
+                  khẩu.
                 </p>
-              </div>
+              )}
+              <AppButton onClick={() => onNavigate('/reset-password')}>
+                Nhập mã xác minh
+              </AppButton>
             </div>
           )}
 

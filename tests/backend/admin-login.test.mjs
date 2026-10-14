@@ -87,11 +87,11 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
   const { addAdminAccount } = await import(
     `file://${resolve(root, 'scripts/add-admin.mjs')}`
   );
-  const { getAcceptanceOwnerCredentials } = await import(
-    `file://${resolve(root, 'scripts/qa-credentials-reader.mjs')}`
+  const { runMigrations, loadMigrationFiles } = await import(
+    `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
   );
-  const adminCredentials = getAcceptanceOwnerCredentials();
-  const adminPassword = adminCredentials.password;
+  const adminPassword = 'AdminLoginVerification2026!';
+  const testWorkspaceId = '5c3bb47c-7566-4784-a262-11ff6cd32cbd';
 
   const config = loadTestDatabaseConfig();
   assertSafeTestDatabase(config);
@@ -104,10 +104,54 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
       return;
     }
 
+    await runMigrations(
+      pool,
+      loadMigrationFiles(resolve(root, 'packages/database/src/migrations')),
+    );
+
+    // Ensure target workspace and baseline 'owner' user exist in isolated test DB
+    await pool.query(
+      `INSERT INTO workspaces (id, name, timezone, status)
+       VALUES ($1, 'Hoai Phuong Workspace', 'Asia/Ho_Chi_Minh', 'active')
+       ON CONFLICT (id) DO UPDATE SET status = 'active';`,
+      [testWorkspaceId],
+    );
+    const existingOwnerRes = await pool.query(
+      `SELECT id FROM users WHERE username_normalized = 'owner';`,
+    );
+    let baselineOwnerId = existingOwnerRes.rows[0]?.id;
+    if (!baselineOwnerId) {
+      const insertedOwner = await pool.query(
+        `INSERT INTO users (username_normalized, email_normalized, status)
+         VALUES ('owner', 'owner@management-lite.local', 'active')
+         RETURNING id;`,
+      );
+      baselineOwnerId = insertedOwner.rows[0].id;
+    }
+    await pool.query(
+      `INSERT INTO workspace_memberships (workspace_id, user_id, role, status)
+       VALUES ($1, $2, 'owner', 'active')
+       ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = 'owner', status = 'active';`,
+      [testWorkspaceId, baselineOwnerId],
+    );
+
+    // Reset any stale 'admin' fixture in isolated test DB so addAdminAccount tests both creation & idempotency cleanly
+    const prevAdmin = await pool.query(
+      `SELECT id FROM users WHERE username_normalized = 'admin' OR email_normalized = 'admin@management-lite.local';`,
+    );
+    for (const row of prevAdmin.rows) {
+      await pool.query(`DELETE FROM auth_sessions WHERE user_id = $1;`, [row.id]).catch(() => {});
+      await pool.query(`DELETE FROM user_credentials WHERE user_id = $1;`, [row.id]).catch(() => {});
+      await pool.query(`DELETE FROM user_workspace_bindings WHERE user_id = $1;`, [row.id]).catch(() => {});
+      await pool.query(`DELETE FROM workspace_memberships WHERE user_id = $1;`, [row.id]).catch(() => {});
+      await pool.query(`UPDATE employees SET user_id = NULL WHERE user_id = $1;`, [row.id]).catch(() => {});
+      await pool.query(`DELETE FROM users WHERE id = $1;`, [row.id]).catch(() => {});
+    }
+
     // 1. Ensure ADMIN account is provisioned (idempotent)
     const adminResult = await addAdminAccount({
       pool,
-      workspaceId: '5c3bb47c-7566-4784-a262-11ff6cd32cbd',
+      workspaceId: testWorkspaceId,
       username: 'ADMIN',
       password: adminPassword,
       email: 'admin@management-lite.local',

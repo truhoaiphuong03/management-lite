@@ -8,6 +8,7 @@ import {
   sendJson,
 } from './envelope.js';
 import { AuthService, AuthError } from './auth/service.js';
+import { createBrevoResetMailer } from './auth/reset-email.js';
 import { EmployeeService } from './employees/service.js';
 import { AttendanceService } from './attendance/service.js';
 import { ReportsService } from './reports/service.js';
@@ -377,7 +378,11 @@ export function createRequestHandler(
 
   const authService =
     deps.authService ??
-    (deps.pool ? new AuthService(deps.pool, csrfSecret) : null);
+    (deps.pool
+      ? new AuthService(deps.pool, csrfSecret, {
+          resetMailer: createBrevoResetMailer(),
+        })
+      : null);
 
   const employeeService =
     deps.employeeService ?? (deps.pool ? new EmployeeService(deps.pool) : null);

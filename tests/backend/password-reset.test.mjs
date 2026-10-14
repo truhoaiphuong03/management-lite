@@ -1,19 +1,107 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test, before, after } from 'node:test';
 import http from 'node:http';
 import pg from 'pg';
 import crypto from 'node:crypto';
+import { resolve } from 'node:path';
+import {
+  loadTestDatabaseConfig,
+  assertSafeTestDatabase,
+} from '../../dist/packages/database/src/config.js';
+import {
+  runMigrations,
+  loadMigrationFiles,
+} from '../../dist/packages/database/src/migrator.js';
+import { AuthService } from '../../dist/apps/api/src/auth/service.js';
+import { createRequestHandler } from '../../dist/apps/api/src/app.js';
 
-const API_BASE = 'http://127.0.0.1:3002';
-const DATABASE_URL =
-  process.env.TEST_DATABASE_URL ||
-  process.env.DATABASE_URL;
+const dbConfig = loadTestDatabaseConfig();
+assertSafeTestDatabase(dbConfig);
+const DATABASE_URL = dbConfig.connectionString;
 
-if (!DATABASE_URL) {
-  throw new Error(
-    'TEST_DATABASE_URL or DATABASE_URL must be defined in environment to connect to isolated test database',
+let API_BASE = '';
+let sharedPool = null;
+let sharedServer = null;
+let createdAdminId = null;
+let createdWorkspaceId = null;
+
+before(async () => {
+  sharedPool = new pg.Pool({ connectionString: DATABASE_URL, max: 10 });
+  await runMigrations(
+    sharedPool,
+    loadMigrationFiles(resolve('packages/database/src/migrations')),
   );
-}
+
+  // Ensure an active workspace exists
+  const wsCheck = await sharedPool.query(
+    `SELECT id FROM workspaces WHERE status = 'active' LIMIT 1;`,
+  );
+  if (wsCheck.rows.length === 0) {
+    createdWorkspaceId = crypto.randomUUID();
+    await sharedPool.query(
+      `INSERT INTO workspaces (id, name, timezone, status) VALUES ($1, 'Password Reset Isolated QA', 'Asia/Ho_Chi_Minh', 'active');`,
+      [createdWorkspaceId],
+    );
+  }
+
+  // Ensure unverified admin user fixture exists
+  const adminCheck = await sharedPool.query(
+    `SELECT id FROM users WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
+  );
+  if (adminCheck.rows.length === 0) {
+    createdAdminId = crypto.randomUUID();
+    await sharedPool.query(
+      `INSERT INTO users (id, username_normalized, email_normalized, status, email_verified, email_verified_at)
+       VALUES ($1, 'admin_pw_reset_qa', 'truhoaiphuong02@gmail.com', 'active', false, NULL);`,
+      [createdAdminId],
+    );
+  } else {
+    await sharedPool.query(
+      `UPDATE users SET email_verified = false, email_verified_at = NULL WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
+    );
+  }
+
+  const csrfSecret = crypto.randomBytes(32).toString('hex');
+  const authService = new AuthService(sharedPool, csrfSecret);
+  sharedServer = http.createServer(
+    createRequestHandler({
+      pool: sharedPool,
+      authService,
+      csrfSecret,
+      allowedOrigins: ['http://127.0.0.1:3001'],
+      trustedProxies: ['127.0.0.1', '::1', '::ffff:127.0.0.1'],
+      isProduction: false,
+    }),
+  );
+  await new Promise((resolveListen) =>
+    sharedServer.listen(0, '127.0.0.1', resolveListen),
+  );
+  API_BASE = `http://127.0.0.1:${sharedServer.address().port}`;
+});
+
+after(async () => {
+  if (sharedServer) {
+    await new Promise((resolveClose) => sharedServer.close(resolveClose));
+  }
+  if (sharedPool) {
+    if (createdAdminId) {
+      await sharedPool
+        .query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [
+          createdAdminId,
+        ])
+        .catch(() => {});
+      await sharedPool
+        .query(`DELETE FROM users WHERE id = $1;`, [createdAdminId])
+        .catch(() => {});
+    }
+    if (createdWorkspaceId) {
+      await sharedPool
+        .query(`DELETE FROM workspaces WHERE id = $1;`, [createdWorkspaceId])
+        .catch(() => {});
+    }
+    await sharedPool.end();
+  }
+});
 
 function makeRequest(url, options = {}) {
   return new Promise((resolvePromise, reject) => {

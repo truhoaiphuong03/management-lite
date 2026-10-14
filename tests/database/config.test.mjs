@@ -233,7 +233,25 @@ test('isSafeTestDatabase and assertSafeTestDatabase enforce multi-factor databas
   assert.equal(protocolCheck.safe, false);
   assert.match(protocolCheck.reason || '', /Invalid protocol/);
 
-  // 8. Accepts properly isolated test database
+  // 8. Rejects Windows production database management_lite_test on port 55432
+  const winProdDbUrl =
+    'postgresql://usr:pass@127.0.0.1:55432/management_lite_test';
+  const winProdCheck = isSafeTestDatabase(
+    {
+      connectionString: winProdDbUrl,
+      max: 5,
+      idleTimeoutMillis: 1000,
+      connectionTimeoutMillis: 1000,
+    },
+    { NODE_ENV: 'test', TEST_DATABASE_URL: winProdDbUrl },
+  );
+  assert.equal(winProdCheck.safe, false);
+  assert.match(
+    winProdCheck.reason || '',
+    /active Windows production database/,
+  );
+
+  // 9. Accepts properly isolated test database
   const validCheck = isSafeTestDatabase(
     {
       connectionString: safeUrl,

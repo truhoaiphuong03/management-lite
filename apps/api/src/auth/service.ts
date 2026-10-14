@@ -19,6 +19,7 @@ import type {
   WorkspaceMembershipSummary,
 } from '../../../../packages/contracts/src/auth.js';
 import { RateLimiter } from '../rate-limiter.js';
+import type { PasswordResetMailer } from './reset-email.js';
 
 export class AuthError extends Error {
   constructor(
@@ -89,8 +90,10 @@ export class AuthService {
       forgotPasswordLimiter?: RateLimiter;
       forgotPasswordAccountLimiter?: RateLimiter;
       resetPasswordLimiter?: RateLimiter;
+      resetMailer?: PasswordResetMailer | undefined;
     } = {},
   ) {
+    this.resetMailer = options.resetMailer;
     this.loginLimiter =
       options.loginLimiter ??
       new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
@@ -107,6 +110,8 @@ export class AuthService {
       options.resetPasswordLimiter ??
       new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
   }
+
+  private readonly resetMailer: PasswordResetMailer | undefined;
 
   /**
    * Authenticates user credentials and resolves active workspace binding under C06.
@@ -669,6 +674,10 @@ export class AuthService {
     try {
       await client.query('BEGIN');
 
+      await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE;', [
+        context.user.id,
+      ]);
+
       const credRes = await client.query<{ password_hash: string }>(
         `SELECT password_hash FROM user_credentials WHERE user_id = $1 FOR UPDATE`,
         [context.user.id],
@@ -713,6 +722,12 @@ export class AuthService {
       );
 
       const newVersion = updateCredRes.rows[0]!.credential_version;
+
+      // A password change also invalidates earlier recovery emails.
+      await client.query(
+        'UPDATE password_reset_tokens SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL;',
+        [context.user.id],
+      );
 
       // Invalidate all other active sessions of this user
       await client.query(
@@ -891,7 +906,7 @@ export class AuthService {
   /**
    * Requests a password reset token for the given email address.
    * Follows anti-enumeration pattern (generic response), single-use CSPRNG token with 15m TTL,
-   * SHA-256 token hash storage, and explicit EMAIL_DELIVERY_BLOCKED audit logging.
+   * SHA-256 token hash storage and sanitized provider delivery audit logging.
    */
   async requestPasswordReset(params: {
     email: string;
@@ -899,9 +914,10 @@ export class AuthService {
     requestId: string;
   }): Promise<{
     message: string;
-    delivery_status: 'EMAIL_DELIVERY_BLOCKED';
+    delivery_status: 'EMAIL_DELIVERY_BLOCKED' | 'EMAIL_DELIVERY_PENDING';
   }> {
     const { email, clientIp, requestId } = params;
+    const startedAt = Date.now();
 
     if (!email || typeof email !== 'string' || email.trim().length === 0) {
       throw new AuthError('VALIDATION_ERROR', 'Email is required', 400, [
@@ -932,11 +948,13 @@ export class AuthService {
 
     const genericResponse: {
       message: string;
-      delivery_status: 'EMAIL_DELIVERY_BLOCKED';
+      delivery_status: 'EMAIL_DELIVERY_BLOCKED' | 'EMAIL_DELIVERY_PENDING';
     } = {
       message:
         'Nếu email tồn tại trong hệ thống và hợp lệ, hướng dẫn đặt lại mật khẩu đã được xử lý.',
-      delivery_status: 'EMAIL_DELIVERY_BLOCKED',
+      delivery_status: this.resetMailer
+        ? 'EMAIL_DELIVERY_PENDING'
+        : 'EMAIL_DELIVERY_BLOCKED',
     };
 
     const client = await this.pool.connect();
@@ -960,7 +978,10 @@ export class AuthService {
         // Anti-enumeration: return standard generic response without disclosing
         // account existence or verification state.
         if (user && !user.email_verified) {
-          const workspaceId = await this.resolveUserWorkspaceId(client, user.id);
+          const workspaceId = await this.resolveUserWorkspaceId(
+            client,
+            user.id,
+          );
           await recordAuditEvent(client, {
             workspaceId,
             actorUserId: user.id,
@@ -979,6 +1000,16 @@ export class AuthService {
       }
 
       await client.query('BEGIN');
+
+      // Serialize issuance and reset using the same user-first lock order.
+      const eligible = await client.query(
+        "SELECT id FROM users WHERE id=$1 AND email_normalized=$2 AND status='active' AND email_verified=true FOR UPDATE;",
+        [user.id, normalizedEmail],
+      );
+      if (!eligible.rowCount) {
+        await client.query('ROLLBACK');
+        return genericResponse;
+      }
 
       // Generate CSPRNG token (32 bytes = 64 hex characters)
       const rawToken = generateCsprngToken(32);
@@ -1010,11 +1041,40 @@ export class AuthService {
         requestId,
         metadata: {
           client_ip: clientIp,
-          delivery_status: 'EMAIL_DELIVERY_BLOCKED',
+          delivery_status: genericResponse.delivery_status,
         },
       });
 
       await client.query('COMMIT');
+
+      if (this.resetMailer) {
+        // A provider acceptance is not proof of inbox delivery. Never disclose
+        // recipient-specific outcomes in the anonymous HTTP response.
+        let delivery: 'accepted' | 'failed' = 'failed';
+        try {
+          delivery = await this.resetMailer.send(normalizedEmail, rawToken);
+        } catch {
+          /* sanitized below */
+        }
+        if (delivery === 'failed') {
+          await client.query(
+            'UPDATE password_reset_tokens SET consumed_at = now() WHERE token_hash = $1 AND consumed_at IS NULL;',
+            [tokenHash],
+          );
+        }
+        await recordAuditEvent(client, {
+          workspaceId,
+          actorUserId: user.id,
+          action:
+            delivery === 'accepted'
+              ? 'auth.password_reset_email_accepted'
+              : 'auth.password_reset_email_failed',
+          entityType: 'user',
+          entityId: user.id,
+          requestId,
+          metadata: { provider: 'brevo', delivery_status: delivery },
+        });
+      }
 
       return genericResponse;
     } catch (err) {
@@ -1022,6 +1082,14 @@ export class AuthService {
       throw err;
     } finally {
       client.release();
+      // Bound provider requests to 10s and pad all configured-email requests,
+      // including unknown/inactive/unverified recipients, to the same 11s floor.
+      // Release the connection before waiting; do not occupy the DB pool.
+      if (this.resetMailer) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.max(0, 11000 - (Date.now() - startedAt))),
+        );
+      }
     }
   }
 
@@ -1078,7 +1146,7 @@ export class AuthService {
         expires_at: Date;
         consumed_at: Date | null;
       }>(
-        `SELECT id, user_id, expires_at, consumed_at FROM password_reset_tokens WHERE token_hash = $1 FOR UPDATE;`,
+        `SELECT id, user_id, expires_at, consumed_at FROM password_reset_tokens WHERE token_hash = $1;`,
         [tokenHash],
       );
 
@@ -1093,13 +1161,26 @@ export class AuthService {
 
       // Concurrency serialization: Acquire exclusive row lock on the user record
       // to strictly serialize concurrent resets for the same user across all transactions.
-      await client.query(`SELECT id FROM users WHERE id = $1 FOR UPDATE;`, [
+      const eligible = await client.query<{
+        status: string;
+        email_verified: boolean;
+      }>('SELECT status,email_verified FROM users WHERE id=$1 FOR UPDATE;', [
         record.user_id,
       ]);
+      if (
+        eligible.rows[0]?.status !== 'active' ||
+        !eligible.rows[0]?.email_verified
+      ) {
+        throw new AuthError(
+          'INVALID_TOKEN',
+          'Mã khôi phục không hợp lệ hoặc đã được sử dụng',
+          400,
+        );
+      }
 
       // Re-verify that this token was not consumed while waiting for the user lock
       const recheckRes = await client.query<{ consumed_at: Date | null }>(
-        `SELECT consumed_at FROM password_reset_tokens WHERE id = $1;`,
+        `SELECT consumed_at FROM password_reset_tokens WHERE id = $1 FOR UPDATE;`,
         [record.id],
       );
       if (!recheckRes.rows[0] || recheckRes.rows[0].consumed_at !== null) {
@@ -1110,7 +1191,7 @@ export class AuthService {
         );
       }
 
-      if (new Date(record.expires_at) < new Date()) {
+      if (new Date(record.expires_at) <= new Date()) {
         await client.query(
           `UPDATE password_reset_tokens SET consumed_at = now() WHERE id = $1;`,
           [record.id],
@@ -1146,7 +1227,10 @@ export class AuthService {
       );
 
       // Resolve workspace for audit event
-      const workspaceId = await this.resolveUserWorkspaceId(client, record.user_id);
+      const workspaceId = await this.resolveUserWorkspaceId(
+        client,
+        record.user_id,
+      );
 
       // Record audit event
       await recordAuditEvent(client, {
@@ -1190,10 +1274,12 @@ export class AuthService {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      const userRes = await client.query<{ id: string; email_normalized: string }>(
-        `SELECT id, email_normalized FROM users WHERE id = $1 FOR UPDATE;`,
-        [userId],
-      );
+      const userRes = await client.query<{
+        id: string;
+        email_normalized: string;
+      }>(`SELECT id, email_normalized FROM users WHERE id = $1 FOR UPDATE;`, [
+        userId,
+      ]);
       const user = userRes.rows[0];
       if (!user) {
         throw new AuthError('NOT_FOUND', 'User not found', 404);
@@ -1250,7 +1336,12 @@ export class AuthService {
   }
 
   private async resolveUserWorkspaceId(
-    client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: Array<{ id?: string; workspace_id?: string }> }> },
+    client: {
+      query: (
+        sql: string,
+        params?: unknown[],
+      ) => Promise<{ rows: Array<{ id?: string; workspace_id?: string }> }>;
+    },
     userId: string,
   ): Promise<string> {
     const wsRes = await client.query(

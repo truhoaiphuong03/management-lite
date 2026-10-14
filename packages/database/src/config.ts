@@ -272,6 +272,19 @@ export function isSafeTestDatabase(
     }
   }
 
+  // Reject Windows production database `management_lite_test` on host port 55432
+  const effectivePort = parsedUrl.port || '5432';
+  if (
+    dbName.toLowerCase() === 'management_lite_test' &&
+    effectivePort === '55432'
+  ) {
+    return {
+      safe: false,
+      databaseName: dbName,
+      reason: `Prohibited: Target database "${dbName}" on port 55432 is the active Windows production database. Integration tests must use "management_lite_integration_test" or an isolated sandbox database.`,
+    };
+  }
+
   const prohibitedExact = new Set([
     'management_lite',
     'postgres',
