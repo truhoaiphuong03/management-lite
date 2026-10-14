@@ -20,6 +20,10 @@ import type {
 } from '../../../../packages/contracts/src/auth.js';
 import { RateLimiter } from '../rate-limiter.js';
 import type { PasswordResetMailer } from './reset-email.js';
+import {
+  DEFAULT_SESSION_MAX_AGE_SECONDS,
+  getRememberMeMaxAgeSeconds,
+} from '../cookie.js';
 
 export class AuthError extends Error {
   constructor(
@@ -42,6 +46,8 @@ export interface AuthenticatedContext {
   sessionTokenHash: string;
   user: AuthUserData;
   workspace: ActiveWorkspaceData;
+  sessionExpiresAt?: string | undefined;
+  rememberMe?: boolean | undefined;
 }
 
 let cachedDummyHash: string | null = null;
@@ -123,8 +129,15 @@ export class AuthService {
     password: string;
     clientIp: string;
     requestId: string;
-  }): Promise<{ sessionToken: string; responseData: LoginResponseData }> {
+    rememberMe?: boolean | undefined;
+  }): Promise<{
+    sessionToken: string;
+    rememberMe: boolean;
+    maxAgeSeconds: number;
+    responseData: LoginResponseData;
+  }> {
     const { identifier, password, clientIp, requestId } = params;
+    const rememberMe = params.rememberMe === true;
 
     if (
       typeof identifier !== 'string' ||
@@ -316,8 +329,13 @@ export class AuthService {
     const sessionTokenHash = hashToken(sessionToken);
 
     const now = new Date();
-    const idleExpiresAt = new Date(now.getTime() + 30 * 60 * 1000); // 30m idle timeout
-    const absoluteExpiresAt = new Date(now.getTime() + 12 * 60 * 60 * 1000); // 12h absolute timeout
+    const maxAgeSeconds = rememberMe
+      ? getRememberMeMaxAgeSeconds()
+      : DEFAULT_SESSION_MAX_AGE_SECONDS;
+    const idleExpiresAt = rememberMe
+      ? new Date(now.getTime() + maxAgeSeconds * 1000)
+      : new Date(now.getTime() + 30 * 60 * 1000); // 30m idle timeout for standard session
+    const absoluteExpiresAt = new Date(now.getTime() + maxAgeSeconds * 1000);
 
     // 6. Transactional session insertion & audit event creation
     const client = await this.pool.connect();
@@ -361,6 +379,7 @@ export class AuthService {
         requestId,
         metadata: {
           client_ip: clientIp,
+          remember_me: rememberMe,
         },
       });
 
@@ -377,6 +396,8 @@ export class AuthService {
 
     return {
       sessionToken,
+      rememberMe,
+      maxAgeSeconds,
       responseData: {
         user: {
           id: userRow.id,
@@ -391,6 +412,7 @@ export class AuthService {
         },
         session_expires_at: absoluteExpiresAt.toISOString(),
         csrf_token: csrfToken,
+        remember_me: rememberMe,
       },
     };
   }
@@ -427,6 +449,7 @@ export class AuthService {
       last_seen_at: string;
       idle_expires_at: string;
       absolute_expires_at: string;
+      is_remembered: boolean;
       username_normalized: string;
       email_normalized: string;
       role: UserRole;
@@ -436,7 +459,14 @@ export class AuthService {
       `
       UPDATE auth_sessions s
       SET last_seen_at = $1,
-          idle_expires_at = LEAST($2, s.absolute_expires_at)
+          idle_expires_at = LEAST(
+            CASE
+              WHEN (s.absolute_expires_at - s.created_at) > interval '24 hours'
+              THEN s.absolute_expires_at
+              ELSE $2::timestamptz
+            END,
+            s.absolute_expires_at
+          )
       FROM users u, user_credentials uc, workspace_memberships wm, workspaces w, user_workspace_bindings uwb
       WHERE s.session_token_hash = $3
         AND s.user_id = u.id
@@ -462,6 +492,7 @@ export class AuthService {
         s.last_seen_at,
         s.idle_expires_at,
         s.absolute_expires_at,
+        ((s.absolute_expires_at - s.created_at) > interval '24 hours') AS is_remembered,
         u.username_normalized,
         u.email_normalized,
         wm.role,
@@ -489,6 +520,124 @@ export class AuthService {
         name: row.workspace_name,
         timezone: row.timezone,
         role: row.role,
+      },
+      sessionExpiresAt: new Date(row.absolute_expires_at).toISOString(),
+      rememberMe: Boolean(row.is_remembered),
+    };
+  }
+
+  /**
+   * Refreshes an existing session when its short-term idle/access window has expired
+   * (or is near expiry) as long as its absolute refresh ceiling (`absolute_expires_at`)
+   * has not expired, the session has not been revoked (`revoked_at IS NULL`),
+   * `credential_version` matches, and user/membership/workspace remain active.
+   */
+  public async refreshSession(params: {
+    sessionToken: string | undefined;
+    requestId: string;
+  }): Promise<{
+    sessionToken: string;
+    rememberMe: boolean;
+    maxAgeSeconds: number;
+    responseData: LoginResponseData;
+  } | null> {
+    const { sessionToken } = params;
+    if (!sessionToken || typeof sessionToken !== 'string') {
+      return null;
+    }
+
+    const sessionTokenHash = hashToken(sessionToken);
+    const now = new Date();
+    const nextIdle = new Date(now.getTime() + 30 * 60 * 1000);
+
+    const res = await this.pool.query<{
+      session_id: string;
+      workspace_id: string;
+      user_id: string;
+      session_token_hash: string;
+      created_at: string;
+      absolute_expires_at: string;
+      is_remembered: boolean;
+      username_normalized: string;
+      email_normalized: string;
+      role: UserRole;
+      workspace_name: string;
+      timezone: string;
+    }>(
+      `
+      UPDATE auth_sessions s
+      SET last_seen_at = $1,
+          idle_expires_at = LEAST(
+            CASE
+              WHEN (s.absolute_expires_at - s.created_at) > interval '24 hours'
+              THEN s.absolute_expires_at
+              ELSE $2::timestamptz
+            END,
+            s.absolute_expires_at
+          )
+      FROM users u, user_credentials uc, workspace_memberships wm, workspaces w, user_workspace_bindings uwb
+      WHERE s.session_token_hash = $3
+        AND s.user_id = u.id
+        AND uc.user_id = s.user_id
+        AND wm.workspace_id = s.workspace_id AND wm.user_id = s.user_id
+        AND w.id = s.workspace_id
+        AND uwb.user_id = s.user_id AND uwb.workspace_id = s.workspace_id
+        AND uwb.status = 'active'
+        AND s.revoked_at IS NULL
+        AND s.absolute_expires_at > $1
+        AND s.credential_version_at_issue = uc.credential_version
+        AND u.status = 'active'
+        AND wm.status = 'active'
+        AND w.status = 'active'
+      RETURNING
+        s.id AS session_id,
+        s.workspace_id,
+        s.user_id,
+        s.session_token_hash,
+        s.created_at,
+        s.absolute_expires_at,
+        ((s.absolute_expires_at - s.created_at) > interval '24 hours') AS is_remembered,
+        u.username_normalized,
+        u.email_normalized,
+        wm.role,
+        w.name AS workspace_name,
+        w.timezone;
+    `,
+      [now.toISOString(), nextIdle.toISOString(), sessionTokenHash],
+    );
+
+    const row = res.rows[0];
+    if (!row) {
+      return null;
+    }
+
+    const absDate = new Date(row.absolute_expires_at);
+    const remainingSec = Math.max(
+      1,
+      Math.floor((absDate.getTime() - now.getTime()) / 1000),
+    );
+    const rememberMe = Boolean(row.is_remembered);
+    const csrfToken = generateCsrfToken(row.session_token_hash, this.csrfSecret);
+
+    return {
+      sessionToken,
+      rememberMe,
+      maxAgeSeconds: remainingSec,
+      responseData: {
+        user: {
+          id: row.user_id,
+          username: row.username_normalized,
+          email: row.email_normalized,
+        },
+        active_workspace: {
+          id: row.workspace_id,
+          name: row.workspace_name,
+          timezone: row.timezone,
+          role: row.role,
+        },
+        session_expires_at: absDate.toISOString(),
+        csrf_token: csrfToken,
+        remember_me: rememberMe,
       },
     };
   }
@@ -592,6 +741,8 @@ export class AuthService {
       active_workspace: context.workspace,
       permissions,
       memberships,
+      session_expires_at: context.sessionExpiresAt,
+      remember_me: context.rememberMe,
     };
   }
 

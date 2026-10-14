@@ -79,10 +79,12 @@ export function isTargetAuthenticatedApiUrl(
 
   // Excluded public auth endpoints by exact pathname:
   // 1. /api/v1/auth/login (bad password login attempt must not trigger session expiry redirect)
-  // 2. /api/v1/auth/forgot-password
-  // 3. /api/v1/auth/reset-password
+  // 2. /api/v1/auth/refresh (silent session refresh endpoint)
+  // 3. /api/v1/auth/forgot-password
+  // 4. /api/v1/auth/reset-password
   if (
     pathname === '/api/v1/auth/login' ||
+    pathname === '/api/v1/auth/refresh' ||
     pathname === '/api/v1/auth/forgot-password' ||
     pathname === '/api/v1/auth/reset-password'
   ) {
@@ -90,6 +92,56 @@ export function isTargetAuthenticatedApiUrl(
   }
 
   return true;
+}
+
+let inFlightRefreshPromise: Promise<{
+  ok: boolean;
+  csrfToken?: string | undefined;
+}> | null = null;
+
+/**
+ * Attempts a single deduplicated silent session refresh via POST /api/v1/auth/refresh.
+ */
+export async function attemptSilentSessionRefresh(
+  fetchFn: typeof fetch = fetch,
+): Promise<{ ok: boolean; csrfToken?: string | undefined }> {
+  if (inFlightRefreshPromise) {
+    return inFlightRefreshPromise;
+  }
+
+  inFlightRefreshPromise = (async () => {
+    try {
+      const res = await fetchFn('/api/v1/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        return { ok: false };
+      }
+      const body = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { csrf_token?: unknown };
+      } | null;
+      if (!body?.success) {
+        return { ok: false };
+      }
+      const csrfToken =
+        typeof body.data?.csrf_token === 'string'
+          ? body.data.csrf_token
+          : undefined;
+      return { ok: true, csrfToken };
+    } catch {
+      return { ok: false };
+    } finally {
+      inFlightRefreshPromise = null;
+    }
+  })();
+
+  return inFlightRefreshPromise;
 }
 
 /**
@@ -160,7 +212,41 @@ export function installAuthInterceptor(): void {
 
       // Check URL with exact origin and pathname matching
       if (isTargetAuthenticatedApiUrl(urlStr)) {
-        triggerSessionExpired(urlStr);
+        // Attempt silent session refresh before expiring session
+        const refreshed = await attemptSilentSessionRefresh(
+          originalFetch.bind(this),
+        );
+        if (refreshed.ok) {
+          let retryInit = init;
+          if (refreshed.csrfToken && init?.headers) {
+            const nextHeaders = new Headers(init.headers);
+            if (nextHeaders.has('X-CSRF-Token')) {
+              nextHeaders.set('X-CSRF-Token', refreshed.csrfToken);
+            }
+            retryInit = { ...init, headers: nextHeaders };
+          }
+          const retryResponse = await originalFetch.apply(this, [
+            input,
+            retryInit,
+          ]);
+          if (retryResponse.status !== 401) {
+            return retryResponse;
+          }
+        }
+
+        // Do not fire delayed session-expired banner for initial /api/v1/auth/me probe
+        // (executeSessionVerification handles startup route transitions deterministically)
+        let isAuthMeProbe = false;
+        try {
+          const parsedUrl = new URL(urlStr, window.location.origin);
+          isAuthMeProbe = parsedUrl.pathname === '/api/v1/auth/me';
+        } catch {
+          isAuthMeProbe = urlStr === '/api/v1/auth/me';
+        }
+
+        if (!isAuthMeProbe) {
+          triggerSessionExpired(urlStr);
+        }
       }
     }
 

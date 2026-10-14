@@ -656,7 +656,23 @@ export function createRequestHandler(
         }
 
         const body = await parseJsonBody<Record<string, unknown>>(req);
-        assertAllowedFields(body, ['identifier', 'password']);
+        assertAllowedFields(body, [
+          'identifier',
+          'password',
+          'remember_me',
+          'rememberMe',
+        ]);
+
+        const rawRemember = body['remember_me'] ?? body['rememberMe'];
+        if (rawRemember !== undefined && typeof rawRemember !== 'boolean') {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'remember_me must be a boolean',
+            400,
+            [{ field: 'remember_me', message: 'Must be a boolean' }],
+          );
+        }
+        const rememberMe = rawRemember === true;
 
         const clientIp = getClientIp(req, trustedProxies);
         const result = await authService.loginUser({
@@ -666,17 +682,76 @@ export function createRequestHandler(
             typeof body['password'] === 'string' ? body['password'] : '',
           clientIp,
           requestId,
+          rememberMe,
         });
 
         const sessionCookie = serializeSessionCookie(result.sessionToken, {
           isProduction,
           cookieName: sessionCookieName,
+          rememberMe: result.rememberMe,
+          maxAgeSeconds: result.maxAgeSeconds,
+          sessionOnly: !result.rememberMe,
         });
 
         return sendJson(
           res,
           200,
           createSuccessEnvelope(result.responseData, requestId),
+          { 'Set-Cookie': sessionCookie },
+        );
+      }
+
+      // 4b. POST /api/v1/auth/refresh
+      if (method === 'POST' && pathname === '/api/v1/auth/refresh') {
+        requireLoginOrigin(req, allowedOrigins, isProduction);
+
+        if (!authService) {
+          const body = createErrorEnvelope(
+            'DATABASE_UNAVAILABLE',
+            'Authentication service is unavailable',
+            requestId,
+          );
+          return sendJson(res, 503, body);
+        }
+
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, []);
+
+        const token = extractSessionToken(req, isProduction, sessionCookieName);
+        const refreshed = await authService.refreshSession({
+          sessionToken: token,
+          requestId,
+        });
+
+        if (!refreshed) {
+          const clearCookie = serializeClearSessionCookie({
+            isProduction,
+            cookieName: sessionCookieName,
+          });
+          return sendJson(
+            res,
+            401,
+            createErrorEnvelope(
+              'UNAUTHENTICATED',
+              'Session has expired or been revoked',
+              requestId,
+            ),
+            { 'Set-Cookie': clearCookie },
+          );
+        }
+
+        const sessionCookie = serializeSessionCookie(refreshed.sessionToken, {
+          isProduction,
+          cookieName: sessionCookieName,
+          rememberMe: refreshed.rememberMe,
+          maxAgeSeconds: refreshed.maxAgeSeconds,
+          sessionOnly: !refreshed.rememberMe,
+        });
+
+        return sendJson(
+          res,
+          200,
+          createSuccessEnvelope(refreshed.responseData, requestId),
           { 'Set-Cookie': sessionCookie },
         );
       }
@@ -732,6 +807,7 @@ export function createRequestHandler(
           authService,
           req,
           isProduction,
+          sessionCookieName,
         );
         const authMeData = await authService.getAuthMe(sessionContext);
         const csrfToken = generateCsrfToken(

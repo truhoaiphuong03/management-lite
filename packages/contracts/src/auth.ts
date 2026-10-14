@@ -23,6 +23,7 @@ export interface WorkspaceMembershipSummary {
 export interface LoginRequestBody {
   identifier: string;
   password: string;
+  remember_me?: boolean | undefined;
 }
 
 export interface LoginResponseData {
@@ -30,6 +31,7 @@ export interface LoginResponseData {
   active_workspace: ActiveWorkspaceData;
   session_expires_at: string;
   csrf_token: string;
+  remember_me?: boolean | undefined;
 }
 
 export interface AuthMeResponseData {
@@ -38,6 +40,8 @@ export interface AuthMeResponseData {
   permissions: string[];
   memberships: WorkspaceMembershipSummary[];
   csrf_token?: string | undefined;
+  session_expires_at?: string | undefined;
+  remember_me?: boolean | undefined;
 }
 
 export interface ChangePasswordRequestBody {

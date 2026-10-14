@@ -90,6 +90,11 @@ test('AUTH INTERCEPTOR: URL evaluation security and precision', () => {
     false,
     'Reset password endpoint must NOT be intercepted',
   );
+  assert.equal(
+    isTargetAuthenticatedApiUrl('/api/v1/auth/refresh', localOrigin),
+    false,
+    'Silent session refresh endpoint must NOT be intercepted recursively',
+  );
 
   // 3. Legitimate APIs with "login" in query parameters MUST be intercepted (Codex P2 item 13 fix)
   assert.equal(

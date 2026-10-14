@@ -1,3 +1,18 @@
+export const DEFAULT_SESSION_MAX_AGE_SECONDS = 43200; // 12 hours standard session ceiling
+export const DEFAULT_REMEMBER_ME_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days persistent session
+export const MIN_REMEMBER_ME_MAX_AGE_SECONDS = 24 * 60 * 60; // 1 day minimum
+export const MAX_REMEMBER_ME_MAX_AGE_SECONDS = 90 * 24 * 60 * 60; // 90 days maximum (never infinite)
+
+export function getRememberMeMaxAgeSeconds(): number {
+  const raw = process.env['SESSION_REMEMBER_MAX_AGE_SECONDS']?.trim();
+  if (!raw) return DEFAULT_REMEMBER_ME_MAX_AGE_SECONDS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < MIN_REMEMBER_ME_MAX_AGE_SECONDS) {
+    return DEFAULT_REMEMBER_ME_MAX_AGE_SECONDS;
+  }
+  return Math.min(parsed, MAX_REMEMBER_ME_MAX_AGE_SECONDS);
+}
+
 export interface CookieOptions {
   isProduction?: boolean | undefined;
   maxAgeSeconds?: number | undefined;
@@ -6,6 +21,8 @@ export interface CookieOptions {
   httpOnly?: boolean | undefined;
   secure?: boolean | undefined;
   cookieName?: string | undefined;
+  rememberMe?: boolean | undefined;
+  sessionOnly?: boolean | undefined;
 }
 
 /**
@@ -68,18 +85,28 @@ export function serializeSessionCookie(
 ): string {
   const isProduction = options.isProduction ?? false;
   const cookieName = options.cookieName ?? getSessionCookieName(isProduction);
-  const maxAge = options.maxAgeSeconds ?? 43200; // 12 hours absolute timeout default
+  const rememberMe = options.rememberMe === true;
+  const sessionOnly = options.sessionOnly === true && !rememberMe;
+  const maxAge =
+    options.maxAgeSeconds ??
+    (rememberMe
+      ? getRememberMeMaxAgeSeconds()
+      : DEFAULT_SESSION_MAX_AGE_SECONDS);
   const path = options.path ?? '/';
   const sameSite = options.sameSite ?? 'Lax';
   const secure = options.secure ?? isProduction;
 
-  const parts = [
-    `${cookieName}=${encodeURIComponent(token)}`,
-    `Path=${path}`,
-    `Max-Age=${maxAge}`,
-    `SameSite=${sameSite}`,
-    'HttpOnly',
-  ];
+  const parts = [`${cookieName}=${encodeURIComponent(token)}`, `Path=${path}`];
+
+  if (!sessionOnly) {
+    parts.push(`Max-Age=${maxAge}`);
+    if (rememberMe) {
+      const expiresDate = new Date(Date.now() + maxAge * 1000);
+      parts.push(`Expires=${expiresDate.toUTCString()}`);
+    }
+  }
+
+  parts.push(`SameSite=${sameSite}`, 'HttpOnly');
 
   if (secure) {
     parts.push('Secure');

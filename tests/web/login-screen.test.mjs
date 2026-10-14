@@ -148,18 +148,31 @@ test('MGL-AUTH-LOGIN-UI-FIX-21: Forgot Password modal accessibility, focus manag
   assert.ok(source.includes('Chủ sở hữu (Owner)'), 'Modal must provide guidance for Owner');
 });
 
-test('MGL-AUTH-LOGIN-UI-FIX-21: Remember Me honest disabled state and accurate 12-hour session guidance', () => {
+test('MGL-AUTH-LOGIN-UI-FIX-21 & AUTH-REMEMBER-01: Remember Me enabled state, remember_me payload, and HttpOnly cookie session guidance', () => {
   const sourcePath = resolve(root, 'apps/web/src/screens/LoginScreen.tsx');
   const source = readFileSync(sourcePath, 'utf8');
 
-  // Honest disabled state
+  // Enabled Remember Me checkbox & payload forwarding
   assert.ok(source.includes('Ghi nhớ đăng nhập'), 'Remember Me label must be present');
-  assert.ok(source.includes('disabled') && source.includes('checked={false}'), 'Remember Me checkbox must be disabled and unchecked');
-  assert.ok(source.includes('Chưa hỗ trợ'), 'Must display "Chưa hỗ trợ" badge explaining feature is not yet available');
+  assert.ok(
+    source.includes('const [rememberMe, setRememberMe] = useState(false);'),
+    'Remember Me state must default to false',
+  );
+  assert.ok(
+    source.includes('checked={rememberMe}') && source.includes('onChange={(e) => setRememberMe(e.target.checked)}'),
+    'Remember Me checkbox must be interactive and bound to rememberMe state',
+  );
+  assert.ok(
+    source.includes('remember_me: rememberMe'),
+    'Login request body must pass remember_me boolean to /api/v1/auth/login',
+  );
+  assert.ok(
+    !source.includes('Chưa hỗ trợ'),
+    'Must NOT display outdated "Chưa hỗ trợ" disabled badge',
+  );
 
   // Accurate cookie & session guidance
-  assert.ok(source.includes('12 giờ'), 'Must explain 12-hour HttpOnly cookie lifetime');
-  assert.ok(!source.includes('khi đóng trình duyệt'), 'Must NOT claim session expires when browser closes');
+  assert.ok(source.includes('30 ngày') && source.includes('12 giờ'), 'Must explain 30-day Remember Me and 12-hour standard HttpOnly cookie lifetime');
 });
 
 test('MGL-AUTH-LOGIN-UI-18 & FIX-21: LoginScreen runtime React static markup rendering', async () => {
@@ -209,11 +222,11 @@ test('MGL-AUTH-LOGIN-UI-18 & FIX-21: LoginScreen runtime React static markup ren
     'Must render password toggle button with aria-label="Hiện mật khẩu"',
   );
 
-  // 4. Remember Me: disabled and accurate 12-hour text
+  // 4. Remember Me: interactive checkbox and accurate session text
   assert.ok(markup.includes('Ghi nhớ đăng nhập'), 'Must render "Ghi nhớ đăng nhập"');
-  assert.ok(markup.includes('disabled=""'), 'Checkbox must be disabled');
-  assert.ok(markup.includes('Chưa hỗ trợ'), 'Must render "Chưa hỗ trợ" tag');
-  assert.ok(markup.includes('12 giờ'), 'Must include 12-hour session explanation');
+  assert.ok(markup.includes('id="remember-me"') && markup.includes('name="remember_me"'), 'Checkbox must have id="remember-me" and name="remember_me"');
+  assert.ok(!markup.includes('Chưa hỗ trợ'), 'Must NOT render "Chưa hỗ trợ" tag');
+  assert.ok(markup.includes('30 ngày') && markup.includes('12 giờ'), 'Must include 30-day and 12-hour session explanation');
 
   // 5. Forgot Password trigger
   assert.ok(markup.includes('Quên mật khẩu?'), 'Must render "Quên mật khẩu?" button');

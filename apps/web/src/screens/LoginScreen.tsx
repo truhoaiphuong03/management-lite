@@ -53,6 +53,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [invalidField, setInvalidField] = useState<
@@ -184,6 +185,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         body: JSON.stringify({
           identifier: cleanId,
           password,
+          remember_me: rememberMe,
         }),
       });
 
@@ -756,42 +758,35 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 marginBottom: '24px',
               }}
             >
-              {/* Remember Me: Honest disabled state with accurate 12-hour session explanation per FIX-21 */}
+              {/* Remember Me: Persistent 30-day HttpOnly session cookie when checked */}
               <label
+                htmlFor="remember-me"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
                   fontSize: '13px',
-                  color: '#64748B',
-                  cursor: 'not-allowed',
+                  color: '#CBD5E1',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
                   userSelect: 'none',
                 }}
-                title="Chức năng 'Ghi nhớ đăng nhập' hiện chưa khả dụng trên hệ thống. Phiên làm việc được quản lý an toàn qua HttpOnly cookie với thời hạn tối đa 12 giờ (hoặc kết thúc khi đăng xuất)."
+                title="Duy trì phiên làm việc an toàn qua HttpOnly cookie lên đến 30 ngày trên trình duyệt này (hoặc phiên tiêu chuẩn 12 giờ nếu không chọn)."
               >
                 <input
+                  id="remember-me"
+                  name="remember_me"
                   type="checkbox"
-                  disabled
-                  checked={false}
+                  disabled={isLoading}
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   style={{
                     accentColor: '#14B8A6',
-                    cursor: 'not-allowed',
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
                     width: '15px',
                     height: '15px',
                   }}
                 />
                 <span>Ghi nhớ đăng nhập</span>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    color: '#64748B',
-                    border: '1px solid #334155',
-                    borderRadius: '4px',
-                    padding: '1px 5px',
-                  }}
-                >
-                  Chưa hỗ trợ
-                </span>
               </label>
 
               {/* Forgot Password Trigger Link */}
