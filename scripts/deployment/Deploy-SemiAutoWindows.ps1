@@ -11,6 +11,8 @@ param(
   [string]$CiRunId = '1',
   [Parameter(Mandatory = $false)]
   [string]$CiRunReceiptPath = '',
+  [Parameter(Mandatory = $false)]
+  [string]$GitHubApiBaseUrl = '',
   [string]$PolicyPath = 'C:\HoaiPhuong-Server\config\release-gate\release-gate-policy.json',
   [string]$ApprovalManifestPath = 'C:\HoaiPhuong-Server\config\release-gate\approved-release.json',
   [switch]$Force,
@@ -322,6 +324,41 @@ if ($requireCiReceipt -or (-not [string]::IsNullOrWhiteSpace($resolvedCiReceipt)
     throw "GATE REJECTED: Independent CI receipt verification failed (run=$receiptRunId, sha=$receiptSha, status=$receiptStatus, conclusion=$receiptConclusion, event=$receiptEvent)."
   }
   Write-DeployLog "Independent CI Run Receipt verified (RunId=$receiptRunId, HeadSha=$receiptSha, Conclusion=$receiptConclusion)."
+}
+
+# 4B. LIVE GITHUB ACTIONS RUN API VERIFICATION (DO NOT TRUST LOCAL RECEIPT ALONE)
+$resolvedApiBase = $GitHubApiBaseUrl
+if ([string]::IsNullOrWhiteSpace($resolvedApiBase) -and ($policy.PSObject.Properties.Name -contains 'github_api_base_url')) {
+  $resolvedApiBase = [string]$policy.github_api_base_url
+}
+if (-not [string]::IsNullOrWhiteSpace($resolvedApiBase)) {
+  $repoSlug = if ($policy.PSObject.Properties.Name -contains 'repository') { [string]$policy.repository } else { 'truhoaiphuong03/management-lite' }
+  $runApiUrl = "$($resolvedApiBase.TrimEnd('/'))/repos/$repoSlug/actions/runs/$($CiRunId.Trim())"
+  $apiHeaders = @{ 'Accept' = 'application/vnd.github+json'; 'User-Agent' = 'ManagementLite-HostReleaseController' }
+  if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_READONLY_TOKEN)) {
+    $apiHeaders['Authorization'] = "Bearer $($env:GITHUB_READONLY_TOKEN)"
+  }
+  try {
+    $apiRun = Invoke-RestMethod -Uri $runApiUrl -Headers $apiHeaders -Method Get -TimeoutSec 10
+  } catch {
+    Record-DeployResult -Status 'REJECTED_GITHUB_API_CI_VERIFICATION_FAILED' -Sha $normalizedSha -Message "Failed to query live GitHub Actions run API ($runApiUrl): $($_.Exception.Message)" -DurationMs 0
+    throw "GATE REJECTED: Failed to verify CI run against live GitHub Actions API ($runApiUrl)."
+  }
+  $liveId = if ($apiRun.PSObject.Properties.Name -contains 'id') { [string]$apiRun.id } else { '' }
+  $liveSha = if ($apiRun.PSObject.Properties.Name -contains 'head_sha') { [string]$apiRun.head_sha } else { '' }
+  $liveStatus = if ($apiRun.PSObject.Properties.Name -contains 'status') { [string]$apiRun.status } else { '' }
+  $liveConclusion = if ($apiRun.PSObject.Properties.Name -contains 'conclusion') { [string]$apiRun.conclusion } else { '' }
+  $liveEvent = if ($apiRun.PSObject.Properties.Name -contains 'event') { [string]$apiRun.event } else { '' }
+
+  if ($liveId.Trim() -ne $CiRunId.Trim() -or
+      $liveSha.Trim().ToLowerInvariant() -ne $normalizedSha -or
+      $liveStatus.Trim().ToLowerInvariant() -ne 'completed' -or
+      $liveConclusion.Trim().ToLowerInvariant() -ne 'success' -or
+      $liveEvent.Trim().ToLowerInvariant() -in @('pull_request', 'pull_request_target')) {
+    Record-DeployResult -Status 'REJECTED_GITHUB_API_CI_VERIFICATION_FAILED' -Sha $normalizedSha -Message "Live GitHub API run verification failed (id=$liveId, sha=$liveSha, status=$liveStatus, conclusion=$liveConclusion, event=$liveEvent)" -DurationMs 0
+    throw "GATE REJECTED: Live GitHub Actions API run verification failed (id=$liveId, sha=$liveSha, status=$liveStatus, conclusion=$liveConclusion, event=$liveEvent)."
+  }
+  Write-DeployLog "Live GitHub Actions API Run verified (RunId=$liveId, HeadSha=$liveSha, Conclusion=$liveConclusion, Event=$liveEvent)."
 }
 
 # 5. ANTI-REPLAY SEQUENCE WATERMARK GATE

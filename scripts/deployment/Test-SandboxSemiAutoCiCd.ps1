@@ -318,8 +318,41 @@ try {
     Assert-True ($latest.status -eq 'REJECTED_INDEPENDENT_CI_VERIFICATION_FAILED') "Expected REJECTED_INDEPENDENT_CI_VERIFICATION_FAILED, got $($latest.status)"
   }
 
-  # 15. SANDBOX DEPLOY TEST (Cryptographically Signed Approval + Independent CI Receipt + Verified Bundle + Dual Web/API Running SHA Proof)
-  Run-Scenario '15. SANDBOX_DEPLOY_TEST: Cryptographic Approval + Independent CI Receipt + Verified Bundle Cutover' {
+  # 15. Forged Local Receipt Rejected When Live GitHub Actions Run API Reports Failure (Batch B Requirement 3)
+  Run-Scenario '15. Negative: Forged Local ci-run-receipt.json Rejected When Live GitHub Run API Reports Failure' {
+    $mockPort = 48192
+    $mockScript = Join-Path $sandboxRoot 'mock-gh-api.cjs'
+    $jsMock = @"
+const http = require('node:http');
+const srv = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    id: 501,
+    head_sha: '$shaNew',
+    status: 'completed',
+    conclusion: 'failure',
+    event: 'push'
+  }));
+});
+srv.listen($mockPort, '127.0.0.1');
+"@
+    Set-Content -LiteralPath $mockScript -Value $jsMock -Encoding UTF8 -Force
+    $mockProc = Start-Process -FilePath $node -ArgumentList @($mockScript) -PassThru -WindowStyle Hidden
+    Start-Sleep -Milliseconds 500
+    $rejected = $false
+    try {
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -GitHubApiBaseUrl "http://127.0.0.1:$mockPort" -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+    } catch { $rejected = $true }
+    finally {
+      if ($mockProc -and (-not $mockProc.HasExited)) { Stop-Process -Id $mockProc.Id -Force -ErrorAction SilentlyContinue }
+    }
+    Assert-True $rejected 'Deploy must reject when live GitHub Actions API reports failure despite local receipt saying success'
+    $latest = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
+    Assert-True ($latest.status -eq 'REJECTED_GITHUB_API_CI_VERIFICATION_FAILED') "Expected REJECTED_GITHUB_API_CI_VERIFICATION_FAILED, got $($latest.status)"
+  }
+
+  # 16. SANDBOX DEPLOY TEST (Cryptographically Signed Approval + Independent CI Receipt + Verified Bundle + Dual Web/API Running SHA Proof)
+  Run-Scenario '16. SANDBOX_DEPLOY_TEST: Cryptographic Approval + Independent CI Receipt + Verified Bundle Cutover' {
     & $approveScript -CommitSha $shaNew -ArtifactSha256 $validBundleHash -CiRunId '501' -CiStatus 'SUCCESS' -Sequence 1 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
     & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '501' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -RecoverInterrupted -SandboxMode -SkipBuildInSandbox
 
