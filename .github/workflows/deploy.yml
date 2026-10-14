@@ -1,10 +1,11 @@
-name: Management Lite Auto Deploy
+name: Management Lite Semi-Auto CI/CD (Owner SHA Gate)
 
 on:
   push:
     branches:
       - main
       - release/management-lite-web-test-clean
+      - feat/windows-unified-baseline
   pull_request:
     branches:
       - main
@@ -12,11 +13,20 @@ on:
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: 'Commit SHA to deploy (leave blank for latest)'
-        required: false
+        description: 'Target 40-char commit SHA to deploy (Mandatory)'
+        required: true
         type: string
+      owner_approved_sha:
+        description: 'Owner confirmation: re-enter the exact 40-char commit SHA'
+        required: true
+        type: string
+      allow_migration:
+        description: 'Allow database migration during this deploy (Requires Owner migration approval)'
+        required: false
+        type: boolean
+        default: false
       force:
-        description: 'Force re-deploy even if same SHA'
+        description: 'Force re-deploy even if same SHA is already live'
         required: false
         type: boolean
         default: false
@@ -25,17 +35,19 @@ permissions:
   contents: read
 
 concurrency:
-  group: management-lite-auto-deploy
+  group: management-lite-semi-auto-cicd-${{ github.event_name == 'workflow_dispatch' && 'deploy' || github.ref }}
   cancel-in-progress: false
 
 jobs:
   ci:
-    name: Continuous Integration (Lint, Types, Build, Tests)
+    name: Continuous Integration (Lint, Types, Build, Web & Backend Tests)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -63,27 +75,56 @@ jobs:
       - name: Run Security Tests
         run: npm run test:security
 
+      - name: Run Web UI & RBAC Test Suites
+        run: |
+          node --test tests/web/issues-screen.test.mjs tests/web/schedule-screen.test.mjs tests/web/work-screen.test.mjs tests/web/staff-screen.test.mjs tests/web/attendance-screen.test.mjs tests/web/payroll-screen.test.mjs tests/web/reports-screen.test.mjs tests/web/rbac-visibility.test.mjs
+
       - name: Run Bug AI Management Unit Tests
         run: node --test tests/backend/bug-ai-management.test.mjs
 
   deploy:
-    name: Windows Server Production Deploy & Automated Verification
-    if: github.event_name != 'pull_request'
+    name: Windows Server Production Deploy (Owner SHA Approval Gate)
+    if: github.event_name == 'workflow_dispatch'
     needs: ci
+    environment: production
     runs-on: [self-hosted, Windows, X64, management-lite-deploy]
     timeout-minutes: 15
     steps:
-      - name: Prepare and Execute Windows Safe Deployment
-        shell: cmd
+      - name: Validate Owner SHA Gate Inputs
+        shell: powershell
         run: |
-          set COMMIT_SHA=${{ inputs.commit_sha }}
-          if "%COMMIT_SHA%"=="" set COMMIT_SHA=${{ github.sha }}
-          set FORCE_FLAG=
-          if "${{ inputs.force }}"=="true" set FORCE_FLAG=-Force
-          powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Continue'; Write-Host '=== PRE-SYNCING REPOSITORIES UNDER C:\HoaiPhuong-Server ==='; Get-ChildItem -Path 'C:\HoaiPhuong-Server' -Filter '.git' -Recurse -Hidden -Directory | ForEach-Object { $repo = $_.Parent.FullName; Write-Host ('Fetching all objects for ' + $repo); git -C $repo fetch origin --all --tags; git -C $repo fetch origin release/management-lite-web-test-clean:refs/remotes/origin/release/management-lite-web-test-clean; git -C $repo fetch origin %COMMIT_SHA% }; Write-Host '=== SCRIPT INSPECTION ==='; Get-Content -Path 'C:\HoaiPhuong-Server\scripts\Deploy-ManagementLite.ps1' -TotalCount 100"
-          powershell -NoProfile -ExecutionPolicy Bypass -File "C:\HoaiPhuong-Server\scripts\Deploy-ManagementLite.ps1" -CommitSha %COMMIT_SHA% %FORCE_FLAG%
+          $ErrorActionPreference = 'Stop'
+          $sha = "${{ inputs.commit_sha }}".Trim().ToLowerInvariant()
+          $approved = "${{ inputs.owner_approved_sha }}".Trim().ToLowerInvariant()
+          if ($sha -notmatch '^[0-9a-f]{40}$') {
+            throw "BLOCKED: commit_sha '$sha' must be a full 40-character hexadecimal Git SHA."
+          }
+          if ($sha -ne $approved) {
+            throw "BLOCKED: owner_approved_sha ('$approved') does not match commit_sha ('$sha')."
+          }
+          Write-Host "PASS: Workflow dispatch SHA gate validated ($sha)."
 
-      - name: Execute Post-Deploy Bug & Health Verification
-        shell: cmd
+      - name: Execute Hardened Semi-Auto Deployment with Atomic Rollback
+        shell: powershell
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File "C:\HoaiPhuong-Server\scripts\Verify-BugFix.ps1"
+          $ErrorActionPreference = 'Stop'
+          $sha = "${{ inputs.commit_sha }}".Trim().ToLowerInvariant()
+          $approved = "${{ inputs.owner_approved_sha }}".Trim().ToLowerInvariant()
+          $deployArgs = @(
+            '-NoProfile',
+            '-ExecutionPolicy', 'Bypass',
+            '-File', 'C:\HoaiPhuong-Server\scripts\Deploy-SemiAutoWindows.ps1',
+            '-CommitSha', $sha,
+            '-OwnerApprovedSha', $approved
+          )
+          if ("${{ inputs.allow_migration }}" -ne "true") {
+            $deployArgs += '-SkipMigration'
+          }
+          if ("${{ inputs.force }}" -eq "true") {
+            $deployArgs += '-Force'
+          }
+          & powershell @deployArgs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Deployment failed with exit code $LASTEXITCODE"
+          }
+
