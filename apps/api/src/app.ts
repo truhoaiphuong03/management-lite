@@ -744,8 +744,12 @@ export function createRequestHandler(
         );
       }
 
-      // 7. POST /api/v1/auth/password/change
-      if (method === 'POST' && pathname === '/api/v1/auth/password/change') {
+      // 7. POST /api/v1/auth/password/change (and aliases /api/v1/auth/password, /api/v1/auth/change-password)
+      const isPasswordChangeRoute =
+        pathname === '/api/v1/auth/password/change' ||
+        pathname === '/api/v1/auth/password' ||
+        pathname === '/api/v1/auth/change-password';
+      if (method === 'POST' && isPasswordChangeRoute) {
         if (!authService) {
           const body = createErrorEnvelope(
             'DATABASE_UNAVAILABLE',
@@ -763,18 +767,51 @@ export function createRequestHandler(
         requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
 
         const body = await parseJsonBody<Record<string, unknown>>(req);
-        assertAllowedFields(body, ['current_password', 'new_password']);
+        assertAllowedFields(body, [
+          'current_password',
+          'new_password',
+          'confirm_password',
+          'currentPassword',
+          'newPassword',
+          'confirmPassword',
+        ]);
+
+        const currentPassword = (body['current_password'] ?? body['currentPassword']) as string | undefined;
+        const newPassword = (body['new_password'] ?? body['newPassword']) as string | undefined;
+        const confirmPassword = (body['confirm_password'] ?? body['confirmPassword']) as string | undefined;
+
+        if (confirmPassword !== undefined && confirmPassword !== newPassword) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'Xác nhận mật khẩu mới không khớp (Confirm password does not match new password)',
+            400,
+            [{ field: 'confirm_password', message: 'Mật khẩu xác nhận không khớp' }],
+          );
+        }
 
         const clientIp = getClientIp(req, trustedProxies);
         const result = await authService.changePassword({
           context: sessionContext,
-          currentPassword: body['current_password'],
-          newPassword: body['new_password'],
+          currentPassword,
+          newPassword,
           clientIp,
           requestId,
         });
 
-        return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        // Generate refreshed CSRF token for the rotated session
+        const refreshedCsrf = generateCsrfToken(
+          sessionContext.sessionTokenHash,
+          csrfSecret,
+        );
+
+        return sendJson(
+          res,
+          200,
+          createSuccessEnvelope(
+            { ...result, csrf_token: refreshedCsrf },
+            requestId,
+          ),
+        );
       }
 
       // 8. POST /api/v1/auth/activate (Anonymous)

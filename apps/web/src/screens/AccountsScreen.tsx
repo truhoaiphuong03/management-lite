@@ -1376,6 +1376,69 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             </div>
           )}
 
+          {/* Shortcut: Personal Account Password Change (UI20) */}
+          <div
+            data-testid="banner-personal-password-change"
+            style={{
+              padding: '14px 18px',
+              backgroundColor: 'rgba(30, 41, 59, 0.7)',
+              border: '1px solid rgba(51, 65, 85, 0.8)',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(20, 184, 166, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#14B8A6',
+                  flexShrink: 0,
+                }}
+              >
+                <LockIcon size={18} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                  }}
+                >
+                  Bảo mật tài khoản đăng nhập của bạn
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                    marginTop: '2px',
+                  }}
+                >
+                  Đổi mật khẩu tài khoản đăng nhập hệ thống trong Cài đặt & Hồ sơ.
+                </div>
+              </div>
+            </div>
+            <AppButton
+              variant="secondary"
+              data-testid="btn-nav-change-password"
+              onClick={() => onNavigate?.('/settings')}
+            >
+              <LockIcon size={14} />
+              <span>Đổi mật khẩu tài khoản</span>
+            </AppButton>
+          </div>
+
           {/* 2. KPI Cards */}
           <div
             style={{

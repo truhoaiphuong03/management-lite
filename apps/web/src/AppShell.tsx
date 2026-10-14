@@ -11,6 +11,7 @@ import {
   CloseIcon,
   NavIcon,
   Breadcrumb,
+  LockIcon,
 } from '../../../packages/ui/src/components/index.js';
 import type { UserRole } from './types.js';
 import { ReportBugWidget } from './components/ReportBugWidget.js';
@@ -136,6 +137,35 @@ export const AppShell: React.FC<AppShellProps> = ({
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            data-testid="header-btn-settings"
+            onClick={() => onNavigate('/settings')}
+            title="Cài đặt tài khoản & Đổi mật khẩu"
+            style={{
+              boxSizing: 'border-box',
+              minHeight: '32px',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              border: '1px solid rgba(20, 184, 166, 0.4)',
+              backgroundColor:
+                currentPath === '/settings'
+                  ? 'rgba(20, 184, 166, 0.2)'
+                  : 'rgba(20, 184, 166, 0.08)',
+              color: '#14B8A6',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition:
+                'background-color 0.15s ease, border-color 0.15s ease',
+            }}
+          >
+            <LockIcon size={13} />
+            <span>Đổi mật khẩu / Cài đặt</span>
+          </button>
           {onLogout && (
             <button
               type="button"

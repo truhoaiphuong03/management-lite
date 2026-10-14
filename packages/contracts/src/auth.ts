@@ -41,12 +41,17 @@ export interface AuthMeResponseData {
 }
 
 export interface ChangePasswordRequestBody {
-  current_password: string;
-  new_password: string;
+  current_password?: string;
+  new_password?: string;
+  confirm_password?: string;
+  currentPassword?: string;
+  newPassword?: string;
+  confirmPassword?: string;
 }
 
 export interface ChangePasswordResponseData {
   message: string;
+  csrf_token?: string | undefined;
 }
 
 export type ReauthAction = 'secret_write' | 'secret_reveal';

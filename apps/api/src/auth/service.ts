@@ -646,6 +646,21 @@ export class AuthService {
       );
     }
 
+    // 3b. Validate new password is not identical to current password
+    if (currentPassword === newPassword) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Mật khẩu mới không được trùng với mật khẩu hiện tại (New password must not be identical to current password)',
+        400,
+        [
+          {
+            field: 'new_password',
+            message: 'Mật khẩu mới không được trùng với mật khẩu hiện tại',
+          },
+        ],
+      );
+    }
+
     // 4. Hash new password with Argon2id before transaction to minimize lock duration
     const newPasswordHash = await hashPassword(newPassword);
 

@@ -273,6 +273,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         body: JSON.stringify({
           current_password: currentPassword,
           new_password: newPassword,
+          confirm_password: confirmPassword,
         }),
       });
 
@@ -285,7 +286,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             data.error?.message ||
               'Quá nhiều lần thử thay đổi mật khẩu. Vui lòng thử lại sau.',
           );
-        } else if (data.error?.code === 'WEAK_PASSWORD') {
+        } else if (
+          data.error?.code === 'WEAK_PASSWORD' ||
+          data.error?.code === 'VALIDATION_ERROR'
+        ) {
           setPasswordError(
             data.error?.message ||
               'Mật khẩu mới chưa đạt chuẩn bảo mật (tối thiểu 8 ký tự).',
@@ -305,19 +309,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       setNewPassword('');
       setConfirmPassword('');
 
-      // Refresh CSRF token for the rotated session
-      try {
-        const refreshMe = await fetch('/api/v1/auth/me', {
-          credentials: 'include',
-        });
-        if (refreshMe.ok) {
-          const meData = await refreshMe.json();
-          if (meData.data?.csrf_token) {
-            setCsrfToken(meData.data.csrf_token);
+      // Refresh CSRF token for the rotated session from response or /auth/me
+      if (data.data?.csrf_token) {
+        setCsrfToken(data.data.csrf_token);
+      } else {
+        try {
+          const refreshMe = await fetch('/api/v1/auth/me', {
+            credentials: 'include',
+          });
+          if (refreshMe.ok) {
+            const meData = await refreshMe.json();
+            if (meData.data?.csrf_token) {
+              setCsrfToken(meData.data.csrf_token);
+            }
           }
+        } catch {
+          // Silently continue
         }
-      } catch {
-        // Silently continue
       }
     } catch (err: unknown) {
       setPasswordError(
