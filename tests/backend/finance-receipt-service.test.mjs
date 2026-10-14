@@ -182,7 +182,11 @@ test('FIN receipt upload: stores a private JPEG/PNG, audits, no entry written', 
   const dirOwner = join(f.dir, WS, OWNER);
   const files = await readdir(dirOwner);
   assert.deepEqual(files, [`${sha(bytes)}.png`]);
-  assert.equal((await stat(join(dirOwner, files[0]))).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') {
+    assert.equal((await stat(join(dirOwner, files[0]))).mode & 0o777, 0o600);
+  } else {
+    assert.ok((await stat(join(dirOwner, files[0]))).isFile());
+  }
   assert.ok(
     f.state.log.some((l) => l.q.startsWith('INSERT INTO fin_receipts')),
   );

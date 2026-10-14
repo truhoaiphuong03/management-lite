@@ -226,7 +226,7 @@ async function stagedFile(f) {
   const png = await goodPng();
   await up(f.svc, png);
   const [file] = await f.files();
-  const key = file.slice(f.dir.length + 1);
+  const key = file.slice(f.dir.length + 1).replaceAll('\\', '/');
   f.state.discardRow = { storage_key: key };
   return { file, key };
 }

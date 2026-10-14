@@ -119,8 +119,13 @@ test('FIN receipt store: private atomic writes, dedupe, isolation and traversal 
     assert.deepEqual(await store.put(rel, png()), { created: false });
     assert.deepEqual(Array.from(await store.get(rel)), Array.from(png()));
     const file = join(root, rel);
-    assert.equal((await stat(file)).mode & 0o777, 0o600);
-    assert.equal((await stat(join(root, WS, OWNER))).mode & 0o777, 0o700);
+    if (process.platform !== 'win32') {
+      assert.equal((await stat(file)).mode & 0o777, 0o600);
+      assert.equal((await stat(join(root, WS, OWNER))).mode & 0o777, 0o700);
+    } else {
+      assert.ok((await stat(file)).isFile());
+      assert.ok((await stat(join(root, WS, OWNER))).isDirectory());
+    }
     assert.deepEqual(
       (await readdir(join(root, WS, OWNER))).filter((n) => n.endsWith('.tmp')),
       [],
