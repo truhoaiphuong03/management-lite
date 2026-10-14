@@ -7,7 +7,15 @@ export default tseslint.config(
       'packages/*/dist/**',
       'node_modules/**',
       'docs/canonical/**',
+      '.codex-worktrees/**',
     ],
+  },
+  {
+    languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
   },
   ...tseslint.configs.recommended,
 );

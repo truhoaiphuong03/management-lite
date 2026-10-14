@@ -1,0 +1,2 @@
+# Canonical provenance is verified by byte hashes. Preserve repository bytes on Windows.
+docs/canonical/** -text
