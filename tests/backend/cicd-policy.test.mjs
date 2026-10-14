@@ -79,14 +79,19 @@ test('Deployment policy rejects unapproved SHA, untrusted CI and missing Owner p
   }
 });
 
-test('Option 1 CI/CD architecture: zero GitHub workflows use self-hosted runner or push auto-deploy', () => {
+test('Option 1 CI/CD architecture: automatic CI on push/PR without deploy, single artifact builder, zero self-hosted runner', () => {
   const workflowsDir = fileURLToPath(
     new URL('../../.github/workflows', import.meta.url),
   );
   const files = fs
     .readdirSync(workflowsDir)
-    .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'));
-  assert.ok(files.length > 0, 'Must have workflow files');
+    .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))
+    .sort();
+  assert.deepEqual(
+    files,
+    ['deploy.yml', 'foundation.yml'],
+    'Must have exactly two canonical workflows: foundation.yml (CI on push/PR) and deploy.yml (manual release artifact builder)',
+  );
   for (const file of files) {
     const content = fs.readFileSync(path.join(workflowsDir, file), 'utf8');
     assert.equal(
@@ -94,6 +99,18 @@ test('Option 1 CI/CD architecture: zero GitHub workflows use self-hosted runner 
       false,
       `Workflow ${file} must not dispatch jobs to self-hosted Windows runner under Option 1`,
     );
+    if (file === 'foundation.yml') {
+      assert.equal(
+        /^\s*push\s*:/m.test(content) && /^\s*pull_request\s*:/m.test(content),
+        true,
+        'foundation.yml must automatically run CI on both push and pull_request',
+      );
+      assert.equal(
+        content.includes('Deploy-SemiAutoWindows.ps1'),
+        false,
+        'foundation.yml must never execute production/host deployment',
+      );
+    }
     if (file.startsWith('deploy')) {
       assert.equal(
         /^\s*push\s*:/m.test(content),
@@ -103,3 +120,4 @@ test('Option 1 CI/CD architecture: zero GitHub workflows use self-hosted runner 
     }
   }
 });
+

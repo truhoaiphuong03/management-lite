@@ -41,6 +41,9 @@ jobs:
       - run: npm run build:web
       - name: Selected regression, fresh database per file
         run: node scripts/deployment/ci-isolated-tests.mjs
+      - name: CI/CD Option 1 Policy & Web Screen Verification
+        run: node --test tests/backend/cicd-policy.test.mjs tests/web/*.test.mjs
       - name: Deployment syntax and isolated simulation
         shell: pwsh
         run: ./scripts/deployment/Test-DeploymentSimulation.ps1
+

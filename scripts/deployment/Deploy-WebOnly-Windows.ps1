@@ -18,6 +18,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+if (-not $DryRun) {
+    throw 'CANONICAL_CONTROLLER_ENFORCED: Non-DryRun deployment must use scripts/deployment/Deploy-SemiAutoWindows.ps1 with Ed25519 Owner signature.'
+}
+
 Write-Host "=== MANAGEMENT LITE: WEB-ONLY UPDATE TOOL ===" -ForegroundColor Cyan
 Write-Host "Target Root: $TargetRoot"
 

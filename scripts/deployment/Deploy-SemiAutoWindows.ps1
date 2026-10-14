@@ -262,6 +262,12 @@ if ($manifest.approved_sha -ne $signedPayload.approved_sha -or
   throw 'GATE REJECTED: Manifest envelope fields do not match signed canonical payload.'
 }
 
+$expectedRepo = if ($policy.PSObject.Properties.Name -contains 'repository') { [string]$policy.repository } else { 'truhoaiphuong03/management-lite' }
+if ($signedPayload.repository -ne $expectedRepo) {
+  Record-DeployResult -Status 'REJECTED_REPOSITORY_MISMATCH' -Sha $normalizedSha -Message "Signed repository '$($signedPayload.repository)' does not match policy '$expectedRepo'" -DurationMs 0
+  throw "GATE REJECTED: Signed repository '$($signedPayload.repository)' does not match policy '$expectedRepo'."
+}
+
 $allowedApprovers = @($policy.allowed_approvers)
 if ($allowedApprovers -notcontains $signedPayload.approved_by) {
   Record-DeployResult -Status 'REJECTED_UNAUTHORIZED_APPROVER' -Sha $normalizedSha -Message "Approver '$($signedPayload.approved_by)' is not authorized" -DurationMs 0
@@ -274,9 +280,10 @@ if ($signedPayload.approved_sha.Trim().ToLowerInvariant() -ne $normalizedSha) {
 }
 
 $expiresUtc = [DateTimeOffset]::Parse($signedPayload.expires_at_utc).UtcDateTime
-if ((Get-Date).ToUniversalTime() -gt $expiresUtc) {
-  Record-DeployResult -Status 'REJECTED_EXPIRED_APPROVAL' -Sha $normalizedSha -Message "Owner approval expired at $($signedPayload.expires_at_utc)" -DurationMs 0
-  throw "GATE REJECTED: Owner approval expired at $($signedPayload.expires_at_utc)."
+$nowCheckUtc = (Get-Date).ToUniversalTime()
+if ($nowCheckUtc -gt $expiresUtc -or ($expiresUtc - $nowCheckUtc).TotalHours -gt 24.1) {
+  Record-DeployResult -Status 'REJECTED_EXPIRED_APPROVAL' -Sha $normalizedSha -Message "Owner approval expired or exceeds 24h max TTL ($($signedPayload.expires_at_utc))" -DurationMs 0
+  throw "GATE REJECTED: Owner approval expired or exceeds 24h max TTL at $($signedPayload.expires_at_utc)."
 }
 
 if ((-not $SkipMigration) -and (-not [bool]$signedPayload.allow_migration)) {
@@ -435,14 +442,76 @@ try {
     $stagingExtractDir = Join-Path ([IO.Path]::GetTempPath()) ('ml-artifact-verify-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
     New-Item -ItemType Directory -Path $stagingExtractDir -Force | Out-Null
 
+    function Assert-SafeArchiveEntryPath {
+      param([string]$RawEntryName, [Collections.Generic.HashSet[string]]$SeenSet)
+      $trimmed = $RawEntryName.Replace('\', '/').TrimEnd('/')
+      if ([string]::IsNullOrWhiteSpace($trimmed)) { return }
+      if ($RawEntryName.Contains('\') -or $trimmed.Contains(':') -or $trimmed.StartsWith('/') -or $trimmed.Contains([char]0)) {
+        Record-DeployResult -Status 'REJECTED_UNSAFE_ARCHIVE_ENTRY' -Sha $normalizedSha -Message "Unsafe archive path or NTFS ADS rejected: $RawEntryName" -DurationMs 0
+        throw "GATE REJECTED: Unsafe archive entry path (traversal/ADS/absolute): $RawEntryName"
+      }
+      if (-not $SeenSet.Add($trimmed)) {
+        Record-DeployResult -Status 'REJECTED_UNSAFE_ARCHIVE_ENTRY' -Sha $normalizedSha -Message "Duplicate archive entry path rejected: $trimmed" -DurationMs 0
+        throw "GATE REJECTED: Duplicate archive entry path: $trimmed"
+      }
+      foreach ($part in $trimmed.Split('/')) {
+        if ([string]::IsNullOrWhiteSpace($part) -or $part -in @('.', '..') -or $part -match '[. ]$|[<>"|?*\x00-\x1f]' -or $part -match '^(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)') {
+          Record-DeployResult -Status 'REJECTED_UNSAFE_ARCHIVE_ENTRY' -Sha $normalizedSha -Message "Unsafe path segment or Windows device name in archive: $RawEntryName" -DurationMs 0
+          throw "GATE REJECTED: Unsafe path segment or Windows reserved device name in archive: $RawEntryName"
+        }
+        if ($part -match '^(?i)\.env(?:\.|$)|^(?i)(secrets?|uploads?|backups?|logs?|\.git)$|(?i)\.(dump|pem|key|pfx|p12|wfw)$|^(?i)runtime-private\.json$') {
+          Record-DeployResult -Status 'REJECTED_FORBIDDEN_FILE_IN_ARTIFACT' -Sha $normalizedSha -Message "Forbidden secret/dump entry in archive pre-scan: $RawEntryName" -DurationMs 0
+          throw "GATE REJECTED: Forbidden secret/dump entry detected during archive pre-scan: $RawEntryName"
+        }
+      }
+    }
+
     if ($ArtifactPath.EndsWith('.tar.gz')) {
+      $tarEntries = @(tar -tzf $ArtifactPath 2>$null)
+      if ($LASTEXITCODE -ne 0 -or $tarEntries.Count -eq 0 -or $tarEntries.Count -gt 30000) {
+        Record-DeployResult -Status 'REJECTED_ARTIFACT_CORRUPT' -Sha $normalizedSha -Message 'Failed to list or validate .tar.gz archive entries before extraction' -DurationMs 0
+        throw 'GATE REJECTED: Corrupt or oversized .tar.gz archive.'
+      }
+      $seenTar = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+      foreach ($te in $tarEntries) {
+        $cleanTe = ($te -replace '^\./', '')
+        if (-not [string]::IsNullOrWhiteSpace($cleanTe) -and -not $cleanTe.EndsWith('/')) {
+          Assert-SafeArchiveEntryPath -RawEntryName $cleanTe -SeenSet $seenTar
+        }
+      }
       tar -xzf $ArtifactPath -C $stagingExtractDir
       if ($LASTEXITCODE -ne 0) {
         Record-DeployResult -Status 'REJECTED_ARTIFACT_CORRUPT' -Sha $normalizedSha -Message 'Failed to extract .tar.gz artifact' -DurationMs 0
         throw 'GATE REJECTED: Failed to extract .tar.gz release artifact.'
       }
     } elseif ($ArtifactPath.EndsWith('.zip')) {
-      Add-Type -AssemblyName System.IO.Compression.FileSystem
+      Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+      $zipArchive = [IO.Compression.ZipFile]::OpenRead($ArtifactPath)
+      try {
+        if ($zipArchive.Entries.Count -eq 0 -or $zipArchive.Entries.Count -gt 30000) {
+          Record-DeployResult -Status 'REJECTED_UNSAFE_ARCHIVE_ENTRY' -Sha $normalizedSha -Message 'ZIP entry count out of bounds' -DurationMs 0
+          throw 'GATE REJECTED: ZIP archive entry count out of safe bounds.'
+        }
+        $seenZip = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        $totalUncompressed = [long]0
+        foreach ($ze in $zipArchive.Entries) {
+          if (-not $ze.FullName.EndsWith('/')) {
+            Assert-SafeArchiveEntryPath -RawEntryName $ze.FullName -SeenSet $seenZip
+          }
+          $attrKind = ([uint32]$ze.ExternalAttributes -shr 16) -band 0xF000
+          if ($attrKind -eq 0xA000 -or ($ze.ExternalAttributes -band 0x400)) {
+            Record-DeployResult -Status 'REJECTED_UNSAFE_ARCHIVE_ENTRY' -Sha $normalizedSha -Message "Symlink/reparse entry rejected in ZIP: $($ze.FullName)" -DurationMs 0
+            throw "GATE REJECTED: Symlink or reparse point entry in ZIP archive: $($ze.FullName)"
+          }
+          $totalUncompressed += $ze.Length
+          if ($ze.Length -gt 256MB -or $totalUncompressed -gt 1GB -or ($ze.Length -gt 1MB -and ($ze.Length / [Math]::Max(1, $ze.CompressedLength)) -gt 300)) {
+            Record-DeployResult -Status 'REJECTED_UNSAFE_ARCHIVE_ENTRY' -Sha $normalizedSha -Message "ZIP quota or compression ratio exceeded: $($ze.FullName)" -DurationMs 0
+            throw "GATE REJECTED: ZIP archive quota or compression ratio exceeded: $($ze.FullName)"
+          }
+        }
+      } finally {
+        $zipArchive.Dispose()
+      }
       [IO.Compression.ZipFile]::ExtractToDirectory($ArtifactPath, $stagingExtractDir)
     } else {
       throw "Unsupported artifact format: $ArtifactPath"
@@ -467,6 +536,17 @@ try {
     if ($bundleManifest.sha.Trim().ToLowerInvariant() -ne $normalizedSha) {
       Record-DeployResult -Status 'REJECTED_ARTIFACT_FILE_TAMPERED' -Sha $normalizedSha -Message "manifest.json SHA ($($bundleManifest.sha)) != $normalizedSha" -DurationMs 0
       throw "GATE REJECTED: Bundle manifest.json SHA ($($bundleManifest.sha)) does not match target SHA ($normalizedSha)."
+    }
+
+    if ($SkipMigration -and ($bundleManifest.PSObject.Properties.Name -contains 'migrations') -and $null -ne $bundleManifest.migrations -and @($bundleManifest.migrations).Count -gt 0) {
+      $env:PGPASSFILE = $pgPassFile
+      $appliedMigCountRaw = (& $psql -h 127.0.0.1 -p 55432 -U hp_test_admin -d $DbTarget -t -A -c "SET default_transaction_read_only = on; SELECT count(*) FROM schema_migrations;" | Select-Object -Last 1).Trim()
+      $appliedMigCount = [int]$appliedMigCountRaw
+      $bundleMigCount = @($bundleManifest.migrations).Count
+      if ($bundleMigCount -ne $appliedMigCount) {
+        Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Bundle has $bundleMigCount migrations but DB '$DbTarget' has $appliedMigCount applied migrations while -SkipMigration is active" -DurationMs 0
+        throw "GATE REJECTED: Schema migration mismatch (bundle migrations=$bundleMigCount, DB applied=$appliedMigCount) while -SkipMigration is true."
+      }
     }
 
     $nonManifestCount = @($allExtractedFiles | Where-Object { $_.FullName -ne $bundleManifestPath }).Count

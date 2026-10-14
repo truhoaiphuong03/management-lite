@@ -431,6 +431,74 @@ srv.listen($mockPort, '127.0.0.1');
     Assert-True ($snapshotEnvFiles.Count -eq 0) 'Pre-deploy snapshots must contain zero .env secret copies'
   }
 
+  # 18. HOSTILE ARCHIVE PRE-EXTRACTION REJECTION & CANONICAL CONTROLLER ENFORCEMENT (PR #10 + PR #13 RECONCILIATION)
+  Run-Scenario '18. HOSTILE_ARCHIVE_AND_CANONICAL_CONTROLLER_TEST: Rejects Traversal/ADS/Reserved Device ZIP Before Extraction & Blocks Secondary Controllers' {
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    foreach ($hostileEntry in @('../escape.txt', 'dist/file:ads_secret', 'dist/CON.txt')) {
+      $hostileZip = Join-Path $sandboxRoot ('hostile-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.zip')
+      $fsStream = [IO.File]::Open($hostileZip, [IO.FileMode]::CreateNew)
+      $za = [IO.Compression.ZipArchive]::new($fsStream, [IO.Compression.ZipArchiveMode]::Create)
+      try {
+        $entry = $za.CreateEntry($hostileEntry)
+        $sw = [IO.StreamWriter]::new($entry.Open())
+        try { $sw.Write('synthetic-hostile') } finally { $sw.Dispose() }
+      } finally {
+        $za.Dispose()
+        $fsStream.Dispose()
+      }
+      $hostileHash = (Get-FileHash -LiteralPath $hostileZip -Algorithm SHA256).Hash.ToLowerInvariant()
+      Write-CiReceipt -RunId '503' -HeadSha $shaNew -Status 'completed' -Conclusion 'success' -Event 'push'
+      & $approveScript -CommitSha $shaNew -ArtifactSha256 $hostileHash -CiRunId '503' -CiStatus 'SUCCESS' -Sequence 3 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
+      $rejectedHostile = $false
+      try {
+        & $deployScript -CommitSha $shaNew -ArtifactPath $hostileZip -ArtifactSha256 $hostileHash -CiRunId '503' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+      } catch { $rejectedHostile = $true }
+      Assert-True $rejectedHostile "Hostile ZIP entry '$hostileEntry' must be rejected before extraction"
+      $latestHostile = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
+      Assert-True ($latestHostile.status -eq 'REJECTED_UNSAFE_ARCHIVE_ENTRY') "Expected REJECTED_UNSAFE_ARCHIVE_ENTRY for $hostileEntry, got $($latestHostile.status)"
+    }
+
+    # Verify parallel controllers fail closed when invoked outside simulation/dryrun
+    $blockedRelease = $false
+    try {
+      & (Join-Path $PSScriptRoot 'Deploy-Release.ps1') -ConfigPath 'C:\nonexistent.json' -Archive 'C:\nonexistent.zip' -Sha $shaNew -ArchiveSha256 ('a' * 64)
+    } catch {
+      if ($_.Exception.Message -match 'CANONICAL_CONTROLLER_ENFORCED') { $blockedRelease = $true }
+    }
+    Assert-True $blockedRelease 'Deploy-Release.ps1 without -Simulation must throw CANONICAL_CONTROLLER_ENFORCED'
+
+    $blockedWebOnly = $false
+    try {
+      & (Join-Path $PSScriptRoot 'Deploy-WebOnly-Windows.ps1') -WebBundle 'C:\nonexistent.tar.gz'
+    } catch {
+      if ($_.Exception.Message -match 'CANONICAL_CONTROLLER_ENFORCED') { $blockedWebOnly = $true }
+    }
+    Assert-True $blockedWebOnly 'Deploy-WebOnly-Windows.ps1 without -DryRun must throw CANONICAL_CONTROLLER_ENFORCED'
+
+    # Verify schema migration mismatch (PR #10 parity) is blocked when -SkipMigration is active
+    $schemaMismatchDir = Join-Path $sandboxRoot 'schema-mismatch-stage'
+    New-Item -ItemType Directory -Path (Join-Path $schemaMismatchDir 'dist') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $schemaMismatchDir 'dist\dummy.js') -Value '// dummy' -Encoding UTF8 -Force
+    $dummyHash = (Get-FileHash -LiteralPath (Join-Path $schemaMismatchDir 'dist\dummy.js') -Algorithm SHA256).Hash.ToLowerInvariant()
+    @{
+      sha        = $shaNew
+      migrations = @(1..99 | ForEach-Object { @{ id = "00$_"; checksum = ('a' * 64) } })
+      files      = @(@{ path = 'dist/dummy.js'; size = 8; sha256 = $dummyHash })
+    } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $schemaMismatchDir 'manifest.json') -Encoding UTF8 -Force
+    $schemaMismatchTar = Join-Path $sandboxRoot 'schema-mismatch.tar.gz'
+    tar -czf $schemaMismatchTar -C $schemaMismatchDir .
+    $schemaMismatchHash = (Get-FileHash -LiteralPath $schemaMismatchTar -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-CiReceipt -RunId '503' -HeadSha $shaNew -Status 'completed' -Conclusion 'success' -Event 'push'
+    & $approveScript -CommitSha $shaNew -ArtifactSha256 $schemaMismatchHash -CiRunId '503' -CiStatus 'SUCCESS' -Sequence 3 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
+    $rejectedSchema = $false
+    try {
+      & $deployScript -CommitSha $shaNew -ArtifactPath $schemaMismatchTar -ArtifactSha256 $schemaMismatchHash -CiRunId '503' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SkipBuildInSandbox
+    } catch { $rejectedSchema = $true }
+    Assert-True $rejectedSchema 'Bundle with unapplied schema migrations must be rejected when -SkipMigration is true'
+    $latestSchema = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
+    Assert-True ($latestSchema.status -eq 'REJECTED_SCHEMA_MIGRATION_MISMATCH') "Expected REJECTED_SCHEMA_MIGRATION_MISMATCH, got $($latestSchema.status)"
+  }
+
   # Final Production Integrity Verification
   $prodApiProcAfter = Get-CimInstance Win32_Service -Filter "Name='HPManagementLiteApi'"
   $prodHeadAfter = (git -c safe.directory=* -C $prodRepo rev-parse HEAD).Trim()

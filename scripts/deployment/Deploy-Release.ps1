@@ -8,6 +8,9 @@ param(
     [switch]$Simulation
 )
 Import-Module (Join-Path $PSScriptRoot 'Release.Common.psm1') -Force
+if (-not $Simulation) {
+    throw 'CANONICAL_CONTROLLER_ENFORCED: Non-simulation deployment must use scripts/deployment/Deploy-SemiAutoWindows.ps1 with Ed25519 Owner signature.'
+}
 $c = Read-DeployConfig $ConfigPath -Simulation:$Simulation
 $lock = Enter-DeployLock $c
 $previous=$null; $switchAttempted=$false
