@@ -44,11 +44,15 @@ test('Deployment policy rejects unapproved SHA, untrusted CI and missing Owner p
       GITHUB_TOKEN: 'synthetic-test-token-not-real',
     };
     const run = (scenario, override = {}) =>
-      spawnSync(process.execPath, ['--import', pathToFileURL(mock).href, script], {
-        cwd: dir,
-        encoding: 'utf8',
-        env: { ...base, POLICY_CASE: scenario, ...override },
-      });
+      spawnSync(
+        process.execPath,
+        ['--import', pathToFileURL(mock).href, script],
+        {
+          cwd: dir,
+          encoding: 'utf8',
+          env: { ...base, POLICY_CASE: scenario, ...override },
+        },
+      );
     assert.equal(run('valid').status, 0);
     for (const scenario of [
       'ci-sha',
@@ -164,10 +168,26 @@ test('Option 1 CI/CD architecture: automatic CI on push/PR without deploy, singl
       controllerCode.includes('REJECTED_INDEPENDENT_CI_VERIFICATION_FAILED') &&
       controllerCode.includes('REJECTED_GITHUB_API_CI_VERIFICATION_FAILED') &&
       controllerCode.includes('ROLLBACK_FAILED_MANUAL_INTERVENTION') &&
+      controllerCode.includes('REJECTED_BUILD_NOT_READY') &&
+      controllerCode.includes('MIGRATION_FAILED_PRE_CUTOVER') &&
+      controllerCode.includes('STOP_NO_GO_INCOMPATIBLE_ROLLBACK') &&
+      controllerCode.includes(
+        'ROLLBACK_BLOCKED_INCOMPATIBLE_SCHEMA_OR_AUTH_POLICY',
+      ) &&
       controllerCode.includes('Invoke-AtomicRuntimeSwap') &&
       controllerCode.includes('UNSAFE_TAR_TYPE'),
     true,
-    'Deploy-SemiAutoWindows.ps1 must enforce mandatory artifact, CI receipt, live GitHub API, atomic same-volume swap, TAR header symlink/hardlink rejection, and rollback MANUAL_INTERVENTION states',
+    'Deploy-SemiAutoWindows.ps1 must enforce mandatory artifact, CI receipt, live GitHub API, build readiness, pre-cutover migration, atomic same-volume swap, TAR header symlink/hardlink rejection, and rollback STOP/NO-GO + MANUAL_INTERVENTION states',
+  );
+  const preCutoverMigIdx = controllerCode.indexOf(
+    "phase           = 'PRE_CUTOVER_MIGRATION'",
+  );
+  const runtimeCutoverIdx = controllerCode.indexOf(
+    "phase           = 'RUNTIME_CUTOVER'",
+  );
+  assert.equal(
+    preCutoverMigIdx > 0 && runtimeCutoverIdx > preCutoverMigIdx,
+    true,
+    'Deploy-SemiAutoWindows.ps1 must execute and verify database migrations (PRE_CUTOVER_MIGRATION) strictly before switching live API/Web runtime (RUNTIME_CUTOVER)',
   );
 });
-

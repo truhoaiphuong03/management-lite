@@ -5,7 +5,7 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$devRepo = 'C:\HoaiPhuong-Server\workspace\management-lite-dev'
+$devRepo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $prodRepo = 'C:\HoaiPhuong-Server\apps\management-lite'
 $approveScript = Join-Path $devRepo 'scripts\deployment\Approve-ReleaseSha.ps1'
 $deployScript = Join-Path $devRepo 'scripts\deployment\Deploy-SemiAutoWindows.ps1'
@@ -14,7 +14,8 @@ $node = 'C:\HoaiPhuong-Server\config\runtime\node-v22.14.0-win-x64\node.exe'
 $psql = 'C:\HoaiPhuong-Server\config\postgresql-18\pgsql\bin\psql.exe'
 $pgPassFile = 'C:\HoaiPhuong-Server\config\test-secrets\pgpass.conf'
 
-$shaOld = (git -c safe.directory=* -C $devRepo rev-parse 3743e99).Trim().ToLowerInvariant()
+$shaOld = (git -c safe.directory=* -C $devRepo rev-parse 85d7fc7).Trim().ToLowerInvariant()
+$shaPre0023 = (git -c safe.directory=* -C $devRepo rev-parse 9c38549).Trim().ToLowerInvariant()
 $shaNew = (git -c safe.directory=* -C $devRepo rev-parse HEAD).Trim().ToLowerInvariant()
 
 $sandboxRoot = Join-Path ([IO.Path]::GetTempPath()) ('ml-sec-sandbox-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
@@ -699,15 +700,22 @@ const stageDir = process.argv[1];
 const sql0FileHash = process.argv[2];
 const mPath = path.join(stageDir, 'manifest.json');
 const m = JSON.parse(fs.readFileSync(mPath, 'utf8'));
-for (const f of m.files) {
-  if (f.path === 'migrations/0001_m00_prerequisites.sql') {
-    f.sha256 = sql0FileHash;
-    f.size = fs.statSync(path.join(stageDir, f.path)).size;
-  }
-}
 const rawSql = fs.readFileSync(path.join(stageDir, 'migrations/0001_m00_prerequisites.sql'), 'utf8');
 m.migrations[0].checksum = crypto.createHash('sha256').update(rawSql.replace(/\r\n/g, '\n').trim(), 'utf8').digest('hex');
 m.schemaIdentity = crypto.createHash('sha256').update(JSON.stringify(m.migrations), 'utf8').digest('hex');
+for (const rvRel of ['dist/release-version.json', 'web/release-version.json']) {
+  const rvFull = path.join(stageDir, rvRel);
+  const rv = JSON.parse(fs.readFileSync(rvFull, 'utf8'));
+  rv.schemaIdentity = m.schemaIdentity;
+  fs.writeFileSync(rvFull, JSON.stringify(rv, null, 2), 'utf8');
+}
+for (const f of m.files) {
+  if (f.path === 'migrations/0001_m00_prerequisites.sql' || f.path === 'dist/release-version.json' || f.path === 'web/release-version.json') {
+    const full = path.join(stageDir, f.path);
+    f.sha256 = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
+    f.size = fs.statSync(full).size;
+  }
+}
 fs.writeFileSync(mPath, JSON.stringify(m, null, 2), 'utf8');
 process.stdout.write(m.schemaIdentity);
 "@
@@ -719,13 +727,56 @@ process.stdout.write(m.schemaIdentity);
     Set-MockGhRun -RunId '505' -HeadSha $shaNew
     Write-CiReceipt -RunId '505' -HeadSha $shaNew -ArtifactSha256 $schemaDriftHash -SchemaSha256 $driftSchemaId
     & $approveScript -CommitSha $shaNew -ArtifactSha256 $schemaDriftHash -SchemaSha256 $driftSchemaId -CiRunId '505' -CiStatus 'SUCCESS' -Sequence $seq -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
+    $seq++
     $rejectedSchema = $false
     try {
       & $deployScript -CommitSha $shaNew -ArtifactPath $schemaDriftTar -ArtifactSha256 $schemaDriftHash -CiRunId '505' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode
     } catch { $rejectedSchema = $true }
-    Assert-True $rejectedSchema 'Bundle with single-migration checksum drift (21==21 count) must be rejected when -SkipMigration is true'
+    Assert-True $rejectedSchema 'Bundle with single-migration checksum drift (23==23 count) must be rejected when -SkipMigration is true'
     $latestSchema = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
     Assert-True ($latestSchema.status -eq 'REJECTED_SCHEMA_MIGRATION_MISMATCH') "Expected REJECTED_SCHEMA_MIGRATION_MISMATCH, got $($latestSchema.status)"
+  }
+
+  # 22. INCOMPATIBLE PRE-0023 ROLLBACK BLOCKED (STOP/NO-GO) & SAFE FORWARD RECOVERY
+  Run-Scenario '22. AUTH_REMEMBER_01_STOP_NO_GO_AND_FORWARD_RECOVERY_TEST: Blocks Rollback to Pre-0023 Build After 0023 Applied & Recovers Forward Safely' {
+    Seed-SandboxBaseline -BaseSha $shaPre0023
+    Set-MockGhRun -RunId '506' -HeadSha $shaNew
+    Write-CiReceipt -RunId '506' -HeadSha $shaNew -ArtifactSha256 $validBundleHash -SchemaSha256 $validSchemaHash
+    & $approveScript -CommitSha $shaNew -ArtifactSha256 $validBundleHash -SchemaSha256 $validSchemaHash -CiRunId '506' -CiStatus 'SUCCESS' -Sequence 10 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
+
+    $blockedIncompatRb = $false
+    try {
+      & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '506' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode -SimulateHealthFailure
+    } catch {
+      if ($_.Exception.Message -match 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK') { $blockedIncompatRb = $true }
+    }
+    Assert-True $blockedIncompatRb 'Post-cutover failure when previous snapshot is pre-0023 must block rollback and enter STOP_NO_GO_INCOMPATIBLE_ROLLBACK'
+
+    $latestStop = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
+    $journalStop = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\deployment-state.json') -Raw | ConvertFrom-Json
+    $headAfterStop = (git -c safe.directory=* -C $sandboxTarget rev-parse HEAD).Trim().ToLowerInvariant()
+    Assert-True ($latestStop.status -eq 'ROLLBACK_BLOCKED_INCOMPATIBLE_SCHEMA_OR_AUTH_POLICY') "Expected ROLLBACK_BLOCKED_INCOMPATIBLE_SCHEMA_OR_AUTH_POLICY, got $($latestStop.status)"
+    Assert-True ($journalStop.status -eq 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK') "Expected STOP_NO_GO_INCOMPATIBLE_ROLLBACK, got $($journalStop.status)"
+    Assert-True ($headAfterStop -eq $shaNew) 'Git HEAD must NOT be rolled back to incompatible pre-0023 SHA'
+
+    # Verify -RecoverInterrupted is also blocked while in STOP_NO_GO_INCOMPATIBLE_ROLLBACK
+    $recoverBlocked = $false
+    try {
+      & $deployScript -CommitSha $shaNew -RecoverInterrupted -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -SandboxMode
+    } catch {
+      if ($_.Exception.Message -match 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK') { $recoverBlocked = $true }
+    }
+    Assert-True $recoverBlocked '-RecoverInterrupted must be blocked in STOP_NO_GO_INCOMPATIBLE_ROLLBACK state'
+
+    # Verify Safe Forward Recovery (-Force with a newly signed 0023-compatible bundle at Sequence 11) succeeds cleanly
+    Set-MockGhRun -RunId '507' -HeadSha $shaNew
+    Write-CiReceipt -RunId '507' -HeadSha $shaNew -ArtifactSha256 $validBundleHash -SchemaSha256 $validSchemaHash
+    & $approveScript -CommitSha $shaNew -ArtifactSha256 $validBundleHash -SchemaSha256 $validSchemaHash -CiRunId '507' -CiStatus 'SUCCESS' -Sequence 11 -ApprovedBy 'Owner' -PrivateKeyPath $ownerPrivKey -PolicyPath $policyPath -ManifestPath $manifestPath -AuditLogPath $auditLogPath
+    & $deployScript -CommitSha $shaNew -ArtifactPath $validBundle.FullName -ArtifactSha256 $validBundleHash -CiRunId '507' -CiRunReceiptPath $ciReceiptPath -PolicyPath $policyPath -ApprovalManifestPath $manifestPath -ServerRoot $sandboxRoot -TargetDir $sandboxTarget -DbTarget 'management_lite_integration_test' -Force -SandboxMode
+
+    $latestFwd = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\latest-deployment.json') -Raw | ConvertFrom-Json
+    $journalFwd = Get-Content -LiteralPath (Join-Path $sandboxRoot 'reports\deployment-state.json') -Raw | ConvertFrom-Json
+    Assert-True ($latestFwd.status -eq 'SUCCESS' -and $journalFwd.status -eq 'COMPLETED') 'Safe forward recovery with signed 0023-compatible bundle must restore COMPLETED/SUCCESS state'
   }
 
   # Final Production Integrity Verification

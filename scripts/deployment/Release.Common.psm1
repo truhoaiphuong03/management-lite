@@ -77,6 +77,12 @@ function Invoke-Pg($Config, [string]$Tool, [string[]]$Arguments) {
 function Assert-ReleaseSchema($Config, $Manifest, [switch]$Simulation) {
     if ($Simulation) {
         if ($Config.SimulationSchema -ne $Manifest.schemaIdentity) { throw 'Schema mismatch; migration is manual only.' }
+        if (($Config.PSObject.Properties.Name -contains 'SimulationAuthPolicy') -and -not [string]::IsNullOrWhiteSpace([string]$Config.SimulationAuthPolicy)) {
+            $manifestPolicy = if ($Manifest.PSObject.Properties.Name -contains 'authPolicyVersion') { [string]$Manifest.authPolicyVersion } else { '' }
+            if ($manifestPolicy -cne [string]$Config.SimulationAuthPolicy) {
+                throw "ROLLBACK_BLOCKED_INCOMPATIBLE_SCHEMA_OR_AUTH_POLICY: Release authPolicyVersion '$manifestPolicy' is incompatible with active policy '$($Config.SimulationAuthPolicy)'."
+            }
+        }
         return
     }
     $identity = Invoke-Pg $Config 'psql.exe' @('-X','-w','-At','-c', "SELECT json_build_object('database',current_database(),'systemIdentifier',(SELECT system_identifier::text FROM pg_control_system()))") | ConvertFrom-Json

@@ -16,9 +16,9 @@ $lock = Enter-DeployLock $c
 $previous=$null; $switchAttempted=$false
 try {
     $journalPath=Join-Path $c.Root 'deployment-state.json'
-    if (Test-Path -LiteralPath $journalPath) {
+    if ($journalPath -and (Test-Path -LiteralPath $journalPath)) {
         $journal=Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
-        if ($journal.status -eq 'in_progress') { throw 'Interrupted deployment requires operator recovery before retry.' }
+        if ($journal.status -in @('in_progress','stop_no_go_incompatible_rollback')) { throw 'Interrupted or STOP/NO-GO deployment requires operator recovery before retry.' }
     }
     $previous = Get-CurrentRelease $c -Simulation:$Simulation
     $oldManifest = Assert-LocalReleaseIntegrity $previous
@@ -48,13 +48,24 @@ try {
     Write-DeployEvent $c 'DEPLOY_FAILED' $Sha
     if ($switchAttempted -and $previous) {
         try {
+            $latestConfig = Read-DeployConfig $ConfigPath -Simulation:$Simulation
+            Assert-ReleaseSchema $latestConfig $oldManifest -Simulation:$Simulation
             Set-AppService $c Stop -Simulation:$Simulation
             Set-CurrentRelease $c $previous -Simulation:$Simulation
             Set-AppService $c Start -Simulation:$Simulation
             Test-ReleaseHealth $c $oldManifest.sha -Simulation:$Simulation
             Write-DeployEvent $c 'ROLLED_BACK' $oldManifest.sha
             @{status='rolled_back';sha=$oldManifest.sha;failedSha=$Sha} | ConvertTo-Json | Set-Content -LiteralPath $journalPath
-        } catch { Write-DeployEvent $c 'ROLLBACK_FAILED_OPERATOR_REQUIRED' $Sha; throw 'Deploy and rollback failed; operator required. No database restore performed.' }
+        } catch {
+            $rbErrMsg = $_.Exception.Message
+            if ($rbErrMsg -match 'Schema mismatch|ROLLBACK_BLOCKED_INCOMPATIBLE_SCHEMA_OR_AUTH_POLICY') {
+                Write-DeployEvent $c 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK' $Sha
+                @{status='stop_no_go_incompatible_rollback';sha=$oldManifest.sha;failedSha=$Sha;reason=$rbErrMsg} | ConvertTo-Json | Set-Content -LiteralPath $journalPath
+                throw "STOP_NO_GO_INCOMPATIBLE_ROLLBACK: Rollback blocked because previous release is incompatible with active schema or auth policy ($rbErrMsg)."
+            }
+            Write-DeployEvent $c 'ROLLBACK_FAILED_OPERATOR_REQUIRED' $Sha
+            throw 'Deploy and rollback failed; operator required. No database restore performed.'
+        }
     }
     throw 'Deployment rejected/failed. See local sanitized history. No database restore performed.'
 } finally { $lock.Dispose() }

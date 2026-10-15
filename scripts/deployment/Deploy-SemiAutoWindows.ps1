@@ -17,6 +17,7 @@ param(
   [string]$ApprovalManifestPath = 'C:\HoaiPhuong-Server\config\release-gate\approved-release.json',
   [switch]$Force,
   [switch]$SkipMigration = $true,
+  [switch]$RunMigrations,
   [switch]$RecoverInterrupted,
   [string]$ServerRoot = 'C:\HoaiPhuong-Server',
   [string]$TargetDir = 'C:\HoaiPhuong-Server\apps\management-lite',
@@ -32,6 +33,10 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($RunMigrations) {
+  $SkipMigration = $false
+}
 
 $normalizedSha = $CommitSha.Trim().ToLowerInvariant()
 $normalizedArtifactSha = $ArtifactSha256.Trim().ToLowerInvariant()
@@ -258,6 +263,214 @@ function Invoke-AtomicRuntimeSwap {
   }
 }
 
+function Get-DatabaseSchemaAndAuthState {
+  $env:PGPASSFILE = $pgPassFile
+  $regLines = @(& $psql -h 127.0.0.1 -p 55432 -U hp_test_admin -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT CASE WHEN to_regclass('public.schema_migrations') IS NOT NULL THEN 'YES' ELSE 'NO' END;" 2>$null | Where-Object { $_ -and $_ -ne 'SET' })
+  if ($LASTEXITCODE -ne 0 -or $regLines.Count -eq 0) {
+    throw "Failed to query schema_migrations existence from '$DbTarget'"
+  }
+  $tableExists = ($regLines[0].Trim() -eq 'YES')
+  if (-not $tableExists) {
+    return @{
+      table_exists       = $false
+      mig_lines          = @()
+      mig_count          = 0
+      schema_identity    = ''
+      has_0023           = $false
+      remember_me_column = $false
+    }
+  }
+
+  $dbMigLines = @(& $psql -h 127.0.0.1 -p 55432 -U hp_test_admin -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT id || ':' || checksum FROM schema_migrations ORDER BY id;" 2>$null | Where-Object { $_ -and $_ -ne 'SET' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to query schema_migrations rows from '$DbTarget'"
+  }
+
+  $colLines = @(& $psql -h 127.0.0.1 -p 55432 -U hp_test_admin -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'auth_sessions' AND column_name = 'remember_me') THEN 'PRESENT' ELSE 'MISSING' END;" 2>$null | Where-Object { $_ -and $_ -ne 'SET' })
+  if ($LASTEXITCODE -ne 0 -or $colLines.Count -eq 0) {
+    throw "Failed to query information_schema.columns for auth_sessions.remember_me from '$DbTarget'"
+  }
+  $hasRememberMeCol = ($colLines[0].Trim() -eq 'PRESENT')
+
+  $jsComputeDbSchema = @"
+const crypto = require('node:crypto');
+const raw = process.argv[1] || '';
+const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+const migs = lines.map(l => {
+  const idx = l.indexOf(':');
+  return { id: l.slice(0, idx), checksum: l.slice(idx + 1).toLowerCase() };
+});
+process.stdout.write(crypto.createHash('sha256').update(JSON.stringify(migs), 'utf8').digest('hex'));
+"@
+  $joinedMigs = $dbMigLines -join "`n"
+  $dbSchemaIdentity = if ($dbMigLines.Count -gt 0) { ((& $node -e $jsComputeDbSchema $joinedMigs) -join '').Trim().ToLowerInvariant() } else { '' }
+  $has0023InTable = [bool]($dbMigLines | Where-Object { $_ -match '^0023_auth_session_remember_me:' })
+
+  return @{
+    table_exists       = $true
+    mig_lines          = $dbMigLines
+    mig_count          = $dbMigLines.Count
+    schema_identity    = $dbSchemaIdentity
+    has_0023           = ($has0023InTable -or $hasRememberMeCol)
+    has_0023_migration = $has0023InTable
+    remember_me_column = $hasRememberMeCol
+  }
+}
+
+function Get-ReleaseCompatibilityDescriptor {
+  param(
+    [string]$ReleaseDir,
+    [string]$GitSha = '',
+    [psobject]$RollbackMetadata = $null
+  )
+  $schemaId = ''
+  $migCount = 0
+  $maxMigId = ''
+  $has0023 = $false
+  $authPolicy = ''
+  $explicitMeta = $false
+
+  if ($null -ne $RollbackMetadata) {
+    if (($RollbackMetadata.PSObject.Properties.Name -contains 'previous_schema_identity') -and -not [string]::IsNullOrWhiteSpace([string]$RollbackMetadata.previous_schema_identity)) {
+      $schemaId = [string]$RollbackMetadata.previous_schema_identity.Trim().ToLowerInvariant()
+    }
+    if (($RollbackMetadata.PSObject.Properties.Name -contains 'previous_migration_count') -and $null -ne $RollbackMetadata.previous_migration_count) {
+      $migCount = [int]$RollbackMetadata.previous_migration_count
+    }
+    if (($RollbackMetadata.PSObject.Properties.Name -contains 'previous_max_migration_id') -and -not [string]::IsNullOrWhiteSpace([string]$RollbackMetadata.previous_max_migration_id)) {
+      $maxMigId = [string]$RollbackMetadata.previous_max_migration_id
+    }
+    if ($RollbackMetadata.PSObject.Properties.Name -contains 'previous_has_0023') {
+      $has0023 = [bool]$RollbackMetadata.previous_has_0023
+      $explicitMeta = $true
+    }
+    if (($RollbackMetadata.PSObject.Properties.Name -contains 'previous_auth_policy') -and -not [string]::IsNullOrWhiteSpace([string]$RollbackMetadata.previous_auth_policy)) {
+      $authPolicy = [string]$RollbackMetadata.previous_auth_policy
+      $explicitMeta = $true
+    }
+  }
+
+  $apiVerPath = if ($ReleaseDir) { Join-Path $ReleaseDir 'dist\release-version.json' } else { '' }
+  if ($apiVerPath -and (Test-Path -LiteralPath $apiVerPath -PathType Leaf)) {
+    try {
+      $verObj = Get-Content -LiteralPath $apiVerPath -Raw | ConvertFrom-Json
+      if ([string]::IsNullOrWhiteSpace($schemaId) -and ($verObj.PSObject.Properties.Name -contains 'schemaIdentity') -and -not [string]::IsNullOrWhiteSpace([string]$verObj.schemaIdentity)) {
+        $schemaId = [string]$verObj.schemaIdentity.Trim().ToLowerInvariant()
+      }
+      if ($migCount -eq 0 -and ($verObj.PSObject.Properties.Name -contains 'migrationCount') -and $null -ne $verObj.migrationCount) {
+        $migCount = [int]$verObj.migrationCount
+      }
+      if ([string]::IsNullOrWhiteSpace($maxMigId) -and ($verObj.PSObject.Properties.Name -contains 'maxMigrationId') -and -not [string]::IsNullOrWhiteSpace([string]$verObj.maxMigrationId)) {
+        $maxMigId = [string]$verObj.maxMigrationId
+      }
+      if ([string]::IsNullOrWhiteSpace($authPolicy) -and ($verObj.PSObject.Properties.Name -contains 'authPolicyVersion') -and -not [string]::IsNullOrWhiteSpace([string]$verObj.authPolicyVersion)) {
+        $authPolicy = [string]$verObj.authPolicyVersion
+        $explicitMeta = $true
+      }
+      if ($maxMigId -eq '0023_auth_session_remember_me' -or $authPolicy -eq 'auth-remember-01') {
+        $has0023 = $true
+      }
+    } catch { }
+  }
+
+  if ([string]::IsNullOrWhiteSpace($schemaId) -or (-not $explicitMeta)) {
+    $migCandidateDir = ''
+    if ($ReleaseDir) {
+      $cand1 = Join-Path $ReleaseDir 'migrations'
+      $cand2 = Join-Path $ReleaseDir 'packages\database\src\migrations'
+      if (Test-Path -LiteralPath $cand1 -PathType Container) { $migCandidateDir = $cand1 }
+      elseif (Test-Path -LiteralPath $cand2 -PathType Container) { $migCandidateDir = $cand2 }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($migCandidateDir)) {
+      $jsInspectDirMigs = @"
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const dir = process.argv[1];
+const files = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort();
+const migs = files.map(f => {
+  const raw = fs.readFileSync(path.join(dir, f), 'utf8').replace(/\r\n/g, '\n').trim();
+  return { id: f.replace(/\.sql$/, ''), checksum: crypto.createHash('sha256').update(raw, 'utf8').digest('hex') };
+});
+const schemaIdentity = migs.length > 0 ? crypto.createHash('sha256').update(JSON.stringify(migs), 'utf8').digest('hex') : '';
+const has0023 = migs.some(m => m.id === '0023_auth_session_remember_me');
+process.stdout.write(JSON.stringify({
+  schemaIdentity,
+  migrationCount: migs.length,
+  maxMigrationId: migs.length > 0 ? migs[migs.length - 1].id : '',
+  has0023
+}));
+"@
+      $dirMigJson = ((& $node -e $jsInspectDirMigs $migCandidateDir) -join '').Trim()
+      if (-not [string]::IsNullOrWhiteSpace($dirMigJson)) {
+        $dirMigObj = $dirMigJson | ConvertFrom-Json
+        if ([string]::IsNullOrWhiteSpace($schemaId)) { $schemaId = [string]$dirMigObj.schemaIdentity }
+        if ($migCount -eq 0) { $migCount = [int]$dirMigObj.migrationCount }
+        if ([string]::IsNullOrWhiteSpace($maxMigId)) { $maxMigId = [string]$dirMigObj.maxMigrationId }
+        if (-not $explicitMeta) { $has0023 = [bool]$dirMigObj.has0023 }
+      }
+    } elseif ($GitSha -match '^[0-9a-f]{40}$' -and (Test-Path -LiteralPath (Join-Path $TargetDir '.git'))) {
+      $jsInspectGitMigs = @"
+const crypto = require('node:crypto');
+const { execFileSync } = require('node:child_process');
+const repo = process.argv[1];
+const sha = process.argv[2];
+try {
+  const namesRaw = execFileSync('git', ['-c', 'safe.directory=*', '-C', repo, 'ls-tree', '--name-only', sha + ':packages/database/src/migrations'], { encoding: 'utf8' });
+  const files = namesRaw.split(/\r?\n/).map(s => s.trim()).filter(f => f.endsWith('.sql')).sort();
+  const migs = files.map(f => {
+    const raw = execFileSync('git', ['-c', 'safe.directory=*', '-C', repo, 'show', sha + ':packages/database/src/migrations/' + f], { encoding: 'utf8' }).replace(/\r\n/g, '\n').trim();
+    return { id: f.replace(/\.sql$/, ''), checksum: crypto.createHash('sha256').update(raw, 'utf8').digest('hex') };
+  });
+  const schemaIdentity = migs.length > 0 ? crypto.createHash('sha256').update(JSON.stringify(migs), 'utf8').digest('hex') : '';
+  const has0023 = migs.some(m => m.id === '0023_auth_session_remember_me');
+  process.stdout.write(JSON.stringify({
+    schemaIdentity,
+    migrationCount: migs.length,
+    maxMigrationId: migs.length > 0 ? migs[migs.length - 1].id : '',
+    has0023
+  }));
+} catch (e) {
+  process.stdout.write('');
+}
+"@
+      $gitMigJson = ((& $node -e $jsInspectGitMigs $TargetDir $GitSha) -join '').Trim()
+      if (-not [string]::IsNullOrWhiteSpace($gitMigJson)) {
+        $gitMigObj = $gitMigJson | ConvertFrom-Json
+        if ([string]::IsNullOrWhiteSpace($schemaId)) { $schemaId = [string]$gitMigObj.schemaIdentity }
+        if ($migCount -eq 0) { $migCount = [int]$gitMigObj.migrationCount }
+        if ([string]::IsNullOrWhiteSpace($maxMigId)) { $maxMigId = [string]$gitMigObj.maxMigrationId }
+        if (-not $explicitMeta) { $has0023 = [bool]$gitMigObj.has0023 }
+      }
+    }
+  }
+
+  # Also inspect compiled auth/service.js if present to verify remember_me policy support in code
+  $authServicePath = if ($ReleaseDir) { Join-Path $ReleaseDir 'dist\apps\api\src\auth\service.js' } else { '' }
+  if ($authServicePath -and (Test-Path -LiteralPath $authServicePath -PathType Leaf)) {
+    $svcContent = Get-Content -LiteralPath $authServicePath -Raw
+    if ($svcContent.Length -gt 100) {
+      if ($svcContent -notmatch 'remember_me' -or $svcContent -notmatch 'getRememberMeMaxAgeSeconds') {
+        $has0023 = $false
+        $authPolicy = 'legacy-pre-0023'
+      }
+    }
+  }
+
+  if ([string]::IsNullOrWhiteSpace($authPolicy)) {
+    $authPolicy = if ($has0023) { 'auth-remember-01' } else { 'legacy-pre-0023' }
+  }
+
+  return @{
+    schema_identity = $schemaId
+    migration_count = $migCount
+    max_migration   = $maxMigId
+    has_0023        = [bool]$has0023
+    auth_policy     = $authPolicy
+  }
+}
+
 function Restore-VerifiedSnapshot {
   param(
     [string]$SnapshotPath,
@@ -306,6 +519,50 @@ function Restore-VerifiedSnapshot {
       throw 'Snapshot is missing required dist or web\dist directory.'
     }
 
+    # MANDATORY ROLLBACK SCHEMA & AUTH-REMEMBER-01 POLICY COMPATIBILITY GATE (BEFORE RUNTIME RESTORE)
+    $dbStateForRb = Get-DatabaseSchemaAndAuthState
+    $snapCompat = Get-ReleaseCompatibilityDescriptor -ReleaseDir $SnapshotPath -GitSha $ExpectedPreviousSha -RollbackMetadata $rbMeta
+    $incompatReasons = @()
+    if ($dbStateForRb.has_0023 -and ((-not $snapCompat.has_0023) -or $snapCompat.auth_policy -ne 'auth-remember-01')) {
+      $incompatReasons += "Database '$DbTarget' has migration 0023_auth_session_remember_me applied (auth-remember-01 session policy), but rollback target $ExpectedPreviousSha has auth_policy='$($snapCompat.auth_policy)' (has_0023=$($snapCompat.has_0023)). Code-only rollback would violate AUTH-REMEMBER-01 session security policy"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($snapCompat.schema_identity) -and -not [string]::IsNullOrWhiteSpace($dbStateForRb.schema_identity) -and $snapCompat.schema_identity -ne $dbStateForRb.schema_identity) {
+      $incompatReasons += "Database '$DbTarget' schema_identity ($($dbStateForRb.schema_identity), $($dbStateForRb.mig_count) migrations) does not match rollback target $ExpectedPreviousSha schema_identity ($($snapCompat.schema_identity), $($snapCompat.migration_count) migrations)"
+    }
+    if ($snapCompat.migration_count -gt 0 -and $dbStateForRb.mig_count -ne $snapCompat.migration_count) {
+      $incompatReasons += "Database '$DbTarget' has $($dbStateForRb.mig_count) applied migrations, but rollback target $ExpectedPreviousSha expects $($snapCompat.migration_count) migrations"
+    }
+
+    if ($incompatReasons.Count -gt 0) {
+      $incompatDetail = $incompatReasons -join '; '
+      Write-DeployLog "STOP/NO-GO: Blocking incompatible code-only rollback to $ExpectedPreviousSha ($incompatDetail)." 'ERROR'
+      if (-not $SandboxMode) {
+        Stop-Service HPManagementLiteApi -Force -ErrorAction SilentlyContinue
+      }
+      @{
+        status                   = 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK'
+        sha                      = $ExpectedPreviousSha
+        failed_sha               = $FailedSha
+        snapshot_dir             = $SnapshotPath
+        db_schema_identity       = $dbStateForRb.schema_identity
+        db_migration_count       = $dbStateForRb.mig_count
+        snapshot_schema_identity = $snapCompat.schema_identity
+        snapshot_migration_count = $snapCompat.migration_count
+        snapshot_auth_policy     = $snapCompat.auth_policy
+        rollback_error           = $incompatDetail
+        safe_recovery_options    = @(
+          '1. SAFE FORWARD RECOVERY (ZERO DATA LOSS): Deploy an Owner-signed 0023-compatible hotfix bundle with -Force and -SkipMigration.',
+          '2. FULL MAINTENANCE RESTORE: Only inside an Owner-approved maintenance window, restore the pre-deploy PostgreSQL backup alongside the pre-0023 snapshot.'
+        )
+        stopped_at_utc           = (Get-Date).ToUniversalTime().ToString('o')
+      } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $stateJournalFile -Encoding UTF8 -Force
+
+      $duration = [int]((Get-Date) - $startTime).TotalMilliseconds
+      Record-DeployResult -Status 'ROLLBACK_BLOCKED_INCOMPATIBLE_SCHEMA_OR_AUTH_POLICY' -Sha $FailedSha -PreviousSha $ExpectedPreviousSha -Message "STOP/NO-GO: Deploy failed ($FailureReason) AND rollback to $ExpectedPreviousSha blocked ($incompatDetail)" -DurationMs $duration
+      throw "STOP_NO_GO_INCOMPATIBLE_ROLLBACK: Deployment of $FailedSha failed ($FailureReason) and code-only rollback to $ExpectedPreviousSha was BLOCKED ($incompatDetail)."
+    }
+
+    Write-DeployLog "Rollback target $ExpectedPreviousSha verified compatible with database schema ($($dbStateForRb.mig_count) migrations) and auth policy ($($snapCompat.auth_policy))."
     Write-DeployLog "Restoring Git working tree to previous SHA: $ExpectedPreviousSha..."
     $prevEapRb = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
@@ -347,6 +604,9 @@ function Restore-VerifiedSnapshot {
     Write-DeployLog "Atomic rollback & post-rollback health verification succeeded (restored to $ExpectedPreviousSha)." 'WARN'
   } catch {
     $rbErr = $_.Exception.Message
+    if ($rbErr -match '^STOP_NO_GO_INCOMPATIBLE_ROLLBACK:') {
+      throw $rbErr
+    }
     Write-DeployLog "CRITICAL: Rollback verification failed ($rbErr). Transitioning to MANUAL_INTERVENTION." 'ERROR'
     @{
       status                     = 'MANUAL_INTERVENTION'
@@ -416,6 +676,10 @@ if ($RecoverInterrupted) {
       throw 'GATE REJECTED: -RecoverInterrupted is only valid when deployment-state.json is in IN_PROGRESS or ROLLING_BACK state.'
     }
     $journalRecover = Get-Content -LiteralPath $stateJournalFile -Raw | ConvertFrom-Json
+    if ($journalRecover.status -eq 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK') {
+      Record-DeployResult -Status 'ROLLBACK_BLOCKED_INCOMPATIBLE_SCHEMA_OR_AUTH_POLICY' -Sha $normalizedSha -Message '-RecoverInterrupted blocked because journal is in STOP_NO_GO_INCOMPATIBLE_ROLLBACK state' -DurationMs 0
+      throw 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK: Cannot recover by rolling back to an incompatible pre-0023 snapshot. Deploy a signed 0023-compatible release instead.'
+    }
     if ($journalRecover.status -notin @('IN_PROGRESS', 'ROLLING_BACK')) {
       Record-DeployResult -Status 'REJECTED_NOT_INTERRUPTED' -Sha $normalizedSha -Message "-RecoverInterrupted invoked when journal status is '$($journalRecover.status)' (must be IN_PROGRESS or ROLLING_BACK)" -DurationMs 0
       throw "GATE REJECTED: -RecoverInterrupted cannot be used when journal status is '$($journalRecover.status)'. Normal deployments must use a fresh sequence number."
@@ -689,6 +953,10 @@ try {
       Record-DeployResult -Status 'REJECTED_INTERRUPTED_STATE_REQUIRES_RECOVERY' -Sha $normalizedSha -Message "Previous deployment requires recovery or operator intervention (status=$($journalState.status))" -DurationMs 0
       throw "GATE REJECTED: Deployment state '$($journalState.status)' detected. Run with -RecoverInterrupted or perform operator recovery before retrying."
     }
+    if ($journalState.status -eq 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK' -and (-not $Force)) {
+      Record-DeployResult -Status 'REJECTED_STOP_NO_GO_REQUIRES_FORWARD_RECOVERY' -Sha $normalizedSha -Message 'System is in STOP_NO_GO_INCOMPATIBLE_ROLLBACK state; forward recovery requires explicit -Force with a signed 0023-compatible bundle' -DurationMs 0
+      throw 'GATE REJECTED: Deployment state STOP_NO_GO_INCOMPATIBLE_ROLLBACK detected. Code-only rollback is blocked; pass -Force with a newly signed schema/auth-compatible release bundle for safe forward recovery.'
+    }
   }
 
   $previousGitSha = (git -c safe.directory=* -C $TargetDir rev-parse HEAD 2>$null).Trim().ToLowerInvariant()
@@ -706,7 +974,7 @@ try {
     return
   }
 
-  # 10. MANDATORY ARTIFACT INTEGRITY, PROVENANCE, SCHEMA PARITY & PER-FILE SHA-256 VERIFICATION (BEFORE ANY MUTATION)
+  # 10. MANDATORY ARTIFACT INTEGRITY, PROVENANCE, BUILD READINESS, SCHEMA PREFLIGHT & PER-FILE SHA-256 VERIFICATION (BEFORE ANY MUTATION)
   $verifiedArtifactDigest = $signedPayload.artifact_sha256.Trim().ToLowerInvariant()
   $actualArchiveHash = (Get-FileHash -LiteralPath $ArtifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
   if ($actualArchiveHash -ne $normalizedArtifactSha -or $actualArchiveHash -ne $verifiedArtifactDigest) {
@@ -923,12 +1191,12 @@ process.stdout.write('OK:' + count);
     }
   }
 
-  # Verify required bundle entrypoints and embedded release-version.json files
-  foreach ($reqEntry in @('dist/apps/api/src/main.js', 'dist/release-version.json', 'web/index.html', 'web/release-version.json', 'package.json')) {
+  # 10A. CANDIDATE BUILD READINESS & AUTH POLICY VERIFICATION (BEFORE MIGRATION OR CUTOVER)
+  foreach ($reqEntry in @('dist/apps/api/src/main.js', 'dist/apps/api/src/auth/service.js', 'dist/packages/database/src/migrator.js', 'dist/packages/database/src/migrations/catalog.js', 'dist/release-version.json', 'web/index.html', 'web/release-version.json', 'package.json')) {
     $reqFullPath = Join-Path $stagingExtractDir $reqEntry
-    if (-not (Test-Path -LiteralPath $reqFullPath -PathType Leaf)) {
-      Record-DeployResult -Status 'REJECTED_ARTIFACT_FILE_TAMPERED' -Sha $normalizedSha -Message "Incomplete release bundle: missing required file '$reqEntry'" -DurationMs 0
-      throw "GATE REJECTED: Incomplete release bundle; missing required file '$reqEntry'."
+    if (-not (Test-Path -LiteralPath $reqFullPath -PathType Leaf) -or (Get-Item -LiteralPath $reqFullPath).Length -eq 0) {
+      Record-DeployResult -Status 'REJECTED_BUILD_NOT_READY' -Sha $normalizedSha -Message "Candidate build is not ready: missing or empty required file '$reqEntry'" -DurationMs 0
+      throw "GATE REJECTED: Candidate build is not ready; missing or empty required file '$reqEntry'."
     }
   }
   $bundledApiVer = Get-Content -LiteralPath (Join-Path $stagingExtractDir 'dist/release-version.json') -Raw | ConvertFrom-Json
@@ -945,10 +1213,18 @@ process.stdout.write('OK:' + count);
     throw 'GATE REJECTED: Bundle manifest.json is missing valid migrations array or 64-char schemaIdentity.'
   }
   $manifestMigs = @($bundleManifest.migrations)
-  if ([string]$bundleManifest.schemaIdentity.Trim().ToLowerInvariant() -ne [string]$signedPayload.schema_sha256.Trim().ToLowerInvariant() -or
-      [string]$bundleManifest.schemaIdentity.Trim().ToLowerInvariant() -ne $receiptSchemaSha.Trim().ToLowerInvariant()) {
-    Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Bundle schemaIdentity ($($bundleManifest.schemaIdentity)) != signed ($($signedPayload.schema_sha256)) or receipt ($receiptSchemaSha)" -DurationMs 0
+  $expectedBundleSchemaId = [string]$bundleManifest.schemaIdentity.Trim().ToLowerInvariant()
+  if ($expectedBundleSchemaId -ne [string]$signedPayload.schema_sha256.Trim().ToLowerInvariant() -or
+      $expectedBundleSchemaId -ne $receiptSchemaSha.Trim().ToLowerInvariant()) {
+    Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Bundle schemaIdentity ($expectedBundleSchemaId) != signed ($($signedPayload.schema_sha256)) or receipt ($receiptSchemaSha)" -DurationMs 0
     throw 'GATE REJECTED: Bundle schemaIdentity does not match Owner-signed schema_sha256 and CI receipt schema_sha256.'
+  }
+
+  if (($bundledApiVer.PSObject.Properties.Name -contains 'schemaIdentity') -and -not [string]::IsNullOrWhiteSpace([string]$bundledApiVer.schemaIdentity)) {
+    if ([string]$bundledApiVer.schemaIdentity.Trim().ToLowerInvariant() -ne $expectedBundleSchemaId) {
+      Record-DeployResult -Status 'REJECTED_BUILD_NOT_READY' -Sha $normalizedSha -Message "dist/release-version.json schemaIdentity ($($bundledApiVer.schemaIdentity)) != manifest ($expectedBundleSchemaId)" -DurationMs 0
+      throw 'GATE REJECTED: Candidate dist/release-version.json schemaIdentity does not match manifest.json.'
+    }
   }
 
   $jsVerifySqlMigs = @"
@@ -981,33 +1257,61 @@ process.stdout.write('VALID');
     throw "GATE REJECTED: Unpacked migrations/*.sql files do not match manifest.migrations or schemaIdentity ($migCheckOut)."
   }
 
-  if ($SkipMigration) {
-    $env:PGPASSFILE = $pgPassFile
-    $dbMigLines = @(& $psql -h 127.0.0.1 -p 55432 -U hp_test_admin -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT id || ':' || checksum FROM schema_migrations ORDER BY id;" | Where-Object { $_ -and $_ -ne 'SET' })
-    if ($LASTEXITCODE -ne 0) {
-      Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Failed to query schema_migrations from '$DbTarget'" -DurationMs 0
-      throw "GATE REJECTED: Failed to query schema_migrations from '$DbTarget'."
-    }
-    if ($dbMigLines.Count -ne $manifestMigs.Count) {
-      Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Bundle has $($manifestMigs.Count) migrations but DB '$DbTarget' has $($dbMigLines.Count) applied migrations while -SkipMigration is active" -DurationMs 0
-      throw "GATE REJECTED: Schema migration count mismatch (bundle=$($manifestMigs.Count), DB=$($dbMigLines.Count)) while -SkipMigration is true."
-    }
-    for ($mIdx = 0; $mIdx -lt $manifestMigs.Count; $mIdx++) {
-      $expectedPair = "$($manifestMigs[$mIdx].id):$($manifestMigs[$mIdx].checksum.ToLowerInvariant())"
-      $actualPair = $dbMigLines[$mIdx].Trim().ToLowerInvariant()
-      if ($actualPair -ne $expectedPair.ToLowerInvariant()) {
-        Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Migration checksum/id mismatch at index $mIdx (bundle=$expectedPair, db=$actualPair)" -DurationMs 0
-        throw "GATE REJECTED: Schema migration id/checksum mismatch at index $mIdx (bundle=$expectedPair, db=$actualPair)."
-      }
+  $bundleHas0023 = [bool]($manifestMigs | Where-Object { $_.id -eq '0023_auth_session_remember_me' })
+  if ($bundleHas0023) {
+    $candidateAuthSvc = Get-Content -LiteralPath (Join-Path $stagingExtractDir 'dist/apps/api/src/auth/service.js') -Raw
+    if ($candidateAuthSvc -notmatch 'remember_me' -or $candidateAuthSvc -notmatch 'getRememberMeMaxAgeSeconds') {
+      Record-DeployResult -Status 'REJECTED_BUILD_NOT_READY' -Sha $normalizedSha -Message 'Candidate build includes 0023_auth_session_remember_me but compiled auth/service.js lacks remember_me policy enforcement' -DurationMs 0
+      throw 'GATE REJECTED: Candidate build auth/service.js does not implement AUTH-REMEMBER-01 session policy.'
     }
   }
 
-  Write-DeployLog "Artifact checksum, provenance, $(@($bundleManifest.files).Count) internal file hashes, and $($manifestMigs.Count) migration checksums verified."
+  # 10B. MANDATORY DATABASE SCHEMA PREFLIGHT CHECK (RUNS BEFORE SNAPSHOT, MIGRATION, OR CUTOVER)
+  $dbPreflight = $null
+  try {
+    $dbPreflight = Get-DatabaseSchemaAndAuthState
+  } catch {
+    Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Failed to query schema_migrations from '$DbTarget': $($_.Exception.Message)" -DurationMs 0
+    throw "GATE REJECTED: Failed to query schema_migrations from '$DbTarget'."
+  }
 
-  # 11. PRE-DEPLOY SNAPSHOT (WITH PER-FILE SHA-256 MANIFEST & ZERO SECRET COPYING) + DB BACKUP
+  if ($dbPreflight.mig_count -gt $manifestMigs.Count) {
+    Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Database '$DbTarget' has $($dbPreflight.mig_count) applied migrations which exceeds candidate bundle ($($manifestMigs.Count) migrations)" -DurationMs 0
+    throw "GATE REJECTED: Database '$DbTarget' schema version ($($dbPreflight.mig_count) migrations) is ahead of candidate bundle ($($manifestMigs.Count) migrations)."
+  }
+
+  for ($mIdx = 0; $mIdx -lt $dbPreflight.mig_count; $mIdx++) {
+    $expectedPair = "$($manifestMigs[$mIdx].id):$($manifestMigs[$mIdx].checksum.ToLowerInvariant())"
+    $actualPair = $dbPreflight.mig_lines[$mIdx].Trim().ToLowerInvariant()
+    if ($actualPair -ne $expectedPair.ToLowerInvariant()) {
+      Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Migration checksum/id mismatch at index $mIdx (bundle=$expectedPair, db=$actualPair)" -DurationMs 0
+      throw "GATE REJECTED: Schema migration id/checksum mismatch at index $mIdx (bundle=$expectedPair, db=$actualPair)."
+    }
+  }
+
+  if ($dbPreflight.has_0023 -and (-not $bundleHas0023)) {
+    Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Database '$DbTarget' has 0023_auth_session_remember_me applied, but candidate bundle lacks 0023_auth_session_remember_me" -DurationMs 0
+    throw "GATE REJECTED: Cannot deploy pre-0023 bundle onto database '$DbTarget' with AUTH-REMEMBER-01 (0023) applied."
+  }
+
+  if ($SkipMigration) {
+    if ($dbPreflight.mig_count -ne $manifestMigs.Count) {
+      Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Bundle has $($manifestMigs.Count) migrations but DB '$DbTarget' has $($dbPreflight.mig_count) applied migrations while -SkipMigration is active" -DurationMs 0
+      throw "GATE REJECTED: Schema migration count mismatch (bundle=$($manifestMigs.Count), DB=$($dbPreflight.mig_count)) while -SkipMigration is true. Migration must complete before cutover."
+    }
+    if ($bundleHas0023 -and (-not $dbPreflight.remember_me_column)) {
+      Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Bundle requires 0023_auth_session_remember_me but column auth_sessions.remember_me is missing in '$DbTarget'" -DurationMs 0
+      throw "GATE REJECTED: Column auth_sessions.remember_me is missing in '$DbTarget'; migration 0023 must be applied before cutover."
+    }
+  }
+
+  Write-DeployLog "Candidate build readiness, artifact checksum, provenance, $(@($bundleManifest.files).Count) file hashes, and preflight schema checks verified (DB migrations=$($dbPreflight.mig_count)/$($manifestMigs.Count), SkipMigration=$SkipMigration)."
+
+  # 11. PRE-DEPLOY SNAPSHOT (WITH SCHEMA & AUTH POLICY METADATA + ZERO SECRET COPYING) + PRE-MIGRATION DB BACKUP
+  $prevCompat = Get-ReleaseCompatibilityDescriptor -ReleaseDir $TargetDir -GitSha $previousGitSha
   $ts = (Get-Date).ToString('yyyyMMdd-HHmmss')
   $snapshotDir = Join-Path $backupsDir "pre-deploy-$ts"
-  Write-DeployLog "Creating verified recovery snapshot at: $snapshotDir (Zero plaintext secrets copied)..."
+  Write-DeployLog "Creating verified recovery snapshot at: $snapshotDir (Zero plaintext secrets copied, prevSchema=$($prevCompat.schema_identity), prevAuthPolicy=$($prevCompat.auth_policy))..."
   New-Item -ItemType Directory -Path $snapshotDir -Force | Out-Null
 
   if (-not (Test-Path -LiteralPath (Join-Path $TargetDir 'dist')) -or -not (Test-Path -LiteralPath (Join-Path $TargetDir 'apps\web\dist'))) {
@@ -1028,23 +1332,148 @@ process.stdout.write('VALID');
   })
 
   @{
-    previous_git_sha  = $previousGitSha
-    previous_live_sha = $previousLiveSha
-    target_sha        = $normalizedSha
-    sequence          = [int]$signedPayload.sequence
-    created_at_utc    = (Get-Date).ToUniversalTime().ToString('o')
-    files             = $snapshotFiles
+    previous_git_sha          = $previousGitSha
+    previous_live_sha         = $previousLiveSha
+    previous_schema_identity  = $prevCompat.schema_identity
+    previous_migration_count  = $prevCompat.migration_count
+    previous_max_migration_id = $prevCompat.max_migration
+    previous_has_0023         = [bool]$prevCompat.has_0023
+    previous_auth_policy      = $prevCompat.auth_policy
+    target_sha                = $normalizedSha
+    sequence                  = [int]$signedPayload.sequence
+    created_at_utc            = (Get-Date).ToUniversalTime().ToString('o')
+    files                     = $snapshotFiles
   } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $snapshotDir 'rollback-metadata.json') -Encoding UTF8 -Force
 
-  Write-DeployLog "Running pre-deploy PostgreSQL backup for database '$DbTarget'..."
+  Write-DeployLog "Running pre-deploy PostgreSQL backup for database '$DbTarget' (before any migration or cutover)..."
   & powershell -NoProfile -ExecutionPolicy Bypass -File $backupScript -PgBin "$realServerRoot\config\postgresql-18\pgsql\bin" -Database $DbTarget -User hp_test_admin -PasswordFile $pgPassFile -Port 55432 -BackupDir (Join-Path $ServerRoot 'backups\postgres')
   if ($LASTEXITCODE -ne 0) {
     throw "Pre-deploy PostgreSQL backup failed for $DbTarget."
   }
 
-  # 12. RECORD IN_PROGRESS JOURNAL & ADVANCE ANTI-REPLAY WATERMARK BEFORE SWITCH
+  # 12. ADVANCE ANTI-REPLAY WATERMARK & EXECUTE PRE-CUTOVER DATABASE MIGRATIONS (BEFORE SWITCHING API/WEB BUILD)
+  @{
+    last_sequence  = [int]$signedPayload.sequence
+    last_sha       = $normalizedSha
+    updated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+  } | ConvertTo-Json | Set-Content -LiteralPath $watermarkFile -Encoding UTF8 -Force
+
+  if (-not $SkipMigration) {
+    Write-DeployLog "Executing approved database migrations on '$DbTarget' from verified staging bundle BEFORE runtime cutover..."
+    @{
+      status          = 'IN_PROGRESS'
+      phase           = 'PRE_CUTOVER_MIGRATION'
+      sha             = $normalizedSha
+      previous_sha    = $previousGitSha
+      sequence        = [int]$signedPayload.sequence
+      snapshot_dir    = $snapshotDir
+      started_at_utc  = (Get-Date).ToUniversalTime().ToString('o')
+    } | ConvertTo-Json | Set-Content -LiteralPath $stateJournalFile -Encoding UTF8 -Force
+
+    $resolvedNodeModules = ''
+    foreach ($nmCand in @(
+      (Join-Path $TargetDir 'node_modules'),
+      (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'node_modules'),
+      (Join-Path $realServerRoot 'apps\management-lite\node_modules'),
+      (Join-Path $realServerRoot 'workspace\management-lite-dev\node_modules')
+    )) {
+      if ($nmCand -and (Test-Path -LiteralPath $nmCand)) {
+        $resolvedNodeModules = $nmCand
+        break
+      }
+    }
+
+    $stagingNodeModules = Join-Path $stagingExtractDir 'node_modules'
+    $pass = ([IO.File]::ReadAllText($pgPassFile).Trim() -split ':')[-1]
+    $env:DATABASE_URL = "postgresql://hp_test_admin:${pass}@127.0.0.1:55432/$DbTarget"
+    try {
+      if (-not [string]::IsNullOrWhiteSpace($resolvedNodeModules) -and (-not (Test-Path -LiteralPath $stagingNodeModules))) {
+        New-Item -ItemType Junction -Path $stagingNodeModules -Target $resolvedNodeModules | Out-Null
+      }
+
+      $jsStagedMigrate = @"
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+const stageDir = process.argv[2];
+const { createDatabasePool, closeDatabasePool, checkDatabaseHealth } = await import(
+  pathToFileURL(path.join(stageDir, 'dist/packages/database/src/pool.js')).href
+);
+const { loadMigrationFiles, runMigrations } = await import(
+  pathToFileURL(path.join(stageDir, 'dist/packages/database/src/migrator.js')).href
+);
+const pool = createDatabasePool({
+  connectionString: process.env.DATABASE_URL,
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+try {
+  const health = await checkDatabaseHealth(pool);
+  if (!health.connected) {
+    throw new Error('Database unreachable: ' + (health.error || 'unknown'));
+  }
+  const migs = loadMigrationFiles(path.join(stageDir, 'migrations'));
+  const res = await runMigrations(pool, migs);
+  process.stdout.write('MIGRATED_OK:' + JSON.stringify(res));
+} finally {
+  await closeDatabasePool(pool);
+}
+"@
+      $migRunnerPath = Join-Path $stagingExtractDir 'run-staged-migration.mjs'
+      Set-Content -LiteralPath $migRunnerPath -Value $jsStagedMigrate -Encoding UTF8 -Force
+      try {
+        $prevEapMig = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+          $migOut = (& $node $migRunnerPath $stagingExtractDir 2>&1) -join "`n"
+          $migExit = $LASTEXITCODE
+        } finally {
+          $ErrorActionPreference = $prevEapMig
+        }
+        if ($migExit -ne 0 -or $migOut -notmatch 'MIGRATED_OK:') {
+          throw "Staged database migration failed on '$DbTarget' ($migOut)"
+        }
+      } finally {
+        Remove-Item -LiteralPath $migRunnerPath -Force -ErrorAction SilentlyContinue
+      }
+
+      # Mandatory Post-Migration Schema & Auth Column Verification before allowing cutover
+      $dbPostMig = Get-DatabaseSchemaAndAuthState
+      if ($dbPostMig.mig_count -ne $manifestMigs.Count -or $dbPostMig.schema_identity -ne $expectedBundleSchemaId) {
+        throw "Post-migration schema verification failed on '$DbTarget' (expected $($manifestMigs.Count) migrations / $expectedBundleSchemaId, actual $($dbPostMig.mig_count) / $($dbPostMig.schema_identity))"
+      }
+      if ($bundleHas0023 -and (-not $dbPostMig.remember_me_column)) {
+        throw "Post-migration verification failed: column auth_sessions.remember_me is missing in '$DbTarget' after migration 0023"
+      }
+      Write-DeployLog "Pre-cutover database migration and schema verification succeeded on '$DbTarget' ($($dbPostMig.mig_count)/$($manifestMigs.Count) migrations applied, remember_me_column=$($dbPostMig.remember_me_column))."
+    } catch {
+      $migErr = $_.Exception.Message
+      Write-DeployLog "PRE-CUTOVER MIGRATION FAILED: $migErr. Live API/Web build was NOT switched." 'ERROR'
+      @{
+        status             = 'MIGRATION_FAILED_PRE_CUTOVER'
+        sha                = $normalizedSha
+        previous_sha       = $previousGitSha
+        snapshot_dir       = $snapshotDir
+        migration_error    = $migErr
+        failed_at_utc      = (Get-Date).ToUniversalTime().ToString('o')
+      } | ConvertTo-Json | Set-Content -LiteralPath $stateJournalFile -Encoding UTF8 -Force
+      $duration = [int]((Get-Date) - $startTime).TotalMilliseconds
+      Record-DeployResult -Status 'MIGRATION_FAILED_PRE_CUTOVER' -Sha $normalizedSha -PreviousSha $previousGitSha -Message "Pre-cutover database migration failed ($migErr); live build untouched" -DurationMs $duration
+      throw "MIGRATION_FAILED_PRE_CUTOVER: $migErr"
+    } finally {
+      Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+      if (Test-Path -LiteralPath $stagingNodeModules) {
+        [IO.Directory]::Delete($stagingNodeModules)
+      }
+    }
+  } else {
+    Write-DeployLog "Database migration skipped (-SkipMigration=true); preflight confirmed schema parity ($($dbPreflight.mig_count)/$($manifestMigs.Count) migrations)."
+  }
+
+  # 13. RECORD RUNTIME_CUTOVER JOURNAL & ATOMICALLY SWITCH GIT + API/WEB RUNTIME (ONLY AFTER MIGRATION & SCHEMA VERIFICATION SUCCEEDED)
   @{
     status          = 'IN_PROGRESS'
+    phase           = 'RUNTIME_CUTOVER'
     sha             = $normalizedSha
     previous_sha    = $previousGitSha
     sequence        = [int]$signedPayload.sequence
@@ -1052,15 +1481,8 @@ process.stdout.write('VALID');
     started_at_utc  = (Get-Date).ToUniversalTime().ToString('o')
   } | ConvertTo-Json | Set-Content -LiteralPath $stateJournalFile -Encoding UTF8 -Force
 
-  @{
-    last_sequence  = [int]$signedPayload.sequence
-    last_sha       = $normalizedSha
-    updated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
-  } | ConvertTo-Json | Set-Content -LiteralPath $watermarkFile -Encoding UTF8 -Force
-
   $switchStarted = $true
 
-  # 13. GIT EXACT SHA CHECKOUT & VERIFIED PRE-BUILT ARTIFACT DEPLOYMENT (NO HOST BUILD FALLBACK)
   Write-DeployLog "Checking out exact Git commit SHA: $normalizedSha..."
   $env:GIT_TERMINAL_PROMPT = '0'
   $prevEap = $ErrorActionPreference
@@ -1085,22 +1507,7 @@ process.stdout.write('VALID');
 
   Write-RunningComponentsProof -Sha $normalizedSha -ArtifactDigest $verifiedArtifactDigest
 
-  # 14. CONTROLLED DATABASE MIGRATION (ONLY WHEN EXPLICITLY APPROVED)
-  if (-not $SkipMigration) {
-    Write-DeployLog "Executing approved database migrations on '$DbTarget'..."
-    $pass = ([IO.File]::ReadAllText($pgPassFile).Trim() -split ':')[-1]
-    $env:DATABASE_URL = "postgresql://hp_test_admin:${pass}@127.0.0.1:55432/$DbTarget"
-    try {
-      & $node "$TargetDir\scripts\migrate.mjs"
-      if ($LASTEXITCODE -ne 0) { throw "Database migration script failed on $DbTarget" }
-    } finally {
-      Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
-    }
-  } else {
-    Write-DeployLog "Database migration skipped (-SkipMigration=true)."
-  }
-
-  # 15. SERVICE CUTOVER (PRODUCTION ONLY)
+  # 14. SERVICE CUTOVER (PRODUCTION ONLY)
   if (-not $SandboxMode) {
     Write-DeployLog "Restarting Windows service HPManagementLiteApi..."
     Restart-Service HPManagementLiteApi -Force
@@ -1109,13 +1516,13 @@ process.stdout.write('VALID');
     Write-DeployLog "SANDBOX: Skipping production Windows service restart (Zero production impact)."
   }
 
-  # 16. READ-ONLY POST-DEPLOY SMOKE VERIFICATION
+  # 15. READ-ONLY POST-DEPLOY SMOKE VERIFICATION
   Write-DeployLog "Running read-only post-deploy smoke checks..."
   if (-not (Test-ApplicationSmoke -ExpectedSha $normalizedSha -MaxAttempts 10)) {
     throw "Post-deploy smoke verification failed (health/ready/web/version check)."
   }
 
-  # 17. COMMIT LIVE STATE POINTER & COMPLETED JOURNAL
+  # 16. COMMIT LIVE STATE POINTER & COMPLETED JOURNAL
   Set-Content -LiteralPath $currentShaFile -Value $normalizedSha -Encoding UTF8 -Force
   @{
     status           = 'COMPLETED'

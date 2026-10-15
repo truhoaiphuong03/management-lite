@@ -1,11 +1,11 @@
 /**
  * Management Lite Release Packaging Tool
  * Produces deterministic, verified release bundles with SHA-256 manifests.
- * 
+ *
  * Supports two distinct modes:
  * 1. Web-only update (--type=web): For rapid UI testing without API restart or migrations.
  * 2. Full update (--type=full): For full-stack API + Web + Database migrations.
- * 
+ *
  * Guarantees:
  * - Zero secrets, .env files, SMTP keys, or test databases included.
  * - Every file SHA-256 hashed and recorded in manifest.json.
@@ -18,8 +18,11 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
-const typeArg = args.find((a) => a.startsWith('--type='))?.split('=')[1] || 'full';
-const outDirArg = args.find((a) => a.startsWith('--out='))?.split('=')[1] || 'dist/release-artifacts';
+const typeArg =
+  args.find((a) => a.startsWith('--type='))?.split('=')[1] || 'full';
+const outDirArg =
+  args.find((a) => a.startsWith('--out='))?.split('=')[1] ||
+  'dist/release-artifacts';
 
 if (typeArg !== 'web' && typeArg !== 'full') {
   console.error('Error: Invalid --type. Must be "web" or "full".');
@@ -27,13 +30,19 @@ if (typeArg !== 'web' && typeArg !== 'full') {
 }
 
 // 1. Verify clean git working tree & extract current commit SHA
-const headSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-const statusOutput = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
+const headSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+  encoding: 'utf8',
+}).trim();
+const statusOutput = execFileSync('git', ['status', '--porcelain'], {
+  encoding: 'utf8',
+}).trim();
 
 console.log(`[PACKAGER] Packaging mode: ${typeArg.toUpperCase()}`);
 console.log(`[PACKAGER] Git HEAD SHA:   ${headSha}`);
 if (statusOutput.length > 0) {
-  console.warn(`[PACKAGER] Warning: Working tree contains uncommitted changes.`);
+  console.warn(
+    `[PACKAGER] Warning: Working tree contains uncommitted changes.`,
+  );
 }
 
 const hashFile = (filePath) => {
@@ -47,7 +56,10 @@ const hashString = (str) => {
 
 // 2. Prepare staging directory
 const outDir = path.resolve(outDirArg);
-const bundleStageDir = path.join(outDir, `staging-${typeArg}-${headSha.slice(0, 8)}`);
+const bundleStageDir = path.join(
+  outDir,
+  `staging-${typeArg}-${headSha.slice(0, 8)}`,
+);
 
 if (fs.existsSync(bundleStageDir)) {
   fs.rmSync(bundleStageDir, { recursive: true, force: true });
@@ -88,7 +100,9 @@ const copyFiltered = (srcDir, destDir) => {
         content.includes(Buffer.from('BEGIN RSA PRIVATE KEY')) ||
         content.includes(Buffer.from('BEGIN PRIVATE KEY'))
       ) {
-        throw new Error(`CRITICAL SECURITY: Private key detected in ${srcPath}`);
+        throw new Error(
+          `CRITICAL SECURITY: Private key detected in ${srcPath}`,
+        );
       }
       fs.copyFileSync(srcPath, destPath);
     }
@@ -120,6 +134,16 @@ if (fs.existsSync('packages/database/src/migrations')) {
   schemaIdentity = hashString(JSON.stringify(migrationsMetadata));
 }
 
+const migrationCount = migrationsMetadata.length;
+const maxMigrationId =
+  migrationCount > 0 ? migrationsMetadata[migrationCount - 1].id : null;
+const hasRememberMeMigration = migrationsMetadata.some(
+  (m) => m.id === '0023_auth_session_remember_me',
+);
+const authPolicyVersion = hasRememberMeMigration
+  ? 'auth-remember-01'
+  : 'legacy-pre-0023';
+
 const builtAtIso = new Date().toISOString();
 
 // 4. Assemble bundle contents
@@ -139,6 +163,9 @@ if (typeArg === 'web' || typeArg === 'full') {
         component: 'web',
         type: typeArg,
         schemaIdentity,
+        migrationCount,
+        maxMigrationId,
+        authPolicyVersion,
         builtAt: builtAtIso,
       },
       null,
@@ -163,6 +190,9 @@ if (typeArg === 'full') {
         component: 'api',
         type: typeArg,
         schemaIdentity,
+        migrationCount,
+        maxMigrationId,
+        authPolicyVersion,
         builtAt: builtAtIso,
       },
       null,
@@ -204,7 +234,9 @@ const walkFiles = (dir) => {
     if (item.isDirectory()) {
       walkFiles(fullPath);
     } else {
-      const relPath = path.relative(bundleStageDir, fullPath).replaceAll('\\', '/');
+      const relPath = path
+        .relative(bundleStageDir, fullPath)
+        .replaceAll('\\', '/');
       fileManifest.push({
         path: relPath,
         size: fs.statSync(fullPath).size,
@@ -224,6 +256,9 @@ const manifest = {
   targetEngine: 'Node >=22.14.0',
   fileCount: fileManifest.length,
   schemaIdentity,
+  migrationCount,
+  maxMigrationId,
+  authPolicyVersion,
   migrations: migrationsMetadata,
   files: fileManifest,
 };
@@ -257,10 +292,16 @@ const provenanceRecord = {
   fileCount: fileManifest.length,
   builtAt: builtAtIso,
   schemaIdentity,
-  migrationCount: migrationsMetadata.length,
+  migrationCount,
+  maxMigrationId,
+  authPolicyVersion,
 };
 
-fs.writeFileSync(provenancePath, JSON.stringify(provenanceRecord, null, 2), 'utf8');
+fs.writeFileSync(
+  provenancePath,
+  JSON.stringify(provenanceRecord, null, 2),
+  'utf8',
+);
 
 // Clean up temporary stage directory
 fs.rmSync(bundleStageDir, { recursive: true, force: true });
