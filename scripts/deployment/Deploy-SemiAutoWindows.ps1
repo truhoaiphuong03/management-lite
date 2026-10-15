@@ -774,25 +774,10 @@ if ($sigCheck -ne 'VALID') {
 
 # Ensure outer envelope fields match signed canonical payload (prevent envelope/payload split tampering)
 $signedPayload = $manifest.payload_canonical_json | ConvertFrom-Json
-if ($manifest.approved_sha -ne $signedPayload.approved_sha -or
-    $manifest.artifact_sha256 -ne $signedPayload.artifact_sha256 -or
-    $manifest.schema_sha256 -ne $signedPayload.schema_sha256 -or
-    $manifest.ci_run_id -ne $signedPayload.ci_run_id -or
-    [int]$manifest.ci_run_attempt -ne [int]$signedPayload.ci_run_attempt -or
-    $manifest.ci_status -ne $signedPayload.ci_status -or
-    $manifest.workflow_path -ne $signedPayload.workflow_path -or
-    $manifest.source_branch -ne $signedPayload.source_branch -or
-    [int]$manifest.sequence -ne [int]$signedPayload.sequence -or
-    $manifest.approved_by -ne $signedPayload.approved_by -or
-    [bool]$manifest.allow_migration -ne [bool]$signedPayload.allow_migration -or
-    $manifest.expires_at_utc -ne $signedPayload.expires_at_utc) {
-  Record-DeployResult -Status 'REJECTED_INVALID_SIGNATURE' -Sha $normalizedSha -Message 'Outer manifest fields tampered relative to signed canonical payload' -DurationMs 0
-  throw 'GATE REJECTED: Manifest envelope fields do not match signed canonical payload.'
-}
-
-if ([string]$signedPayload.schema_sha256 -notmatch '^[0-9a-f]{64}$') {
-  Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message 'Signed payload is missing valid 64-char hex schema_sha256' -DurationMs 0
-  throw 'GATE REJECTED: Signed approval payload is missing valid 64-character schema_sha256.'
+$approvalMode = if ($signedPayload.PSObject.Properties.Name -contains 'approval_mode' -and -not [string]::IsNullOrWhiteSpace([string]$signedPayload.approval_mode)) {
+  ([string]$signedPayload.approval_mode).Trim().ToUpperInvariant()
+} else {
+  'SINGLE_SHA'
 }
 
 $expectedRepo = if ($policy.PSObject.Properties.Name -contains 'repository') { [string]$policy.repository } else { 'truhoaiphuong03/management-lite' }
@@ -807,16 +792,59 @@ if ($allowedApprovers -notcontains $signedPayload.approved_by) {
   throw "GATE REJECTED: Approver '$($signedPayload.approved_by)' is not in policy allowed_approvers."
 }
 
-if ($signedPayload.approved_sha.Trim().ToLowerInvariant() -ne $normalizedSha) {
-  Record-DeployResult -Status 'REJECTED_UNAPPROVED_SHA' -Sha $normalizedSha -Message "Signed SHA ($($signedPayload.approved_sha)) does not match requested SHA ($normalizedSha)" -DurationMs 0
-  throw "GATE REJECTED: Signed SHA '$($signedPayload.approved_sha)' does not match requested SHA '$normalizedSha'."
-}
-
 $expiresUtc = [DateTimeOffset]::Parse($signedPayload.expires_at_utc).UtcDateTime
 $nowCheckUtc = (Get-Date).ToUniversalTime()
-if ($nowCheckUtc -gt $expiresUtc -or ($expiresUtc - $nowCheckUtc).TotalHours -gt 24.1) {
-  Record-DeployResult -Status 'REJECTED_EXPIRED_APPROVAL' -Sha $normalizedSha -Message "Owner approval expired or exceeds 24h max TTL ($($signedPayload.expires_at_utc))" -DurationMs 0
-  throw "GATE REJECTED: Owner approval expired or exceeds 24h max TTL at $($signedPayload.expires_at_utc)."
+
+if ($approvalMode -eq 'SCOPED_WINDOW') {
+  if ($manifest.approval_mode -ne $signedPayload.approval_mode -or
+      $manifest.baseline_sha -ne $signedPayload.baseline_sha -or
+      $manifest.workflow_path -ne $signedPayload.workflow_path -or
+      $manifest.source_branch -ne $signedPayload.source_branch -or
+      [int]$manifest.max_deployments -ne [int]$signedPayload.max_deployments -or
+      [int]$manifest.sequence -ne [int]$signedPayload.sequence -or
+      $manifest.approved_by -ne $signedPayload.approved_by -or
+      [bool]$manifest.allow_migration -ne [bool]$signedPayload.allow_migration -or
+      [bool]$manifest.allow_controller_changes -ne [bool]$signedPayload.allow_controller_changes -or
+      $manifest.expires_at_utc -ne $signedPayload.expires_at_utc) {
+    Record-DeployResult -Status 'REJECTED_INVALID_SIGNATURE' -Sha $normalizedSha -Message 'Outer manifest fields tampered relative to signed canonical SCOPED_WINDOW payload' -DurationMs 0
+    throw 'GATE REJECTED: Scoped manifest envelope fields do not match signed canonical payload.'
+  }
+  if ([string]$signedPayload.baseline_sha -notmatch '^[0-9a-f]{40}$' -or [int]$signedPayload.max_deployments -lt 1) {
+    Record-DeployResult -Status 'REJECTED_INVALID_SIGNATURE' -Sha $normalizedSha -Message 'Scoped payload is missing valid 40-char baseline_sha or max_deployments' -DurationMs 0
+    throw 'GATE REJECTED: Scoped approval payload is missing valid 40-character baseline_sha or max_deployments.'
+  }
+  if ($nowCheckUtc -gt $expiresUtc -or ($expiresUtc - $nowCheckUtc).TotalDays -gt 30.1) {
+    Record-DeployResult -Status 'REJECTED_EXPIRED_APPROVAL' -Sha $normalizedSha -Message "Owner scoped approval expired or exceeds 30d max TTL ($($signedPayload.expires_at_utc))" -DurationMs 0
+    throw "GATE REJECTED: Owner scoped approval expired or exceeds 30d max TTL at $($signedPayload.expires_at_utc)."
+  }
+} else {
+  if ($manifest.approved_sha -ne $signedPayload.approved_sha -or
+      $manifest.artifact_sha256 -ne $signedPayload.artifact_sha256 -or
+      $manifest.schema_sha256 -ne $signedPayload.schema_sha256 -or
+      $manifest.ci_run_id -ne $signedPayload.ci_run_id -or
+      [int]$manifest.ci_run_attempt -ne [int]$signedPayload.ci_run_attempt -or
+      $manifest.ci_status -ne $signedPayload.ci_status -or
+      $manifest.workflow_path -ne $signedPayload.workflow_path -or
+      $manifest.source_branch -ne $signedPayload.source_branch -or
+      [int]$manifest.sequence -ne [int]$signedPayload.sequence -or
+      $manifest.approved_by -ne $signedPayload.approved_by -or
+      [bool]$manifest.allow_migration -ne [bool]$signedPayload.allow_migration -or
+      $manifest.expires_at_utc -ne $signedPayload.expires_at_utc) {
+    Record-DeployResult -Status 'REJECTED_INVALID_SIGNATURE' -Sha $normalizedSha -Message 'Outer manifest fields tampered relative to signed canonical payload' -DurationMs 0
+    throw 'GATE REJECTED: Manifest envelope fields do not match signed canonical payload.'
+  }
+  if ([string]$signedPayload.schema_sha256 -notmatch '^[0-9a-f]{64}$') {
+    Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message 'Signed payload is missing valid 64-char hex schema_sha256' -DurationMs 0
+    throw 'GATE REJECTED: Signed approval payload is missing valid 64-character schema_sha256.'
+  }
+  if ($signedPayload.approved_sha.Trim().ToLowerInvariant() -ne $normalizedSha) {
+    Record-DeployResult -Status 'REJECTED_UNAPPROVED_SHA' -Sha $normalizedSha -Message "Signed SHA ($($signedPayload.approved_sha)) does not match requested SHA ($normalizedSha)" -DurationMs 0
+    throw "GATE REJECTED: Signed SHA '$($signedPayload.approved_sha)' does not match requested SHA '$normalizedSha'."
+  }
+  if ($nowCheckUtc -gt $expiresUtc -or ($expiresUtc - $nowCheckUtc).TotalHours -gt 24.1) {
+    Record-DeployResult -Status 'REJECTED_EXPIRED_APPROVAL' -Sha $normalizedSha -Message "Owner approval expired or exceeds 24h max TTL ($($signedPayload.expires_at_utc))" -DurationMs 0
+    throw "GATE REJECTED: Owner approval expired or exceeds 24h max TTL at $($signedPayload.expires_at_utc)."
+  }
 }
 
 if ((-not $SkipMigration) -and (-not [bool]$signedPayload.allow_migration)) {
@@ -825,12 +853,13 @@ if ((-not $SkipMigration) -and (-not [bool]$signedPayload.allow_migration)) {
 }
 
 # 5. MANDATORY CI STATUS, INDEPENDENT CI RECEIPT & LIVE GITHUB API VERIFICATION GATE
-if ($signedPayload.ci_status -ne 'SUCCESS' -or $signedPayload.ci_run_id -ne $CiRunId.Trim()) {
-  Record-DeployResult -Status 'REJECTED_CI_NOT_PASSED' -Sha $normalizedSha -Message "CI check failed or mismatched (signed status=$($signedPayload.ci_status), run_id=$($signedPayload.ci_run_id), requested=$CiRunId)" -DurationMs 0
-  throw "GATE REJECTED: Exact-SHA CI has not passed (ci_status='$($signedPayload.ci_status)', ci_run_id='$($signedPayload.ci_run_id)')."
+if ($approvalMode -ne 'SCOPED_WINDOW') {
+  if ($signedPayload.ci_status -ne 'SUCCESS' -or $signedPayload.ci_run_id -ne $CiRunId.Trim()) {
+    Record-DeployResult -Status 'REJECTED_CI_NOT_PASSED' -Sha $normalizedSha -Message "CI check failed or mismatched (signed status=$($signedPayload.ci_status), run_id=$($signedPayload.ci_run_id), requested=$CiRunId)" -DurationMs 0
+    throw "GATE REJECTED: Exact-SHA CI has not passed (ci_status='$($signedPayload.ci_status)', ci_run_id='$($signedPayload.ci_run_id)')."
+  }
 }
 
-$expectedRunAttempt = [int]$signedPayload.ci_run_attempt
 $expectedWorkflowPath = [string]$signedPayload.workflow_path
 $expectedSourceBranch = [string]$signedPayload.source_branch
 $allowedWorkflows = if ($policy.PSObject.Properties.Name -contains 'allowed_workflow_paths' -and $null -ne $policy.allowed_workflow_paths) { @($policy.allowed_workflow_paths) } else { @('.github/workflows/deploy.yml') }
@@ -884,7 +913,12 @@ $receiptWorkflow = if ($ciReceipt.PSObject.Properties.Name -contains 'workflow_p
 $receiptArtifactSha = if ($ciReceipt.PSObject.Properties.Name -contains 'artifact_sha256' -and -not [string]::IsNullOrWhiteSpace([string]$ciReceipt.artifact_sha256)) { [string]$ciReceipt.artifact_sha256 } else { '' }
 $receiptSchemaSha = if ($ciReceipt.PSObject.Properties.Name -contains 'schema_sha256' -and -not [string]::IsNullOrWhiteSpace([string]$ciReceipt.schema_sha256)) { [string]$ciReceipt.schema_sha256 } else { '' }
 
+$expectedRunAttempt = if ($approvalMode -eq 'SCOPED_WINDOW') { $receiptAttempt } else { [int]$signedPayload.ci_run_attempt }
+$expectedArtifactSha = if ($approvalMode -eq 'SCOPED_WINDOW') { $normalizedArtifactSha } else { [string]$signedPayload.artifact_sha256.Trim().ToLowerInvariant() }
+$expectedSchemaSha = if ($approvalMode -eq 'SCOPED_WINDOW') { $receiptSchemaSha.Trim().ToLowerInvariant() } else { [string]$signedPayload.schema_sha256.Trim().ToLowerInvariant() }
+
 if ($receiptRunId.Trim() -ne $CiRunId.Trim() -or
+    $receiptAttempt -lt 1 -or
     $receiptAttempt -ne $expectedRunAttempt -or
     $receiptSha.Trim().ToLowerInvariant() -ne $normalizedSha -or
     $receiptStatus.Trim().ToLowerInvariant() -ne 'completed' -or
@@ -895,8 +929,9 @@ if ($receiptRunId.Trim() -ne $CiRunId.Trim() -or
     $receiptBranch.Trim() -ne $policyBranch -or
     ($allowedWorkflows -notcontains $receiptWorkflow.Trim()) -or
     $receiptWorkflow.Trim() -ne $expectedWorkflowPath -or
-    $receiptArtifactSha.Trim().ToLowerInvariant() -ne $signedPayload.artifact_sha256.Trim().ToLowerInvariant() -or
-    $receiptSchemaSha.Trim().ToLowerInvariant() -ne $signedPayload.schema_sha256.Trim().ToLowerInvariant()) {
+    $receiptArtifactSha.Trim().ToLowerInvariant() -ne $expectedArtifactSha -or
+    $expectedSchemaSha -notmatch '^[0-9a-f]{64}$' -or
+    $receiptSchemaSha.Trim().ToLowerInvariant() -ne $expectedSchemaSha) {
   Record-DeployResult -Status 'REJECTED_INDEPENDENT_CI_VERIFICATION_FAILED' -Sha $normalizedSha -Message "Independent CI receipt verification failed (run=$receiptRunId/$receiptAttempt, sha=$receiptSha, status=$receiptStatus, conclusion=$receiptConclusion, event=$receiptEvent, branch=$receiptBranch, workflow=$receiptWorkflow, artifact=$receiptArtifactSha, schema=$receiptSchemaSha)" -DurationMs 0
   throw "GATE REJECTED: Independent CI receipt verification failed (run=$receiptRunId/$receiptAttempt, sha=$receiptSha, status=$receiptStatus, conclusion=$receiptConclusion, event=$receiptEvent, branch=$receiptBranch, workflow=$receiptWorkflow)."
 }
@@ -974,18 +1009,42 @@ if ($liveId.Trim() -ne $CiRunId.Trim() -or
 }
 Write-DeployLog "Live GitHub Actions API Run verified (RunId=$liveId, Attempt=$liveAttempt, HeadSha=$liveSha, Branch=$liveBranch, Path=$livePath, Event=$liveEvent)."
 
-# 6. UNCONDITIONAL ANTI-REPLAY SEQUENCE WATERMARK GATE
+# 6. UNCONDITIONAL ANTI-REPLAY & SCOPED QUOTA WATERMARK GATE
 $lastSequence = 0
+$wmScopedUsed = 0
+$wmDeployedRuns = @()
 if (Test-Path -LiteralPath $watermarkFile) {
   $wmObj = Get-Content -LiteralPath $watermarkFile -Raw | ConvertFrom-Json
   $lastSequence = [int]$wmObj.last_sequence
+  if (($wmObj.PSObject.Properties.Name -contains 'scoped_deployments_used') -and ($null -ne $wmObj.scoped_deployments_used) -and ([int]$wmObj.last_sequence -eq [int]$signedPayload.sequence)) {
+    $wmScopedUsed = [int]$wmObj.scoped_deployments_used
+  }
+  if (($wmObj.PSObject.Properties.Name -contains 'deployed_runs') -and ($null -ne $wmObj.deployed_runs) -and ([int]$wmObj.last_sequence -eq [int]$signedPayload.sequence)) {
+    $wmDeployedRuns = @($wmObj.deployed_runs | ForEach-Object { [string]$_ })
+  }
 }
-if ([int]$signedPayload.sequence -le $lastSequence) {
-  Record-DeployResult -Status 'REJECTED_APPROVAL_REPLAY' -Sha $normalizedSha -Message "Approval sequence $($signedPayload.sequence) <= watermark $lastSequence" -DurationMs 0
-  throw "GATE REJECTED: Approval replay detected (sequence $($signedPayload.sequence) <= watermark $lastSequence)."
+$currentRunKey = "${normalizedSha}:$($CiRunId.Trim())"
+if ($approvalMode -eq 'SCOPED_WINDOW') {
+  if ([int]$signedPayload.sequence -lt $lastSequence) {
+    Record-DeployResult -Status 'REJECTED_APPROVAL_REPLAY' -Sha $normalizedSha -Message "Scoped approval sequence $($signedPayload.sequence) < watermark $lastSequence" -DurationMs 0
+    throw "GATE REJECTED: Superseded scoped approval sequence ($($signedPayload.sequence) < watermark $lastSequence)."
+  }
+  if ($wmDeployedRuns -contains $currentRunKey) {
+    Record-DeployResult -Status 'REJECTED_APPROVAL_REPLAY' -Sha $normalizedSha -Message "CI run $currentRunKey was already deployed under scoped sequence $($signedPayload.sequence)" -DurationMs 0
+    throw "GATE REJECTED: Approval replay detected ($currentRunKey already deployed)."
+  }
+  if ($wmScopedUsed -ge [int]$signedPayload.max_deployments) {
+    Record-DeployResult -Status 'REJECTED_SCOPE_QUOTA_EXCEEDED' -Sha $normalizedSha -Message "Scoped approval quota exceeded ($wmScopedUsed / $($signedPayload.max_deployments))" -DurationMs 0
+    throw "GATE REJECTED: Scoped approval deployment quota ($($signedPayload.max_deployments)) exceeded."
+  }
+} else {
+  if ([int]$signedPayload.sequence -le $lastSequence) {
+    Record-DeployResult -Status 'REJECTED_APPROVAL_REPLAY' -Sha $normalizedSha -Message "Approval sequence $($signedPayload.sequence) <= watermark $lastSequence" -DurationMs 0
+    throw "GATE REJECTED: Approval replay detected (sequence $($signedPayload.sequence) <= watermark $lastSequence)."
+  }
 }
 
-Write-DeployLog "Cryptographic Ed25519 Owner Approval Gate PASSED (Seq=$($signedPayload.sequence), ApprovedBy=$($signedPayload.approved_by))."
+Write-DeployLog "Cryptographic Ed25519 Owner Approval Gate PASSED (Mode=$approvalMode, Seq=$($signedPayload.sequence), ApprovedBy=$($signedPayload.approved_by))."
 
 # 7. EXCLUSIVE OS FILE HANDLE MUTEX LOCK
 $lockStream = $null
@@ -1035,12 +1094,44 @@ try {
     return
   }
 
+  # 9B. SCOPED WINDOW LINEAGE & PROTECTED PATH BOUNDARY CHECK
+  if ($approvalMode -eq 'SCOPED_WINDOW') {
+    $baselineShaNorm = [string]$signedPayload.baseline_sha.Trim().ToLowerInvariant()
+    $prevEapScope = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+      git -c safe.directory=* -C $TargetDir cat-file -e "$normalizedSha^{commit}" 2>$null
+      if ($LASTEXITCODE -ne 0) {
+        git -c safe.directory=* -C $TargetDir fetch --quiet origin --all --tags --prune 2>$null
+        git -c safe.directory=* -C $TargetDir fetch --quiet origin $normalizedSha 2>$null
+      }
+      git -c safe.directory=* -C $TargetDir merge-base --is-ancestor $baselineShaNorm $normalizedSha 2>$null
+      $isAncestorExit = $LASTEXITCODE
+      $diffPaths = @(git -c safe.directory=* -C $TargetDir diff --name-only "$baselineShaNorm..$normalizedSha" 2>$null | ForEach-Object { $_.Trim().Replace('\', '/') } | Where-Object { $_ })
+    } finally {
+      $ErrorActionPreference = $prevEapScope
+    }
+    if ($isAncestorExit -ne 0) {
+      Record-DeployResult -Status 'REJECTED_OUT_OF_SCOPE_LINEAGE' -Sha $normalizedSha -Message "Commit $normalizedSha is not a descendant of approved baseline $baselineShaNorm" -DurationMs 0
+      throw "GATE REJECTED: Commit $normalizedSha is not a descendant of Owner-approved baseline $baselineShaNorm."
+    }
+    if (-not [bool]$signedPayload.allow_controller_changes) {
+      $protectedTouched = @($diffPaths | Where-Object { $_ -match '^(scripts/deployment/|\.github/workflows/)' })
+      if ($protectedTouched.Count -gt 0) {
+        $touchedStr = $protectedTouched -join ', '
+        Record-DeployResult -Status 'REJECTED_OUT_OF_SCOPE_PATH_MODIFICATION' -Sha $normalizedSha -Message "Scoped release modified protected controller/workflow paths ($touchedStr)" -DurationMs 0
+        throw "GATE REJECTED: Scoped release cannot modify protected controller or workflow files ($touchedStr) without explicit Owner approval."
+      }
+    }
+    Write-DeployLog "Scoped release lineage & path boundary verified (Descendant of $baselineShaNorm, Quota=$($wmScopedUsed + 1)/$($signedPayload.max_deployments))."
+  }
+
   # 10. MANDATORY ARTIFACT INTEGRITY, PROVENANCE, BUILD READINESS, SCHEMA PREFLIGHT & PER-FILE SHA-256 VERIFICATION (BEFORE ANY MUTATION)
-  $verifiedArtifactDigest = $signedPayload.artifact_sha256.Trim().ToLowerInvariant()
+  $verifiedArtifactDigest = $expectedArtifactSha
   $actualArchiveHash = (Get-FileHash -LiteralPath $ArtifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
   if ($actualArchiveHash -ne $normalizedArtifactSha -or $actualArchiveHash -ne $verifiedArtifactDigest) {
-    Record-DeployResult -Status 'REJECTED_ARTIFACT_CHECKSUM_MISMATCH' -Sha $normalizedSha -Message "Archive SHA-256 ($actualArchiveHash) does not match requested ($normalizedArtifactSha) or signed ($verifiedArtifactDigest)" -DurationMs 0
-    throw "GATE REJECTED: Artifact SHA-256 mismatch (actual=$actualArchiveHash, signed=$verifiedArtifactDigest)."
+    Record-DeployResult -Status 'REJECTED_ARTIFACT_CHECKSUM_MISMATCH' -Sha $normalizedSha -Message "Archive SHA-256 ($actualArchiveHash) does not match requested ($normalizedArtifactSha) or verified ($verifiedArtifactDigest)" -DurationMs 0
+    throw "GATE REJECTED: Artifact SHA-256 mismatch (actual=$actualArchiveHash, expected=$verifiedArtifactDigest)."
   }
 
   $sidecarShaPath = "$ArtifactPath.sha256"
@@ -1055,11 +1146,12 @@ try {
   $sidecarProvPath = "$ArtifactPath.provenance.json"
   if (Test-Path -LiteralPath $sidecarProvPath -PathType Leaf) {
     $sidecarProv = Get-Content -LiteralPath $sidecarProvPath -Raw | ConvertFrom-Json
+    $provCommitSha = if (($sidecarProv.PSObject.Properties.Name -contains 'commitSha') -and $sidecarProv.commitSha) { [string]$sidecarProv.commitSha } elseif (($sidecarProv.PSObject.Properties.Name -contains 'sha') -and $sidecarProv.sha) { [string]$sidecarProv.sha } else { '' }
     if ($sidecarProv.sha256.Trim().ToLowerInvariant() -ne $actualArchiveHash -or
-        $sidecarProv.commitSha.Trim().ToLowerInvariant() -ne $normalizedSha -or
-        $sidecarProv.schemaIdentity.Trim().ToLowerInvariant() -ne $signedPayload.schema_sha256.Trim().ToLowerInvariant()) {
+        $provCommitSha.Trim().ToLowerInvariant() -ne $normalizedSha -or
+        $sidecarProv.schemaIdentity.Trim().ToLowerInvariant() -ne $expectedSchemaSha) {
       Record-DeployResult -Status 'REJECTED_ARTIFACT_CHECKSUM_MISMATCH' -Sha $normalizedSha -Message 'Sidecar .provenance.json sha256, commitSha, or schemaIdentity mismatch' -DurationMs 0
-      throw 'GATE REJECTED: Sidecar .provenance.json does not match archive SHA-256, CommitSha, or signed schema_sha256.'
+      throw 'GATE REJECTED: Sidecar .provenance.json does not match archive SHA-256, CommitSha, or verified schema_sha256.'
     }
   }
 
@@ -1275,10 +1367,10 @@ process.stdout.write('OK:' + count);
   }
   $manifestMigs = @($bundleManifest.migrations)
   $expectedBundleSchemaId = [string]$bundleManifest.schemaIdentity.Trim().ToLowerInvariant()
-  if ($expectedBundleSchemaId -ne [string]$signedPayload.schema_sha256.Trim().ToLowerInvariant() -or
+  if ($expectedBundleSchemaId -ne $expectedSchemaSha -or
       $expectedBundleSchemaId -ne $receiptSchemaSha.Trim().ToLowerInvariant()) {
-    Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Bundle schemaIdentity ($expectedBundleSchemaId) != signed ($($signedPayload.schema_sha256)) or receipt ($receiptSchemaSha)" -DurationMs 0
-    throw 'GATE REJECTED: Bundle schemaIdentity does not match Owner-signed schema_sha256 and CI receipt schema_sha256.'
+    Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Bundle schemaIdentity ($expectedBundleSchemaId) != expected ($expectedSchemaSha) or receipt ($receiptSchemaSha)" -DurationMs 0
+    throw 'GATE REJECTED: Bundle schemaIdentity does not match verified schema_sha256 and CI receipt schema_sha256.'
   }
 
   if (($bundledApiVer.PSObject.Properties.Name -contains 'schemaIdentity') -and -not [string]::IsNullOrWhiteSpace([string]$bundledApiVer.schemaIdentity)) {
@@ -1414,9 +1506,12 @@ process.stdout.write('VALID');
 
   # 12. ADVANCE ANTI-REPLAY WATERMARK & EXECUTE PRE-CUTOVER DATABASE MIGRATIONS (BEFORE SWITCHING API/WEB BUILD)
   @{
-    last_sequence  = [int]$signedPayload.sequence
-    last_sha       = $normalizedSha
-    updated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+    last_sequence           = [int]$signedPayload.sequence
+    last_sha                = $normalizedSha
+    approval_mode           = $approvalMode
+    scoped_deployments_used = if ($approvalMode -eq 'SCOPED_WINDOW') { $wmScopedUsed + 1 } else { 0 }
+    deployed_runs           = if ($approvalMode -eq 'SCOPED_WINDOW') { @($wmDeployedRuns + $currentRunKey) } else { @($currentRunKey) }
+    updated_at_utc          = (Get-Date).ToUniversalTime().ToString('o')
   } | ConvertTo-Json | Set-Content -LiteralPath $watermarkFile -Encoding UTF8 -Force
 
   if (-not $SkipMigration) {

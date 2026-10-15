@@ -41,11 +41,17 @@ param(
   [string]$AuditLogPath = 'C:\HoaiPhuong-Server\config\release-gate\approval-audit.jsonl',
   [string]$Reason = 'Owner cryptographically signed SHA release approval',
   [switch]$AllowMigration,
+  [switch]$ApproveScope,
+  [string]$BaselineSha = '',
+  [int]$MaxDeployments = 20,
   [int]$ExpiresInMinutes = 120,
+  [int]$ExpiresInHours = 0,
+  [switch]$AllowControllerChanges,
   [switch]$SandboxMode,
   [switch]$EnforceProductionGate,
   [switch]$SimulateRunnerContext,
-  [switch]$SimulateAgentContext
+  [switch]$SimulateAgentContext,
+  [switch]$SimulateNonElevatedCaller
 )
 
 Set-StrictMode -Version Latest
@@ -61,7 +67,7 @@ if ($SimulateRunnerContext -or $env:GITHUB_ACTIONS -eq 'true' -or (-not [string]
   throw 'SECURITY_VIOLATION_RUNNER_SELF_APPROVAL: Approve-ReleaseSha.ps1 cannot be executed inside a GitHub Actions runner or workflow context.'
 }
 
-# 1B. DETECT PRODUCTION GATE TARGET & BLOCK AI AGENT / AUTOMATED SUBPROCESS SELF-APPROVAL
+# 1B. DETECT PRODUCTION GATE TARGET & ENFORCE OS KERNEL UAC ELEVATION + BLOCK AI AGENT SELF-APPROVAL
 $realProdServerPrefix = [IO.Path]::GetFullPath('C:\HoaiPhuong-Server') + [IO.Path]::DirectorySeparatorChar
 $targetGatePaths = if ($GenerateKeyPairOnly) {
   @($KeyOutDir, $PrivateKeyOutPath) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
@@ -77,6 +83,10 @@ $targetsProductionHost = $EnforceProductionGate -or (
   ).Count -gt 0
 )
 
+$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$currentPrincipal = [Security.Principal.WindowsPrincipal]::new($currentIdentity)
+$isElevatedAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
 $isAiAgentEnvironment = $SimulateAgentContext -or
   ($env:PAGER -eq 'cat') -or
   (-not [string]::IsNullOrWhiteSpace($env:ANTIGRAVITY_AGENT)) -or
@@ -88,6 +98,10 @@ $isAiAgentEnvironment = $SimulateAgentContext -or
 
 if ($SimulateAgentContext -or ($targetsProductionHost -and $isAiAgentEnvironment)) {
   throw 'SECURITY_VIOLATION_AGENT_SELF_APPROVAL: Approve-ReleaseSha.ps1 cannot be executed by an AI Agent or automated subprocess for production release-gate paths. Only the human Owner in an independent interactive console session may generate keys or sign approvals.'
+}
+
+if ($SimulateNonElevatedCaller -or ($targetsProductionHost -and (-not $isElevatedAdmin))) {
+  throw 'SECURITY_VIOLATION_NON_ELEVATED_CALLER: Production release-gate operations (key generation, policy update, or Owner approval signing) require an elevated Administrator token (UAC Secure Desktop). Non-elevated sessions (such as AI Agent processes) are blocked at the OS kernel token level.'
 }
 
 if ($targetsProductionHost) {
@@ -117,14 +131,27 @@ function Assert-OffServerPrivateKeyPath {
     throw "SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE: Owner Ed25519 private key ($resolvedPriv) must never reside in runner, test-secrets, or release-gate directories."
   }
   if ($IsProdTarget -and $resolvedPriv.StartsWith($realProdServerPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-    throw "SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE: For production release signing, Owner Ed25519 private key ($resolvedPriv) must reside outside C:\HoaiPhuong-Server (e.g., on Owner removable/external media)."
+    throw "SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE: For production release signing, Owner Ed25519 private key ($resolvedPriv) must reside outside C:\HoaiPhuong-Server (e.g., C:\ProgramData\HoaiPhuong-OwnerVault or Owner removable media)."
   }
 }
 
 function Set-ReleaseGateAcl {
-  param([string]$TargetPath)
+  param([string]$TargetPath, [bool]$IsProdTarget = $false)
   $currentAdmin = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-  & icacls.exe $TargetPath /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdmin}:(OI)(CI)F" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
+  if ($IsProdTarget) {
+    # Production: Only SYSTEM and Elevated Administrators (UAC) have Full Control (F). Non-elevated user account (Anty) gets Read-Only (RX).
+    & icacls.exe $TargetPath /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdmin}:(OI)(CI)RX" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
+  } else {
+    & icacls.exe $TargetPath /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdmin}:(OI)(CI)F" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
+  }
+}
+
+function Set-OwnerVaultAcl {
+  param([string]$VaultDir, [bool]$IsProdTarget = $false)
+  if ($IsProdTarget -and (-not [string]::IsNullOrWhiteSpace($VaultDir)) -and (Test-Path -LiteralPath $VaultDir)) {
+    # Production: Only SYSTEM and Elevated Administrators (UAC) can read or write the Owner private key vault. Non-elevated user account (Anty) has ZERO access.
+    & icacls.exe $VaultDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" /deny "*S-1-5-19:(OI)(CI)F" "*S-1-5-20:(OI)(CI)F" | Out-Null
+  }
 }
 
 # 2. OPTIONAL KEYPAIR & POLICY INITIALIZATION MODE (FOR SANDBOX OR OWNER KEY CEREMONY)
@@ -176,7 +203,8 @@ fs.writeFileSync(process.argv[3], JSON.stringify(policy, null, 2), 'utf8');
   if ($LASTEXITCODE -ne 0) {
     throw 'Failed to generate Ed25519 keypair and policy.'
   }
-  Set-ReleaseGateAcl -TargetPath $KeyOutDir
+  Set-OwnerVaultAcl -VaultDir (Split-Path -Path $privPath -Parent) -IsProdTarget $targetsProductionHost
+  Set-ReleaseGateAcl -TargetPath $KeyOutDir -IsProdTarget $targetsProductionHost
   Write-Host "[OK] Generated Ed25519 Owner public policy in $KeyOutDir (Private key at $privPath)"
   return
 }
@@ -221,22 +249,10 @@ if (-not $PSBoundParameters.ContainsKey('Sequence')) {
   }
 }
 
-# 3. VALIDATE INPUTS & POLICY FOR SIGNING
-$normalizedSha = if ($CommitSha) { $CommitSha.Trim().ToLowerInvariant() } else { '' }
-if ($normalizedSha -notmatch '^[0-9a-f]{40}$') {
-  throw "Invalid CommitSha '$CommitSha'. Must be a full 40-character hexadecimal Git SHA."
+if ([string]::IsNullOrWhiteSpace($PrivateKeyPath) -and $targetsProductionHost) {
+  $PrivateKeyPath = 'C:\ProgramData\HoaiPhuong-OwnerVault\owner-approval-private.pem'
 }
-$normalizedArtifactHash = if ($ArtifactSha256) { $ArtifactSha256.Trim().ToLowerInvariant() } else { '' }
-if ($normalizedArtifactHash -notmatch '^[0-9a-f]{64}$') {
-  throw "Invalid ArtifactSha256 '$ArtifactSha256'. Must be a 64-character hexadecimal SHA-256 digest."
-}
-$normalizedSchemaHash = if ($SchemaSha256) { $SchemaSha256.Trim().ToLowerInvariant() } else { '' }
-if ($normalizedSchemaHash -notmatch '^[0-9a-f]{64}$') {
-  throw "Invalid SchemaSha256 '$SchemaSha256'. Must be a 64-character hexadecimal SHA-256 digest."
-}
-if ($CiRunId -notmatch '^[0-9]+$' -or $CiRunAttempt -lt 1) {
-  throw "Invalid CiRunId '$CiRunId' or CiRunAttempt '$CiRunAttempt'."
-}
+
 if ([string]::IsNullOrWhiteSpace($ApprovedBy)) {
   throw 'ApprovedBy is mandatory.'
 }
@@ -262,49 +278,124 @@ if (-not (Test-Path -LiteralPath $parentDir)) {
 }
 
 $nowUtc = (Get-Date).ToUniversalTime()
-$expiresUtc = $nowUtc.AddMinutes($ExpiresInMinutes)
 $winPrincipal = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-$payloadObj = [ordered]@{
-  version           = 1
-  repository        = 'truhoaiphuong03/management-lite'
-  approved_sha      = $normalizedSha
-  artifact_sha256   = $normalizedArtifactHash
-  schema_sha256     = $normalizedSchemaHash
-  ci_run_id         = $CiRunId.Trim()
-  ci_run_attempt    = [int]$CiRunAttempt
-  ci_status         = $CiStatus.Trim().ToUpperInvariant()
-  workflow_path     = $WorkflowPath.Trim()
-  source_branch     = $SourceBranch.Trim()
-  sequence          = [int]$Sequence
-  approved_by       = $ApprovedBy.Trim()
-  windows_principal = $winPrincipal
-  reason            = $Reason.Trim()
-  allow_migration   = [bool]$AllowMigration
-  approved_at_utc   = $nowUtc.ToString('o')
-  expires_at_utc    = $expiresUtc.ToString('o')
-}
-$canonicalJson = $payloadObj | ConvertTo-Json -Compress
+if ($ApproveScope) {
+  # 3A. ONE-TIME SCOPED RELEASE GRANT MODE (SCOPED_WINDOW)
+  $normalizedBaselineSha = if ($BaselineSha) { $BaselineSha.Trim().ToLowerInvariant() } else { '' }
+  if ($normalizedBaselineSha -notmatch '^[0-9a-f]{40}$') {
+    throw "Invalid BaselineSha '$BaselineSha'. Must be a full 40-character hexadecimal Git SHA."
+  }
+  if ($MaxDeployments -lt 1 -or $MaxDeployments -gt 100) {
+    throw "Invalid MaxDeployments '$MaxDeployments'. Must be between 1 and 100."
+  }
+  $effectiveScopeMinutes = if ($ExpiresInHours -gt 0) {
+    $ExpiresInHours * 60
+  } elseif ($PSBoundParameters.ContainsKey('ExpiresInMinutes')) {
+    $ExpiresInMinutes
+  } else {
+    10080 # Default 7 days (168 hours) for one-time scoped approval
+  }
+  $expiresUtc = $nowUtc.AddMinutes($effectiveScopeMinutes)
 
-$envelope = [ordered]@{
-  status                 = 'APPROVED'
-  approved_sha           = $normalizedSha
-  artifact_sha256        = $normalizedArtifactHash
-  schema_sha256          = $normalizedSchemaHash
-  ci_run_id              = $CiRunId.Trim()
-  ci_run_attempt         = [int]$CiRunAttempt
-  ci_status              = $CiStatus.Trim().ToUpperInvariant()
-  workflow_path          = $WorkflowPath.Trim()
-  source_branch          = $SourceBranch.Trim()
-  sequence               = [int]$Sequence
-  approved_by            = $ApprovedBy.Trim()
-  windows_principal      = $winPrincipal
-  allow_migration        = [bool]$AllowMigration
-  approved_at_utc        = $payloadObj.approved_at_utc
-  expires_at_utc         = $payloadObj.expires_at_utc
-  payload_canonical_json = $canonicalJson
-  signature_algorithm    = 'Ed25519'
-  signature_base64       = ''
+  $payloadObj = [ordered]@{
+    version                  = 2
+    approval_mode            = 'SCOPED_WINDOW'
+    repository               = 'truhoaiphuong03/management-lite'
+    baseline_sha             = $normalizedBaselineSha
+    workflow_path            = $WorkflowPath.Trim()
+    source_branch            = $SourceBranch.Trim()
+    max_deployments          = [int]$MaxDeployments
+    allow_migration          = [bool]$AllowMigration
+    allow_controller_changes = [bool]$AllowControllerChanges
+    sequence                 = [int]$Sequence
+    approved_by              = $ApprovedBy.Trim()
+    windows_principal        = $winPrincipal
+    reason                   = $Reason.Trim()
+    approved_at_utc          = $nowUtc.ToString('o')
+    expires_at_utc           = $expiresUtc.ToString('o')
+  }
+  $canonicalJson = $payloadObj | ConvertTo-Json -Compress
+
+  $envelope = [ordered]@{
+    status                   = 'APPROVED'
+    approval_mode            = 'SCOPED_WINDOW'
+    baseline_sha             = $normalizedBaselineSha
+    workflow_path            = $WorkflowPath.Trim()
+    source_branch            = $SourceBranch.Trim()
+    max_deployments          = [int]$MaxDeployments
+    allow_migration          = [bool]$AllowMigration
+    allow_controller_changes = [bool]$AllowControllerChanges
+    sequence                 = [int]$Sequence
+    approved_by              = $ApprovedBy.Trim()
+    windows_principal        = $winPrincipal
+    approved_at_utc          = $payloadObj.approved_at_utc
+    expires_at_utc           = $payloadObj.expires_at_utc
+    payload_canonical_json   = $canonicalJson
+    signature_algorithm      = 'Ed25519'
+    signature_base64         = ''
+  }
+} else {
+  # 3B. SINGLE-COMMIT SHA APPROVAL MODE (SINGLE_SHA)
+  $normalizedSha = if ($CommitSha) { $CommitSha.Trim().ToLowerInvariant() } else { '' }
+  if ($normalizedSha -notmatch '^[0-9a-f]{40}$') {
+    throw "Invalid CommitSha '$CommitSha'. Must be a full 40-character hexadecimal Git SHA."
+  }
+  $normalizedArtifactHash = if ($ArtifactSha256) { $ArtifactSha256.Trim().ToLowerInvariant() } else { '' }
+  if ($normalizedArtifactHash -notmatch '^[0-9a-f]{64}$') {
+    throw "Invalid ArtifactSha256 '$ArtifactSha256'. Must be a 64-character hexadecimal SHA-256 digest."
+  }
+  $normalizedSchemaHash = if ($SchemaSha256) { $SchemaSha256.Trim().ToLowerInvariant() } else { '' }
+  if ($normalizedSchemaHash -notmatch '^[0-9a-f]{64}$') {
+    throw "Invalid SchemaSha256 '$SchemaSha256'. Must be a 64-character hexadecimal SHA-256 digest."
+  }
+  if ($CiRunId -notmatch '^[0-9]+$' -or $CiRunAttempt -lt 1) {
+    throw "Invalid CiRunId '$CiRunId' or CiRunAttempt '$CiRunAttempt'."
+  }
+  $effectiveSingleMinutes = if ($ExpiresInHours -gt 0) { $ExpiresInHours * 60 } else { $ExpiresInMinutes }
+  $expiresUtc = $nowUtc.AddMinutes($effectiveSingleMinutes)
+
+  $payloadObj = [ordered]@{
+    version           = 1
+    repository        = 'truhoaiphuong03/management-lite'
+    approved_sha      = $normalizedSha
+    artifact_sha256   = $normalizedArtifactHash
+    schema_sha256     = $normalizedSchemaHash
+    ci_run_id         = $CiRunId.Trim()
+    ci_run_attempt    = [int]$CiRunAttempt
+    ci_status         = $CiStatus.Trim().ToUpperInvariant()
+    workflow_path     = $WorkflowPath.Trim()
+    source_branch     = $SourceBranch.Trim()
+    sequence          = [int]$Sequence
+    approved_by       = $ApprovedBy.Trim()
+    windows_principal = $winPrincipal
+    reason            = $Reason.Trim()
+    allow_migration   = [bool]$AllowMigration
+    approved_at_utc   = $nowUtc.ToString('o')
+    expires_at_utc    = $expiresUtc.ToString('o')
+  }
+  $canonicalJson = $payloadObj | ConvertTo-Json -Compress
+
+  $envelope = [ordered]@{
+    status                 = 'APPROVED'
+    approved_sha           = $normalizedSha
+    artifact_sha256        = $normalizedArtifactHash
+    schema_sha256          = $normalizedSchemaHash
+    ci_run_id              = $CiRunId.Trim()
+    ci_run_attempt         = [int]$CiRunAttempt
+    ci_status              = $CiStatus.Trim().ToUpperInvariant()
+    workflow_path          = $WorkflowPath.Trim()
+    source_branch          = $SourceBranch.Trim()
+    sequence               = [int]$Sequence
+    approved_by            = $ApprovedBy.Trim()
+    windows_principal      = $winPrincipal
+    allow_migration        = [bool]$AllowMigration
+    approved_at_utc        = $payloadObj.approved_at_utc
+    expires_at_utc         = $payloadObj.expires_at_utc
+    payload_canonical_json = $canonicalJson
+    signature_algorithm    = 'Ed25519'
+    signature_base64       = ''
+  }
 }
 
 $envelope | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $ManifestPath -Encoding UTF8 -Force
@@ -341,11 +432,8 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($entryHash)) {
 $auditEntry = [ordered]@{
   timestamp_utc     = $nowUtc.ToString('o')
   sequence          = [int]$Sequence
-  approved_sha      = $normalizedSha
-  artifact_sha256   = $normalizedArtifactHash
-  schema_sha256     = $normalizedSchemaHash
-  ci_run_id         = $CiRunId.Trim()
-  ci_run_attempt    = [int]$CiRunAttempt
+  approval_mode     = if ($ApproveScope) { 'SCOPED_WINDOW' } else { 'SINGLE_SHA' }
+  approved_sha      = if ($ApproveScope) { $normalizedBaselineSha } else { $normalizedSha }
   workflow_path     = $WorkflowPath.Trim()
   source_branch     = $SourceBranch.Trim()
   approved_by       = $ApprovedBy.Trim()
@@ -357,12 +445,21 @@ $auditEntry = [ordered]@{
 Add-Content -LiteralPath $AuditLogPath -Value $auditEntry -Encoding UTF8
 
 # 5. ENFORCE WINDOWS ACL ON RELEASE-GATE DIRECTORY
-Set-ReleaseGateAcl -TargetPath $parentDir
+Set-ReleaseGateAcl -TargetPath $parentDir -IsProdTarget $targetsProductionHost
 
-Write-Host "[OK] Ed25519-signed Owner SHA approval recorded at: $ManifestPath"
-Write-Host "     SHA             : $normalizedSha"
-Write-Host "     Artifact SHA256 : $normalizedArtifactHash"
-Write-Host "     CI Run ID       : $CiRunId (attempt=$CiRunAttempt, status=$CiStatus, workflow=$WorkflowPath, branch=$SourceBranch)"
-Write-Host "     Sequence        : $Sequence"
-Write-Host "     Approved By     : $($payloadObj.approved_by) ($winPrincipal)"
-Write-Host "     Audit Hash      : $entryHash"
+if ($ApproveScope) {
+  Write-Host "[OK] Ed25519-signed Owner SCOPED_WINDOW approval recorded at: $ManifestPath"
+  Write-Host "     Baseline SHA    : $normalizedBaselineSha (Branch=$SourceBranch, Workflow=$WorkflowPath)"
+  Write-Host "     Max Deployments : $MaxDeployments (Expires=$($payloadObj.expires_at_utc))"
+  Write-Host "     Sequence        : $Sequence | AllowMigration=$AllowMigration | AllowControllerChanges=$AllowControllerChanges"
+  Write-Host "     Approved By     : $($payloadObj.approved_by) ($winPrincipal)"
+  Write-Host "     Audit Hash      : $entryHash"
+} else {
+  Write-Host "[OK] Ed25519-signed Owner SHA approval recorded at: $ManifestPath"
+  Write-Host "     SHA             : $normalizedSha"
+  Write-Host "     Artifact SHA256 : $normalizedArtifactHash"
+  Write-Host "     CI Run ID       : $CiRunId (attempt=$CiRunAttempt, status=$CiStatus, workflow=$WorkflowPath, branch=$SourceBranch)"
+  Write-Host "     Sequence        : $Sequence"
+  Write-Host "     Approved By     : $($payloadObj.approved_by) ($winPrincipal)"
+  Write-Host "     Audit Hash      : $entryHash"
+}

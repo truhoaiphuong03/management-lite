@@ -291,20 +291,21 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
   const latestDeployJson = path.join(reportsDir, 'latest-deployment.json');
 
   // Local mock server for sandbox ceremony verification
+  let currentMockSha = sha;
+  let currentMockRunId = 99001;
   const mockServer = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
-        id: 99001,
+        id: currentMockRunId,
         run_attempt: 1,
-        head_sha: sha,
+        head_sha: currentMockSha,
         head_branch: 'main',
         status: 'completed',
         conclusion: 'success',
         event: 'workflow_dispatch',
         path: '.github/workflows/deploy.yml',
-        html_url:
-          'https://github.com/truhoaiphuong03/management-lite/actions/runs/99001',
+        html_url: `https://github.com/truhoaiphuong03/management-lite/actions/runs/${currentMockRunId}`,
       }),
     );
   });
@@ -595,9 +596,288 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
       fakeApiPolicyReport.status,
       'REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION',
     );
+
+    // 8. OS Kernel Token Elevation Gate: blocks non-elevated caller EVEN WHEN ALL AI Agent env vars are cleared
+    const nonElevatedAttempt = runPs(
+      approvePath,
+      [
+        '-GenerateKeyPairOnly',
+        '-KeyOutDir',
+        gateDir,
+        '-PrivateKeyOutPath',
+        externalPrivKey,
+        '-SimulateNonElevatedCaller',
+      ],
+      { PAGER: '', ANTIGRAVITY_AGENT: '' },
+    );
+    assert.notEqual(nonElevatedAttempt.status, 0);
+    assert.match(
+      `${nonElevatedAttempt.stdout}\n${nonElevatedAttempt.stderr}`,
+      /SECURITY_VIOLATION_NON_ELEVATED_CALLER/,
+    );
+
+    // 9. One-Time Scoped Approval (SCOPED_WINDOW): enforces baseline lineage, blocks controller/workflow tampering, and enforces max_deployments quota
+    const targetRepoDir = path.join(serverRoot, 'apps', 'management-lite');
+    fs.mkdirSync(targetRepoDir, { recursive: true });
+    const gitTarget = (...args) =>
+      execFileSync('git', args, { cwd: targetRepoDir, encoding: 'utf8' }).trim();
+    gitTarget('init', '--quiet', '-b', 'main');
+    gitTarget('config', 'user.name', 'Synthetic QA');
+    gitTarget('config', 'user.email', 'synthetic@isolated.example.test');
+    fs.mkdirSync(path.join(targetRepoDir, 'apps', 'web'), { recursive: true });
+    fs.mkdirSync(path.join(targetRepoDir, 'scripts', 'deployment'), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(targetRepoDir, 'apps', 'web', 'feature.txt'),
+      'baseline-v0.1.0',
+    );
+    gitTarget('add', '.');
+    gitTarget('commit', '--quiet', '-m', 'baseline commit');
+    const baselineSha = gitTarget('rev-parse', 'HEAD');
+
+    // Create unrelated commit on orphan branch to test REJECTED_OUT_OF_SCOPE_LINEAGE
+    gitTarget('checkout', '--quiet', '--orphan', 'unrelated-branch');
+    fs.writeFileSync(
+      path.join(targetRepoDir, 'apps', 'web', 'feature.txt'),
+      'unrelated',
+    );
+    gitTarget('add', '.');
+    gitTarget('commit', '--quiet', '-m', 'unrelated commit');
+    const unrelatedSha = gitTarget('rev-parse', 'HEAD');
+
+    // Switch back to main and create a commit touching scripts/deployment/ to test REJECTED_OUT_OF_SCOPE_PATH_MODIFICATION
+    gitTarget('checkout', '--quiet', 'main');
+    fs.writeFileSync(
+      path.join(targetRepoDir, 'scripts', 'deployment', 'tamper.ps1'),
+      '# tamper',
+    );
+    gitTarget('add', '.');
+    gitTarget('commit', '--quiet', '-m', 'tamper controller commit');
+    const tamperControllerSha = gitTarget('rev-parse', 'HEAD');
+
+    // Reset main back to baselineSha so targetRepoDir HEAD is at baselineSha
+    gitTarget('checkout', '--quiet', '-f', baselineSha);
+
+    // Sign One-Time Scoped Approval (SCOPED_WINDOW) for baselineSha with MaxDeployments = 2
+    const scopeApproveRes = runPs(approvePath, [
+      '-ApproveScope',
+      '-BaselineSha',
+      baselineSha,
+      '-MaxDeployments',
+      '2',
+      '-ExpiresInHours',
+      '168',
+      '-AllowMigration',
+      '-Sequence',
+      '10',
+      '-PrivateKeyPath',
+      externalPrivKey,
+      '-PolicyPath',
+      policyPath,
+      '-ManifestPath',
+      manifestPath,
+      '-AuditLogPath',
+      auditLogPath,
+    ]);
+    assert.equal(
+      scopeApproveRes.status,
+      0,
+      scopeApproveRes.stderr || scopeApproveRes.stdout,
+    );
+    const scopedManifest = JSON.parse(
+      fs.readFileSync(manifestPath, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(scopedManifest.approval_mode, 'SCOPED_WINDOW');
+    assert.equal(scopedManifest.baseline_sha, baselineSha);
+    assert.equal(scopedManifest.max_deployments, 2);
+    assert.equal(scopedManifest.allow_controller_changes, false);
+
+    // Helper to write CI receipt for a given SHA under sandbox test
+    const writeScopedReceipt = (targetSha, runId) => {
+      const p = path.join(gateDir, `ci-run-receipt-${targetSha}.json`);
+      fs.writeFileSync(
+        p,
+        JSON.stringify(
+          {
+            id: String(runId),
+            run_id: String(runId),
+            run_attempt: 1,
+            head_sha: targetSha,
+            head_branch: 'main',
+            workflow_path: '.github/workflows/deploy.yml',
+            artifact_sha256: artifactSha,
+            schema_sha256: schemaSha,
+            status: 'completed',
+            conclusion: 'success',
+            event: 'workflow_dispatch',
+            repository: 'truhoaiphuong03/management-lite',
+            generated_at_utc: new Date().toISOString(),
+          },
+          null,
+          2,
+        ),
+        'utf8',
+      );
+      return p;
+    };
+
+    const { execFile } = await import('node:child_process');
+    const runPsAsync = (script, args, envOverrides = {}) =>
+      new Promise((resolve) => {
+        execFile(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            script,
+            ...args,
+          ],
+          {
+            cwd: tmpRoot,
+            encoding: 'utf8',
+            env: {
+              ...process.env,
+              PAGER: '',
+              ANTIGRAVITY_AGENT: '',
+              ANTIGRAVITY_CLI_ALIAS: '',
+              CODEX_CI: '',
+              CODEX_SANDBOX: '',
+              CLAUDE_CODE: '',
+              CURSOR_TRACE_ID: '',
+              ...envOverrides,
+            },
+          },
+          (err, stdout, stderr) => {
+            resolve({
+              status: err ? err.code || 1 : 0,
+              stdout: stdout || '',
+              stderr: stderr || '',
+            });
+          },
+        );
+      });
+
+    currentMockSha = unrelatedSha;
+    currentMockRunId = 99002;
+
+    // 9A. Reject commit that is NOT a descendant of baselineSha (REJECTED_OUT_OF_SCOPE_LINEAGE)
+    const unrelatedReceipt = writeScopedReceipt(unrelatedSha, 99002);
+    const outOfLineageRes = await runPsAsync(controllerPath, [
+      '-CommitSha',
+      unrelatedSha,
+      '-CiRunId',
+      '99002',
+      '-ArtifactPath',
+      bundlePath,
+      '-ArtifactSha256',
+      artifactSha,
+      '-CiRunReceiptPath',
+      unrelatedReceipt,
+      '-GitHubApiBaseUrl',
+      mockApiUrl,
+      '-ServerRoot',
+      serverRoot,
+      '-TargetDir',
+      targetRepoDir,
+      '-PolicyPath',
+      policyPath,
+      '-ApprovalManifestPath',
+      manifestPath,
+      '-SandboxMode',
+    ]);
+    assert.notEqual(outOfLineageRes.status, 0);
+    const outOfLineageReport = JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(outOfLineageReport.status, 'REJECTED_OUT_OF_SCOPE_LINEAGE');
+
+    // 9B. Reject commit that modifies scripts/deployment/* during scoped approval (REJECTED_OUT_OF_SCOPE_PATH_MODIFICATION)
+    currentMockSha = tamperControllerSha;
+    currentMockRunId = 99003;
+    const tamperReceipt = writeScopedReceipt(tamperControllerSha, 99003);
+    const outOfScopePathRes = await runPsAsync(controllerPath, [
+      '-CommitSha',
+      tamperControllerSha,
+      '-CiRunId',
+      '99003',
+      '-ArtifactPath',
+      bundlePath,
+      '-ArtifactSha256',
+      artifactSha,
+      '-CiRunReceiptPath',
+      tamperReceipt,
+      '-GitHubApiBaseUrl',
+      mockApiUrl,
+      '-ServerRoot',
+      serverRoot,
+      '-TargetDir',
+      targetRepoDir,
+      '-PolicyPath',
+      policyPath,
+      '-ApprovalManifestPath',
+      manifestPath,
+      '-SandboxMode',
+    ]);
+    assert.notEqual(outOfScopePathRes.status, 0);
+    const outOfScopePathReport = JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(
+      outOfScopePathReport.status,
+      'REJECTED_OUT_OF_SCOPE_PATH_MODIFICATION',
+    );
+
+    // 9C. Reject when scoped_deployments_used reaches max_deployments (REJECTED_SCOPE_QUOTA_EXCEEDED)
+    fs.writeFileSync(
+      path.join(reportsDir, 'approval-watermark.json'),
+      JSON.stringify(
+        {
+          last_sequence: 10,
+          approval_mode: 'SCOPED_WINDOW',
+          scoped_deployments_used: 2,
+          deployed_runs: [`${baselineSha}:99000`, `${baselineSha}:99001`],
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    const quotaExceededRes = await runPsAsync(controllerPath, [
+      '-CommitSha',
+      tamperControllerSha,
+      '-CiRunId',
+      '99003',
+      '-ArtifactPath',
+      bundlePath,
+      '-ArtifactSha256',
+      artifactSha,
+      '-CiRunReceiptPath',
+      tamperReceipt,
+      '-GitHubApiBaseUrl',
+      mockApiUrl,
+      '-ServerRoot',
+      serverRoot,
+      '-TargetDir',
+      targetRepoDir,
+      '-PolicyPath',
+      policyPath,
+      '-ApprovalManifestPath',
+      manifestPath,
+      '-SandboxMode',
+    ]);
+    assert.notEqual(quotaExceededRes.status, 0);
+    const quotaExceededReport = JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(quotaExceededReport.status, 'REJECTED_SCOPE_QUOTA_EXCEEDED');
   } finally {
     await new Promise((resolve) => mockServer.close(resolve));
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 });
+
+
 
