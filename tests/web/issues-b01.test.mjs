@@ -21,31 +21,70 @@ export async function resolve(specifier, context, nextResolve) {
 }
 `;
 try {
-  register('data:text/javascript,' + encodeURIComponent(loaderCode), import.meta.url);
+  register(
+    'data:text/javascript,' + encodeURIComponent(loaderCode),
+    import.meta.url,
+  );
 } catch {}
 
 test('ISSUES-B01: Contract and static source verification', () => {
   const contractsPath = resolve(root, 'packages/contracts/src/issues.ts');
   const contractsContent = readFileSync(contractsPath, 'utf8');
-  assert.ok(contractsContent.includes('IssueGroupCounts'), 'Must define IssueGroupCounts');
-  assert.ok(contractsContent.includes('counts?: IssueGroupCounts'), 'Must include optional counts in ListIssuesResponseData');
-  assert.ok(contractsContent.includes("'in_progress'"), 'Must include in_progress in ListIssuesQuery status');
+  assert.ok(
+    contractsContent.includes('IssueGroupCounts'),
+    'Must define IssueGroupCounts',
+  );
+  assert.ok(
+    contractsContent.includes('counts?: IssueGroupCounts'),
+    'Must include optional counts in ListIssuesResponseData',
+  );
+  assert.ok(
+    contractsContent.includes("'in_progress'"),
+    'Must include in_progress in ListIssuesQuery status',
+  );
 
   const screenPath = resolve(root, 'apps/web/src/screens/IssuesScreen.tsx');
   const screenContent = readFileSync(screenPath, 'utf8');
   assert.ok(screenContent.includes('tab-status'), 'Must render status tabs');
   assert.ok(screenContent.includes('STATUS_TABS'), 'Must define STATUS_TABS');
-  assert.ok(screenContent.includes('data-testid="checkbox-select-all"'), 'Must render select all checkbox');
-  assert.ok(screenContent.includes('data-testid="btn-copy-selected-issues"'), 'Must render bulk copy button');
-  assert.ok(screenContent.includes('btn-deselect-all'), 'Must render deselect all button');
-  assert.ok(screenContent.includes('e.stopPropagation()'), 'Must stop propagation on checkbox click to prevent navigation');
+  assert.ok(
+    screenContent.includes('data-testid="checkbox-select-all"'),
+    'Must render select all checkbox',
+  );
+  assert.ok(
+    screenContent.includes('data-testid="btn-copy-selected-issues"'),
+    'Must render bulk copy button',
+  );
+  assert.ok(
+    screenContent.includes('btn-deselect-all'),
+    'Must render deselect all button',
+  );
+  assert.ok(
+    screenContent.includes('e.stopPropagation()'),
+    'Must stop propagation on checkbox click to prevent navigation',
+  );
 
   // Zero mutation invariants preserved
-  assert.ok(!screenContent.includes("method: 'POST'"), 'IssuesScreen MUST NOT perform POST mutation on issues');
-  assert.ok(!screenContent.includes("method: 'PATCH'"), 'IssuesScreen MUST NOT perform PATCH mutation on issues');
-  assert.ok(!screenContent.includes("method: 'DELETE'"), 'IssuesScreen MUST NOT perform DELETE mutation on issues');
-  assert.ok(!screenContent.includes('confirm-fix'), 'IssuesScreen MUST NOT contain confirm-fix handlers');
-  assert.ok(!screenContent.includes('reopen'), 'IssuesScreen MUST NOT contain reopen mutation handlers');
+  assert.ok(
+    !screenContent.includes("method: 'POST'"),
+    'IssuesScreen MUST NOT perform POST mutation on issues',
+  );
+  assert.ok(
+    !screenContent.includes("method: 'PATCH'"),
+    'IssuesScreen MUST NOT perform PATCH mutation on issues',
+  );
+  assert.ok(
+    !screenContent.includes("method: 'DELETE'"),
+    'IssuesScreen MUST NOT perform DELETE mutation on issues',
+  );
+  assert.ok(
+    !screenContent.includes('confirm-fix'),
+    'IssuesScreen MUST NOT contain confirm-fix handlers',
+  );
+  assert.ok(
+    !screenContent.includes('/reopen'),
+    'IssuesScreen MUST NOT contain reopen mutation handlers',
+  );
 });
 
 test('ISSUES-B01: Backend API group counts and in_progress filtering conformance', async () => {
@@ -102,9 +141,18 @@ test('ISSUES-B01: Backend API group counts and in_progress filtering conformance
   };
 
   // 1. Query with in_progress status
-  const res = await service.listIssues(context, { status: 'in_progress', limit: 20 });
-  assert.ok(capturedQuery.includes("i.status IN ('analyzing', 'fixing')"), 'Must filter by analyzing and fixing');
-  assert.ok(capturedCountsQuery.includes('COUNT(*)'), 'Must execute counts query');
+  const res = await service.listIssues(context, {
+    status: 'in_progress',
+    limit: 20,
+  });
+  assert.ok(
+    capturedQuery.includes("i.status IN ('analyzing', 'fixing'"),
+    'Must filter by analyzing and fixing',
+  );
+  assert.ok(
+    capturedCountsQuery.includes('COUNT(*)'),
+    'Must execute counts query',
+  );
   assert.deepEqual(res.counts, {
     all: 10,
     open: 4,

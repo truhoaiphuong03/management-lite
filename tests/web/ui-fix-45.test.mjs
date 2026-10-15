@@ -19,15 +19,21 @@ test('UI-FIX-45 — Finding 1: ReportsScreen stale JSON guard after await res.js
     source.indexOf('const fetchEmployees = async'),
   );
   assert.ok(
-    fetchMyReportsBlock.includes('const data = await res.json();\n        if (currentSeq !== myReportsSeqRef.current) return;'),
+    fetchMyReportsBlock.includes(
+      'const data = await res.json();\n        if (currentSeq !== myReportsSeqRef.current) return;',
+    ),
     'fetchMyReports must check currentSeq !== myReportsSeqRef.current immediately after await res.json()',
   );
   assert.ok(
-    fetchMyReportsBlock.includes('catch {\n      if (currentSeq !== myReportsSeqRef.current) return;'),
+    fetchMyReportsBlock.includes(
+      'catch {\n      if (currentSeq !== myReportsSeqRef.current) return;',
+    ),
     'fetchMyReports must guard catch block against stale sequences',
   );
   assert.ok(
-    fetchMyReportsBlock.includes('if (currentSeq === myReportsSeqRef.current) {\n        setLoadingMoreMyReports(false);'),
+    fetchMyReportsBlock.includes(
+      'if (currentSeq === myReportsSeqRef.current) {\n        setLoadingMoreMyReports(false);',
+    ),
     'fetchMyReports must guard finally loading state against stale sequences',
   );
 
@@ -37,15 +43,21 @@ test('UI-FIX-45 — Finding 1: ReportsScreen stale JSON guard after await res.js
     source.indexOf('// Re-fetch when Owner filters change'),
   );
   assert.ok(
-    fetchAllReportsBlock.includes('const data = await res.json();\n        if (currentSeq !== allReportsSeqRef.current) return;'),
+    fetchAllReportsBlock.includes(
+      'const data = await res.json();\n        if (currentSeq !== allReportsSeqRef.current) return;',
+    ),
     'fetchAllReports must check currentSeq !== allReportsSeqRef.current immediately after await res.json()',
   );
   assert.ok(
-    fetchAllReportsBlock.includes('catch {\n      if (currentSeq !== allReportsSeqRef.current) return;'),
+    fetchAllReportsBlock.includes(
+      'catch {\n      if (currentSeq !== allReportsSeqRef.current) return;',
+    ),
     'fetchAllReports must guard catch block against stale sequences',
   );
   assert.ok(
-    fetchAllReportsBlock.includes('if (currentSeq === allReportsSeqRef.current) {\n        setLoadingMoreAllReports(false);'),
+    fetchAllReportsBlock.includes(
+      'if (currentSeq === allReportsSeqRef.current) {\n        setLoadingMoreAllReports(false);',
+    ),
     'fetchAllReports must guard finally loading state against stale sequences',
   );
 });
@@ -56,7 +68,9 @@ test('UI-FIX-45 — Finding 2: LoginScreen timing-safe focusTarget mechanism on 
 
   // 1. focusTarget state and useEffect
   assert.ok(
-    source.includes("const [focusTarget, setFocusTarget] = useState<'identifier' | 'password' | null>(null);"),
+    source.includes(
+      "const [focusTarget, setFocusTarget] = useState<'identifier' | 'password' | null>(null);",
+    ),
     'Must declare focusTarget state to coordinate post-render focus',
   );
   assert.ok(
@@ -103,7 +117,9 @@ test('UI-FIX-45 — Finding 3: EmployeesScreen pagination error boundary retains
 
   // 1. paginationError state declared
   assert.ok(
-    source.includes('const [paginationError, setPaginationError] = useState<string | null>(null);'),
+    source.includes(
+      'const [paginationError, setPaginationError] = useState<string | null>(null);',
+    ),
     'Must declare paginationError state',
   );
 
@@ -113,7 +129,9 @@ test('UI-FIX-45 — Finding 3: EmployeesScreen pagination error boundary retains
     source.indexOf('useEffect(() => {\n    fetchEmployees();'),
   );
   assert.ok(
-    fetchEmployeesBlock.includes('if (append) {\n        setPaginationError(msg);\n      } else {\n        setError(msg);\n      }'),
+    fetchEmployeesBlock.includes(
+      'if (append) {\n        setPaginationError(msg);\n      } else {\n        setError(msg);\n      }',
+    ),
     'Must only set paginationError on append, keeping existing employees intact',
   );
 
@@ -128,17 +146,26 @@ test('UI-FIX-45 — Finding 3: EmployeesScreen pagination error boundary retains
   );
 });
 
-test('UI-FIX-45 — Finding 4: Headless Chrome mounted live browser suite (CDP execution)', () => {
+test('UI-FIX-45 — Finding 4: Headless Chrome mounted live browser suite (CDP execution)', (t) => {
+  if (!process.env.QA_WEB_BASE) {
+    t.skip('Requires live QA_WEB_BASE server');
+    return;
+  }
   // Execute live Chrome CDP test suite
   const scriptPath = resolve(root, 'scripts/test-ui-fix-45-chrome.mjs');
-  const output = execFileSync('node', [scriptPath], { encoding: 'utf8', cwd: root });
+  const output = execFileSync('node', [scriptPath], {
+    encoding: 'utf8',
+    cwd: root,
+  });
 
   assert.ok(
     output.includes('LoginScreen Focus Verification: ALL 3 SUB-TESTS PASS'),
     'Chrome test: LoginScreen 401, 429, network error focus must pass',
   );
   assert.ok(
-    output.includes('EmployeesScreen Mounted Runtime Verification: ALL 6 CHECKS PASS'),
+    output.includes(
+      'EmployeesScreen Mounted Runtime Verification: ALL 6 CHECKS PASS',
+    ),
     'Chrome test: EmployeesScreen deduplication, reset, stale guard, error retry must pass',
   );
   assert.ok(

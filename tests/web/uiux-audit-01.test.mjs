@@ -5,6 +5,7 @@ import path from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AppShell } from '../../dist/apps/web/src/AppShell.js';
+import { DashboardScreen } from '../../dist/apps/web/src/screens/DashboardScreen.js';
 import {
   MobileBottomNav,
   AppDialog,
@@ -131,4 +132,56 @@ test('ANTY-UIUX-AUDIT-01: No transition: all 0.15s ease anti-pattern remains in 
       `${relPath} must use explicit property transitions instead of transition: 'all'`,
     );
   }
+});
+
+test('ANTY-UIUX-AUDIT-01: DashboardScreen renders live-ready summary cards and complete module quick-links for Owner and Staff', () => {
+  const ownerHtml = renderToStaticMarkup(
+    React.createElement(DashboardScreen, {
+      role: 'owner',
+      workspaceName: 'Hoài Phương Studio',
+      onNavigate: () => {},
+    }),
+  );
+
+  for (const expectedLabel of [
+    'Hoài Phương Studio',
+    'Trạng thái ca làm',
+    'Báo cáo hàng ngày',
+    'Nhân sự trực tiếp',
+    'Kỳ lương',
+    'Chấm công',
+    'Báo cáo',
+    'Công việc',
+    'Lịch làm việc',
+    'Lưu trữ &amp; Drive',
+    'Nhân viên',
+    'Bảng lương',
+    'Tài chính',
+    'Tài khoản ACC',
+    'Vấn đề &amp; Issues',
+    'Cài đặt',
+  ]) {
+    assert.ok(
+      ownerHtml.includes(expectedLabel),
+      `Owner DashboardScreen should render "${expectedLabel}"`,
+    );
+  }
+
+  const staffHtml = renderToStaticMarkup(
+    React.createElement(DashboardScreen, {
+      role: 'staff',
+      workspaceName: 'Hoài Phương Studio',
+      onNavigate: () => {},
+    }),
+  );
+
+  assert.ok(
+    staffHtml.includes('Công tháng hiện tại') &&
+      staffHtml.includes('Lương cá nhân'),
+    'Staff DashboardScreen should render staff-specific summary and quick-link cards',
+  );
+  assert.ok(
+    !staffHtml.includes('Tài khoản ACC') && !staffHtml.includes('Tài chính'),
+    'Staff DashboardScreen must not expose Owner-only module cards',
+  );
 });

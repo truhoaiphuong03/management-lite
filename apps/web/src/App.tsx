@@ -541,6 +541,11 @@ export const App: React.FC = () => {
       case '/audit':
         return <AuditScreen role={role} onNavigate={handleNavigate} />;
       case '/issues':
+        if (!verifiedOwnerSession || role !== 'owner') {
+          return (
+            <NotFoundScreen isForbidden onGoHome={() => handleNavigate('/')} />
+          );
+        }
         return (
           <IssuesScreen
             onNavigate={handleNavigate}
@@ -549,6 +554,11 @@ export const App: React.FC = () => {
           />
         );
       case '/issues/:id':
+        if (!verifiedOwnerSession || role !== 'owner') {
+          return (
+            <NotFoundScreen isForbidden onGoHome={() => handleNavigate('/')} />
+          );
+        }
         return (
           <IssueDetailScreen
             issueId={params['id'] || ''}

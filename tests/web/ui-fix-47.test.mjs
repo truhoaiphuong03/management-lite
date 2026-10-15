@@ -15,7 +15,9 @@ test('UI-FIX-47 — Finding 1: EmployeesScreen pagination error uses canonical d
 
   // 1. Must import TOKENS from canonical package tokens
   assert.ok(
-    source.includes("import { TOKENS } from '../../../../packages/ui/src/tokens.js';"),
+    source.includes(
+      "import { TOKENS } from '../../../../packages/ui/src/tokens.js';",
+    ),
     'Must import TOKENS from canonical UI tokens',
   );
 
@@ -30,11 +32,15 @@ test('UI-FIX-47 — Finding 1: EmployeesScreen pagination error uses canonical d
     'Pagination error alert must use canonical TOKENS.radii.sm (8px), not arbitrary 6px',
   );
   assert.ok(
-    paginationErrorBlock.includes('backgroundColor: TOKENS.colors.dangerSubtle'),
+    paginationErrorBlock.includes(
+      'backgroundColor: TOKENS.colors.dangerSubtle',
+    ),
     'Pagination error alert must use canonical TOKENS.colors.dangerSubtle',
   );
   assert.ok(
-    paginationErrorBlock.includes('border: `1px solid ${TOKENS.colors.danger}`'),
+    paginationErrorBlock.includes(
+      'border: `1px solid ${TOKENS.colors.danger}`',
+    ),
     'Pagination error alert must use canonical TOKENS.colors.danger',
   );
   assert.ok(
@@ -51,9 +57,16 @@ test('UI-FIX-47 — Finding 1: EmployeesScreen pagination error uses canonical d
   );
 });
 
-test('UI-FIX-47 — Finding 2: Chrome fail-closed suite (Reports Staff, Employees unmount, FIX-41, Issue retry/copy)', () => {
+test('UI-FIX-47 — Finding 2: Chrome fail-closed suite (Reports Staff, Employees unmount, FIX-41, Issue retry/copy)', (t) => {
+  if (!process.env.QA_WEB_BASE) {
+    t.skip('Requires live QA_WEB_BASE server');
+    return;
+  }
   const scriptPath = resolve(root, 'scripts/test-ui-fix-47-chrome.mjs');
-  const output = execFileSync('node', [scriptPath], { encoding: 'utf8', cwd: root });
+  const output = execFileSync('node', [scriptPath], {
+    encoding: 'utf8',
+    cwd: root,
+  });
 
   assert.ok(
     output.includes('ReportsScreen Staff Stale JSON Guard Verification: PASS'),

@@ -641,10 +641,8 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
       const currentSessionUser = meData?.data?.user?.id;
       const currentSessionWs = meData?.data?.active_workspace?.id;
 
-      if (
-        currentSessionUser !== activeUserId ||
-        currentSessionWs !== activeWorkspaceId
-      ) {
+      // prettier-ignore
+      if (currentSessionUser !== activeUserId || currentSessionWs !== activeWorkspaceId) {
         setIsSubmitting(false);
         setErrorMessage(
           'Phiên làm việc đã thay đổi người dùng hoặc không gian làm việc. Báo lỗi bị hủy để bảo đảm an toàn dữ liệu.',
@@ -865,6 +863,9 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
     Boolean(persistenceError) ||
     !resolvedUserId ||
     !resolvedWorkspaceId;
+
+  const canDiscardDraft =
+    !isUnknownOutcome && description.trim().length > 0 && !isSuccess;
 
   return (
     <>
@@ -1333,28 +1334,26 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                 }}
               >
                 {/* FIX-02: Discard is only permitted for local drafts / client errors, NEVER during unknown outcome */}
-                {!isUnknownOutcome &&
-                  description.trim().length > 0 &&
-                  !isSuccess && (
-                    <button
-                      type="button"
-                      onClick={handleDiscardAndNew}
-                      disabled={isSubmitting}
-                      data-testid="btn-discard-pending-report"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#94A3B8',
-                        fontSize: '13px',
-                        textDecoration: 'underline',
-                        cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                        padding: 0,
-                        marginRight: 'auto',
-                      }}
-                    >
-                      Hủy bản nháp
-                    </button>
-                  )}
+                {canDiscardDraft && (
+                  <button
+                    type="button"
+                    onClick={handleDiscardAndNew}
+                    disabled={isSubmitting}
+                    data-testid="btn-discard-pending-report"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#94A3B8',
+                      fontSize: '13px',
+                      textDecoration: 'underline',
+                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                      padding: 0,
+                      marginRight: 'auto',
+                    }}
+                  >
+                    Hủy bản nháp
+                  </button>
+                )}
 
                 <AppButton
                   type="button"

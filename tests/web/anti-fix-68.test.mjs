@@ -67,7 +67,11 @@ test('ANTI-FIX-68/70 — Close QA-67/QA-69 Pay Findings & Mounted Browser Regres
   // 2. Mounted Headless Chrome Suite Execution (CDP fail-closed verification)
   await t.test(
     '2. Live Chrome CDP suite execution (strict FIX-72 suite)',
-    () => {
+    (subT) => {
+      if (!process.env.QA_WEB_BASE) {
+        subT.skip('Requires live QA_WEB_BASE server');
+        return;
+      }
       const scriptPath = resolve(root, 'scripts/capture-anti-fix-68.mjs');
       const output = execFileSync('node', [scriptPath], {
         encoding: 'utf8',

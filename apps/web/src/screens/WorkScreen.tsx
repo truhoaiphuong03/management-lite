@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   AppCard,
   AppButton,
@@ -6,6 +6,7 @@ import {
   StatusBadge,
   LoadingState,
   EmptyState,
+  ErrorState,
   PlusIcon,
   CalendarIcon,
   UserIcon,
@@ -14,6 +15,12 @@ import {
   CheckCircleIcon,
   RotateCcwIcon,
 } from '@management-lite/ui/components';
+import {
+  ActionIconButton,
+  Pagination,
+  clampPage,
+  PAGINATION_PAGE_SIZES,
+} from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 import type {
   WorkItemData,
@@ -191,6 +198,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('');
 
+  // Q65-05: Multi-page employee selector generation and abort management
+  const employeesFetchIdRef = useRef<number>(0);
+  const employeesAbortControllerRef = useRef<AbortController | null>(null);
+
   // Read-only Schedule integration state (Issue #1)
   const [scheduleEntries, setScheduleEntries] = useState<
     Array<{
@@ -202,12 +213,79 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     }>
   >([]);
 
+  const fetchEmployees = async (externalSignal?: AbortSignal) => {
+    if (role !== 'owner') return;
+    if (employeesAbortControllerRef.current) {
+      employeesAbortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    employeesAbortControllerRef.current = controller;
+    const requestId = ++employeesFetchIdRef.current;
+
+    const isAborted = () =>
+      controller.signal.aborted ||
+      Boolean(externalSignal?.aborted) ||
+      requestId !== employeesFetchIdRef.current;
+
+    try {
+      const allEmps: EmployeeOption[] = [];
+      const seenIds = new Set<string>();
+      const seenCursors = new Set<string>();
+      let cursor: string | null = null;
+      let page = 0;
+      const maxPages = 20;
+
+      const active = !isAborted();
+      while (page < maxPages && active) {
+        if (isAborted()) return;
+        page++;
+        const url: string = cursor
+          ? `/api/v1/employees?limit=50&cursor=${encodeURIComponent(cursor)}`
+          : '/api/v1/employees?limit=50';
+        const empRes = await fetch(url, {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (isAborted()) return;
+        if (!empRes.ok) break;
+        const empBody = await empRes.json();
+        if (isAborted()) return;
+        const items = empBody.data?.items || [];
+        for (const e of items) {
+          if (!seenIds.has(e.id)) {
+            seenIds.add(e.id);
+            allEmps.push({
+              id: e.id,
+              employee_code: e.employee_code,
+              full_name: e.full_name,
+            });
+          }
+        }
+        cursor = empBody.data?.next_cursor || null;
+        if (cursor) {
+          if (seenCursors.has(cursor)) break;
+          seenCursors.add(cursor);
+        }
+        if (!cursor || items.length === 0) break;
+      }
+
+      if (isAborted()) return;
+      setEmployees(allEmps);
+    } catch {
+      // Silently handled
+    }
+  };
+
   // 1. Initial Load: Fetch CSRF token, user info & employees
   useEffect(() => {
+    const controller = new AbortController();
     let active = true;
     const initAuth = async () => {
       try {
-        const res = await fetch('/api/v1/auth/me', { credentials: 'include' });
+        const res = await fetch('/api/v1/auth/me', {
+          credentials: 'include',
+          signal: controller.signal,
+        });
         if (res.ok) {
           const body = await res.json();
           if (active && body.data) {
@@ -225,6 +303,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         try {
           const profile = await fetch('/api/v1/employees/me', {
             credentials: 'include',
+            signal: controller.signal,
           });
           if (profile.ok) {
             const body = await profile.json();
@@ -237,25 +316,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
       // Fetch employees for Owner assignment dropdown
       if (role === 'owner') {
-        try {
-          const empRes = await fetch('/api/v1/employees', {
-            credentials: 'include',
-          });
-          if (empRes.ok) {
-            const empBody = await empRes.json();
-            if (active && empBody.data?.items) {
-              setEmployees(
-                empBody.data.items.map((e: EmployeeOption) => ({
-                  id: e.id,
-                  employee_code: e.employee_code,
-                  full_name: e.full_name,
-                })),
-              );
-            }
-          }
-        } catch {
-          // Silently handled
-        }
+        await fetchEmployees(controller.signal);
       }
 
       // Fetch user's current week schedule (read-only integration - Issue #1)
@@ -288,6 +349,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     initAuth();
     return () => {
       active = false;
+      controller.abort();
+      employeesAbortControllerRef.current?.abort();
     };
   }, [role]);
 
@@ -388,6 +451,19 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     role,
     currentEmployeeId,
   ]);
+
+  // Client-side pagination over the already-loaded list (no API change).
+  const [listPage, setListPage] = useState(0);
+  const [listPageSize, setListPageSize] = useState(20);
+  const safeListPage = clampPage(listPage, filteredItems.length, listPageSize);
+  const pagedItems = useMemo(
+    () =>
+      filteredItems.slice(
+        safeListPage * listPageSize,
+        (safeListPage + 1) * listPageSize,
+      ),
+    [filteredItems, safeListPage, listPageSize],
+  );
 
   // KPI stats
   const kpiStats = useMemo(() => {
@@ -2138,6 +2214,13 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         </div>
       )}
 
+      {/* Error Notice */}
+      {errorMessage && (
+        <div style={{ marginBottom: '20px' }}>
+          <ErrorState message={errorMessage} onRetry={fetchData} />
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div
         style={{
@@ -2339,6 +2422,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           <div style={{ position: 'relative' }}>
             <input
               type="text"
+              data-testid="work-search-input"
+              aria-label="Tìm kiếm công việc"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm công việc..."
@@ -2358,6 +2443,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           {/* Status filter */}
           <div>
             <select
+              data-testid="work-status-filter"
+              aria-label="Lọc theo trạng thái"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               style={{
@@ -2383,6 +2470,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           {/* Priority filter */}
           <div>
             <select
+              data-testid="work-priority-filter"
+              aria-label="Lọc theo độ ưu tiên"
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
               style={{
@@ -2408,6 +2497,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           {role === 'owner' && (
             <div>
               <select
+                data-testid="work-assignee-filter"
+                aria-label="Lọc theo nhân sự"
                 value={assigneeFilter}
                 onChange={(e) => setAssigneeFilter(e.target.value)}
                 style={{
@@ -2436,7 +2527,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       {/* Work Items List */}
       {loading ? (
         <LoadingState message="Đang tải danh sách công việc..." />
-      ) : filteredItems.length === 0 ? (
+      ) : workItems.length === 0 ? (
         <AppCard style={{ padding: '32px' }}>
           <EmptyState
             title="Chưa có công việc nào"
@@ -2447,9 +2538,16 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             }
           />
         </AppCard>
+      ) : filteredItems.length === 0 ? (
+        <AppCard style={{ padding: '32px' }} data-testid="work-empty-search">
+          <EmptyState
+            title="Không tìm thấy công việc phù hợp"
+            description="Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc trạng thái/ưu tiên."
+          />
+        </AppCard>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {filteredItems.map((item) => (
+          {pagedItems.map((item) => (
             <div
               key={item.id}
               onClick={() => onNavigate?.(`/work/${item.id}`)}
@@ -2532,7 +2630,18 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     {item.title}
                   </h4>
                 </div>
-                <div>{getWorkItemStatusBadge(item.status)}</div>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {getWorkItemStatusBadge(item.status)}
+                  <ActionIconButton
+                    action="view"
+                    target={item.title}
+                    testId={`work-view-${item.id}`}
+                    onClick={() => onNavigate?.(`/work/${item.id}`)}
+                  />
+                </div>
               </div>
 
               {item.description && (
@@ -2587,6 +2696,18 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               )}
             </div>
           ))}
+          <Pagination
+            testId="work-pager"
+            total={filteredItems.length}
+            page={safeListPage}
+            pageSize={listPageSize}
+            pageSizes={PAGINATION_PAGE_SIZES}
+            onPage={setListPage}
+            onPageSize={(n) => {
+              setListPageSize(n);
+              setListPage(0);
+            }}
+          />
         </div>
       )}
     </div>

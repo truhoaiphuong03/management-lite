@@ -60,9 +60,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     'identifier' | 'password' | 'both' | null
   >(null);
   const [showForgotModal, setShowForgotModal] = useState(false);
-  const [focusTarget, setFocusTarget] = useState<
-    'identifier' | 'password' | null
-  >(null);
+  // prettier-ignore
+  const [focusTarget, setFocusTarget] = useState<'identifier' | 'password' | null>(null);
 
   // Field input refs for accessible validation focus
   const identifierInputRef = useRef<HTMLInputElement>(null);

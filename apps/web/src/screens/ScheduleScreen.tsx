@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   AppCard,
   AppButton,
@@ -143,9 +143,18 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Q65-05: Multi-page employee selector generation and abort management
+  const employeesFetchIdRef = useRef<number>(0);
+  const employeesAbortControllerRef = useRef<AbortController | null>(null);
+
   // Initialize CSRF and initial data
   useEffect(() => {
-    initAuthAndData();
+    const controller = new AbortController();
+    initAuthAndData(controller.signal);
+    return () => {
+      controller.abort();
+      employeesAbortControllerRef.current?.abort();
+    };
   }, [role]);
 
   // When selected week or active tab changes, re-fetch
@@ -157,33 +166,79 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
     }
   }, [selectedMonday, role, activeTab]);
 
-  const initAuthAndData = async () => {
+  const initAuthAndData = async (signal?: AbortSignal) => {
     try {
-      const authRes = await fetch('/api/v1/auth/me', {
-        credentials: 'include',
-      });
+      const authInit: RequestInit = { credentials: 'include' };
+      if (signal) authInit.signal = signal;
+      const authRes = await fetch('/api/v1/auth/me', authInit);
       if (authRes.ok) {
         const authData = await authRes.json();
+        if (signal?.aborted) return;
         if (authData.data?.csrf_token) {
           setCsrfToken(authData.data.csrf_token);
         }
       }
 
       if (isAdminOrOwner) {
-        await fetchEmployees();
+        await fetchEmployees(signal);
       }
     } catch {
       // Ignore transport errors on mount
     }
   };
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (externalSignal?: AbortSignal) => {
+    if (employeesAbortControllerRef.current) {
+      employeesAbortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    employeesAbortControllerRef.current = controller;
+    const requestId = ++employeesFetchIdRef.current;
+
+    const isAborted = () =>
+      controller.signal.aborted ||
+      Boolean(externalSignal?.aborted) ||
+      requestId !== employeesFetchIdRef.current;
+
     try {
-      const res = await fetch('/api/v1/employees', { credentials: 'include' });
-      if (res.ok) {
+      const all: EmployeeData[] = [];
+      const seenIds = new Set<string>();
+      const seenCursors = new Set<string>();
+      let cursor: string | null = null;
+      let page = 0;
+      const maxPages = 20;
+
+      while (page < maxPages) {
+        if (isAborted()) return;
+        page++;
+        const url: string = cursor
+          ? `/api/v1/employees?limit=50&cursor=${encodeURIComponent(cursor)}`
+          : '/api/v1/employees?limit=50';
+        const res = await fetch(url, {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (isAborted()) return;
+        if (!res.ok) break;
         const body = await res.json();
-        setEmployees(body.data?.items || []);
+        if (isAborted()) return;
+        const items: EmployeeData[] = body.data?.items || [];
+        for (const item of items) {
+          if (!seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            all.push(item);
+          }
+        }
+        cursor = body.data?.next_cursor || null;
+        if (cursor) {
+          if (seenCursors.has(cursor)) break;
+          seenCursors.add(cursor);
+        }
+        if (!cursor || items.length === 0) break;
       }
+
+      if (isAborted()) return;
+      setEmployees(all);
     } catch {
       // Ignored
     }
