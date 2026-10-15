@@ -288,12 +288,23 @@ test('AUTH-REMEMBER-01 refresh respects idle expiry and the absolute ceiling', a
     await t.test(
       'migration preserves legacy unknown intent instead of guessing a lifetime',
       async () => {
+        const legacy = await seed({ absolute: 29 * day, rememberMe: null });
+        const existing = (
+          await client.query(
+            "SELECT to_jsonb(s) - 'remember_me' AS data FROM public.auth_sessions s WHERE id=$1",
+            [legacy.id],
+          )
+        ).rows[0].data;
         await client.query(
-          'CREATE TEMP TABLE auth_sessions (id integer, absolute_expires_at timestamptz) ON COMMIT DROP',
+          'CREATE TEMP TABLE auth_sessions (LIKE public.auth_sessions INCLUDING ALL) ON COMMIT DROP',
         );
         try {
           await client.query(
-            "INSERT INTO auth_sessions VALUES (1, now() + interval '30 days')",
+            'ALTER TABLE pg_temp.auth_sessions DROP COLUMN remember_me',
+          );
+          await client.query(
+            'INSERT INTO pg_temp.auth_sessions SELECT (json_populate_record(NULL::pg_temp.auth_sessions, $1::json)).*',
+            [JSON.stringify(existing)],
           );
           const migration = loadMigrationFiles(
             resolve('packages/database/src/migrations'),
@@ -303,6 +314,16 @@ test('AUTH-REMEMBER-01 refresh respects idle expiry and the absolute ceiling', a
             (await client.query('SELECT remember_me FROM auth_sessions'))
               .rows[0].remember_me,
             null,
+          );
+          const migrated = (
+            await client.query(
+              "SELECT to_jsonb(s) - 'remember_me' AS data FROM pg_temp.auth_sessions s",
+            )
+          ).rows[0].data;
+          assert.deepEqual(
+            migrated,
+            existing,
+            'Migration must preserve every pre-existing session column',
           );
         } finally {
           await client.query('DROP TABLE pg_temp.auth_sessions');

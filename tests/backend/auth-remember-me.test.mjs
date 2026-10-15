@@ -957,6 +957,47 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
         },
       );
       await t.test(
+        'Legacy session returns 401 without mutation; fresh login restores explicit standard or remembered intent',
+        async () => {
+          const { hashToken } = await import(`file://${resolve(root, 'dist/packages/security/src/tokens.js')}`);
+          for (const rememberMe of [false, true]) {
+            const login = async () => {
+              const response = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
+                method: 'POST',
+                body: { identifier: ownerUser, password: ownerPw, remember_me: rememberMe },
+              });
+              assert.equal(response.status, 200);
+              return parseSetCookieHeader(response.headers['set-cookie']);
+            };
+            const legacyCookie = await login();
+            const legacyHash = hashToken(legacyCookie.value);
+            await pool.query('UPDATE auth_sessions SET remember_me=NULL WHERE session_token_hash=$1', [legacyHash]);
+            const snapshot = async () => (await pool.query(
+              'SELECT id, workspace_id, user_id, credential_version_at_issue, created_at, last_seen_at, idle_expires_at, absolute_expires_at, revoked_at, remember_me FROM auth_sessions WHERE session_token_hash=$1',
+              [legacyHash],
+            )).rows[0];
+            const before = await snapshot();
+            for (const [path, method] of [['me', 'GET'], ['refresh', 'POST']]) {
+              const response = await makeRequest(`${baseUrl}/api/v1/auth/${path}`, { method, headers: { Cookie: legacyCookie.cookiePair } });
+              assert.equal(response.status, 401);
+              if (path === 'refresh') assert.equal(parseSetCookieHeader(response.headers['set-cookie']).attrs['max-age'], '0');
+              assert.deepEqual(await snapshot(), before);
+            }
+            const freshCookie = await login();
+            const fresh = (await pool.query('SELECT id, remember_me FROM auth_sessions WHERE session_token_hash=$1', [hashToken(freshCookie.value)])).rows[0];
+            assert.notEqual(fresh.id, before.id);
+            assert.equal(fresh.remember_me, rememberMe);
+            assert.equal(freshCookie.attrs['max-age'] !== undefined, rememberMe);
+            for (const [path, method] of [['me', 'GET'], ['refresh', 'POST']]) {
+              const response = await makeRequest(`${baseUrl}/api/v1/auth/${path}`, { method, headers: { Cookie: freshCookie.cookiePair } });
+              assert.equal(response.status, 200);
+              assert.equal(response.body.data.remember_me, rememberMe);
+            }
+            assert.deepEqual(await snapshot(), before, 'Fresh login must not rewrite the legacy record');
+          }
+        },
+      );
+      await t.test(
         'TEST-10: Regression AUTH, Origin enforcement, và RBAC (Owner vs Staff)',
         async () => {
           // 1. Untrusted Origin on /api/v1/auth/refresh must be rejected with 403

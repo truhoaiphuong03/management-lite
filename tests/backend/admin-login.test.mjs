@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { test } from 'node:test';
 import http from 'node:http';
 import { resolve, dirname } from 'node:path';
@@ -90,8 +91,12 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
   const { runMigrations, loadMigrationFiles } = await import(
     `file://${resolve(root, 'dist/packages/database/src/migrator.js')}`
   );
-  const adminPassword = 'AdminLoginVerification2026!';
-  const testWorkspaceId = '5c3bb47c-7566-4784-a262-11ff6cd32cbd';
+  const adminPassword = crypto.randomBytes(24).toString('base64url') + '!Aa1';
+  const testWorkspaceId = crypto.randomUUID();
+  const suffix = crypto.randomBytes(8).toString('hex');
+  const adminUsername = `admin_${suffix}`;
+  const adminEmail = `admin_${suffix}@example.test`;
+  const ownerUsername = `owner_${suffix}`;
 
   const config = loadTestDatabaseConfig();
   assertSafeTestDatabase(config);
@@ -109,25 +114,19 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
       loadMigrationFiles(resolve(root, 'packages/database/src/migrations')),
     );
 
-    // Ensure target workspace and baseline 'owner' user exist in isolated test DB
+    // Fresh per-run fixtures; never reset another test's fixed ADMIN/owner account.
     await pool.query(
       `INSERT INTO workspaces (id, name, timezone, status)
        VALUES ($1, 'Hoai Phuong Workspace', 'Asia/Ho_Chi_Minh', 'active')
        ON CONFLICT (id) DO UPDATE SET status = 'active';`,
       [testWorkspaceId],
     );
-    const existingOwnerRes = await pool.query(
-      `SELECT id FROM users WHERE username_normalized = 'owner';`,
+    const insertedOwner = await pool.query(
+      `INSERT INTO users (username_normalized, email_normalized, status)
+       VALUES ($1, $2, 'active') RETURNING id;`,
+      [ownerUsername, `${ownerUsername}@example.test`],
     );
-    let baselineOwnerId = existingOwnerRes.rows[0]?.id;
-    if (!baselineOwnerId) {
-      const insertedOwner = await pool.query(
-        `INSERT INTO users (username_normalized, email_normalized, status)
-         VALUES ('owner', 'owner@management-lite.local', 'active')
-         RETURNING id;`,
-      );
-      baselineOwnerId = insertedOwner.rows[0].id;
-    }
+    const baselineOwnerId = insertedOwner.rows[0].id;
     await pool.query(
       `INSERT INTO workspace_memberships (workspace_id, user_id, role, status)
        VALUES ($1, $2, 'owner', 'active')
@@ -135,26 +134,13 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
       [testWorkspaceId, baselineOwnerId],
     );
 
-    // Reset any stale 'admin' fixture in isolated test DB so addAdminAccount tests both creation & idempotency cleanly
-    const prevAdmin = await pool.query(
-      `SELECT id FROM users WHERE username_normalized = 'admin' OR email_normalized = 'admin@management-lite.local';`,
-    );
-    for (const row of prevAdmin.rows) {
-      await pool.query(`DELETE FROM auth_sessions WHERE user_id = $1;`, [row.id]).catch(() => {});
-      await pool.query(`DELETE FROM user_credentials WHERE user_id = $1;`, [row.id]).catch(() => {});
-      await pool.query(`DELETE FROM user_workspace_bindings WHERE user_id = $1;`, [row.id]).catch(() => {});
-      await pool.query(`DELETE FROM workspace_memberships WHERE user_id = $1;`, [row.id]).catch(() => {});
-      await pool.query(`UPDATE employees SET user_id = NULL WHERE user_id = $1;`, [row.id]).catch(() => {});
-      await pool.query(`DELETE FROM users WHERE id = $1;`, [row.id]).catch(() => {});
-    }
-
     // 1. Ensure ADMIN account is provisioned (idempotent)
     const adminResult = await addAdminAccount({
       pool,
       workspaceId: testWorkspaceId,
-      username: 'ADMIN',
+      username: adminUsername.toUpperCase(),
       password: adminPassword,
-      email: 'admin@management-lite.local',
+      email: adminEmail,
     });
     assert.ok(
       adminResult.created || adminResult.alreadyExists,
@@ -183,7 +169,7 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
         method: 'POST',
         headers: { Origin: allowedOrigin },
         body: {
-          identifier: 'ADMIN',
+          identifier: adminUsername.toUpperCase(),
           password: adminPassword,
         },
       });
@@ -194,7 +180,7 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
         `Expected 200, got ${loginRes.status}: ${JSON.stringify(loginRes.body)}`,
       );
       assert.equal(loginRes.body.success, true);
-      assert.equal(loginRes.body.data.user.username, 'admin');
+      assert.equal(loginRes.body.data.user.username, adminUsername);
       assert.equal(loginRes.body.data.active_workspace.role, 'owner');
       assert.ok(
         loginRes.body.data.active_workspace.id,
@@ -226,7 +212,7 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
         `Session reload failed: ${JSON.stringify(meRes.body)}`,
       );
       assert.equal(meRes.body.success, true);
-      assert.equal(meRes.body.data.user.username, 'admin');
+      assert.equal(meRes.body.data.user.username, adminUsername);
       assert.equal(meRes.body.data.active_workspace.role, 'owner');
 
       // 5. Verify Owner Permissions
@@ -249,10 +235,10 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
       // 6. Test Idempotent Re-execution of addAdminAccount
       const secondCallResult = await addAdminAccount({
         pool,
-        workspaceId: '5c3bb47c-7566-4784-a262-11ff6cd32cbd',
-      username: 'ADMIN',
+        workspaceId: testWorkspaceId,
+        username: adminUsername.toUpperCase(),
         password: adminPassword,
-        email: 'admin@management-lite.local',
+        email: adminEmail,
       });
       assert.equal(
         secondCallResult.alreadyExists,
@@ -274,7 +260,8 @@ test('ADMIN login verification: authentication, session persistence, role Owner,
       const ownerCheck = await pool.query(
         `SELECT u.id, u.username_normalized, wm.role FROM users u
          JOIN workspace_memberships wm ON wm.user_id = u.id
-         WHERE u.username_normalized = 'owner';`,
+         WHERE u.id = $1 AND wm.workspace_id = $2;`,
+        [baselineOwnerId, testWorkspaceId],
       );
       assert.ok(
         ownerCheck.rows.length > 0,
