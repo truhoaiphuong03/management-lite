@@ -214,6 +214,16 @@ button {
   outline-offset: 2px;
 }
 
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible {
+  outline: 2px solid var(--focus-ring) !important;
+  outline-offset: 2px !important;
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

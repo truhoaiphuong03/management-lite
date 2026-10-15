@@ -331,7 +331,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <div>
           Vai trò:{' '}
           <strong style={{ color: '#F8FAFC' }}>
-            {role === 'owner' ? 'Chủ sở hữu' : role === 'admin' ? 'Quản lý' : 'Nhân viên'}
+            {role === 'owner'
+              ? 'Chủ sở hữu'
+              : role === 'admin'
+                ? 'Quản lý'
+                : 'Nhân viên'}
           </strong>
         </div>
         <div style={{ marginTop: '2px', color: '#10B981' }}>
@@ -392,12 +396,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         bottom: 0,
         left: 0,
         right: 0,
-        height: '60px',
+        height: '64px',
         backgroundColor: '#151F30',
         borderTop: '1px solid #334155',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'stretch',
         justifyContent: 'space-around',
+        padding: '2px 4px',
         zIndex: 50,
         boxSizing: 'border-box',
       }}
@@ -410,22 +415,23 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             key={group.id}
             type="button"
             onClick={() => onNavigate(group.path)}
+            aria-current={isGroupActive ? 'page' : undefined}
             style={{
-              flex: 1,
+              flex: '1 1 0%',
+              minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               height: '100%',
               minHeight: '44px',
-              minWidth: '44px',
               border: 'none',
               backgroundColor: 'transparent',
               color: isGroupActive ? '#14B8A6' : '#94A3B8',
               cursor: 'pointer',
               gap: '3px',
               boxSizing: 'border-box',
-              padding: '4px 0',
+              padding: '4px 3px',
               transition: 'color 0.15s ease',
             }}
           >
@@ -433,12 +439,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <span
               style={{
                 fontSize: '10px',
+                lineHeight: 1.15,
                 fontWeight: isGroupActive ? 600 : 500,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: '68px',
+                maxWidth: '100%',
                 textAlign: 'center',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                wordBreak: 'keep-all',
               }}
             >
               {group.title}

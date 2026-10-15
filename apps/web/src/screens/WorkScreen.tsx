@@ -2459,7 +2459,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 borderRadius: '8px',
                 padding: '16px',
                 cursor: 'pointer',
-                transition: 'all 0.15s ease',
+                transition:
+                  'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease',
               }}
             >
               <div

@@ -79,6 +79,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             style={{
               fontSize: '24px',
               fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
               margin: '8px 0',
               color: '#F8FAFC',
             }}
@@ -107,6 +108,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             style={{
               fontSize: '24px',
               fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
               margin: '8px 0',
               color: '#F8FAFC',
             }}

@@ -754,7 +754,8 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 minHeight: '40px',
-                transition: 'all 0.15s ease',
+                transition:
+                  'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease',
               }}
             >
               <span>{tab.label}</span>
