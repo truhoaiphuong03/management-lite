@@ -15,6 +15,8 @@ import {
   SYSTEM_VERSION,
   SYSTEM_COMMIT,
   SYSTEM_ENV,
+  RELEASE_NOTES_CATALOG,
+  type ReleaseHistoryEntry,
 } from '../../../../packages/contracts/src/version.js';
 
 export interface SettingsScreenProps {
@@ -175,6 +177,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         ? 'Production — Đang hoạt động'
         : 'Đang kiểm tra trạng thái...',
   });
+  const [releaseHistory, setReleaseHistory] = useState<ReleaseHistoryEntry[]>(
+    [],
+  );
+  const [releaseHistoryLoading, setReleaseHistoryLoading] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
@@ -205,15 +211,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   useEffect(() => {
     let active = true;
     const fetchInitialData = async () => {
+      if (role === 'owner') {
+        setReleaseHistoryLoading(true);
+      } else {
+        setReleaseHistory([]);
+      }
       try {
-        const [empRes, meRes, healthRes, relVerRes] = await Promise.all([
-          fetch('/api/v1/employees/me', { credentials: 'include' }),
-          fetch('/api/v1/auth/me', { credentials: 'include' }),
-          fetch('/api/v1/health', { cache: 'no-store' }).catch(() => null),
-          fetch('/release-version.json', { cache: 'no-store' }).catch(
-            () => null,
-          ),
-        ]);
+        const [empRes, meRes, healthRes, relVerRes, releasesRes] =
+          await Promise.all([
+            fetch('/api/v1/employees/me', { credentials: 'include' }),
+            fetch('/api/v1/auth/me', { credentials: 'include' }),
+            fetch('/api/v1/health', { cache: 'no-store' }).catch(() => null),
+            fetch('/release-version.json', { cache: 'no-store' }).catch(
+              () => null,
+            ),
+            role === 'owner'
+              ? fetch('/api/v1/system/releases', {
+                  credentials: 'include',
+                  cache: 'no-store',
+                }).catch(() => null)
+              : Promise.resolve(null),
+          ]);
 
         if (active && empRes.ok) {
           const data = await empRes.json();
@@ -234,29 +252,40 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             relVerRes && relVerRes.ok
               ? await relVerRes.json().catch(() => null)
               : null;
+          const releasesBody =
+            releasesRes && releasesRes.ok
+              ? await releasesRes.json().catch(() => null)
+              : null;
           const hData = healthBody?.data || {};
+          const rCurrent = releasesBody?.data?.current || {};
           const resolvedVer = String(
-            relVerBody?.version || hData.version || SYSTEM_VERSION,
+            rCurrent.version ||
+              hData.version ||
+              relVerBody?.version ||
+              SYSTEM_VERSION,
           ).replace(/^v/i, '');
           const rawSha = String(
-            relVerBody?.shortSha ||
-              relVerBody?.sha ||
+            rCurrent.commit ||
               hData.commit ||
               hData.sha ||
+              relVerBody?.shortSha ||
+              relVerBody?.sha ||
               SYSTEM_COMMIT,
           ).trim();
           const resolvedCommit = rawSha.slice(0, 7);
           const resolvedReleasedAt =
+            rCurrent.released_at ||
+            hData.released_at ||
             relVerBody?.releasedAt ||
             relVerBody?.builtAt ||
-            hData.released_at ||
             null;
           const isProdHost =
             typeof window !== 'undefined' &&
             window.location?.hostname === 'ql.hoaiphuong.click';
           const resolvedEnv = String(
-            relVerBody?.environment ||
+            rCurrent.environment ||
               hData.environment ||
+              relVerBody?.environment ||
               (isProdHost ? 'production' : SYSTEM_ENV),
           );
           const isHealthy = hData.status === 'pass';
@@ -276,22 +305,50 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             releasedAt: resolvedReleasedAt ? String(resolvedReleasedAt) : null,
             environment: resolvedEnv,
             productionStatus:
-              hData.production_status && isProd
-                ? String(hData.production_status)
+              (rCurrent.production_status || hData.production_status) && isProd
+                ? String(rCurrent.production_status || hData.production_status)
                 : resolvedProdStatus,
           });
+
+          if (role === 'owner') {
+            if (Array.isArray(releasesBody?.data?.releases)) {
+              setReleaseHistory(releasesBody.data.releases);
+            } else {
+              const fallbackHistory: ReleaseHistoryEntry[] =
+                RELEASE_NOTES_CATALOG.map((item) => {
+                  const itemCommit =
+                    item.commit === 'latest'
+                      ? resolvedCommit
+                      : item.commit.slice(0, 7);
+                  return {
+                    ...item,
+                    commit: itemCommit,
+                    released_at:
+                      item.commit === 'latest' && resolvedReleasedAt
+                        ? String(resolvedReleasedAt)
+                        : item.released_at,
+                    is_current:
+                      itemCommit.toLowerCase() === resolvedCommit.toLowerCase(),
+                  };
+                });
+              setReleaseHistory(fallbackHistory);
+            }
+          }
         }
       } catch {
         // Silently ignore if profile fails to load
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+          setReleaseHistoryLoading(false);
+        }
       }
     };
     fetchInitialData();
     return () => {
       active = false;
     };
-  }, []);
+  }, [role]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -978,18 +1035,33 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </div>
         </AppCard>
 
-        {/* System Information card */}
+        {/* System Information & Release History card */}
         <AppCard padding="20px">
-          <h3
+          <div
             style={{
-              fontSize: '16px',
-              fontWeight: 600,
-              color: '#F8FAFC',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '8px',
               marginBottom: '8px',
             }}
           >
-            Thông tin hệ thống
-          </h3>
+            <h3
+              style={{
+                fontSize: '16px',
+                fontWeight: 600,
+                color: '#F8FAFC',
+                margin: 0,
+              }}
+            >
+              Phiên bản và Lịch sử cập nhật (Thông tin hệ thống)
+            </h3>
+            <StatusBadge
+              status="success"
+              label={`v${runtimeSystemInfo.version || SYSTEM_VERSION}`}
+            />
+          </div>
           <p
             style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
           >
@@ -1009,7 +1081,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           >
             <div>
               <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Phiên bản ứng dụng
+                Phiên bản ứng dụng (Version)
               </div>
               <div
                 data-testid="system-info-version"
@@ -1025,7 +1097,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </div>
             <div>
               <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Commit đang chạy (Git SHA)
+                Commit đang chạy (Git commit)
               </div>
               <div
                 data-testid="system-info-commit"
@@ -1042,7 +1114,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </div>
             <div>
               <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Thời gian phát hành
+                Thời gian phát hành (Ngày giờ phát hành)
               </div>
               <div
                 data-testid="system-info-released-at"
@@ -1074,7 +1146,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </div>
             <div>
               <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Trạng thái Production
+                Trạng thái Production (Môi trường Production)
               </div>
               <div
                 data-testid="system-info-production-status"
@@ -1089,6 +1161,273 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
             </div>
           </div>
+
+          {role === 'owner' && (
+            <div
+              data-testid="admin-release-history"
+              style={{
+                marginTop: '20px',
+                paddingTop: '18px',
+                borderTop: '1px solid #334155',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div>
+                  <h4
+                    style={{
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: '#F8FAFC',
+                      margin: 0,
+                    }}
+                  >
+                    Lịch sử cập nhật
+                  </h4>
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#94A3B8',
+                      margin: '4px 0 0 0',
+                    }}
+                  >
+                    Danh sách các phiên bản đã phát hành thành công (chỉ hiển
+                    thị đối với tài khoản Admin).
+                  </p>
+                </div>
+                <StatusBadge status="neutral" label="Chỉ dành cho Admin" />
+              </div>
+
+              {releaseHistoryLoading && releaseHistory.length === 0 ? (
+                <div style={{ fontSize: '13px', color: '#94A3B8' }}>
+                  Đang tải lịch sử cập nhật...
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  {releaseHistory.map((item) => {
+                    const formattedDate = (() => {
+                      const d = new Date(item.released_at);
+                      return Number.isNaN(d.getTime())
+                        ? item.released_at
+                        : d.toLocaleString('vi-VN', {
+                            timeZone: timezone || 'Asia/Ho_Chi_Minh',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false,
+                          });
+                    })();
+                    return (
+                      <div
+                        key={`${item.version}-${item.commit}`}
+                        data-testid={`release-history-item-${item.commit.slice(0, 7)}`}
+                        style={{
+                          backgroundColor: '#0B1220',
+                          border: item.is_current
+                            ? '1px solid rgba(20, 184, 166, 0.55)'
+                            : '1px solid #334155',
+                          borderRadius: '8px',
+                          padding: '14px 16px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                            marginBottom: '8px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                              gap: '8px',
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                color: '#14B8A6',
+                              }}
+                            >
+                              v{String(item.version).replace(/^v/i, '')}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '12px',
+                                fontFamily: 'monospace',
+                                color: '#E2E8F0',
+                                backgroundColor: '#1E293B',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                border: '1px solid #334155',
+                              }}
+                            >
+                              Commit: {String(item.commit).slice(0, 7)}
+                            </span>
+                            {item.is_current && (
+                              <StatusBadge
+                                status="success"
+                                label="Phiên bản đang chạy"
+                              />
+                            )}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                            Ngày giờ triển khai:{' '}
+                            <strong style={{ color: '#E2E8F0' }}>
+                              {formattedDate}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            fontSize: '13px',
+                            color: '#F8FAFC',
+                            lineHeight: 1.5,
+                            marginBottom: '10px',
+                          }}
+                        >
+                          {item.summary}
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns:
+                              'repeat(auto-fit, minmax(220px, 1fr))',
+                            gap: '10px',
+                            fontSize: '12px',
+                          }}
+                        >
+                          {item.added && item.added.length > 0 && (
+                            <div
+                              style={{
+                                backgroundColor: 'rgba(16, 185, 129, 0.06)',
+                                border: '1px solid rgba(16, 185, 129, 0.2)',
+                                borderRadius: '6px',
+                                padding: '10px 12px',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  color: '#10B981',
+                                  marginBottom: '6px',
+                                }}
+                              >
+                                Chức năng đã thêm
+                              </div>
+                              <ul
+                                style={{
+                                  margin: 0,
+                                  paddingLeft: '16px',
+                                  color: '#CBD5E1',
+                                  lineHeight: 1.5,
+                                }}
+                              >
+                                {item.added.map((line, idx) => (
+                                  <li key={idx}>{line}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {item.improved && item.improved.length > 0 && (
+                            <div
+                              style={{
+                                backgroundColor: 'rgba(56, 189, 248, 0.06)',
+                                border: '1px solid rgba(56, 189, 248, 0.2)',
+                                borderRadius: '6px',
+                                padding: '10px 12px',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  color: '#38BDF8',
+                                  marginBottom: '6px',
+                                }}
+                              >
+                                Chức năng đã cải tiến
+                              </div>
+                              <ul
+                                style={{
+                                  margin: 0,
+                                  paddingLeft: '16px',
+                                  color: '#CBD5E1',
+                                  lineHeight: 1.5,
+                                }}
+                              >
+                                {item.improved.map((line, idx) => (
+                                  <li key={idx}>{line}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {item.fixed && item.fixed.length > 0 && (
+                            <div
+                              style={{
+                                backgroundColor: 'rgba(245, 158, 11, 0.06)',
+                                border: '1px solid rgba(245, 158, 11, 0.2)',
+                                borderRadius: '6px',
+                                padding: '10px 12px',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  color: '#F59E0B',
+                                  marginBottom: '6px',
+                                }}
+                              >
+                                Lỗi đã sửa
+                              </div>
+                              <ul
+                                style={{
+                                  margin: 0,
+                                  paddingLeft: '16px',
+                                  color: '#CBD5E1',
+                                  lineHeight: 1.5,
+                                }}
+                              >
+                                {item.fixed.map((line, idx) => (
+                                  <li key={idx}>{line}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </AppCard>
 
         {/* Security & Logout card */}

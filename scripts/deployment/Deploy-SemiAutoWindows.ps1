@@ -77,8 +77,21 @@ function Write-DeployLog {
 
 function Record-DeployResult {
   param([string]$Status, [string]$Sha, [string]$Message, [int]$DurationMs, [string]$PreviousSha = '')
+  $resolvedVer = '0.1.0'
+  try {
+    $apiVerCandidate = Join-Path $TargetDir 'dist\release-version.json'
+    if (Test-Path -LiteralPath $apiVerCandidate) {
+      $verJson = Get-Content -LiteralPath $apiVerCandidate -Raw | ConvertFrom-Json
+      if ($verJson.version) {
+        $resolvedVer = [string]$verJson.version
+      }
+    }
+  } catch {
+    # Ignore optional version read error
+  }
   $record = [ordered]@{
     timestamp    = (Get-Date -Format o)
+    version      = $resolvedVer
     sha          = $Sha
     previous_sha = $PreviousSha
     status       = $Status

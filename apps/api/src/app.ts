@@ -9,6 +9,8 @@ import {
   SYSTEM_VERSION,
   SYSTEM_COMMIT,
   SYSTEM_ENV,
+  RELEASE_NOTES_CATALOG,
+  type ReleaseHistoryEntry,
 } from '../../../packages/contracts/src/version.js';
 import {
   createSuccessEnvelope,
@@ -602,8 +604,7 @@ export function createRequestHandler(
                 : await financeService.createEntry(auth, body, key, requestId);
         return sendJson(res, result.status, result.body);
       }
-      // 2. Health / Liveness endpoint: GET /api/v1/health
-      if (method === 'GET' && pathname === '/api/v1/health') {
+      const resolveRuntimeReleaseState = () => {
         let runtimeVersion = '0.1.0';
         let runtimeSha = SYSTEM_COMMIT;
         let runtimeReleasedAt: string | null = null;
@@ -659,8 +660,10 @@ export function createRequestHandler(
           }
         }
 
+        const explicitReportsDir = process.env['SERVER_REPORTS_DIR'];
         const reportsDir =
-          process.env['SERVER_REPORTS_DIR'] || 'C:\\HoaiPhuong-Server\\reports';
+          explicitReportsDir || 'C:\\HoaiPhuong-Server\\reports';
+        let rcVerifiedAt: string | null = null;
         try {
           const runningCompPath = path.join(
             reportsDir,
@@ -671,11 +674,26 @@ export function createRequestHandler(
               sha?: string;
               verified_at_utc?: string;
             };
-            if (rc.sha && runtimeSha === SYSTEM_COMMIT) {
-              runtimeSha = String(rc.sha).trim();
+            if (rc.sha) {
+              const rcShaTrimmed = String(rc.sha).trim();
+              if (
+                explicitReportsDir ||
+                runtimeSha === SYSTEM_COMMIT ||
+                rcShaTrimmed.slice(0, 7).toLowerCase() ===
+                  runtimeSha.slice(0, 7).toLowerCase()
+              ) {
+                runtimeSha = rcShaTrimmed;
+                if (rc.verified_at_utc) {
+                  rcVerifiedAt = String(rc.verified_at_utc);
+                  runtimeReleasedAt = rcVerifiedAt;
+                }
+              }
             }
-            if (rc.verified_at_utc) {
-              runtimeReleasedAt = String(rc.verified_at_utc);
+          } else if (explicitReportsDir) {
+            const liveShaPath = path.join(reportsDir, 'current-live-sha.txt');
+            if (fs.existsSync(liveShaPath)) {
+              const liveSha = fs.readFileSync(liveShaPath, 'utf8').trim();
+              if (liveSha) runtimeSha = liveSha;
             }
           }
         } catch {
@@ -709,27 +727,236 @@ export function createRequestHandler(
           }
         }
 
-        const shortCommit = runtimeSha.slice(0, 7);
+        const shortCommit = runtimeSha.slice(0, 7).toLowerCase();
+        const matchedHistorical = RELEASE_NOTES_CATALOG.find(
+          (item) =>
+            item.commit !== 'latest' &&
+            item.commit.slice(0, 7).toLowerCase() === shortCommit,
+        );
+        if (matchedHistorical) {
+          runtimeVersion = matchedHistorical.version.replace(/^v/i, '');
+          if (!rcVerifiedAt) {
+            runtimeReleasedAt = matchedHistorical.released_at;
+          }
+        }
+
         const isProdActive =
           isProduction || runtimeEnv.toLowerCase() === 'production';
 
+        return {
+          version: runtimeVersion || SYSTEM_VERSION.replace(/^v/i, ''),
+          commit: shortCommit,
+          sha: runtimeSha,
+          releasedAt: runtimeReleasedAt,
+          environment: isProdActive ? 'production' : runtimeEnv,
+          productionStatus: isProdActive
+            ? 'Production — Đang hoạt động'
+            : 'Staging / Dev — Đang hoạt động',
+        };
+      };
+
+      // 2. Health / Liveness endpoint: GET /api/v1/health
+      if (method === 'GET' && pathname === '/api/v1/health') {
+        const runtime = resolveRuntimeReleaseState();
         const body = createSuccessEnvelope(
           {
             status: 'pass',
             service: '@management-lite/api',
-            version: runtimeVersion || SYSTEM_VERSION.replace(/^v/i, ''),
-            commit: shortCommit,
-            sha: runtimeSha,
-            released_at: runtimeReleasedAt,
-            environment: isProdActive ? 'production' : runtimeEnv,
-            production_status: isProdActive
-              ? 'Production — Đang hoạt động'
-              : 'Staging / Dev — Đang hoạt động',
+            version: runtime.version,
+            commit: runtime.commit,
+            sha: runtime.sha,
+            released_at: runtime.releasedAt,
+            environment: runtime.environment,
+            production_status: runtime.productionStatus,
             uptime: process.uptime(),
           },
           requestId,
         );
         return sendJson(res, 200, body);
+      }
+
+      // 2B. System Release History endpoint (Admin / Owner ONLY): GET /api/v1/system/releases
+      if (method === 'GET' && pathname === '/api/v1/system/releases') {
+        if (!authService) {
+          const body = createErrorEnvelope(
+            'DATABASE_UNAVAILABLE',
+            'Authentication service is unavailable',
+            requestId,
+          );
+          return sendJson(res, 503, body);
+        }
+        const auth = await requireAuth(
+          authService,
+          req,
+          isProduction,
+          sessionCookieName,
+        );
+        if (auth.workspace.role !== 'owner') {
+          throw new AuthError(
+            'FORBIDDEN',
+            'Chỉ Admin (Chủ sở hữu) mới có quyền xem lịch sử cập nhật hệ thống',
+            403,
+          );
+        }
+
+        const runtime = resolveRuntimeReleaseState();
+        const currentShort = runtime.commit.slice(0, 7).toLowerCase();
+
+        const deployLogPath =
+          process.env['SERVER_DEPLOY_HISTORY_LOG'] ||
+          path.join(
+            process.env['SERVER_LOGS_DIR'] || 'C:\\HoaiPhuong-Server\\logs',
+            'deploy-history.log',
+          );
+
+        const successfulDeploysBySha = new Map<
+          string,
+          { shortSha: string; timestamp: string; version?: string }
+        >();
+        const orderedSuccessShas: string[] = [];
+
+        try {
+          if (fs.existsSync(deployLogPath)) {
+            const rawLines = fs
+              .readFileSync(deployLogPath, 'utf8')
+              .split(/\r?\n/)
+              .map((line) => line.trim())
+              .filter(Boolean);
+
+            for (const line of rawLines) {
+              try {
+                const parsed = JSON.parse(line) as {
+                  timestamp?: string;
+                  sha?: string;
+                  status?: string;
+                  sandbox?: boolean;
+                  version?: string;
+                };
+                if (
+                  parsed.status === 'SUCCESS' &&
+                  parsed.sandbox !== true &&
+                  typeof parsed.sha === 'string' &&
+                  parsed.sha.trim().length >= 7 &&
+                  !/^0+$/.test(parsed.sha.trim())
+                ) {
+                  const sSha = parsed.sha.trim().slice(0, 7).toLowerCase();
+                  successfulDeploysBySha.set(sSha, {
+                    shortSha: sSha,
+                    timestamp:
+                      parsed.timestamp ||
+                      runtime.releasedAt ||
+                      new Date().toISOString(),
+                    ...(parsed.version
+                      ? { version: String(parsed.version).replace(/^v/i, '') }
+                      : {}),
+                  });
+                  const existingIdx = orderedSuccessShas.indexOf(sSha);
+                  if (existingIdx !== -1) {
+                    orderedSuccessShas.splice(existingIdx, 1);
+                  }
+                  orderedSuccessShas.push(sSha);
+                }
+              } catch {
+                // Ignore malformed log line
+              }
+            }
+          }
+        } catch {
+          // Ignore optional deploy log read error
+        }
+
+        const historicalEntries = RELEASE_NOTES_CATALOG.filter(
+          (item) => item.commit !== 'latest',
+        );
+        const historicalByShortSha = new Map(
+          historicalEntries.map((item) => [
+            item.commit.slice(0, 7).toLowerCase(),
+            item,
+          ]),
+        );
+        const latestTemplate =
+          RELEASE_NOTES_CATALOG.find((item) => item.commit === 'latest') ||
+          RELEASE_NOTES_CATALOG[0]!;
+
+        const releases: ReleaseHistoryEntry[] = [];
+        const seenShas = new Set<string>();
+
+        if (!historicalByShortSha.has(currentShort)) {
+          const matchingDeploy = successfulDeploysBySha.get(currentShort);
+          releases.push({
+            version: runtime.version,
+            commit: currentShort,
+            released_at:
+              matchingDeploy?.timestamp ||
+              runtime.releasedAt ||
+              latestTemplate.released_at,
+            summary: latestTemplate.summary,
+            added: [...latestTemplate.added],
+            improved: [...latestTemplate.improved],
+            fixed: [...latestTemplate.fixed],
+            is_current: true,
+          });
+          seenShas.add(currentShort);
+        }
+
+        for (let i = orderedSuccessShas.length - 1; i >= 0; i--) {
+          const sSha = orderedSuccessShas[i]!;
+          if (seenShas.has(sSha) || historicalByShortSha.has(sSha)) {
+            continue;
+          }
+          const rec = successfulDeploysBySha.get(sSha)!;
+          releases.push({
+            version: rec.version || latestTemplate.version.replace(/^v/i, ''),
+            commit: sSha,
+            released_at: rec.timestamp,
+            summary: latestTemplate.summary,
+            added: [...latestTemplate.added],
+            improved: [...latestTemplate.improved],
+            fixed: [...latestTemplate.fixed],
+            is_current: sSha === currentShort,
+          });
+          seenShas.add(sSha);
+        }
+
+        for (const hist of historicalEntries) {
+          const sSha = hist.commit.slice(0, 7).toLowerCase();
+          if (seenShas.has(sSha)) continue;
+          const matchingDeploy = successfulDeploysBySha.get(sSha);
+          releases.push({
+            version: hist.version.replace(/^v/i, ''),
+            commit: sSha,
+            released_at:
+              matchingDeploy?.timestamp ||
+              (sSha === currentShort && runtime.releasedAt
+                ? runtime.releasedAt
+                : hist.released_at),
+            summary: hist.summary,
+            added: [...hist.added],
+            improved: [...hist.improved],
+            fixed: [...hist.fixed],
+            is_current: sSha === currentShort,
+          });
+          seenShas.add(sSha);
+        }
+
+        return sendJson(
+          res,
+          200,
+          createSuccessEnvelope(
+            {
+              current: {
+                version: runtime.version,
+                commit: runtime.commit,
+                sha: runtime.sha,
+                released_at: runtime.releasedAt,
+                environment: runtime.environment,
+                production_status: runtime.productionStatus,
+              },
+              releases,
+            },
+            requestId,
+          ),
+        );
       }
 
       // 3. Readiness endpoint: GET /api/v1/ready

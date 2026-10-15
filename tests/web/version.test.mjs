@@ -164,3 +164,229 @@ test('MGL-UI-CLEANUP-VERSION-24: LoginScreen copy cleanup removes developer jarg
     'LoginScreen must reference canonical SYSTEM_VERSION',
   );
 });
+
+test('MGL-RELEASE-HISTORY-ADMIN: SettingsScreen enforces Admin-only visibility and Vietnamese release note sections', async () => {
+  const settingsPath = resolve(root, 'apps/web/src/screens/SettingsScreen.tsx');
+  const content = readFileSync(settingsPath, 'utf8');
+
+  assert.ok(
+    content.includes('Phiên bản và Lịch sử cập nhật'),
+    'SettingsScreen must display "Phiên bản và Lịch sử cập nhật"',
+  );
+  assert.ok(
+    content.includes('/api/v1/system/releases'),
+    'SettingsScreen must query /api/v1/system/releases for Admin',
+  );
+  assert.ok(
+    content.includes("role === 'owner'"),
+    'SettingsScreen must guard release history by role === "owner"',
+  );
+  assert.ok(
+    content.includes('data-testid="admin-release-history"'),
+    'SettingsScreen must render data-testid="admin-release-history" inside owner guard',
+  );
+  assert.ok(
+    content.includes('Chức năng đã thêm') &&
+      content.includes('Chức năng đã cải tiến') &&
+      content.includes('Lỗi đã sửa'),
+    'SettingsScreen must display added, improved, and fixed sections in Vietnamese',
+  );
+
+  const { RELEASE_NOTES_CATALOG } = await import(
+    `file://${resolve(root, 'dist/packages/contracts/src/version.js')}`
+  );
+  assert.ok(
+    Array.isArray(RELEASE_NOTES_CATALOG) && RELEASE_NOTES_CATALOG.length >= 2,
+    'RELEASE_NOTES_CATALOG must contain release note items',
+  );
+  for (const item of RELEASE_NOTES_CATALOG) {
+    assert.ok(item.version, 'Each release note must have version');
+    assert.ok(item.commit, 'Each release note must have commit');
+    assert.ok(item.released_at, 'Each release note must have released_at');
+    assert.ok(item.summary, 'Each release note must have Vietnamese summary');
+    assert.ok(Array.isArray(item.added) && item.added.length > 0);
+    assert.ok(Array.isArray(item.improved) && item.improved.length > 0);
+    assert.ok(Array.isArray(item.fixed) && item.fixed.length > 0);
+  }
+});
+
+test('MGL-RELEASE-HISTORY-ADMIN: Backend /api/v1/system/releases enforces Admin RBAC, excludes failed deploys, and reflects rollback accurately', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const http = await import('node:http');
+  const { createRequestHandler } = await import(
+    `file://${resolve(root, 'dist/apps/api/src/app.js')}`
+  );
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mglite-rel-hist-'));
+  const deployLogFile = path.join(tmpDir, 'deploy-history.log');
+  const reportsDir = path.join(tmpDir, 'reports');
+  fs.mkdirSync(reportsDir, { recursive: true });
+
+  // Write deploy-history.log with 1 valid SUCCESS and 3 non-success/sandbox entries
+  const logLines = [
+    JSON.stringify({
+      timestamp: '2026-10-15T10:00:00.000Z',
+      version: '0.1.0',
+      sha: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+      previous_sha: '3743e991dc97a7215f04444f0f6b0cfd6941533c',
+      status: 'SUCCESS',
+      sandbox: false,
+      message: 'Deployment completed and verified',
+    }),
+    JSON.stringify({
+      timestamp: '2026-10-15T11:00:00.000Z',
+      version: '0.1.1',
+      sha: 'badbeef000000000000000000000000000000000',
+      previous_sha: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+      status: 'FAILED',
+      sandbox: false,
+      message: 'Simulated failure',
+    }),
+    JSON.stringify({
+      timestamp: '2026-10-15T11:30:00.000Z',
+      version: '0.1.2',
+      sha: 'deadc0de00000000000000000000000000000000',
+      previous_sha: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+      status: 'ROLLED_BACK',
+      sandbox: false,
+      message: 'Rolled back after smoke check fail',
+    }),
+    JSON.stringify({
+      timestamp: '2026-10-15T12:00:00.000Z',
+      version: '0.1.3',
+      sha: '5a4db0x000000000000000000000000000000000',
+      previous_sha: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+      status: 'SUCCESS',
+      sandbox: true,
+      message: 'Sandbox deploy must not appear in production history',
+    }),
+  ];
+  fs.writeFileSync(deployLogFile, logLines.join('\n') + '\n', 'utf8');
+
+  // Set active running SHA to a1b2c3d4e5f6...
+  fs.writeFileSync(
+    path.join(reportsDir, 'running-components-sha.json'),
+    JSON.stringify({
+      sha: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+      verified_at_utc: '2026-10-15T10:00:05.000Z',
+    }),
+    'utf8',
+  );
+
+  const prevLogEnv = process.env.SERVER_DEPLOY_HISTORY_LOG;
+  const prevReportsEnv = process.env.SERVER_REPORTS_DIR;
+  process.env.SERVER_DEPLOY_HISTORY_LOG = deployLogFile;
+  process.env.SERVER_REPORTS_DIR = reportsDir;
+
+  const mockAuthService = {
+    async resolveSession(token) {
+      if (token === 'owner-token') {
+        return {
+          user: { id: 'u1', email: 'owner@example.com', status: 'active' },
+          workspace: { id: 'w1', name: 'HP', role: 'owner' },
+          session: { id: 's1' },
+        };
+      }
+      if (token === 'staff-token') {
+        return {
+          user: { id: 'u2', email: 'staff@example.com', status: 'active' },
+          workspace: { id: 'w1', name: 'HP', role: 'staff' },
+          session: { id: 's2' },
+        };
+      }
+      return null;
+    },
+  };
+
+  const server = http.createServer(
+    createRequestHandler({
+      authService: mockAuthService,
+      isProduction: false,
+    }),
+  );
+
+  await new Promise((res) => server.listen(0, '127.0.0.1', res));
+  const port = server.address().port;
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    // 1. Unauthenticated -> 401
+    const unauthRes = await fetch(`${baseUrl}/api/v1/system/releases`);
+    assert.equal(unauthRes.status, 401);
+
+    // 2. Staff -> 403 FORBIDDEN
+    const staffRes = await fetch(`${baseUrl}/api/v1/system/releases`, {
+      headers: { Cookie: 'mglite_session=staff-token' },
+    });
+    assert.equal(staffRes.status, 403);
+
+    // 3. Owner (Admin) -> 200 OK with current = a1b2c3d and no failed/sandbox entries
+    const ownerRes = await fetch(`${baseUrl}/api/v1/system/releases`, {
+      headers: { Cookie: 'mglite_session=owner-token' },
+    });
+    assert.equal(ownerRes.status, 200);
+    const ownerBody = await ownerRes.json();
+    assert.equal(ownerBody.success, true);
+    assert.equal(ownerBody.data.current.commit, 'a1b2c3d');
+
+    const commits = ownerBody.data.releases.map((r) => r.commit);
+    assert.ok(commits.includes('a1b2c3d'), 'Must include successful deploy');
+    assert.ok(
+      !commits.includes('badbeef'),
+      'Must NOT include FAILED deploy in release history',
+    );
+    assert.ok(
+      !commits.includes('deadc0d'),
+      'Must NOT include ROLLED_BACK deploy in release history',
+    );
+    assert.ok(
+      !commits.includes('5a4db0x'),
+      'Must NOT include sandbox deploy in release history',
+    );
+
+    const activeEntry = ownerBody.data.releases.find(
+      (r) => r.commit === 'a1b2c3d',
+    );
+    assert.equal(activeEntry.is_current, true);
+    assert.ok(activeEntry.added.length > 0);
+    assert.ok(activeEntry.improved.length > 0);
+    assert.ok(activeEntry.fixed.length > 0);
+
+    // 4. Simulate Rollback to 3743e99 -> current version must become 0.0.9 (3743e99)
+    fs.writeFileSync(
+      path.join(reportsDir, 'running-components-sha.json'),
+      JSON.stringify({
+        sha: '3743e991dc97a7215f04444f0f6b0cfd6941533c',
+        verified_at_utc: '2026-10-15T12:30:00.000Z',
+      }),
+      'utf8',
+    );
+
+    const rbRes = await fetch(`${baseUrl}/api/v1/system/releases`, {
+      headers: { Cookie: 'mglite_session=owner-token' },
+    });
+    assert.equal(rbRes.status, 200);
+    const rbBody = await rbRes.json();
+    assert.equal(rbBody.data.current.commit, '3743e99');
+    assert.equal(rbBody.data.current.version, '0.0.9');
+
+    const rbCurrentEntry = rbBody.data.releases.find((r) => r.is_current);
+    assert.ok(rbCurrentEntry, 'Rolled back release must be marked is_current');
+    assert.equal(rbCurrentEntry.commit, '3743e99');
+    assert.equal(rbCurrentEntry.version, '0.0.9');
+
+    const prevEntryAfterRb = rbBody.data.releases.find(
+      (r) => r.commit === 'a1b2c3d',
+    );
+    assert.equal(prevEntryAfterRb.is_current, false);
+  } finally {
+    await new Promise((res) => server.close(res));
+    if (prevLogEnv === undefined) delete process.env.SERVER_DEPLOY_HISTORY_LOG;
+    else process.env.SERVER_DEPLOY_HISTORY_LOG = prevLogEnv;
+    if (prevReportsEnv === undefined) delete process.env.SERVER_REPORTS_DIR;
+    else process.env.SERVER_REPORTS_DIR = prevReportsEnv;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
