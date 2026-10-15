@@ -659,7 +659,7 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
     // Reset main back to baselineSha so targetRepoDir HEAD is at baselineSha
     gitTarget('checkout', '--quiet', '-f', baselineSha);
 
-    // Sign One-Time Scoped Approval (SCOPED_WINDOW) for baselineSha with MaxDeployments = 2
+    // Sign One-Time Scoped Approval (SCOPED_WINDOW) for baselineSha with MaxDeployments = 2 (default allow_migration = false)
     const scopeApproveRes = runPs(approvePath, [
       '-ApproveScope',
       '-BaselineSha',
@@ -668,7 +668,6 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
       '2',
       '-ExpiresInHours',
       '168',
-      '-AllowMigration',
       '-Sequence',
       '10',
       '-PrivateKeyPath',
@@ -691,6 +690,7 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
     assert.equal(scopedManifest.approval_mode, 'SCOPED_WINDOW');
     assert.equal(scopedManifest.baseline_sha, baselineSha);
     assert.equal(scopedManifest.max_deployments, 2);
+    assert.equal(scopedManifest.allow_migration, false);
     assert.equal(scopedManifest.allow_controller_changes, false);
 
     // Helper to write CI receipt for a given SHA under sandbox test
@@ -830,7 +830,106 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
       'REJECTED_OUT_OF_SCOPE_PATH_MODIFICATION',
     );
 
-    // 9C. Reject when scoped_deployments_used reaches max_deployments (REJECTED_SCOPE_QUOTA_EXCEEDED)
+    // 9C. Reject commit that touches database/migrations/* when default allow_migration is false (REJECTED_UNAPPROVED_MIGRATION)
+    execFileSync('git', ['checkout', '--quiet', '-B', 'main', baselineSha], {
+      cwd: targetRepoDir,
+    });
+    fs.mkdirSync(path.join(targetRepoDir, 'database', 'migrations'), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(
+        targetRepoDir,
+        'database',
+        'migrations',
+        '0099_unapproved.sql',
+      ),
+      'SELECT 1;\n',
+      'utf8',
+    );
+    execFileSync('git', ['add', 'database/migrations/0099_unapproved.sql'], {
+      cwd: targetRepoDir,
+    });
+    execFileSync(
+      'git',
+      ['commit', '--quiet', '-m', 'unapproved migration change'],
+      { cwd: targetRepoDir },
+    );
+    const unapprovedMigSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: targetRepoDir,
+      encoding: 'utf8',
+    }).trim();
+    execFileSync('git', ['checkout', '--quiet', '-f', baselineSha], {
+      cwd: targetRepoDir,
+    });
+    currentMockSha = unapprovedMigSha;
+    currentMockRunId = 99004;
+    const migReceipt = writeScopedReceipt(unapprovedMigSha, 99004);
+    const unapprovedMigRes = await runPsAsync(controllerPath, [
+      '-CommitSha',
+      unapprovedMigSha,
+      '-CiRunId',
+      '99004',
+      '-ArtifactPath',
+      bundlePath,
+      '-ArtifactSha256',
+      artifactSha,
+      '-CiRunReceiptPath',
+      migReceipt,
+      '-GitHubApiBaseUrl',
+      mockApiUrl,
+      '-ServerRoot',
+      serverRoot,
+      '-TargetDir',
+      targetRepoDir,
+      '-PolicyPath',
+      policyPath,
+      '-ApprovalManifestPath',
+      manifestPath,
+      '-SandboxMode',
+    ]);
+    assert.notEqual(unapprovedMigRes.status, 0);
+    const unapprovedMigReport = JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(unapprovedMigReport.status, 'REJECTED_UNAPPROVED_MIGRATION');
+
+    // 9D. Live https://api.github.com SCOPED_WINDOW check (zero loopback mock, zero synthetic receipt -> fails closed when run does not exist on official GitHub API)
+    const liveGhRes = await runPsAsync(controllerPath, [
+      '-CommitSha',
+      tamperControllerSha,
+      '-CiRunId',
+      '99003',
+      '-ArtifactPath',
+      bundlePath,
+      '-ArtifactSha256',
+      artifactSha,
+      '-CiRunReceiptPath',
+      tamperReceipt,
+      '-GitHubApiBaseUrl',
+      'https://api.github.com',
+      '-ServerRoot',
+      serverRoot,
+      '-TargetDir',
+      targetRepoDir,
+      '-PolicyPath',
+      policyPath,
+      '-ApprovalManifestPath',
+      manifestPath,
+      '-SandboxMode',
+    ]);
+    assert.notEqual(liveGhRes.status, 0);
+    const liveGhReport = JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(
+      liveGhReport.status,
+      'REJECTED_GITHUB_API_CI_VERIFICATION_FAILED',
+    );
+
+    // 9E. Reject when scoped_deployments_used reaches max_deployments (REJECTED_SCOPE_QUOTA_EXCEEDED)
+    currentMockSha = tamperControllerSha;
+    currentMockRunId = 99003;
     fs.writeFileSync(
       path.join(reportsDir, 'approval-watermark.json'),
       JSON.stringify(
@@ -878,6 +977,171 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 });
+
+test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-OwnerP0Setup.ps1 transactional rollback', () => {
+  const sbRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-live-acl-p0-'));
+  const sbServer = path.join(sbRoot, 'server');
+  const sbVault = path.join(sbRoot, 'vault');
+  for (const rel of [
+    'config/release-gate',
+    'config/services',
+    'config/test-secrets/owner-ed25519',
+    'scripts',
+    'runner',
+    'apps/management-lite/scripts/deployment',
+    'apps/management-lite/dist',
+    'logs',
+    'reports',
+    'backups/management-lite',
+    'releases',
+  ]) {
+    fs.mkdirSync(path.join(sbServer, rel), { recursive: true });
+  }
+  const polFile = path.join(
+    sbServer,
+    'config/release-gate/release-gate-policy.json',
+  );
+  const manFile = path.join(
+    sbServer,
+    'config/release-gate/approved-release.json',
+  );
+  const synFile = path.join(
+    sbServer,
+    'config/release-gate/ci-run-receipt-fbb69409d00f43d0c36854730332e319cedb49ec.json',
+  );
+  const tmpKeyFile = path.join(
+    sbServer,
+    'config/test-secrets/owner-ed25519/owner-approval-private.pem',
+  );
+  const svcFile = path.join(
+    sbServer,
+    'config/services/HPManagementLiteApi.xml',
+  );
+  fs.writeFileSync(polFile, '{"old":true}', 'utf8');
+  fs.writeFileSync(manFile, '{"old_manifest":true}', 'utf8');
+  fs.writeFileSync(synFile, '{"synthetic_local":true}', 'utf8');
+  fs.writeFileSync(tmpKeyFile, 'DUMMY-TEMP-KEY', 'utf8');
+  fs.writeFileSync(svcFile, '<service>original</service>', 'utf8');
+
+  const setupScript = fileURLToPath(
+    new URL('../../scripts/deployment/Invoke-OwnerP0Setup.ps1', import.meta.url),
+  );
+  const devRepoDir = fileURLToPath(new URL('../..', import.meta.url));
+
+  // 1. Transactional rollback on error preserves original policy, manifest, and temporary key
+  const rbRes = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      setupScript,
+      '-ServerRoot',
+      sbServer,
+      '-OwnerVaultDir',
+      sbVault,
+      '-DevRepoDir',
+      devRepoDir,
+      '-SandboxMode',
+      '-SimulateFailureAfterKeyGen',
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.notEqual(rbRes.status, 0);
+  assert.match(
+    `${rbRes.stdout}\n${rbRes.stderr}`,
+    /P0_SETUP_FAILED_AND_ROLLED_BACK/,
+  );
+  assert.equal(
+    fs.readFileSync(polFile, 'utf8').replace(/^\uFEFF/, '').trim(),
+    '{"old":true}',
+  );
+  assert.equal(fs.existsSync(tmpKeyFile), true);
+
+  // 2. Full setup succeeds, defaults allow_migration=false, deletes temp key & synthetic receipt, and locks NTFS ACLs
+  const okRes = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      setupScript,
+      '-ServerRoot',
+      sbServer,
+      '-OwnerVaultDir',
+      sbVault,
+      '-DevRepoDir',
+      devRepoDir,
+      '-SandboxMode',
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.equal(okRes.status, 0, `${okRes.stdout}\n${okRes.stderr}`);
+  const manifest = JSON.parse(
+    fs.readFileSync(manFile, 'utf8').replace(/^\uFEFF/, ''),
+  );
+  assert.equal(manifest.approval_mode, 'SCOPED_WINDOW');
+  assert.equal(manifest.allow_migration, false);
+  assert.equal(manifest.allow_controller_changes, false);
+  assert.equal(fs.existsSync(tmpKeyFile), false);
+  assert.equal(fs.existsSync(synFile), false);
+
+  // 3. Live OS account verification: overwrite, delete, rename dir, icacls self-grant, and service/controller tampering all blocked
+  assert.throws(() => fs.writeFileSync(polFile, '{}', 'utf8'), /EPERM|EACCES/);
+  assert.throws(() => fs.writeFileSync(manFile, '{}', 'utf8'), /EPERM|EACCES/);
+  assert.throws(() => fs.unlinkSync(polFile), /EPERM|EACCES/);
+  assert.throws(
+    () =>
+      fs.renameSync(
+        path.join(sbServer, 'config/release-gate'),
+        path.join(sbServer, 'config/gate-hijack'),
+      ),
+    /EPERM|EACCES/,
+  );
+  assert.throws(
+    () =>
+      fs.renameSync(
+        path.join(sbServer, 'config'),
+        path.join(sbServer, 'config-hijack'),
+      ),
+    /EPERM|EACCES/,
+  );
+  assert.throws(() => fs.writeFileSync(svcFile, 'hijack', 'utf8'), /EPERM|EACCES/);
+  assert.throws(
+    () =>
+      fs.writeFileSync(
+        path.join(
+          sbServer,
+          'apps/management-lite/scripts/deployment/Deploy-SemiAutoWindows.ps1',
+        ),
+        'hijack',
+        'utf8',
+      ),
+    /EPERM|EACCES/,
+  );
+  const icaclsBypass = spawnSync(
+    'icacls.exe',
+    [
+      path.join(sbServer, 'config/release-gate'),
+      '/grant',
+      `${process.env.USERNAME || 'ADMIN'}:(OI)(CI)F`,
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.equal(icaclsBypass.status, 5, 'icacls self-grant must fail with Access Denied (5)');
+
+  // 4. Runtime dist directory remains writable for atomic deployment swap
+  fs.writeFileSync(
+    path.join(sbServer, 'apps/management-lite/dist/ok.txt'),
+    'ok',
+    'utf8',
+  );
+});
+
 
 
 

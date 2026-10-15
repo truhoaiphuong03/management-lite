@@ -967,8 +967,25 @@ $apiHeaders = @{
   'User-Agent'           = 'ManagementLite-HostReleaseController'
   'X-GitHub-Api-Version' = '2022-11-28'
 }
-if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_READONLY_TOKEN)) {
-  $apiHeaders['Authorization'] = "Bearer $($env:GITHUB_READONLY_TOKEN)"
+$resolvedGhToken = $env:GITHUB_READONLY_TOKEN
+if ([string]::IsNullOrWhiteSpace($resolvedGhToken)) {
+  foreach ($tokenFileCandidate in @(
+    (Join-Path (Split-Path -Path $PolicyPath -Parent) 'github-ci-token.txt'),
+    (Join-Path $ServerRoot 'config\test-secrets\github-ci-token.txt'),
+    'C:\HoaiPhuong-Server\config\release-gate\github-ci-token.txt',
+    'C:\HoaiPhuong-Server\config\test-secrets\github-ci-token.txt'
+  )) {
+    if ($tokenFileCandidate -and (Test-Path -LiteralPath $tokenFileCandidate -PathType Leaf)) {
+      $candidateVal = (Get-Content -LiteralPath $tokenFileCandidate -Raw -ErrorAction SilentlyContinue).Trim()
+      if (-not [string]::IsNullOrWhiteSpace($candidateVal)) {
+        $resolvedGhToken = $candidateVal
+        break
+      }
+    }
+  }
+}
+if (-not [string]::IsNullOrWhiteSpace($resolvedGhToken)) {
+  $apiHeaders['Authorization'] = "Bearer $resolvedGhToken"
 }
 try {
   $apiRun = Invoke-RestMethod -Uri $runApiUrl -Headers $apiHeaders -Method Get -TimeoutSec 10
@@ -1123,7 +1140,15 @@ try {
         throw "GATE REJECTED: Scoped release cannot modify protected controller or workflow files ($touchedStr) without explicit Owner approval."
       }
     }
-    Write-DeployLog "Scoped release lineage & path boundary verified (Descendant of $baselineShaNorm, Quota=$($wmScopedUsed + 1)/$($signedPayload.max_deployments))."
+    if (-not [bool]$signedPayload.allow_migration) {
+      $migrationTouched = @($diffPaths | Where-Object { $_ -match '^(database/migrations/|packages/db/migrations/|apps/api/src/database/migrations/)' })
+      if ($migrationTouched.Count -gt 0) {
+        $migStr = $migrationTouched -join ', '
+        Record-DeployResult -Status 'REJECTED_UNAPPROVED_MIGRATION' -Sha $normalizedSha -Message "Scoped release modified database migrations ($migStr) while allow_migration=false" -DurationMs 0
+        throw "GATE REJECTED: Scoped release cannot add or modify database migrations ($migStr) when allow_migration is false."
+      }
+    }
+    Write-DeployLog "Scoped release lineage & path boundary verified (Descendant of $baselineShaNorm, Quota=$($wmScopedUsed + 1)/$($signedPayload.max_deployments), AllowMigration=$($signedPayload.allow_migration))."
   }
 
   # 10. MANDATORY ARTIFACT INTEGRITY, PROVENANCE, BUILD READINESS, SCHEMA PREFLIGHT & PER-FILE SHA-256 VERIFICATION (BEFORE ANY MUTATION)

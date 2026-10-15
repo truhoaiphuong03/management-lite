@@ -49,6 +49,7 @@ param(
   [switch]$AllowControllerChanges,
   [switch]$SandboxMode,
   [switch]$EnforceProductionGate,
+  [switch]$LockAclReadOnly,
   [switch]$SimulateRunnerContext,
   [switch]$SimulateAgentContext,
   [switch]$SimulateNonElevatedCaller
@@ -104,6 +105,18 @@ if ($SimulateNonElevatedCaller -or ($targetsProductionHost -and (-not $isElevate
   throw 'SECURITY_VIOLATION_NON_ELEVATED_CALLER: Production release-gate operations (key generation, policy update, or Owner approval signing) require an elevated Administrator token (UAC Secure Desktop). Non-elevated sessions (such as AI Agent processes) are blocked at the OS kernel token level.'
 }
 
+# 1C. BLOCK REGISTRY-BASED UAC AUTO-ELEVATION HIJACK KEYS (FODHELPER / COMPUTERDEFAULTS / SDCLT / EVENTVWR)
+foreach ($uacHijackReg in @(
+  'HKCU:\Software\Classes\ms-settings\shell\open\command',
+  'HKCU:\Software\Classes\mscfile\shell\open\command',
+  'HKCU:\Software\Classes\Folder\shell\open\command'
+)) {
+  if (Test-Path -LiteralPath $uacHijackReg) {
+    Remove-Item -LiteralPath (Split-Path (Split-Path (Split-Path $uacHijackReg -Parent) -Parent) -Parent) -Recurse -Force -ErrorAction SilentlyContinue
+    throw "SECURITY_VIOLATION_UAC_HIJACK_DETECTED: Suspicious HKCU UAC auto-elevation registry key detected and purged ($uacHijackReg)."
+  }
+}
+
 if ($targetsProductionHost) {
   $normGhUrl = if ([string]::IsNullOrWhiteSpace($GitHubApiBaseUrl)) { 'https://api.github.com' } else { $GitHubApiBaseUrl.Trim().TrimEnd('/').ToLowerInvariant() }
   if ($normGhUrl -ne 'https://api.github.com') {
@@ -135,12 +148,32 @@ function Assert-OffServerPrivateKeyPath {
   }
 }
 
+function Unlock-ReleaseGateAclForElevatedWrite {
+  param([string]$TargetPath)
+  if ($isElevatedAdmin -and (-not [string]::IsNullOrWhiteSpace($TargetPath)) -and (Test-Path -LiteralPath $TargetPath)) {
+    & takeown.exe /F $TargetPath /A /R /D Y 2>$null | Out-Null
+    & icacls.exe $TargetPath /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "*S-1-3-4:(OI)(CI)F" /T /C 2>$null | Out-Null
+  }
+}
+
 function Set-ReleaseGateAcl {
   param([string]$TargetPath, [bool]$IsProdTarget = $false)
   $currentAdmin = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-  if ($IsProdTarget) {
-    # Production: Only SYSTEM and Elevated Administrators (UAC) have Full Control (F). Non-elevated user account (Anty) gets Read-Only (RX).
-    & icacls.exe $TargetPath /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdmin}:(OI)(CI)RX" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
+  if ($IsProdTarget -or $LockAclReadOnly) {
+    if ($isElevatedAdmin) {
+      & takeown.exe /F $TargetPath /A /R /D Y 2>$null | Out-Null
+    }
+    # Lock child files and folders first (reverse depth order) so OWNER RIGHTS:(RX) strips implicit WRITE_DAC on every item
+    $children = @(Get-ChildItem -LiteralPath $TargetPath -Recurse -Force -ErrorAction SilentlyContinue | Sort-Object { $_.FullName.Length } -Descending)
+    foreach ($child in $children) {
+      if ($child.PSIsContainer) {
+        & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdmin}:(OI)(CI)RX" "*S-1-3-4:(OI)(CI)RX" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
+      } else {
+        & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "${currentAdmin}:RX" "*S-1-3-4:RX" "*S-1-5-19:R" "*S-1-5-20:R" /deny "*S-1-5-19:(W,M,D,WDAC,WO)" "*S-1-5-20:(W,M,D,WDAC,WO)" | Out-Null
+      }
+    }
+    # Lock TargetPath directory itself with OWNER RIGHTS:(OI)(CI)RX and non-elevated account RX (blocks write, delete, rename, and icacls /grant)
+    & icacls.exe $TargetPath /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdmin}:(OI)(CI)RX" "*S-1-3-4:(OI)(CI)RX" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
   } else {
     & icacls.exe $TargetPath /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdmin}:(OI)(CI)F" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
   }
@@ -148,9 +181,20 @@ function Set-ReleaseGateAcl {
 
 function Set-OwnerVaultAcl {
   param([string]$VaultDir, [bool]$IsProdTarget = $false)
-  if ($IsProdTarget -and (-not [string]::IsNullOrWhiteSpace($VaultDir)) -and (Test-Path -LiteralPath $VaultDir)) {
+  if (($IsProdTarget -or $LockAclReadOnly) -and (-not [string]::IsNullOrWhiteSpace($VaultDir)) -and (Test-Path -LiteralPath $VaultDir)) {
+    if ($isElevatedAdmin) {
+      & takeown.exe /F $VaultDir /A /R /D Y 2>$null | Out-Null
+    }
+    $vaultChildren = @(Get-ChildItem -LiteralPath $VaultDir -Recurse -Force -ErrorAction SilentlyContinue | Sort-Object { $_.FullName.Length } -Descending)
+    foreach ($vc in $vaultChildren) {
+      if ($vc.PSIsContainer) {
+        & icacls.exe $vc.FullName /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "*S-1-3-4:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)F" "*S-1-5-20:(OI)(CI)F" | Out-Null
+      } else {
+        & icacls.exe $vc.FullName /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "*S-1-3-4:R" /deny "*S-1-5-19:F" "*S-1-5-20:F" | Out-Null
+      }
+    }
     # Production: Only SYSTEM and Elevated Administrators (UAC) can read or write the Owner private key vault. Non-elevated user account (Anty) has ZERO access.
-    & icacls.exe $VaultDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" /deny "*S-1-5-19:(OI)(CI)F" "*S-1-5-20:(OI)(CI)F" | Out-Null
+    & icacls.exe $VaultDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "*S-1-3-4:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)F" "*S-1-5-20:(OI)(CI)F" | Out-Null
   }
 }
 
@@ -161,11 +205,15 @@ if ($GenerateKeyPairOnly) {
   }
   if (-not (Test-Path -LiteralPath $KeyOutDir)) {
     New-Item -ItemType Directory -Path $KeyOutDir -Force | Out-Null
+  } else {
+    Unlock-ReleaseGateAclForElevatedWrite -TargetPath $KeyOutDir
   }
   $privPath = if (-not [string]::IsNullOrWhiteSpace($PrivateKeyOutPath)) {
     $privParent = Split-Path -Path $PrivateKeyOutPath -Parent
     if (-not (Test-Path -LiteralPath $privParent)) {
       New-Item -ItemType Directory -Path $privParent -Force | Out-Null
+    } else {
+      Unlock-ReleaseGateAclForElevatedWrite -TargetPath $privParent
     }
     $PrivateKeyOutPath
   } else {
@@ -275,6 +323,8 @@ if ($allowedApprovers -notcontains $ApprovedBy.Trim()) {
 $parentDir = Split-Path -Path $ManifestPath -Parent
 if (-not (Test-Path -LiteralPath $parentDir)) {
   New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+} else {
+  Unlock-ReleaseGateAclForElevatedWrite -TargetPath $parentDir
 }
 
 $nowUtc = (Get-Date).ToUniversalTime()
