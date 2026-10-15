@@ -191,3 +191,413 @@ test('Option 1 CI/CD architecture: automatic CI on push/PR without deploy, singl
     'Deploy-SemiAutoWindows.ps1 must execute and verify database migrations (PRE_CUTOVER_MIGRATION) strictly before switching live API/Web runtime (RUNTIME_CUTOVER)',
   );
 });
+
+test('P0 Release Gate Hardening: blocks non-official GitHub API in production, blocks synthetic CI receipts, blocks test-secrets/server private keys, blocks AI agent self-signing, and supports 1-command Owner approval discovery', async () => {
+  const http = await import('node:http');
+  const controllerPath = fileURLToPath(
+    new URL(
+      '../../scripts/deployment/Deploy-SemiAutoWindows.ps1',
+      import.meta.url,
+    ),
+  );
+  const approvePath = fileURLToPath(
+    new URL(
+      '../../scripts/deployment/Approve-ReleaseSha.ps1',
+      import.meta.url,
+    ),
+  );
+  const controllerCode = fs.readFileSync(controllerPath, 'utf8');
+  const approveCode = fs.readFileSync(approvePath, 'utf8');
+
+  // 1. Static guard verification
+  assert.equal(
+    controllerCode.includes('REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION') &&
+      controllerCode.includes('REJECTED_SYNTHETIC_CI_RECEIPT') &&
+      controllerCode.includes('REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST') &&
+      controllerCode.includes("config\\test-secrets"),
+    true,
+    'Deploy-SemiAutoWindows.ps1 must enforce official GitHub API in production, reject synthetic CI receipts, and recursively scan config\\test-secrets for exposed private keys',
+  );
+  assert.equal(
+    approveCode.includes('SECURITY_VIOLATION_AGENT_SELF_APPROVAL') &&
+      approveCode.includes('SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE') &&
+      approveCode.includes('REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION') &&
+      approveCode.includes('.provenance.json'),
+    true,
+    'Approve-ReleaseSha.ps1 must block AI agent self-signing, block server-local private keys, enforce official GitHub API on production targets, and support .provenance.json auto-discovery',
+  );
+
+  const tmpRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'ml-p0-gate-hardening-'),
+  );
+  const serverRoot = path.join(tmpRoot, 'server');
+  const gateDir = path.join(serverRoot, 'config', 'release-gate');
+  const testSecretsKeyDir = path.join(
+    serverRoot,
+    'config',
+    'test-secrets',
+    'owner-ed25519',
+  );
+  const reportsDir = path.join(serverRoot, 'reports');
+  const logsDir = path.join(serverRoot, 'logs');
+  const externalKeyDir = path.join(tmpRoot, 'owner-external-usb');
+  const bundleDir = path.join(tmpRoot, 'bundles');
+
+  for (const d of [
+    gateDir,
+    testSecretsKeyDir,
+    reportsDir,
+    logsDir,
+    externalKeyDir,
+    bundleDir,
+  ]) {
+    fs.mkdirSync(d, { recursive: true });
+  }
+
+  const sha = 'a'.repeat(40);
+  const artifactSha = 'b'.repeat(64);
+  const schemaSha = 'c'.repeat(64);
+  const bundlePath = path.join(
+    bundleDir,
+    `management-lite-full-${sha}.tar.gz`,
+  );
+  fs.writeFileSync(bundlePath, 'synthetic-bundle-bytes');
+  fs.writeFileSync(
+    `${bundlePath}.provenance.json`,
+    JSON.stringify(
+      {
+        sha,
+        sha256: artifactSha,
+        schemaIdentity: schemaSha,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(reportsDir, 'approval-watermark.json'),
+    JSON.stringify({ last_sequence: 4 }, null, 2),
+    'utf8',
+  );
+
+  const policyPath = path.join(gateDir, 'release-gate-policy.json');
+  const manifestPath = path.join(gateDir, 'approved-release.json');
+  const auditLogPath = path.join(gateDir, 'approval-audit.jsonl');
+  const externalPrivKey = path.join(
+    externalKeyDir,
+    'owner-approval-private.pem',
+  );
+  const latestDeployJson = path.join(reportsDir, 'latest-deployment.json');
+
+  // Local mock server for sandbox ceremony verification
+  const mockServer = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        id: 99001,
+        run_attempt: 1,
+        head_sha: sha,
+        head_branch: 'main',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'workflow_dispatch',
+        path: '.github/workflows/deploy.yml',
+        html_url:
+          'https://github.com/truhoaiphuong03/management-lite/actions/runs/99001',
+      }),
+    );
+  });
+  await new Promise((resolve) => mockServer.listen(0, '127.0.0.1', resolve));
+  const mockPort = mockServer.address().port;
+  const mockApiUrl = `http://127.0.0.1:${mockPort}`;
+
+  const runPs = (script, args, envOverrides = {}) =>
+    spawnSync(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, ...args],
+      {
+        cwd: tmpRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          PAGER: '',
+          ANTIGRAVITY_AGENT: '',
+          ANTIGRAVITY_CLI_ALIAS: '',
+          CODEX_CI: '',
+          CODEX_SANDBOX: '',
+          CLAUDE_CODE: '',
+          CURSOR_TRACE_ID: '',
+          ...envOverrides,
+        },
+      },
+    );
+
+  try {
+    // 2. Block AI Agent self-signing / key generation under Owner identity
+    const agentAttempt = runPs(
+      approvePath,
+      [
+        '-GenerateKeyPairOnly',
+        '-KeyOutDir',
+        gateDir,
+        '-PrivateKeyOutPath',
+        externalPrivKey,
+        '-SimulateAgentContext',
+      ],
+      { PAGER: 'cat', ANTIGRAVITY_AGENT: '1' },
+    );
+    assert.notEqual(
+      agentAttempt.status,
+      0,
+      'Approve-ReleaseSha.ps1 must fail when invoked in AI Agent context',
+    );
+    assert.match(
+      `${agentAttempt.stdout}\n${agentAttempt.stderr}`,
+      /SECURITY_VIOLATION_AGENT_SELF_APPROVAL/,
+    );
+    assert.equal(
+      fs.existsSync(externalPrivKey),
+      false,
+      'AI Agent attempt must not generate private key file',
+    );
+
+    // 3. Block private key stored in config/test-secrets during Approve-ReleaseSha.ps1
+    const forbiddenTestSecretKey = path.join(
+      testSecretsKeyDir,
+      'owner-approval-private.pem',
+    );
+    const badKeyPathAttempt = runPs(approvePath, [
+      '-GenerateKeyPairOnly',
+      '-KeyOutDir',
+      gateDir,
+      '-PrivateKeyOutPath',
+      forbiddenTestSecretKey,
+    ]);
+    assert.notEqual(
+      badKeyPathAttempt.status,
+      0,
+      'Approve-ReleaseSha.ps1 must reject private keys located in config/test-secrets',
+    );
+    assert.match(
+      `${badKeyPathAttempt.stdout}\n${badKeyPathAttempt.stderr}`,
+      /SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE/,
+    );
+
+    // 4. 1-Command Owner Ceremony: generate offline keypair and sign via -ArtifactPath auto-discovery
+    const genKeyRes = runPs(approvePath, [
+      '-GenerateKeyPairOnly',
+      '-KeyOutDir',
+      gateDir,
+      '-PrivateKeyOutPath',
+      externalPrivKey,
+    ]);
+    assert.equal(genKeyRes.status, 0, genKeyRes.stderr || genKeyRes.stdout);
+
+    const oneCmdApprove = runPs(approvePath, [
+      '-ArtifactPath',
+      bundlePath,
+      '-CiRunId',
+      '99001',
+      '-AllowMigration',
+      '-PrivateKeyPath',
+      externalPrivKey,
+      '-PolicyPath',
+      policyPath,
+      '-ManifestPath',
+      manifestPath,
+      '-AuditLogPath',
+      auditLogPath,
+      '-GitHubApiBaseUrl',
+      mockApiUrl,
+    ]);
+    assert.equal(
+      oneCmdApprove.status,
+      0,
+      oneCmdApprove.stderr || oneCmdApprove.stdout,
+    );
+    const signedManifest = JSON.parse(
+      fs.readFileSync(manifestPath, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(signedManifest.approved_sha, sha);
+    assert.equal(signedManifest.artifact_sha256, artifactSha);
+    assert.equal(signedManifest.schema_sha256, schemaSha);
+    assert.equal(signedManifest.sequence, 5);
+    assert.equal(signedManifest.approved_by, 'Owner');
+
+    // 5. Block deployment if any private key exists under server config/test-secrets
+    fs.writeFileSync(
+      forbiddenTestSecretKey,
+      '-----BEGIN PRIVATE KEY-----\nsynthetic\n-----END PRIVATE KEY-----\n',
+      'utf8',
+    );
+    const exposedKeyDeploy = runPs(controllerPath, [
+      '-CommitSha',
+      sha,
+      '-CiRunId',
+      '99001',
+      '-ArtifactPath',
+      bundlePath,
+      '-ArtifactSha256',
+      artifactSha,
+      '-ServerRoot',
+      serverRoot,
+      '-PolicyPath',
+      policyPath,
+      '-ApprovalManifestPath',
+      manifestPath,
+      '-SandboxMode',
+    ]);
+    assert.notEqual(exposedKeyDeploy.status, 0);
+    const exposedDeployReport = JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(
+      exposedDeployReport.status,
+      'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST',
+    );
+    fs.rmSync(forbiddenTestSecretKey, { force: true });
+
+    // 6. Block synthetic/self-created CI receipt (missing generated_at_utc in production mode)
+    const ciReceiptPath = path.join(gateDir, `ci-run-receipt-${sha}.json`);
+    fs.writeFileSync(
+      ciReceiptPath,
+      JSON.stringify(
+        {
+          id: '99001',
+          run_id: '99001',
+          run_attempt: 1,
+          head_sha: sha,
+          head_branch: 'main',
+          workflow_path: '.github/workflows/deploy.yml',
+          artifact_sha256: artifactSha,
+          schema_sha256: schemaSha,
+          status: 'completed',
+          conclusion: 'success',
+          event: 'workflow_dispatch',
+          repository: 'truhoaiphuong03/management-lite',
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    const syntheticReceiptDeploy = runPs(controllerPath, [
+      '-CommitSha',
+      sha,
+      '-CiRunId',
+      '99001',
+      '-ArtifactPath',
+      bundlePath,
+      '-ArtifactSha256',
+      artifactSha,
+      '-CiRunReceiptPath',
+      ciReceiptPath,
+      '-ServerRoot',
+      serverRoot,
+      '-PolicyPath',
+      policyPath,
+      '-ApprovalManifestPath',
+      manifestPath,
+    ]);
+    assert.notEqual(syntheticReceiptDeploy.status, 0);
+    const syntheticReceiptReport = JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(
+      syntheticReceiptReport.status,
+      'REJECTED_SYNTHETIC_CI_RECEIPT',
+    );
+
+    // 7. Hard-lock official https://api.github.com in production mode (reject CLI -GitHubApiBaseUrl and policy github_api_base_url overrides)
+    fs.writeFileSync(
+      ciReceiptPath,
+      JSON.stringify(
+        {
+          id: '99001',
+          run_id: '99001',
+          run_attempt: 1,
+          head_sha: sha,
+          head_branch: 'main',
+          workflow_path: '.github/workflows/deploy.yml',
+          artifact_sha256: artifactSha,
+          schema_sha256: schemaSha,
+          status: 'completed',
+          conclusion: 'success',
+          event: 'workflow_dispatch',
+          repository: 'truhoaiphuong03/management-lite',
+          generated_at_utc: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    const fakeApiCliDeploy = runPs(controllerPath, [
+      '-CommitSha',
+      sha,
+      '-CiRunId',
+      '99001',
+      '-ArtifactPath',
+      bundlePath,
+      '-ArtifactSha256',
+      artifactSha,
+      '-CiRunReceiptPath',
+      ciReceiptPath,
+      '-GitHubApiBaseUrl',
+      mockApiUrl,
+      '-ServerRoot',
+      serverRoot,
+      '-PolicyPath',
+      policyPath,
+      '-ApprovalManifestPath',
+      manifestPath,
+    ]);
+    assert.notEqual(fakeApiCliDeploy.status, 0);
+    const fakeApiCliReport = JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(
+      fakeApiCliReport.status,
+      'REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION',
+    );
+
+    // Also test policy github_api_base_url override rejection in production mode
+    const policyObj = JSON.parse(
+      fs.readFileSync(policyPath, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    policyObj.github_api_base_url = mockApiUrl;
+    fs.writeFileSync(policyPath, JSON.stringify(policyObj, null, 2), 'utf8');
+
+    const fakeApiPolicyDeploy = runPs(controllerPath, [
+      '-CommitSha',
+      sha,
+      '-CiRunId',
+      '99001',
+      '-ArtifactPath',
+      bundlePath,
+      '-ArtifactSha256',
+      artifactSha,
+      '-CiRunReceiptPath',
+      ciReceiptPath,
+      '-ServerRoot',
+      serverRoot,
+      '-PolicyPath',
+      policyPath,
+      '-ApprovalManifestPath',
+      manifestPath,
+    ]);
+    assert.notEqual(fakeApiPolicyDeploy.status, 0);
+    const fakeApiPolicyReport = JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(
+      fakeApiPolicyReport.status,
+      'REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION',
+    );
+  } finally {
+    await new Promise((resolve) => mockServer.close(resolve));
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});
+

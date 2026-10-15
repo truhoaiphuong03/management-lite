@@ -653,23 +653,29 @@ if ($normalizedSha -notmatch '^[0-9a-f]{40}$') {
   throw "GATE REJECTED: CommitSha '$CommitSha' must be a full 40-character hexadecimal Git SHA."
 }
 
-# 2B. OFF-SERVER KEY CUSTODY ENFORCEMENT (REJECT IF ANY PRIVATE KEY IS LEFT IN SERVER RELEASE-GATE OR RUNNER)
+# 2B. OFF-SERVER KEY CUSTODY ENFORCEMENT (REJECT IF ANY PRIVATE KEY IS LEFT IN SERVER RELEASE-GATE, RUNNER, OR TEST-SECRETS)
 $gateScanDirs = @(
   (Split-Path -Path $PolicyPath -Parent),
   (Split-Path -Path $ApprovalManifestPath -Parent),
-  (Join-Path $ServerRoot 'runner')
-) | Select-Object -Unique
+  (Join-Path $ServerRoot 'runner'),
+  (Join-Path $ServerRoot 'config\test-secrets'),
+  (Join-Path $ServerRoot 'config\release-gate')
+)
+if (-not $SandboxMode) {
+  $gateScanDirs += (Join-Path $ServerRoot 'config')
+}
+$gateScanDirs = @($gateScanDirs | Where-Object { $_ } | Select-Object -Unique)
 foreach ($scanDir in $gateScanDirs) {
   if ($scanDir -and (Test-Path -LiteralPath $scanDir)) {
-    $suspectKeyFiles = @(Get-ChildItem -LiteralPath $scanDir -File -ErrorAction SilentlyContinue | Where-Object {
+    $suspectKeyFiles = @(Get-ChildItem -LiteralPath $scanDir -File -Recurse -ErrorAction SilentlyContinue | Where-Object {
       $_.Name -match '(?i)(private|\.key$|\.pfx$|\.p12$)' -or (
         $_.Extension -eq '.pem' -and ((Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue) -match 'PRIVATE KEY')
       )
     })
     if ($suspectKeyFiles.Count -gt 0) {
       $exposedNames = ($suspectKeyFiles | ForEach-Object { $_.Name }) -join ', '
-      Record-DeployResult -Status 'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST' -Sha $normalizedSha -Message "Private key file detected in host gate/runner directory ($exposedNames)" -DurationMs 0
-      throw "GATE REJECTED: Owner private key exposure detected on host ($exposedNames). Private signing key must never reside in release-gate or runner directories."
+      Record-DeployResult -Status 'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST' -Sha $normalizedSha -Message "Private key file detected in host gate/runner/test-secrets directory ($exposedNames)" -DurationMs 0
+      throw "GATE REJECTED: Owner private key exposure detected on host ($exposedNames). Private signing key must never reside in release-gate, test-secrets, or runner directories."
     }
   }
 }
@@ -847,6 +853,25 @@ if ([string]::IsNullOrWhiteSpace($resolvedCiReceipt) -or (-not (Test-Path -Liter
 }
 
 $ciReceipt = Get-Content -LiteralPath $resolvedCiReceipt -Raw | ConvertFrom-Json
+$isSyntheticReceipt = (
+  (($ciReceipt.PSObject.Properties.Name -contains 'synthetic_local') -and [bool]$ciReceipt.synthetic_local) -or
+  (($ciReceipt.PSObject.Properties.Name -contains 'simulated') -and [bool]$ciReceipt.simulated) -or
+  ((-not $SandboxMode) -and (
+    (-not ($ciReceipt.PSObject.Properties.Name -contains 'generated_at_utc')) -or
+    [string]::IsNullOrWhiteSpace([string]$ciReceipt.generated_at_utc)
+  ))
+)
+if ($isSyntheticReceipt) {
+  Record-DeployResult -Status 'REJECTED_SYNTHETIC_CI_RECEIPT' -Sha $normalizedSha -Message 'Self-created or synthetic CI receipt is forbidden' -DurationMs 0
+  throw 'GATE REJECTED: Self-created or synthetic CI receipt is forbidden in production.'
+}
+if (($ciReceipt.PSObject.Properties.Name -contains 'workflow_run_url') -and (-not [string]::IsNullOrWhiteSpace([string]$ciReceipt.workflow_run_url))) {
+  if (([string]$ciReceipt.workflow_run_url).Trim() -notmatch "^https://github\.com/$([regex]::Escape($expectedRepo))/actions/runs/\d+") {
+    Record-DeployResult -Status 'REJECTED_SYNTHETIC_CI_RECEIPT' -Sha $normalizedSha -Message 'CI receipt workflow_run_url does not point to official GitHub Actions run' -DurationMs 0
+    throw 'GATE REJECTED: CI receipt workflow_run_url does not point to official GitHub Actions run.'
+  }
+}
+
 $receiptRunId = if ($ciReceipt.PSObject.Properties.Name -contains 'run_id') { [string]$ciReceipt.run_id } elseif ($ciReceipt.PSObject.Properties.Name -contains 'id') { [string]$ciReceipt.id } else { '' }
 $receiptAttempt = if ($ciReceipt.PSObject.Properties.Name -contains 'run_attempt' -and $null -ne $ciReceipt.run_attempt) { [int]$ciReceipt.run_attempt } else { 0 }
 $receiptSha = if ($ciReceipt.PSObject.Properties.Name -contains 'head_sha') { [string]$ciReceipt.head_sha } else { '' }
@@ -877,13 +902,28 @@ if ($receiptRunId.Trim() -ne $CiRunId.Trim() -or
 }
 Write-DeployLog "Independent CI Run Receipt verified (RunId=$receiptRunId, Attempt=$receiptAttempt, HeadSha=$receiptSha, Branch=$receiptBranch, Workflow=$receiptWorkflow)."
 
-# 5B. UNCONDITIONAL LIVE GITHUB ACTIONS RUN API VERIFICATION (NEVER SKIPPED)
-$resolvedApiBase = $GitHubApiBaseUrl
-if ([string]::IsNullOrWhiteSpace($resolvedApiBase) -and ($policy.PSObject.Properties.Name -contains 'github_api_base_url')) {
-  $resolvedApiBase = [string]$policy.github_api_base_url
-}
-if ([string]::IsNullOrWhiteSpace($resolvedApiBase)) {
+# 5B. UNCONDITIONAL LIVE GITHUB ACTIONS RUN API VERIFICATION (NEVER SKIPPED, HARD-LOCKED TO OFFICIAL API IN PRODUCTION)
+if (-not $SandboxMode) {
+  if ((-not [string]::IsNullOrWhiteSpace($GitHubApiBaseUrl)) -and ($GitHubApiBaseUrl.Trim().TrimEnd('/').ToLowerInvariant() -ne 'https://api.github.com')) {
+    Record-DeployResult -Status 'REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION' -Sha $normalizedSha -Message "Non-official GitHub API URL ('$GitHubApiBaseUrl') is forbidden when SandboxMode is disabled" -DurationMs 0
+    throw "GATE REJECTED: Non-official GitHub API URL ('$GitHubApiBaseUrl') is forbidden in production. Only https://api.github.com is permitted."
+  }
+  if (($policy.PSObject.Properties.Name -contains 'github_api_base_url') -and (-not [string]::IsNullOrWhiteSpace([string]$policy.github_api_base_url))) {
+    $policyApiNorm = ([string]$policy.github_api_base_url).Trim().TrimEnd('/').ToLowerInvariant()
+    if ($policyApiNorm -ne 'https://api.github.com') {
+      Record-DeployResult -Status 'REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION' -Sha $normalizedSha -Message "Policy github_api_base_url override ('$($policy.github_api_base_url)') is forbidden when SandboxMode is disabled" -DurationMs 0
+      throw "GATE REJECTED: Policy github_api_base_url override ('$($policy.github_api_base_url)') is forbidden in production. Only https://api.github.com is permitted."
+    }
+  }
   $resolvedApiBase = 'https://api.github.com'
+} else {
+  $resolvedApiBase = $GitHubApiBaseUrl
+  if ([string]::IsNullOrWhiteSpace($resolvedApiBase) -and ($policy.PSObject.Properties.Name -contains 'github_api_base_url')) {
+    $resolvedApiBase = [string]$policy.github_api_base_url
+  }
+  if ([string]::IsNullOrWhiteSpace($resolvedApiBase)) {
+    $resolvedApiBase = 'https://api.github.com'
+  }
 }
 
 $runApiUrl = "$($resolvedApiBase.TrimEnd('/'))/repos/$expectedRepo/actions/runs/$($CiRunId.Trim())"
@@ -910,6 +950,14 @@ $liveConclusion = if ($apiRun.PSObject.Properties.Name -contains 'conclusion') {
 $liveEvent = if ($apiRun.PSObject.Properties.Name -contains 'event') { [string]$apiRun.event } else { '' }
 $liveBranch = if ($apiRun.PSObject.Properties.Name -contains 'head_branch' -and -not [string]::IsNullOrWhiteSpace([string]$apiRun.head_branch)) { [string]$apiRun.head_branch } else { '' }
 $livePath = if ($apiRun.PSObject.Properties.Name -contains 'path' -and -not [string]::IsNullOrWhiteSpace([string]$apiRun.path)) { [string]$apiRun.path } else { '' }
+$liveHtmlUrl = if ($apiRun.PSObject.Properties.Name -contains 'html_url' -and -not [string]::IsNullOrWhiteSpace([string]$apiRun.html_url)) { [string]$apiRun.html_url } else { '' }
+
+if (-not $SandboxMode) {
+  if ($liveHtmlUrl.Trim() -notmatch "^https://github\.com/$([regex]::Escape($expectedRepo))/actions/runs/\d+$") {
+    Record-DeployResult -Status 'REJECTED_GITHUB_API_CI_VERIFICATION_FAILED' -Sha $normalizedSha -Message "Live GitHub API response html_url ('$liveHtmlUrl') does not match official GitHub Actions run URL" -DurationMs 0
+    throw "GATE REJECTED: Live GitHub API response html_url ('$liveHtmlUrl') does not match official GitHub Actions run URL."
+  }
+}
 
 if ($liveId.Trim() -ne $CiRunId.Trim() -or
     $liveAttempt -ne $expectedRunAttempt -or

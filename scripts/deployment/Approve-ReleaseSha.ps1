@@ -8,6 +8,8 @@ param(
   [Parameter(Mandatory = $false)]
   [string]$PrivateKeyOutPath,
   [Parameter(Mandatory = $false)]
+  [string]$ArtifactPath = '',
+  [Parameter(Mandatory = $false)]
   [string]$CommitSha,
   [Parameter(Mandatory = $false)]
   [string]$ArtifactSha256,
@@ -28,7 +30,7 @@ param(
   [Parameter(Mandatory = $false)]
   [int]$Sequence = 1,
   [Parameter(Mandatory = $false)]
-  [string]$ApprovedBy,
+  [string]$ApprovedBy = 'Owner',
   [Parameter(Mandatory = $false)]
   [string]$PrivateKeyPath,
   [Parameter(Mandatory = $false)]
@@ -40,7 +42,10 @@ param(
   [string]$Reason = 'Owner cryptographically signed SHA release approval',
   [switch]$AllowMigration,
   [int]$ExpiresInMinutes = 120,
-  [switch]$SimulateRunnerContext
+  [switch]$SandboxMode,
+  [switch]$EnforceProductionGate,
+  [switch]$SimulateRunnerContext,
+  [switch]$SimulateAgentContext
 )
 
 Set-StrictMode -Version Latest
@@ -54,6 +59,66 @@ if (-not (Test-Path -LiteralPath $node)) {
 # 1. BLOCK EXECUTION FROM GITHUB ACTIONS RUNNER / WORKFLOW CONTEXT
 if ($SimulateRunnerContext -or $env:GITHUB_ACTIONS -eq 'true' -or (-not [string]::IsNullOrWhiteSpace($env:RUNNER_TRACKING_ID)) -or (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKFLOW))) {
   throw 'SECURITY_VIOLATION_RUNNER_SELF_APPROVAL: Approve-ReleaseSha.ps1 cannot be executed inside a GitHub Actions runner or workflow context.'
+}
+
+# 1B. DETECT PRODUCTION GATE TARGET & BLOCK AI AGENT / AUTOMATED SUBPROCESS SELF-APPROVAL
+$realProdServerPrefix = [IO.Path]::GetFullPath('C:\HoaiPhuong-Server') + [IO.Path]::DirectorySeparatorChar
+$targetGatePaths = if ($GenerateKeyPairOnly) {
+  @($KeyOutDir, $PrivateKeyOutPath) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+} else {
+  @($PolicyPath, $ManifestPath, $AuditLogPath, $PrivateKeyPath) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+}
+$targetsProductionHost = $EnforceProductionGate -or (
+  (-not $SandboxMode) -and @(
+    $targetGatePaths | Where-Object {
+      $fullP = [IO.Path]::GetFullPath($_) + [IO.Path]::DirectorySeparatorChar
+      $fullP.StartsWith($realProdServerPrefix, [StringComparison]::OrdinalIgnoreCase)
+    }
+  ).Count -gt 0
+)
+
+$isAiAgentEnvironment = $SimulateAgentContext -or
+  ($env:PAGER -eq 'cat') -or
+  (-not [string]::IsNullOrWhiteSpace($env:ANTIGRAVITY_AGENT)) -or
+  (-not [string]::IsNullOrWhiteSpace($env:ANTIGRAVITY_CLI_ALIAS)) -or
+  (-not [string]::IsNullOrWhiteSpace($env:CODEX_CI)) -or
+  (-not [string]::IsNullOrWhiteSpace($env:CODEX_SANDBOX)) -or
+  (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_CODE)) -or
+  (-not [string]::IsNullOrWhiteSpace($env:CURSOR_TRACE_ID))
+
+if ($SimulateAgentContext -or ($targetsProductionHost -and $isAiAgentEnvironment)) {
+  throw 'SECURITY_VIOLATION_AGENT_SELF_APPROVAL: Approve-ReleaseSha.ps1 cannot be executed by an AI Agent or automated subprocess for production release-gate paths. Only the human Owner in an independent interactive console session may generate keys or sign approvals.'
+}
+
+if ($targetsProductionHost) {
+  $normGhUrl = if ([string]::IsNullOrWhiteSpace($GitHubApiBaseUrl)) { 'https://api.github.com' } else { $GitHubApiBaseUrl.Trim().TrimEnd('/').ToLowerInvariant() }
+  if ($normGhUrl -ne 'https://api.github.com') {
+    throw "REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION: Production release gate strictly requires official https://api.github.com (custom or loopback GitHubApiBaseUrl '$GitHubApiBaseUrl' is forbidden)."
+  }
+  $GitHubApiBaseUrl = 'https://api.github.com'
+}
+
+function Assert-OffServerPrivateKeyPath {
+  param([string]$CandidateKeyPath, [string]$GateDirPath, [string]$PolicyDirPath, [bool]$IsProdTarget)
+  $resolvedPriv = [IO.Path]::GetFullPath($CandidateKeyPath)
+  if (-not [string]::IsNullOrWhiteSpace($GateDirPath)) {
+    $resolvedGate = [IO.Path]::GetFullPath($GateDirPath)
+    if ($resolvedPriv.StartsWith($resolvedGate + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+      throw "SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE: Owner Ed25519 private key ($resolvedPriv) must not reside inside release-gate directory."
+    }
+  }
+  if (-not [string]::IsNullOrWhiteSpace($PolicyDirPath)) {
+    $resolvedPol = [IO.Path]::GetFullPath($PolicyDirPath)
+    if ($resolvedPriv.StartsWith($resolvedPol + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+      throw "SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE: Owner Ed25519 private key ($resolvedPriv) must not reside inside policy directory."
+    }
+  }
+  if ($resolvedPriv -match '(?i)\\(runner|test-secrets|release-gate)\\') {
+    throw "SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE: Owner Ed25519 private key ($resolvedPriv) must never reside in runner, test-secrets, or release-gate directories."
+  }
+  if ($IsProdTarget -and $resolvedPriv.StartsWith($realProdServerPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE: For production release signing, Owner Ed25519 private key ($resolvedPriv) must reside outside C:\HoaiPhuong-Server (e.g., on Owner removable/external media)."
+  }
 }
 
 function Set-ReleaseGateAcl {
@@ -79,6 +144,7 @@ if ($GenerateKeyPairOnly) {
   } else {
     Join-Path $KeyOutDir 'owner-approval-private.pem'
   }
+  Assert-OffServerPrivateKeyPath -CandidateKeyPath $privPath -GateDirPath '' -PolicyDirPath '' -IsProdTarget $targetsProductionHost
   $pubPath = Join-Path $KeyOutDir 'owner-approval-public.pem'
   $polPath = Join-Path $KeyOutDir 'release-gate-policy.json'
 
@@ -115,16 +181,56 @@ fs.writeFileSync(process.argv[3], JSON.stringify(policy, null, 2), 'utf8');
   return
 }
 
+# 2B. AUTO-DISCOVER METADATA FROM ARTIFACT PROVENANCE & WATERMARK FOR SIMPLE 1-COMMAND OWNER CEREMONY
+if (-not [string]::IsNullOrWhiteSpace($ArtifactPath)) {
+  $provCandidate = "$ArtifactPath.provenance.json"
+  if (Test-Path -LiteralPath $provCandidate -PathType Leaf) {
+    $provData = Get-Content -LiteralPath $provCandidate -Raw | ConvertFrom-Json
+    if ([string]::IsNullOrWhiteSpace($CommitSha)) {
+      if (($provData.PSObject.Properties.Name -contains 'commitSha') -and $provData.commitSha) {
+        $CommitSha = [string]$provData.commitSha
+      } elseif (($provData.PSObject.Properties.Name -contains 'sha') -and $provData.sha) {
+        $CommitSha = [string]$provData.sha
+      }
+    }
+    if ([string]::IsNullOrWhiteSpace($ArtifactSha256) -and ($provData.PSObject.Properties.Name -contains 'sha256') -and $provData.sha256) {
+      $ArtifactSha256 = [string]$provData.sha256
+    }
+    if ([string]::IsNullOrWhiteSpace($SchemaSha256) -and ($provData.PSObject.Properties.Name -contains 'schemaIdentity') -and $provData.schemaIdentity) {
+      $SchemaSha256 = [string]$provData.schemaIdentity
+    }
+  }
+}
+if (-not $PSBoundParameters.ContainsKey('Sequence')) {
+  $policyParentDir = Split-Path -Path ([IO.Path]::GetFullPath($PolicyPath)) -Parent
+  $relativeWmCandidate = [IO.Path]::GetFullPath((Join-Path $policyParentDir '..\..\reports\approval-watermark.json'))
+  $wmCandidate = if (Test-Path -LiteralPath $relativeWmCandidate -PathType Leaf) {
+    $relativeWmCandidate
+  } else {
+    'C:\HoaiPhuong-Server\reports\approval-watermark.json'
+  }
+  if (Test-Path -LiteralPath $wmCandidate -PathType Leaf) {
+    try {
+      $wmData = Get-Content -LiteralPath $wmCandidate -Raw | ConvertFrom-Json
+      if (($wmData.PSObject.Properties.Name -contains 'last_sequence') -and ($null -ne $wmData.last_sequence)) {
+        $Sequence = [int]$wmData.last_sequence + 1
+      }
+    } catch {
+      # Keep default Sequence = 1 if watermark cannot be parsed
+    }
+  }
+}
+
 # 3. VALIDATE INPUTS & POLICY FOR SIGNING
-$normalizedSha = $CommitSha.Trim().ToLowerInvariant()
+$normalizedSha = if ($CommitSha) { $CommitSha.Trim().ToLowerInvariant() } else { '' }
 if ($normalizedSha -notmatch '^[0-9a-f]{40}$') {
   throw "Invalid CommitSha '$CommitSha'. Must be a full 40-character hexadecimal Git SHA."
 }
-$normalizedArtifactHash = $ArtifactSha256.Trim().ToLowerInvariant()
+$normalizedArtifactHash = if ($ArtifactSha256) { $ArtifactSha256.Trim().ToLowerInvariant() } else { '' }
 if ($normalizedArtifactHash -notmatch '^[0-9a-f]{64}$') {
   throw "Invalid ArtifactSha256 '$ArtifactSha256'. Must be a 64-character hexadecimal SHA-256 digest."
 }
-$normalizedSchemaHash = $SchemaSha256.Trim().ToLowerInvariant()
+$normalizedSchemaHash = if ($SchemaSha256) { $SchemaSha256.Trim().ToLowerInvariant() } else { '' }
 if ($normalizedSchemaHash -notmatch '^[0-9a-f]{64}$') {
   throw "Invalid SchemaSha256 '$SchemaSha256'. Must be a 64-character hexadecimal SHA-256 digest."
 }
@@ -141,15 +247,8 @@ if (-not (Test-Path -LiteralPath $PolicyPath)) {
   throw "Release gate policy not found at '$PolicyPath'."
 }
 
-# Enforce off-server / isolated key custody: Private key must NEVER reside inside release-gate or runner directories
-$resolvedPrivPath = [IO.Path]::GetFullPath($PrivateKeyPath)
-$resolvedGateDir = [IO.Path]::GetFullPath((Split-Path -Path $ManifestPath -Parent))
-$resolvedPolicyDir = [IO.Path]::GetFullPath((Split-Path -Path $PolicyPath -Parent))
-if ($resolvedPrivPath.StartsWith($resolvedGateDir + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
-    $resolvedPrivPath.StartsWith($resolvedPolicyDir + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
-    $resolvedPrivPath -match '(?i)\\runner\\') {
-  throw "SECURITY_VIOLATION_PRIVATE_KEY_IN_SERVER_GATE: Owner Ed25519 private key ($resolvedPrivPath) must not be stored inside the server release-gate or runner directory."
-}
+# Enforce off-server / isolated key custody: Private key must NEVER reside inside release-gate, runner, test-secrets, or production server root
+Assert-OffServerPrivateKeyPath -CandidateKeyPath $PrivateKeyPath -GateDirPath (Split-Path -Path $ManifestPath -Parent) -PolicyDirPath (Split-Path -Path $PolicyPath -Parent) -IsProdTarget $targetsProductionHost
 
 $policy = Get-Content -LiteralPath $PolicyPath -Raw | ConvertFrom-Json
 $allowedApprovers = @($policy.allowed_approvers)
