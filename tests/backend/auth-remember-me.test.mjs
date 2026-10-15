@@ -922,6 +922,41 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
       // TEST-10: Regression toàn bộ AUTH và RBAC hiện có
       // =========================================================================
       await t.test(
+        'Remember Me configured at 24 hours persists explicit intent through me and refresh',
+        async () => {
+          const previous = process.env.SESSION_REMEMBER_MAX_AGE_SECONDS;
+          process.env.SESSION_REMEMBER_MAX_AGE_SECONDS = '86400';
+          try {
+            const login = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
+              method: 'POST',
+              body: { identifier: ownerUser, password: ownerPw, remember_me: true },
+            });
+            assert.equal(login.status, 200);
+            const cookie = parseSetCookieHeader(login.headers['set-cookie']);
+            assert.equal(cookie.attrs['max-age'], '86400');
+            const { hashToken } = await import(`file://${resolve(root, 'dist/packages/security/src/tokens.js')}`);
+            const tokenHash = hashToken(cookie.value);
+            const read = async () => (await pool.query('SELECT remember_me, created_at, idle_expires_at, absolute_expires_at FROM auth_sessions WHERE session_token_hash=$1', [tokenHash])).rows[0];
+            const issued = await read();
+            assert.equal(issued.remember_me, true);
+            assert.equal(issued.absolute_expires_at - issued.created_at, 86400 * 1000);
+            const me = await makeRequest(`${baseUrl}/api/v1/auth/me`, { headers: { Cookie: cookie.cookiePair } });
+            assert.equal(me.status, 200);
+            assert.equal(me.body.data.remember_me, true);
+            assert.deepEqual((await read()).idle_expires_at, issued.absolute_expires_at);
+            await pool.query("UPDATE auth_sessions SET idle_expires_at=now()-interval '1 minute' WHERE session_token_hash=$1", [tokenHash]);
+            const refreshed = await makeRequest(`${baseUrl}/api/v1/auth/refresh`, { method: 'POST', headers: { Cookie: cookie.cookiePair } });
+            assert.equal(refreshed.status, 200);
+            assert.equal(refreshed.body.data.remember_me, true);
+            assert.ok(Number(parseSetCookieHeader(refreshed.headers['set-cookie']).attrs['max-age']) <= 86400);
+            assert.deepEqual((await read()).absolute_expires_at, issued.absolute_expires_at);
+          } finally {
+            if (previous === undefined) delete process.env.SESSION_REMEMBER_MAX_AGE_SECONDS;
+            else process.env.SESSION_REMEMBER_MAX_AGE_SECONDS = previous;
+          }
+        },
+      );
+      await t.test(
         'TEST-10: Regression AUTH, Origin enforcement, và RBAC (Owner vs Staff)',
         async () => {
           // 1. Untrusted Origin on /api/v1/auth/refresh must be rejected with 403

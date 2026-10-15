@@ -163,8 +163,8 @@ test('PASSWORD-CHANGE: Comprehensive Verification for Owner, Staff, Aliases & Sa
       const secondaryToken = generateCsprngToken(32);
       const secondaryTokenHash = hashToken(secondaryToken);
       await pool.query(
-        `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at)
-       VALUES ($1, $2, $3, 1, now() + interval '30 minutes', now() + interval '12 hours');`,
+        `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at, remember_me)
+       VALUES ($1, $2, $3, 1, now() + interval '30 minutes', now() + interval '12 hours', false);`,
         [wsId, ownerUserId, secondaryTokenHash],
       );
       const secondaryCookie = `mglite_session=${secondaryToken}`;

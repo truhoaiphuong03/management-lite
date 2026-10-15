@@ -621,8 +621,8 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
     const secondToken = generateCsprngToken(32);
     const secondTokenHash = hashToken(secondToken);
     await pool.query(
-      `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at)
-       VALUES ($1, $2, $3, 1, now() + interval '30 minutes', now() + interval '12 hours');`,
+      `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at, remember_me)
+       VALUES ($1, $2, $3, 1, now() + interval '30 minutes', now() + interval '12 hours', false);`,
       [ws1Id, userAId, secondTokenHash],
     );
     const secondCookie = `mglite_session=${secondToken}`;
@@ -742,8 +742,8 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
     const expiredIdleToken = generateCsprngToken(32);
     const expiredIdleHash = hashToken(expiredIdleToken);
     await pool.query(
-      `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at)
-       VALUES ($1, $2, $3, 2, now() - interval '1 minute', now() + interval '12 hours');`,
+      `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at, remember_me)
+       VALUES ($1, $2, $3, 2, now() - interval '1 minute', now() + interval '12 hours', false);`,
       [ws1Id, userAId, expiredIdleHash],
     );
     const resExpiredIdle = await makeRequest(`${baseUrl}/api/v1/auth/me`, {
@@ -755,8 +755,8 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
     const expiredAbsToken = generateCsprngToken(32);
     const expiredAbsHash = hashToken(expiredAbsToken);
     await pool.query(
-      `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at)
-       VALUES ($1, $2, $3, 2, now() + interval '30 minutes', now() - interval '1 minute');`,
+      `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at, remember_me)
+       VALUES ($1, $2, $3, 2, now() + interval '30 minutes', now() - interval '1 minute', false);`,
       [ws1Id, userAId, expiredAbsHash],
     );
     const resExpiredAbs = await makeRequest(`${baseUrl}/api/v1/auth/me`, {
@@ -832,8 +832,8 @@ async function executeAuthIntegrationRun(pool, runIndex, ops) {
     const raceSessionToken = generateCsprngToken(32);
     const raceSessionHash = hashToken(raceSessionToken);
     await pool.query(
-      `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at)
-       VALUES ($1, $2, $3, 2, now() + interval '30 minutes', now() + interval '12 hours');`,
+      `INSERT INTO auth_sessions (workspace_id, user_id, session_token_hash, credential_version_at_issue, idle_expires_at, absolute_expires_at, remember_me)
+       VALUES ($1, $2, $3, 2, now() + interval '30 minutes', now() + interval '12 hours', false);`,
       [ws1Id, userAId, raceSessionHash],
     );
 

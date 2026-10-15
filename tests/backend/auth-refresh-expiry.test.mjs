@@ -95,14 +95,15 @@ test('AUTH-REMEMBER-01 refresh respects idle expiry and the absolute ceiling', a
       absolute = 10 * hour,
       revoked = false,
       version = 1,
+      rememberMe = false,
     } = {}) => {
       const token = crypto.randomBytes(32).toString('hex');
       const id = crypto.randomUUID();
       await client.query(
         `INSERT INTO auth_sessions
          (id, workspace_id, user_id, session_token_hash, credential_version_at_issue,
-          created_at, last_seen_at, idle_expires_at, absolute_expires_at, revoked_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9)`,
+          created_at, last_seen_at, idle_expires_at, absolute_expires_at, revoked_at, remember_me)
+         VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10)`,
         [
           id,
           workspaceId,
@@ -113,6 +114,7 @@ test('AUTH-REMEMBER-01 refresh respects idle expiry and the absolute ceiling', a
           iso(idle),
           iso(absolute),
           revoked ? iso(-minute) : null,
+          rememberMe,
         ],
       );
       return { id, token };
@@ -175,6 +177,7 @@ test('AUTH-REMEMBER-01 refresh respects idle expiry and the absolute ceiling', a
           created: -29 * day,
           idle: -minute,
           absolute: day,
+          rememberMe: true,
         });
         const before = await snapshot(session.id);
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -200,6 +203,7 @@ test('AUTH-REMEMBER-01 refresh respects idle expiry and the absolute ceiling', a
               created: absolute - 30 * day,
               idle: -minute,
               absolute,
+              rememberMe: true,
             }),
           );
         }
@@ -210,8 +214,98 @@ test('AUTH-REMEMBER-01 refresh respects idle expiry and the absolute ceiling', a
       async () => {
         for (const invalid of [{ revoked: true }, { version: 2 }]) {
           await assertRejectedWithoutMutation(
-            await seed({ created: -day, absolute: 29 * day, ...invalid }),
+            await seed({
+              created: -day,
+              absolute: 29 * day,
+              rememberMe: true,
+              ...invalid,
+            }),
           );
+        }
+      },
+    );
+    await t.test(
+      'explicit Remember Me survives lifetime below, at and above the old 24-hour boundary',
+      async () => {
+        for (const lifetime of [day - 1, day, day + 1]) {
+          const session = await seed({
+            created: -hour,
+            idle: -1,
+            absolute: lifetime - hour,
+            rememberMe: true,
+          });
+          const result = await refresh(session.token);
+          assert.equal(result?.rememberMe, true);
+          const after = await snapshot(session.id);
+          assert.equal(
+            after.idle_expires_at.toISOString(),
+            iso(lifetime - hour),
+          );
+          assert.equal(
+            after.absolute_expires_at.toISOString(),
+            iso(lifetime - hour),
+          );
+          const resolved = await service.resolveSession(session.token);
+          assert.equal(resolved?.rememberMe, true);
+          assert.deepEqual(await snapshot(session.id), after);
+        }
+      },
+    );
+    await t.test(
+      'explicit standard remains standard even when lifetime exceeds 24 hours',
+      async () => {
+        const expired = await seed({
+          created: -hour,
+          idle: -1,
+          absolute: 2 * day,
+        });
+        await assertRejectedWithoutMutation(expired);
+        assert.equal(await service.resolveSession(expired.token), null);
+        const active = await seed({ absolute: 2 * day });
+        assert.equal(
+          (await service.resolveSession(active.token))?.rememberMe,
+          false,
+        );
+        assert.equal(
+          (await snapshot(active.id)).idle_expires_at.toISOString(),
+          iso(30 * minute),
+        );
+        assert.equal((await refresh(active.token))?.rememberMe, false);
+      },
+    );
+    await t.test(
+      'legacy unknown intent fails closed without mutation at either endpoint',
+      async () => {
+        for (const absolute of [10 * hour, 29 * day]) {
+          const session = await seed({ absolute, rememberMe: null });
+          const before = await snapshot(session.id);
+          assert.equal(await service.resolveSession(session.token), null);
+          await assertRejectedWithoutMutation(session);
+          assert.deepEqual(await snapshot(session.id), before);
+        }
+      },
+    );
+    await t.test(
+      'migration preserves legacy unknown intent instead of guessing a lifetime',
+      async () => {
+        await client.query(
+          'CREATE TEMP TABLE auth_sessions (id integer, absolute_expires_at timestamptz) ON COMMIT DROP',
+        );
+        try {
+          await client.query(
+            "INSERT INTO auth_sessions VALUES (1, now() + interval '30 days')",
+          );
+          const migration = loadMigrationFiles(
+            resolve('packages/database/src/migrations'),
+          ).find((m) => m.id === '0023_auth_session_remember_me');
+          await client.query(migration.sql);
+          assert.equal(
+            (await client.query('SELECT remember_me FROM auth_sessions'))
+              .rows[0].remember_me,
+            null,
+          );
+        } finally {
+          await client.query('DROP TABLE pg_temp.auth_sessions');
         }
       },
     );

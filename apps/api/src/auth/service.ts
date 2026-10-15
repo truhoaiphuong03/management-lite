@@ -352,9 +352,10 @@ export class AuthService {
           created_at,
           last_seen_at,
           idle_expires_at,
-          absolute_expires_at
+          absolute_expires_at,
+          remember_me
         )
-        VALUES ($1, $2, $3, $4, $5, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8)
         RETURNING id;
       `,
         [
@@ -365,6 +366,7 @@ export class AuthService {
           now.toISOString(),
           idleExpiresAt.toISOString(),
           absoluteExpiresAt.toISOString(),
+          rememberMe,
         ],
       );
 
@@ -461,7 +463,7 @@ export class AuthService {
       SET last_seen_at = $1,
           idle_expires_at = LEAST(
             CASE
-              WHEN (s.absolute_expires_at - s.created_at) > interval '24 hours'
+              WHEN s.remember_me IS TRUE
               THEN s.absolute_expires_at
               ELSE $2::timestamptz
             END,
@@ -476,6 +478,8 @@ export class AuthService {
         AND uwb.user_id = s.user_id AND uwb.workspace_id = s.workspace_id
         AND uwb.status = 'active'
         AND s.revoked_at IS NULL
+        -- Legacy/unknown intent requires a new login; never infer consent from TTL.
+        AND s.remember_me IS NOT NULL
         AND s.idle_expires_at > $1
         AND s.absolute_expires_at > $1
         AND s.credential_version_at_issue = uc.credential_version
@@ -492,7 +496,7 @@ export class AuthService {
         s.last_seen_at,
         s.idle_expires_at,
         s.absolute_expires_at,
-        ((s.absolute_expires_at - s.created_at) > interval '24 hours') AS is_remembered,
+        s.remember_me AS is_remembered,
         u.username_normalized,
         u.email_normalized,
         wm.role,
@@ -570,7 +574,7 @@ export class AuthService {
       SET last_seen_at = $1,
           idle_expires_at = LEAST(
             CASE
-              WHEN (s.absolute_expires_at - s.created_at) > interval '24 hours'
+              WHEN s.remember_me IS TRUE
               THEN s.absolute_expires_at
               ELSE $2::timestamptz
             END,
@@ -585,8 +589,10 @@ export class AuthService {
         AND uwb.user_id = s.user_id AND uwb.workspace_id = s.workspace_id
         AND uwb.status = 'active'
         AND s.revoked_at IS NULL
+        -- Legacy/unknown intent requires a new login; never infer consent from TTL.
+        AND s.remember_me IS NOT NULL
         AND (
-          (s.absolute_expires_at - s.created_at) > interval '24 hours'
+          s.remember_me IS TRUE
           OR s.idle_expires_at > $1
         )
         AND s.absolute_expires_at > $1
@@ -601,7 +607,7 @@ export class AuthService {
         s.session_token_hash,
         s.created_at,
         s.absolute_expires_at,
-        ((s.absolute_expires_at - s.created_at) > interval '24 hours') AS is_remembered,
+        s.remember_me AS is_remembered,
         u.username_normalized,
         u.email_normalized,
         wm.role,
@@ -622,7 +628,10 @@ export class AuthService {
       Math.floor((absDate.getTime() - now.getTime()) / 1000),
     );
     const rememberMe = Boolean(row.is_remembered);
-    const csrfToken = generateCsrfToken(row.session_token_hash, this.csrfSecret);
+    const csrfToken = generateCsrfToken(
+      row.session_token_hash,
+      this.csrfSecret,
+    );
 
     return {
       sessionToken,
