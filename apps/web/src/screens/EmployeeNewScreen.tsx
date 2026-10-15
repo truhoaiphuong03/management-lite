@@ -246,6 +246,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
             <input
               id="empCode"
               type="text"
+              autoComplete="off"
               value={employeeCode}
               onChange={(e) => setEmployeeCode(e.target.value)}
               placeholder="VD: NV002 (để trống hệ thống tự tạo NV001...)"
@@ -296,7 +297,10 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               }}
             >
               <option value="staff">Nhân viên (Staff) - Mặc định</option>
-              <option value="admin" disabled>Quản trị viên (Admin) - Cần migration nâng cấp schema để kích hoạt</option>
+              <option value="admin" disabled>
+                Quản trị viên (Admin) - Cần migration nâng cấp schema để kích
+                hoạt
+              </option>
             </select>
           </div>
 
@@ -315,6 +319,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
             <input
               id="fullName"
               type="text"
+              autoComplete="name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="VD: Nguyễn Văn A"
@@ -349,6 +354,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
             <input
               id="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="VD: nva@management-lite.local"
@@ -383,6 +389,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
             <input
               id="username"
               type="text"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Mặc định lấy từ tiền tố email"

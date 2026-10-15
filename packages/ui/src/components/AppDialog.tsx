@@ -185,6 +185,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
         padding: '16px',
         zIndex: 1000,
         boxSizing: 'border-box',
+        overscrollBehavior: 'contain',
         animation: 'fadeIn 0.15s ease',
       }}
       onClick={(e) => {
@@ -272,6 +273,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
           style={{
             padding: '20px 24px',
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
             flex: 1,
             color: TOKENS.colors.textSecondary,
             fontSize: TOKENS.typography.fontSize.md,

@@ -385,6 +385,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           </div>
           <button
             type="button"
+            aria-label="Đóng thông báo"
             onClick={() => setActionSuccess(null)}
             style={{
               background: 'none',
@@ -395,8 +396,8 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               padding: '4px',
-              minHeight: '32px',
-              minWidth: '32px',
+              minHeight: '44px',
+              minWidth: '44px',
             }}
           >
             <CloseIcon size={16} />
@@ -493,9 +494,8 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
         <div
           style={{
             display: 'flex',
+            flexWrap: 'wrap',
             gap: '8px',
-            overflowX: 'auto',
-            paddingBottom: '4px',
           }}
         >
           {[
@@ -510,7 +510,8 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               onClick={() => setStatusFilter(tab.key)}
               style={{
                 boxSizing: 'border-box',
-                padding: '8px 16px',
+                minHeight: '40px',
+                padding: '8px 14px',
                 borderRadius: '6px',
                 border: '1px solid',
                 borderColor: statusFilter === tab.key ? '#14B8A6' : '#334155',
@@ -533,7 +534,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           ))}
         </div>
 
-        <div style={{ minWidth: '220px', flex: '1 1 220px', maxWidth: '360px' }}>
+        <div
+          style={{ minWidth: '220px', flex: '1 1 220px', maxWidth: '360px' }}
+        >
           <input
             type="text"
             data-testid="employee-search-input"
@@ -543,6 +546,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
             aria-label="Tìm kiếm nhân sự"
             style={{
               width: '100%',
+              minHeight: '44px',
               boxSizing: 'border-box',
               padding: '8px 12px',
               borderRadius: '6px',
@@ -636,10 +640,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           title="Không tìm thấy nhân viên"
           description={`Không tìm thấy nhân sự nào khớp với từ khóa "${searchQuery}".`}
           action={
-            <AppButton
-              variant="secondary"
-              onClick={() => setSearchQuery('')}
-            >
+            <AppButton variant="secondary" onClick={() => setSearchQuery('')}>
               Xóa bộ lọc tìm kiếm
             </AppButton>
           }

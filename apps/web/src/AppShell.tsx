@@ -83,6 +83,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     >
       {/* Real Session Top Header */}
       <header
+        className="app-shell-header"
         style={{
           position: 'fixed',
           top: 0,
@@ -95,6 +96,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: '8px',
           padding: '0 16px',
           fontSize: '13px',
           fontWeight: 600,
@@ -102,12 +104,31 @@ export const AppShell: React.FC<AppShellProps> = ({
           boxSizing: 'border-box',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BuildingIcon size={18} style={{ color: '#14B8A6' }} />
-          <span style={{ color: '#F8FAFC', fontWeight: 700 }}>
+        <div
+          className="app-shell-header-left"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            minWidth: 0,
+            flexShrink: 1,
+          }}
+        >
+          <BuildingIcon size={18} style={{ color: '#14B8A6', flexShrink: 0 }} />
+          <span
+            className="app-shell-brand-title"
+            style={{
+              color: '#F8FAFC',
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             Management Lite
           </span>
           <span
+            className="app-shell-role-badge"
             style={{
               padding: '3px 10px',
               borderRadius: '9999px',
@@ -126,6 +147,8 @@ export const AppShell: React.FC<AppShellProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '5px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             {role === 'owner' ? (
@@ -133,18 +156,30 @@ export const AppShell: React.FC<AppShellProps> = ({
             ) : (
               <UserIcon size={13} />
             )}
-            <span>{role === 'owner' ? 'Chủ sở hữu' : 'Nhân viên'}</span>
+            <span className="app-shell-role-text">
+              {role === 'owner' ? 'Chủ sở hữu' : 'Nhân viên'}
+            </span>
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div
+          className="app-shell-header-actions"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexShrink: 0,
+          }}
+        >
           <button
             type="button"
             data-testid="header-btn-settings"
+            aria-label="Đổi mật khẩu / Cài đặt"
             onClick={() => onNavigate('/settings')}
             title="Cài đặt tài khoản & Đổi mật khẩu"
+            className="app-shell-header-btn"
             style={{
               boxSizing: 'border-box',
-              minHeight: '32px',
+              minHeight: '36px',
               padding: '4px 10px',
               borderRadius: '6px',
               border: '1px solid rgba(20, 184, 166, 0.4)',
@@ -159,20 +194,26 @@ export const AppShell: React.FC<AppShellProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
+              whiteSpace: 'nowrap',
               transition:
                 'background-color 0.15s ease, border-color 0.15s ease',
             }}
           >
             <LockIcon size={13} />
-            <span>Đổi mật khẩu / Cài đặt</span>
+            <span>
+              <span className="header-settings-prefix">Đổi mật khẩu / </span>
+              Cài đặt
+            </span>
           </button>
           {onLogout && (
             <button
               type="button"
+              aria-label="Đăng xuất"
               onClick={onLogout}
+              className="app-shell-header-btn"
               style={{
                 boxSizing: 'border-box',
-                minHeight: '32px',
+                minHeight: '36px',
                 padding: '4px 10px',
                 borderRadius: '6px',
                 border: '1px solid rgba(239, 68, 68, 0.4)',
@@ -184,6 +225,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
+                whiteSpace: 'nowrap',
                 transition:
                   'background-color 0.15s ease, border-color 0.15s ease',
               }}
@@ -209,9 +251,10 @@ export const AppShell: React.FC<AppShellProps> = ({
       <main
         style={{
           flex: 1,
+          minWidth: 0,
           marginTop: '44px',
           marginBottom: '68px', // Space for mobile bottom nav
-          padding: '20px 16px',
+          padding: '20px 16px 88px 16px',
           maxWidth: '1200px',
           width: '100%',
           overflowX: 'hidden', // Prevent horizontal overflow at 360/390/430px
@@ -249,6 +292,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-end',
+            overscrollBehavior: 'contain',
           }}
           onClick={() => setIsMoreOpen(false)}
         >
@@ -261,6 +305,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               padding: '20px 16px 80px 16px',
               maxHeight: '75vh',
               overflowY: 'auto',
+              overscrollBehavior: 'contain',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -281,6 +326,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               </h3>
               <button
                 type="button"
+                aria-label="Đóng menu"
                 onClick={() => setIsMoreOpen(false)}
                 style={{
                   boxSizing: 'border-box',
@@ -403,6 +449,29 @@ export const AppShell: React.FC<AppShellProps> = ({
         @media (max-width: 768px) {
           .desktop-sidebar-wrapper {
             display: none !important;
+          }
+          .app-shell-header {
+            padding: 0 10px !important;
+            gap: 6px !important;
+          }
+          .header-settings-prefix {
+            display: none !important;
+          }
+          .app-shell-header-btn {
+            padding: 4px 8px !important;
+            font-size: 11px !important;
+          }
+          .app-shell-role-badge {
+            padding: 2px 7px !important;
+            font-size: 10px !important;
+          }
+        }
+        @media (max-width: 380px) {
+          .app-shell-role-text {
+            display: none !important;
+          }
+          .app-shell-role-badge {
+            padding: 4px 6px !important;
           }
         }
       `}</style>
