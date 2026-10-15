@@ -106,7 +106,7 @@ async function runIsolatedHeadlessBrowserCycle(
         '--no-first-run',
         '--no-default-browser-check',
         `--user-data-dir=${tmpProfileDir}`,
-        `${baseUrl}/api/v1/health`,
+        'about:blank',
       ],
       { stdio: 'ignore' },
     );
@@ -152,8 +152,10 @@ async function runIsolatedHeadlessBrowserCycle(
 
       let idCounter = 1;
       const pending = new Map();
+      let onPageLoaded;
       ws.onmessage = (ev) => {
         const msg = JSON.parse(ev.data);
+        if (msg.method === 'Page.loadEventFired') onPageLoaded?.();
         if (msg.id && pending.has(msg.id)) {
           const { res, rej } = pending.get(msg.id);
           pending.delete(msg.id);
@@ -187,18 +189,23 @@ async function runIsolatedHeadlessBrowserCycle(
       await send('Runtime.enable');
       await send('Network.enable');
 
-      // Ensure page is on baseUrl origin
-      await evaluate(`
-        new Promise((resolve) => {
-          if (location.origin === ${JSON.stringify(baseUrl)}) return resolve(true);
-          location.href = ${JSON.stringify(baseUrl + '/api/v1/health')};
-        })
-      `);
-      for (let i = 0; i < 20; i++) {
-        const origin = await evaluate('location.origin');
-        if (origin === baseUrl) break;
-        await new Promise((r) => setTimeout(r, 100));
+      // Navigate through CDP, not an evaluate promise in a context being destroyed.
+      let loadTimeout;
+      const pageLoaded = new Promise((res, rej) => {
+        onPageLoaded = res;
+        loadTimeout = setTimeout(() => rej(new Error('Page load timed out')), 6000);
+      });
+      try {
+        const navigation = await send('Page.navigate', {
+          url: `${baseUrl}/api/v1/health`,
+        });
+        assert.equal(navigation.errorText, undefined);
+        await pageLoaded;
+      } finally {
+        clearTimeout(loadTimeout);
+        onPageLoaded = undefined;
       }
+      assert.equal(await evaluate('location.origin'), baseUrl);
 
       const result = await fn({ send, evaluate });
 

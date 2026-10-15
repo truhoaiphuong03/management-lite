@@ -527,9 +527,10 @@ export class AuthService {
   }
 
   /**
-   * Refreshes an existing session when its short-term idle/access window has expired
-   * (or is near expiry) as long as its absolute refresh ceiling (`absolute_expires_at`)
-   * has not expired, the session has not been revoked (`revoked_at IS NULL`),
+   * Refreshes an active standard session, or a remembered session whose idle
+   * window has expired, without extending its absolute refresh ceiling.
+   * Standard sessions must still be within idle_expires_at. The absolute ceiling
+   * must not have expired, the session must not be revoked (`revoked_at IS NULL`),
    * `credential_version` matches, and user/membership/workspace remain active.
    */
   public async refreshSession(params: {
@@ -584,6 +585,10 @@ export class AuthService {
         AND uwb.user_id = s.user_id AND uwb.workspace_id = s.workspace_id
         AND uwb.status = 'active'
         AND s.revoked_at IS NULL
+        AND (
+          (s.absolute_expires_at - s.created_at) > interval '24 hours'
+          OR s.idle_expires_at > $1
+        )
         AND s.absolute_expires_at > $1
         AND s.credential_version_at_issue = uc.credential_version
         AND u.status = 'active'
