@@ -145,6 +145,9 @@ const authPolicyVersion = hasRememberMeMigration
   : 'legacy-pre-0023';
 
 const builtAtIso = new Date().toISOString();
+const rootPkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const appVersion = String(rootPkg.version || '0.1.0').replace(/^v/i, '');
+const shortCommitSha = headSha.slice(0, 7);
 
 // 4. Assemble bundle contents
 if (typeArg === 'web' || typeArg === 'full') {
@@ -159,14 +162,18 @@ if (typeArg === 'web' || typeArg === 'full') {
     path.join(bundleStageDir, 'web/release-version.json'),
     JSON.stringify(
       {
+        version: appVersion,
         sha: headSha,
+        shortSha: shortCommitSha,
         component: 'web',
         type: typeArg,
+        environment: 'production',
         schemaIdentity,
         migrationCount,
         maxMigrationId,
         authPolicyVersion,
         builtAt: builtAtIso,
+        releasedAt: builtAtIso,
       },
       null,
       2,
@@ -186,14 +193,18 @@ if (typeArg === 'full') {
     path.join(bundleStageDir, 'dist/release-version.json'),
     JSON.stringify(
       {
+        version: appVersion,
         sha: headSha,
+        shortSha: shortCommitSha,
         component: 'api',
         type: typeArg,
+        environment: 'production',
         schemaIdentity,
         migrationCount,
         maxMigrationId,
         authPolicyVersion,
         builtAt: builtAtIso,
+        releasedAt: builtAtIso,
       },
       null,
       2,
@@ -207,7 +218,6 @@ if (typeArg === 'full') {
   );
 
   // Sanitize package.json for runtime execution
-  const rootPkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const runtimePkg = {
     name: rootPkg.name,
     version: rootPkg.version,

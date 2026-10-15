@@ -1,7 +1,15 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import type { DatabasePool } from '../../../packages/database/src/pool.js';
 import { checkDatabaseHealth } from '../../../packages/database/src/pool.js';
+import {
+  SYSTEM_VERSION,
+  SYSTEM_COMMIT,
+  SYSTEM_ENV,
+} from '../../../packages/contracts/src/version.js';
 import {
   createSuccessEnvelope,
   createErrorEnvelope,
@@ -596,11 +604,127 @@ export function createRequestHandler(
       }
       // 2. Health / Liveness endpoint: GET /api/v1/health
       if (method === 'GET' && pathname === '/api/v1/health') {
+        let runtimeVersion = '0.1.0';
+        let runtimeSha = SYSTEM_COMMIT;
+        let runtimeReleasedAt: string | null = null;
+        let runtimeEnv = isProduction ? 'production' : SYSTEM_ENV;
+
+        try {
+          const pkgPath = path.resolve(process.cwd(), 'package.json');
+          if (fs.existsSync(pkgPath)) {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as {
+              version?: string;
+            };
+            if (pkg.version) {
+              runtimeVersion = String(pkg.version).replace(/^v/i, '');
+            }
+          }
+        } catch {
+          // Ignore fallback read errors
+        }
+
+        const releaseVerCandidates = [
+          path.resolve(process.cwd(), 'dist/release-version.json'),
+          path.resolve(process.cwd(), 'apps/web/dist/release-version.json'),
+        ];
+        for (const candidate of releaseVerCandidates) {
+          try {
+            if (fs.existsSync(candidate)) {
+              const rel = JSON.parse(fs.readFileSync(candidate, 'utf8')) as {
+                version?: string;
+                sha?: string;
+                shortSha?: string;
+                releasedAt?: string;
+                builtAt?: string;
+                environment?: string;
+              };
+              if (rel.version) {
+                runtimeVersion = String(rel.version).replace(/^v/i, '');
+              }
+              if (rel.sha) {
+                runtimeSha = String(rel.sha).trim();
+              } else if (rel.shortSha) {
+                runtimeSha = String(rel.shortSha).trim();
+              }
+              if (rel.releasedAt || rel.builtAt) {
+                runtimeReleasedAt = String(rel.releasedAt || rel.builtAt);
+              }
+              if (rel.environment) {
+                runtimeEnv = String(rel.environment);
+              }
+              break;
+            }
+          } catch {
+            // Try next candidate
+          }
+        }
+
+        const reportsDir =
+          process.env['SERVER_REPORTS_DIR'] || 'C:\\HoaiPhuong-Server\\reports';
+        try {
+          const runningCompPath = path.join(
+            reportsDir,
+            'running-components-sha.json',
+          );
+          if (fs.existsSync(runningCompPath)) {
+            const rc = JSON.parse(fs.readFileSync(runningCompPath, 'utf8')) as {
+              sha?: string;
+              verified_at_utc?: string;
+            };
+            if (rc.sha && runtimeSha === SYSTEM_COMMIT) {
+              runtimeSha = String(rc.sha).trim();
+            }
+            if (rc.verified_at_utc) {
+              runtimeReleasedAt = String(rc.verified_at_utc);
+            }
+          }
+        } catch {
+          // Ignore optional server report read errors
+        }
+
+        if (runtimeSha === SYSTEM_COMMIT) {
+          try {
+            const gitSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+              cwd: process.cwd(),
+              encoding: 'utf8',
+              timeout: 1500,
+              stdio: ['ignore', 'pipe', 'ignore'],
+            }).trim();
+            if (gitSha) runtimeSha = gitSha;
+            if (!runtimeReleasedAt) {
+              const gitDate = execFileSync(
+                'git',
+                ['log', '-1', '--format=%cI'],
+                {
+                  cwd: process.cwd(),
+                  encoding: 'utf8',
+                  timeout: 1500,
+                  stdio: ['ignore', 'pipe', 'ignore'],
+                },
+              ).trim();
+              if (gitDate) runtimeReleasedAt = gitDate;
+            }
+          } catch {
+            // Keep fallback SYSTEM_COMMIT
+          }
+        }
+
+        const shortCommit = runtimeSha.slice(0, 7);
+        const isProdActive =
+          isProduction || runtimeEnv.toLowerCase() === 'production';
+
         const body = createSuccessEnvelope(
           {
             status: 'pass',
             service: '@management-lite/api',
-            version: '0.1.0',
+            version: runtimeVersion || SYSTEM_VERSION.replace(/^v/i, ''),
+            commit: shortCommit,
+            sha: runtimeSha,
+            released_at: runtimeReleasedAt,
+            environment: isProdActive ? 'production' : runtimeEnv,
+            production_status: isProdActive
+              ? 'Production — Đang hoạt động'
+              : 'Staging / Dev — Đang hoạt động',
             uptime: process.uptime(),
           },
           requestId,

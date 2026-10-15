@@ -159,6 +159,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   });
   const [prefSavedMessage, setPrefSavedMessage] = useState<string | null>(null);
+  const [runtimeSystemInfo, setRuntimeSystemInfo] = useState<{
+    version: string;
+    commit: string;
+    releasedAt: string | null;
+    environment: string;
+    productionStatus: string;
+  }>({
+    version: SYSTEM_VERSION.replace(/^v/i, ''),
+    commit: SYSTEM_COMMIT.slice(0, 7),
+    releasedAt: null,
+    environment: SYSTEM_ENV,
+    productionStatus:
+      SYSTEM_ENV.toLowerCase() === 'production'
+        ? 'Production — Đang hoạt động'
+        : 'Đang kiểm tra trạng thái...',
+  });
 
   useEffect(() => {
     applyTheme(theme);
@@ -190,9 +206,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     let active = true;
     const fetchInitialData = async () => {
       try {
-        const [empRes, meRes] = await Promise.all([
+        const [empRes, meRes, healthRes, relVerRes] = await Promise.all([
           fetch('/api/v1/employees/me', { credentials: 'include' }),
           fetch('/api/v1/auth/me', { credentials: 'include' }),
+          fetch('/api/v1/health', { cache: 'no-store' }).catch(() => null),
+          fetch('/release-version.json', { cache: 'no-store' }).catch(
+            () => null,
+          ),
         ]);
 
         if (active && empRes.ok) {
@@ -204,6 +224,62 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           if (meData.data?.csrf_token) {
             setCsrfToken(meData.data.csrf_token);
           }
+        }
+        if (active) {
+          const healthBody =
+            healthRes && healthRes.ok
+              ? await healthRes.json().catch(() => null)
+              : null;
+          const relVerBody =
+            relVerRes && relVerRes.ok
+              ? await relVerRes.json().catch(() => null)
+              : null;
+          const hData = healthBody?.data || {};
+          const resolvedVer = String(
+            relVerBody?.version || hData.version || SYSTEM_VERSION,
+          ).replace(/^v/i, '');
+          const rawSha = String(
+            relVerBody?.shortSha ||
+              relVerBody?.sha ||
+              hData.commit ||
+              hData.sha ||
+              SYSTEM_COMMIT,
+          ).trim();
+          const resolvedCommit = rawSha.slice(0, 7);
+          const resolvedReleasedAt =
+            relVerBody?.releasedAt ||
+            relVerBody?.builtAt ||
+            hData.released_at ||
+            null;
+          const isProdHost =
+            typeof window !== 'undefined' &&
+            window.location?.hostname === 'ql.hoaiphuong.click';
+          const resolvedEnv = String(
+            relVerBody?.environment ||
+              hData.environment ||
+              (isProdHost ? 'production' : SYSTEM_ENV),
+          );
+          const isHealthy = hData.status === 'pass';
+          const isProd =
+            isProdHost || resolvedEnv.toLowerCase() === 'production';
+          const resolvedProdStatus = isProd
+            ? isHealthy
+              ? 'Production — Đang hoạt động'
+              : 'Production — Đang kiểm tra'
+            : isHealthy
+              ? `Hoạt động (${resolvedEnv})`
+              : `Chờ kết nối (${resolvedEnv})`;
+
+          setRuntimeSystemInfo({
+            version: resolvedVer,
+            commit: resolvedCommit,
+            releasedAt: resolvedReleasedAt ? String(resolvedReleasedAt) : null,
+            environment: resolvedEnv,
+            productionStatus:
+              hData.production_status && isProd
+                ? String(hData.production_status)
+                : resolvedProdStatus,
+          });
         }
       } catch {
         // Silently ignore if profile fails to load
@@ -917,8 +993,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <p
             style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
           >
-            Thông tin phát hành và môi trường hoạt động của hệ thống Management
-            Lite.
+            Thông tin phát hành và môi trường hoạt động thực tế của hệ thống
+            Management Lite (tự động cập nhật từ bản dựng đang chạy).
           </p>
           <div
             style={{
@@ -933,9 +1009,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           >
             <div>
               <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Phiên bản hệ thống
+                Phiên bản ứng dụng
               </div>
               <div
+                data-testid="system-info-version"
                 style={{
                   fontSize: '14px',
                   fontWeight: 600,
@@ -943,30 +1020,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   marginTop: '2px',
                 }}
               >
-                v{SYSTEM_VERSION}
+                v{runtimeSystemInfo.version || SYSTEM_VERSION}
               </div>
             </div>
             <div>
               <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Môi trường
+                Commit đang chạy (Git SHA)
               </div>
               <div
-                style={{
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  color: '#38BDF8',
-                  marginTop: '2px',
-                  textTransform: 'capitalize',
-                }}
-              >
-                {SYSTEM_ENV}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Mã định danh bản dựng (Git Commit)
-              </div>
-              <div
+                data-testid="system-info-commit"
                 style={{
                   fontSize: '14px',
                   fontWeight: 600,
@@ -975,7 +1037,55 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   marginTop: '2px',
                 }}
               >
-                {SYSTEM_COMMIT}
+                {(runtimeSystemInfo.commit || SYSTEM_COMMIT).slice(0, 7)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Thời gian phát hành
+              </div>
+              <div
+                data-testid="system-info-released-at"
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#E2E8F0',
+                  marginTop: '2px',
+                }}
+              >
+                {runtimeSystemInfo.releasedAt
+                  ? (() => {
+                      const d = new Date(runtimeSystemInfo.releasedAt);
+                      return Number.isNaN(d.getTime())
+                        ? runtimeSystemInfo.releasedAt
+                        : d.toLocaleString('vi-VN', {
+                            timeZone: timezone || 'Asia/Ho_Chi_Minh',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false,
+                          });
+                    })()
+                  : 'Đang đồng bộ từ máy chủ'}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Trạng thái Production
+              </div>
+              <div
+                data-testid="system-info-production-status"
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#38BDF8',
+                  marginTop: '2px',
+                }}
+              >
+                {runtimeSystemInfo.productionStatus || SYSTEM_ENV}
               </div>
             </div>
           </div>
