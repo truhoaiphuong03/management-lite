@@ -216,7 +216,7 @@ function Test-GitHubTokenMinimumPermissions {
     [Parameter(Mandatory = $true)][string]$PlainToken,
     [string]$ApiBaseUrl = 'https://api.github.com',
     [string]$RepoSlug = 'truhoaiphuong03/management-lite',
-    [string]$WorkflowFile = 'deploy.yml'
+    [string]$WorkflowFile = 'foundation.yml'
   )
   $base = $ApiBaseUrl.Trim().TrimEnd('/')
   $headers = @{
@@ -430,7 +430,7 @@ try {
       $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($effectiveSecurePat)
       $plainPat = ([Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)).Trim()
       if (-not [string]::IsNullOrWhiteSpace($plainPat)) {
-        $patCheck = Test-GitHubTokenMinimumPermissions -PlainToken $plainPat -ApiBaseUrl $GitHubApiBaseUrl -RepoSlug 'truhoaiphuong03/management-lite' -WorkflowFile 'deploy.yml'
+        $patCheck = Test-GitHubTokenMinimumPermissions -PlainToken $plainPat -ApiBaseUrl $GitHubApiBaseUrl -RepoSlug 'truhoaiphuong03/management-lite' -WorkflowFile 'foundation.yml'
         $dpapiCipher = $effectiveSecurePat | ConvertFrom-SecureString
         Set-Content -LiteralPath $dpapiPatPath -Value $dpapiCipher -NoNewline -Encoding UTF8 -Force
         & icacls.exe $dpapiPatPath /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "${currentAdminName}:RX" "*S-1-3-4:RX" /deny "*S-1-5-19:F" "*S-1-5-20:F" | Out-Null

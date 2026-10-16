@@ -28,7 +28,15 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - name: Verify Checked-Out HEAD Matches Triggering Commit SHA
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          if [ "$ACTUAL_SHA" != "${{ github.sha }}" ]; then
+            echo "ERROR: Checked out SHA ($ACTUAL_SHA) does not match triggering SHA (${{ github.sha }})"
+            exit 1
+          fi
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: .nvmrc
@@ -46,4 +54,50 @@ jobs:
       - name: Deployment syntax and isolated simulation
         shell: pwsh
         run: ./scripts/deployment/Test-DeploymentSimulation.ps1
-
+      - name: Package Immutable Release Bundle & Cryptographically Bound CI Run Receipt
+        if: github.event_name == 'push'
+        run: |
+          node scripts/deployment/package-release-bundle.mjs --type=full --out=.artifacts/release
+          node -e '
+            const fs = require("node:fs");
+            const sha = process.argv[1];
+            const provPath = `.artifacts/release/management-lite-full-${sha}.tar.gz.provenance.json`;
+            const prov = JSON.parse(fs.readFileSync(provPath, "utf8"));
+            if (!/^[0-9a-f]{64}$/.test(prov.sha256) || !/^[0-9a-f]{64}$/.test(prov.schemaIdentity)) {
+              throw new Error("Invalid provenance sha256 or schemaIdentity");
+            }
+            const receipt = {
+              id: process.env.GH_RUN_ID,
+              run_id: process.env.GH_RUN_ID,
+              run_attempt: Number(process.env.GH_RUN_ATTEMPT || "1"),
+              head_sha: sha,
+              head_branch: process.env.GH_REF_NAME,
+              workflow_path: ".github/workflows/foundation.yml",
+              artifact_sha256: prov.sha256,
+              schema_sha256: prov.schemaIdentity,
+              status: "completed",
+              conclusion: "success",
+              event: process.env.GH_EVENT_NAME,
+              repository: process.env.GH_REPO,
+              generated_at_utc: new Date().toISOString()
+            };
+            fs.writeFileSync(`.artifacts/release/ci-run-receipt-${sha}.json`, JSON.stringify(receipt, null, 2), "utf8");
+          ' "${{ github.sha }}"
+        env:
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_REPO: ${{ github.repository }}
+      - name: Upload Immutable Release Artifact & CI Receipt
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: management-lite-release-${{ github.sha }}
+          path: |
+            .artifacts/release/management-lite-full-${{ github.sha }}.tar.gz
+            .artifacts/release/management-lite-full-${{ github.sha }}.tar.gz.sha256
+            .artifacts/release/management-lite-full-${{ github.sha }}.tar.gz.provenance.json
+            .artifacts/release/ci-run-receipt-${{ github.sha }}.json
+          retention-days: 30
+          if-no-files-found: error

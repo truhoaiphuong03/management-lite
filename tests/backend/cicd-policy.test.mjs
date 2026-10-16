@@ -1354,14 +1354,18 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
     }
     if (
       req.url ===
-      '/repos/truhoaiphuong03/management-lite/actions/workflows/deploy.yml'
+        '/repos/truhoaiphuong03/management-lite/actions/workflows/deploy.yml' ||
+      req.url ===
+        '/repos/truhoaiphuong03/management-lite/actions/workflows/foundation.yml'
     ) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
           id: 1001,
-          name: 'Management Lite Build & Release Artifact',
-          path: '.github/workflows/deploy.yml',
+          name: 'Management Lite CI',
+          path: req.url.endsWith('foundation.yml')
+            ? '.github/workflows/foundation.yml'
+            : '.github/workflows/deploy.yml',
           state: 'active',
         }),
       );
@@ -1481,7 +1485,7 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
       'File must be valid Windows DPAPI blob',
     );
 
-    // 2d. Verify-GitHubPatAndLiveCi.ps1 verifies DPAPI + Git Credential Manager round-trip with zero plaintext file and zero token in logs/report
+    // 2d. Verify-GitHubPatAndLiveCi.ps1 strictly blocks pushing to main/master and verifies DPAPI + GCM on DEV branch
     const verifyPatScript = fileURLToPath(
       new URL(
         '../../scripts/deployment/Verify-GitHubPatAndLiveCi.ps1',
@@ -1490,6 +1494,16 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
     );
     const stagedDpapi = path.join(tmpRoot, 'staged-github-pat.dpapi');
     const patReport = path.join(tmpRoot, 'pat-verify-report.json');
+
+    const mainBlockedRes = await runPsCmdAsync(
+      `$sec = ConvertTo-SecureString 'github_pat_gcm_roundtrip_secret_99' -AsPlainText -Force; & '${verifyPatScript}' -SourceBranch 'main' -DpapiTokenPath '${stagedDpapi}' -ReportOutPath '${patReport}' -GitHubApiBaseUrl '${apiUrl}' -GitHubPatSecure $sec -SkipLiveCiTrigger -SandboxMode`,
+    );
+    assert.notEqual(mainBlockedRes.status, 0);
+    assert.match(
+      `${mainBlockedRes.stdout}\n${mainBlockedRes.stderr}`,
+      /FORBIDDEN_MAIN_BRANCH_PUSH/,
+    );
+
     const patVerifyRes = await runPsCmdAsync(
       `$sec = ConvertTo-SecureString 'github_pat_gcm_roundtrip_secret_99' -AsPlainText -Force; & '${verifyPatScript}' -DpapiTokenPath '${stagedDpapi}' -ReportOutPath '${patReport}' -GitHubApiBaseUrl '${apiUrl}' -GitHubPatSecure $sec -SkipLiveCiTrigger -SandboxMode`,
     );
@@ -1508,6 +1522,8 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
     const reportObj = JSON.parse(
       fs.readFileSync(patReport, 'utf8').replace(/^\uFEFF/, ''),
     );
+    assert.equal(reportObj.target_dev_branch, 'anty/dev-complete-rc');
+    assert.equal(reportObj.main_branch_pushed, false);
     assert.equal(reportObj.dpapi_blob_verified, true);
     assert.equal(reportObj.gcm_wincred_verified, true);
     assert.equal(reportObj.plaintext_cred_exists, false);

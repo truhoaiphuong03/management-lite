@@ -3,8 +3,8 @@
 param(
   [string]$CommitSha = '',
   [string]$RepoSlug = 'truhoaiphuong03/management-lite',
-  [string]$WorkflowFile = 'deploy.yml',
-  [string]$SourceBranch = 'main',
+  [string]$WorkflowFile = 'foundation.yml',
+  [string]$SourceBranch = 'anty/dev-complete-rc',
   [string]$GitHubApiBaseUrl = 'https://api.github.com',
   [string]$DevRepoDir = 'C:\HoaiPhuong-Server\workspace\management-lite-uiux-integration-test',
   [string]$DpapiTokenPath = 'C:\HoaiPhuong-Server\workspace\github-pat.dpapi',
@@ -22,6 +22,11 @@ $ErrorActionPreference = 'Stop'
 
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $currentAdminName = $currentIdentity.Name
+
+$normalizedBranch = ($SourceBranch -replace '^refs/heads/', '').Trim()
+if ([string]::IsNullOrWhiteSpace($normalizedBranch) -or ($normalizedBranch.ToLowerInvariant() -in @('main', 'master'))) {
+  throw "FORBIDDEN_MAIN_BRANCH_PUSH: Verify-GitHubPatAndLiveCi.ps1 is strictly forbidden from pushing to '$SourceBranch'. Only DEV branches (default: 'anty/dev-complete-rc') are permitted during PAT and CI verification."
+}
 
 if ((-not $SandboxMode) -and $PSBoundParameters.ContainsKey('GitHubPatSecure')) {
   throw 'SECURITY_VIOLATION_CLI_PAT_FORBIDDEN: Passing GitHub PAT via command-line parameters is forbidden outside SandboxMode. Run this script without -GitHubPatSecure and paste the PAT at the masked Read-Host -AsSecureString prompt.'
@@ -188,48 +193,44 @@ try {
 
   Write-Host "[PASS] GitHub PAT Auth & Minimum Scope Verified: Repo=$($repoObj.full_name) (Private=$($repoObj.private), Push=$($repoObj.permissions.push)), Workflow='$($wfObj.name)' ($($wfObj.state))."
 
-  # 5. PUSH COMMIT (IF NEEDED), TRIGGER REAL GITHUB ACTIONS CI, READ RESULT & DOWNLOAD VALID ARTIFACT
+  # 5. PUSH DEV COMMIT TO DEV BRANCH ONLY (NEVER main), RUN REAL GITHUB ACTIONS CI, READ RESULT & DOWNLOAD VALID ARTIFACT
   if ([string]::IsNullOrWhiteSpace($CommitSha)) {
     $CommitSha = (git -C $DevRepoDir rev-parse HEAD 2>$null).Trim().ToLowerInvariant()
   } else {
     $CommitSha = $CommitSha.Trim().ToLowerInvariant()
   }
+  if ($CommitSha -notmatch '^[0-9a-f]{40}$') {
+    throw "INVALID_COMMIT_SHA: CommitSha '$CommitSha' must be a 40-character hexadecimal Git SHA."
+  }
 
   $ciResultSummary = $null
   if (-not $SkipLiveCiTrigger) {
     if (-not $SandboxMode) {
-      Write-Host "[CI] Pushing DEV commit $CommitSha to origin/$SourceBranch via Git Credential Manager..."
-      git -C $DevRepoDir push origin "${CommitSha}:refs/heads/$SourceBranch"
-      if ($LASTEXITCODE -ne 0) {
-        throw "GIT_PUSH_FAILED: Failed to push $CommitSha to origin/$SourceBranch via Git Credential Manager."
+      Write-Host "[CI] Pushing DEV commit $CommitSha exclusively to DEV branch origin/$normalizedBranch via Git Credential Manager (origin/main is untouched)..."
+      $prevEapPush = $ErrorActionPreference
+      try {
+        $ErrorActionPreference = 'Continue'
+        git -C $DevRepoDir push origin "${CommitSha}:refs/heads/$normalizedBranch"
+        $pushExit = $LASTEXITCODE
+      } finally {
+        $ErrorActionPreference = $prevEapPush
       }
+      if ($pushExit -ne 0) {
+        throw "GIT_PUSH_FAILED: Failed to push $CommitSha to origin/$normalizedBranch via Git Credential Manager."
+      }
+      Start-Sleep -Seconds 5
     }
 
-    $runsUrl = "$apiBase/repos/$RepoSlug/actions/workflows/$WorkflowFile/runs?branch=$SourceBranch&per_page=10"
-    $existingRuns = Invoke-RestMethod -Uri $runsUrl -Headers $headers -Method Get -TimeoutSec 15
-    $matchingRun = @($existingRuns.workflow_runs | Where-Object {
-      $_.head_sha -eq $CommitSha -and $_.event -eq 'workflow_dispatch' -and (
-        $_.status -ne 'completed' -or $_.conclusion -eq 'success'
-      )
-    }) | Select-Object -First 1
-
-    if (-not $matchingRun) {
-      Write-Host "[CI] Triggering real GitHub Actions workflow_dispatch on '$WorkflowFile' for commit $CommitSha..."
-      $dispatchBody = @{
-        ref    = $SourceBranch
-        inputs = @{ commit_sha = $CommitSha }
-      } | ConvertTo-Json -Depth 4
-      Invoke-RestMethod -Uri "$apiBase/repos/$RepoSlug/actions/workflows/$WorkflowFile/dispatches" -Headers $headers -Method Post -Body $dispatchBody -ContentType 'application/json' -TimeoutSec 15 | Out-Null
-      if (-not $SandboxMode) {
-        Start-Sleep -Seconds 5
-      }
-    }
-
+    $runsUrl = "$apiBase/repos/$RepoSlug/actions/workflows/$WorkflowFile/runs?head_sha=$CommitSha&per_page=10"
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
     $completedRun = $null
     while ((Get-Date) -lt $deadline) {
       $pollRuns = Invoke-RestMethod -Uri $runsUrl -Headers $headers -Method Get -TimeoutSec 15
-      $candidate = @($pollRuns.workflow_runs | Where-Object { $_.head_sha -eq $CommitSha -and $_.event -eq 'workflow_dispatch' }) | Select-Object -First 1
+      $candidate = @($pollRuns.workflow_runs | Where-Object {
+        $_.head_sha -eq $CommitSha -and (
+          [string]::IsNullOrWhiteSpace([string]$_.head_branch) -or $_.head_branch -eq $normalizedBranch
+        )
+      }) | Select-Object -First 1
       if ($candidate) {
         if ($candidate.status -eq 'completed') {
           if ($candidate.conclusion -ne 'success') {
@@ -238,12 +239,14 @@ try {
           $completedRun = $candidate
           break
         }
-        Write-Host "[CI] Waiting for real GitHub Actions run $($candidate.id) (status=$($candidate.status))..."
+        Write-Host "[CI] Waiting for real GitHub Actions run $($candidate.id) on branch '$normalizedBranch' (status=$($candidate.status))..."
+      } else {
+        Write-Host "[CI] Waiting for GitHub Actions to register run for commit $CommitSha on branch '$normalizedBranch'..."
       }
       Start-Sleep -Seconds $PollIntervalSeconds
     }
     if (-not $completedRun) {
-      throw "GITHUB_CI_TIMEOUT: Timed out waiting for GitHub Actions run for $CommitSha."
+      throw "GITHUB_CI_TIMEOUT: Timed out waiting for GitHub Actions run for $CommitSha on branch '$normalizedBranch'."
     }
 
     $runId = [string]$completedRun.id
@@ -293,10 +296,14 @@ try {
     }
 
     $receiptObj = Get-Content -LiteralPath $receiptFile -Raw | ConvertFrom-Json
+    if (([string]$receiptObj.head_sha).Trim().ToLowerInvariant() -ne $CommitSha) {
+      throw "GITHUB_RECEIPT_SHA_MISMATCH: Receipt head_sha ($($receiptObj.head_sha)) != requested CommitSha ($CommitSha)."
+    }
     $ciResultSummary = [ordered]@{
       run_id            = $runId
       html_url          = [string]$completedRun.html_url
       head_sha          = [string]$completedRun.head_sha
+      head_branch       = $normalizedBranch
       status            = [string]$completedRun.status
       conclusion        = [string]$completedRun.conclusion
       artifact_name     = $expectedArtifactName
@@ -305,7 +312,7 @@ try {
       schema_sha256     = [string]$receiptObj.schema_sha256
       artifact_dir      = $dlDir
     }
-    Write-Host "[PASS] Condition 1 Verified: Real GitHub Actions Run $runId PASSED and valid artifact downloaded & verified (Bundle SHA256=$actualTarSha)."
+    Write-Host "[PASS] Condition 1 Verified: Real GitHub Actions Run $runId on DEV branch '$normalizedBranch' PASSED and valid artifact downloaded & verified (Bundle SHA256=$actualTarSha)."
   }
 
   $reportDir = Split-Path -Path $ReportOutPath -Parent
@@ -315,6 +322,8 @@ try {
   $verificationReport = [ordered]@{
     verified_at_utc          = (Get-Date).ToUniversalTime().ToString('o')
     windows_account          = $currentAdminName
+    target_dev_branch        = $normalizedBranch
+    main_branch_pushed       = $false
     dpapi_token_path         = $DpapiTokenPath
     dpapi_blob_verified      = $true
     gcm_wincred_verified     = $true
