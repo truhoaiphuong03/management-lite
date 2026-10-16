@@ -136,10 +136,11 @@ try {
   try {
     $ErrorActionPreference = 'Continue'
     if (-not $SandboxMode) {
-      git config --global credential.helper manager 2>$null
+      git config --global credential.helper wincred 2>$null
       git config --global "credential.https://$credHost.username" x-access-token 2>$null
+      $approveInput | git -c credential.helper= -c credential.helper=manager credential approve 2>$null
     }
-    $approveInput | git -c credential.helper= -c credential.helper=manager credential approve 2>$null
+    $approveInput | git -c credential.helper= -c credential.helper=wincred credential approve 2>$null
   } finally {
     $ErrorActionPreference = $prevEap
   }
@@ -153,9 +154,9 @@ try {
   $prevEap = $ErrorActionPreference
   try {
     $ErrorActionPreference = 'Continue'
-    $fillLines = @($fillInput | git -c credential.helper= -c credential.helper=manager credential fill 2>$null)
+    $fillLines = @($fillInput | git -c credential.helper= -c credential.helper=wincred credential fill 2>$null)
     if ($SandboxMode) {
-      $approveInput | git -c credential.helper= -c credential.helper=manager credential reject 2>$null
+      $approveInput | git -c credential.helper= -c credential.helper=wincred credential reject 2>$null
     }
   } finally {
     $ErrorActionPreference = $prevEap
