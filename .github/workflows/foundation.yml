@@ -8,7 +8,40 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  windows-p0-security:
+    name: Windows P0 Security Gate (PowerShell, NTFS ACL, DPAPI, GCM & UAC)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify Checked-Out HEAD Matches Triggering Commit SHA
+        shell: pwsh
+        run: |
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -ne "${{ github.sha }}") {
+            throw "Checked out SHA ($actual) does not match triggering SHA (${{ github.sha }})"
+          }
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+      - name: Configure Git Identity for Sandbox Repo Fixtures
+        shell: pwsh
+        run: |
+          git config --global user.name "Windows P0 Security CI"
+          git config --global user.email "windows-p0-ci@isolated.example.test"
+      - name: Run Cross-Platform Policy & Windows P0 Security Gate Suite
+        shell: pwsh
+        run: |
+          node --test tests/backend/cicd-policy.test.mjs tests/backend/windows-p0-gate.test.mjs
+      - name: Deployment syntax and isolated simulation on Windows PowerShell
+        shell: powershell
+        run: ./scripts/deployment/Test-DeploymentSimulation.ps1
+
   ci:
+    needs: windows-p0-security
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
