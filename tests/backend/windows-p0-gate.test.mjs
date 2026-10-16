@@ -7,6 +7,37 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+function buildIsolatedTestEnv(overrides = {}) {
+  const cleanEnv = { ...process.env };
+  for (const key of [
+    'GITHUB_ACTIONS',
+    'RUNNER_TRACKING_ID',
+    'GITHUB_WORKFLOW',
+    'GITHUB_RUN_ID',
+    'GITHUB_RUN_NUMBER',
+    'GITHUB_ACTOR',
+    'CI',
+    'PAGER',
+    'ANTIGRAVITY_AGENT',
+    'ANTIGRAVITY_CLI_ALIAS',
+    'CODEX_CI',
+    'CODEX_SANDBOX',
+    'CLAUDE_CODE',
+    'CURSOR_TRACE_ID',
+  ]) {
+    delete cleanEnv[key];
+    cleanEnv[key] = '';
+  }
+  return {
+    ...cleanEnv,
+    ...overrides,
+  };
+}
+
+function normalizePsOutput(stdout = '', stderr = '') {
+  return `${stdout}\n${stderr}`.replace(/\r\n?/g, '\n');
+}
+
 test('P0 Release Gate Hardening (Windows PowerShell Runtime): blocks non-official GitHub API in production, blocks synthetic CI receipts, blocks test-secrets/server private keys, blocks AI agent self-signing, and supports 1-command Owner approval discovery', async () => {
   assert.equal(
     process.platform,
@@ -113,22 +144,77 @@ test('P0 Release Gate Hardening (Windows PowerShell Runtime): blocks non-officia
       {
         cwd: tmpRoot,
         encoding: 'utf8',
-        env: {
-          ...process.env,
-          PAGER: '',
-          ANTIGRAVITY_AGENT: '',
-          ANTIGRAVITY_CLI_ALIAS: '',
-          CODEX_CI: '',
-          CODEX_SANDBOX: '',
-          CLAUDE_CODE: '',
-          CURSOR_TRACE_ID: '',
-          ...envOverrides,
-        },
+        env: buildIsolatedTestEnv(envOverrides),
       },
     );
 
   try {
-    // 1. Block AI Agent self-signing / key generation under Owner identity
+    // 0. Block GitHub Actions Runner self-approval when running in GitHub Actions context (GITHUB_ACTIONS=true / RUNNER_TRACKING_ID / GITHUB_WORKFLOW)
+    const runnerKeyGenAttempt = runPs(
+      approvePath,
+      [
+        '-GenerateKeyPairOnly',
+        '-KeyOutDir',
+        gateDir,
+        '-PrivateKeyOutPath',
+        externalPrivKey,
+      ],
+      {
+        GITHUB_ACTIONS: 'true',
+        RUNNER_TRACKING_ID: 'gh-runner-self-approval-check',
+        GITHUB_WORKFLOW: 'Foundation Verification',
+      },
+    );
+    assert.notEqual(
+      runnerKeyGenAttempt.status,
+      0,
+      'Approve-ReleaseSha.ps1 must fail when invoked in GitHub Actions runner context',
+    );
+    assert.match(
+      normalizePsOutput(runnerKeyGenAttempt.stdout, runnerKeyGenAttempt.stderr),
+      /SECURITY_VIOLATION_RUNNER_SELF_APPROVAL/,
+    );
+    assert.equal(
+      fs.existsSync(externalPrivKey),
+      false,
+      'GitHub Actions runner context must never generate an Owner private key file',
+    );
+
+    const runnerSignAttempt = runPs(
+      approvePath,
+      [
+        '-ApproveScope',
+        '-BaselineSha',
+        sha,
+        '-PrivateKeyPath',
+        externalPrivKey,
+        '-PolicyPath',
+        policyPath,
+        '-ManifestPath',
+        manifestPath,
+        '-AuditLogPath',
+        auditLogPath,
+      ],
+      {
+        GITHUB_ACTIONS: 'true',
+      },
+    );
+    assert.notEqual(
+      runnerSignAttempt.status,
+      0,
+      'Approve-ReleaseSha.ps1 signing must fail when GITHUB_ACTIONS=true',
+    );
+    assert.match(
+      normalizePsOutput(runnerSignAttempt.stdout, runnerSignAttempt.stderr),
+      /SECURITY_VIOLATION_RUNNER_SELF_APPROVAL/,
+    );
+    assert.equal(
+      fs.existsSync(manifestPath),
+      false,
+      'GitHub Actions runner context must never create an approved-release.json manifest',
+    );
+
+    // 1. Block AI Agent self-signing / key generation under Owner identity (in isolated non-runner environment)
     const agentAttempt = runPs(
       approvePath,
       [
@@ -147,7 +233,7 @@ test('P0 Release Gate Hardening (Windows PowerShell Runtime): blocks non-officia
       'Approve-ReleaseSha.ps1 must fail when invoked in AI Agent context',
     );
     assert.match(
-      `${agentAttempt.stdout}\n${agentAttempt.stderr}`,
+      normalizePsOutput(agentAttempt.stdout, agentAttempt.stderr),
       /SECURITY_VIOLATION_AGENT_SELF_APPROVAL/,
     );
     assert.equal(
@@ -528,17 +614,7 @@ test('P0 Release Gate Hardening (Windows PowerShell Runtime): blocks non-officia
           {
             cwd: tmpRoot,
             encoding: 'utf8',
-            env: {
-              ...process.env,
-              PAGER: '',
-              ANTIGRAVITY_AGENT: '',
-              ANTIGRAVITY_CLI_ALIAS: '',
-              CODEX_CI: '',
-              CODEX_SANDBOX: '',
-              CLAUDE_CODE: '',
-              CURSOR_TRACE_ID: '',
-              ...envOverrides,
-            },
+            env: buildIsolatedTestEnv(envOverrides),
           },
           (err, stdout, stderr) => {
             resolve({
@@ -837,7 +913,49 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal), operational
   );
   const devRepoDir = fileURLToPath(new URL('../..', import.meta.url));
 
-  // 1. Transactional rollback on error preserves original policy, manifest, and temporary key
+  // 0. When invoked inside a GitHub Actions runner context (GITHUB_ACTIONS=true), Invoke-OwnerP0Setup.ps1 must reject Owner self-approval and roll back
+  const runnerSetupRes = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      setupScript,
+      '-ServerRoot',
+      sbServer,
+      '-OwnerVaultDir',
+      sbVault,
+      '-DevRepoDir',
+      devRepoDir,
+      '-SkipGitHubPatPrompt',
+      '-SandboxMode',
+    ],
+    {
+      encoding: 'utf8',
+      env: buildIsolatedTestEnv({
+        GITHUB_ACTIONS: 'true',
+        RUNNER_TRACKING_ID: 'gh-runner-setup-check',
+        GITHUB_WORKFLOW: 'Foundation Verification',
+      }),
+    },
+  );
+  assert.notEqual(runnerSetupRes.status, 0);
+  assert.match(
+    normalizePsOutput(runnerSetupRes.stdout, runnerSetupRes.stderr),
+    /SECURITY_VIOLATION_RUNNER_SELF_APPROVAL/,
+  );
+  assert.equal(
+    fs
+      .readFileSync(polFile, 'utf8')
+      .replace(/^\uFEFF/, '')
+      .trim(),
+    '{"old":true}',
+  );
+  assert.equal(fs.existsSync(tmpKeyFile), true);
+
+  // 1. Transactional rollback on error in isolated environment preserves original policy, manifest, and temporary key
   const rbRes = spawnSync(
     'powershell.exe',
     [
@@ -857,11 +975,11 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal), operational
       '-SandboxMode',
       '-SimulateFailureAfterKeyGen',
     ],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: buildIsolatedTestEnv() },
   );
   assert.notEqual(rbRes.status, 0);
   assert.match(
-    `${rbRes.stdout}\n${rbRes.stderr}`,
+    normalizePsOutput(rbRes.stdout, rbRes.stderr),
     /P0_SETUP_FAILED_AND_ROLLED_BACK/,
   );
   assert.equal(
@@ -873,7 +991,7 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal), operational
   );
   assert.equal(fs.existsSync(tmpKeyFile), true);
 
-  // 2. Full setup succeeds, defaults MaxDeployments=10, ExpiresInHours=168, allow_migration=false, deletes temp key, synthetic receipt & legacy plaintext token, and locks NTFS ACLs
+  // 2. Full setup in isolated environment succeeds, defaults MaxDeployments=10, ExpiresInHours=168, allow_migration=false, deletes temp key, synthetic receipt & legacy plaintext token, and locks NTFS ACLs
   const okRes = spawnSync(
     'powershell.exe',
     [
@@ -892,7 +1010,7 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal), operational
       '-SkipGitHubPatPrompt',
       '-SandboxMode',
     ],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: buildIsolatedTestEnv() },
   );
   assert.equal(okRes.status, 0, `${okRes.stdout}\n${okRes.stderr}`);
   const manifest = JSON.parse(
@@ -981,7 +1099,7 @@ Write-Output "LUA_VERIFY=$res"
   const luaRes = spawnSync(
     'powershell.exe',
     ['-NoProfile', '-NonInteractive', '-Command', luaVerifyPs],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: buildIsolatedTestEnv() },
   );
   assert.equal(luaRes.status, 0, `${luaRes.stdout}\n${luaRes.stderr}`);
   assert.match(
@@ -993,12 +1111,14 @@ Write-Output "LUA_VERIFY=$res"
   // 4. Operational continuity verification:
   const execWebScript = spawnSync(process.execPath, [webScriptFile], {
     encoding: 'utf8',
+    env: buildIsolatedTestEnv(),
   });
   assert.equal(execWebScript.status, 0);
   assert.equal(execWebScript.stdout, 'WEB_SERVICE_OK');
 
   const logsAclOut = spawnSync('icacls.exe', [path.join(sbServer, 'logs')], {
     encoding: 'utf8',
+    env: buildIsolatedTestEnv(),
   });
   assert.match(logsAclOut.stdout, /LOCAL SERVICE:\(OI\)\(CI\)\(M\)/i);
 
@@ -1066,9 +1186,9 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
       privKey,
       '-SandboxMode',
     ],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: buildIsolatedTestEnv() },
   );
-  assert.equal(genRes.status, 0);
+  assert.equal(genRes.status, 0, `${genRes.stdout}\n${genRes.stderr}`);
 
   const overDeploysRes = spawnSync(
     'powershell.exe',
@@ -1094,11 +1214,11 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
       path.join(gateDir, 'approval-audit.jsonl'),
       '-SandboxMode',
     ],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: buildIsolatedTestEnv() },
   );
   assert.notEqual(overDeploysRes.status, 0);
   assert.match(
-    `${overDeploysRes.stdout}\n${overDeploysRes.stderr}`,
+    normalizePsOutput(overDeploysRes.stdout, overDeploysRes.stderr),
     /between 1 and 10 deployments/,
   );
 
@@ -1128,11 +1248,11 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
       path.join(gateDir, 'approval-audit.jsonl'),
       '-SandboxMode',
     ],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: buildIsolatedTestEnv() },
   );
   assert.notEqual(overDaysRes.status, 0);
   assert.match(
-    `${overDaysRes.stdout}\n${overDaysRes.stderr}`,
+    normalizePsOutput(overDaysRes.stdout, overDaysRes.stderr),
     /Maximum allowed duration is 7 days/,
   );
 
@@ -1234,7 +1354,7 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
     }
 
     const { execFile } = await import('node:child_process');
-    const runPsCmdAsync = (cmd) =>
+    const runPsCmdAsync = (cmd, envOverrides = {}) =>
       new Promise((resolve) => {
         execFile(
           'powershell.exe',
@@ -1246,7 +1366,7 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
             '-Command',
             cmd,
           ],
-          { encoding: 'utf8' },
+          { encoding: 'utf8', env: buildIsolatedTestEnv(envOverrides) },
           (error, stdout, stderr) => {
             resolve({
               status:
@@ -1268,7 +1388,7 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
     );
     assert.notEqual(excRes.status, 0);
     assert.match(
-      `${excRes.stdout}\n${excRes.stderr}`,
+      normalizePsOutput(excRes.stdout, excRes.stderr),
       /GITHUB_PAT_EXCESSIVE_PERMISSIONS/,
     );
 
@@ -1278,7 +1398,7 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
     );
     assert.notEqual(noPushRes.status, 0);
     assert.match(
-      `${noPushRes.stdout}\n${noPushRes.stderr}`,
+      normalizePsOutput(noPushRes.stdout, noPushRes.stderr),
       /GITHUB_PAT_INSUFFICIENT_PUSH_PERMISSION/,
     );
 
@@ -1318,7 +1438,7 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
     );
     assert.notEqual(mainBlockedRes.status, 0);
     assert.match(
-      `${mainBlockedRes.stdout}\n${mainBlockedRes.stderr}`,
+      normalizePsOutput(mainBlockedRes.stdout, mainBlockedRes.stderr),
       /FORBIDDEN_MAIN_BRANCH_PUSH/,
     );
 
@@ -1331,7 +1451,7 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
       `${patVerifyRes.stdout}\n${patVerifyRes.stderr}`,
     );
     assert.equal(
-      `${patVerifyRes.stdout}\n${patVerifyRes.stderr}`.includes(
+      normalizePsOutput(patVerifyRes.stdout, patVerifyRes.stderr).includes(
         'github_pat_gcm_roundtrip_secret_99',
       ),
       false,
