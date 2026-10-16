@@ -122,25 +122,35 @@ try {
     }
   }
 
-  # Register & verify Git Credential Manager (WinCred) without creating plaintext ~/.git-credentials
+  # Register & verify Git Credential Manager (WinCred / DPAPI store) without creating plaintext ~/.git-credentials
   $credHost = if ($SandboxMode) { 'sandbox-github-gcm-verify.example.invalid' } else { 'github.com' }
   $env:GCM_INTERACTIVE = 'never'
   $env:GIT_TERMINAL_PROMPT = '0'
-  $env:GCM_CREDENTIAL_STORE = 'wincredman'
-  if ($SandboxMode) {
-    $env:GCM_PROVIDER = 'generic'
+  $gcmExe = 'C:\Program Files\Git\mingw64\bin\git-credential-manager.exe'
+  if (-not (Test-Path -LiteralPath $gcmExe -PathType Leaf)) {
+    $gcmCmd = Get-Command git-credential-manager.exe -ErrorAction SilentlyContinue
+    if ($gcmCmd) { $gcmExe = $gcmCmd.Source }
   }
   $approveInput = "protocol=https`nhost=$credHost`nusername=x-access-token`npassword=$plainPat`n`n"
   $fillInput = "protocol=https`nhost=$credHost`nusername=x-access-token`n`n"
   $prevEap = $ErrorActionPreference
   try {
     $ErrorActionPreference = 'Continue'
-    if (-not $SandboxMode) {
-      git config --global credential.helper wincred 2>$null
+    if ($SandboxMode) {
+      $env:GCM_PROVIDER = 'generic'
+      $env:GCM_CREDENTIAL_STORE = 'dpapi'
+      if (Test-Path -LiteralPath $gcmExe -PathType Leaf) {
+        $approveInput | & $gcmExe store 2>$null
+      } else {
+        $approveInput | git -C $env:TEMP -c credential.helper= -c credential.helper=manager credential approve 2>$null
+      }
+    } else {
+      git config --global credential.helper manager 2>$null
       git config --global "credential.https://$credHost.username" x-access-token 2>$null
-      $approveInput | git -c credential.helper= -c credential.helper=manager credential approve 2>$null
+      $env:GCM_CREDENTIAL_STORE = 'wincredman'
+      $approveInput | git -C $env:TEMP -c credential.helper= -c credential.helper=manager credential approve 2>$null
+      $approveInput | git -C $env:TEMP -c credential.helper= -c credential.helper=wincred credential approve 2>$null
     }
-    $approveInput | git -c credential.helper= -c credential.helper=wincred credential approve 2>$null
   } finally {
     $ErrorActionPreference = $prevEap
   }
@@ -151,12 +161,21 @@ try {
     throw 'GCM_PLAINTEXT_LEAK_DETECTED: Plaintext .git-credentials file was created! Aborting.'
   }
 
+  $fillLines = @()
   $prevEap = $ErrorActionPreference
   try {
     $ErrorActionPreference = 'Continue'
-    $fillLines = @($fillInput | git -c credential.helper= -c credential.helper=wincred credential fill 2>$null)
-    if ($SandboxMode) {
-      $approveInput | git -c credential.helper= -c credential.helper=wincred credential reject 2>$null
+    if ($SandboxMode -and (Test-Path -LiteralPath $gcmExe -PathType Leaf)) {
+      $fillLines = @($fillInput | & $gcmExe get 2>$null)
+      $approveInput | & $gcmExe erase 2>$null
+    } else {
+      $fillLines = @($fillInput | git -C $env:TEMP -c credential.helper= -c credential.helper=manager credential fill 2>$null)
+      if (-not (($fillLines -join "`n") -match 'password=.+')) {
+        $fillLines = @($fillInput | git -C $env:TEMP -c credential.helper= -c credential.helper=wincred credential fill 2>$null)
+      }
+      if ($SandboxMode) {
+        $approveInput | git -C $env:TEMP -c credential.helper= -c credential.helper=manager credential reject 2>$null
+      }
     }
   } finally {
     $ErrorActionPreference = $prevEap
