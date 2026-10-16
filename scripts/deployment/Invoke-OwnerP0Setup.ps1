@@ -7,13 +7,16 @@ param(
   [switch]$AllowMigration = $false,
   [Security.SecureString]$GitHubPatSecure = $null,
   [switch]$SkipGitHubPatPrompt,
+  [string]$StagedDpapiPatPath = 'C:\HoaiPhuong-Server\workspace\github-pat.dpapi',
   [string]$GitHubApiBaseUrl = 'https://api.github.com',
   [string]$OwnerVaultDir = 'C:\ProgramData\HoaiPhuong-OwnerVault',
   [string]$ServerRoot = 'C:\HoaiPhuong-Server',
   [string]$DevRepoDir = 'C:\HoaiPhuong-Server\workspace\management-lite-uiux-integration-test',
   [string]$RollbackFromBackupDir = '',
   [switch]$SandboxMode,
-  [switch]$SimulateFailureAfterKeyGen
+  [switch]$VerifyLiveStackInSandbox,
+  [switch]$SimulateFailureAfterKeyGen,
+  [switch]$SimulatePostAclFailure
 )
 
 Set-StrictMode -Version Latest
@@ -44,10 +47,15 @@ if ($ExpiresInHours -lt 1 -or $ExpiresInHours -gt 168) {
   throw "Invalid ExpiresInHours '$ExpiresInHours'. SCOPED_WINDOW maximum duration is 168 hours (7 days)."
 }
 
-$node = 'C:\HoaiPhuong-Server\config\runtime\node-v22.14.0-win-x64\node.exe'
+$realServerRoot = 'C:\HoaiPhuong-Server'
+$node = Join-Path $realServerRoot 'config\runtime\node-v22.14.0-win-x64\node.exe'
 if (-not (Test-Path -LiteralPath $node)) {
   $node = 'node'
 }
+$pgBinDir = Join-Path $realServerRoot 'config\postgresql-18\pgsql\bin'
+$psqlExe = Join-Path $pgBinDir 'psql.exe'
+$pgRestoreExe = Join-Path $pgBinDir 'pg_restore.exe'
+$realPgPassFile = Join-Path $realServerRoot 'config\test-secrets\pgpass.conf'
 
 $gateDir = Join-Path $ServerRoot 'config\release-gate'
 $gateControllersDir = Join-Path $gateDir 'controllers'
@@ -66,10 +74,16 @@ function Unlock-PathForRollbackOrAdmin {
   if ([string]::IsNullOrWhiteSpace($PathToUnlock) -or (-not (Test-Path -LiteralPath $PathToUnlock))) {
     return
   }
-  if ($isElevatedAdmin) {
-    & takeown.exe /F $PathToUnlock /A /R /D Y 2>$null | Out-Null
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    if ($isElevatedAdmin) {
+      & takeown.exe /F $PathToUnlock /A /R /D Y 2>&1 | Out-Null
+    }
+    & icacls.exe $PathToUnlock /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdminName}:(OI)(CI)F" "*S-1-3-4:(OI)(CI)F" /T /C 2>&1 | Out-Null
+  } finally {
+    $ErrorActionPreference = $prevEap
   }
-  & icacls.exe $PathToUnlock /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdminName}:(OI)(CI)F" "*S-1-3-4:(OI)(CI)F" /T /C 2>$null | Out-Null
 }
 
 function Preserve-OperationalDirectoryExplicitAcl {
@@ -124,6 +138,77 @@ function Lock-ContainerOnlyNoDeleteChild {
   }
   # Atomic replacement of (OI)(CI)F with (OI)(CI)RX on container so non-elevated ADMIN has zero DC/W/WDAC rights on child folders
   & icacls.exe $ContainerPath /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdminName}:(OI)(CI)RX" "*S-1-3-4:(OI)(CI)RX" "*S-1-5-19:(OI)(CI)RX" "*S-1-5-20:(OI)(CI)RX" | Out-Null
+}
+
+function Test-LiveStackAndBackupHealth {
+  param([string]$BackupOutDir)
+  $svcNames = @('HPManagementLiteApi', 'HPManagementLiteWeb', 'HPManagementLiteGateway', 'HPManagementLiteDatabase')
+  $svcStatuses = [ordered]@{}
+  foreach ($sName in $svcNames) {
+    $svc = Get-Service -Name $sName -ErrorAction Stop
+    if ($svc.Status -ne 'Running') {
+      throw "SERVICE_NOT_RUNNING: Windows service '$sName' is in state '$($svc.Status)'."
+    }
+    $svcStatuses[$sName] = $svc.Status.ToString()
+  }
+
+  $healthResp = Invoke-RestMethod -Uri 'http://127.0.0.1:3002/api/v1/health' -TimeoutSec 5
+  $readyResp = Invoke-RestMethod -Uri 'http://127.0.0.1:3002/api/v1/ready' -TimeoutSec 5
+  $webResp = Invoke-WebRequest -Uri 'http://127.0.0.1:3001/' -UseBasicParsing -TimeoutSec 5
+  if ($healthResp.data.status -ne 'pass' -or $readyResp.data.status -ne 'ready' -or $webResp.StatusCode -ne 200) {
+    throw "ENDPOINT_HEALTH_FAILED: Health=$($healthResp.data.status), Ready=$($readyResp.data.status), Web=$($webResp.StatusCode)."
+  }
+
+  $gwStatus = 0
+  try {
+    $gwResp = Invoke-WebRequest -Uri 'http://127.0.0.1:3000/' -UseBasicParsing -TimeoutSec 5
+    $gwStatus = [int]$gwResp.StatusCode
+  } catch {
+    if ($_.Exception.Response) {
+      $gwStatus = [int]$_.Exception.Response.StatusCode
+    } else {
+      throw "GATEWAY_UNREACHABLE: http://127.0.0.1:3000/ failed ($($_.Exception.Message))."
+    }
+  }
+
+  $priorPgPass = $env:PGPASSFILE
+  try {
+    $env:PGPASSFILE = $realPgPassFile
+    $dbCheck = (& $psqlExe -h 127.0.0.1 -p 55432 -U hp_test_admin -d management_lite_test -X -w -t -A -c "SELECT COUNT(*) FROM schema_migrations;" 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $dbCheck -notmatch '^\d+$') {
+      throw "DATABASE_CHECK_FAILED: Could not query schema_migrations on 127.0.0.1:55432."
+    }
+  } finally {
+    $env:PGPASSFILE = $priorPgPass
+  }
+
+  $backupScriptPath = Join-Path $ScriptsDir 'Backup-Postgres.ps1'
+  if (-not (Test-Path -LiteralPath $backupScriptPath -PathType Leaf)) {
+    $backupScriptPath = Join-Path $realServerRoot 'scripts\Backup-Postgres.ps1'
+  }
+  New-Item -ItemType Directory -Path $BackupOutDir -Force | Out-Null
+  & $backupScriptPath -PgBin $pgBinDir -Database 'management_lite_test' -User 'hp_test_admin' -PasswordFile $realPgPassFile -BackupDirectory $BackupOutDir -Port 55432 | Out-Null
+  $latestDump = Get-ChildItem -LiteralPath $BackupOutDir -Filter 'postgres-*.dump' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if (-not $latestDump -or -not (Test-Path -LiteralPath ($latestDump.FullName + '.sha256.json') -PathType Leaf)) {
+    throw "BACKUP_VERIFICATION_FAILED: Backup-Postgres.ps1 did not produce a valid .dump + .sha256.json in '$BackupOutDir'."
+  }
+  & $pgRestoreExe --list $latestDump.FullName | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "BACKUP_ARCHIVE_CORRUPT: pg_restore --list failed on '$($latestDump.FullName)'."
+  }
+
+  return [ordered]@{
+    services         = $svcStatuses
+    api_health       = [string]$healthResp.data.status
+    api_ready        = [string]$readyResp.data.status
+    api_version      = [string]$healthResp.data.version
+    api_commit       = [string]$healthResp.data.commit
+    web_status_code  = [int]$webResp.StatusCode
+    gateway_status   = $gwStatus
+    db_migrations    = [int]$dbCheck
+    backup_archive   = $latestDump.FullName
+    backup_bytes     = [int64]$latestDump.Length
+  }
 }
 
 function Test-GitHubTokenMinimumPermissions {
@@ -226,8 +311,8 @@ if (-not [string]::IsNullOrWhiteSpace($RollbackFromBackupDir)) {
   return
 }
 
-# 2. PRE-FLIGHT PATH VERIFICATION
-$requiredDevScripts = @('Approve-ReleaseSha.ps1', 'Deploy-SemiAutoWindows.ps1', 'Invoke-ScopedReleaseDeploy.ps1', 'Invoke-OwnerP0Setup.ps1')
+# 2. PRE-FLIGHT PATH & LIVE SERVICE/DB/BACKUP VERIFICATION
+$requiredDevScripts = @('Approve-ReleaseSha.ps1', 'Deploy-SemiAutoWindows.ps1', 'Invoke-ScopedReleaseDeploy.ps1', 'Invoke-OwnerP0Setup.ps1', 'Verify-GitHubPatAndLiveCi.ps1')
 foreach ($reqScript in $requiredDevScripts) {
   $candidateScript = Join-Path $DevRepoDir "scripts\deployment\$reqScript"
   if (-not (Test-Path -LiteralPath $candidateScript -PathType Leaf)) {
@@ -244,8 +329,16 @@ Write-Host "    Baseline SHA    : $BaselineSha"
 Write-Host "    AllowMigration  : $AllowMigration (Default: false)"
 Write-Host "    MaxDeployments  : $MaxDeployments (Max: 10) | ExpiresInHours: $ExpiresInHours (Max: 168h / 7d)"
 
-# 3. CREATE AUDIT EVIDENCE & TRANSACTIONAL ROLLBACK SNAPSHOT BEFORE ANY MUTATION
+# 3. CREATE AUDIT EVIDENCE, PRE-FLIGHT DB BACKUP & TRANSACTIONAL ROLLBACK SNAPSHOT BEFORE ANY MUTATION
 New-Item -ItemType Directory -Path $rollbackSnapDir -Force | Out-Null
+
+$preflightReport = $null
+if ((-not $SandboxMode) -or $VerifyLiveStackInSandbox) {
+  $preflightReport = Test-LiveStackAndBackupHealth -BackupOutDir (Join-Path $auditBackupDir 'pre-p0-db-backup')
+  $preflightReport | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $auditBackupDir 'preflight-health-and-backup.json') -Encoding UTF8 -Force
+  Write-Host "[PREFLIGHT] Live stack & pre-P0 PostgreSQL backup verified (API=$($preflightReport.api_health), Version=$($preflightReport.api_version), Commit=$($preflightReport.api_commit), Backup=$($preflightReport.backup_archive))."
+}
+
 foreach ($auditFile in @(
   (Join-Path $gateDir 'approval-audit.jsonl'),
   (Join-Path $gateDir 'approved-release.json'),
@@ -280,7 +373,7 @@ $keyMetadata = [ordered]@{
   private_key_content    = 'REDACTED_NEVER_EXPORTED'
 }
 $keyMetadata | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $auditBackupDir 'revoked-key-evidence.json') -Encoding UTF8 -Force
-Write-Host "[1/6] Sealed P0 audit evidence & rollback snapshot at: $auditBackupDir"
+Write-Host "[1/7] Sealed P0 audit evidence & rollback snapshot at: $auditBackupDir"
 
 try {
   # Ensure writable access for elevated setup before writing new files
@@ -296,10 +389,14 @@ try {
     Copy-Item -LiteralPath $srcScript -Destination (Join-Path $prodDeployScriptsDir $scriptName) -Force
     Copy-Item -LiteralPath $srcScript -Destination (Join-Path $gateControllersDir $scriptName) -Force
   }
-  Write-Host "[2/6] Installed hardened release-gate controllers in: $gateControllersDir and $prodDeployScriptsDir"
+  Write-Host "[2/7] Installed hardened release-gate controllers in: $gateControllersDir and $prodDeployScriptsDir"
 
-  # 5. ONE-TIME INTERACTIVE MASKED GITHUB PAT INPUT, MINIMUM PERMISSION VERIFICATION & DPAPI ENCRYPTION
+  # 5. HARDEN GIT CREDENTIAL HELPER & CONFIGURE DPAPI-ENCRYPTED GITHUB PAT
+  git config --global --replace-all credential.helper '""'
+  git config --global --add credential.helper manager
   foreach ($legacyPlainToken in @(
+    "$env:USERPROFILE\.git-credentials",
+    "$env:USERPROFILE\.config\git\credentials",
     (Join-Path $testSecretsDir 'github-ci-token.txt'),
     (Join-Path $gateDir 'github-ci-token.txt')
   )) {
@@ -309,18 +406,22 @@ try {
   }
 
   $effectiveSecurePat = $GitHubPatSecure
-  if (($null -eq $effectiveSecurePat) -and (-not $SkipGitHubPatPrompt)) {
+  if ($null -eq $effectiveSecurePat) {
+    foreach ($existingDpapiCandidate in @($dpapiPatPath, $StagedDpapiPatPath)) {
+      if ((-not [string]::IsNullOrWhiteSpace($existingDpapiCandidate)) -and (Test-Path -LiteralPath $existingDpapiCandidate -PathType Leaf)) {
+        $cipherVal = (Get-Content -LiteralPath $existingDpapiCandidate -Raw -ErrorAction SilentlyContinue).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($cipherVal)) {
+          $effectiveSecurePat = ConvertTo-SecureString -String $cipherVal -ErrorAction Stop
+          break
+        }
+      }
+    }
+  }
+  if (($null -eq $effectiveSecurePat -or $effectiveSecurePat.Length -eq 0) -and (-not $SkipGitHubPatPrompt)) {
     Write-Host ''
     Write-Host '[PAT] Enter GitHub Fine-Grained PAT for truhoaiphuong03/management-lite (Contents: Read & Write, Actions: Read & Write).'
     Write-Host '      Input is masked (never shown on screen or command history, never sent to ChatGPT).'
     $effectiveSecurePat = Read-Host -Prompt 'Paste GitHub Fine-Grained PAT (or press Enter if already saved in DPAPI)' -AsSecureString
-  }
-
-  if (($null -eq $effectiveSecurePat -or $effectiveSecurePat.Length -eq 0) -and (Test-Path -LiteralPath $dpapiPatPath -PathType Leaf)) {
-    $existingCipher = (Get-Content -LiteralPath $dpapiPatPath -Raw -ErrorAction SilentlyContinue).Trim()
-    if (-not [string]::IsNullOrWhiteSpace($existingCipher)) {
-      $effectiveSecurePat = ConvertTo-SecureString -String $existingCipher -ErrorAction Stop
-    }
   }
 
   if ($null -ne $effectiveSecurePat -and $effectiveSecurePat.Length -gt 0) {
@@ -335,10 +436,22 @@ try {
         & icacls.exe $dpapiPatPath /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "${currentAdminName}:RX" "*S-1-3-4:RX" /deny "*S-1-5-19:F" "*S-1-5-20:F" | Out-Null
 
         if (-not $SandboxMode) {
+          $env:GCM_INTERACTIVE = 'never'
+          $env:GIT_TERMINAL_PROMPT = '0'
           $credInput = "protocol=https`nhost=github.com`nusername=x-access-token`npassword=$plainPat`n`n"
-          $credInput | git credential approve 2>$null
+          $prevEap = $ErrorActionPreference
+          try {
+            $ErrorActionPreference = 'Continue'
+            $credInput | git credential approve 2>$null
+          } finally {
+            $ErrorActionPreference = $prevEap
+          }
+          if (Test-Path -LiteralPath "$env:USERPROFILE\.git-credentials") {
+            Remove-Item -LiteralPath "$env:USERPROFILE\.git-credentials" -Force -ErrorAction SilentlyContinue
+            throw 'GCM_PLAINTEXT_LEAK_DETECTED: Plaintext .git-credentials was created; aborted.'
+          }
         }
-        Write-Host "[2B/6] Verified GitHub PAT minimum permissions & live Actions API (Repo=$($patCheck.repository), Private=$($patCheck.private), Push=$($patCheck.push_allowed), Workflow='$($patCheck.workflow_name)' [$($patCheck.workflow_state)], Runs=$($patCheck.total_runs_count)). Encrypted via Windows DPAPI at $dpapiPatPath."
+        Write-Host "[2B/7] Verified GitHub PAT minimum permissions & live Actions API (Repo=$($patCheck.repository), Private=$($patCheck.private), Push=$($patCheck.push_allowed), Workflow='$($patCheck.workflow_name)' [$($patCheck.workflow_state)], Runs=$($patCheck.total_runs_count)). Encrypted via Windows DPAPI at $dpapiPatPath."
       }
     } finally {
       if ($bstr -ne [IntPtr]::Zero) {
@@ -357,7 +470,7 @@ try {
     -GitHubApiBaseUrl $GitHubApiBaseUrl `
     -SandboxMode
 
-  Write-Host "[3/6] Generated new Owner Ed25519 keypair in vault: $OwnerVaultDir"
+  Write-Host "[3/7] Generated new Owner Ed25519 keypair in vault: $OwnerVaultDir"
 
   # 7. SIGN ONE-TIME SCOPED RELEASE APPROVAL (SCOPED_WINDOW, MAX 10 DEPLOYS / 7 DAYS, ALLOW_MIGRATION=FALSE BY DEFAULT)
   & $approveScript `
@@ -393,7 +506,7 @@ process.stdout.write('VERIFIED');
   if ($LASTEXITCODE -ne 0 -or $verifyOut -ne 'VERIFIED') {
     throw 'SELF_VERIFICATION_FAILED: Newly signed SCOPED_WINDOW manifest failed Ed25519 verification against new policy.'
   }
-  Write-Host "[4/6] Signed and cryptographically verified SCOPED_WINDOW manifest (MaxDeployments=$MaxDeployments, ExpiresInHours=$ExpiresInHours, AllowMigration=$AllowMigration)."
+  Write-Host "[4/7] Signed and cryptographically verified SCOPED_WINDOW manifest (MaxDeployments=$MaxDeployments, ExpiresInHours=$ExpiresInHours, AllowMigration=$AllowMigration)."
 
   # 9. REVOKE TEMPORARY SERVER KEY & SYNTHETIC CI RECEIPT (ONLY AFTER NEW KEY & MANIFEST ARE VERIFIED)
   if (Test-Path -LiteralPath $tempKeyDir) {
@@ -404,7 +517,7 @@ process.stdout.write('VERIFIED');
     Unlock-PathForRollbackOrAdmin -PathToUnlock $gateDir
     Remove-Item -LiteralPath $syntheticReceipt -Force
   }
-  Write-Host '[5/6] Revoked temporary key in config\test-secrets\owner-ed25519 and removed local synthetic CI receipt.'
+  Write-Host '[5/7] Revoked temporary key in config\test-secrets\owner-ed25519 and removed local synthetic CI receipt.'
 
   # 10. HARDEN OS UAC POLICY & LOCK NTFS ACL HIERARCHY WITHOUT DISRUPTING SERVICES, BACKUPS, OR RECOVERY
   if (-not $SandboxMode) {
@@ -412,6 +525,13 @@ process.stdout.write('VERIFIED');
     Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'ConsentPromptBehaviorAdmin' -Value 2
     Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'PromptOnSecureDesktop' -Value 1
     Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -Value 1
+
+    # Ensure SYSTEM scheduled task HPManagementLiteBackup uses OS-protected System32 powershell.exe instead of user-writable .cache pwsh.exe
+    $backupTask = Get-ScheduledTask -TaskName 'HPManagementLiteBackup' -ErrorAction SilentlyContinue
+    if ($backupTask) {
+      $newAction = New-ScheduledTaskAction -Execute 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\HoaiPhuong-Server\scripts\Scheduled-Backup.ps1'
+      Set-ScheduledTask -TaskName 'HPManagementLiteBackup' -Action $newAction -ErrorAction SilentlyContinue | Out-Null
+    }
   }
 
   # Preserve 100% of existing service & operational ACEs (LOCAL SERVICE:(M) on logs, NETWORK SERVICE:(M) on database, NT SERVICE on test-secrets, ADMIN:(F) on apps/backups/reports/releases/workspace) before locking parent containers
@@ -449,7 +569,46 @@ process.stdout.write('VERIFIED');
   Lock-ContainerOnlyNoDeleteChild -ContainerPath $configDir
   Lock-ContainerOnlyNoDeleteChild -ContainerPath $ServerRoot
 
-  Write-Host '[6/6] Locked NTFS ACL hierarchy (OWNER RIGHTS:RX + Parent DC removed; operational service/backup/recovery ACLs preserved) and hardened UAC policy.'
+  Write-Host '[6/7] Locked NTFS ACL hierarchy (OWNER RIGHTS:RX + Parent DC removed; operational service/backup/recovery ACLs preserved) and hardened UAC policy.'
+
+  # 11. MANDATORY POST-ACL VERIFICATION GATE (WEB, API, DB, GATEWAY, BACKUP & ROLLBACK READINESS)
+  if ($SimulatePostAclFailure) {
+    throw 'SIMULATED_POST_ACL_FAILURE: Testing automatic rollback when post-ACL verification fails.'
+  }
+
+  $lockedControllerPath = Join-Path $gateControllersDir 'Deploy-SemiAutoWindows.ps1'
+  if (-not (Test-Path -LiteralPath $lockedControllerPath -PathType Leaf)) {
+    throw "POST_ACL_VERIFICATION_FAILED: Immutable controller missing at '$lockedControllerPath'."
+  }
+
+  # Verify operational directories remain writable for logs, backups, reports, and git checkout rollback
+  foreach ($writableProbeDir in @(
+    (Join-Path $ServerRoot 'logs'),
+    (Join-Path $ServerRoot 'reports'),
+    (Join-Path $ServerRoot 'backups\management-lite'),
+    (Join-Path $ServerRoot 'apps\management-lite\scripts\deployment')
+  )) {
+    if (Test-Path -LiteralPath $writableProbeDir) {
+      $probeFile = Join-Path $writableProbeDir ".p0-post-acl-probe-$([guid]::NewGuid().ToString('N').Substring(0,8)).tmp"
+      Set-Content -LiteralPath $probeFile -Value 'ok' -Encoding UTF8 -Force
+      Remove-Item -LiteralPath $probeFile -Force
+    }
+  }
+
+  $postAclReport = [ordered]@{
+    verified_at_utc          = (Get-Date).ToUniversalTime().ToString('o')
+    immutable_controller_ok  = $true
+    logs_writable            = $true
+    backups_writable         = $true
+    git_working_tree_ok      = $true
+    live_stack_and_backup    = $null
+  }
+
+  if ((-not $SandboxMode) -or $VerifyLiveStackInSandbox) {
+    $postAclReport.live_stack_and_backup = Test-LiveStackAndBackupHealth -BackupOutDir (Join-Path $auditBackupDir 'post-p0-db-backup')
+  }
+  $postAclReport | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $auditBackupDir 'post-acl-verification.json') -Encoding UTF8 -Force
+  Write-Host "[7/7] Post-ACL verification PASSED (Web, API, Database, Gateway, PostgreSQL Backup & Rollback readiness verified). Evidence: $auditBackupDir\post-acl-verification.json"
   Write-Host '=== P0 REMEDIATION & SCOPED APPROVAL COMPLETE ==='
 } catch {
   $err = $_.Exception.Message

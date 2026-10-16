@@ -1480,6 +1480,38 @@ test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT 
       /^01000000d08c9ddf/i,
       'File must be valid Windows DPAPI blob',
     );
+
+    // 2d. Verify-GitHubPatAndLiveCi.ps1 verifies DPAPI + Git Credential Manager round-trip with zero plaintext file and zero token in logs/report
+    const verifyPatScript = fileURLToPath(
+      new URL(
+        '../../scripts/deployment/Verify-GitHubPatAndLiveCi.ps1',
+        import.meta.url,
+      ),
+    );
+    const stagedDpapi = path.join(tmpRoot, 'staged-github-pat.dpapi');
+    const patReport = path.join(tmpRoot, 'pat-verify-report.json');
+    const patVerifyRes = await runPsCmdAsync(
+      `$sec = ConvertTo-SecureString 'github_pat_gcm_roundtrip_secret_99' -AsPlainText -Force; & '${verifyPatScript}' -DpapiTokenPath '${stagedDpapi}' -ReportOutPath '${patReport}' -GitHubApiBaseUrl '${apiUrl}' -GitHubPatSecure $sec -SkipLiveCiTrigger -SandboxMode`,
+    );
+    assert.equal(
+      patVerifyRes.status,
+      0,
+      `${patVerifyRes.stdout}\n${patVerifyRes.stderr}`,
+    );
+    assert.equal(
+      `${patVerifyRes.stdout}\n${patVerifyRes.stderr}`.includes(
+        'github_pat_gcm_roundtrip_secret_99',
+      ),
+      false,
+      'Token must never be printed to stdout or stderr',
+    );
+    const reportObj = JSON.parse(
+      fs.readFileSync(patReport, 'utf8').replace(/^\uFEFF/, ''),
+    );
+    assert.equal(reportObj.dpapi_blob_verified, true);
+    assert.equal(reportObj.gcm_wincred_verified, true);
+    assert.equal(reportObj.plaintext_cred_exists, false);
+    assert.equal(reportObj.token_logged_or_printed, false);
   } finally {
     await new Promise((resolve) => mockGh.close(resolve));
   }

@@ -196,30 +196,59 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       if (role === 'owner') {
         try {
-          const empRes = await fetch('/api/v1/employees', {
-            credentials: 'include',
-            signal: controller.signal,
-          });
-          if (active && empRes && empRes.ok) {
+          const allEmployees: EmployeeData[] = [];
+          const seenIds = new Set<string>();
+          let cursor: string | null = null;
+          for (let page = 0; page < 10; page++) {
+            const url = cursor
+              ? `/api/v1/employees?limit=100&cursor=${encodeURIComponent(cursor)}`
+              : '/api/v1/employees?limit=100';
+            const empRes = await fetch(url, {
+              credentials: 'include',
+              signal: controller.signal,
+            });
+            if (!active || !empRes || !empRes.ok) break;
             const body: {
               success?: boolean;
-              data?: { items?: EmployeeData[] };
+              data?: {
+                items?: EmployeeData[];
+                next_cursor?: string | null;
+                has_next?: boolean;
+              };
             } = await empRes.json();
-            if (active && Array.isArray(body?.data?.items)) {
-              const items = body.data.items;
-              const activeCount = items.filter(
-                (e) => e.employment_status === 'active',
-              ).length;
-              const invitedCount = items.filter(
-                (e) => e.employment_status === 'invited',
-              ).length;
-              setEmployeesMetric({
-                badgeStatus: 'success',
-                badgeLabel: 'Owner view',
-                value: `${activeCount} nhân sự hoạt động`,
-                subtext: `Tổng ${items.length} hồ sơ (${invitedCount} chờ kích hoạt)`,
-              });
+            if (!active || !Array.isArray(body?.data?.items)) break;
+            for (const emp of body.data.items) {
+              if (emp && emp.id && !seenIds.has(emp.id)) {
+                seenIds.add(emp.id);
+                allEmployees.push(emp);
+              }
             }
+            if (body.data.has_next && body.data.next_cursor) {
+              cursor = body.data.next_cursor;
+            } else {
+              break;
+            }
+          }
+          if (active && allEmployees.length > 0) {
+            const activeCount = allEmployees.filter(
+              (e) => e.employment_status === 'active',
+            ).length;
+            const invitedCount = allEmployees.filter(
+              (e) => e.employment_status === 'invited',
+            ).length;
+            setEmployeesMetric({
+              badgeStatus: 'success',
+              badgeLabel: 'Owner view',
+              value: `${activeCount} nhân sự hoạt động`,
+              subtext: `Tổng ${allEmployees.length} hồ sơ (${invitedCount} chờ kích hoạt)`,
+            });
+          } else if (active) {
+            setEmployeesMetric({
+              badgeStatus: 'success',
+              badgeLabel: 'Owner view',
+              value: '0 nhân sự hoạt động',
+              subtext: 'Tổng 0 hồ sơ (0 chờ kích hoạt)',
+            });
           }
         } catch {
           // Keep safe default fallback
