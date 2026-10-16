@@ -92,9 +92,14 @@ try {
   }
 
   # 3. SAVE DPAPI CIPHERTEXT & VERIFY DPAPI + GIT CREDENTIAL MANAGER UNDER CURRENT WINDOWS ACCOUNT
-  $dpapiCipher = $effectiveSecurePat | ConvertFrom-SecureString
-  Set-Content -LiteralPath $DpapiTokenPath -Value $dpapiCipher -NoNewline -Encoding UTF8 -Force
-  & icacls.exe $DpapiTokenPath /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "${currentAdminName}:RX" "*S-1-3-4:RX" /deny "*S-1-5-19:F" "*S-1-5-20:F" | Out-Null
+  if (-not (Test-Path -LiteralPath $DpapiTokenPath -PathType Leaf) -or -not $VerifyExistingOnly) {
+    $dpapiCipher = $effectiveSecurePat | ConvertFrom-SecureString
+    if (Test-Path -LiteralPath $DpapiTokenPath -PathType Leaf) {
+      & icacls.exe $DpapiTokenPath /grant:r "${currentAdminName}:F" | Out-Null
+    }
+    Set-Content -LiteralPath $DpapiTokenPath -Value $dpapiCipher -NoNewline -Encoding UTF8 -Force
+    & icacls.exe $DpapiTokenPath /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "${currentAdminName}:RX" "*S-1-3-4:RX" /deny "*S-1-5-19:F" "*S-1-5-20:F" | Out-Null
+  }
 
   # Verify DPAPI file on disk is encrypted blob (starts with 01000000d08c9ddf) and never contains plaintext
   $rawDiskDpapi = (Get-Content -LiteralPath $DpapiTokenPath -Raw).Trim()
@@ -121,15 +126,20 @@ try {
   $credHost = if ($SandboxMode) { 'sandbox-github-gcm-verify.example.invalid' } else { 'github.com' }
   $env:GCM_INTERACTIVE = 'never'
   $env:GIT_TERMINAL_PROMPT = '0'
+  $env:GCM_CREDENTIAL_STORE = 'wincredman'
   if ($SandboxMode) {
     $env:GCM_PROVIDER = 'generic'
   }
   $approveInput = "protocol=https`nhost=$credHost`nusername=x-access-token`npassword=$plainPat`n`n"
-  $fillInput = "protocol=https`nhost=$credHost`n`n"
+  $fillInput = "protocol=https`nhost=$credHost`nusername=x-access-token`n`n"
   $prevEap = $ErrorActionPreference
   try {
     $ErrorActionPreference = 'Continue'
-    $approveInput | git credential approve 2>$null
+    if (-not $SandboxMode) {
+      git config --global credential.helper manager 2>$null
+      git config --global "credential.https://$credHost.username" x-access-token 2>$null
+    }
+    $approveInput | git -c credential.helper= -c credential.helper=manager credential approve 2>$null
   } finally {
     $ErrorActionPreference = $prevEap
   }
@@ -143,9 +153,9 @@ try {
   $prevEap = $ErrorActionPreference
   try {
     $ErrorActionPreference = 'Continue'
-    $fillLines = @($fillInput | git credential fill 2>$null)
+    $fillLines = @($fillInput | git -c credential.helper= -c credential.helper=manager credential fill 2>$null)
     if ($SandboxMode) {
-      $approveInput | git credential reject 2>$null
+      $approveInput | git -c credential.helper= -c credential.helper=manager credential reject 2>$null
     }
   } finally {
     $ErrorActionPreference = $prevEap
