@@ -43,7 +43,7 @@ param(
   [switch]$AllowMigration,
   [switch]$ApproveScope,
   [string]$BaselineSha = '',
-  [int]$MaxDeployments = 20,
+  [int]$MaxDeployments = 10,
   [int]$ExpiresInMinutes = 120,
   [int]$ExpiresInHours = 0,
   [switch]$AllowControllerChanges,
@@ -168,6 +168,8 @@ function Set-ReleaseGateAcl {
     foreach ($child in $children) {
       if ($child.PSIsContainer) {
         & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${currentAdmin}:(OI)(CI)RX" "*S-1-3-4:(OI)(CI)RX" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
+      } elseif ($child.Name -eq 'github-pat.dpapi') {
+        & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "${currentAdmin}:RX" "*S-1-3-4:RX" /deny "*S-1-5-19:F" "*S-1-5-20:F" | Out-Null
       } else {
         & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "${currentAdmin}:RX" "*S-1-3-4:RX" "*S-1-5-19:R" "*S-1-5-20:R" /deny "*S-1-5-19:(W,M,D,WDAC,WO)" "*S-1-5-20:(W,M,D,WDAC,WO)" | Out-Null
       }
@@ -336,8 +338,8 @@ if ($ApproveScope) {
   if ($normalizedBaselineSha -notmatch '^[0-9a-f]{40}$') {
     throw "Invalid BaselineSha '$BaselineSha'. Must be a full 40-character hexadecimal Git SHA."
   }
-  if ($MaxDeployments -lt 1 -or $MaxDeployments -gt 100) {
-    throw "Invalid MaxDeployments '$MaxDeployments'. Must be between 1 and 100."
+  if ($MaxDeployments -lt 1 -or $MaxDeployments -gt 10) {
+    throw "Invalid MaxDeployments '$MaxDeployments'. SCOPED_WINDOW is strictly limited to between 1 and 10 deployments."
   }
   $effectiveScopeMinutes = if ($ExpiresInHours -gt 0) {
     $ExpiresInHours * 60
@@ -345,6 +347,9 @@ if ($ApproveScope) {
     $ExpiresInMinutes
   } else {
     10080 # Default 7 days (168 hours) for one-time scoped approval
+  }
+  if ($effectiveScopeMinutes -lt 1 -or $effectiveScopeMinutes -gt 10080) {
+    throw "Invalid SCOPED_WINDOW duration ($effectiveScopeMinutes minutes). Maximum allowed duration is 7 days (168 hours / 10080 minutes)."
   }
   $expiresUtc = $nowUtc.AddMinutes($effectiveScopeMinutes)
 

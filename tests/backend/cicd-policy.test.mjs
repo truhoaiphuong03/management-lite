@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -201,10 +202,7 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
     ),
   );
   const approvePath = fileURLToPath(
-    new URL(
-      '../../scripts/deployment/Approve-ReleaseSha.ps1',
-      import.meta.url,
-    ),
+    new URL('../../scripts/deployment/Approve-ReleaseSha.ps1', import.meta.url),
   );
   const controllerCode = fs.readFileSync(controllerPath, 'utf8');
   const approveCode = fs.readFileSync(approvePath, 'utf8');
@@ -214,7 +212,7 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
     controllerCode.includes('REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION') &&
       controllerCode.includes('REJECTED_SYNTHETIC_CI_RECEIPT') &&
       controllerCode.includes('REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST') &&
-      controllerCode.includes("config\\test-secrets"),
+      controllerCode.includes('config\\test-secrets'),
     true,
     'Deploy-SemiAutoWindows.ps1 must enforce official GitHub API in production, reject synthetic CI receipts, and recursively scan config\\test-secrets for exposed private keys',
   );
@@ -257,10 +255,7 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
   const sha = 'a'.repeat(40);
   const artifactSha = 'b'.repeat(64);
   const schemaSha = 'c'.repeat(64);
-  const bundlePath = path.join(
-    bundleDir,
-    `management-lite-full-${sha}.tar.gz`,
-  );
+  const bundlePath = path.join(bundleDir, `management-lite-full-${sha}.tar.gz`);
   fs.writeFileSync(bundlePath, 'synthetic-bundle-bytes');
   fs.writeFileSync(
     `${bundlePath}.provenance.json`,
@@ -620,7 +615,10 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
     const targetRepoDir = path.join(serverRoot, 'apps', 'management-lite');
     fs.mkdirSync(targetRepoDir, { recursive: true });
     const gitTarget = (...args) =>
-      execFileSync('git', args, { cwd: targetRepoDir, encoding: 'utf8' }).trim();
+      execFileSync('git', args, {
+        cwd: targetRepoDir,
+        encoding: 'utf8',
+      }).trim();
     gitTarget('init', '--quiet', '-b', 'main');
     gitTarget('config', 'user.name', 'Synthetic QA');
     gitTarget('config', 'user.email', 'synthetic@isolated.example.test');
@@ -838,12 +836,7 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
       recursive: true,
     });
     fs.writeFileSync(
-      path.join(
-        targetRepoDir,
-        'database',
-        'migrations',
-        '0099_unapproved.sql',
-      ),
+      path.join(targetRepoDir, 'database', 'migrations', '0099_unapproved.sql'),
       'SELECT 1;\n',
       'utf8',
     );
@@ -978,7 +971,7 @@ test('P0 Release Gate Hardening: blocks non-official GitHub API in production, b
   }
 });
 
-test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-OwnerP0Setup.ps1 transactional rollback', () => {
+test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal), operational continuity, and Invoke-OwnerP0Setup.ps1 transactional rollback', () => {
   const sbRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-live-acl-p0-'));
   const sbServer = path.join(sbRoot, 'server');
   const sbVault = path.join(sbRoot, 'vault');
@@ -986,17 +979,27 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-O
     'config/release-gate',
     'config/services',
     'config/test-secrets/owner-ed25519',
+    'config/npm-cache',
     'scripts',
     'runner',
     'apps/management-lite/scripts/deployment',
     'apps/management-lite/dist',
+    'database/postgres-test',
     'logs',
     'reports',
     'backups/management-lite',
     'releases',
+    'workspace',
   ]) {
     fs.mkdirSync(path.join(sbServer, rel), { recursive: true });
   }
+  // Pre-seed explicit service ACE on logs (LOCAL SERVICE:(OI)(CI)(M)) to verify Invoke-OwnerP0Setup.ps1 preserves it via /inheritance:d
+  spawnSync(
+    'icacls.exe',
+    [path.join(sbServer, 'logs'), '/grant', '*S-1-5-19:(OI)(CI)M'],
+    { encoding: 'utf8' },
+  );
+
   const polFile = path.join(
     sbServer,
     'config/release-gate/release-gate-policy.json',
@@ -1013,18 +1016,32 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-O
     sbServer,
     'config/test-secrets/owner-ed25519/owner-approval-private.pem',
   );
+  const legacyPlainPat = path.join(
+    sbServer,
+    'config/test-secrets/github-ci-token.txt',
+  );
   const svcFile = path.join(
     sbServer,
     'config/services/HPManagementLiteApi.xml',
   );
+  const webScriptFile = path.join(sbServer, 'scripts/serve-management-web.cjs');
   fs.writeFileSync(polFile, '{"old":true}', 'utf8');
   fs.writeFileSync(manFile, '{"old_manifest":true}', 'utf8');
   fs.writeFileSync(synFile, '{"synthetic_local":true}', 'utf8');
   fs.writeFileSync(tmpKeyFile, 'DUMMY-TEMP-KEY', 'utf8');
+  fs.writeFileSync(legacyPlainPat, 'LEGACY-PLAINTEXT-TOKEN', 'utf8');
   fs.writeFileSync(svcFile, '<service>original</service>', 'utf8');
+  fs.writeFileSync(
+    webScriptFile,
+    'process.stdout.write("WEB_SERVICE_OK");\n',
+    'utf8',
+  );
 
   const setupScript = fileURLToPath(
-    new URL('../../scripts/deployment/Invoke-OwnerP0Setup.ps1', import.meta.url),
+    new URL(
+      '../../scripts/deployment/Invoke-OwnerP0Setup.ps1',
+      import.meta.url,
+    ),
   );
   const devRepoDir = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -1044,6 +1061,7 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-O
       sbVault,
       '-DevRepoDir',
       devRepoDir,
+      '-SkipGitHubPatPrompt',
       '-SandboxMode',
       '-SimulateFailureAfterKeyGen',
     ],
@@ -1055,12 +1073,15 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-O
     /P0_SETUP_FAILED_AND_ROLLED_BACK/,
   );
   assert.equal(
-    fs.readFileSync(polFile, 'utf8').replace(/^\uFEFF/, '').trim(),
+    fs
+      .readFileSync(polFile, 'utf8')
+      .replace(/^\uFEFF/, '')
+      .trim(),
     '{"old":true}',
   );
   assert.equal(fs.existsSync(tmpKeyFile), true);
 
-  // 2. Full setup succeeds, defaults allow_migration=false, deletes temp key & synthetic receipt, and locks NTFS ACLs
+  // 2. Full setup succeeds, defaults MaxDeployments=10, ExpiresInHours=168, allow_migration=false, deletes temp key, synthetic receipt & legacy plaintext token, and locks NTFS ACLs
   const okRes = spawnSync(
     'powershell.exe',
     [
@@ -1076,6 +1097,7 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-O
       sbVault,
       '-DevRepoDir',
       devRepoDir,
+      '-SkipGitHubPatPrompt',
       '-SandboxMode',
     ],
     { encoding: 'utf8' },
@@ -1085,12 +1107,14 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-O
     fs.readFileSync(manFile, 'utf8').replace(/^\uFEFF/, ''),
   );
   assert.equal(manifest.approval_mode, 'SCOPED_WINDOW');
+  assert.equal(manifest.max_deployments, 10);
   assert.equal(manifest.allow_migration, false);
   assert.equal(manifest.allow_controller_changes, false);
   assert.equal(fs.existsSync(tmpKeyFile), false);
   assert.equal(fs.existsSync(synFile), false);
+  assert.equal(fs.existsSync(legacyPlainPat), false);
 
-  // 3. Live OS account verification: overwrite, delete, rename dir, icacls self-grant, and service/controller tampering all blocked
+  // 3. Live OS account verification: overwrite, delete, rename dir, icacls self-grant, and service/immutable-controller tampering all blocked
   assert.throws(() => fs.writeFileSync(polFile, '{}', 'utf8'), /EPERM|EACCES/);
   assert.throws(() => fs.writeFileSync(manFile, '{}', 'utf8'), /EPERM|EACCES/);
   assert.throws(() => fs.unlinkSync(polFile), /EPERM|EACCES/);
@@ -1110,13 +1134,20 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-O
       ),
     /EPERM|EACCES/,
   );
-  assert.throws(() => fs.writeFileSync(svcFile, 'hijack', 'utf8'), /EPERM|EACCES/);
+  assert.throws(
+    () => fs.writeFileSync(svcFile, 'hijack', 'utf8'),
+    /EPERM|EACCES/,
+  );
+  assert.throws(
+    () => fs.writeFileSync(webScriptFile, 'hijack', 'utf8'),
+    /EPERM|EACCES/,
+  );
   assert.throws(
     () =>
       fs.writeFileSync(
         path.join(
           sbServer,
-          'apps/management-lite/scripts/deployment/Deploy-SemiAutoWindows.ps1',
+          'config/release-gate/controllers/Deploy-SemiAutoWindows.ps1',
         ),
         'hijack',
         'utf8',
@@ -1132,16 +1163,324 @@ test('Live NTFS ACL isolation (OWNER RIGHTS:RX + Parent DC removal) and Invoke-O
     ],
     { encoding: 'utf8' },
   );
-  assert.equal(icaclsBypass.status, 5, 'icacls self-grant must fail with Access Denied (5)');
+  assert.equal(
+    icaclsBypass.status,
+    5,
+    'icacls self-grant must fail with Access Denied (5)',
+  );
 
-  // 4. Runtime dist directory remains writable for atomic deployment swap
+  // 4. Operational continuity verification:
+  // 4a. Locked script in scripts/ remains executable by Node/PowerShell (Read & Execute)
+  const execWebScript = spawnSync(process.execPath, [webScriptFile], {
+    encoding: 'utf8',
+  });
+  assert.equal(execWebScript.status, 0);
+  assert.equal(execWebScript.stdout, 'WEB_SERVICE_OK');
+
+  // 4b. logs/ preserves explicit NT AUTHORITY\LOCAL SERVICE:(OI)(CI)(M) for WinSW service log rotation & backups
+  const logsAclOut = spawnSync('icacls.exe', [path.join(sbServer, 'logs')], {
+    encoding: 'utf8',
+  });
+  assert.match(logsAclOut.stdout, /LOCAL SERVICE:\(OI\)\(CI\)\(M\)/i);
+
+  // 4c. apps/management-lite (including scripts/deployment inside Git working tree), logs, backups, reports, and config/npm-cache remain writable for git checkout/rollback and backups
   fs.writeFileSync(
     path.join(sbServer, 'apps/management-lite/dist/ok.txt'),
     'ok',
     'utf8',
   );
+  fs.writeFileSync(
+    path.join(
+      sbServer,
+      'apps/management-lite/scripts/deployment/git-checkout-test.txt',
+    ),
+    'writable-for-git-checkout',
+    'utf8',
+  );
+  fs.writeFileSync(path.join(sbServer, 'logs/service.log'), 'log-ok', 'utf8');
+  fs.writeFileSync(
+    path.join(sbServer, 'backups/management-lite/backup.dump'),
+    'dump-ok',
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(sbServer, 'config/npm-cache/cache.txt'),
+    'cache-ok',
+    'utf8',
+  );
 });
 
+test('SCOPED_WINDOW enforces max 10 deployments / 7 days and verifies DPAPI PAT minimum permissions', async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-pat-dpapi-'));
+  const approveScript = fileURLToPath(
+    new URL('../../scripts/deployment/Approve-ReleaseSha.ps1', import.meta.url),
+  );
+  const setupScript = fileURLToPath(
+    new URL(
+      '../../scripts/deployment/Invoke-OwnerP0Setup.ps1',
+      import.meta.url,
+    ),
+  );
+  const devRepoDir = fileURLToPath(new URL('../..', import.meta.url));
 
+  // 1. Approve-ReleaseSha.ps1 rejects MaxDeployments > 10 and ExpiresInHours > 168 (7 days)
+  const gateDir = path.join(tmpRoot, 'gate');
+  const keyVault = path.join(tmpRoot, 'vault');
+  const privKey = path.join(keyVault, 'owner-approval-private.pem');
+  const genRes = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      approveScript,
+      '-GenerateKeyPairOnly',
+      '-KeyOutDir',
+      gateDir,
+      '-PrivateKeyOutPath',
+      privKey,
+      '-SandboxMode',
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.equal(genRes.status, 0);
 
+  const overDeploysRes = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      approveScript,
+      '-ApproveScope',
+      '-BaselineSha',
+      'fbb69409d00f43d0c36854730332e319cedb49ec',
+      '-MaxDeployments',
+      '11',
+      '-PrivateKeyPath',
+      privKey,
+      '-PolicyPath',
+      path.join(gateDir, 'release-gate-policy.json'),
+      '-ManifestPath',
+      path.join(gateDir, 'approved-release.json'),
+      '-AuditLogPath',
+      path.join(gateDir, 'approval-audit.jsonl'),
+      '-SandboxMode',
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.notEqual(overDeploysRes.status, 0);
+  assert.match(
+    `${overDeploysRes.stdout}\n${overDeploysRes.stderr}`,
+    /between 1 and 10 deployments/,
+  );
 
+  const overDaysRes = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      approveScript,
+      '-ApproveScope',
+      '-BaselineSha',
+      'fbb69409d00f43d0c36854730332e319cedb49ec',
+      '-MaxDeployments',
+      '10',
+      '-ExpiresInHours',
+      '169',
+      '-PrivateKeyPath',
+      privKey,
+      '-PolicyPath',
+      path.join(gateDir, 'release-gate-policy.json'),
+      '-ManifestPath',
+      path.join(gateDir, 'approved-release.json'),
+      '-AuditLogPath',
+      path.join(gateDir, 'approval-audit.jsonl'),
+      '-SandboxMode',
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.notEqual(overDaysRes.status, 0);
+  assert.match(
+    `${overDaysRes.stdout}\n${overDaysRes.stderr}`,
+    /Maximum allowed duration is 7 days/,
+  );
+
+  // 2. Mock GitHub API to verify minimum PAT permission enforcement (rejects delete_repo scope, rejects missing push permission, accepts minimal fine-grained PAT and stores DPAPI ciphertext)
+  let tokenMode = 'VALID_FINE_GRAINED';
+  const mockGh = http.createServer((req, res) => {
+    if (req.url === '/repos/truhoaiphuong03/management-lite') {
+      if (tokenMode === 'EXCESSIVE_CLASSIC_SCOPE') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'X-OAuth-Scopes': 'repo, delete_repo, admin:org',
+        });
+        res.end(
+          JSON.stringify({
+            full_name: 'truhoaiphuong03/management-lite',
+            private: true,
+            permissions: { pull: true, push: true, admin: true },
+          }),
+        );
+        return;
+      }
+      if (tokenMode === 'MISSING_PUSH') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            full_name: 'truhoaiphuong03/management-lite',
+            private: true,
+            permissions: { pull: true, push: false, admin: false },
+          }),
+        );
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          full_name: 'truhoaiphuong03/management-lite',
+          private: true,
+          permissions: { pull: true, push: true, admin: false },
+        }),
+      );
+      return;
+    }
+    if (
+      req.url ===
+      '/repos/truhoaiphuong03/management-lite/actions/workflows/deploy.yml'
+    ) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          id: 1001,
+          name: 'Management Lite Build & Release Artifact',
+          path: '.github/workflows/deploy.yml',
+          state: 'active',
+        }),
+      );
+      return;
+    }
+    if (
+      req.url.startsWith('/repos/truhoaiphuong03/management-lite/actions/runs')
+    ) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ total_count: 5, workflow_runs: [] }));
+      return;
+    }
+    if (
+      req.url.startsWith(
+        '/repos/truhoaiphuong03/management-lite/actions/artifacts',
+      )
+    ) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ total_count: 2, artifacts: [] }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  await new Promise((resolve) => mockGh.listen(0, '127.0.0.1', resolve));
+  const port = mockGh.address().port;
+  const apiUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    const sbServer = path.join(tmpRoot, 'server');
+    const sbVault = path.join(tmpRoot, 'owner-vault');
+    for (const rel of [
+      'config/release-gate',
+      'config/services',
+      'scripts',
+      'runner',
+      'apps/management-lite/scripts/deployment',
+      'logs',
+      'reports',
+      'backups/management-lite',
+    ]) {
+      fs.mkdirSync(path.join(sbServer, rel), { recursive: true });
+    }
+
+    const { execFile } = await import('node:child_process');
+    const runPsCmdAsync = (cmd) =>
+      new Promise((resolve) => {
+        execFile(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-Command',
+            cmd,
+          ],
+          { encoding: 'utf8' },
+          (error, stdout, stderr) => {
+            resolve({
+              status:
+                error && typeof error.code === 'number'
+                  ? error.code
+                  : error
+                    ? 1
+                    : 0,
+              stdout: stdout || '',
+              stderr: stderr || '',
+            });
+          },
+        );
+      });
+
+    // 2a. Reject token with excessive scopes (delete_repo)
+    tokenMode = 'EXCESSIVE_CLASSIC_SCOPE';
+    const excRes = await runPsCmdAsync(
+      `$sec = ConvertTo-SecureString 'ghp_test_excessive' -AsPlainText -Force; & '${setupScript}' -ServerRoot '${sbServer}' -OwnerVaultDir '${sbVault}' -DevRepoDir '${devRepoDir}' -GitHubApiBaseUrl '${apiUrl}' -GitHubPatSecure $sec -SandboxMode`,
+    );
+    assert.notEqual(excRes.status, 0);
+    assert.match(
+      `${excRes.stdout}\n${excRes.stderr}`,
+      /GITHUB_PAT_EXCESSIVE_PERMISSIONS/,
+    );
+
+    // 2b. Reject token lacking push (Contents: Read & Write) permission
+    tokenMode = 'MISSING_PUSH';
+    const noPushRes = await runPsCmdAsync(
+      `$sec = ConvertTo-SecureString 'github_pat_no_push' -AsPlainText -Force; & '${setupScript}' -ServerRoot '${sbServer}' -OwnerVaultDir '${sbVault}' -DevRepoDir '${devRepoDir}' -GitHubApiBaseUrl '${apiUrl}' -GitHubPatSecure $sec -SandboxMode`,
+    );
+    assert.notEqual(noPushRes.status, 0);
+    assert.match(
+      `${noPushRes.stdout}\n${noPushRes.stderr}`,
+      /GITHUB_PAT_INSUFFICIENT_PUSH_PERMISSION/,
+    );
+
+    // 2c. Accept valid minimum-scope Fine-Grained PAT and store DPAPI ciphertext (never plaintext)
+    tokenMode = 'VALID_FINE_GRAINED';
+    const validRes = await runPsCmdAsync(
+      `$sec = ConvertTo-SecureString 'github_pat_minimal_valid_token' -AsPlainText -Force; & '${setupScript}' -ServerRoot '${sbServer}' -OwnerVaultDir '${sbVault}' -DevRepoDir '${devRepoDir}' -GitHubApiBaseUrl '${apiUrl}' -GitHubPatSecure $sec -SandboxMode`,
+    );
+    assert.equal(validRes.status, 0, `${validRes.stdout}\n${validRes.stderr}`);
+    const dpapiFile = path.join(
+      sbServer,
+      'config/release-gate/github-pat.dpapi',
+    );
+    assert.equal(fs.existsSync(dpapiFile), true);
+    const cipherContent = fs.readFileSync(dpapiFile, 'utf8').trim();
+    assert.equal(
+      cipherContent.includes('github_pat_minimal_valid_token'),
+      false,
+      'DPAPI file must never contain plaintext token',
+    );
+    assert.match(
+      cipherContent,
+      /^01000000d08c9ddf/i,
+      'File must be valid Windows DPAPI blob',
+    );
+  } finally {
+    await new Promise((resolve) => mockGh.close(resolve));
+  }
+});

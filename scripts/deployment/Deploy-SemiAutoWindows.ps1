@@ -809,13 +809,13 @@ if ($approvalMode -eq 'SCOPED_WINDOW') {
     Record-DeployResult -Status 'REJECTED_INVALID_SIGNATURE' -Sha $normalizedSha -Message 'Outer manifest fields tampered relative to signed canonical SCOPED_WINDOW payload' -DurationMs 0
     throw 'GATE REJECTED: Scoped manifest envelope fields do not match signed canonical payload.'
   }
-  if ([string]$signedPayload.baseline_sha -notmatch '^[0-9a-f]{40}$' -or [int]$signedPayload.max_deployments -lt 1) {
-    Record-DeployResult -Status 'REJECTED_INVALID_SIGNATURE' -Sha $normalizedSha -Message 'Scoped payload is missing valid 40-char baseline_sha or max_deployments' -DurationMs 0
-    throw 'GATE REJECTED: Scoped approval payload is missing valid 40-character baseline_sha or max_deployments.'
+  if ([string]$signedPayload.baseline_sha -notmatch '^[0-9a-f]{40}$' -or [int]$signedPayload.max_deployments -lt 1 -or [int]$signedPayload.max_deployments -gt 10) {
+    Record-DeployResult -Status 'REJECTED_INVALID_SIGNATURE' -Sha $normalizedSha -Message 'Scoped payload is missing valid 40-char baseline_sha or max_deployments (must be 1..10)' -DurationMs 0
+    throw 'GATE REJECTED: Scoped approval payload is missing valid 40-character baseline_sha or max_deployments (1..10).'
   }
-  if ($nowCheckUtc -gt $expiresUtc -or ($expiresUtc - $nowCheckUtc).TotalDays -gt 30.1) {
-    Record-DeployResult -Status 'REJECTED_EXPIRED_APPROVAL' -Sha $normalizedSha -Message "Owner scoped approval expired or exceeds 30d max TTL ($($signedPayload.expires_at_utc))" -DurationMs 0
-    throw "GATE REJECTED: Owner scoped approval expired or exceeds 30d max TTL at $($signedPayload.expires_at_utc)."
+  if ($nowCheckUtc -gt $expiresUtc -or ($expiresUtc - $nowCheckUtc).TotalDays -gt 7.1) {
+    Record-DeployResult -Status 'REJECTED_EXPIRED_APPROVAL' -Sha $normalizedSha -Message "Owner scoped approval expired or exceeds 7d max TTL ($($signedPayload.expires_at_utc))" -DurationMs 0
+    throw "GATE REJECTED: Owner scoped approval expired or exceeds 7d max TTL at $($signedPayload.expires_at_utc)."
   }
 } else {
   if ($manifest.approved_sha -ne $signedPayload.approved_sha -or
@@ -969,17 +969,29 @@ $apiHeaders = @{
 }
 $resolvedGhToken = $env:GITHUB_READONLY_TOKEN
 if ([string]::IsNullOrWhiteSpace($resolvedGhToken)) {
-  foreach ($tokenFileCandidate in @(
-    (Join-Path (Split-Path -Path $PolicyPath -Parent) 'github-ci-token.txt'),
-    (Join-Path $ServerRoot 'config\test-secrets\github-ci-token.txt'),
-    'C:\HoaiPhuong-Server\config\release-gate\github-ci-token.txt',
-    'C:\HoaiPhuong-Server\config\test-secrets\github-ci-token.txt'
+  foreach ($dpapiCandidate in @(
+    (Join-Path (Split-Path -Path $PolicyPath -Parent) 'github-pat.dpapi'),
+    'C:\HoaiPhuong-Server\config\release-gate\github-pat.dpapi'
   )) {
-    if ($tokenFileCandidate -and (Test-Path -LiteralPath $tokenFileCandidate -PathType Leaf)) {
-      $candidateVal = (Get-Content -LiteralPath $tokenFileCandidate -Raw -ErrorAction SilentlyContinue).Trim()
-      if (-not [string]::IsNullOrWhiteSpace($candidateVal)) {
-        $resolvedGhToken = $candidateVal
-        break
+    if ($dpapiCandidate -and (Test-Path -LiteralPath $dpapiCandidate -PathType Leaf)) {
+      $bstr = [IntPtr]::Zero
+      try {
+        $cipherText = (Get-Content -LiteralPath $dpapiCandidate -Raw -ErrorAction SilentlyContinue).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($cipherText)) {
+          $secStr = ConvertTo-SecureString -String $cipherText -ErrorAction Stop
+          $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secStr)
+          $candidateVal = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+          if (-not [string]::IsNullOrWhiteSpace($candidateVal)) {
+            $resolvedGhToken = $candidateVal.Trim()
+            break
+          }
+        }
+      } catch {
+        # Ignore decryption failure and continue fail-closed check
+      } finally {
+        if ($bstr -ne [IntPtr]::Zero) {
+          [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
       }
     }
   }

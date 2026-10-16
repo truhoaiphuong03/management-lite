@@ -42,30 +42,42 @@ if (-not $SandboxMode) {
   $GitHubApiBaseUrl = 'https://api.github.com'
 }
 
-# 1. RESOLVE GITHUB API TOKEN
+# 1. RESOLVE DPAPI-PROTECTED GITHUB API TOKEN
 $ghToken = $env:GITHUB_READONLY_TOKEN
 if ([string]::IsNullOrWhiteSpace($ghToken)) {
   $ghToken = $env:GITHUB_TOKEN
 }
 if ([string]::IsNullOrWhiteSpace($ghToken)) {
-  foreach ($candidate in @(
-    (Join-Path (Split-Path -Path $PolicyPath -Parent) 'github-ci-token.txt'),
-    (Join-Path $ServerRoot 'config\test-secrets\github-ci-token.txt'),
-    'C:\HoaiPhuong-Server\config\release-gate\github-ci-token.txt',
-    'C:\HoaiPhuong-Server\config\test-secrets\github-ci-token.txt'
+  foreach ($dpapiCandidate in @(
+    (Join-Path (Split-Path -Path $PolicyPath -Parent) 'github-pat.dpapi'),
+    'C:\HoaiPhuong-Server\config\release-gate\github-pat.dpapi'
   )) {
-    if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) {
-      $val = (Get-Content -LiteralPath $candidate -Raw -ErrorAction SilentlyContinue).Trim()
-      if (-not [string]::IsNullOrWhiteSpace($val)) {
-        $ghToken = $val
-        break
+    if ($dpapiCandidate -and (Test-Path -LiteralPath $dpapiCandidate -PathType Leaf)) {
+      $bstr = [IntPtr]::Zero
+      try {
+        $cipherText = (Get-Content -LiteralPath $dpapiCandidate -Raw -ErrorAction SilentlyContinue).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($cipherText)) {
+          $secStr = ConvertTo-SecureString -String $cipherText -ErrorAction Stop
+          $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secStr)
+          $val = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+          if (-not [string]::IsNullOrWhiteSpace($val)) {
+            $ghToken = $val.Trim()
+            break
+          }
+        }
+      } catch {
+        # Ignore decryption failure and fail closed below
+      } finally {
+        if ($bstr -ne [IntPtr]::Zero) {
+          [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
       }
     }
   }
 }
 
 if ([string]::IsNullOrWhiteSpace($ghToken)) {
-  throw 'MISSING_GITHUB_CI_TOKEN: No GitHub PAT found in GITHUB_READONLY_TOKEN or config\test-secrets\github-ci-token.txt. Provide a valid GitHub Fine-Grained PAT during Invoke-OwnerP0Setup.ps1 to enable automated GitHub CI dispatch and artifact retrieval.'
+  throw 'MISSING_GITHUB_CI_TOKEN: No DPAPI-protected GitHub PAT found at config\release-gate\github-pat.dpapi. Enter a valid GitHub Fine-Grained PAT once via Read-Host -AsSecureString during Invoke-OwnerP0Setup.ps1.'
 }
 
 $headers = @{
@@ -76,6 +88,30 @@ $headers = @{
 }
 
 $apiBase = $GitHubApiBaseUrl.Trim().TrimEnd('/')
+
+# 1B. VERIFY MINIMUM PAT PERMISSIONS (PUSH + ACTIONS + ARTIFACTS, NO EXCESSIVE SCOPES)
+$repoCheckResp = Invoke-WebRequest -Uri "$apiBase/repos/$RepoSlug" -Headers $headers -Method Get -UseBasicParsing -TimeoutSec 15
+$oauthScopesHeader = if ($repoCheckResp.Headers -and $repoCheckResp.Headers['X-OAuth-Scopes']) { [string]$repoCheckResp.Headers['X-OAuth-Scopes'] } else { '' }
+if (-not [string]::IsNullOrWhiteSpace($oauthScopesHeader)) {
+  $scopeList = @($oauthScopesHeader -split ',' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
+  $forbiddenScopes = @('delete_repo', 'admin:org', 'admin:public_key', 'admin:repo_hook', 'admin:org_hook', 'admin:gpg_key', 'admin:enterprise', 'site_admin', 'user', 'delete:packages', 'codespace')
+  $excessiveFound = @($scopeList | Where-Object { $forbiddenScopes -contains $_ })
+  if ($excessiveFound.Count -gt 0) {
+    throw "GITHUB_PAT_EXCESSIVE_PERMISSIONS: Token contains forbidden excessive scopes ($($excessiveFound -join ', ')). Use a Fine-Grained PAT scoped strictly to $RepoSlug (Contents: Read & Write, Actions: Read & Write)."
+  }
+}
+$repoMeta = $repoCheckResp.Content | ConvertFrom-Json
+if ((-not $repoMeta.permissions) -or (-not [bool]$repoMeta.permissions.push)) {
+  throw "GITHUB_PAT_INSUFFICIENT_PUSH_PERMISSION: Token lacks Contents Read & Write (push) permission on $RepoSlug."
+}
+$wfCheckResp = Invoke-WebRequest -Uri "$apiBase/repos/$RepoSlug/actions/workflows/$WorkflowFile" -Headers $headers -Method Get -UseBasicParsing -TimeoutSec 15
+if ($wfCheckResp.StatusCode -ne 200) {
+  throw "GITHUB_PAT_INSUFFICIENT_ACTIONS_PERMISSION: Token cannot read workflow '$WorkflowFile' on $RepoSlug."
+}
+$artListCheckResp = Invoke-WebRequest -Uri "$apiBase/repos/$RepoSlug/actions/artifacts?per_page=1" -Headers $headers -Method Get -UseBasicParsing -TimeoutSec 15
+if ($artListCheckResp.StatusCode -ne 200) {
+  throw "GITHUB_PAT_INSUFFICIENT_ARTIFACTS_PERMISSION: Token cannot list/download Actions artifacts on $RepoSlug."
+}
 
 # 2. DISCOVER OR TRIGGER WORKFLOW_DISPATCH RUN ON OFFICIAL GITHUB ACTIONS
 $runsListUrl = "$apiBase/repos/$RepoSlug/actions/workflows/$WorkflowFile/runs?branch=$SourceBranch&per_page=10"
