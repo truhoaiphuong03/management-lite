@@ -75,10 +75,14 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   return (
     <div
+      className="app-shell-root"
       style={{
         display: 'flex',
         minHeight: '100vh',
-        backgroundColor: '#0B1220',
+        width: '100%',
+        maxWidth: '100%',
+        backgroundColor: 'var(--bg-color, #0B1220)',
+        color: 'var(--text-color, #F8FAFC)',
       }}
     >
       {/* Real Session Top Header */}
@@ -90,9 +94,9 @@ export const AppShell: React.FC<AppShellProps> = ({
           left: 0,
           right: 0,
           height: '44px',
-          backgroundColor: '#151F30',
-          borderBottom: '1px solid #334155',
-          color: '#F8FAFC',
+          backgroundColor: 'var(--surface-color, #151F30)',
+          borderBottom: '1px solid var(--border-color, #334155)',
+          color: 'var(--text-color, #F8FAFC)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -252,20 +256,49 @@ export const AppShell: React.FC<AppShellProps> = ({
         style={{
           flex: 1,
           minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
           marginTop: '44px',
-          marginBottom: '68px', // Space for mobile bottom nav
-          padding: '20px 16px 88px 16px',
+          marginBottom: '0px',
+          padding:
+            '16px 14px calc(84px + env(safe-area-inset-bottom, 0px)) 14px',
           maxWidth: '1200px',
           width: '100%',
-          overflowX: 'hidden', // Prevent horizontal overflow at 360/390/430px
+          overflowX: 'hidden',
+          boxSizing: 'border-box',
         }}
       >
-        <Breadcrumb
-          currentPath={currentPath}
-          onNavigate={onNavigate}
-          role={role}
-        />
-        {children}
+        <div
+          className="app-shell-content"
+          style={{ flex: 1, minWidth: 0, width: '100%' }}
+        >
+          <Breadcrumb
+            currentPath={currentPath}
+            onNavigate={onNavigate}
+            role={role}
+          />
+          {children}
+        </div>
+
+        {/* Global Bug Report Widget (UI-REPORT-01): docked in-flow below content on mobile so it NEVER overlaps primary CTAs */}
+        <div
+          className="app-shell-report-dock"
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            width: '100%',
+            marginTop: '20px',
+            paddingTop: '4px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <ReportBugWidget
+            currentPath={currentPath}
+            csrfToken={csrfToken}
+            userId={userId}
+            workspaceId={workspaceId}
+          />
+        </div>
       </main>
 
       {/* Mobile Bottom Navigation */}
@@ -286,7 +319,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(11, 18, 32, 0.85)',
+            backgroundColor: 'var(--overlay-bg, rgba(11, 18, 32, 0.85))',
             backdropFilter: 'blur(4px)',
             zIndex: 40,
             display: 'flex',
@@ -298,11 +331,12 @@ export const AppShell: React.FC<AppShellProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#151F30',
-              borderTop: '1px solid #334155',
+              backgroundColor: 'var(--surface-color, #151F30)',
+              borderTop: '1px solid var(--border-color, #334155)',
               borderTopLeftRadius: '16px',
               borderTopRightRadius: '16px',
-              padding: '20px 16px 80px 16px',
+              padding:
+                '20px 16px calc(84px + env(safe-area-inset-bottom, 0px)) 16px',
               maxHeight: '75vh',
               overflowY: 'auto',
               overscrollBehavior: 'contain',
@@ -316,11 +350,15 @@ export const AppShell: React.FC<AppShellProps> = ({
                 alignItems: 'center',
                 marginBottom: '16px',
                 paddingBottom: '12px',
-                borderBottom: '1px solid #334155',
+                borderBottom: '1px solid var(--border-color, #334155)',
               }}
             >
               <h3
-                style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC' }}
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: 'var(--text-color, #F8FAFC)',
+                }}
               >
                 Tất cả chức năng ({role === 'owner' ? 'Owner' : 'Staff'})
               </h3>
@@ -332,7 +370,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   boxSizing: 'border-box',
                   border: 'none',
                   backgroundColor: 'transparent',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color, #94A3B8)',
                   cursor: 'pointer',
                   minHeight: '44px',
                   minWidth: '44px',
@@ -368,7 +406,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
                     gap: '8px',
                   }}
                 >
@@ -388,13 +427,15 @@ export const AppShell: React.FC<AppShellProps> = ({
                         borderColor:
                           currentPath === item.path
                             ? 'rgba(20, 184, 166, 0.3)'
-                            : '#334155',
+                            : 'var(--border-color, #334155)',
                         backgroundColor:
                           currentPath === item.path
                             ? 'rgba(20, 184, 166, 0.15)'
-                            : '#0B1220',
+                            : 'var(--bg-color, #0B1220)',
                         color:
-                          currentPath === item.path ? '#14B8A6' : '#F8FAFC',
+                          currentPath === item.path
+                            ? '#14B8A6'
+                            : 'var(--text-color, #F8FAFC)',
                         fontSize: '13px',
                         fontWeight: 600,
                         textAlign: 'left',
@@ -415,7 +456,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               style={{
                 marginTop: '20px',
                 paddingTop: '12px',
-                borderTop: '1px solid #334155',
+                borderTop: '1px solid var(--border-color, #334155)',
                 textAlign: 'center',
                 fontSize: '11px',
                 color: '#64748B',
@@ -427,23 +468,22 @@ export const AppShell: React.FC<AppShellProps> = ({
         </div>
       )}
 
-      {/* Global Floating Bug Report Widget (UI-REPORT-01) */}
-      <ReportBugWidget
-        currentPath={currentPath}
-        csrfToken={csrfToken}
-        userId={userId}
-        workspaceId={workspaceId}
-      />
-
       {/* Responsive styles */}
       <style>{`
+        .app-shell-report-dock .btn-floating-report-bug {
+          position: static !important;
+          bottom: auto !important;
+          right: auto !important;
+          z-index: 1 !important;
+          margin-left: auto !important;
+        }
         @media (min-width: 769px) {
           .mobile-bottom-nav-wrapper {
             display: none !important;
           }
           main {
             margin-bottom: 24px !important;
-            padding: 32px 32px !important;
+            padding: 32px !important;
           }
         }
         @media (max-width: 768px) {
@@ -451,7 +491,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             display: none !important;
           }
           .app-shell-header {
-            padding: 0 10px !important;
+            padding: 0 max(10px, env(safe-area-inset-right, 10px)) 0 max(10px, env(safe-area-inset-left, 10px)) !important;
             gap: 6px !important;
           }
           .header-settings-prefix {

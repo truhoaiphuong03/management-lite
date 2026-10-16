@@ -333,7 +333,7 @@ export function FinanceCategoriesScreen({
               display: 'grid',
               gridTemplateColumns: narrow
                 ? '1fr'
-                : 'repeat(auto-fit, minmax(420px, 1fr))',
+                : 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
               gap: 1,
               backgroundColor: TOKENS.colors.borderSubtle,
               borderBottomLeftRadius: TOKENS.radii.md,

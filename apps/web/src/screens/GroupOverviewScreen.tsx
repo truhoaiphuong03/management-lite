@@ -165,7 +165,8 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          gridTemplateColumns:
+            'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
           gap: '14px',
         }}
       >

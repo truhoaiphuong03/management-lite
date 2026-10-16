@@ -424,14 +424,19 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
               flexWrap: 'wrap',
               gap: TOKENS.spacing[3],
               alignItems: 'center',
+              minWidth: 0,
             }}
           >
             {/* Action Filter */}
             <div
               style={{
                 display: 'flex',
+                flexWrap: 'wrap',
                 alignItems: 'center',
                 gap: TOKENS.spacing[2],
+                flex: '1 1 220px',
+                minWidth: 0,
+                maxWidth: '100%',
               }}
             >
               <label
@@ -457,6 +462,10 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                   padding: '6px 12px',
                   fontSize: '13px',
                   minHeight: '38px',
+                  flex: '1 1 160px',
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
                   outline: 'none',
                 }}
               >
@@ -502,8 +511,12 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
             <div
               style={{
                 display: 'flex',
+                flexWrap: 'wrap',
                 alignItems: 'center',
                 gap: TOKENS.spacing[2],
+                flex: '1 1 220px',
+                minWidth: 0,
+                maxWidth: '100%',
               }}
             >
               <label
@@ -529,6 +542,10 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                   padding: '6px 12px',
                   fontSize: '13px',
                   minHeight: '38px',
+                  flex: '1 1 160px',
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
                   outline: 'none',
                 }}
               >

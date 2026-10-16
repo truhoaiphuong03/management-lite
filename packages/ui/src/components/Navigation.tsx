@@ -391,19 +391,24 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   return (
     <nav
+      className="mobile-bottom-nav"
       style={{
         position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
-        height: '64px',
-        backgroundColor: '#151F30',
-        borderTop: '1px solid #334155',
+        minHeight: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+        backgroundColor: 'var(--surface-color, #151F30)',
+        borderTop: '1px solid var(--border-color, #334155)',
         display: 'flex',
         alignItems: 'stretch',
         justifyContent: 'space-around',
-        padding: '2px 4px',
-        zIndex: 50,
+        gap: '2px',
+        paddingTop: '4px',
+        paddingBottom: 'calc(6px + env(safe-area-inset-bottom, 0px))',
+        paddingLeft: 'max(4px, env(safe-area-inset-left, 0px))',
+        paddingRight: 'max(4px, env(safe-area-inset-right, 0px))',
+        zIndex: 920,
         boxSizing: 'border-box',
       }}
       aria-label="Mobile bottom navigation"
@@ -416,6 +421,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             type="button"
             onClick={() => onNavigate(group.path)}
             aria-current={isGroupActive ? 'page' : undefined}
+            className="mobile-bottom-nav-btn"
             style={{
               flex: '1 1 0%',
               minWidth: 0,
@@ -423,31 +429,45 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              height: '100%',
-              minHeight: '44px',
+              minHeight: '50px',
               border: 'none',
-              backgroundColor: 'transparent',
-              color: isGroupActive ? '#14B8A6' : '#94A3B8',
+              borderRadius: '8px',
+              backgroundColor: isGroupActive
+                ? 'rgba(20, 184, 166, 0.12)'
+                : 'transparent',
+              color: isGroupActive ? '#14B8A6' : 'var(--muted-color, #94A3B8)',
               cursor: 'pointer',
               gap: '3px',
               boxSizing: 'border-box',
-              padding: '4px 3px',
-              transition: 'color 0.15s ease',
+              padding: '4px 2px',
+              touchAction: 'manipulation',
+              transition: 'color 0.15s ease, background-color 0.15s ease',
             }}
           >
-            <NavIcon id={group.icon} size={18} />
+            <span
+              style={{
+                width: '22px',
+                height: '20px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+              aria-hidden="true"
+            >
+              <NavIcon id={group.icon} size={18} />
+            </span>
             <span
               style={{
                 fontSize: '10px',
                 lineHeight: 1.15,
-                fontWeight: isGroupActive ? 600 : 500,
+                letterSpacing: '-0.02em',
+                fontWeight: isGroupActive ? 700 : 500,
                 maxWidth: '100%',
                 textAlign: 'center',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                wordBreak: 'keep-all',
+                whiteSpace: 'normal',
+                overflowWrap: 'break-word',
+                wordBreak: 'normal',
               }}
             >
               {group.title}

@@ -14,7 +14,7 @@ import {
   RotateCcwIcon,
   EyeIcon,
   InfoIcon,
-} from '@management-lite/ui/components';
+} from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 import type {
   ScheduleData,
@@ -521,7 +521,14 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
   return (
     <div
-      style={{ maxWidth: '960px', margin: '0 auto', boxSizing: 'border-box' }}
+      className="schedule-screen-root"
+      style={{
+        maxWidth: '960px',
+        width: '100%',
+        minWidth: 0,
+        margin: '0 auto',
+        boxSizing: 'border-box',
+      }}
     >
       <PageHeader
         title="Lịch làm việc"
@@ -534,12 +541,23 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
       {/* Admin/Owner Tabs */}
       {isAdminOrOwner && (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        <div
+          className="schedule-tabs"
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(100%, 160px), 1fr))',
+            gap: '8px',
+            marginBottom: '16px',
+            width: '100%',
+            minWidth: 0,
+          }}
+        >
           <button
             type="button"
             onClick={() => setActiveTab('my_schedule')}
             style={{
-              padding: '10px 18px',
+              padding: '10px 14px',
               borderRadius: '8px',
               border:
                 activeTab === 'my_schedule'
@@ -554,6 +572,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               fontSize: '14px',
               cursor: 'pointer',
               minHeight: '44px',
+              width: '100%',
+              boxSizing: 'border-box',
+              textAlign: 'center',
             }}
           >
             Lịch của tôi (Đăng ký lịch)
@@ -562,7 +583,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             type="button"
             onClick={() => setActiveTab('staff_schedules')}
             style={{
-              padding: '10px 18px',
+              padding: '10px 14px',
               borderRadius: '8px',
               border:
                 activeTab === 'staff_schedules'
@@ -577,6 +598,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               fontSize: '14px',
               cursor: 'pointer',
               minHeight: '44px',
+              width: '100%',
+              boxSizing: 'border-box',
+              textAlign: 'center',
             }}
           >
             Lịch tất cả nhân sự
@@ -671,6 +695,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
       {/* Week Selector Bar */}
       <AppCard
+        className="schedule-week-card"
         style={{
           marginBottom: '20px',
           padding: '16px',
@@ -678,6 +703,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
         }}
       >
         <div
+          className="schedule-week-bar"
           style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -686,14 +712,29 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             gap: '12px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CalendarIcon size={20} style={{ color: '#14B8A6' }} />
-            <div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              minWidth: 0,
+            }}
+          >
+            <CalendarIcon
+              size={20}
+              style={{ color: '#14B8A6', flexShrink: 0 }}
+            />
+            <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '12px', color: '#94A3B8' }}>
                 Tuần làm việc
               </div>
               <div
-                style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC' }}
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#F8FAFC',
+                  overflowWrap: 'anywhere',
+                }}
               >
                 {weekRangeLabel}
               </div>
@@ -701,6 +742,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
           </div>
 
           <div
+            className="schedule-week-actions"
             style={{
               display: 'flex',
               flexWrap: 'wrap',
@@ -751,6 +793,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             /* VIEW REGISTERED SCHEDULE (Only show selected days + start time) */
             <div>
               <AppCard
+                className="schedule-main-card"
                 style={{
                   marginBottom: '20px',
                   padding: '20px',
@@ -769,10 +812,11 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     marginBottom: '16px',
                   }}
                 >
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <div
                       style={{
                         display: 'flex',
+                        flexWrap: 'wrap',
                         alignItems: 'center',
                         gap: '8px',
                       }}
@@ -825,6 +869,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   </div>
 
                   <div
+                    className="schedule-registered-header-actions"
                     style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}
                   >
                     <AppButton
@@ -874,22 +919,27 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                         return (
                           <div
                             key={entry.id || entry.work_date}
+                            className="schedule-registered-card"
                             style={{
                               display: 'flex',
+                              flexWrap: 'wrap',
                               alignItems: 'center',
                               justifyContent: 'space-between',
+                              gap: '12px',
                               backgroundColor: '#1E293B',
                               border: '1px solid #334155',
-                              borderRadius: '8px',
-                              padding: '12px 16px',
+                              borderRadius: '10px',
+                              padding: '12px 14px',
                               boxSizing: 'border-box',
                             }}
                           >
                             <div
                               style={{
                                 display: 'flex',
-                                alignItems: 'center',
+                                alignItems: 'flex-start',
                                 gap: '12px',
+                                minWidth: 0,
+                                flex: '1 1 200px',
                               }}
                             >
                               <div
@@ -911,7 +961,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   ? 'CN'
                                   : `T${entry.day_of_week + 1}`}
                               </div>
-                              <div>
+                              <div style={{ minWidth: 0 }}>
                                 <div
                                   style={{
                                     fontSize: '15px',
@@ -941,8 +991,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                     style={{
                                       fontSize: '12px',
                                       color: '#CBD5E1',
-                                      marginTop: '2px',
+                                      marginTop: '4px',
                                       fontStyle: 'italic',
+                                      overflowWrap: 'anywhere',
                                     }}
                                   >
                                     Ghi chú: {entry.notes}
@@ -952,8 +1003,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                             </div>
 
                             <div
+                              className="schedule-registered-time-badge"
                               style={{
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
                                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -963,6 +1015,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 color: '#10B981',
                                 fontWeight: 700,
                                 fontSize: '14px',
+                                flexShrink: 0,
                               }}
                             >
                               <ClockIcon size={16} />
@@ -984,6 +1037,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
           ) : (
             /* REGISTRATION / EDIT FORM */
             <AppCard
+              className="schedule-main-card"
               style={{
                 marginBottom: '20px',
                 padding: '20px',
@@ -1017,6 +1071,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
               {/* Quick actions for form */}
               <div
+                className="schedule-quick-actions"
                 style={{
                   display: 'flex',
                   gap: '8px',
@@ -1050,173 +1105,268 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '8px',
+                    gap: '10px',
                     marginBottom: '16px',
+                    width: '100%',
+                    minWidth: 0,
                   }}
                 >
-                  {dayEntries.map((dayItem, index) => (
-                    <div
-                      key={dayItem.dateStr}
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        padding: '12px 14px',
-                        borderRadius: '8px',
-                        backgroundColor: dayItem.isWorking
-                          ? 'rgba(20, 184, 166, 0.08)'
-                          : '#1E293B',
-                        border: `1px solid ${dayItem.isWorking ? 'rgba(20, 184, 166, 0.4)' : '#334155'}`,
-                        boxSizing: 'border-box',
-                      }}
-                    >
-                      {/* Left: Checkbox & Day Info */}
-                      <label
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          cursor: 'pointer',
-                          minHeight: '44px',
-                          userSelect: 'none',
-                          flex: 1,
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={dayItem.isWorking}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setDayEntries((prev) =>
-                              prev.map((item, idx) =>
-                                idx === index
-                                  ? { ...item, isWorking: checked }
-                                  : item,
-                              ),
-                            );
-                          }}
-                          style={{
-                            width: '20px',
-                            height: '20px',
-                            cursor: 'pointer',
-                            accentColor: '#14B8A6',
-                          }}
-                        />
-                        <div>
-                          <div
-                            style={{
-                              fontSize: '14px',
-                              fontWeight: 600,
-                              color: '#F8FAFC',
-                            }}
-                          >
-                            {dayItem.dayLabel}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                            {formatDateDisplay(dayItem.dateStr)}
-                          </div>
-                        </div>
-                      </label>
-
-                      {/* Right: Start Time Picker and Notes */}
+                  {dayEntries.map((dayItem, index) => {
+                    const shortDayBadge =
+                      dayItem.dayIndex === 7
+                        ? 'CN'
+                        : `T${dayItem.dayIndex + 1}`;
+                    return (
                       <div
+                        key={dayItem.dateStr}
+                        className="schedule-day-card"
+                        data-testid={`schedule-day-card-${dayItem.dayIndex}`}
                         style={{
                           display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
                           flexWrap: 'wrap',
-                          justifyContent: 'flex-end',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          padding: '14px',
+                          borderRadius: '10px',
+                          backgroundColor: dayItem.isWorking
+                            ? 'rgba(20, 184, 166, 0.08)'
+                            : '#1E293B',
+                          border: `1px solid ${dayItem.isWorking ? 'rgba(20, 184, 166, 0.45)' : '#334155'}`,
+                          width: '100%',
+                          minWidth: 0,
+                          boxSizing: 'border-box',
                         }}
                       >
-                        <div
+                        {/* Top / Left: Checkbox, Day Badge, Day Label & Status Pill */}
+                        <label
+                          className="schedule-day-header"
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px',
+                            justifyContent: 'space-between',
+                            gap: '10px',
+                            cursor: 'pointer',
+                            minHeight: '44px',
+                            userSelect: 'none',
+                            flex: '1 1 210px',
+                            minWidth: 0,
                           }}
                         >
-                          <span
-                            style={{
-                              fontSize: '13px',
-                              color: dayItem.isWorking ? '#CBD5E1' : '#64748B',
-                            }}
-                          >
-                            Giờ bắt đầu:
-                          </span>
-                          <input
-                            type="time"
-                            value={dayItem.startTime}
-                            disabled={!dayItem.isWorking}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setDayEntries((prev) =>
-                                prev.map((item, idx) =>
-                                  idx === index
-                                    ? { ...item, startTime: val }
-                                    : item,
-                                ),
-                              );
-                            }}
-                            style={{
-                              backgroundColor: dayItem.isWorking
-                                ? '#0F172A'
-                                : '#1E293B',
-                              color: dayItem.isWorking ? '#F8FAFC' : '#64748B',
-                              border: `1px solid ${dayItem.isWorking ? '#14B8A6' : '#334155'}`,
-                              borderRadius: '6px',
-                              padding: '6px 10px',
-                              fontSize: '14px',
-                              fontWeight: 600,
-                              minHeight: '44px',
-                              boxSizing: 'border-box',
-                              cursor: dayItem.isWorking
-                                ? 'text'
-                                : 'not-allowed',
-                            }}
-                          />
-                        </div>
-
-                        {dayItem.isWorking && (
                           <div
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '6px',
+                              gap: '10px',
+                              minWidth: 0,
                             }}
                           >
                             <input
-                              type="text"
-                              placeholder="Ghi chú ca (tùy chọn)..."
-                              value={dayItem.notes || ''}
+                              type="checkbox"
+                              checked={dayItem.isWorking}
                               onChange={(e) => {
-                                const val = e.target.value;
+                                const checked = e.target.checked;
                                 setDayEntries((prev) =>
                                   prev.map((item, idx) =>
                                     idx === index
-                                      ? { ...item, notes: val }
+                                      ? { ...item, isWorking: checked }
                                       : item,
                                   ),
                                 );
                               }}
                               style={{
-                                backgroundColor: '#0F172A',
-                                color: '#F8FAFC',
-                                border: '1px solid #334155',
-                                borderRadius: '6px',
-                                padding: '6px 10px',
+                                width: '20px',
+                                height: '20px',
+                                cursor: 'pointer',
+                                accentColor: '#14B8A6',
+                                flexShrink: 0,
+                              }}
+                            />
+                            <div
+                              style={{
+                                width: '34px',
+                                height: '34px',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                flexShrink: 0,
+                                backgroundColor: dayItem.isWorking
+                                  ? 'rgba(20, 184, 166, 0.18)'
+                                  : 'rgba(148, 163, 184, 0.12)',
+                                color: dayItem.isWorking
+                                  ? '#14B8A6'
+                                  : '#94A3B8',
+                                border: `1px solid ${
+                                  dayItem.isWorking
+                                    ? 'rgba(20, 184, 166, 0.35)'
+                                    : 'rgba(148, 163, 184, 0.2)'
+                                }`,
+                              }}
+                            >
+                              {shortDayBadge}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: '15px',
+                                  fontWeight: 700,
+                                  color: '#F8FAFC',
+                                  lineHeight: 1.25,
+                                }}
+                              >
+                                {dayItem.dayLabel}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: '12px',
+                                  color: '#94A3B8',
+                                  marginTop: '2px',
+                                }}
+                              >
+                                {formatDateDisplay(dayItem.dateStr)}
+                              </div>
+                            </div>
+                          </div>
+
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '3px 8px',
+                              borderRadius: '999px',
+                              flexShrink: 0,
+                              backgroundColor: dayItem.isWorking
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : 'rgba(100, 116, 139, 0.18)',
+                              color: dayItem.isWorking ? '#10B981' : '#94A3B8',
+                              border: `1px solid ${
+                                dayItem.isWorking
+                                  ? 'rgba(16, 185, 129, 0.35)'
+                                  : 'rgba(100, 116, 139, 0.3)'
+                              }`,
+                            }}
+                          >
+                            {dayItem.isWorking ? 'Đi làm' : 'Nghỉ'}
+                          </span>
+                        </label>
+
+                        {/* Bottom / Right: Start Time Picker and Shift Notes */}
+                        <div
+                          className="schedule-day-controls"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            flexWrap: 'wrap',
+                            minWidth: 0,
+                          }}
+                        >
+                          <div
+                            className="schedule-day-time-row"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '8px',
+                              minWidth: 0,
+                            }}
+                          >
+                            <span
+                              style={{
                                 fontSize: '13px',
+                                fontWeight: 500,
+                                color: dayItem.isWorking
+                                  ? '#CBD5E1'
+                                  : '#64748B',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Giờ bắt đầu:
+                            </span>
+                            <input
+                              type="time"
+                              aria-label={`Giờ bắt đầu ${dayItem.dayLabel}`}
+                              value={dayItem.startTime}
+                              disabled={!dayItem.isWorking}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setDayEntries((prev) =>
+                                  prev.map((item, idx) =>
+                                    idx === index
+                                      ? { ...item, startTime: val }
+                                      : item,
+                                  ),
+                                );
+                              }}
+                              style={{
+                                backgroundColor: dayItem.isWorking
+                                  ? '#0F172A'
+                                  : '#1E293B',
+                                color: dayItem.isWorking
+                                  ? '#F8FAFC'
+                                  : '#64748B',
+                                border: `1px solid ${dayItem.isWorking ? '#14B8A6' : '#334155'}`,
+                                borderRadius: '8px',
+                                padding: '6px 10px',
+                                fontSize: '15px',
+                                fontWeight: 600,
                                 minHeight: '44px',
-                                minWidth: '180px',
+                                minWidth: 0,
                                 boxSizing: 'border-box',
+                                cursor: dayItem.isWorking
+                                  ? 'text'
+                                  : 'not-allowed',
                               }}
                             />
                           </div>
-                        )}
+
+                          {dayItem.isWorking && (
+                            <div
+                              className="schedule-day-note-row"
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                minWidth: 0,
+                              }}
+                            >
+                              <input
+                                type="text"
+                                aria-label={`Ghi chú ca ${dayItem.dayLabel}`}
+                                placeholder="Ghi chú ca (tùy chọn)..."
+                                value={dayItem.notes || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setDayEntries((prev) =>
+                                    prev.map((item, idx) =>
+                                      idx === index
+                                        ? { ...item, notes: val }
+                                        : item,
+                                    ),
+                                  );
+                                }}
+                                style={{
+                                  backgroundColor: '#0F172A',
+                                  color: '#F8FAFC',
+                                  border: '1px solid #334155',
+                                  borderRadius: '8px',
+                                  padding: '8px 12px',
+                                  fontSize: '14px',
+                                  minHeight: '44px',
+                                  width: '100%',
+                                  minWidth: 0,
+                                  boxSizing: 'border-box',
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Reason Input (OPTIONAL if Editing) */}
@@ -1257,6 +1407,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
                 {/* Action Buttons */}
                 <div
+                  className="schedule-form-actions"
                   style={{
                     display: 'flex',
                     gap: '10px',
@@ -1279,7 +1430,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     type="submit"
                     variant="primary"
                     disabled={submitting}
-                    style={{ minHeight: '44px' }}
+                    data-testid="btn-submit-schedule"
+                    style={{ minHeight: '48px' }}
                   >
                     {submitting
                       ? 'Đang lưu...'
@@ -1337,6 +1489,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 alignItems: 'center',
                 gap: '12px',
                 flexWrap: 'wrap',
+                minWidth: 0,
               }}
             >
               <div
@@ -1358,6 +1511,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   padding: '8px 12px',
                   fontSize: '13px',
                   minHeight: '44px',
+                  flex: '1 1 200px',
+                  minWidth: 0,
+                  maxWidth: '100%',
                   boxSizing: 'border-box',
                 }}
               >
@@ -1426,6 +1582,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               display: 'flex',
                               alignItems: 'center',
                               gap: '10px',
+                              minWidth: 0,
                             }}
                           >
                             <div
@@ -1437,16 +1594,18 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
+                                flexShrink: 0,
                               }}
                             >
                               <UserIcon size={18} />
                             </div>
-                            <div>
+                            <div style={{ minWidth: 0 }}>
                               <div
                                 style={{
                                   fontSize: '15px',
                                   fontWeight: 700,
                                   color: '#F8FAFC',
+                                  overflowWrap: 'anywhere',
                                 }}
                               >
                                 {schedule.employee_name || 'Nhân viên'}
@@ -1464,6 +1623,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           <div
                             style={{
                               display: 'flex',
+                              flexWrap: 'wrap',
                               alignItems: 'center',
                               gap: '8px',
                             }}
@@ -1524,13 +1684,16 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   style={{
                                     backgroundColor: '#1E293B',
                                     border: '1px solid #334155',
-                                    borderRadius: '6px',
+                                    borderRadius: '8px',
                                     padding: '8px 12px',
                                     fontSize: '13px',
                                     display: 'flex',
+                                    flexWrap: 'wrap',
                                     alignItems: 'center',
+                                    justifyContent: 'space-between',
                                     gap: '8px',
                                     boxSizing: 'border-box',
+                                    maxWidth: '100%',
                                   }}
                                 >
                                   <span
@@ -1567,6 +1730,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                         color: '#94A3B8',
                                         fontSize: '11px',
                                         fontStyle: 'italic',
+                                        overflowWrap: 'anywhere',
                                       }}
                                     >
                                       ({e.notes})
@@ -1605,6 +1769,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             padding: '16px',
             zIndex: 1000,
             boxSizing: 'border-box',
+            overscrollBehavior: 'contain',
           }}
         >
           <div
@@ -1614,8 +1779,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               borderRadius: '12px',
               maxWidth: '640px',
               width: '100%',
-              maxHeight: '90vh',
+              maxHeight: 'calc(100dvh - 32px)',
               overflowY: 'auto',
+              overscrollBehavior: 'contain',
               padding: '20px',
               boxSizing: 'border-box',
             }}
@@ -1698,8 +1864,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     <div
                       style={{
                         display: 'flex',
+                        flexWrap: 'wrap',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        gap: '6px',
                         marginBottom: '6px',
                       }}
                     >
@@ -1777,6 +1945,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             padding: '16px',
             zIndex: 1000,
             boxSizing: 'border-box',
+            overscrollBehavior: 'contain',
           }}
         >
           <div
@@ -1786,8 +1955,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               borderRadius: '12px',
               maxWidth: '680px',
               width: '100%',
-              maxHeight: '90vh',
+              maxHeight: 'calc(100dvh - 32px)',
               overflowY: 'auto',
+              overscrollBehavior: 'contain',
               padding: '20px',
               boxSizing: 'border-box',
             }}
@@ -1802,12 +1972,13 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 marginBottom: '16px',
               }}
             >
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div
                   style={{
                     fontSize: '16px',
                     fontWeight: 700,
                     color: '#F8FAFC',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   Lịch làm việc: {ownerDetailSchedule.employee_name}
@@ -1831,6 +2002,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  flexShrink: 0,
                 }}
                 aria-label="Đóng"
               >
@@ -1882,8 +2054,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           key={e.id || e.work_date}
                           style={{
                             display: 'flex',
+                            flexWrap: 'wrap',
                             alignItems: 'center',
                             justifyContent: 'space-between',
+                            gap: '8px',
                             backgroundColor: '#1E293B',
                             border: '1px solid #334155',
                             borderRadius: '6px',
@@ -1891,7 +2065,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                             boxSizing: 'border-box',
                           }}
                         >
-                          <div>
+                          <div style={{ minWidth: 0 }}>
                             <span style={{ fontWeight: 600, color: '#F8FAFC' }}>
                               {dayName} ({formatDateDisplay(e.work_date)})
                             </span>
@@ -1902,6 +2076,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   color: '#94A3B8',
                                   marginTop: '2px',
                                   fontStyle: 'italic',
+                                  overflowWrap: 'anywhere',
                                 }}
                               >
                                 Ghi chú: {e.notes}
@@ -1964,7 +2139,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       <div
                         style={{
                           display: 'flex',
+                          flexWrap: 'wrap',
                           justifyContent: 'space-between',
+                          gap: '6px',
                           color: '#94A3B8',
                           marginBottom: '4px',
                         }}
@@ -2005,6 +2182,99 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
           </div>
         </div>
       )}
+
+      <style>{`
+        @media (min-width: 641px) {
+          .schedule-day-note-row {
+            width: 220px;
+          }
+        }
+        @media (max-width: 640px) {
+          .schedule-week-card,
+          .schedule-main-card {
+            padding: 14px !important;
+          }
+          .schedule-week-bar {
+            flex-direction: column;
+            align-items: stretch !important;
+          }
+          .schedule-week-actions {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            width: 100%;
+            gap: 8px !important;
+          }
+          .schedule-week-actions button {
+            width: 100%;
+            justify-content: center;
+          }
+          .schedule-quick-actions {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            width: 100%;
+          }
+          .schedule-quick-actions button {
+            width: 100%;
+            justify-content: center;
+          }
+          .schedule-day-card {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+            padding: 12px !important;
+          }
+          .schedule-day-header {
+            flex: none !important;
+            width: 100% !important;
+          }
+          .schedule-day-controls {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            width: 100% !important;
+            gap: 8px !important;
+            border-top: 1px solid rgba(51, 65, 85, 0.65);
+            padding-top: 10px;
+          }
+          .schedule-day-time-row {
+            width: 100% !important;
+            justify-content: space-between !important;
+          }
+          .schedule-day-time-row input[type="time"] {
+            flex: 0 1 140px;
+            max-width: 100%;
+          }
+          .schedule-day-note-row {
+            width: 100% !important;
+          }
+          .schedule-day-note-row input[type="text"] {
+            width: 100% !important;
+          }
+          .schedule-form-actions {
+            flex-direction: column-reverse;
+            align-items: stretch !important;
+          }
+          .schedule-form-actions button {
+            width: 100% !important;
+            justify-content: center;
+          }
+          .schedule-registered-header-actions {
+            width: 100%;
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          }
+          .schedule-registered-header-actions button {
+            width: 100%;
+            justify-content: center;
+          }
+          .schedule-registered-card {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .schedule-registered-time-badge {
+            align-self: flex-start;
+          }
+        }
+      `}</style>
     </div>
   );
 };

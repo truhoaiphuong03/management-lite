@@ -921,6 +921,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
             justifyContent: 'center',
             padding: '16px',
             boxSizing: 'border-box',
+            overscrollBehavior: 'contain',
           }}
         >
           <div
@@ -928,10 +929,13 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
             style={{
               width: '100%',
               maxWidth: '520px',
+              maxHeight: 'calc(100dvh - 32px)',
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
               backgroundColor: '#151F30',
               border: '1px solid #334155',
               borderRadius: '12px',
-              padding: '24px',
+              padding: '20px',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
               boxSizing: 'border-box',
               color: '#F8FAFC',
@@ -1402,12 +1406,20 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
 
       {/* Floating button responsive styles */}
       <style>{`
+        .app-shell-report-dock .btn-floating-report-bug {
+          position: static !important;
+          bottom: auto !important;
+          right: auto !important;
+          z-index: 1 !important;
+          margin-left: auto !important;
+        }
         @media (max-width: 768px) {
           .btn-floating-report-bug {
-            bottom: 80px !important;
+            bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important;
             right: 16px !important;
             padding: 8px 14px !important;
             font-size: 12px !important;
+            min-height: 44px !important;
           }
         }
       `}</style>

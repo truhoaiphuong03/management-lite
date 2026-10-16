@@ -50,7 +50,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
   const [currentShift, setCurrentShift] = useState<ShiftData | null>(null);
   const [recentShifts, setRecentShifts] = useState<ShiftData[]>([]);
   const [myShiftPage, setMyShiftPage] = useState<number>(0);
-  const [myShiftPageSize, setMyShiftPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
+  const [myShiftPageSize, setMyShiftPageSize] =
+    useState<number>(DEFAULT_PAGE_SIZE);
 
   const safeMyShiftPage = clampPage(
     myShiftPage,
@@ -719,6 +720,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
         <div
           style={{
             display: 'flex',
+            flexWrap: 'wrap',
             gap: '8px',
             marginBottom: '20px',
             borderBottom: '1px solid #334155',

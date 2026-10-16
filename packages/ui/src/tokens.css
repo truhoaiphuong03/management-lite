@@ -192,20 +192,66 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
-/* Layout stability for interactive elements without shifts */
+/* Layout stability for interactive elements without shifts or horizontal overflow */
 button,
 input,
 select,
 textarea {
   box-sizing: border-box;
   font-family: inherit;
+  touch-action: manipulation;
+}
+
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+
+button,
+a,
+label {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 button {
-  -webkit-tap-highlight-color: transparent;
   user-select: none;
+}
+
+/* Prevent iOS Safari auto-zoom on input focus (< 16px triggers zoom & cuts off left edge) */
+@media (max-width: 768px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Light theme surface adaptation for AppShell, Navigation, and Cards */
+:root[data-theme='light'] .app-shell-root,
+[data-theme='light'] .app-shell-root {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+:root[data-theme='light'] .app-shell-header,
+[data-theme='light'] .app-shell-header,
+:root[data-theme='light'] .mobile-bottom-nav,
+[data-theme='light'] .mobile-bottom-nav {
+  background-color: var(--surface-color) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+:root[data-theme='light'] .app-shell-brand-title,
+[data-theme='light'] .app-shell-brand-title {
+  color: var(--text-color) !important;
 }
 
 /* Base focus styles for accessibility */
