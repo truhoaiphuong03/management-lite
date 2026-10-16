@@ -9,8 +9,15 @@ import { fileURLToPath } from 'node:url';
 
 function buildIsolatedTestEnv(overrides = {}) {
   const cleanEnv = { ...process.env };
+  for (const key of Object.keys(cleanEnv)) {
+    const upper = key.toUpperCase();
+    if (upper.startsWith('GITHUB_') || upper.startsWith('RUNNER_')) {
+      delete cleanEnv[key];
+    }
+  }
   for (const key of [
     'GITHUB_ACTIONS',
+    'GITHUB_EVENT_NAME',
     'RUNNER_TRACKING_ID',
     'GITHUB_WORKFLOW',
     'GITHUB_RUN_ID',
@@ -28,6 +35,12 @@ function buildIsolatedTestEnv(overrides = {}) {
     delete cleanEnv[key];
     cleanEnv[key] = '';
   }
+  const sysRoot = process.env.SystemRoot || 'C:\\Windows';
+  const progFiles = process.env.ProgramFiles || 'C:\\Program Files';
+  cleanEnv.PSModulePath = [
+    path.join(sysRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'Modules'),
+    path.join(progFiles, 'WindowsPowerShell', 'Modules'),
+  ].join(';');
   return {
     ...cleanEnv,
     ...overrides,

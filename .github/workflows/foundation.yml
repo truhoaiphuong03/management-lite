@@ -33,7 +33,7 @@ jobs:
           git config --global user.name "Windows P0 Security CI"
           git config --global user.email "windows-p0-ci@isolated.example.test"
       - name: Run Cross-Platform Policy & Windows P0 Security Gate Suite
-        shell: pwsh
+        shell: powershell
         run: |
           node --test tests/backend/cicd-policy.test.mjs tests/backend/windows-p0-gate.test.mjs
       - name: Deployment syntax and isolated simulation on Windows PowerShell

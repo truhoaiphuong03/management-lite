@@ -283,7 +283,10 @@ function Restore-P0SetupSnapshot {
     if (Test-Path -LiteralPath $gateDir) {
       Remove-Item -LiteralPath $gateDir -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Copy-Item -LiteralPath $snapGate -Destination $gateDir -Recurse -Force
+    New-Item -ItemType Directory -Path $gateDir -Force | Out-Null
+    Get-ChildItem -LiteralPath $snapGate -Force | ForEach-Object {
+      Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gateDir $_.Name) -Recurse -Force
+    }
   }
   $snapScripts = Join-Path $SnapRoot 'prod-deploy-scripts'
   if (Test-Path -LiteralPath $snapScripts) {
@@ -320,7 +323,7 @@ foreach ($reqScript in $requiredDevScripts) {
   }
 }
 
-$timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+$timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6)
 $auditBackupDir = Join-Path $ServerRoot "backups\management-lite\p0-audit-evidence-$timestamp"
 $rollbackSnapDir = Join-Path $auditBackupDir 'rollback-snapshot'
 
@@ -407,7 +410,12 @@ try {
 
   $effectiveSecurePat = $GitHubPatSecure
   if ($null -eq $effectiveSecurePat) {
-    foreach ($existingDpapiCandidate in @($dpapiPatPath, $StagedDpapiPatPath)) {
+    $dpapiCandidates = if ($SandboxMode -and (-not $PSBoundParameters.ContainsKey('StagedDpapiPatPath'))) {
+      @($dpapiPatPath)
+    } else {
+      @($dpapiPatPath, $StagedDpapiPatPath)
+    }
+    foreach ($existingDpapiCandidate in $dpapiCandidates) {
       if ((-not [string]::IsNullOrWhiteSpace($existingDpapiCandidate)) -and (Test-Path -LiteralPath $existingDpapiCandidate -PathType Leaf)) {
         $cipherVal = (Get-Content -LiteralPath $existingDpapiCandidate -Raw -ErrorAction SilentlyContinue).Trim()
         if (-not [string]::IsNullOrWhiteSpace($cipherVal)) {
