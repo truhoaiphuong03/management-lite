@@ -6,7 +6,7 @@ param(
   [string]$WorkflowFile = 'foundation.yml',
   [string]$SourceBranch = 'anty/dev-complete-rc',
   [string]$GitHubApiBaseUrl = 'https://api.github.com',
-  [string]$DevRepoDir = 'C:\HoaiPhuong-Server\workspace\management-lite-uiux-integration-test',
+  [string]$DevRepoDir = '',
   [string]$DpapiTokenPath = 'C:\HoaiPhuong-Server\workspace\github-pat.dpapi',
   [string]$ReportOutPath = 'C:\HoaiPhuong-Server\reports\github-pat-live-ci-verification.json',
   [Security.SecureString]$GitHubPatSecure = $null,
@@ -19,6 +19,10 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($DevRepoDir) -or -not (Test-Path -LiteralPath $DevRepoDir)) {
+  $DevRepoDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+}
 
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $currentAdminName = $currentIdentity.Name
