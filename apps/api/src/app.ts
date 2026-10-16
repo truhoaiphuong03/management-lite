@@ -26,7 +26,11 @@ import { WorkService } from './work/service.js';
 import { PayrollService } from './payroll/service.js';
 import { SchedulesService } from './schedules/service.js';
 import { AccountsService } from './accounts/service.js';
-import { requireAuth, requireCsrf, extractSessionToken } from './auth/guard.js';
+import {
+  requireAuth as rawRequireAuth,
+  requireCsrf,
+  extractSessionToken,
+} from './auth/guard.js';
 import {
   serializeSessionCookie,
   serializeClearSessionCookie,
@@ -69,6 +73,8 @@ import { StorageService } from './storage/service.js';
 import { AuditService, AuditServiceError } from './audit/service.js';
 import { IssuesService } from './issues/service.js';
 import { FinanceService } from './finance/service.js';
+import { DashboardService } from './dashboard/service.js';
+import { ScopedApiCache } from './cache/api-cache.js';
 import { FinanceValidationError } from '../../../packages/contracts/src/finance.js';
 import type {
   CreateIssueRequest,
@@ -96,6 +102,8 @@ export interface AppDependencies {
   auditService?: AuditService;
   issuesService?: IssuesService;
   financeService?: FinanceService;
+  dashboardService?: DashboardService;
+  apiCache?: ScopedApiCache;
   accountSecretKey?: Buffer | undefined;
   csrfSecret?: string;
   allowedOrigins?: string[];
@@ -422,6 +430,10 @@ export function createRequestHandler(
     deps.issuesService ?? (deps.pool ? new IssuesService(deps.pool) : null);
   const financeService =
     deps.financeService ?? (deps.pool ? new FinanceService(deps.pool) : null);
+  const dashboardService =
+    deps.dashboardService ??
+    (deps.pool ? new DashboardService(deps.pool) : null);
+  const apiCache = deps.apiCache ?? new ScopedApiCache();
 
   return async (req: http.IncomingMessage, res: http.ServerResponse) => {
     // 1. Assign deterministic or header-provided request_id
@@ -434,6 +446,97 @@ export function createRequestHandler(
     try {
       const pathname = parseRequestPath(req);
       const method = req.method?.toUpperCase() || 'GET';
+
+      let authenticatedWorkspaceId: string | null = null;
+      let authenticatedUserId: string | null = null;
+      const requireAuth: typeof rawRequireAuth = async (
+        svc,
+        r,
+        prod,
+        cookieName,
+      ) => {
+        const ctx = await rawRequireAuth(svc, r, prod, cookieName);
+        authenticatedWorkspaceId = ctx.workspace.id;
+        authenticatedUserId = ctx.user.id;
+        return ctx;
+      };
+
+      const origWriteHead = res.writeHead.bind(res);
+      res.writeHead = ((statusCode: number, ...args: unknown[]) => {
+        if (
+          method !== 'GET' &&
+          method !== 'HEAD' &&
+          method !== 'OPTIONS' &&
+          statusCode >= 200 &&
+          statusCode < 400
+        ) {
+          if (authenticatedWorkspaceId) {
+            apiCache.invalidateWorkspace(authenticatedWorkspaceId);
+          }
+          if (
+            authenticatedUserId &&
+            (pathname === '/api/v1/auth/logout' ||
+              pathname.startsWith('/api/v1/auth/password') ||
+              pathname === '/api/v1/auth/change-password')
+          ) {
+            apiCache.invalidateUser(authenticatedUserId);
+          }
+          if (
+            pathname === '/api/v1/auth/reset-password' ||
+            pathname === '/api/v1/auth/activate'
+          ) {
+            apiCache.clearAll();
+          }
+        }
+        return (origWriteHead as (...a: unknown[]) => http.ServerResponse)(
+          statusCode,
+          ...args,
+        );
+      }) as typeof res.writeHead;
+
+      if (method === 'GET' && pathname === '/api/v1/dashboard/summary') {
+        if (!authService || !dashboardService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+          sessionCookieName,
+        );
+        const parsedUrl = new URL(req.url || '/', 'http://localhost');
+        const dateParam = parsedUrl.searchParams.get('date') || undefined;
+        const monthParam = parsedUrl.searchParams.get('month') || undefined;
+        const bypassCache =
+          req.headers['x-cache-bypass'] === '1' ||
+          String(req.headers['cache-control'] || '').includes('no-cache');
+
+        const { data, cacheStatus } = await apiCache.getOrLoad(
+          sessionContext,
+          req.url || pathname,
+          () =>
+            dashboardService.getSummary(sessionContext, {
+              date: dateParam,
+              month: monthParam,
+            }),
+          { bypassCache, ttlMs: 15_000 },
+        );
+
+        return sendJson(res, 200, createSuccessEnvelope(data, requestId), {
+          'Cache-Control': 'private, no-store',
+          'X-Cache': cacheStatus,
+        });
+      }
+
       if (pathname === '/api/v1/fin' || pathname.startsWith('/api/v1/fin/')) {
         if (!authService || !financeService)
           throw new AuthError(

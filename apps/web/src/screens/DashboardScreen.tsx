@@ -15,10 +15,18 @@ import type { AttendanceMeResponseData } from '../../../../packages/contracts/sr
 import type { DailyReportListItem } from '../../../../packages/contracts/src/reports.js';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 import type { PayrollMonthOverviewData } from '../../../../packages/contracts/src/payroll.js';
+import type { DashboardSummaryResponseData } from '../../../../packages/contracts/src/dashboard.js';
+import {
+  fetchWithFrontendCache,
+  getFrontendCachedData,
+  type FrontendCacheScope,
+} from '../cache/query-cache.js';
 
 export interface DashboardScreenProps {
   role: UserRole;
   workspaceName?: string | undefined;
+  userId?: string | undefined;
+  workspaceId?: string | undefined;
   onNavigate: (path: string) => void;
 }
 
@@ -51,6 +59,8 @@ function getVietnamTodayIso(): string {
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   role,
   workspaceName,
+  userId,
+  workspaceId,
   onNavigate,
 }) => {
   const [shiftMetric, setShiftMetric] = useState<MetricCardState>({
@@ -95,196 +105,308 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     let active = true;
     const todayIso = getVietnamTodayIso();
     const currentMonth = todayIso.slice(0, 7);
+    const cacheScope: FrontendCacheScope = {
+      userId,
+      workspaceId,
+      role,
+    };
+    const summaryUrl = `/api/v1/dashboard/summary?date=${encodeURIComponent(todayIso)}&month=${encodeURIComponent(currentMonth)}`;
 
-    const loadSummary = async () => {
-      try {
-        const attRes = await fetch('/api/v1/attendance/me', {
-          credentials: 'include',
-          signal: controller.signal,
+    const applySummaryData = (summary: DashboardSummaryResponseData) => {
+      if (!active) return;
+
+      const currentShift = summary.shift?.current_shift;
+      const recentCount = summary.shift?.recent_shifts_count ?? 0;
+
+      if (currentShift?.run_state === 'working') {
+        setShiftMetric({
+          badgeStatus: 'success',
+          badgeLabel: 'Đang làm việc',
+          value: 'Đang trong ca',
+          subtext: 'Ca làm việc hiện tại đang mở',
         });
-        if (active && attRes && attRes.ok) {
-          const body: { success?: boolean; data?: AttendanceMeResponseData } =
-            await attRes.json();
-          if (active && body?.data) {
-            const currentShift = body.data.current_shift;
-            const recentShifts = Array.isArray(body.data.recent_shifts)
-              ? body.data.recent_shifts
-              : [];
-
-            if (currentShift?.run_state === 'working') {
-              setShiftMetric({
-                badgeStatus: 'success',
-                badgeLabel: 'Đang làm việc',
-                value: 'Đang trong ca',
-                subtext: 'Ca làm việc hiện tại đang mở',
-              });
-            } else if (currentShift?.run_state === 'paused') {
-              setShiftMetric({
-                badgeStatus: 'warning',
-                badgeLabel: 'Tạm nghỉ',
-                value: 'Nghỉ giải lao',
-                subtext: 'Ca làm việc đang tạm dừng',
-              });
-            } else if (body.data.current_shift !== undefined) {
-              setShiftMetric({
-                badgeStatus: 'neutral',
-                badgeLabel: 'Ngoài ca',
-                value: 'Chưa vào ca',
-                subtext:
-                  recentShifts.length > 0
-                    ? `${recentShifts.length} ca làm gần đây`
-                    : 'Sẵn sàng bắt đầu ca mới',
-              });
-            }
-
-            if (role !== 'owner' && Array.isArray(body.data.recent_shifts)) {
-              const completedCount = recentShifts.filter(
-                (s) => s.run_state === 'completed',
-              ).length;
-              const totalWorkedSeconds = recentShifts.reduce(
-                (acc, s) => acc + (s.worked_seconds || 0),
-                0,
-              );
-              const hours = Math.round((totalWorkedSeconds / 3600) * 10) / 10;
-              setStaffAttendanceMetric({
-                badgeStatus: completedCount > 0 ? 'success' : 'neutral',
-                badgeLabel: 'Staff view',
-                value: `${completedCount} ca hoàn tất`,
-                subtext: `${hours} giờ làm việc đã ghi nhận`,
-              });
-            }
-          }
-        }
-      } catch {
-        // Keep safe default fallback
+      } else if (currentShift?.run_state === 'paused') {
+        setShiftMetric({
+          badgeStatus: 'warning',
+          badgeLabel: 'Tạm nghỉ',
+          value: 'Nghỉ giải lao',
+          subtext: 'Ca làm việc đang tạm dừng',
+        });
+      } else if (summary.shift) {
+        setShiftMetric({
+          badgeStatus: 'neutral',
+          badgeLabel: 'Ngoài ca',
+          value: 'Chưa vào ca',
+          subtext:
+            recentCount > 0
+              ? `${recentCount} ca làm gần đây`
+              : 'Sẵn sàng bắt đầu ca mới',
+        });
       }
 
-      try {
-        const repRes = await fetch('/api/v1/reports/me', {
-          credentials: 'include',
-          signal: controller.signal,
+      if (role !== 'owner' && summary.shift) {
+        const completedCount = summary.shift.completed_shifts_count ?? 0;
+        const totalWorkedSeconds = summary.shift.total_worked_seconds ?? 0;
+        const hours = Math.round((totalWorkedSeconds / 3600) * 10) / 10;
+        setStaffAttendanceMetric({
+          badgeStatus: completedCount > 0 ? 'success' : 'neutral',
+          badgeLabel: 'Staff view',
+          value: `${completedCount} ca hoàn tất`,
+          subtext: `${hours} giờ làm việc đã ghi nhận`,
         });
-        if (active && repRes && repRes.ok) {
-          const body: {
-            success?: boolean;
-            data?: { items?: DailyReportListItem[] };
-          } = await repRes.json();
-          if (active && Array.isArray(body?.data?.items)) {
-            const items = body.data.items;
-            const todayReport = items.find((r) => r.report_date === todayIso);
-            if (todayReport) {
-              const isSubmitted = todayReport.status === 'submitted';
-              setReportMetric({
-                badgeStatus: isSubmitted ? 'success' : 'warning',
-                badgeLabel: isSubmitted ? 'Đã nộp' : 'Bản nháp',
-                value: isSubmitted ? 'Đã nộp hôm nay' : 'Đang lưu nháp',
-                subtext: `${todayReport.total_reported_count ?? todayReport.entries_count ?? 0} hạng mục công việc`,
-              });
-            } else {
-              setReportMetric({
-                badgeStatus: 'neutral',
-                badgeLabel: 'Chưa nộp',
-                value: `${items.length} báo cáo`,
-                subtext: 'Chưa có báo cáo hôm nay',
-              });
-            }
-          }
+      }
+
+      if (summary.report) {
+        const todayReport = summary.report.today_report;
+        if (todayReport) {
+          const isSubmitted = todayReport.status === 'submitted';
+          setReportMetric({
+            badgeStatus: isSubmitted ? 'success' : 'warning',
+            badgeLabel: isSubmitted ? 'Đã nộp' : 'Bản nháp',
+            value: isSubmitted ? 'Đã nộp hôm nay' : 'Đang lưu nháp',
+            subtext: `${todayReport.total_reported_count ?? todayReport.entries_count ?? 0} hạng mục công việc`,
+          });
+        } else {
+          setReportMetric({
+            badgeStatus: 'neutral',
+            badgeLabel: 'Chưa nộp',
+            value: `${summary.report.total_reports_count ?? 0} báo cáo`,
+            subtext: 'Chưa có báo cáo hôm nay',
+          });
         }
-      } catch {
-        // Keep safe default fallback
       }
 
       if (role === 'owner') {
-        try {
-          const allEmployees: EmployeeData[] = [];
-          const seenIds = new Set<string>();
-          let cursor: string | null = null;
-          for (let page = 0; page < 10; page++) {
-            const url = cursor
-              ? `/api/v1/employees?limit=100&cursor=${encodeURIComponent(cursor)}`
-              : '/api/v1/employees?limit=100';
-            const empRes = await fetch(url, {
-              credentials: 'include',
-              signal: controller.signal,
-            });
-            if (!active || !empRes || !empRes.ok) break;
-            const body: {
-              success?: boolean;
-              data?: {
-                items?: EmployeeData[];
-                next_cursor?: string | null;
-                has_next?: boolean;
-              };
-            } = await empRes.json();
-            if (!active || !Array.isArray(body?.data?.items)) break;
-            for (const emp of body.data.items) {
-              if (emp && emp.id && !seenIds.has(emp.id)) {
-                seenIds.add(emp.id);
-                allEmployees.push(emp);
-              }
-            }
-            if (body.data.has_next && body.data.next_cursor) {
-              cursor = body.data.next_cursor;
-            } else {
-              break;
-            }
-          }
-          if (active && allEmployees.length > 0) {
-            const activeCount = allEmployees.filter(
-              (e) => e.employment_status === 'active',
-            ).length;
-            const invitedCount = allEmployees.filter(
-              (e) => e.employment_status === 'invited',
-            ).length;
-            setEmployeesMetric({
-              badgeStatus: 'success',
-              badgeLabel: 'Owner view',
-              value: `${activeCount} nhân sự hoạt động`,
-              subtext: `Tổng ${allEmployees.length} hồ sơ (${invitedCount} chờ kích hoạt)`,
-            });
-          } else if (active) {
-            setEmployeesMetric({
-              badgeStatus: 'success',
-              badgeLabel: 'Owner view',
-              value: '0 nhân sự hoạt động',
-              subtext: 'Tổng 0 hồ sơ (0 chờ kích hoạt)',
-            });
-          }
-        } catch {
-          // Keep safe default fallback
+        if (summary.employees) {
+          setEmployeesMetric({
+            badgeStatus: 'success',
+            badgeLabel: 'Owner view',
+            value: `${summary.employees.active_count} nhân sự hoạt động`,
+            subtext: `Tổng ${summary.employees.total_count} hồ sơ (${summary.employees.invited_count} chờ kích hoạt)`,
+          });
         }
-
-        try {
-          const payRes = await fetch(
-            `/api/v1/payroll/periods/${currentMonth}`,
-            {
-              credentials: 'include',
-              signal: controller.signal,
-            },
-          );
-          if (active && payRes && payRes.ok) {
-            const body: {
-              success?: boolean;
-              data?: PayrollMonthOverviewData;
-            } = await payRes.json();
-            if (active && body?.data?.period) {
-              const period = body.data.period;
-              const isFinalized = period.status === 'finalized';
-              const empCount = Array.isArray(body.data.items)
-                ? body.data.items.length
-                : 0;
-              setPayrollMetric({
-                badgeStatus: isFinalized ? 'success' : 'warning',
-                badgeLabel: isFinalized ? 'Đã chốt sổ' : 'Bản nháp',
-                value: `Kỳ ${period.period_month}`,
-                subtext: `${empCount} nhân sự trong kỳ lương`,
-              });
-            }
-          }
-        } catch {
-          // Keep safe default fallback
+        if (summary.payroll) {
+          const isFinalized = summary.payroll.status === 'finalized';
+          setPayrollMetric({
+            badgeStatus: isFinalized ? 'success' : 'warning',
+            badgeLabel: isFinalized ? 'Đã chốt sổ' : 'Bản nháp',
+            value: `Kỳ ${summary.payroll.period_month}`,
+            subtext: `${summary.payroll.employee_count} nhân sự trong kỳ lương`,
+          });
         }
       }
+    };
+
+    const cachedSummary = getFrontendCachedData<DashboardSummaryResponseData>(
+      cacheScope,
+      summaryUrl,
+    );
+    if (cachedSummary && cachedSummary.shift) {
+      applySummaryData(cachedSummary);
+      return () => {
+        active = false;
+        controller.abort();
+      };
+    }
+
+    const loadAttendanceFallback = async () => {
+      try {
+        const attRes = await fetchWithFrontendCache<AttendanceMeResponseData>(
+          cacheScope,
+          '/api/v1/attendance/me',
+          { signal: controller.signal },
+        );
+        if (active && attRes.ok && attRes.data) {
+          const currentShift = attRes.data.current_shift;
+          const recentShifts = Array.isArray(attRes.data.recent_shifts)
+            ? attRes.data.recent_shifts
+            : [];
+
+          if (currentShift?.run_state === 'working') {
+            setShiftMetric({
+              badgeStatus: 'success',
+              badgeLabel: 'Đang làm việc',
+              value: 'Đang trong ca',
+              subtext: 'Ca làm việc hiện tại đang mở',
+            });
+          } else if (currentShift?.run_state === 'paused') {
+            setShiftMetric({
+              badgeStatus: 'warning',
+              badgeLabel: 'Tạm nghỉ',
+              value: 'Nghỉ giải lao',
+              subtext: 'Ca làm việc đang tạm dừng',
+            });
+          } else if (attRes.data.current_shift !== undefined) {
+            setShiftMetric({
+              badgeStatus: 'neutral',
+              badgeLabel: 'Ngoài ca',
+              value: 'Chưa vào ca',
+              subtext:
+                recentShifts.length > 0
+                  ? `${recentShifts.length} ca làm gần đây`
+                  : 'Sẵn sàng bắt đầu ca mới',
+            });
+          }
+
+          if (role !== 'owner' && Array.isArray(attRes.data.recent_shifts)) {
+            const completedCount = recentShifts.filter(
+              (s) => s.run_state === 'completed',
+            ).length;
+            const totalWorkedSeconds = recentShifts.reduce(
+              (acc, s) => acc + (s.worked_seconds || 0),
+              0,
+            );
+            const hours = Math.round((totalWorkedSeconds / 3600) * 10) / 10;
+            setStaffAttendanceMetric({
+              badgeStatus: completedCount > 0 ? 'success' : 'neutral',
+              badgeLabel: 'Staff view',
+              value: `${completedCount} ca hoàn tất`,
+              subtext: `${hours} giờ làm việc đã ghi nhận`,
+            });
+          }
+        }
+      } catch {
+        // Keep safe default fallback
+      }
+    };
+
+    const loadReportsFallback = async () => {
+      try {
+        const repRes = await fetchWithFrontendCache<{
+          items?: DailyReportListItem[];
+        }>(cacheScope, '/api/v1/reports/me', {
+          signal: controller.signal,
+        });
+        if (active && repRes.ok && Array.isArray(repRes.data?.items)) {
+          const items = repRes.data.items;
+          const todayReport = items.find((r) => r.report_date === todayIso);
+          if (todayReport) {
+            const isSubmitted = todayReport.status === 'submitted';
+            setReportMetric({
+              badgeStatus: isSubmitted ? 'success' : 'warning',
+              badgeLabel: isSubmitted ? 'Đã nộp' : 'Bản nháp',
+              value: isSubmitted ? 'Đã nộp hôm nay' : 'Đang lưu nháp',
+              subtext: `${todayReport.total_reported_count ?? todayReport.entries_count ?? 0} hạng mục công việc`,
+            });
+          } else {
+            setReportMetric({
+              badgeStatus: 'neutral',
+              badgeLabel: 'Chưa nộp',
+              value: `${items.length} báo cáo`,
+              subtext: 'Chưa có báo cáo hôm nay',
+            });
+          }
+        }
+      } catch {
+        // Keep safe default fallback
+      }
+    };
+
+    const loadEmployeesFallback = async () => {
+      if (role !== 'owner') return;
+      try {
+        const allEmployees: EmployeeData[] = [];
+        const seenIds = new Set<string>();
+        let cursor: string | null = null;
+        for (let page = 0; page < 10; page++) {
+          const url: string = cursor
+            ? `/api/v1/employees?limit=100&cursor=${encodeURIComponent(cursor)}`
+            : '/api/v1/employees?limit=100';
+          const empRes = await fetchWithFrontendCache<{
+            items?: EmployeeData[];
+            next_cursor?: string | null;
+            has_next?: boolean;
+          }>(cacheScope, url, { signal: controller.signal });
+          if (!active || !empRes.ok || !Array.isArray(empRes.data?.items)) {
+            break;
+          }
+          for (const emp of empRes.data.items) {
+            if (emp && emp.id && !seenIds.has(emp.id)) {
+              seenIds.add(emp.id);
+              allEmployees.push(emp);
+            }
+          }
+          if (empRes.data.has_next && empRes.data.next_cursor) {
+            cursor = empRes.data.next_cursor;
+          } else {
+            break;
+          }
+        }
+        if (active && allEmployees.length > 0) {
+          const activeCount = allEmployees.filter(
+            (e) => e.employment_status === 'active',
+          ).length;
+          const invitedCount = allEmployees.filter(
+            (e) => e.employment_status === 'invited',
+          ).length;
+          setEmployeesMetric({
+            badgeStatus: 'success',
+            badgeLabel: 'Owner view',
+            value: `${activeCount} nhân sự hoạt động`,
+            subtext: `Tổng ${allEmployees.length} hồ sơ (${invitedCount} chờ kích hoạt)`,
+          });
+        } else if (active) {
+          setEmployeesMetric({
+            badgeStatus: 'success',
+            badgeLabel: 'Owner view',
+            value: '0 nhân sự hoạt động',
+            subtext: 'Tổng 0 hồ sơ (0 chờ kích hoạt)',
+          });
+        }
+      } catch {
+        // Keep safe default fallback
+      }
+    };
+
+    const loadPayrollFallback = async () => {
+      if (role !== 'owner') return;
+      try {
+        const payRes = await fetchWithFrontendCache<PayrollMonthOverviewData>(
+          cacheScope,
+          `/api/v1/payroll/periods/${currentMonth}`,
+          { signal: controller.signal },
+        );
+        if (active && payRes.ok && payRes.data?.period) {
+          const period = payRes.data.period;
+          const isFinalized = period.status === 'finalized';
+          const empCount = Array.isArray(payRes.data.items)
+            ? payRes.data.items.length
+            : 0;
+          setPayrollMetric({
+            badgeStatus: isFinalized ? 'success' : 'warning',
+            badgeLabel: isFinalized ? 'Đã chốt sổ' : 'Bản nháp',
+            value: `Kỳ ${period.period_month}`,
+            subtext: `${empCount} nhân sự trong kỳ lương`,
+          });
+        }
+      } catch {
+        // Keep safe default fallback
+      }
+    };
+
+    const loadSummary = async () => {
+      try {
+        const summaryRes =
+          await fetchWithFrontendCache<DashboardSummaryResponseData>(
+            cacheScope,
+            summaryUrl,
+            { signal: controller.signal },
+          );
+        if (active && summaryRes.ok && summaryRes.data?.shift) {
+          applySummaryData(summaryRes.data);
+          return;
+        }
+      } catch {
+        // Fallback to parallel individual endpoints below
+      }
+
+      if (!active) return;
+      await Promise.all([
+        loadAttendanceFallback(),
+        loadReportsFallback(),
+        loadEmployeesFallback(),
+        loadPayrollFallback(),
+      ]);
     };
 
     void loadSummary();
@@ -293,7 +415,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       active = false;
       controller.abort();
     };
-  }, [role]);
+  }, [role, userId, workspaceId]);
 
   return (
     <div>

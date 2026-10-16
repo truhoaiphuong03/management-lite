@@ -479,6 +479,8 @@ export const App: React.FC = () => {
           <DashboardScreen
             role={role}
             workspaceName={workspaceName}
+            userId={userId}
+            workspaceId={workspaceId}
             onNavigate={handleNavigate}
           />
         );

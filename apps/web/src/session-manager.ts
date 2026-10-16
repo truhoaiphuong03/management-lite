@@ -1,4 +1,5 @@
 import { matchRoute } from './router.js';
+import { clearFrontendQueryCache } from './cache/query-cache.js';
 import type { UserRole } from './types.js';
 
 export interface ParsedSessionData {
@@ -102,6 +103,7 @@ export async function executeSessionVerification(
     }
 
     if (!res.ok) {
+      clearFrontendQueryCache();
       tracker.verifiedOwnerSession = false;
       tracker.isLoggedIn = false;
       tracker.userId = undefined;
@@ -115,6 +117,13 @@ export async function executeSessionVerification(
 
     const parsed = parseSessionPayload(body);
     if (parsed) {
+      if (
+        (tracker.userId && tracker.userId !== parsed.userId) ||
+        (tracker.workspaceId && tracker.workspaceId !== parsed.workspaceId) ||
+        (tracker.isLoggedIn && tracker.role !== parsed.role)
+      ) {
+        clearFrontendQueryCache();
+      }
       tracker.role = parsed.role;
       tracker.userId = parsed.userId;
       tracker.workspaceId = parsed.workspaceId;
@@ -127,6 +136,7 @@ export async function executeSessionVerification(
       return true;
     } else {
       // Malformed payload => fail closed
+      clearFrontendQueryCache();
       tracker.verifiedOwnerSession = false;
       tracker.isLoggedIn = false;
       tracker.userId = undefined;
@@ -136,6 +146,7 @@ export async function executeSessionVerification(
     }
   } catch {
     if (epoch === tracker.authEpoch) {
+      clearFrontendQueryCache();
       tracker.verifiedOwnerSession = false;
       tracker.isLoggedIn = false;
       tracker.userId = undefined;
@@ -147,7 +158,8 @@ export async function executeSessionVerification(
 }
 
 export function executeLogout(tracker: SessionStateTracker) {
-  // Invalidate any in-flight session verification immediately
+  // Invalidate any in-flight session verification and purge frontend query cache immediately
+  clearFrontendQueryCache();
   tracker.authEpoch++;
   tracker.verifiedOwnerSession = false;
   tracker.isLoggedIn = false;

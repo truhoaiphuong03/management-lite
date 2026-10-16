@@ -5,6 +5,7 @@
  */
 
 import { sanitizePostLoginRedirect } from './navigation-guard.js';
+import { clearFrontendQueryCache } from './cache/query-cache.js';
 
 type SessionExpiredListener = (info: {
   currentPath: string;
@@ -45,7 +46,9 @@ export function isSessionExpiredHandlingActive(): boolean {
  */
 export function isTargetAuthenticatedApiUrl(
   rawUrl: string,
-  currentOrigin: string = typeof window !== 'undefined' ? window.location.origin : '',
+  currentOrigin: string = typeof window !== 'undefined'
+    ? window.location.origin
+    : '',
 ): boolean {
   if (!rawUrl || typeof rawUrl !== 'string') return false;
 
@@ -149,6 +152,7 @@ export async function attemptSilentSessionRefresh(
  * Prevents multiple simultaneous 401s from triggering multiple redirects or alerts.
  */
 export function triggerSessionExpired(url: string = ''): void {
+  clearFrontendQueryCache();
   if (typeof window === 'undefined') return;
 
   const currentPath = window.location.pathname;
@@ -199,17 +203,35 @@ export function installAuthInterceptor(): void {
   ): Promise<Response> {
     const response = await originalFetch.apply(this, [input, init]);
 
+    let urlStr = '';
+    if (typeof input === 'string') {
+      urlStr = input;
+    } else if (input instanceof URL) {
+      urlStr = input.toString();
+    } else if (input && typeof (input as Request).url === 'string') {
+      urlStr = (input as Request).url;
+    }
+
+    const reqMethod = (
+      init?.method ||
+      (typeof input === 'object' && input && 'method' in input
+        ? (input as Request).method
+        : 'GET') ||
+      'GET'
+    ).toUpperCase();
+
+    if (
+      reqMethod !== 'GET' &&
+      reqMethod !== 'HEAD' &&
+      reqMethod !== 'OPTIONS' &&
+      response.ok &&
+      isTargetAuthenticatedApiUrl(urlStr)
+    ) {
+      clearFrontendQueryCache();
+    }
+
     // Check for 401 Unauthorized
     if (response.status === 401) {
-      let urlStr = '';
-      if (typeof input === 'string') {
-        urlStr = input;
-      } else if (input instanceof URL) {
-        urlStr = input.toString();
-      } else if (input && typeof (input as Request).url === 'string') {
-        urlStr = (input as Request).url;
-      }
-
       // Check URL with exact origin and pathname matching
       if (isTargetAuthenticatedApiUrl(urlStr)) {
         // Attempt silent session refresh before expiring session
@@ -230,6 +252,14 @@ export function installAuthInterceptor(): void {
             retryInit,
           ]);
           if (retryResponse.status !== 401) {
+            if (
+              reqMethod !== 'GET' &&
+              reqMethod !== 'HEAD' &&
+              reqMethod !== 'OPTIONS' &&
+              retryResponse.ok
+            ) {
+              clearFrontendQueryCache();
+            }
             return retryResponse;
           }
         }
