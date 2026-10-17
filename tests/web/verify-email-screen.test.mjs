@@ -239,4 +239,92 @@ test('VerifyEmailScreen UI: unverified notice, resend button, and confirmation s
       }
     },
   );
+
+  await t.test(
+    'extracts #token from location.hash and confirms even when another session has isEmailVerified=true, without triggering session-expired redirect',
+    async () => {
+      const {
+        isTargetAuthenticatedApiUrl,
+        triggerSessionExpired,
+        addSessionExpiredListener,
+        resetSessionExpiredState,
+      } = await import('../../dist/apps/web/src/auth-interceptor.js');
+
+      assert.equal(
+        isTargetAuthenticatedApiUrl(
+          '/api/v1/auth/verify-email/confirm',
+          'http://localhost:3101',
+        ),
+        false,
+      );
+      assert.equal(
+        isTargetAuthenticatedApiUrl(
+          '/api/v1/auth/verify-email/request',
+          'http://localhost:3101',
+        ),
+        false,
+      );
+
+      window.location.pathname = '/verify-email';
+      window.location.hash = '#token=hash-token-from-email-link';
+      resetSessionExpiredState();
+      let expiredFired = false;
+      const unsub = addSessionExpiredListener(() => {
+        expiredFired = true;
+      });
+      triggerSessionExpired('/api/v1/auth/me');
+      assert.equal(
+        expiredFired,
+        false,
+        'Must not trigger session-expired redirect on /verify-email',
+      );
+      unsub();
+
+      let confirmSubmittedToken = null;
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = async (url, init) => {
+        if (String(url).includes('/api/v1/auth/verify-email/confirm')) {
+          confirmSubmittedToken = JSON.parse(init.body).token;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              email_verified: true,
+              verified_at: new Date().toISOString(),
+              message: 'Xác minh email thành công.',
+            },
+          }),
+        };
+      };
+
+      const { container, root, flush, cleanup } = createTestContainer();
+      try {
+        await act(async () => {
+          root.render(
+            React.createElement(VerifyEmailScreen, {
+              isEmailVerified: true,
+              isLoggedIn: true,
+              onNavigate: () => {},
+            }),
+          );
+        });
+        await flush(40);
+
+        assert.equal(confirmSubmittedToken, 'hash-token-from-email-link');
+        const successEl = container.querySelector(
+          '[data-testid="verify-email-success"]',
+        );
+        assert.ok(successEl);
+      } finally {
+        globalThis.fetch = origFetch;
+        window.location.hash = '';
+        await cleanup();
+      }
+    },
+  );
 });
+
+

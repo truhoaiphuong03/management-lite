@@ -17,6 +17,16 @@ export interface VerifyEmailScreenProps {
   onVerified?: (() => void) | undefined;
 }
 
+function readLocationVerifyToken(fallback: string): string {
+  const trimmedFallback = fallback.trim();
+  if (trimmedFallback) return trimmedFallback;
+  if (typeof window === 'undefined') return '';
+  const params = new URLSearchParams(
+    window.location.hash.slice(1) || window.location.search,
+  );
+  return (params.get('token') || '').trim();
+}
+
 export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
   initialToken = '',
   initialEmail = '',
@@ -25,13 +35,16 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
   onNavigate,
   onVerified,
 }) => {
-  const [token, setToken] = useState(initialToken);
+  const [token, setToken] = useState(() =>
+    readLocationVerifyToken(initialToken),
+  );
   const [email, setEmail] = useState(initialEmail);
+  const hasInitialToken = Boolean(readLocationVerifyToken(initialToken));
   const [confirmState, setConfirmState] = useState<
     'idle' | 'submitting' | 'success' | 'failed'
-  >(isEmailVerified && !initialToken ? 'success' : 'idle');
+  >(isEmailVerified && !hasInitialToken ? 'success' : 'idle');
   const [confirmMessage, setConfirmMessage] = useState<string | null>(
-    isEmailVerified && !initialToken
+    isEmailVerified && !hasInitialToken
       ? 'Địa chỉ email của bạn đã được xác minh.'
       : null,
   );

@@ -71,6 +71,18 @@ export const App: React.FC = () => {
   };
 
   const [currentPath, setCurrentPath] = useState<string>(getInitialPath);
+  const [initialVerifyToken] = useState<string>(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.location.pathname.startsWith('/verify-email')
+    ) {
+      const params = new URLSearchParams(
+        window.location.hash.slice(1) || window.location.search,
+      );
+      return (params.get('token') || '').trim();
+    }
+    return '';
+  });
   const [role, setRole] = useState<UserRole>('owner');
   const [verifiedOwnerSession, setVerifiedOwnerSession] =
     useState<boolean>(false);
@@ -360,6 +372,7 @@ export const App: React.FC = () => {
   if (currentPath.startsWith('/verify-email')) {
     return (
       <VerifyEmailScreen
+        initialToken={initialVerifyToken}
         initialEmail={userEmail}
         isEmailVerified={Boolean(emailVerified)}
         isLoggedIn={isLoggedIn}
@@ -512,7 +525,22 @@ export const App: React.FC = () => {
           />
         );
       case '/clock':
-        return <ClockScreen role={role} onNavigate={handleNavigate} />;
+        return (
+          <ClockScreen role={role} mode="clock" onNavigate={handleNavigate} />
+        );
+      case '/attendance':
+        return (
+          <ClockScreen role={role} mode="history" onNavigate={handleNavigate} />
+        );
+      case '/attendance/review':
+        if (role !== 'owner') {
+          return (
+            <NotFoundScreen isForbidden onGoHome={() => handleNavigate('/')} />
+          );
+        }
+        return (
+          <ClockScreen role={role} mode="review" onNavigate={handleNavigate} />
+        );
       case '/schedule':
         return <ScheduleScreen role={role} onNavigate={handleNavigate} />;
       case '/reports':
