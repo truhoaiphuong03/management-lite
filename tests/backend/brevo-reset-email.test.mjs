@@ -89,8 +89,8 @@ test('DEV loopback origin (http://localhost:3101 / http://127.0.0.1:3101) is acc
   );
 });
 
-test('Brevo HTTPS email verification: exact endpoint, sender no-reply@hoaiphuong.click, fragment /verify-email#token=', async () => {
-  let seen;
+test('Brevo HTTPS email verification: unique subject reference, timestamp, 15m expiry, Windows 1 localhost:3101 guidance, no token in subject', async () => {
+  const payloads = [];
   const mailer = createBrevoResetMailer(
     {
       NODE_ENV: 'development',
@@ -98,28 +98,66 @@ test('Brevo HTTPS email verification: exact endpoint, sender no-reply@hoaiphuong
       PASSWORD_RESET_ORIGIN: 'http://localhost:3101',
     },
     async (url, options) => {
-      seen = { url, options };
+      assert.equal(url, 'https://api.brevo.com/v3/smtp/email');
+      assert.equal(options.redirect, 'error');
+      assert.equal(options.headers['api-key'], 'test-key-never-real');
+      assert.ok(!options.body.includes('test-key-never-real'));
+      payloads.push(JSON.parse(options.body));
       return new Response('{}', { status: 201 });
     },
   );
   assert.ok(mailer?.sendVerification, 'Mailer must expose sendVerification');
+
+  const secretToken1 = 'c1d2e3f4'.repeat(8);
+  const secretToken2 = 'a9b8c7d6'.repeat(8);
+
   assert.equal(
-    await mailer.sendVerification('verify-qa@example.invalid', 'c'.repeat(64)),
+    await mailer.sendVerification('verify-qa@example.invalid', secretToken1),
     'accepted',
   );
-  assert.equal(seen.url, 'https://api.brevo.com/v3/smtp/email');
-  assert.equal(seen.options.redirect, 'error');
-  assert.equal(seen.options.headers['api-key'], 'test-key-never-real');
-  const payload = JSON.parse(seen.options.body);
-  assert.equal(payload.sender.email, 'no-reply@hoaiphuong.click');
-  assert.deepEqual(payload.to, [{ email: 'verify-qa@example.invalid' }]);
-  assert.equal(payload.subject, 'Xác minh địa chỉ email Management Lite');
-  assert.ok(
-    payload.textContent.includes(
-      'http://localhost:3101/verify-email#token=' + 'c'.repeat(64),
-    ),
+  assert.equal(
+    await mailer.sendVerification('verify-qa@example.invalid', secretToken2),
+    'accepted',
   );
-  assert.ok(!payload.textContent.includes('/verify-email?token='));
-  assert.ok(payload.textContent.includes('15 phút'));
-  assert.ok(!seen.options.body.includes('test-key-never-real'));
+
+  assert.equal(payloads.length, 2);
+  const [first, second] = payloads;
+
+  for (const [idx, payload] of payloads.entries()) {
+    const tok = idx === 0 ? secretToken1 : secretToken2;
+    assert.equal(payload.sender.email, 'no-reply@hoaiphuong.click');
+    assert.deepEqual(payload.to, [{ email: 'verify-qa@example.invalid' }]);
+    assert.equal(payload.htmlContent, undefined);
+    assert.match(
+      payload.subject,
+      /^Xác minh địa chỉ email Management Lite \[Mã tham chiếu: #[0-9A-F]{6}\]$/,
+    );
+    assert.ok(
+      !payload.subject.includes(tok) &&
+        !payload.subject.includes(tok.slice(0, 8)),
+      'Subject must never contain the verification token or token prefix',
+    );
+    assert.ok(
+      payload.textContent.includes(
+        `http://localhost:3101/verify-email#token=${tok}`,
+      ),
+    );
+    assert.ok(!payload.textContent.includes('/verify-email?token='));
+    assert.ok(payload.textContent.includes('Thời điểm gửi:'));
+    assert.ok(payload.textContent.includes('(GMT+7)'));
+    assert.ok(payload.textContent.includes('Thời hạn hiệu lực: 15 phút'));
+    assert.ok(
+      payload.textContent.includes(
+        'Hướng dẫn mở liên kết trên Windows 1 (localhost:3101)',
+      ),
+    );
+    assert.ok(payload.textContent.includes('DESKTOP-8T8UHTS'));
+  }
+
+  assert.notEqual(
+    first.subject,
+    second.subject,
+    'Each send must have a distinct subject reference code so Gmail does not collapse repeated verification emails',
+  );
 });
+

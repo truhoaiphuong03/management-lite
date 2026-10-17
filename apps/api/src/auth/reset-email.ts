@@ -1,6 +1,26 @@
+import crypto from 'node:crypto';
+
 export interface PasswordResetMailer {
   send(to: string, token: string): Promise<'accepted' | 'failed'>;
   sendVerification?(to: string, token: string): Promise<'accepted' | 'failed'>;
+}
+
+function createMailReferenceCode(): string {
+  return crypto.randomBytes(3).toString('hex').toUpperCase();
+}
+
+function formatVietnamTimestamp(date: Date): string {
+  const formatter = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  return `${formatter.format(date)} (GMT+7)`;
 }
 
 /** HTTPS only, fixed provider endpoint, no provider payload/error logging or retries. */
@@ -64,24 +84,37 @@ export function createBrevoResetMailer(
 
   return {
     async send(to, token) {
+      const refCode = createMailReferenceCode();
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
       const link = new URL('/reset-password', url);
       // Fragment keeps the bearer token out of HTTP access logs and Referer headers.
       link.hash = new URLSearchParams({ token }).toString();
+      const devGuidance = isolatedTestOrigin
+        ? `\nHướng dẫn mở liên kết trên Windows 1 (${url.host}): Vì liên kết sử dụng địa chỉ nội bộ ${url.origin}, vui lòng mở trình duyệt trực tiếp trên máy Windows 1 (DESKTOP-8T8UHTS) và dán toàn bộ liên kết trên vào thanh địa chỉ (hoặc mở ${url.origin}/reset-password trên Windows 1 và nhập Mã xác minh).\n`
+        : '';
       return postBrevoTextEmail(
         to,
-        'Đặt lại mật khẩu Management Lite',
-        `Bạn đã yêu cầu đặt lại mật khẩu Management Lite.\nMở liên kết: ${link.href}\nHoặc nhập mã xác minh: ${token}\nMã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+        `Đặt lại mật khẩu Management Lite [Mã tham chiếu: #${refCode}]`,
+        `[Management Lite — Khôi phục mật khẩu | Mã tham chiếu: #${refCode}]\nThời điểm gửi: ${formatVietnamTimestamp(now)}\nThời hạn hiệu lực: 15 phút (hết hạn lúc ${formatVietnamTimestamp(expiresAt)})\n\nBạn đã yêu cầu đặt lại mật khẩu tài khoản Management Lite.\nMở liên kết: ${link.href}\nHoặc nhập mã xác minh: ${token}${devGuidance}\nLưu ý: Mã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
       );
     },
     async sendVerification(to, token) {
+      const refCode = createMailReferenceCode();
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
       const link = new URL('/verify-email', url);
       // Fragment keeps the bearer token out of HTTP access logs and Referer headers.
       link.hash = new URLSearchParams({ token }).toString();
+      const devGuidance = isolatedTestOrigin
+        ? `\nHướng dẫn mở liên kết trên Windows 1 (${url.host}): Vì liên kết sử dụng địa chỉ nội bộ ${url.origin}, Gmail sẽ không tự chuyển hướng trên thiết bị khác. Vui lòng mở trình duyệt trực tiếp trên máy Windows 1 (DESKTOP-8T8UHTS), sao chép và dán toàn bộ liên kết trên vào thanh địa chỉ (hoặc mở ${url.origin}/verify-email trên Windows 1 và dán Mã xác minh vào ô xác nhận).\n`
+        : '';
       return postBrevoTextEmail(
         to,
-        'Xác minh địa chỉ email Management Lite',
-        `Bạn đã yêu cầu xác minh địa chỉ email tài khoản Management Lite.\nMở liên kết: ${link.href}\nHoặc nhập mã xác minh: ${token}\nMã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+        `Xác minh địa chỉ email Management Lite [Mã tham chiếu: #${refCode}]`,
+        `[Management Lite — Xác minh địa chỉ email | Mã tham chiếu: #${refCode}]\nThời điểm gửi: ${formatVietnamTimestamp(now)}\nThời hạn hiệu lực: 15 phút (hết hạn lúc ${formatVietnamTimestamp(expiresAt)})\n\nBạn đã yêu cầu xác minh địa chỉ email tài khoản Management Lite.\nMở liên kết: ${link.href}\nHoặc nhập mã xác minh: ${token}${devGuidance}\nLưu ý: Mã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
       );
     },
   };
 }
+
