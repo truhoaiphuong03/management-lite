@@ -39,15 +39,10 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
     readLocationVerifyToken(initialToken),
   );
   const [email, setEmail] = useState(initialEmail);
-  const hasInitialToken = Boolean(readLocationVerifyToken(initialToken));
   const [confirmState, setConfirmState] = useState<
     'idle' | 'submitting' | 'success' | 'failed'
-  >(isEmailVerified && !hasInitialToken ? 'success' : 'idle');
-  const [confirmMessage, setConfirmMessage] = useState<string | null>(
-    isEmailVerified && !hasInitialToken
-      ? 'Địa chỉ email của bạn đã được xác minh.'
-      : null,
-  );
+  >('idle');
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const [resendState, setResendState] = useState<
@@ -56,7 +51,7 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
 
-  const autoConfirmedRef = useRef(false);
+  const lastConfirmedTokenRef = useRef<string>('');
 
   useEffect(() => {
     if (initialEmail && !email) {
@@ -124,22 +119,39 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
   };
 
   useEffect(() => {
-    let resolvedToken = initialToken.trim();
-    if (!resolvedToken && typeof window !== 'undefined') {
-      const params = new URLSearchParams(
-        window.location.hash.slice(1) || window.location.search,
-      );
-      const queryToken = params.get('token');
-      if (queryToken) {
-        resolvedToken = queryToken.trim();
-        setToken(resolvedToken);
-        window.history.replaceState(null, '', window.location.pathname);
+    const consumeLocationToken = (propToken?: string) => {
+      let resolvedToken = (propToken || '').trim();
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(
+          window.location.hash.slice(1) || window.location.search,
+        );
+        const queryToken = params.get('token');
+        if (queryToken && queryToken.trim()) {
+          resolvedToken = queryToken.trim();
+          window.history.replaceState(null, '', window.location.pathname);
+        }
       }
+      if (resolvedToken) {
+        setToken(resolvedToken);
+        if (lastConfirmedTokenRef.current !== resolvedToken) {
+          lastConfirmedTokenRef.current = resolvedToken;
+          void confirmWithToken(resolvedToken);
+        }
+      }
+    };
+
+    consumeLocationToken(initialToken);
+
+    if (typeof window !== 'undefined') {
+      const handleHashOrPop = () => consumeLocationToken('');
+      window.addEventListener('hashchange', handleHashOrPop);
+      window.addEventListener('popstate', handleHashOrPop);
+      return () => {
+        window.removeEventListener('hashchange', handleHashOrPop);
+        window.removeEventListener('popstate', handleHashOrPop);
+      };
     }
-    if (resolvedToken && !autoConfirmedRef.current) {
-      autoConfirmedRef.current = true;
-      void confirmWithToken(resolvedToken);
-    }
+    return undefined;
   }, [initialToken]);
 
   const handleManualConfirm = async (e: React.FormEvent) => {

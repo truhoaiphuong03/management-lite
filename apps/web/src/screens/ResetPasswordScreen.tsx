@@ -53,16 +53,29 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   const submittingLockRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(
-        window.location.hash.slice(1) || window.location.search,
-      );
-      const queryToken = params.get('token');
-      if (queryToken) {
-        setToken(queryToken);
-        window.history.replaceState(null, '', window.location.pathname);
+    const consumeResetToken = () => {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(
+          window.location.hash.slice(1) || window.location.search,
+        );
+        const queryToken = params.get('token');
+        if (queryToken && queryToken.trim()) {
+          setToken(queryToken.trim());
+          setErrorMessage(null);
+          window.history.replaceState(null, '', window.location.pathname);
+        }
       }
+    };
+    consumeResetToken();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hashchange', consumeResetToken);
+      window.addEventListener('popstate', consumeResetToken);
+      return () => {
+        window.removeEventListener('hashchange', consumeResetToken);
+        window.removeEventListener('popstate', consumeResetToken);
+      };
     }
+    return undefined;
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

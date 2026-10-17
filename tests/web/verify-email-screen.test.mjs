@@ -302,6 +302,8 @@ test('VerifyEmailScreen UI: unverified notice, resend button, and confirmation s
 
       const { container, root, flush, cleanup } = createTestContainer();
       try {
+        // First: render without hash token while isEmailVerified=true -> must NOT show false success banner
+        window.location.hash = '';
         await act(async () => {
           root.render(
             React.createElement(VerifyEmailScreen, {
@@ -310,6 +312,23 @@ test('VerifyEmailScreen UI: unverified notice, resend button, and confirmation s
               onNavigate: () => {},
             }),
           );
+        });
+        await flush(30);
+
+        assert.equal(
+          container.querySelector('[data-testid="verify-email-success"]'),
+          null,
+          'Must never show false success banner before POST /api/v1/auth/verify-email/confirm succeeds',
+        );
+        assert.ok(
+          container.querySelector('[data-testid="verify-email-confirm-form"]'),
+          'Token input form must remain visible when opening /verify-email to paste token',
+        );
+
+        // Second: simulate pasting #token=... into address bar of already-open /verify-email tab (hashchange)
+        window.location.hash = '#token=hash-token-from-email-link';
+        await act(async () => {
+          window.dispatchEvent(new Event('hashchange'));
         });
         await flush(40);
 
@@ -326,5 +345,6 @@ test('VerifyEmailScreen UI: unverified notice, resend button, and confirmation s
     },
   );
 });
+
 
 
