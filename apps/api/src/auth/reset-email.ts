@@ -14,9 +14,9 @@ export function createBrevoResetMailer(
   // Trusted configuration only; never construct recovery links from Host/Origin headers.
   const url = new URL(origin);
   const isolatedTestOrigin =
-    env['NODE_ENV'] === 'test' &&
+    (env['NODE_ENV'] === 'test' || env['NODE_ENV'] === 'development') &&
     url.protocol === 'http:' &&
-    url.hostname === '127.0.0.1' &&
+    (url.hostname === '127.0.0.1' || url.hostname === 'localhost') &&
     Number(url.port) >= 1024;
   if (
     sender !== 'no-reply@hoaiphuong.click' ||

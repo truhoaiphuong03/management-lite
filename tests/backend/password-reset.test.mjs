@@ -703,3 +703,66 @@ test('REGRESSION 9: Account-level rate limiting blocks distributed multi-IP atta
     'Rate limit error response must NEVER echo or disclose the target email',
   );
 });
+
+test('REGRESSION 10: Expired token returns TOKEN_EXPIRED and EMAIL_DELIVERY_BLOCKED leaves no active token for verified users', async () => {
+  const pool = new pg.Pool({ connectionString: DATABASE_URL });
+  let testUserId = null;
+  const suffix = crypto.randomBytes(6).toString('hex');
+  const email = `verified_blocked_${suffix}@example.com`;
+  const testIp = `10.66.${Math.floor(Math.random() * 200) + 10}.1`;
+
+  try {
+    const userRes = await pool.query(
+      `INSERT INTO users (username_normalized, email_normalized, status, email_verified, email_verified_at)
+       VALUES ($1, $2, 'active', true, now())
+       RETURNING id;`,
+      [`user_blk_${suffix}`, email],
+    );
+    testUserId = userRes.rows[0].id;
+
+    // 1. When mailer is not configured (EMAIL_DELIVERY_BLOCKED), requesting reset for verified user must not leave an unconsumed token
+    const forgotRes = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
+      method: 'POST',
+      body: { email },
+      ip: testIp,
+    });
+    assert.equal(forgotRes.status, 200);
+    assert.equal(forgotRes.body.data.delivery_status, 'EMAIL_DELIVERY_BLOCKED');
+
+    const activeTokens = await pool.query(
+      `SELECT count(*)::int AS count FROM password_reset_tokens WHERE user_id = $1 AND consumed_at IS NULL;`,
+      [testUserId],
+    );
+    assert.equal(
+      activeTokens.rows[0].count,
+      0,
+      'No active unconsumed reset token should exist when email delivery is blocked',
+    );
+
+    // 2. Expired token must be rejected with 400 TOKEN_EXPIRED and marked consumed
+    const expiredRaw = crypto.randomBytes(32).toString('hex');
+    const expiredHash = crypto.createHash('sha256').update(expiredRaw).digest('hex');
+    await pool.query(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, request_ip)
+       VALUES ($1, $2, now() - interval '2 minutes', $3);`,
+      [testUserId, expiredHash, testIp],
+    );
+
+    const expRes = await makeRequest(`${API_BASE}/api/v1/auth/reset-password`, {
+      method: 'POST',
+      body: {
+        token: expiredRaw,
+        new_password: 'NewStrongPassword2026!',
+      },
+      ip: testIp,
+    });
+    assert.equal(expRes.status, 400);
+    assert.equal(expRes.body.error.code, 'TOKEN_EXPIRED');
+  } finally {
+    if (testUserId) {
+      await pool.query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [testUserId]).catch(() => {});
+      await pool.query(`DELETE FROM users WHERE id = $1;`, [testUserId]).catch(() => {});
+    }
+    await pool.end();
+  }
+});

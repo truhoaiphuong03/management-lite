@@ -54,8 +54,37 @@ test('Provider failures, redirects and exceptions stay sanitized and fail closed
     { PASSWORD_RESET_ORIGIN: 'https://attacker.invalid' },
     { PASSWORD_RESET_ORIGIN: 'https://ql.hoaiphuong.click/?redirect=bad' },
     { BREVO_SENDER_EMAIL: 'attacker@example.invalid' },
+    {
+      NODE_ENV: 'production',
+      PASSWORD_RESET_ORIGIN: 'http://localhost:3101',
+    },
   ])
     assert.throws(() =>
       createBrevoResetMailer({ BREVO_API_KEY: 'fixture', ...config }),
     );
+});
+
+test('DEV loopback origin (http://localhost:3101 / http://127.0.0.1:3101) is accepted in development mode', async () => {
+  let seenBody;
+  const mailer = createBrevoResetMailer(
+    {
+      NODE_ENV: 'development',
+      BREVO_API_KEY: 'test-key-never-real',
+      PASSWORD_RESET_ORIGIN: 'http://localhost:3101',
+    },
+    async (_url, options) => {
+      seenBody = JSON.parse(options.body);
+      return new Response('{}', { status: 201 });
+    },
+  );
+  assert.ok(mailer, 'Mailer must be created for valid DEV loopback origin');
+  assert.equal(
+    await mailer.send('dev-owner@example.invalid', 'b'.repeat(64)),
+    'accepted',
+  );
+  assert.ok(
+    seenBody.textContent.includes(
+      'http://localhost:3101/reset-password#token=' + 'b'.repeat(64),
+    ),
+  );
 });

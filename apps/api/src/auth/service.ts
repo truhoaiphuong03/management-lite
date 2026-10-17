@@ -1187,11 +1187,13 @@ export class AuthService {
         [user.id],
       );
 
-      // Insert new hashed token
-      await client.query(
-        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, request_ip) VALUES ($1, $2, $3, $4);`,
-        [user.id, tokenHash, expiresAt, clientIp],
-      );
+      // Only persist an active token when a reset mailer is configured to deliver it
+      if (this.resetMailer) {
+        await client.query(
+          `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, request_ip) VALUES ($1, $2, $3, $4);`,
+          [user.id, tokenHash, expiresAt, clientIp],
+        );
+      }
 
       // Resolve workspace for audit event
       const workspaceId = await this.resolveUserWorkspaceId(client, user.id);
