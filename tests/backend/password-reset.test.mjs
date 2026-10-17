@@ -23,6 +23,7 @@ let API_BASE = '';
 let sharedPool = null;
 let sharedServer = null;
 let createdAdminId = null;
+let previousAdminVerifiedState = null;
 let createdWorkspaceId = null;
 
 before(async () => {
@@ -44,9 +45,9 @@ before(async () => {
     );
   }
 
-  // Ensure unverified admin user fixture exists
+  // Ensure unverified admin user fixture exists during test run
   const adminCheck = await sharedPool.query(
-    `SELECT id FROM users WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
+    `SELECT id, email_verified, email_verified_at FROM users WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
   );
   if (adminCheck.rows.length === 0) {
     createdAdminId = crypto.randomUUID();
@@ -56,6 +57,11 @@ before(async () => {
       [createdAdminId],
     );
   } else {
+    previousAdminVerifiedState = {
+      id: adminCheck.rows[0].id,
+      email_verified: adminCheck.rows[0].email_verified,
+      email_verified_at: adminCheck.rows[0].email_verified_at,
+    };
     await sharedPool.query(
       `UPDATE users SET email_verified = false, email_verified_at = NULL WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
     );
@@ -92,6 +98,17 @@ after(async () => {
         .catch(() => {});
       await sharedPool
         .query(`DELETE FROM users WHERE id = $1;`, [createdAdminId])
+        .catch(() => {});
+    } else if (previousAdminVerifiedState) {
+      await sharedPool
+        .query(
+          `UPDATE users SET email_verified = $2, email_verified_at = $3 WHERE id = $1;`,
+          [
+            previousAdminVerifiedState.id,
+            previousAdminVerifiedState.email_verified,
+            previousAdminVerifiedState.email_verified_at,
+          ],
+        )
         .catch(() => {});
     }
     if (createdWorkspaceId) {

@@ -174,11 +174,7 @@ export function determinePostVerificationRoute(
   verified: boolean,
 ): string | null {
   if (verified) {
-    if (
-      currentPath === '/login' ||
-      currentPath === '/forgot-password' ||
-      currentPath.startsWith('/reset-password')
-    ) {
+    if (currentPath === '/login') {
       return '/';
     }
     return null; // Keep current path
