@@ -84,6 +84,10 @@ export function loadApiConfig(
         'http://127.0.0.1:3007',
         'http://localhost:3008',
         'http://127.0.0.1:3008',
+        'http://localhost:3101',
+        'http://127.0.0.1:3101',
+        'http://localhost:3102',
+        'http://127.0.0.1:3102',
       ];
 
   const rawProxies = env['TRUSTED_PROXIES'];

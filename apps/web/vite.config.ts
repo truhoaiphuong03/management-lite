@@ -13,10 +13,12 @@ export default defineConfig(() => {
     process.env.VITE_HOST_LAN === 'true' ||
     process.argv.includes('--host');
 
+  const devPort = Number.parseInt(process.env.VITE_PORT || '3001', 10);
+
   return {
     plugins: [react()],
     server: {
-      port: 3001,
+      port: Number.isFinite(devPort) && devPort > 0 ? devPort : 3001,
       strictPort: true,
       host: isLan ? '0.0.0.0' : '127.0.0.1',
       proxy: {

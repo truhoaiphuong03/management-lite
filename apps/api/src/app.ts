@@ -67,6 +67,12 @@ import type {
   CreateStorageReceiptRequest,
   CreateTrashRequestRequest,
   ConfirmTrashRequest,
+  ConnectDriveOAuthRequest,
+  GrantDrivePermissionRequest,
+  RevokeDrivePermissionRequest,
+  InitiateVideoUploadRequest,
+  UploadVideoChunkRequest,
+  ReviewStorageFileRequest,
 } from '../../../packages/contracts/src/storage.js';
 import type { ReauthRequestBody } from '../../../packages/contracts/src/auth.js';
 import { StorageService } from './storage/service.js';
@@ -423,7 +429,10 @@ export function createRequestHandler(
     deps.accountsService ??
     (deps.pool ? new AccountsService(deps.pool, deps.accountSecretKey) : null);
   const storageService =
-    deps.storageService ?? (deps.pool ? new StorageService(deps.pool) : null);
+    deps.storageService ??
+    (deps.pool
+      ? new StorageService(deps.pool, undefined, deps.accountSecretKey)
+      : null);
   const auditService =
     deps.auditService ?? (deps.pool ? new AuditService(deps.pool) : null);
   const issuesService =
@@ -1725,7 +1734,25 @@ export function createRequestHandler(
           req,
           isProduction,
         );
-        const data = await attendanceService.getAttendanceMe(sessionContext);
+        const parsedUrl = new URL(req.url || '/', 'http://localhost');
+        const from_date = parsedUrl.searchParams.get('from_date') || undefined;
+        const to_date = parsedUrl.searchParams.get('to_date') || undefined;
+        const run_state = parsedUrl.searchParams.get('run_state') || undefined;
+        const review_state =
+          parsedUrl.searchParams.get('review_state') || undefined;
+        const limitStr = parsedUrl.searchParams.get('limit');
+        const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+        const offsetStr = parsedUrl.searchParams.get('offset');
+        const offset = offsetStr ? parseInt(offsetStr, 10) : undefined;
+
+        const data = await attendanceService.getAttendanceMe(sessionContext, {
+          from_date,
+          to_date,
+          run_state,
+          review_state,
+          limit,
+          offset,
+        });
         return sendJson(res, 200, createSuccessEnvelope(data, requestId));
       }
 
@@ -1783,6 +1810,8 @@ export function createRequestHandler(
           parsedUrl.searchParams.get('review_state') || undefined;
         const limitStr = parsedUrl.searchParams.get('limit');
         const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+        const offsetStr = parsedUrl.searchParams.get('offset');
+        const offset = offsetStr ? parseInt(offsetStr, 10) : undefined;
 
         const data = await attendanceService.listShifts(sessionContext, {
           employee_id,
@@ -1791,6 +1820,7 @@ export function createRequestHandler(
           run_state,
           review_state,
           limit,
+          offset,
         });
         return sendJson(res, 200, createSuccessEnvelope(data, requestId));
       }
@@ -2545,7 +2575,12 @@ export function createRequestHandler(
             'platform',
             'username',
             'platform_account_id',
+            'recovery_email',
+            'account_group',
+            'assigned_employee_id',
+            'status',
             'notes',
+            'initial_secrets',
           ]);
           const idempotencyKey =
             typeof req.headers['idempotency-key'] === 'string'
@@ -2576,6 +2611,10 @@ export function createRequestHandler(
           assertAllowedFields(body, [
             'username',
             'platform_account_id',
+            'recovery_email',
+            'account_group',
+            'assigned_employee_id',
+            'status',
             'notes',
           ]);
           const ifMatch =
@@ -2697,11 +2736,11 @@ export function createRequestHandler(
         );
       }
 
-      // FILE-01: Storage & Google Drive Management endpoints (Canonical STORAGE)
-      const storageRouteMatch = pathname.match(
-        /^\/api\/v1\/storage(?:\/(folders|trash-requests|operations)(?:\/([a-zA-Z0-9_-]+)(?:\/(files|receipts|trash-requests|confirm))?)?)?$/,
-      );
-      if (storageRouteMatch) {
+      // FILE-01 / FILE-02: Storage & Google Drive V2 Management endpoints (Canonical STORAGE)
+      if (
+        pathname === '/api/v1/storage' ||
+        pathname.startsWith('/api/v1/storage/')
+      ) {
         if (!authService || !storageService) {
           const body = createErrorEnvelope(
             'SERVICE_UNAVAILABLE',
@@ -2717,9 +2756,226 @@ export function createRequestHandler(
           isProduction,
         );
 
+        // OAuth 2.0 Google Drive Connection Endpoints
+        if (
+          pathname === '/api/v1/storage/drive/oauth/url' &&
+          method === 'GET'
+        ) {
+          const result = await storageService.getDriveOAuthUrl(sessionContext);
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (
+          pathname === '/api/v1/storage/drive/connection' &&
+          method === 'GET'
+        ) {
+          const result =
+            await storageService.getDriveConnection(sessionContext);
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId), {
+            'Cache-Control': 'no-store',
+          });
+        }
+
+        if (
+          pathname === '/api/v1/storage/drive/oauth/callback' &&
+          method === 'GET'
+        ) {
+          if (sessionContext.workspace.role !== 'owner') {
+            throw new AuthError(
+              'FORBIDDEN',
+              'Only workspace owner can complete Google Drive OAuth callback',
+              403,
+            );
+          }
+          const callbackUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
+          const code = callbackUrl.searchParams.get('code') ?? '';
+          const state = callbackUrl.searchParams.get('state') ?? '';
+          const scope = callbackUrl.searchParams.get('scope') ?? '';
+          const errorParam = callbackUrl.searchParams.get('error') ?? '';
+          const acceptHeader = String(req.headers['accept'] ?? '');
+          if (acceptHeader.includes('application/json')) {
+            return sendJson(
+              res,
+              200,
+              createSuccessEnvelope(
+                { code, state, scope, error: errorParam || null },
+                requestId,
+              ),
+              { 'Cache-Control': 'no-store' },
+            );
+          }
+          const redirectTarget = `/storage?oauth_code=${encodeURIComponent(code)}&oauth_state=${encodeURIComponent(state)}${errorParam ? `&oauth_error=${encodeURIComponent(errorParam)}` : ''}`;
+          res.writeHead(302, {
+            Location: redirectTarget,
+            'Cache-Control': 'no-store',
+            'X-Request-Id': requestId,
+          });
+          return res.end();
+        }
+
+        if (
+          (pathname === '/api/v1/storage/drive/connect' ||
+            pathname === '/api/v1/storage/drive/oauth/callback') &&
+          method === 'POST'
+        ) {
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, [
+            'code',
+            'state',
+            'redirect_uri',
+            'google_email',
+            'display_name',
+            'refresh_token',
+            'scope',
+            'scopes',
+            'root_folder_name',
+          ]);
+          const result = await storageService.connectDriveOAuth(
+            sessionContext,
+            body as unknown as ConnectDriveOAuthRequest,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId), {
+            'Cache-Control': 'no-store',
+          });
+        }
+
+        if (
+          pathname === '/api/v1/storage/drive/disconnect' &&
+          method === 'POST'
+        ) {
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, []);
+          const result = await storageService.disconnectDriveOAuth(
+            sessionContext,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId), {
+            'Cache-Control': 'no-store',
+          });
+        }
+
+        // Video Upload / File Management Endpoints (/api/v1/storage/files/:id/*)
+        const fileRouteMatch = pathname.match(
+          /^\/api\/v1\/storage\/files\/([a-zA-Z0-9_-]+)(?:\/(upload-chunk|review|permissions)(?:\/(revoke))?)?$/,
+        );
+        if (fileRouteMatch) {
+          const fileId = fileRouteMatch[1]!;
+          const fileAction = fileRouteMatch[2];
+          const fileSubAction = fileRouteMatch[3];
+
+          if (!fileAction && method === 'DELETE') {
+            requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+            const result = await storageService.detachFileRecord(
+              sessionContext,
+              fileId,
+              requestId,
+            );
+            return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+          }
+
+          if (fileAction === 'upload-chunk' && !fileSubAction && method === 'POST') {
+            requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+            const body = await parseJsonBody<Record<string, unknown>>(
+              req,
+              16 * 1024 * 1024,
+            );
+            assertAllowedFields(body, [
+              'chunk_size_bytes',
+              'offset_bytes',
+              'chunk_base64',
+              'is_final_chunk',
+              'simulate_interruption',
+              'retry',
+            ]);
+            const result = await storageService.uploadVideoChunk(
+              sessionContext,
+              fileId,
+              body as unknown as UploadVideoChunkRequest,
+              requestId,
+            );
+            return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+          }
+
+          if (fileAction === 'review' && !fileSubAction && method === 'POST') {
+            requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+            const body = await parseJsonBody<Record<string, unknown>>(req);
+            assertAllowedFields(body, [
+              'review_status',
+              'notes',
+              'assigned_employee_id',
+              'permission_role',
+            ]);
+            const result = await storageService.reviewStorageFile(
+              sessionContext,
+              fileId,
+              body as unknown as ReviewStorageFileRequest,
+              requestId,
+            );
+            return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+          }
+
+          if (fileAction === 'permissions' && !fileSubAction && method === 'GET') {
+            const result = await storageService.listPermissions(
+              sessionContext,
+              'storage_file',
+              fileId,
+            );
+            return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+          }
+
+          if (fileAction === 'permissions' && !fileSubAction && method === 'POST') {
+            requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+            const body = await parseJsonBody<Record<string, unknown>>(req);
+            assertAllowedFields(body, ['employee_id', 'role', 'type']);
+            const result = await storageService.grantDrivePermission(
+              sessionContext,
+              'storage_file',
+              fileId,
+              body as unknown as GrantDrivePermissionRequest,
+              requestId,
+            );
+            return sendJson(res, 201, createSuccessEnvelope(result, requestId));
+          }
+
+          if (fileAction === 'permissions' && fileSubAction === 'revoke' && method === 'POST') {
+            requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+            const body = await parseJsonBody<Record<string, unknown>>(req);
+            assertAllowedFields(body, ['employee_id', 'grant_id', 'reason']);
+            const result = await storageService.revokeDrivePermission(
+              sessionContext,
+              'storage_file',
+              fileId,
+              body as unknown as RevokeDrivePermissionRequest,
+              requestId,
+            );
+            return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+          }
+
+          throw new AuthError(
+            'NOT_FOUND',
+            `Endpoint ${method} ${pathname} not found`,
+            404,
+          );
+        }
+
+        const storageRouteMatch = pathname.match(
+          /^\/api\/v1\/storage(?:\/(folders|trash-requests|operations)(?:\/([a-zA-Z0-9_-]+)(?:\/(files|receipts|trash-requests|confirm|sync|permissions)(?:\/(upload-sessions|revoke))?)?)?)?$/,
+        );
+        if (!storageRouteMatch) {
+          throw new AuthError(
+            'NOT_FOUND',
+            `Endpoint ${method} ${pathname} not found`,
+            404,
+          );
+        }
+
         const resource = storageRouteMatch[1];
         const resourceId = storageRouteMatch[2];
         const subAction = storageRouteMatch[3];
+        const subSubAction = storageRouteMatch[4];
 
         // 1. GET /api/v1/storage/folders
         if (
@@ -2758,11 +3014,13 @@ export function createRequestHandler(
           assertAllowedFields(body, [
             'name',
             'drive_url',
+            'create_on_drive',
             'folder_type',
             'assigned_employee_ids',
             'assigned_employee_id',
             'parent_folder_id',
             'assignment_id',
+            'permission_role',
             'notes',
           ]);
           const idempotencyKey =
@@ -2794,11 +3052,28 @@ export function createRequestHandler(
           });
         }
 
+        // 3b. DELETE /api/v1/storage/folders/:id (Detach record in Management Lite ONLY — never deletes on Drive)
+        if (
+          resource === 'folders' &&
+          resourceId &&
+          !subAction &&
+          method === 'DELETE'
+        ) {
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+          const result = await storageService.detachFolderRecord(
+            sessionContext,
+            resourceId,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
         // 4. GET /api/v1/storage/folders/:id/files
         if (
           resource === 'folders' &&
           resourceId &&
           subAction === 'files' &&
+          !subSubAction &&
           method === 'GET'
         ) {
           const result = await storageService.getFolderFiles(
@@ -2808,11 +3083,120 @@ export function createRequestHandler(
           return sendJson(res, 200, createSuccessEnvelope(result, requestId));
         }
 
+        // 4b. POST /api/v1/storage/folders/:id/files/upload-sessions (Resumable Video Upload initiation)
+        if (
+          resource === 'folders' &&
+          resourceId &&
+          subAction === 'files' &&
+          subSubAction === 'upload-sessions' &&
+          method === 'POST'
+        ) {
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, [
+            'name',
+            'size_bytes',
+            'mime_type',
+            'assigned_employee_id',
+            'permission_role',
+          ]);
+          const idempotencyKey =
+            typeof req.headers['idempotency-key'] === 'string'
+              ? req.headers['idempotency-key']
+              : undefined;
+          const result = await storageService.initiateVideoUpload(
+            sessionContext,
+            resourceId,
+            body as unknown as InitiateVideoUploadRequest,
+            idempotencyKey,
+            requestId,
+          );
+          return sendJson(res, 201, createSuccessEnvelope(result, requestId));
+        }
+
+        // 4c. POST /api/v1/storage/folders/:id/sync
+        if (
+          resource === 'folders' &&
+          resourceId &&
+          subAction === 'sync' &&
+          !subSubAction &&
+          method === 'POST'
+        ) {
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, []);
+          const result = await storageService.syncFolderFiles(
+            sessionContext,
+            resourceId,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        // 4d. GET /api/v1/storage/folders/:id/permissions
+        if (
+          resource === 'folders' &&
+          resourceId &&
+          subAction === 'permissions' &&
+          !subSubAction &&
+          method === 'GET'
+        ) {
+          const result = await storageService.listPermissions(
+            sessionContext,
+            'storage_folder',
+            resourceId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        // 4e. POST /api/v1/storage/folders/:id/permissions
+        if (
+          resource === 'folders' &&
+          resourceId &&
+          subAction === 'permissions' &&
+          !subSubAction &&
+          method === 'POST'
+        ) {
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, ['employee_id', 'role', 'type']);
+          const result = await storageService.grantDrivePermission(
+            sessionContext,
+            'storage_folder',
+            resourceId,
+            body as unknown as GrantDrivePermissionRequest,
+            requestId,
+          );
+          return sendJson(res, 201, createSuccessEnvelope(result, requestId));
+        }
+
+        // 4f. POST /api/v1/storage/folders/:id/permissions/revoke
+        if (
+          resource === 'folders' &&
+          resourceId &&
+          subAction === 'permissions' &&
+          subSubAction === 'revoke' &&
+          method === 'POST'
+        ) {
+          requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, ['employee_id', 'grant_id', 'reason']);
+          const result = await storageService.revokeDrivePermission(
+            sessionContext,
+            'storage_folder',
+            resourceId,
+            body as unknown as RevokeDrivePermissionRequest,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
         // 5. POST /api/v1/storage/folders/:id/receipts
         if (
           resource === 'folders' &&
           resourceId &&
           subAction === 'receipts' &&
+          !subSubAction &&
           method === 'POST'
         ) {
           requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
@@ -2842,6 +3226,7 @@ export function createRequestHandler(
           resource === 'folders' &&
           resourceId &&
           subAction === 'trash-requests' &&
+          !subSubAction &&
           method === 'POST'
         ) {
           requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
@@ -2866,6 +3251,7 @@ export function createRequestHandler(
           resource === 'trash-requests' &&
           resourceId &&
           subAction === 'confirm' &&
+          !subSubAction &&
           method === 'POST'
         ) {
           requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);

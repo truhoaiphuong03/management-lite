@@ -485,3 +485,87 @@ test('FILE-004: StorageScreen two-step trash workflow enforces double-click lock
   );
 });
 
+test('FILE-01 Google Drive V2 UI: OAuth connect button, direct folder creation, resumable video upload, staff permissions, and double + icon fix', () => {
+  const screenContent = readFileSync(
+    resolve(root, 'apps/web/src/screens/StorageScreen.tsx'),
+    'utf8',
+  );
+
+  // 1. Nút Kết nối Google Drive & OAuth modal
+  assert.ok(
+    screenContent.includes('data-testid="storage-connect-drive-btn"'),
+    'Must render Kết nối Google Drive button',
+  );
+  assert.ok(
+    screenContent.includes('Kết nối Google Drive (OAuth 2.0)'),
+    'Must render Google Drive OAuth 2.0 connection modal',
+  );
+  assert.ok(
+    screenContent.includes('https://www.googleapis.com/auth/drive.file'),
+    'Must display least-privilege drive.file scope in OAuth modal',
+  );
+
+  // 2. Nút Tạo thư mục & direct Google Drive creation
+  assert.ok(
+    screenContent.includes('data-testid="storage-create-folder-btn"'),
+    'Must render Tạo thư mục button',
+  );
+  assert.ok(
+    screenContent.includes('create_on_drive'),
+    'Must support creating folders directly on Google Drive via API',
+  );
+
+  // 3. Nút Tải video & Resumable upload modal
+  assert.ok(
+    screenContent.includes('data-testid="storage-upload-video-btn"'),
+    'Must render Tải video lên Drive button',
+  );
+  assert.ok(
+    screenContent.includes('Tải video lên Google Drive (Resumable Upload)'),
+    'Must render Resumable Video Upload modal',
+  );
+  assert.ok(
+    screenContent.includes('uploadProgressPct') &&
+      screenContent.includes('handleRetryVideoUpload'),
+    'Must support resumable upload progress, interruption handling, and retry',
+  );
+
+  // 4. Chọn nhân viên & quyền truy cập (reader/writer by Google email, no anyone-with-link)
+  assert.ok(
+    screenContent.includes('data-testid="storage-permissions-card"') &&
+      screenContent.includes('handleGrantPermission') &&
+      screenContent.includes('handleRevokePermission'),
+    'Must render staff Google Drive permission management controls',
+  );
+  assert.ok(
+    screenContent.includes('anyone-with-link'),
+    'Must explicitly state that anyone-with-link is disabled by default',
+  );
+
+  // 5. Non-destructive detachment & file review
+  assert.ok(
+    screenContent.includes('handleDetachFileRecord') &&
+      screenContent.includes('handleReviewFile'),
+    'Must support detaching records without deleting Google Drive files and reviewing files',
+  );
+
+  // 6. Verify double + icon bug is fixed (no "+ Tạo thư mục" or "+ Nộp thư mục" inside span next to PlusIcon)
+  assert.equal(
+    screenContent.includes('<span>+ Tạo thư mục'),
+    false,
+    'Must NOT have literal + inside span next to PlusIcon on Tạo thư mục buttons',
+  );
+  assert.equal(
+    screenContent.includes('<span>+ Nộp thư mục'),
+    false,
+    'Must NOT have literal + inside span next to PlusIcon on Nộp thư mục buttons',
+  );
+  assert.ok(
+    screenContent.includes('<span>Tạo thư mục</span>') &&
+      screenContent.includes('<span>Nộp thành phẩm</span>'),
+    'Clean labels next to PlusIcon must be present without duplicate + text',
+  );
+});
+
+
+

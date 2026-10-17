@@ -1504,6 +1504,226 @@ export const AUTH_SESSION_REMEMBER_ME_SQL = `-- Persist session intent; duration
 ALTER TABLE auth_sessions ADD COLUMN remember_me boolean;
 `;
 
+export const ACCOUNTS_ENHANCEMENT_SQL = `-- Migration: 0024_accounts_enhancement
+-- Scope: ACC-02 Managed Accounts extended metadata (recovery_email, account_group, assigned_employee_id)
+-- and additional AEAD encrypted secret types (email_password, two_fa_secret).
+
+ALTER TABLE managed_accounts
+  ADD COLUMN IF NOT EXISTS recovery_email text NULL,
+  ADD COLUMN IF NOT EXISTS account_group text NULL,
+  ADD COLUMN IF NOT EXISTS assigned_employee_id uuid NULL;
+
+ALTER TABLE managed_accounts
+  DROP CONSTRAINT IF EXISTS fk_managed_accounts_assigned_employee;
+
+ALTER TABLE managed_accounts
+  ADD CONSTRAINT fk_managed_accounts_assigned_employee
+  FOREIGN KEY (workspace_id, assigned_employee_id)
+  REFERENCES employees (workspace_id, id)
+  ON DELETE RESTRICT;
+
+CREATE INDEX IF NOT EXISTS idx_managed_accounts_workspace_group
+  ON managed_accounts (workspace_id, account_group);
+
+CREATE INDEX IF NOT EXISTS idx_managed_accounts_workspace_assignee
+  ON managed_accounts (workspace_id, assigned_employee_id);
+
+ALTER TABLE account_secrets
+  DROP CONSTRAINT IF EXISTS account_secrets_secret_type_check;
+
+ALTER TABLE account_secrets
+  ADD CONSTRAINT account_secrets_secret_type_check
+  CHECK (secret_type IN ('password', 'api_key', 'recovery_code', 'totp_secret', 'two_fa_secret', 'email_password'));
+`;
+
+export const STORAGE_GOOGLE_DRIVE_V2_SQL = `-- Migration: 0025_storage_google_drive_v2
+-- Scope: FILE-01 / FILE-02 Direct Google Drive API v3 Integration (OAuth 2.0 encrypted connection,
+-- direct Drive folder creation metadata, resumable video upload sessions, email-based
+-- reader/writer permission grants with inheritance tracking, and non-destructive record detach).
+
+CREATE TABLE IF NOT EXISTS storage_drive_connections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'connected', 'disconnected', 'revoked', 'error')),
+  google_email text NOT NULL,
+  display_name text NULL,
+  scope text NOT NULL DEFAULT 'https://www.googleapis.com/auth/drive.file',
+  scopes text[] NOT NULL DEFAULT ARRAY['https://www.googleapis.com/auth/drive.file'],
+  root_folder_id text NULL,
+  root_folder_url text NULL,
+  root_drive_folder_id text NULL,
+  root_drive_folder_url text NULL,
+  refresh_token_ciphertext bytea NULL,
+  refresh_token_nonce bytea NULL,
+  refresh_token_auth_tag bytea NULL,
+  refresh_token_tag bytea NULL,
+  ciphertext bytea NULL,
+  nonce bytea NULL,
+  auth_tag bytea NULL,
+  key_version text NOT NULL DEFAULT 'v1',
+  encryption_schema_version integer NOT NULL DEFAULT 1,
+  connected_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  connected_by_user_id uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  connected_at timestamptz NULL DEFAULT clock_timestamp(),
+  disconnected_at timestamptz NULL,
+  last_synced_at timestamptz NULL,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT uq_storage_drive_connections_workspace UNIQUE (workspace_id)
+);
+
+ALTER TABLE storage_drive_connections
+  ADD COLUMN IF NOT EXISTS display_name text NULL,
+  ADD COLUMN IF NOT EXISTS scope text NOT NULL DEFAULT 'https://www.googleapis.com/auth/drive.file',
+  ADD COLUMN IF NOT EXISTS root_folder_id text NULL,
+  ADD COLUMN IF NOT EXISTS root_folder_url text NULL,
+  ADD COLUMN IF NOT EXISTS refresh_token_ciphertext bytea NULL,
+  ADD COLUMN IF NOT EXISTS refresh_token_nonce bytea NULL,
+  ADD COLUMN IF NOT EXISTS refresh_token_auth_tag bytea NULL,
+  ADD COLUMN IF NOT EXISTS refresh_token_tag bytea NULL,
+  ADD COLUMN IF NOT EXISTS connected_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS disconnected_at timestamptz NULL,
+  ADD COLUMN IF NOT EXISTS last_synced_at timestamptz NULL,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT clock_timestamp();
+
+ALTER TABLE storage_drive_connections
+  ALTER COLUMN connected_by_user_id DROP NOT NULL,
+  ALTER COLUMN ciphertext DROP NOT NULL,
+  ALTER COLUMN nonce DROP NOT NULL,
+  ALTER COLUMN auth_tag DROP NOT NULL;
+
+ALTER TABLE storage_drive_connections
+  DROP CONSTRAINT IF EXISTS storage_drive_connections_status_check;
+
+ALTER TABLE storage_drive_connections
+  ADD CONSTRAINT storage_drive_connections_status_check
+  CHECK (status IN ('active', 'connected', 'disconnected', 'revoked', 'error'));
+
+CREATE INDEX IF NOT EXISTS idx_storage_drive_connections_workspace
+  ON storage_drive_connections (workspace_id, status);
+
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS google_email text NULL;
+
+ALTER TABLE storage_folders
+  ADD COLUMN IF NOT EXISTS provider_parent_id text NULL,
+  ADD COLUMN IF NOT EXISTS drive_owner_email text NULL,
+  ADD COLUMN IF NOT EXISTS drive_created_at timestamptz NULL,
+  ADD COLUMN IF NOT EXISTS record_status text NOT NULL DEFAULT 'active';
+
+ALTER TABLE storage_folders
+  DROP CONSTRAINT IF EXISTS storage_folders_record_status_check;
+
+ALTER TABLE storage_folders
+  ADD CONSTRAINT storage_folders_record_status_check
+  CHECK (record_status IN ('active', 'detached'));
+
+ALTER TABLE storage_files
+  ADD COLUMN IF NOT EXISTS drive_url text NULL,
+  ADD COLUMN IF NOT EXISTS web_view_link text NULL,
+  ADD COLUMN IF NOT EXISTS parent_provider_folder_id text NULL,
+  ADD COLUMN IF NOT EXISTS drive_owner_email text NULL,
+  ADD COLUMN IF NOT EXISTS drive_created_at timestamptz NULL,
+  ADD COLUMN IF NOT EXISTS upload_status text NOT NULL DEFAULT 'completed',
+  ADD COLUMN IF NOT EXISTS upload_session_id text NULL,
+  ADD COLUMN IF NOT EXISTS resumable_session_uri text NULL,
+  ADD COLUMN IF NOT EXISTS uploaded_bytes bigint NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS upload_progress_pct integer NOT NULL DEFAULT 100,
+  ADD COLUMN IF NOT EXISTS upload_retry_count integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS retry_count integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS upload_error_message text NULL,
+  ADD COLUMN IF NOT EXISTS last_error text NULL,
+  ADD COLUMN IF NOT EXISTS assigned_employee_id uuid NULL,
+  ADD COLUMN IF NOT EXISTS review_status text NOT NULL DEFAULT 'pending_review',
+  ADD COLUMN IF NOT EXISTS reviewed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS reviewed_by_user_id uuid NULL REFERENCES users(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS reviewed_at timestamptz NULL,
+  ADD COLUMN IF NOT EXISTS review_notes text NULL,
+  ADD COLUMN IF NOT EXISTS uploaded_by_user_id uuid NULL REFERENCES users(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT clock_timestamp();
+
+ALTER TABLE storage_files
+  DROP CONSTRAINT IF EXISTS storage_files_status_check;
+
+ALTER TABLE storage_files
+  ADD CONSTRAINT storage_files_status_check
+  CHECK (status IN ('available', 'active', 'uploading', 'paused', 'failed', 'deleted', 'trashed', 'detached'));
+
+ALTER TABLE storage_files
+  DROP CONSTRAINT IF EXISTS storage_files_upload_status_check;
+
+ALTER TABLE storage_files
+  ADD CONSTRAINT storage_files_upload_status_check
+  CHECK (upload_status IN ('pending', 'resumable_session_created', 'initiated', 'uploading', 'paused', 'interrupted', 'completed', 'failed'));
+
+ALTER TABLE storage_files
+  DROP CONSTRAINT IF EXISTS storage_files_uploaded_bytes_check;
+
+ALTER TABLE storage_files
+  ADD CONSTRAINT storage_files_uploaded_bytes_check
+  CHECK (uploaded_bytes >= 0);
+
+ALTER TABLE storage_files
+  DROP CONSTRAINT IF EXISTS storage_files_retry_count_check;
+
+ALTER TABLE storage_files
+  ADD CONSTRAINT storage_files_retry_count_check
+  CHECK (retry_count >= 0 AND upload_retry_count >= 0);
+
+ALTER TABLE storage_files
+  DROP CONSTRAINT IF EXISTS storage_files_review_status_check;
+
+ALTER TABLE storage_files
+  ADD CONSTRAINT storage_files_review_status_check
+  CHECK (review_status IN ('pending_review', 'unreviewed', 'approved', 'rejected'));
+
+ALTER TABLE storage_files
+  DROP CONSTRAINT IF EXISTS fk_storage_files_assigned_employee;
+
+ALTER TABLE storage_files
+  ADD CONSTRAINT fk_storage_files_assigned_employee
+  FOREIGN KEY (workspace_id, assigned_employee_id)
+  REFERENCES employees (workspace_id, id)
+  ON DELETE RESTRICT;
+
+CREATE INDEX IF NOT EXISTS idx_storage_files_workspace_assignee
+  ON storage_files (workspace_id, assigned_employee_id);
+
+ALTER TABLE resource_access_grants
+  DROP CONSTRAINT IF EXISTS fk_resource_access_grants_folder;
+
+ALTER TABLE resource_access_grants
+  DROP CONSTRAINT IF EXISTS resource_access_grants_resource_type_check;
+
+ALTER TABLE resource_access_grants
+  ADD CONSTRAINT resource_access_grants_resource_type_check
+  CHECK (resource_type IN ('storage_folder', 'storage_file'));
+
+ALTER TABLE resource_access_grants
+  ADD COLUMN IF NOT EXISTS google_email text NULL,
+  ADD COLUMN IF NOT EXISTS drive_role text NOT NULL DEFAULT 'reader',
+  ADD COLUMN IF NOT EXISTS drive_permission_id text NULL,
+  ADD COLUMN IF NOT EXISTS inherited_from_resource_id uuid NULL,
+  ADD COLUMN IF NOT EXISTS granted_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS granted_by_user_id uuid NULL REFERENCES users(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS granted_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  ADD COLUMN IF NOT EXISTS revoked_by uuid NULL REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE resource_access_grants
+  DROP CONSTRAINT IF EXISTS resource_access_grants_drive_role_check;
+
+ALTER TABLE resource_access_grants
+  ADD CONSTRAINT resource_access_grants_drive_role_check
+  CHECK (drive_role IN ('reader', 'writer', 'commenter'));
+
+ALTER TABLE storage_operations
+  DROP CONSTRAINT IF EXISTS storage_operations_operation_type_check;
+
+ALTER TABLE storage_operations
+  ADD CONSTRAINT storage_operations_operation_type_check
+  CHECK (operation_type IN ('trash_group', 'restore_group', 'sync_metadata', 'create_folder', 'upload_video', 'grant_permission', 'revoke_permission'));
+`;
+
 export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
   {
     id: '0001_m00_prerequisites',
@@ -1615,5 +1835,15 @@ export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
     id: '0023_auth_session_remember_me',
     sql: AUTH_SESSION_REMEMBER_ME_SQL,
     checksum: calculateChecksum(AUTH_SESSION_REMEMBER_ME_SQL),
+  },
+  {
+    id: '0024_accounts_enhancement',
+    sql: ACCOUNTS_ENHANCEMENT_SQL,
+    checksum: calculateChecksum(ACCOUNTS_ENHANCEMENT_SQL),
+  },
+  {
+    id: '0025_storage_google_drive_v2',
+    sql: STORAGE_GOOGLE_DRIVE_V2_SQL,
+    checksum: calculateChecksum(STORAGE_GOOGLE_DRIVE_V2_SQL),
   },
 ];

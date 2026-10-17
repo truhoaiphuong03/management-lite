@@ -25,10 +25,14 @@ import type {
   StorageFolderData,
   StorageFolderDetailData,
   StorageOutputData,
+  StorageFileData,
+  StorageDriveConnectionData,
+  StoragePermissionGrantData,
+  DrivePermissionRole,
   CreateStorageFolderRequest,
   CreateStorageReceiptRequest,
   CreateTrashRequestResponseData,
-} from '@management-lite/contracts';
+} from '../../../../packages/contracts/src/index.js';
 import type { UserRole } from '../types.js';
 
 export interface StorageScreenProps {
@@ -55,6 +59,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
   const [folders, setFolders] = useState<StorageFolderData[]>([]);
   const [selectedFolder, setSelectedFolder] =
     useState<StorageFolderDetailData | null>(null);
+  const [driveConnection, setDriveConnection] =
+    useState<StorageDriveConnectionData | null>(null);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [employeesError, setEmployeesError] = useState<string | null>(null);
   const [employeesLoading, setEmployeesLoading] = useState<boolean>(false);
@@ -67,14 +73,33 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Modal 1: Create Source Folder (Owner Only)
+  // Modal 0: Google Drive OAuth 2.0 Connection Modal (Owner Only)
+  const [showDriveOAuthModal, setShowDriveOAuthModal] =
+    useState<boolean>(false);
+  const [oauthUrlPreview, setOauthUrlPreview] = useState<string>('');
+  const [oauthState, setOauthState] = useState<string>('');
+  const [oauthGoogleEmail, setOauthGoogleEmail] = useState<string>(
+    'drive-admin@hoaiphuong.click',
+  );
+  const [oauthCode, setOauthCode] = useState<string>(
+    '4/0AVGzR1-google-oauth-code',
+  );
+  const [oauthRootFolderName, setOauthRootFolderName] = useState<string>(
+    'Management Lite - Google Drive Root',
+  );
+
+  // Modal 1: Create Source Folder on Google Drive (Owner Only)
   const [showCreateSourceModal, setShowCreateSourceModal] =
     useState<boolean>(false);
   const [newSourceName, setNewSourceName] = useState<string>('');
+  const [newSourceCreateOnDrive, setNewSourceCreateOnDrive] =
+    useState<boolean>(true);
   const [newSourceDriveUrl, setNewSourceDriveUrl] = useState<string>('');
   const [newSourceEmployeeIds, setNewSourceEmployeeIds] = useState<string[]>(
     [],
   );
+  const [newSourcePermissionRole, setNewSourcePermissionRole] =
+    useState<DrivePermissionRole>('reader');
   const [newSourceNotes, setNewSourceNotes] = useState<string>('');
 
   // Modal 2: Create Deliverable Folder (Staff or Owner)
@@ -85,6 +110,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
   const [deliverableAssignmentId, setDeliverableAssignmentId] =
     useState<string>('');
   const [deliverableName, setDeliverableName] = useState<string>('');
+  const [deliverableCreateOnDrive, setDeliverableCreateOnDrive] =
+    useState<boolean>(true);
   const [deliverableDriveUrl, setDeliverableDriveUrl] = useState<string>('');
   const [deliverableNotes, setDeliverableNotes] = useState<string>('');
 
@@ -94,15 +121,50 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     useState<CreateTrashRequestResponseData | null>(null);
   const [trashAcknowledged, setTrashAcknowledged] = useState<boolean>(false);
 
+  // Modal 4: Resumable Video Upload to Google Drive
+  const [showUploadVideoModal, setShowUploadVideoModal] =
+    useState<boolean>(false);
+  const [uploadTargetFolderId, setUploadTargetFolderId] = useState<string>('');
+  const [uploadVideoName, setUploadVideoName] = useState<string>('');
+  const [uploadVideoSizeMB, setUploadVideoSizeMB] = useState<string>('25');
+  const [uploadVideoMimeType, setUploadVideoMimeType] =
+    useState<string>('video/mp4');
+  const [uploadAssignedEmployeeId, setUploadAssignedEmployeeId] =
+    useState<string>('');
+  const [uploadPermissionRole, setUploadPermissionRole] =
+    useState<DrivePermissionRole>('reader');
+  const [uploadProgressPct, setUploadProgressPct] = useState<number>(0);
+  const [uploadStatusText, setUploadStatusText] = useState<string>('');
+  const [uploadSelectedFile, setUploadSelectedFile] = useState<File | null>(
+    null,
+  );
+
+  // Staff Permission Grant form states (in Folder Detail view)
+  const [grantEmployeeId, setGrantEmployeeId] = useState<string>('');
+  const [grantRole, setGrantRole] = useState<DrivePermissionRole>('reader');
+
   // Q65-05: Multi-page employee selector generation and abort management
   const employeesFetchIdRef = useRef<number>(0);
   const employeesAbortControllerRef = useRef<AbortController | null>(null);
   const trashLockRef = useRef<boolean>(false);
 
-  // 1. Fetch CSRF token & Employee List
+  // 1. Fetch CSRF token, Google Drive OAuth status & Employee List
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
+
+    if (typeof window !== 'undefined' && role === 'owner') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const returnedCode =
+        searchParams.get('oauth_code') || searchParams.get('code');
+      const returnedState =
+        searchParams.get('oauth_state') || searchParams.get('state');
+      if (returnedCode) {
+        setOauthCode(returnedCode);
+        if (returnedState) setOauthState(returnedState);
+        setShowDriveOAuthModal(true);
+      }
+    }
 
     const fetchSessionAndEmployees = async () => {
       try {
@@ -114,6 +176,17 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           const match = document.cookie.match(/csrf_token=([^;]+)/);
           if (match && match[1] && active) {
             setCsrfToken(decodeURIComponent(match[1]));
+          }
+        }
+
+        const connRes = await fetch('/api/v1/storage/drive/connection', {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (connRes.ok && active) {
+          const connBody = await connRes.json();
+          if (connBody.success && connBody.data) {
+            setDriveConnection(connBody.data);
           }
         }
 
@@ -225,6 +298,73 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     }
   };
 
+  // Normalize V2 folder detail data so both V1 and V2 fields are always populated
+  const normalizeFolderDetail = (
+    raw: StorageFolderDetailData,
+  ): StorageFolderDetailData => {
+    const deliverables = raw.deliverables ?? raw.deliverable_folders ?? [];
+    const outputs: StorageOutputData[] =
+      raw.outputs && raw.outputs.length > 0
+        ? raw.outputs
+        : deliverables.map((d) => ({
+            id: d.id,
+            parent_folder_id: d.parent_folder_id ?? raw.id,
+            assignment_id: d.assignment_id ?? null,
+            submitted_by_employee_id: d.created_by_employee_id ?? '',
+            submitted_by_employee_name:
+              d.assigned_employee_name ??
+              d.created_by_employee_id ??
+              'Nhân sự thực hiện',
+            name: d.name,
+            drive_url: d.drive_url,
+            current_revision: d.current_revision_number ?? 1,
+            owner_receipt_confirmed: Boolean(d.owner_receipt_confirmed),
+            owner_receipt_revision: d.owner_receipt_revision ?? null,
+            owner_reviewed_at: d.owner_reviewed_at ?? null,
+            notes: d.notes ?? null,
+            created_at: d.created_at,
+            updated_at: d.updated_at,
+          }));
+
+    const readiness = raw.delete_readiness
+      ? {
+          ...raw.delete_readiness,
+          can_verify: raw.delete_readiness.can_verify ?? true,
+          block_reasons:
+            raw.delete_readiness.block_reasons ??
+            raw.delete_readiness.reasons ??
+            [],
+          total_outputs:
+            raw.delete_readiness.total_outputs ??
+            raw.delete_readiness.deliverables_total ??
+            outputs.length,
+          total_assignments:
+            raw.delete_readiness.total_assignments ??
+            (raw.assignments?.length ||
+              raw.assigned_employee_ids?.length ||
+              (raw.assigned_employee_id ? 1 : 0)),
+        }
+      : undefined;
+
+    return {
+      ...raw,
+      deliverables,
+      outputs,
+      delete_readiness: readiness,
+      deliverable_count:
+        raw.deliverable_count ?? deliverables.length ?? outputs.length,
+      staff_download_confirmed:
+        raw.staff_download_confirmed ??
+        Boolean(raw.staff_source_acknowledged),
+      owner_review_confirmed:
+        raw.owner_review_confirmed ??
+        Boolean(
+          deliverables.length > 0 &&
+            deliverables.every((d) => d.owner_receipt_confirmed),
+        ),
+    };
+  };
+
   // 2. Fetch Folders list or Selected Folder detail
   const loadData = async () => {
     setLoading(true);
@@ -232,14 +372,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
     try {
       if (folderId) {
-        // Fetch folder detail
         const res = await fetch(`/api/v1/storage/folders/${folderId}`, {
           credentials: 'include',
         });
         if (res.ok) {
           const body = await res.json();
           if (body.success && body.data) {
-            setSelectedFolder(body.data);
+            setSelectedFolder(normalizeFolderDetail(body.data));
           } else {
             setErrorMessage(
               body.error?.message || 'Không thể tải chi tiết thư mục.',
@@ -253,14 +392,17 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           setErrorMessage(`Máy chủ trả về mã lỗi: ${res.status}`);
         }
       } else {
-        // Fetch folders list
         const res = await fetch('/api/v1/storage/folders', {
           credentials: 'include',
         });
         if (res.ok) {
           const body = await res.json();
           if (body.success && Array.isArray(body.data)) {
-            setFolders(body.data);
+            setFolders(
+              body.data.map((f: StorageFolderDetailData) =>
+                normalizeFolderDetail(f),
+              ),
+            );
           } else {
             setErrorMessage(
               body.error?.message || 'Không thể tải danh sách thư mục.',
@@ -268,7 +410,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           }
         } else if (res.status === 404 || res.status === 501) {
           setErrorMessage(
-            'API module STORAGE chưa khả dụng trên máy chủ. Vui lòng kiểm tra lại cấu hình backend Codex.',
+            'API module STORAGE chưa khả dụng trên máy chủ. Vui lòng kiểm tra lại cấu hình máy chủ API.',
           );
         } else {
           setErrorMessage(`Máy chủ trả về mã lỗi: ${res.status}`);
@@ -290,11 +432,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
   // Filtered Folders List
   const filteredFolders = useMemo(() => {
     return folders.filter((f) => {
-      // Type filter
       if (typeFilter !== 'all' && f.folder_type !== typeFilter) {
         return false;
       }
-      // Search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesName = f.name.toLowerCase().includes(query);
@@ -307,7 +447,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     });
   }, [folders, typeFilter, searchQuery]);
 
-  // Client-side pagination over already-loaded arrays (no API change)
+  // Client-side pagination over already-loaded arrays
   const [folderPage, setFolderPage] = useState<number>(0);
   const [folderPageSize, setFolderPageSize] =
     useState<number>(DEFAULT_PAGE_SIZE);
@@ -351,15 +491,19 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
     for (const f of folders) {
       if (f.folder_type === 'source') {
-        if (!f.staff_download_confirmed) {
+        const isAck =
+          Boolean(f.staff_download_confirmed) ||
+          Boolean(f.staff_source_acknowledged);
+        const delivCnt =
+          f.deliverable_count ?? f.deliverables?.length ?? 0;
+        const isReviewed =
+          Boolean(f.owner_review_confirmed) ||
+          Boolean(f.delete_readiness?.is_ready);
+        if (!isAck) {
           pendingDownload++;
-        } else if (f.deliverable_count > 0 && !f.owner_review_confirmed) {
+        } else if (delivCnt > 0 && !isReviewed) {
           pendingReview++;
-        } else if (
-          f.deliverable_count > 0 &&
-          f.staff_download_confirmed &&
-          f.owner_review_confirmed
-        ) {
+        } else if (delivCnt > 0 && isAck && isReviewed) {
           readyToTrash++;
         }
       }
@@ -367,12 +511,115 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     return { total, pendingDownload, pendingReview, readyToTrash };
   }, [folders]);
 
-  // Handlers
-  // Step 1: Owner creates source folder
+  // ==========================================
+  // GOOGLE DRIVE OAUTH 2.0 HANDLERS
+  // ==========================================
+  const handlePreviewOAuthUrl = async () => {
+    setErrorMessage(null);
+    try {
+      const res = await fetch('/api/v1/storage/drive/oauth/url', {
+        credentials: 'include',
+      });
+      const body = await res.json();
+      if (res.ok && body.success && body.data?.auth_url) {
+        setOauthUrlPreview(body.data.auth_url);
+        if (body.data.state) {
+          setOauthState(body.data.state);
+        }
+      }
+    } catch {
+      setErrorMessage('Không thể khởi tạo URL ủy quyền Google OAuth 2.0.');
+    }
+  };
+
+  const handleConnectDriveOAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionLoading(true);
+    setErrorMessage(null);
+    try {
+      let resolvedState = oauthState.trim();
+      if (!resolvedState) {
+        const urlRes = await fetch('/api/v1/storage/drive/oauth/url', {
+          credentials: 'include',
+        });
+        const urlBody = await urlRes.json();
+        if (urlRes.ok && urlBody.success && urlBody.data?.state) {
+          resolvedState = String(urlBody.data.state).trim();
+          setOauthState(resolvedState);
+        }
+      }
+      const res = await fetch('/api/v1/storage/drive/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          code: oauthCode.trim() || '4/0AVGzR1-google-oauth-code',
+          state: resolvedState,
+          google_email: oauthGoogleEmail.trim(),
+          root_folder_name: oauthRootFolderName.trim(),
+          scopes: ['https://www.googleapis.com/auth/drive.file'],
+        }),
+      });
+      const body = await res.json();
+      if (res.ok && body.success && body.data) {
+        setDriveConnection(body.data);
+        setShowDriveOAuthModal(false);
+        setSuccessMessage(
+          `Đã kết nối Google Drive (${body.data.google_email}) với quyền tối thiểu drive.file và mã hóa refresh token thành công.`,
+        );
+      } else {
+        setErrorMessage(
+          body.error?.message || 'Không thể kết nối Google Drive OAuth 2.0.',
+        );
+      }
+    } catch {
+      setErrorMessage('Lỗi mạng khi kết nối Google Drive OAuth 2.0.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDisconnectDriveOAuth = async () => {
+    setActionLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch('/api/v1/storage/drive/disconnect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        credentials: 'include',
+      });
+      const body = await res.json();
+      if (res.ok && body.success && body.data) {
+        setDriveConnection(body.data);
+        setShowDriveOAuthModal(false);
+        setSuccessMessage('Đã ngắt kết nối Google Drive và xóa khóa phiên.');
+      }
+    } catch {
+      setErrorMessage('Không thể ngắt kết nối Google Drive.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ==========================================
+  // FOLDER & PERMISSION HANDLERS
+  // ==========================================
   const handleCreateSourceFolder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSourceName.trim() || !newSourceDriveUrl.trim()) {
-      setErrorMessage('Vui lòng nhập tên thư mục và liên kết Google Drive.');
+    if (!newSourceName.trim()) {
+      setErrorMessage('Vui lòng nhập tên thư mục.');
+      return;
+    }
+    if (!newSourceCreateOnDrive && !newSourceDriveUrl.trim()) {
+      setErrorMessage(
+        'Vui lòng nhập liên kết Google Drive hoặc bật tự động tạo thư mục trên Google Drive.',
+      );
       return;
     }
 
@@ -381,12 +628,17 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
     const payload: CreateStorageFolderRequest = {
       name: newSourceName.trim(),
-      drive_url: newSourceDriveUrl.trim(),
+      create_on_drive: newSourceCreateOnDrive,
+      ...(newSourceCreateOnDrive
+        ? {}
+        : { drive_url: newSourceDriveUrl.trim() }),
       folder_type: 'source',
-      assigned_employee_ids:
-        newSourceEmployeeIds.length > 0 ? newSourceEmployeeIds : undefined,
+      ...(newSourceEmployeeIds.length > 0
+        ? { assigned_employee_ids: newSourceEmployeeIds }
+        : {}),
       assigned_employee_id:
-        newSourceEmployeeIds.length > 0 ? newSourceEmployeeIds[0] : null,
+        newSourceEmployeeIds.length > 0 ? (newSourceEmployeeIds[0] ?? null) : null,
+      permission_role: newSourcePermissionRole,
       parent_folder_id: null,
       notes: newSourceNotes.trim() || null,
     };
@@ -405,7 +657,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       const body = await res.json();
       if (res.ok && body.success) {
         setSuccessMessage(
-          'Đã tạo và giao thư mục gốc Google Drive thành công.',
+          newSourceCreateOnDrive
+            ? 'Đã tự động tạo thư mục trên Google Drive và phân quyền nhân viên thành công.'
+            : 'Đã tạo và giao thư mục gốc Google Drive thành công.',
         );
         setShowCreateSourceModal(false);
         setNewSourceName('');
@@ -432,7 +686,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     setErrorMessage(null);
 
     const payload: CreateStorageReceiptRequest = {
-      receipt_type: 'download',
+      receipt_type: 'staff_source_ack',
       notes: 'Nhân sự đã mở Google Drive và tải toàn bộ tài liệu gốc.',
     };
 
@@ -472,9 +726,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       setErrorMessage('Vui lòng chọn thư mục gốc để liên kết thành phẩm.');
       return;
     }
-    if (!deliverableName.trim() || !deliverableDriveUrl.trim()) {
+    if (!deliverableName.trim()) {
+      setErrorMessage('Vui lòng nhập tên thư mục thành phẩm.');
+      return;
+    }
+    if (!deliverableCreateOnDrive && !deliverableDriveUrl.trim()) {
       setErrorMessage(
-        'Vui lòng nhập tên thư mục và đường dẫn Drive thành phẩm.',
+        'Vui lòng nhập đường dẫn Drive thành phẩm hoặc bật tự động tạo trên Google Drive.',
       );
       return;
     }
@@ -484,7 +742,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
     const payload: CreateStorageFolderRequest = {
       name: deliverableName.trim(),
-      drive_url: deliverableDriveUrl.trim(),
+      create_on_drive: deliverableCreateOnDrive,
+      ...(deliverableCreateOnDrive
+        ? {}
+        : { drive_url: deliverableDriveUrl.trim() }),
       folder_type: 'deliverable',
       parent_folder_id: parentId,
       assignment_id: deliverableAssignmentId || null,
@@ -504,7 +765,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
       const body = await res.json();
       if (res.ok && body.success) {
-        setSuccessMessage('Đã liên kết thư mục thành phẩm thành công.');
+        setSuccessMessage('Đã tạo và liên kết thư mục thành phẩm thành công.');
         setShowCreateDeliverableModal(false);
         setDeliverableName('');
         setDeliverableDriveUrl('');
@@ -532,14 +793,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     setErrorMessage(null);
 
     const payload: CreateStorageReceiptRequest = {
-      receipt_type: 'deliverable_approval',
+      receipt_type: 'owner_deliverable_review',
       output_id: output.id,
       revision_number: output.current_revision,
       notes: `Chủ sở hữu đã tải và duyệt thành phẩm "${output.name}" tại revision v${output.current_revision}.`,
     };
 
     try {
-      const res = await fetch(`/api/v1/storage/folders/${folder.id}/receipts`, {
+      const res = await fetch(`/api/v1/storage/folders/${output.id}/receipts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -569,13 +830,382 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     }
   };
 
+  // ==========================================
+  // RESUMABLE VIDEO UPLOAD & SYNC HANDLERS
+  // ==========================================
+  const readFileSliceBase64 = async (
+    file: File,
+    start: number,
+    end: number,
+  ): Promise<string> => {
+    const buf = await file.slice(start, end).arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    const step = 0x8000;
+    for (let i = 0; i < bytes.length; i += step) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + step));
+    }
+    return btoa(binary);
+  };
+
+  const handleUploadVideoToDrive = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetFolder = uploadTargetFolderId || folderId;
+    if (!targetFolder) {
+      setErrorMessage('Vui lòng chọn thư mục đích để tải video lên Google Drive.');
+      return;
+    }
+    if (!uploadVideoName.trim()) {
+      setErrorMessage('Vui lòng nhập tên tệp video.');
+      return;
+    }
+    const sizeMB = Number(uploadVideoSizeMB);
+    const sizeBytes =
+      uploadSelectedFile && uploadSelectedFile.size > 0
+        ? uploadSelectedFile.size
+        : Number.isFinite(sizeMB) && sizeMB > 0
+          ? Math.round(sizeMB * 1024 * 1024)
+          : 10 * 1024 * 1024;
+
+    setActionLoading(true);
+    setErrorMessage(null);
+    setUploadProgressPct(10);
+    setUploadStatusText('Đang khởi tạo phiên Resumable Upload với Google Drive...');
+
+    try {
+      const initRes = await fetch(
+        `/api/v1/storage/folders/${targetFolder}/files/upload-sessions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: uploadVideoName.trim(),
+            size_bytes: sizeBytes,
+            mime_type: uploadVideoMimeType || 'video/mp4',
+            assigned_employee_id: uploadAssignedEmployeeId || null,
+            permission_role: uploadPermissionRole,
+          }),
+        },
+      );
+      const initBody = await initRes.json();
+      if (!initRes.ok || !initBody.success || !initBody.data) {
+        setErrorMessage(
+          initBody.error?.message ||
+            'Không thể khởi tạo phiên Resumable Upload trên Google Drive.',
+        );
+        setUploadProgressPct(0);
+        setUploadStatusText('');
+        return;
+      }
+
+      const fileRecord: StorageFileData = initBody.data;
+      const halfChunk = Math.ceil(sizeBytes / 2);
+      setUploadProgressPct(50);
+      setUploadStatusText('Đang tải chunk 1/2 lên Google Drive...');
+
+      const chunk1Base64 =
+        uploadSelectedFile && uploadSelectedFile.size <= 10 * 1024 * 1024
+          ? await readFileSliceBase64(uploadSelectedFile, 0, halfChunk)
+          : undefined;
+
+      await fetch(`/api/v1/storage/files/${fileRecord.id}/upload-chunk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          offset_bytes: 0,
+          chunk_size_bytes: halfChunk,
+          ...(chunk1Base64 ? { chunk_base64: chunk1Base64 } : {}),
+        }),
+      });
+
+      setUploadProgressPct(90);
+      setUploadStatusText('Đang hoàn tất chunk 2/2 và đồng bộ liên kết Drive...');
+
+      const chunk2Base64 =
+        uploadSelectedFile && uploadSelectedFile.size <= 10 * 1024 * 1024
+          ? await readFileSliceBase64(uploadSelectedFile, halfChunk, sizeBytes)
+          : undefined;
+
+      const finalRes = await fetch(
+        `/api/v1/storage/files/${fileRecord.id}/upload-chunk`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            offset_bytes: halfChunk,
+            chunk_size_bytes: sizeBytes - halfChunk,
+            ...(chunk2Base64 ? { chunk_base64: chunk2Base64 } : {}),
+            is_final_chunk: true,
+          }),
+        },
+      );
+
+      const finalBody = await finalRes.json();
+      if (finalRes.ok && finalBody.success) {
+        setUploadProgressPct(100);
+        setUploadStatusText('Hoàn tất tải video lên Google Drive!');
+        setSuccessMessage(
+          `Đã tải video "${uploadVideoName.trim()}" lên Google Drive thành công.`,
+        );
+        setShowUploadVideoModal(false);
+        setUploadVideoName('');
+        setUploadSelectedFile(null);
+        setUploadProgressPct(0);
+        setUploadStatusText('');
+        loadData();
+      } else {
+        setErrorMessage(
+          finalBody.error?.message ||
+            'Tải video bị gián đoạn. Bạn có thể bấm Thử lại trong danh sách tệp.',
+        );
+      }
+    } catch {
+      setErrorMessage('Lỗi kết nối khi tải video lên Google Drive.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRetryVideoUpload = async (file: StorageFileData) => {
+    setActionLoading(true);
+    setErrorMessage(null);
+    const total = file.size_bytes ?? 10 * 1024 * 1024;
+    const uploaded = file.uploaded_bytes ?? 0;
+    const remaining = Math.max(total - uploaded, 1024);
+
+    try {
+      const res = await fetch(`/api/v1/storage/files/${file.id}/upload-chunk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          offset_bytes: uploaded,
+          chunk_size_bytes: remaining,
+          retry: true,
+          is_final_chunk: true,
+        }),
+      });
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setSuccessMessage(
+          `Đã khôi phục và tải hoàn tất video "${file.name}" lên Google Drive.`,
+        );
+        loadData();
+      } else {
+        setErrorMessage(
+          body.error?.message || 'Không thể tiếp tục tải video lên Drive.',
+        );
+      }
+    } catch {
+      setErrorMessage('Lỗi mạng khi thử lại tải video.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReviewFile = async (
+    file: StorageFileData,
+    reviewStatus: 'approved' | 'rejected',
+  ) => {
+    setActionLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/v1/storage/files/${file.id}/review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          review_status: reviewStatus,
+          notes:
+            reviewStatus === 'approved'
+              ? 'Đạt yêu cầu nghiệm thu'
+              : 'Cần chỉnh sửa lại video',
+        }),
+      });
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setSuccessMessage(
+          `Đã cập nhật trạng thái nghiệm thu video "${file.name}".`,
+        );
+        loadData();
+      } else {
+        setErrorMessage(
+          body.error?.message || 'Không thể cập nhật trạng thái nghiệm thu.',
+        );
+      }
+    } catch {
+      setErrorMessage('Lỗi mạng khi duyệt video.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSyncFolderFiles = async (targetFolderId: string) => {
+    setActionLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(
+        `/api/v1/storage/folders/${targetFolderId}/sync`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
+          credentials: 'include',
+        },
+      );
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setSuccessMessage(
+          'Đã đồng bộ danh sách tệp và trạng thái từ Google Drive.',
+        );
+        loadData();
+      } else {
+        setErrorMessage(
+          body.error?.message || 'Không thể đồng bộ danh sách tệp từ Drive.',
+        );
+      }
+    } catch {
+      setErrorMessage('Lỗi mạng khi đồng bộ Google Drive.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDetachFileRecord = async (file: StorageFileData) => {
+    setActionLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/v1/storage/files/${file.id}`, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-Token': csrfToken,
+        },
+        credentials: 'include',
+      });
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setSuccessMessage(
+          `Đã gỡ bản ghi "${file.name}" khỏi Management Lite (Dữ liệu trên Google Drive vẫn được giữ nguyên an toàn).`,
+        );
+        loadData();
+      } else {
+        setErrorMessage(body.error?.message || 'Không thể gỡ bản ghi tệp.');
+      }
+    } catch {
+      setErrorMessage('Lỗi mạng khi gỡ bản ghi tệp.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleGrantPermission = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFolder || !grantEmployeeId) {
+      setErrorMessage('Vui lòng chọn nhân viên để cấp quyền Google Drive.');
+      return;
+    }
+    setActionLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(
+        `/api/v1/storage/folders/${selectedFolder.id}/permissions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            employee_id: grantEmployeeId,
+            role: grantRole,
+            type: 'user',
+          }),
+        },
+      );
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setSuccessMessage(
+          `Đã cấp quyền Google Drive (${grantRole}) theo email nhân viên thành công.`,
+        );
+        setGrantEmployeeId('');
+        loadData();
+      } else {
+        setErrorMessage(
+          body.error?.message || 'Không thể cấp quyền Google Drive.',
+        );
+      }
+    } catch {
+      setErrorMessage('Lỗi mạng khi cấp quyền Google Drive.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRevokePermission = async (grant: StoragePermissionGrantData) => {
+    if (!selectedFolder) return;
+    setActionLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(
+        `/api/v1/storage/folders/${selectedFolder.id}/permissions/revoke`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            grant_id: grant.id,
+            employee_id: grant.employee_id,
+          }),
+        },
+      );
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setSuccessMessage(
+          `Đã thu hồi quyền Google Drive của ${grant.google_email || grant.employee_name || 'nhân viên'}.`,
+        );
+        loadData();
+      } else {
+        setErrorMessage(
+          body.error?.message || 'Không thể thu hồi quyền Google Drive.',
+        );
+      }
+    } catch {
+      setErrorMessage('Lỗi mạng khi thu hồi quyền Google Drive.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Step 5A: Owner initiates trash request (Backend Delete-Readiness Verification)
   const handleInitiateTrashRequest = async (
     folder: StorageFolderDetailData,
   ) => {
     if (trashLockRef.current) return;
 
-    // Check backend delete-readiness
     const readiness = folder.delete_readiness;
     if (!readiness || readiness.can_verify === false) {
       setErrorMessage(
@@ -585,8 +1215,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     }
 
     if (!readiness.is_ready) {
+      const reasonsList = readiness.block_reasons ?? readiness.reasons ?? [];
       setErrorMessage(
-        `Không thể chuyển nhóm thư mục vào thùng rác do vi phạm điều kiện an toàn:\n• ${readiness.block_reasons.join('\n• ')}`,
+        `Không thể chuyển nhóm thư mục vào thùng rác do vi phạm điều kiện an toàn:\n• ${reasonsList.join('\n• ')}`,
       );
       return;
     }
@@ -696,6 +1327,548 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     }
   };
 
+  // Shared Modals: OAuth 2.0 & Resumable Video Upload
+  const renderSharedDriveModals = () => (
+    <>
+      {showDriveOAuthModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#1E293B',
+              borderRadius: '12px',
+              border: '1px solid #334155',
+              width: '100%',
+              maxWidth: '520px',
+              padding: '24px',
+            }}
+          >
+            <h3
+              style={{
+                margin: '0 0 8px 0',
+                fontSize: '18px',
+                fontWeight: 700,
+                color: '#F8FAFC',
+              }}
+            >
+              Kết nối Google Drive (OAuth 2.0)
+            </h3>
+            <p
+              style={{
+                margin: '0 0 16px 0',
+                fontSize: '13px',
+                color: '#94A3B8',
+                lineHeight: '1.5',
+              }}
+            >
+              Sử dụng phạm vi quyền tối thiểu{' '}
+              <code>https://www.googleapis.com/auth/drive.file</code> (chỉ quản
+              lý thư mục và tệp do Management Lite khởi tạo). Refresh token được
+              mã hóa AES-256-GCM trên máy chủ.
+            </p>
+
+            <form onSubmit={handleConnectDriveOAuth}>
+              <div style={{ marginBottom: '12px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    onClick={handlePreviewOAuthUrl}
+                  >
+                    <LinkIcon size={14} />
+                    <span>Lấy URL xác thực Google OAuth 2.0</span>
+                  </AppButton>
+                  {oauthUrlPreview && (
+                    <a
+                      href={oauthUrlPreview}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '8px 12px',
+                        backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                        border: '1px solid rgba(56, 189, 248, 0.4)',
+                        borderRadius: '6px',
+                        color: '#38BDF8',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Mở trang ủy quyền Google ↗
+                    </a>
+                  )}
+                </div>
+                {oauthUrlPreview && (
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      padding: '8px 10px',
+                      backgroundColor: '#0F172A',
+                      borderRadius: '6px',
+                      border: '1px solid #334155',
+                      fontSize: '11px',
+                      color: '#38BDF8',
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    {oauthUrlPreview}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Email tài khoản Google quản trị *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={oauthGoogleEmail}
+                  onChange={(e) => setOauthGoogleEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    backgroundColor: '#0F172A',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Mã ủy quyền OAuth 2.0 (Authorization Code) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={oauthCode}
+                  onChange={(e) => setOauthCode(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    backgroundColor: '#0F172A',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '18px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Tên thư mục gốc ứng dụng trên Google Drive
+                </label>
+                <input
+                  type="text"
+                  value={oauthRootFolderName}
+                  onChange={(e) => setOauthRootFolderName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    backgroundColor: '#0F172A',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                {driveConnection?.connected ? (
+                  <AppButton
+                    type="button"
+                    variant="destructive"
+                    onClick={handleDisconnectDriveOAuth}
+                    disabled={actionLoading}
+                  >
+                    Ngắt kết nối Drive
+                  </AppButton>
+                ) : (
+                  <div />
+                )}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setShowDriveOAuthModal(false)}
+                  >
+                    Đóng
+                  </AppButton>
+                  <AppButton
+                    type="submit"
+                    variant="primary"
+                    disabled={actionLoading}
+                  >
+                    Kết nối Google Drive
+                  </AppButton>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showUploadVideoModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#1E293B',
+              borderRadius: '12px',
+              border: '1px solid #334155',
+              width: '100%',
+              maxWidth: '500px',
+              padding: '24px',
+            }}
+          >
+            <h3
+              style={{
+                margin: '0 0 12px 0',
+                fontSize: '18px',
+                fontWeight: 700,
+                color: '#F8FAFC',
+              }}
+            >
+              Tải video lên Google Drive (Resumable Upload)
+            </h3>
+
+            <form onSubmit={handleUploadVideoToDrive}>
+              {!folderId && (
+                <div style={{ marginBottom: '14px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Chọn thư mục Google Drive đích *
+                  </label>
+                  <select
+                    required
+                    value={uploadTargetFolderId}
+                    onChange={(e) => setUploadTargetFolderId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <option value="">-- Chọn thư mục đích --</option>
+                    {folders.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name} (
+                        {f.folder_type === 'source'
+                          ? 'Thư mục gốc'
+                          : 'Thành phẩm'}
+                        )
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div style={{ marginBottom: '14px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Chọn tệp video từ máy hoặc nhập tên tệp *
+                </label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    setUploadSelectedFile(f || null);
+                    if (f) {
+                      setUploadVideoName(f.name);
+                      setUploadVideoSizeMB(
+                        Math.max(1, Math.round(f.size / (1024 * 1024))).toString(),
+                      );
+                      setUploadVideoMimeType(f.type || 'video/mp4');
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    marginBottom: '8px',
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                  }}
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Video_Quang_Cao_TikTok_FullHD.mp4"
+                  value={uploadVideoName}
+                  onChange={(e) => setUploadVideoName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    backgroundColor: '#0F172A',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '12px',
+                  marginBottom: '14px',
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Dung lượng (MB)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={uploadVideoSizeMB}
+                    onChange={(e) => setUploadVideoSizeMB(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Quyền Google Drive
+                  </label>
+                  <select
+                    value={uploadPermissionRole}
+                    onChange={(e) =>
+                      setUploadPermissionRole(
+                        e.target.value as DrivePermissionRole,
+                      )
+                    }
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <option value="reader">Reader (Chỉ xem & tải)</option>
+                    <option value="writer">Writer (Chỉnh sửa & tải lên)</option>
+                  </select>
+                </div>
+              </div>
+
+              {role === 'owner' && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Giao video & cấp quyền Drive theo email nhân viên
+                  </label>
+                  <select
+                    value={uploadAssignedEmployeeId}
+                    onChange={(e) =>
+                      setUploadAssignedEmployeeId(e.target.value)
+                    }
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <option value="">-- Không giao riêng --</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.full_name} ({emp.employee_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {uploadProgressPct > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '12px',
+                      color: '#38BDF8',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    <span>{uploadStatusText}</span>
+                    <span>{uploadProgressPct}%</span>
+                  </div>
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '8px',
+                      backgroundColor: '#0F172A',
+                      borderRadius: '4px',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${uploadProgressPct}%`,
+                        height: '100%',
+                        backgroundColor: '#14B8A6',
+                        transition: 'width 0.2s ease',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '10px',
+                }}
+              >
+                <AppButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowUploadVideoModal(false)}
+                >
+                  Hủy
+                </AppButton>
+                <AppButton
+                  type="submit"
+                  variant="primary"
+                  disabled={actionLoading}
+                >
+                  Bắt đầu tải video lên Drive
+                </AppButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   // ==========================================
   // RENDER: DETAIL VIEW (/storage/:id)
   // ==========================================
@@ -731,10 +1904,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       );
     }
 
-    // Backend Delete-Readiness state
     const readiness = selectedFolder.delete_readiness;
     const canVerify = Boolean(readiness && readiness.can_verify !== false);
     const isReady = Boolean(canVerify && readiness?.is_ready);
+    const activeGrants = (selectedFolder.permission_grants ?? []).filter(
+      (g) => !g.revoked_at,
+    );
+    const folderFiles = selectedFolder.files ?? [];
 
     return (
       <div
@@ -769,7 +1945,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
         <PageHeader
           title={`Thư mục: ${selectedFolder.name}`}
-          subtitle="Quản lý từng assignment nhân sự, kiểm soát revision thành phẩm và dọn dẹp Google Drive (FILE-01 / STORAGE)"
+          subtitle="Quản lý Google Drive trực tiếp, phân quyền nhân viên theo email và nghiệm thu video (FILE-01 / STORAGE)"
           actions={
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <a
@@ -793,6 +1969,18 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 <span>Mở Google Drive</span>
               </a>
 
+              <AppButton
+                variant="secondary"
+                data-testid="storage-detail-upload-video-btn"
+                onClick={() => {
+                  setUploadTargetFolderId(selectedFolder.id);
+                  setShowUploadVideoModal(true);
+                }}
+              >
+                <PlusIcon size={16} />
+                <span>Tải video</span>
+              </AppButton>
+
               {role === 'staff' && (
                 <AppButton
                   variant="primary"
@@ -802,7 +1990,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   }}
                 >
                   <PlusIcon size={16} />
-                  <span>+ Nộp thành phẩm</span>
+                  <span>Nộp thành phẩm</span>
                 </AppButton>
               )}
             </div>
@@ -856,7 +2044,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 color: '#F8FAFC',
               }}
             >
-              Thông tin thư mục gốc
+              Thông tin thư mục Google Drive
             </h3>
 
             <div
@@ -874,6 +2062,52 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             >
               <div>
                 <span style={{ color: '#94A3B8' }}>
+                  Google Drive Folder ID:
+                </span>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: '#38BDF8',
+                    marginTop: '2px',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {selectedFolder.provider_folder_id || 'Chưa đồng bộ'}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ color: '#94A3B8' }}>
+                  Parent Folder ID (Drive):
+                </span>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedFolder.provider_parent_id || 'Root'}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ color: '#94A3B8' }}>Chủ sở hữu Drive:</span>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedFolder.drive_owner_email ||
+                    driveConnection?.google_email ||
+                    'Workspace Owner'}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ color: '#94A3B8' }}>
                   Tổng nhân sự được giao:
                 </span>
                 <div
@@ -889,6 +2123,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   <UserIcon size={14} style={{ color: '#38BDF8' }} />
                   <span>
                     {selectedFolder.assignments?.length ||
+                      selectedFolder.assigned_employee_ids?.length ||
                       (selectedFolder.assigned_employee_name ? 1 : 0)}{' '}
                     nhân sự
                   </span>
@@ -912,9 +2147,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               </div>
 
               <div>
-                <span style={{ color: '#94A3B8' }}>
-                  Phiên bản nhóm (Version):
-                </span>
+                <span style={{ color: '#94A3B8' }}>Ngày tạo trên Drive:</span>
                 <div
                   style={{
                     fontWeight: 600,
@@ -922,22 +2155,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     marginTop: '2px',
                   }}
                 >
-                  v{selectedFolder.version}
-                </div>
-              </div>
-
-              <div>
-                <span style={{ color: '#94A3B8' }}>Ngày tạo:</span>
-                <div
-                  style={{
-                    fontWeight: 600,
-                    color: '#F8FAFC',
-                    marginTop: '2px',
-                  }}
-                >
-                  {new Date(selectedFolder.created_at).toLocaleDateString(
-                    'vi-VN',
-                  )}
+                  {new Date(
+                    selectedFolder.drive_created_at ||
+                      selectedFolder.created_at,
+                  ).toLocaleDateString('vi-VN')}
                 </div>
               </div>
             </div>
@@ -957,6 +2178,432 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 >
                   {selectedFolder.notes}
                 </p>
+              </div>
+            )}
+          </AppCard>
+
+          {/* 1B. Google Drive Permissions Management Card (Requirement 6 & 7) */}
+          <AppCard
+            style={{ padding: '24px' }}
+            data-testid="storage-permissions-card"
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+                marginBottom: '14px',
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    color: '#F8FAFC',
+                  }}
+                >
+                  Quyền chia sẻ Google Drive theo Email nhân viên (
+                  {activeGrants.length})
+                </h3>
+                <p
+                  style={{
+                    margin: '4px 0 0 0',
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Cấp hoặc thu hồi quyền <code>reader</code> /{' '}
+                  <code>writer</code> trực tiếp theo email Google của nhân viên
+                  (Không bật anyone-with-link mặc định).
+                </p>
+              </div>
+            </div>
+
+            {role === 'owner' && (
+              <form
+                onSubmit={handleGrantPermission}
+                style={{
+                  display: 'flex',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                  marginBottom: '16px',
+                  padding: '12px',
+                  backgroundColor: '#0F172A',
+                  borderRadius: '8px',
+                  border: '1px solid #1E293B',
+                }}
+              >
+                <select
+                  value={grantEmployeeId}
+                  onChange={(e) => setGrantEmployeeId(e.target.value)}
+                  style={{
+                    flex: '1',
+                    minWidth: '200px',
+                    padding: '8px 12px',
+                    backgroundColor: '#1E293B',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#F8FAFC',
+                    fontSize: '13px',
+                  }}
+                >
+                  <option value="">-- Chọn nhân viên cấp quyền Drive --</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name} ({emp.employee_code})
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={grantRole}
+                  onChange={(e) =>
+                    setGrantRole(e.target.value as DrivePermissionRole)
+                  }
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#1E293B',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#F8FAFC',
+                    fontSize: '13px',
+                  }}
+                >
+                  <option value="reader">Reader (Xem & tải về)</option>
+                  <option value="writer">Writer (Tải lên & chỉnh sửa)</option>
+                </select>
+
+                <AppButton
+                  type="submit"
+                  variant="primary"
+                  disabled={actionLoading || !grantEmployeeId}
+                >
+                  <span>Cấp quyền Drive</span>
+                </AppButton>
+              </form>
+            )}
+
+            {activeGrants.length === 0 ? (
+              <div
+                style={{
+                  padding: '14px',
+                  backgroundColor: '#0F172A',
+                  borderRadius: '8px',
+                  color: '#94A3B8',
+                  fontSize: '13px',
+                  textAlign: 'center',
+                }}
+              >
+                Chưa có quyền chia sẻ Google Drive nào đang hoạt động trên thư
+                mục này.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                {activeGrants.map((grant) => (
+                  <div
+                    key={grant.id}
+                    style={{
+                      padding: '12px 14px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #1E293B',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '10px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                        {grant.employee_name || grant.employee_id}{' '}
+                        {grant.google_email ? `(${grant.google_email})` : ''}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: '#94A3B8',
+                          marginTop: '2px',
+                        }}
+                      >
+                        Permission ID: {grant.drive_permission_id || 'N/A'}
+                        {grant.inherited_from_resource_id
+                          ? ' • Kế thừa từ thư mục cha'
+                          : ''}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <StatusBadge
+                        status={
+                          grant.drive_role === 'writer' ? 'warning' : 'success'
+                        }
+                        label={`Drive: ${grant.drive_role}`}
+                      />
+                      {role === 'owner' && (
+                        <AppButton
+                          variant="destructive"
+                          onClick={() => handleRevokePermission(grant)}
+                          disabled={actionLoading}
+                        >
+                          <span>Thu hồi quyền</span>
+                        </AppButton>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </AppCard>
+
+          {/* 1C. Folder Video & Files List Card (Requirement 5, 8, 9) */}
+          <AppCard
+            style={{ padding: '24px' }}
+            data-testid="storage-files-card"
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+                marginBottom: '16px',
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    color: '#F8FAFC',
+                  }}
+                >
+                  Danh sách Video & Tệp trên Google Drive ({folderFiles.length})
+                </h3>
+                <p
+                  style={{
+                    margin: '4px 0 0 0',
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Theo dõi trạng thái Resumable Upload, nhân viên phụ trách và
+                  nghiệm thu video. Gỡ bản ghi trên Management Lite không làm
+                  mất tệp trên Google Drive.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <AppButton
+                  variant="secondary"
+                  onClick={() => handleSyncFolderFiles(selectedFolder.id)}
+                  disabled={actionLoading}
+                >
+                  <span>Đồng bộ Drive</span>
+                </AppButton>
+                <AppButton
+                  variant="primary"
+                  onClick={() => {
+                    setUploadTargetFolderId(selectedFolder.id);
+                    setShowUploadVideoModal(true);
+                  }}
+                  disabled={actionLoading}
+                >
+                  <PlusIcon size={14} />
+                  <span>Tải video</span>
+                </AppButton>
+              </div>
+            </div>
+
+            {folderFiles.length === 0 ? (
+              <div
+                style={{
+                  padding: '20px',
+                  backgroundColor: '#0F172A',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  color: '#94A3B8',
+                  fontSize: '13px',
+                }}
+              >
+                Chưa có tệp video nào trong thư mục này. Bấm "Tải video" để tải
+                lên Google Drive bằng Resumable Upload.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}
+              >
+                {folderFiles.map((file) => {
+                  const total = file.size_bytes || 1;
+                  const uploaded = file.uploaded_bytes ?? total;
+                  const pct = Math.min(
+                    100,
+                    Math.round((uploaded / total) * 100),
+                  );
+                  const isInterrupted =
+                    file.status === 'paused' ||
+                    file.upload_status === 'failed' ||
+                    file.upload_status === 'paused';
+
+                  return (
+                    <div
+                      key={file.id}
+                      style={{
+                        padding: '14px 16px',
+                        backgroundColor: '#0F172A',
+                        border: '1px solid #1E293B',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                        fontSize: '13px',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                          {file.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            color: '#94A3B8',
+                            marginTop: '2px',
+                          }}
+                        >
+                          Drive File ID: {file.provider_file_id || 'N/A'} • Tiến
+                          trình upload: {pct}% • Nhân viên:{' '}
+                          {file.assigned_employee_name || 'Chưa giao riêng'}
+                        </div>
+                        {file.last_error && (
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              color: '#F87171',
+                              marginTop: '4px',
+                            }}
+                          >
+                            ⚠️ Gián đoạn tải lên: {file.last_error} (Số lần thử
+                            lại: {file.retry_count ?? 0})
+                          </div>
+                        )}
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <StatusBadge
+                          status={
+                            file.upload_status === 'completed'
+                              ? 'success'
+                              : isInterrupted
+                                ? 'warning'
+                                : 'neutral'
+                          }
+                          label={`Upload: ${file.upload_status || file.status}`}
+                        />
+
+                        <StatusBadge
+                          status={
+                            file.review_status === 'approved'
+                              ? 'success'
+                              : file.review_status === 'rejected'
+                                ? 'warning'
+                                : 'neutral'
+                          }
+                          label={
+                            file.review_status === 'approved'
+                              ? 'Đã nghiệm thu'
+                              : file.review_status === 'rejected'
+                                ? 'Từ chối'
+                                : 'Chờ nghiệm thu'
+                          }
+                        />
+
+                        {file.web_view_link && (
+                          <a
+                            href={file.web_view_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              padding: '5px 10px',
+                              backgroundColor: '#1E293B',
+                              color: '#38BDF8',
+                              border: '1px solid #334155',
+                              borderRadius: '6px',
+                              textDecoration: 'none',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                            }}
+                          >
+                            Xem trên Drive
+                          </a>
+                        )}
+
+                        {isInterrupted && (
+                          <AppButton
+                            variant="primary"
+                            onClick={() => handleRetryVideoUpload(file)}
+                            disabled={actionLoading}
+                          >
+                            <span>Thử lại Upload</span>
+                          </AppButton>
+                        )}
+
+                        {role === 'owner' &&
+                          file.review_status !== 'approved' && (
+                            <AppButton
+                              variant="primary"
+                              onClick={() => handleReviewFile(file, 'approved')}
+                              disabled={actionLoading}
+                            >
+                              <CheckIcon size={14} />
+                              <span>Duyệt video</span>
+                            </AppButton>
+                          )}
+
+                        {role === 'owner' && (
+                          <AppButton
+                            variant="secondary"
+                            onClick={() => handleDetachFileRecord(file)}
+                            disabled={actionLoading}
+                          >
+                            <span>Gỡ bản ghi Lite</span>
+                          </AppButton>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </AppCard>
@@ -1125,7 +2772,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 }}
               >
                 <PlusIcon size={14} />
-                <span>+ Nộp thành phẩm</span>
+                <span>Nộp thành phẩm</span>
               </AppButton>
             </div>
 
@@ -1140,8 +2787,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   fontSize: '13px',
                 }}
               >
-                Chưa có thư mục thành phẩm nào được nộp. Bấm "+ Nộp thành phẩm"
-                để thêm liên kết Drive.
+                Chưa có thư mục thành phẩm nào được nộp. Bấm "Nộp thành phẩm"
+                để tạo trực tiếp hoặc thêm liên kết Drive.
               </div>
             ) : (
               <div
@@ -1200,7 +2847,6 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           )}
                         </div>
 
-                        {/* Stale Revision Alert */}
                         {isStale && (
                           <div
                             style={{
@@ -1292,7 +2938,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             )}
           </AppCard>
 
-          {/* 4. Backend Delete-Readiness & Safe Google Drive Trash Card (Yêu cầu 4, 5, 6, 7) */}
+          {/* 4. Backend Delete-Readiness & Safe Google Drive Trash Card */}
           {role === 'owner' && (
             <AppCard
               style={{
@@ -1337,9 +2983,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 nộp và Owner đã duyệt từng thành phẩm đúng revision hiện tại.
               </p>
 
-              {/* Status Section based on Backend Delete-Readiness */}
               {!canVerify ? (
-                // Case A: Unverifiable / API Unavailable (Yêu cầu 5)
                 <div
                   style={{
                     padding: '16px',
@@ -1377,7 +3021,6 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   </p>
                 </div>
               ) : !isReady ? (
-                // Case B: Not ready (Has block reasons)
                 <div
                   style={{
                     padding: '16px',
@@ -1406,13 +3049,12 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       lineHeight: '1.6',
                     }}
                   >
-                    {readiness?.block_reasons?.map((reason, idx) => (
-                      <li key={idx}>{reason}</li>
-                    )) || <li>Dữ liệu chưa hoàn tất.</li>}
+                    {(readiness?.block_reasons ?? readiness?.reasons)?.map(
+                      (reason, idx) => <li key={idx}>{reason}</li>,
+                    ) || <li>Dữ liệu chưa hoàn tất.</li>}
                   </ul>
                 </div>
               ) : (
-                // Case C: Ready for Trash
                 <div
                   style={{
                     padding: '14px 16px',
@@ -1438,7 +3080,6 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 </div>
               )}
 
-              {/* Action Button */}
               {isReady ? (
                 <AppButton
                   variant="destructive"
@@ -1461,6 +3102,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             </AppCard>
           )}
         </div>
+
+        {renderSharedDriveModals()}
 
         {/* Modal 2: Create Deliverable Folder */}
         {showCreateDeliverableModal && (
@@ -1569,35 +3212,60 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   />
                 </div>
 
-                <div style={{ marginBottom: '14px' }}>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '13px',
-                      color: '#94A3B8',
-                      marginBottom: '6px',
-                    }}
-                  >
-                    Đường dẫn Google Drive thành phẩm *
-                  </label>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    color: '#38BDF8',
+                    marginBottom: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
                   <input
-                    type="url"
-                    required
-                    placeholder="https://drive.google.com/drive/folders/..."
-                    value={deliverableDriveUrl}
-                    onChange={(e) => setDeliverableDriveUrl(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      color: '#F8FAFC',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                    }}
+                    type="checkbox"
+                    checked={deliverableCreateOnDrive}
+                    onChange={(e) =>
+                      setDeliverableCreateOnDrive(e.target.checked)
+                    }
                   />
-                </div>
+                  <span>
+                    Tự động tạo thư mục thành phẩm trực tiếp trên Google Drive
+                  </span>
+                </label>
+
+                {!deliverableCreateOnDrive && (
+                  <div style={{ marginBottom: '14px' }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '13px',
+                        color: '#94A3B8',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      Đường dẫn Google Drive thành phẩm *
+                    </label>
+                    <input
+                      type="url"
+                      required={!deliverableCreateOnDrive}
+                      placeholder="https://drive.google.com/drive/folders/..."
+                      value={deliverableDriveUrl}
+                      onChange={(e) => setDeliverableDriveUrl(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#0F172A',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        color: '#F8FAFC',
+                        fontSize: '14px',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                )}
 
                 <div style={{ marginBottom: '20px' }}>
                   <label
@@ -1655,7 +3323,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           </div>
         )}
 
-        {/* Modal 3: Two-step Google Drive Trash Confirmation (Yêu cầu 6 & 7) */}
+        {/* Modal 3: Two-step Google Drive Trash Confirmation */}
         {showTrashModal && trashRequestData && (
           <div
             style={{
@@ -1730,7 +3398,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   marginBottom: '16px',
                 }}
               >
-                Nhóm thư mục: <strong>{trashRequestData.folder_name}</strong>
+                Nhóm thư mục:{' '}
+                <strong>
+                  {trashRequestData.folder_name || selectedFolder.name}
+                </strong>
                 <br />
                 Số lượng thành phẩm ảnh hưởng:{' '}
                 <strong>
@@ -1807,19 +3478,49 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       {/* 1. Page Header */}
       <PageHeader
         title="Quản lý Tệp & Drive (STORAGE)"
-        subtitle="Quản lý thư mục gốc Google Drive, bàn giao nhân sự và nghiệm thu thành phẩm (FILE-01)"
+        subtitle="Tích hợp Google Drive API v3 trực tiếp: OAuth 2.0, Tạo thư mục, Tải video Resumable và Phân quyền nhân viên (FILE-01)"
         actions={
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {role === 'owner' && (
               <AppButton
+                variant="secondary"
+                data-testid="storage-connect-drive-btn"
+                onClick={() => setShowDriveOAuthModal(true)}
+                disabled={loading}
+              >
+                <LinkIcon size={16} />
+                <span>
+                  {driveConnection?.connected
+                    ? `Drive: ${driveConnection.google_email}`
+                    : 'Kết nối Google Drive'}
+                </span>
+              </AppButton>
+            )}
+
+            {role === 'owner' && (
+              <AppButton
                 variant="primary"
+                data-testid="storage-create-folder-btn"
                 onClick={() => setShowCreateSourceModal(true)}
                 disabled={loading}
               >
                 <PlusIcon size={16} />
-                <span>+ Giao thư mục gốc</span>
+                <span>Tạo thư mục</span>
               </AppButton>
             )}
+
+            <AppButton
+              variant="secondary"
+              data-testid="storage-upload-video-btn"
+              onClick={() => {
+                setUploadTargetFolderId(folders[0]?.id || '');
+                setShowUploadVideoModal(true);
+              }}
+              disabled={loading}
+            >
+              <PlusIcon size={16} />
+              <span>Tải video</span>
+            </AppButton>
 
             <AppButton
               variant="secondary"
@@ -1830,11 +3531,58 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               disabled={loading}
             >
               <PlusIcon size={16} />
-              <span>+ Nộp thành phẩm</span>
+              <span>Nộp thành phẩm</span>
             </AppButton>
           </div>
         }
       />
+
+      {/* 1B. Google Drive OAuth 2.0 Connection Bar */}
+      <AppCard
+        style={{ padding: '14px 18px', marginBottom: '18px' }}
+        data-testid="storage-drive-connection-bar"
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            fontSize: '13px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <StatusBadge
+              status={driveConnection?.connected ? 'success' : 'warning'}
+              label={
+                driveConnection?.connected
+                  ? 'Đã kết nối Google Drive'
+                  : 'Chưa kết nối OAuth 2.0'
+              }
+            />
+            <span style={{ color: '#CBD5E1' }}>
+              {driveConnection?.connected
+                ? `Tài khoản: ${driveConnection.google_email} • Scope: drive.file (Least Privilege)`
+                : 'Kết nối tài khoản Google quản trị qua OAuth 2.0 để tự động tạo thư mục, tải video và phân quyền nhân viên.'}
+            </span>
+          </div>
+
+          {role === 'owner' && (
+            <AppButton
+              variant="secondary"
+              onClick={() => setShowDriveOAuthModal(true)}
+            >
+              <LinkIcon size={14} />
+              <span>
+                {driveConnection?.connected
+                  ? 'Cấu hình kết nối Drive'
+                  : 'Kết nối Google Drive'}
+              </span>
+            </AppButton>
+          )}
+        </div>
+      </AppCard>
 
       {/* 2. KPI Metrics Bar */}
       <div
@@ -2066,7 +3814,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       ) : folders.length === 0 ? (
         <EmptyState
           title="Chưa có thư mục nào"
-          description="Chưa có thư mục Drive nào trong workspace. Hãy bấm '+ Giao thư mục gốc' để bắt đầu."
+          description="Chưa có thư mục Drive nào trong workspace. Hãy bấm 'Tạo thư mục' để bắt đầu."
           action={
             role === 'owner' ? (
               <AppButton
@@ -2074,7 +3822,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 onClick={() => setShowCreateSourceModal(true)}
               >
                 <PlusIcon size={16} />
-                <span>Giao thư mục gốc ngay</span>
+                <span>Tạo thư mục ngay</span>
               </AppButton>
             ) : undefined
           }
@@ -2120,7 +3868,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 </th>
                 <th style={{ padding: '12px 16px', color: '#94A3B8' }}>Loại</th>
                 <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
-                  Nhân sự
+                  Nhân sự & Quyền Drive
                 </th>
                 <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
                   Tải gốc
@@ -2144,6 +3892,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             </thead>
             <tbody>
               {pagedFolders.map((folder) => {
+                const activeGrants = (folder.permission_grants ?? []).filter(
+                  (g) => !g.revoked_at,
+                );
                 return (
                   <tr
                     key={folder.id}
@@ -2161,6 +3912,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           marginTop: '2px',
                         }}
                       >
+                        {folder.provider_folder_id
+                          ? `Drive ID: ${folder.provider_folder_id} • `
+                          : ''}
                         v{folder.version} • Tạo{' '}
                         {new Date(folder.created_at).toLocaleDateString(
                           'vi-VN',
@@ -2198,11 +3952,23 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     </td>
 
                     <td style={{ padding: '12px 16px', color: '#E2E8F0' }}>
-                      {folder.assigned_employee_name || '-'}
+                      <div>{folder.assigned_employee_name || '-'}</div>
+                      {activeGrants.length > 0 && (
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            color: '#38BDF8',
+                            marginTop: '2px',
+                          }}
+                        >
+                          {activeGrants.length} quyền ({activeGrants[0]?.drive_role})
+                        </div>
+                      )}
                     </td>
 
                     <td style={{ padding: '12px 16px' }}>
-                      {folder.staff_download_confirmed ? (
+                      {folder.staff_download_confirmed ||
+                      folder.staff_source_acknowledged ? (
                         <StatusBadge status="success" label="Đã tải" />
                       ) : (
                         <StatusBadge status="warning" label="Chưa tải" />
@@ -2211,12 +3977,16 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontWeight: 600, color: '#38BDF8' }}>
-                        {folder.deliverable_count} thư mục
+                        {folder.deliverable_count ??
+                          folder.deliverables?.length ??
+                          0}{' '}
+                        thư mục
                       </span>
                     </td>
 
                     <td style={{ padding: '12px 16px' }}>
-                      {folder.owner_review_confirmed ? (
+                      {folder.owner_review_confirmed ||
+                      folder.delete_readiness?.is_ready ? (
                         <StatusBadge status="success" label="Đã duyệt" />
                       ) : (
                         <StatusBadge status="neutral" label="Chờ duyệt" />
@@ -2278,6 +4048,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         </AppCard>
       )}
 
+      {renderSharedDriveModals()}
+
       {/* Modal 1: Create Source Folder (Owner Only) */}
       {showCreateSourceModal && (
         <div
@@ -2312,7 +4084,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 fontWeight: 700,
               }}
             >
-              Giao thư mục gốc Google Drive
+              Tạo thư mục trên Google Drive & Giao nhân viên
             </h3>
 
             <form onSubmit={handleCreateSourceFolder}>
@@ -2346,35 +4118,58 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 />
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '13px',
-                    color: '#94A3B8',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Liên kết Google Drive gốc *
-                </label>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '13px',
+                  color: '#38BDF8',
+                  marginBottom: '14px',
+                  cursor: 'pointer',
+                }}
+              >
                 <input
-                  type="url"
-                  required
-                  placeholder="https://drive.google.com/drive/folders/..."
-                  value={newSourceDriveUrl}
-                  onChange={(e) => setNewSourceDriveUrl(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    color: '#F8FAFC',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                  }}
+                  type="checkbox"
+                  checked={newSourceCreateOnDrive}
+                  onChange={(e) => setNewSourceCreateOnDrive(e.target.checked)}
                 />
-              </div>
+                <span>
+                  Tự động tạo thư mục mới trên Google Drive (Drive API v3)
+                </span>
+              </label>
+
+              {!newSourceCreateOnDrive && (
+                <div style={{ marginBottom: '14px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Liên kết Google Drive gốc *
+                  </label>
+                  <input
+                    type="url"
+                    required={!newSourceCreateOnDrive}
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    value={newSourceDriveUrl}
+                    onChange={(e) => setNewSourceDriveUrl(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
 
               <div style={{ marginBottom: '14px' }}>
                 <label
@@ -2385,7 +4180,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Giao cho nhân sự (có thể chọn nhiều người)
+                  Giao cho nhân sự & tự cấp quyền Google Drive theo email
                 </label>
                 {employeesError && (
                   <div
@@ -2462,6 +4257,44 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 >
                   Giữ phím Cmd (Mac) hoặc Ctrl (Windows) để chọn nhiều nhân sự.
                 </div>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Quyền truy cập Google Drive cho nhân viên được chọn
+                </label>
+                <select
+                  value={newSourcePermissionRole}
+                  onChange={(e) =>
+                    setNewSourcePermissionRole(
+                      e.target.value as DrivePermissionRole,
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    backgroundColor: '#0F172A',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#F8FAFC',
+                    fontSize: '13px',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <option value="reader">
+                    Reader (Chỉ xem & tải tệp nguồn)
+                  </option>
+                  <option value="writer">
+                    Writer (Cho phép tải video & chỉnh sửa trong thư mục)
+                  </option>
+                </select>
               </div>
 
               <div style={{ marginBottom: '20px' }}>
@@ -2625,35 +4458,60 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 />
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '13px',
-                    color: '#94A3B8',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Đường dẫn Google Drive thành phẩm *
-                </label>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '13px',
+                  color: '#38BDF8',
+                  marginBottom: '12px',
+                  cursor: 'pointer',
+                }}
+              >
                 <input
-                  type="url"
-                  required
-                  placeholder="https://drive.google.com/drive/folders/..."
-                  value={deliverableDriveUrl}
-                  onChange={(e) => setDeliverableDriveUrl(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    color: '#F8FAFC',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                  }}
+                  type="checkbox"
+                  checked={deliverableCreateOnDrive}
+                  onChange={(e) =>
+                    setDeliverableCreateOnDrive(e.target.checked)
+                  }
                 />
-              </div>
+                <span>
+                  Tự động tạo thư mục thành phẩm trực tiếp trên Google Drive
+                </span>
+              </label>
+
+              {!deliverableCreateOnDrive && (
+                <div style={{ marginBottom: '14px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Đường dẫn Google Drive thành phẩm *
+                  </label>
+                  <input
+                    type="url"
+                    required={!deliverableCreateOnDrive}
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    value={deliverableDriveUrl}
+                    onChange={(e) => setDeliverableDriveUrl(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
 
               <div style={{ marginBottom: '20px' }}>
                 <label
@@ -2713,3 +4571,4 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     </div>
   );
 };
+export default StorageScreen;
