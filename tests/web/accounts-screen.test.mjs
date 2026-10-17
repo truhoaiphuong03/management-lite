@@ -1024,6 +1024,41 @@ test('ACC Security: sanitizeUiError scrubs secrets, passwords, tokens, and beare
   );
 });
 
+test('ACC-ENHANCED-01: AccountsScreen supports recovery_email, account_group, assigned_employee_id, and encrypted multi-secret vault (password, 2FA, email_password)', () => {
+  const screenContent = readFileSync(
+    resolve(root, 'apps/web/src/screens/AccountsScreen.tsx'),
+    'utf8',
+  );
 
+  // 1. Metadata & classification fields
+  assert.ok(
+    screenContent.includes('recovery_email'),
+    'AccountsScreen must support recovery_email field',
+  );
+  assert.ok(
+    screenContent.includes('account_group'),
+    'AccountsScreen must support account_group classification',
+  );
+  assert.ok(
+    screenContent.includes('assigned_employee_id') &&
+      screenContent.includes('assigned_employee_name'),
+    'AccountsScreen must support assigned employee person-in-charge',
+  );
+  assert.ok(
+    screenContent.includes('data-testid="filter-account-group"') &&
+      screenContent.includes('data-testid="filter-account-assignee"'),
+    'AccountsScreen must render group and assignee filters',
+  );
 
-
+  // 2. Multi-secret vault support (password, totp_secret/two_fa_secret, email_password)
+  assert.ok(
+    screenContent.includes('two_fa_secret') &&
+      screenContent.includes('email_password'),
+    'AccountsScreen must support two_fa_secret and email_password secret types',
+  );
+  assert.ok(
+    screenContent.includes('Xem mã 2FA') &&
+      screenContent.includes('Xem pass Email'),
+    'AccountsScreen detail view must provide reveal actions for 2FA and Email Password',
+  );
+});

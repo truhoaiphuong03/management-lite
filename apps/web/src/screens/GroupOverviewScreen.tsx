@@ -54,6 +54,8 @@ const DISPATCHED_PATHS = new Set([
   '/',
   '/clock',
   '/schedule',
+  '/attendance',
+  '/attendance/review',
   '/reports',
   '/employees',
   '/payroll',

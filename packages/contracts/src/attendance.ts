@@ -32,6 +32,7 @@ export interface ShiftData {
   employee_id: string;
   employee_code?: string | undefined;
   employee_name?: string | undefined;
+  shift_date?: string | undefined;
   clock_in_at: string;
   clock_out_at: string | null;
   run_state: ShiftRunState;
@@ -42,11 +43,15 @@ export interface ShiftData {
   worked_seconds: number;
   created_at: string;
   pending_correction?: CorrectionRequestData | null | undefined;
+  review_reason?: string | null | undefined;
+  reviewed_at?: string | null | undefined;
+  reviewed_by_user_id?: string | null | undefined;
 }
 
 export interface AttendanceMeResponseData {
   current_shift: ShiftData | null;
   recent_shifts: ShiftData[];
+  total?: number | undefined;
 }
 
 export interface AttendanceShiftsResponseData {

@@ -118,7 +118,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     id: 'UI05',
     path: '/attendance',
     title: 'Lịch sử ca làm',
-    implemented: false,
+    implemented: true,
     category: 'attendance',
   },
   '/attendance/corrections': {
@@ -133,7 +133,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     path: '/attendance/review',
     title: 'Duyệt công nhân viên',
     ownerOnly: true,
-    implemented: false,
+    implemented: true,
     category: 'attendance',
   },
   '/reports': {

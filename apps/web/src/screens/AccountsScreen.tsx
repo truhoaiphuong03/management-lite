@@ -35,8 +35,9 @@ import type {
   CreateAccountRequest,
   UpdateAccountRequest,
   AccountPlatform,
+  AccountStatus,
   AccountSecretType,
-} from '@management-lite/contracts';
+} from '../../../../packages/contracts/src/accounts.js';
 import type { UserRole } from '../types.js';
 
 export interface AccountsScreenProps {
@@ -129,6 +130,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [accounts, setAccounts] = useState<ManagedAccountData[]>([]);
   const [selectedAccount, setSelectedAccount] =
     useState<ManagedAccountDetailData | null>(null);
+  const [employeesList, setEmployeesList] = useState<
+    Array<{ id: string; full_name: string; employee_code: string }>
+  >([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -137,6 +141,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   // Filters (List view)
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   // Client-side paging: GET /api/v1/accounts has no cursor/limit, so slice locally.
   const [page, setPage] = useState<number>(0);
@@ -147,7 +153,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [newPlatform, setNewPlatform] = useState<AccountPlatform>('tiktok');
   const [newUsername, setNewUsername] = useState<string>('');
   const [newPlatformAccountId, setNewPlatformAccountId] = useState<string>('');
+  const [newRecoveryEmail, setNewRecoveryEmail] = useState<string>('');
+  const [newAccountGroup, setNewAccountGroup] = useState<string>('');
+  const [newAssignedEmployeeId, setNewAssignedEmployeeId] =
+    useState<string>('');
   const [newNotes, setNewNotes] = useState<string>('');
+  const [newInitPassword, setNewInitPassword] = useState<string>('');
+  const [newInitTwoFa, setNewInitTwoFa] = useState<string>('');
+  const [newInitEmailPassword, setNewInitEmailPassword] = useState<string>('');
 
   // Edit Modal
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
@@ -157,6 +170,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [editUsername, setEditUsername] = useState<string>('');
   const [editPlatformAccountId, setEditPlatformAccountId] =
     useState<string>('');
+  const [editRecoveryEmail, setEditRecoveryEmail] = useState<string>('');
+  const [editAccountGroup, setEditAccountGroup] = useState<string>('');
+  const [editAssignedEmployeeId, setEditAssignedEmployeeId] =
+    useState<string>('');
+  const [editStatus, setEditStatus] = useState<'active' | 'archived'>('active');
   const [editNotes, setEditNotes] = useState<string>('');
 
   // Archive Modal
@@ -170,6 +188,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     useState<boolean>(false);
   const [revealTargetAccount, setRevealTargetAccount] =
     useState<ManagedAccountData | null>(null);
+  const [revealSecretType, setRevealSecretType] =
+    useState<AccountSecretType>('password');
   const [revealReauthPassword, setRevealReauthPassword] = useState<string>('');
   const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
   const [revealedSecretAccountId, setRevealedSecretAccountId] = useState<
@@ -205,30 +225,37 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     revealDeadlineRef.current = null;
   }, []);
 
-  const openRevealModal = useCallback((account: ManagedAccountData) => {
-    // Invalidate previous generations and abort pending request
-    revealGenerationRef.current++;
-    modalGenerationRef.current++;
-    currentModalAccountIdRef.current = account.id;
+  const openRevealModal = useCallback(
+    (
+      account: ManagedAccountData,
+      secretType: AccountSecretType = 'password',
+    ) => {
+      // Invalidate previous generations and abort pending request
+      revealGenerationRef.current++;
+      modalGenerationRef.current++;
+      currentModalAccountIdRef.current = account.id;
 
-    if (revealAbortControllerRef.current) {
-      revealAbortControllerRef.current.abort();
-      revealAbortControllerRef.current = null;
-    }
+      if (revealAbortControllerRef.current) {
+        revealAbortControllerRef.current.abort();
+        revealAbortControllerRef.current = null;
+      }
 
-    if (loadingGenerationRef.current !== null) {
-      setActionLoading(false);
-      loadingGenerationRef.current = null;
-    }
+      if (loadingGenerationRef.current !== null) {
+        setActionLoading(false);
+        loadingGenerationRef.current = null;
+      }
 
-    setRevealTargetAccount(account);
-    setRevealReauthPassword('');
-    setRevealedSecret(null);
-    setRevealedSecretAccountId(null);
-    setErrorMessage(null);
-    showRevealReauthModalRef.current = true;
-    setShowRevealReauthModal(true);
-  }, []);
+      setRevealTargetAccount(account);
+      setRevealSecretType(secretType);
+      setRevealReauthPassword('');
+      setRevealedSecret(null);
+      setRevealedSecretAccountId(null);
+      setErrorMessage(null);
+      showRevealReauthModalRef.current = true;
+      setShowRevealReauthModal(true);
+    },
+    [],
+  );
 
   // Reauth & Secret Update (Write) Modal
   const [showUpdateSecretModal, setShowUpdateSecretModal] =
@@ -241,10 +268,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [updateSecretReauthPassword, setUpdateSecretReauthPassword] =
     useState<string>('');
 
-  // 1. Fetch Session & CSRF token
+  // 1. Fetch Session, CSRF token & Active Employees
   useEffect(() => {
     let active = true;
-    const fetchSession = async () => {
+    const fetchSessionAndEmployees = async () => {
       try {
         const res = await fetch('/api/v1/auth/me', { credentials: 'include' });
         if (res.ok) {
@@ -256,8 +283,28 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       } catch {
         // Ignored
       }
+
+      try {
+        const empRes = await fetch('/api/v1/employees?limit=50', {
+          credentials: 'include',
+        });
+        if (empRes.ok) {
+          const empBody = await empRes.json();
+          const items = empBody.data?.items || [];
+          if (active && Array.isArray(items)) {
+            setEmployeesList(
+              items.filter(
+                (e: Record<string, unknown>) =>
+                  typeof e.id === 'string' && typeof e.full_name === 'string',
+              ),
+            );
+          }
+        }
+      } catch {
+        // Ignored
+      }
     };
-    fetchSession();
+    fetchSessionAndEmployees();
     return () => {
       active = false;
     };
@@ -291,6 +338,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         const params = new URLSearchParams();
         if (platformFilter !== 'all') params.append('platform', platformFilter);
         if (statusFilter !== 'all') params.append('status', statusFilter);
+        if (groupFilter !== 'all') params.append('account_group', groupFilter);
+        if (assigneeFilter !== 'all')
+          params.append('assigned_employee_id', assigneeFilter);
         if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
         const res = await fetch(`/api/v1/accounts?${params.toString()}`, {
@@ -324,7 +374,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setShowRevealReauthModal(false);
     setSelectedAccount(null);
     loadData();
-  }, [accountId, platformFilter, statusFilter]);
+  }, [accountId, platformFilter, statusFilter, groupFilter, assigneeFilter]);
 
   // 3a. Dedicated lifecycle visibility listener (ACC-005):
   // Active THROUGHOUT component lifecycle, regardless of whether revealedSecret is null,
@@ -463,23 +513,43 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       if (platformFilter !== 'all' && acc.platform !== platformFilter)
         return false;
       if (statusFilter !== 'all' && acc.status !== statusFilter) return false;
+      if (groupFilter !== 'all' && acc.account_group !== groupFilter)
+        return false;
+      if (
+        assigneeFilter !== 'all' &&
+        acc.assigned_employee_id !== assigneeFilter
+      )
+        return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const u = (acc.username || '').toLowerCase();
         const p = (acc.platform || '').toLowerCase();
         const pid = (acc.platform_account_id || '').toLowerCase();
+        const rec = (acc.recovery_email || '').toLowerCase();
+        const grp = (acc.account_group || '').toLowerCase();
+        const emp = (acc.assigned_employee_name || '').toLowerCase();
         const n = (acc.notes || '').toLowerCase();
         if (
           !u.includes(q) &&
           !p.includes(q) &&
           !pid.includes(q) &&
+          !rec.includes(q) &&
+          !grp.includes(q) &&
+          !emp.includes(q) &&
           !n.includes(q)
         )
           return false;
       }
       return true;
     });
-  }, [accounts, platformFilter, statusFilter, searchQuery]);
+  }, [
+    accounts,
+    platformFilter,
+    statusFilter,
+    groupFilter,
+    assigneeFilter,
+    searchQuery,
+  ]);
 
   const safePage = clampPage(page, filteredAccounts.length, pageSize);
   const pagedAccounts = useMemo(
@@ -507,11 +577,38 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setErrorMessage(null);
 
     try {
+      const initialSecrets: Array<{
+        secret_type: AccountSecretType;
+        secret_value: string;
+      }> = [];
+      if (newInitPassword.trim()) {
+        initialSecrets.push({
+          secret_type: 'password',
+          secret_value: newInitPassword,
+        });
+      }
+      if (newInitTwoFa.trim()) {
+        initialSecrets.push({
+          secret_type: 'totp_secret',
+          secret_value: newInitTwoFa,
+        });
+      }
+      if (newInitEmailPassword.trim()) {
+        initialSecrets.push({
+          secret_type: 'email_password',
+          secret_value: newInitEmailPassword,
+        });
+      }
+
       const payload: CreateAccountRequest = {
         platform: newPlatform,
         username: newUsername.trim() || undefined,
         platform_account_id: newPlatformAccountId.trim() || undefined,
+        recovery_email: newRecoveryEmail.trim() || undefined,
+        account_group: newAccountGroup.trim() || undefined,
+        assigned_employee_id: newAssignedEmployeeId || undefined,
         notes: newNotes.trim() || undefined,
+        initial_secrets: initialSecrets.length > 0 ? initialSecrets : undefined,
       };
 
       const headers: Record<string, string> = {
@@ -535,7 +632,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       setShowCreateModal(false);
       setNewUsername('');
       setNewPlatformAccountId('');
+      setNewRecoveryEmail('');
+      setNewAccountGroup('');
+      setNewAssignedEmployeeId('');
       setNewNotes('');
+      setNewInitPassword('');
+      setNewInitTwoFa('');
+      setNewInitEmailPassword('');
       await loadData();
     } catch (err) {
       setErrorMessage(
@@ -557,6 +660,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       const payload: UpdateAccountRequest = {
         username: editUsername.trim() || undefined,
         platform_account_id: editPlatformAccountId.trim() || undefined,
+        recovery_email: editRecoveryEmail.trim() || null,
+        account_group: editAccountGroup.trim() || null,
+        assigned_employee_id: editAssignedEmployeeId || null,
+        status: editStatus,
         notes: editNotes.trim() || undefined,
       };
 
@@ -745,7 +852,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           credentials: 'include',
           signal: abortController.signal,
           body: JSON.stringify({
-            secret_type: 'password',
+            secret_type: revealSecretType,
             reauth_proof: reauthProof,
           }),
         },
@@ -812,7 +919,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       }
       setErrorMessage(
         sanitizeUiError(
-          err instanceof Error ? err.message : 'Lỗi kết nối khi xác thực bí mật',
+          err instanceof Error
+            ? err.message
+            : 'Lỗi kết nối khi xác thực bí mật',
         ),
       );
     } finally {
@@ -907,7 +1016,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     } catch (err) {
       setErrorMessage(
         sanitizeUiError(
-          err instanceof Error ? err.message : 'Lỗi kết nối khi cập nhật bí mật',
+          err instanceof Error
+            ? err.message
+            : 'Lỗi kết nối khi cập nhật bí mật',
         ),
       );
     } finally {
@@ -1113,7 +1224,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               }}
             >
               <div>
-                <span style={{ color: '#94A3B8' }}>Platform Account ID:</span>
+                <span style={{ color: '#94A3B8' }}>
+                  Platform Account ID / UID:
+                </span>
                 <div
                   style={{
                     fontWeight: 600,
@@ -1122,6 +1235,46 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   }}
                 >
                   {selectedAccount.platform_account_id || 'Chưa cung cấp'}
+                </div>
+              </div>
+              <div>
+                <span style={{ color: '#94A3B8' }}>
+                  Email khôi phục (Recovery Email):
+                </span>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedAccount.recovery_email || 'Chưa thiết lập'}
+                </div>
+              </div>
+              <div>
+                <span style={{ color: '#94A3B8' }}>Nhóm phân loại:</span>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: '#14B8A6',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedAccount.account_group || 'Chưa phân nhóm'}
+                </div>
+              </div>
+              <div>
+                <span style={{ color: '#94A3B8' }}>Người phụ trách:</span>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedAccount.assigned_employee_name
+                    ? `${selectedAccount.assigned_employee_name}${selectedAccount.assigned_employee_code ? ` (${selectedAccount.assigned_employee_code})` : ''}`
+                    : 'Chưa phân công'}
                 </div>
               </div>
               <div>
@@ -1181,6 +1334,12 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   setEditPlatformAccountId(
                     selectedAccount.platform_account_id || '',
                   );
+                  setEditRecoveryEmail(selectedAccount.recovery_email || '');
+                  setEditAccountGroup(selectedAccount.account_group || '');
+                  setEditAssignedEmployeeId(
+                    selectedAccount.assigned_employee_id || '',
+                  );
+                  setEditStatus(selectedAccount.status);
                   setEditNotes(selectedAccount.notes || '');
                   setShowEditModal(true);
                 }}
@@ -1240,18 +1399,19 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 lineHeight: '1.5',
               }}
             >
-              Mật khẩu được mã hóa AEAD (AES-256-GCM) độc lập. Mật khẩu không
-              bao giờ lưu plaintext và chỉ được giải mã tạm thời khi Chủ sở hữu
-              xác thực lại danh tính (Reauthentication).
+              Mật khẩu, mã 2FA và mật khẩu email được mã hóa AEAD (AES-256-GCM)
+              độc lập. Mật khẩu không bao giờ lưu plaintext và chỉ được giải mã
+              tạm thời khi Chủ sở hữu xác thực lại danh tính (Reauthentication).
             </p>
 
+            {/* 1. Login Password */}
             <div
               style={{
                 padding: '16px',
                 backgroundColor: '#0F172A',
                 border: '1px solid #334155',
                 borderRadius: '8px',
-                marginBottom: '20px',
+                marginBottom: '12px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -1276,7 +1436,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     marginTop: '2px',
                   }}
                 >
-                  {selectedAccount.has_secret
+                  {selectedAccount.secret_types?.includes('password') ||
+                  selectedAccount.has_secret
                     ? 'Đã cấu hình mật khẩu bí mật trong vault'
                     : 'Chưa có mật khẩu nào được thiết lập'}
                 </div>
@@ -1286,7 +1447,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 <AppButton
                   variant="primary"
                   onClick={() => {
-                    if (selectedAccount) openRevealModal(selectedAccount);
+                    if (selectedAccount)
+                      openRevealModal(selectedAccount, 'password');
                   }}
                 >
                   <EyeIcon size={16} />
@@ -1297,11 +1459,145 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   variant="secondary"
                   onClick={() => {
                     setUpdateSecretTargetAccount(selectedAccount);
+                    setNewSecretType('password');
                     setShowUpdateSecretModal(true);
                   }}
                 >
                   <LockIcon size={16} />
                   <span>Cập nhật mật khẩu</span>
+                </AppButton>
+              </div>
+            </div>
+
+            {/* 2. Two-factor Secret (2FA / TOTP) */}
+            <div
+              style={{
+                padding: '16px',
+                backgroundColor: '#0F172A',
+                border: '1px solid #334155',
+                borderRadius: '8px',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                  }}
+                >
+                  Mã xác thực 2 lớp (Two-Factor / 2FA Secret)
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#64748B',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedAccount.secret_types?.includes('totp_secret') ||
+                  selectedAccount.secret_types?.includes('two_fa_secret')
+                    ? 'Đã lưu mã bí mật 2FA trong vault'
+                    : 'Chưa thiết lập mã xác thực 2 lớp'}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    if (selectedAccount) {
+                      const typeToReveal: AccountSecretType =
+                        selectedAccount.secret_types?.includes('two_fa_secret')
+                          ? 'two_fa_secret'
+                          : 'totp_secret';
+                      openRevealModal(selectedAccount, typeToReveal);
+                    }
+                  }}
+                >
+                  <EyeIcon size={16} />
+                  <span>Xem mã 2FA</span>
+                </AppButton>
+
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    setUpdateSecretTargetAccount(selectedAccount);
+                    setNewSecretType('totp_secret');
+                    setShowUpdateSecretModal(true);
+                  }}
+                >
+                  <LockIcon size={16} />
+                  <span>Cập nhật 2FA</span>
+                </AppButton>
+              </div>
+            </div>
+
+            {/* 3. Recovery Email Password */}
+            <div
+              style={{
+                padding: '16px',
+                backgroundColor: '#0F172A',
+                border: '1px solid #334155',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                  }}
+                >
+                  Mật khẩu Email khôi phục (Email Password)
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#64748B',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedAccount.secret_types?.includes('email_password')
+                    ? 'Đã lưu mật khẩu email khôi phục trong vault'
+                    : 'Chưa thiết lập mật khẩu email khôi phục'}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    if (selectedAccount)
+                      openRevealModal(selectedAccount, 'email_password');
+                  }}
+                >
+                  <EyeIcon size={16} />
+                  <span>Xem pass Email</span>
+                </AppButton>
+
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    setUpdateSecretTargetAccount(selectedAccount);
+                    setNewSecretType('email_password');
+                    setShowUpdateSecretModal(true);
+                  }}
+                >
+                  <LockIcon size={16} />
+                  <span>Cập nhật pass Email</span>
                 </AppButton>
               </div>
             </div>
@@ -1425,7 +1721,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     marginTop: '2px',
                   }}
                 >
-                  Đổi mật khẩu tài khoản đăng nhập hệ thống trong Cài đặt & Hồ sơ.
+                  Đổi mật khẩu tài khoản đăng nhập hệ thống trong Cài đặt & Hồ
+                  sơ.
                 </div>
               </div>
             </div>
@@ -1548,7 +1845,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 >
                   <input
                     type="text"
-                    placeholder="Tìm theo Username, Nền tảng, ID..."
+                    placeholder="Tìm theo Username, UID, Email khôi phục, Nhóm..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{
@@ -1600,6 +1897,51 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   <option value="other">Khác</option>
                 </select>
 
+                {/* Group Filter */}
+                <select
+                  data-testid="filter-account-group"
+                  value={groupFilter}
+                  onChange={(e) => setGroupFilter(e.target.value)}
+                  style={{
+                    boxSizing: 'border-box',
+                    padding: '8px 12px',
+                    backgroundColor: '#0F172A',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#F8FAFC',
+                    fontSize: '13px',
+                  }}
+                >
+                  <option value="all">Tất cả nhóm</option>
+                  <option value="Marketing">Marketing / Kênh</option>
+                  <option value="Production">Sản xuất / AI</option>
+                  <option value="Operations">Vận hành / Quản trị</option>
+                  <option value="Sales">Bán hàng / Shop</option>
+                </select>
+
+                {/* Assignee Filter */}
+                <select
+                  data-testid="filter-account-assignee"
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  style={{
+                    boxSizing: 'border-box',
+                    padding: '8px 12px',
+                    backgroundColor: '#0F172A',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#F8FAFC',
+                    fontSize: '13px',
+                  }}
+                >
+                  <option value="all">Tất cả người phụ trách</option>
+                  {employeesList.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name}
+                    </option>
+                  ))}
+                </select>
+
                 {/* Status Filter */}
                 <select
                   value={statusFilter}
@@ -1616,6 +1958,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 >
                   <option value="all">Tất cả trạng thái</option>
                   <option value="active">Đang hoạt động</option>
+                  <option value="locked">Tạm khóa</option>
                   <option value="archived">Đã lưu trữ</option>
                 </select>
               </div>
@@ -1654,7 +1997,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               description={
                 searchQuery ||
                 platformFilter !== 'all' ||
-                statusFilter !== 'all'
+                statusFilter !== 'all' ||
+                groupFilter !== 'all' ||
+                assigneeFilter !== 'all'
                   ? 'Không tìm thấy tài khoản phù hợp với bộ lọc hiện tại.'
                   : 'Chưa có tài khoản quản lý nào được tạo trong cửa hàng. Hãy bấm "+ Thêm tài khoản" để bắt đầu.'
               }
@@ -1686,10 +2031,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       Nền tảng
                     </th>
                     <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
-                      Tên đăng nhập
+                      Username / UID
                     </th>
                     <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
-                      Platform ID
+                      Email khôi phục
+                    </th>
+                    <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                      Nhóm & Phụ trách
                     </th>
                     <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
                       Trạng thái
@@ -1736,13 +2084,47 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             {pInfo.label}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 16px', fontWeight: 600 }}>
-                          {account.username || (
-                            <span style={{ color: '#64748B' }}>Chưa đặt</span>
+                        <td style={{ padding: '12px 16px' }}>
+                          <div style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                            {account.username || (
+                              <span style={{ color: '#64748B' }}>Chưa đặt</span>
+                            )}
+                          </div>
+                          {account.platform_account_id && (
+                            <div
+                              style={{
+                                fontSize: '11px',
+                                color: '#94A3B8',
+                                marginTop: '2px',
+                              }}
+                            >
+                              UID: {account.platform_account_id}
+                            </div>
                           )}
                         </td>
-                        <td style={{ padding: '12px 16px', color: '#94A3B8' }}>
-                          {account.platform_account_id || '-'}
+                        <td style={{ padding: '12px 16px', color: '#CBD5E1' }}>
+                          {account.recovery_email || '-'}
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          {account.account_group ? (
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '2px 7px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                                color: '#14B8A6',
+                                marginBottom: '2px',
+                              }}
+                            >
+                              {account.account_group}
+                            </span>
+                          ) : null}
+                          <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                            {account.assigned_employee_name || 'Chưa gán'}
+                          </div>
                         </td>
                         <td style={{ padding: '12px 16px' }}>
                           {account.status === 'active' ? (
@@ -1758,7 +2140,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           style={{
                             padding: '12px 16px',
                             color: '#94A3B8',
-                            maxWidth: '200px',
+                            maxWidth: '180px',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -1794,7 +2176,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             <button
                               type="button"
                               onClick={() => {
-                                openRevealModal(account);
+                                openRevealModal(account, 'password');
                               }}
                               style={{
                                 padding: '4px 8px',
@@ -1825,6 +2207,16 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 setEditPlatformAccountId(
                                   account.platform_account_id || '',
                                 );
+                                setEditRecoveryEmail(
+                                  account.recovery_email || '',
+                                );
+                                setEditAccountGroup(
+                                  account.account_group || '',
+                                );
+                                setEditAssignedEmployeeId(
+                                  account.assigned_employee_id || '',
+                                );
+                                setEditStatus(account.status);
                                 setEditNotes(account.notes || '');
                                 setShowEditModal(true);
                               }}
@@ -1868,6 +2260,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             justifyContent: 'center',
             zIndex: 1000,
             padding: '16px',
+            overflowY: 'auto',
           }}
         >
           <div
@@ -1876,7 +2269,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               border: '1px solid #334155',
               borderRadius: '8px',
               width: '100%',
-              maxWidth: '480px',
+              maxWidth: '540px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
               padding: '24px',
               boxSizing: 'border-box',
             }}
@@ -1914,102 +2309,338 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             </div>
 
             <form onSubmit={handleCreateAccount}>
-              <div style={{ marginBottom: '14px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: '#94A3B8',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Nền tảng / Dịch vụ *
-                </label>
-                <select
-                  value={newPlatform}
-                  onChange={(e) =>
-                    setNewPlatform(e.target.value as AccountPlatform)
-                  }
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    color: '#F8FAFC',
-                    fontSize: '13px',
-                  }}
-                >
-                  <option value="tiktok">TikTok</option>
-                  <option value="gmail">Gmail / Google</option>
-                  <option value="ai">AI / LLM (OpenAI, Claude...)</option>
-                  <option value="pm">
-                    PM / Quản lý dự án (Trello, Jira...)
-                  </option>
-                  <option value="other">Khác</option>
-                </select>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Nền tảng / Dịch vụ *
+                  </label>
+                  <select
+                    value={newPlatform}
+                    onChange={(e) =>
+                      setNewPlatform(e.target.value as AccountPlatform)
+                    }
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value="tiktok">TikTok</option>
+                    <option value="gmail">Gmail / Google</option>
+                    <option value="ai">AI / LLM (OpenAI, Claude...)</option>
+                    <option value="pm">
+                      PM / Quản lý dự án (Trello, Jira...)
+                    </option>
+                    <option value="other">Khác</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Nhóm phân loại
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="VD: Marketing, Production..."
+                    value={newAccountGroup}
+                    onChange={(e) => setNewAccountGroup(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: '#94A3B8',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Tên tài khoản / Email / Username
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: shop_official@gmail.com"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    color: '#F8FAFC',
-                    fontSize: '13px',
-                  }}
-                />
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Username / Email đăng nhập
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: shop_official@gmail.com"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Platform Account ID / UID
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="UID hoặc ID định danh nền tảng"
+                    value={newPlatformAccountId}
+                    onChange={(e) => setNewPlatformAccountId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Email khôi phục (Recovery Email)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="recovery@domain.com"
+                    value={newRecoveryEmail}
+                    onChange={(e) => setNewRecoveryEmail(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Người phụ trách
+                  </label>
+                  <select
+                    value={newAssignedEmployeeId}
+                    onChange={(e) => setNewAssignedEmployeeId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value="">-- Chưa phân công --</option>
+                    {employeesList.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Encrypted Initial Secrets Section */}
+              <div
+                style={{
+                  padding: '12px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                  border: '1px solid rgba(20, 184, 166, 0.35)',
+                  borderRadius: '6px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div
                   style={{
-                    display: 'block',
                     fontSize: '12px',
-                    fontWeight: 600,
-                    color: '#94A3B8',
-                    marginBottom: '6px',
+                    fontWeight: 700,
+                    color: '#14B8A6',
+                    marginBottom: '8px',
                   }}
                 >
-                  Platform Account ID (Tùy chọn)
-                </label>
-                <input
-                  type="text"
-                  placeholder="ID hệ thống nội bộ của nền tảng"
-                  value={newPlatformAccountId}
-                  onChange={(e) => setNewPlatformAccountId(e.target.value)}
+                  Bảo mật C05 (Tùy chọn — Tự động mã hóa AES-256-GCM)
+                </div>
+                <div
                   style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    color: '#F8FAFC',
-                    fontSize: '13px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                    gap: '10px',
                   }}
-                />
+                >
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        color: '#94A3B8',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Mật khẩu tài khoản
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Password..."
+                      value={newInitPassword}
+                      onChange={(e) => setNewInitPassword(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '7px 10px',
+                        backgroundColor: '#0F172A',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        color: '#F8FAFC',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        color: '#94A3B8',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Mã 2FA / TOTP Secret
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="2FA Secret..."
+                      value={newInitTwoFa}
+                      onChange={(e) => setNewInitTwoFa(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '7px 10px',
+                        backgroundColor: '#0F172A',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        color: '#F8FAFC',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        color: '#94A3B8',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Mật khẩu Email
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Email Password..."
+                      value={newInitEmailPassword}
+                      onChange={(e) => setNewInitEmailPassword(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '7px 10px',
+                        backgroundColor: '#0F172A',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        color: '#F8FAFC',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div style={{ marginBottom: '20px' }}>
@@ -2025,7 +2656,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   Ghi chú sử dụng
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   placeholder="Mục đích sử dụng, lưu ý đặc biệt..."
                   value={newNotes}
                   onChange={(e) => setNewNotes(e.target.value)}
@@ -2093,6 +2724,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             justifyContent: 'center',
             zIndex: 1000,
             padding: '16px',
+            overflowY: 'auto',
           }}
         >
           <div
@@ -2101,7 +2733,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               border: '1px solid #334155',
               borderRadius: '8px',
               width: '100%',
-              maxWidth: '480px',
+              maxWidth: '520px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
               padding: '24px',
               boxSizing: 'border-box',
             }}
@@ -2139,62 +2773,216 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             </div>
 
             <form onSubmit={handleUpdateAccount}>
-              <div style={{ marginBottom: '14px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: '#94A3B8',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Tên tài khoản / Email / Username
-                </label>
-                <input
-                  type="text"
-                  value={editUsername}
-                  onChange={(e) => setEditUsername(e.target.value)}
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    color: '#F8FAFC',
-                    fontSize: '13px',
-                  }}
-                />
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Tên tài khoản / Email / Username
+                  </label>
+                  <input
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Platform Account ID / UID
+                  </label>
+                  <input
+                    type="text"
+                    value={editPlatformAccountId}
+                    onChange={(e) => setEditPlatformAccountId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: '#94A3B8',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Platform Account ID
-                </label>
-                <input
-                  type="text"
-                  value={editPlatformAccountId}
-                  onChange={(e) => setEditPlatformAccountId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    color: '#F8FAFC',
-                    fontSize: '13px',
-                  }}
-                />
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Email khôi phục (Recovery Email)
+                  </label>
+                  <input
+                    type="email"
+                    value={editRecoveryEmail}
+                    onChange={(e) => setEditRecoveryEmail(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Nhóm phân loại
+                  </label>
+                  <input
+                    type="text"
+                    value={editAccountGroup}
+                    onChange={(e) => setEditAccountGroup(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Người phụ trách
+                  </label>
+                  <select
+                    value={editAssignedEmployeeId}
+                    onChange={(e) => setEditAssignedEmployeeId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value="">-- Chưa phân công --</option>
+                    {employeesList.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Trạng thái
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) =>
+                      setEditStatus(e.target.value as AccountStatus)
+                    }
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value="active">Đang hoạt động</option>
+                    <option value="locked">Tạm khóa</option>
+                    <option value="archived">Đã lưu trữ</option>
+                  </select>
+                </div>
               </div>
 
               <div style={{ marginBottom: '20px' }}>
@@ -2557,6 +3345,54 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   .
                 </p>
 
+                <div style={{ marginBottom: '14px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Loại bí mật cần xem
+                  </label>
+                  <select
+                    data-testid="reveal-secret-type-select"
+                    value={revealSecretType}
+                    onChange={(e) =>
+                      setRevealSecretType(e.target.value as AccountSecretType)
+                    }
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 12px',
+                      backgroundColor: '#0F172A',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#F8FAFC',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value="password">
+                      Mật khẩu đăng nhập (password)
+                    </option>
+                    <option value="totp_secret">
+                      Mã xác thực 2 lớp (totp_secret)
+                    </option>
+                    <option value="two_fa_secret">
+                      Mã xác thực 2 lớp (two_fa_secret)
+                    </option>
+                    <option value="email_password">
+                      Mật khẩu Email khôi phục (email_password)
+                    </option>
+                    <option value="api_key">API Key (api_key)</option>
+                    <option value="recovery_code">
+                      Mã khôi phục (recovery_code)
+                    </option>
+                  </select>
+                </div>
+
                 <div style={{ marginBottom: '20px' }}>
                   <label
                     style={{
@@ -2716,11 +3552,19 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   <option value="password">
                     Mật khẩu đăng nhập (password)
                   </option>
+                  <option value="totp_secret">
+                    TOTP / 2FA Secret (totp_secret)
+                  </option>
+                  <option value="two_fa_secret">
+                    Two-Factor Secret (two_fa_secret)
+                  </option>
+                  <option value="email_password">
+                    Mật khẩu Email khôi phục (email_password)
+                  </option>
                   <option value="api_key">API Key (api_key)</option>
                   <option value="recovery_code">
                     Mã khôi phục (recovery_code)
                   </option>
-                  <option value="totp_secret">TOTP / 2FA Secret</option>
                 </select>
               </div>
 

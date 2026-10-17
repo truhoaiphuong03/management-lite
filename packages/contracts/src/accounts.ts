@@ -11,7 +11,13 @@ export type AccountPlatform =
 export type AccountStatus = 'active' | 'archived';
 
 export type AccountSecretType =
-  'password' | 'api_key' | 'recovery_code' | 'totp_secret' | string;
+  | 'password'
+  | 'api_key'
+  | 'recovery_code'
+  | 'totp_secret'
+  | 'two_fa_secret'
+  | 'email_password'
+  | string;
 
 export interface ManagedAccountData {
   id: string;
@@ -19,6 +25,11 @@ export interface ManagedAccountData {
   platform: AccountPlatform;
   username?: string | null | undefined;
   platform_account_id?: string | null | undefined;
+  recovery_email?: string | null | undefined;
+  account_group?: string | null | undefined;
+  assigned_employee_id?: string | null | undefined;
+  assigned_employee_name?: string | null | undefined;
+  assigned_employee_code?: string | null | undefined;
   status: AccountStatus;
   notes?: string | null | undefined;
   version: number;
@@ -31,16 +42,30 @@ export interface ManagedAccountDetailData extends ManagedAccountData {
   secret_types?: AccountSecretType[] | undefined;
 }
 
+export interface InitialAccountSecretItem {
+  secret_type: AccountSecretType;
+  secret_value: string;
+}
+
 export interface CreateAccountRequest {
   platform: AccountPlatform;
   username?: string | null | undefined;
   platform_account_id?: string | null | undefined;
+  recovery_email?: string | null | undefined;
+  account_group?: string | null | undefined;
+  assigned_employee_id?: string | null | undefined;
+  status?: AccountStatus | undefined;
   notes?: string | null | undefined;
+  initial_secrets?: InitialAccountSecretItem[] | undefined;
 }
 
 export interface UpdateAccountRequest {
   username?: string | null | undefined;
   platform_account_id?: string | null | undefined;
+  recovery_email?: string | null | undefined;
+  account_group?: string | null | undefined;
+  assigned_employee_id?: string | null | undefined;
+  status?: AccountStatus | undefined;
   notes?: string | null | undefined;
 }
 

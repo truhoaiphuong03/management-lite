@@ -178,7 +178,7 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
     assert.equal(staffAdminHtml.includes('Nhật ký Audit'), false, 'Staff cannot see Audit');
     assert.equal(staffAdminHtml.includes('Sổ tay Issues'), false, 'Staff cannot see Issues');
 
-    // Attendance Group: truly unimplemented functions show "Chưa triển khai"
+    // Attendance Group: all 4 items (Chấm công, Lịch làm việc, Lịch sử công, Duyệt công) are implemented & dispatched
     const attendanceHtml = renderToStaticMarkup(
       React.createElement(GroupOverviewScreen, {
         groupId: 'attendance',
@@ -190,7 +190,8 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
     assert.ok(attendanceHtml.includes('Chấm công'));
     assert.ok(attendanceHtml.includes('Lịch làm việc'));
     assert.ok(attendanceHtml.includes('Lịch sử công'));
-    assert.ok(attendanceHtml.includes('Chưa triển khai'), 'Unimplemented items clearly marked Chưa triển khai');
+    assert.ok(attendanceHtml.includes('Duyệt công'));
+    assert.equal(attendanceHtml.includes('Chưa triển khai'), false, 'All attendance group items are implemented and must not show Chưa triển khai');
 
     // HR-Payroll: Owner can access Employees directly
     const hrHtml = renderToStaticMarkup(
