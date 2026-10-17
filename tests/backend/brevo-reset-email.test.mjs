@@ -88,3 +88,38 @@ test('DEV loopback origin (http://localhost:3101 / http://127.0.0.1:3101) is acc
     ),
   );
 });
+
+test('Brevo HTTPS email verification: exact endpoint, sender no-reply@hoaiphuong.click, fragment /verify-email#token=', async () => {
+  let seen;
+  const mailer = createBrevoResetMailer(
+    {
+      NODE_ENV: 'development',
+      BREVO_API_KEY: 'test-key-never-real',
+      PASSWORD_RESET_ORIGIN: 'http://localhost:3101',
+    },
+    async (url, options) => {
+      seen = { url, options };
+      return new Response('{}', { status: 201 });
+    },
+  );
+  assert.ok(mailer?.sendVerification, 'Mailer must expose sendVerification');
+  assert.equal(
+    await mailer.sendVerification('verify-qa@example.invalid', 'c'.repeat(64)),
+    'accepted',
+  );
+  assert.equal(seen.url, 'https://api.brevo.com/v3/smtp/email');
+  assert.equal(seen.options.redirect, 'error');
+  assert.equal(seen.options.headers['api-key'], 'test-key-never-real');
+  const payload = JSON.parse(seen.options.body);
+  assert.equal(payload.sender.email, 'no-reply@hoaiphuong.click');
+  assert.deepEqual(payload.to, [{ email: 'verify-qa@example.invalid' }]);
+  assert.equal(payload.subject, 'Xác minh địa chỉ email Management Lite');
+  assert.ok(
+    payload.textContent.includes(
+      'http://localhost:3101/verify-email#token=' + 'c'.repeat(64),
+    ),
+  );
+  assert.ok(!payload.textContent.includes('/verify-email?token='));
+  assert.ok(payload.textContent.includes('15 phút'));
+  assert.ok(!seen.options.body.includes('test-key-never-real'));
+});

@@ -86,6 +86,13 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     implemented: false,
     category: 'core',
   },
+  '/verify-email': {
+    id: 'UI02B',
+    path: '/verify-email',
+    title: 'Xác minh Email',
+    implemented: true,
+    category: 'core',
+  },
   '/': {
     id: 'UI03',
     path: '/',

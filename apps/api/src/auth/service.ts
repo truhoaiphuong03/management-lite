@@ -86,6 +86,9 @@ export class AuthService {
   public readonly forgotPasswordLimiter: RateLimiter;
   public readonly forgotPasswordAccountLimiter: RateLimiter;
   public readonly resetPasswordLimiter: RateLimiter;
+  public readonly verifyEmailRequestLimiter: RateLimiter;
+  public readonly verifyEmailAccountLimiter: RateLimiter;
+  public readonly verifyEmailConfirmLimiter: RateLimiter;
 
   constructor(
     private readonly pool: DatabasePool,
@@ -96,6 +99,9 @@ export class AuthService {
       forgotPasswordLimiter?: RateLimiter;
       forgotPasswordAccountLimiter?: RateLimiter;
       resetPasswordLimiter?: RateLimiter;
+      verifyEmailRequestLimiter?: RateLimiter;
+      verifyEmailAccountLimiter?: RateLimiter;
+      verifyEmailConfirmLimiter?: RateLimiter;
       resetMailer?: PasswordResetMailer | undefined;
     } = {},
   ) {
@@ -114,6 +120,15 @@ export class AuthService {
       new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
     this.resetPasswordLimiter =
       options.resetPasswordLimiter ??
+      new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
+    this.verifyEmailRequestLimiter =
+      options.verifyEmailRequestLimiter ??
+      new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
+    this.verifyEmailAccountLimiter =
+      options.verifyEmailAccountLimiter ??
+      new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
+    this.verifyEmailConfirmLimiter =
+      options.verifyEmailConfirmLimiter ??
       new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
   }
 
@@ -175,6 +190,7 @@ export class AuthService {
       id: string;
       username_normalized: string;
       email_normalized: string;
+      email_verified?: boolean;
       user_status: string;
       password_hash: string | null;
       credential_version: number | null;
@@ -184,6 +200,7 @@ export class AuthService {
         u.id,
         u.username_normalized,
         u.email_normalized,
+        u.email_verified,
         u.status AS user_status,
         uc.password_hash,
         uc.credential_version
@@ -405,6 +422,7 @@ export class AuthService {
           id: userRow.id,
           username: userRow.username_normalized,
           email: userRow.email_normalized,
+          email_verified: Boolean(userRow.email_verified),
         },
         active_workspace: {
           id: chosenMembership.workspace_id,
@@ -454,6 +472,7 @@ export class AuthService {
       is_remembered: boolean;
       username_normalized: string;
       email_normalized: string;
+      email_verified?: boolean;
       role: UserRole;
       workspace_name: string;
       timezone: string;
@@ -499,6 +518,7 @@ export class AuthService {
         s.remember_me AS is_remembered,
         u.username_normalized,
         u.email_normalized,
+        u.email_verified,
         wm.role,
         w.name AS workspace_name,
         w.timezone;
@@ -518,6 +538,7 @@ export class AuthService {
         id: row.user_id,
         username: row.username_normalized,
         email: row.email_normalized,
+        email_verified: Boolean(row.email_verified),
       },
       workspace: {
         id: row.workspace_id,
@@ -565,6 +586,7 @@ export class AuthService {
       is_remembered: boolean;
       username_normalized: string;
       email_normalized: string;
+      email_verified?: boolean;
       role: UserRole;
       workspace_name: string;
       timezone: string;
@@ -610,6 +632,7 @@ export class AuthService {
         s.remember_me AS is_remembered,
         u.username_normalized,
         u.email_normalized,
+        u.email_verified,
         wm.role,
         w.name AS workspace_name,
         w.timezone;
@@ -642,6 +665,7 @@ export class AuthService {
           id: row.user_id,
           username: row.username_normalized,
           email: row.email_normalized,
+          email_verified: Boolean(row.email_verified),
         },
         active_workspace: {
           id: row.workspace_id,
@@ -1429,18 +1453,486 @@ export class AuthService {
   }
 
   /**
-   * Records verifiable proof of email ownership and marks user email as verified.
-   * Enforces that email verification requires explicit proof, not merely users.status=active.
+   * Requests an email verification token and delivers a single-use verification link via Brevo.
+   * Enforces IP + account-hash rate limiting, anti-enumeration response, 15m TTL,
+   * prior unverified token revocation, and fail-closed revocation on provider failure.
+   */
+  async requestEmailVerification(params: {
+    email: string;
+    clientIp: string;
+    requestId: string;
+  }): Promise<{
+    message: string;
+    delivery_status: 'EMAIL_DELIVERY_BLOCKED' | 'EMAIL_DELIVERY_PENDING';
+  }> {
+    const { email, clientIp, requestId } = params;
+
+    if (!email || typeof email !== 'string' || email.trim().length === 0) {
+      throw new AuthError('VALIDATION_ERROR', 'Email is required', 400, [
+        { field: 'email', message: 'Email is required' },
+      ]);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail.includes('@') || !normalizedEmail.includes('.')) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Địa chỉ email không đúng định dạng',
+        400,
+        [{ field: 'email', message: 'Địa chỉ email không đúng định dạng' }],
+      );
+    }
+
+    const accountLimiterKey = `ev_acc:${hashToken(normalizedEmail)}`;
+    const ipRateCheck = this.verifyEmailRequestLimiter.increment(clientIp);
+    const accountRateCheck =
+      this.verifyEmailAccountLimiter.increment(accountLimiterKey);
+
+    if (!ipRateCheck.allowed || !accountRateCheck.allowed) {
+      const retryAfter = Math.max(
+        ipRateCheck.allowed ? 0 : ipRateCheck.retryAfterSeconds,
+        accountRateCheck.allowed ? 0 : accountRateCheck.retryAfterSeconds,
+      );
+      throw new AuthError(
+        'RATE_LIMITED',
+        'Quá nhiều yêu cầu xác minh email. Vui lòng thử lại sau ít phút.',
+        429,
+        [{ message: `Thử lại sau ${retryAfter} giây` }],
+      );
+    }
+
+    const genericResponse: {
+      message: string;
+      delivery_status: 'EMAIL_DELIVERY_BLOCKED' | 'EMAIL_DELIVERY_PENDING';
+    } = {
+      message:
+        'Nếu tài khoản tồn tại và chưa xác minh email, hướng dẫn xác minh email đã được xử lý.',
+      delivery_status: this.resetMailer
+        ? 'EMAIL_DELIVERY_PENDING'
+        : 'EMAIL_DELIVERY_BLOCKED',
+    };
+
+    const client = await this.pool.connect();
+    try {
+      const userRes = await client.query<{
+        id: string;
+        email_normalized: string;
+        status: string;
+        email_verified: boolean;
+      }>(
+        `SELECT id, email_normalized, status, email_verified
+         FROM users
+         WHERE email_normalized = $1
+         LIMIT 1;`,
+        [normalizedEmail],
+      );
+
+      const user = userRes.rows[0];
+      if (
+        !user ||
+        (user.status !== 'active' && user.status !== 'pending_activation') ||
+        user.email_verified
+      ) {
+        return genericResponse;
+      }
+
+      await client.query('BEGIN');
+
+      const eligible = await client.query(
+        `SELECT id FROM users
+         WHERE id = $1
+           AND email_normalized = $2
+           AND status IN ('active', 'pending_activation')
+           AND email_verified = false
+         FOR UPDATE;`,
+        [user.id, normalizedEmail],
+      );
+      if (!eligible.rowCount) {
+        await client.query('ROLLBACK');
+        return genericResponse;
+      }
+
+      // Revoke any existing unverified email verification tokens for this user
+      await client.query(
+        `UPDATE email_verifications
+         SET proof_type = 'token_revoked',
+             proof_metadata = COALESCE(proof_metadata, '{}'::jsonb) || jsonb_build_object('revoked_at', now(), 'revoke_reason', 'superseded')
+         WHERE user_id = $1 AND verified_at IS NULL AND proof_type = 'token_confirmation';`,
+        [user.id],
+      );
+
+      const rawToken = generateCsprngToken(32);
+      const tokenHash = hashToken(rawToken);
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+      if (this.resetMailer) {
+        await client.query(
+          `INSERT INTO email_verifications (user_id, email_normalized, token_hash, proof_type, proof_metadata, verified_at)
+           VALUES ($1, $2, $3, 'token_confirmation', $4::jsonb, NULL);`,
+          [
+            user.id,
+            normalizedEmail,
+            tokenHash,
+            JSON.stringify({ expires_at: expiresAt, request_ip: clientIp }),
+          ],
+        );
+      }
+
+      const workspaceId = await this.resolveUserWorkspaceId(client, user.id);
+      await recordAuditEvent(client, {
+        workspaceId,
+        actorUserId: user.id,
+        action: 'auth.email_verification_requested',
+        entityType: 'user',
+        entityId: user.id,
+        requestId,
+        metadata: {
+          client_ip: clientIp,
+          delivery_status: genericResponse.delivery_status,
+        },
+      });
+
+      await client.query('COMMIT');
+
+      if (this.resetMailer) {
+        let delivery: 'accepted' | 'failed' = 'failed';
+        try {
+          delivery = this.resetMailer.sendVerification
+            ? await this.resetMailer.sendVerification(normalizedEmail, rawToken)
+            : await this.resetMailer.send(normalizedEmail, rawToken);
+        } catch {
+          /* sanitized below */
+        }
+
+        if (delivery === 'failed') {
+          await client.query(
+            `UPDATE email_verifications
+             SET proof_type = 'token_revoked',
+                 proof_metadata = COALESCE(proof_metadata, '{}'::jsonb) || jsonb_build_object('revoked_at', now(), 'revoke_reason', 'delivery_failed')
+             WHERE token_hash = $1 AND verified_at IS NULL;`,
+            [tokenHash],
+          );
+        }
+
+        await recordAuditEvent(client, {
+          workspaceId,
+          actorUserId: user.id,
+          action:
+            delivery === 'accepted'
+              ? 'auth.email_verification_email_accepted'
+              : 'auth.email_verification_email_failed',
+          entityType: 'user',
+          entityId: user.id,
+          requestId,
+          metadata: { provider: 'brevo', delivery_status: delivery },
+        });
+      }
+
+      return genericResponse;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Confirms an email verification token and marks the user's email as verified
+   * with cryptographic proof in a single database transaction.
+   * Enforces rate limiting, 15m TTL, single-use anti-replay, and exact user/email match.
    */
   async verifyEmailWithProof(params: {
-    userId: string;
-    proofType: string;
+    token: string;
+    clientIp?: string;
+    requestId?: string;
+    proofType?: string;
     proofMetadata?: Record<string, unknown>;
-  }): Promise<{ success: boolean }> {
-    const { userId, proofType, proofMetadata } = params;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    email_verified: boolean;
+    verified_at: string;
+  }> {
+    const {
+      token,
+      clientIp = '127.0.0.1',
+      requestId = 'email-verification-confirm',
+      proofType = 'token_confirmation',
+      proofMetadata,
+    } = params;
+
+    const rateCheck = this.verifyEmailConfirmLimiter.increment(clientIp);
+    if (!rateCheck.allowed) {
+      throw new AuthError(
+        'RATE_LIMITED',
+        'Quá nhiều yêu cầu xác minh email. Vui lòng thử lại sau ít phút.',
+        429,
+        [{ message: `Thử lại sau ${rateCheck.retryAfterSeconds} giây` }],
+      );
+    }
+
+    if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Mã xác minh email không được để trống',
+        400,
+        [{ field: 'token', message: 'Mã xác minh email không được để trống' }],
+      );
+    }
+
+    const tokenHash = hashToken(token.trim());
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+
+      const tokenRes = await client.query<{
+        id: string;
+        user_id: string;
+        email_normalized: string;
+        proof_type: string;
+        proof_metadata: Record<string, unknown> | null;
+        verified_at: Date | null;
+        created_at: Date;
+      }>(
+        `SELECT id, user_id, email_normalized, proof_type, proof_metadata, verified_at, created_at
+         FROM email_verifications
+         WHERE token_hash = $1;`,
+        [tokenHash],
+      );
+
+      const record = tokenRes.rows[0];
+      if (
+        !record ||
+        record.verified_at !== null ||
+        record.proof_type !== 'token_confirmation' ||
+        Boolean(record.proof_metadata?.['revoked_at'])
+      ) {
+        throw new AuthError(
+          'INVALID_TOKEN',
+          'Mã xác minh email không hợp lệ hoặc đã được sử dụng',
+          400,
+        );
+      }
+
+      // Consistent lock ordering: lock user row first, then email_verifications row
+      const userRes = await client.query<{
+        id: string;
+        email_normalized: string;
+        status: string;
+        email_verified: boolean;
+      }>(
+        `SELECT id, email_normalized, status, email_verified
+         FROM users
+         WHERE id = $1
+         FOR UPDATE;`,
+        [record.user_id],
+      );
+      const user = userRes.rows[0];
+
+      const recheckRes = await client.query<{
+        id: string;
+        user_id: string;
+        email_normalized: string;
+        proof_type: string;
+        proof_metadata: Record<string, unknown> | null;
+        verified_at: Date | null;
+        created_at: Date;
+      }>(
+        `SELECT id, user_id, email_normalized, proof_type, proof_metadata, verified_at, created_at
+         FROM email_verifications
+         WHERE id = $1
+         FOR UPDATE;`,
+        [record.id],
+      );
+      const recheck = recheckRes.rows[0];
+
+      if (
+        !recheck ||
+        recheck.verified_at !== null ||
+        recheck.proof_type !== 'token_confirmation' ||
+        Boolean(recheck.proof_metadata?.['revoked_at'])
+      ) {
+        throw new AuthError(
+          'INVALID_TOKEN',
+          'Mã xác minh email không hợp lệ hoặc đã được sử dụng',
+          400,
+        );
+      }
+
+      if (
+        !user ||
+        (user.status !== 'active' && user.status !== 'pending_activation') ||
+        user.email_normalized !== recheck.email_normalized
+      ) {
+        await client.query(
+          `UPDATE email_verifications
+           SET proof_type = 'token_revoked',
+               proof_metadata = COALESCE(proof_metadata, '{}'::jsonb) || jsonb_build_object('revoked_at', now(), 'revoke_reason', 'user_or_email_mismatch')
+           WHERE id = $1;`,
+          [recheck.id],
+        );
+        await client.query('COMMIT');
+        throw new AuthError(
+          'INVALID_TOKEN',
+          'Mã xác minh email không hợp lệ hoặc đã được sử dụng',
+          400,
+        );
+      }
+
+      const rawExpiresAt = recheck.proof_metadata?.['expires_at'];
+      const expiresAt =
+        typeof rawExpiresAt === 'string' && rawExpiresAt.length > 0
+          ? new Date(rawExpiresAt)
+          : new Date(new Date(recheck.created_at).getTime() + 15 * 60 * 1000);
+
+      if (expiresAt <= new Date()) {
+        await client.query(
+          `UPDATE email_verifications
+           SET proof_type = 'token_expired',
+               proof_metadata = COALESCE(proof_metadata, '{}'::jsonb) || jsonb_build_object('revoked_at', now(), 'revoke_reason', 'expired')
+           WHERE id = $1;`,
+          [recheck.id],
+        );
+        await client.query('COMMIT');
+        throw new AuthError(
+          'TOKEN_EXPIRED',
+          'Mã xác minh email đã hết hạn. Vui lòng yêu cầu gửi lại email xác minh mới.',
+          400,
+        );
+      }
+
+      const verifiedAtIso = new Date().toISOString();
+      const confirmedMeta = {
+        confirmed_ip: clientIp,
+        verified_at: verifiedAtIso,
+        ...(proofMetadata || {}),
+      };
+
+      await client.query(
+        `UPDATE email_verifications
+         SET verified_at = $2,
+             proof_type = $3,
+             proof_metadata = COALESCE(proof_metadata, '{}'::jsonb) || $4::jsonb
+         WHERE id = $1 AND verified_at IS NULL;`,
+        [recheck.id, verifiedAtIso, proofType, JSON.stringify(confirmedMeta)],
+      );
+
+      // Revoke any other pending verification tokens for this user
+      await client.query(
+        `UPDATE email_verifications
+         SET proof_type = 'token_revoked',
+             proof_metadata = COALESCE(proof_metadata, '{}'::jsonb) || jsonb_build_object('revoked_at', now(), 'revoke_reason', 'superseded_by_verification')
+         WHERE user_id = $1 AND id != $2 AND verified_at IS NULL;`,
+        [user.id, recheck.id],
+      );
+
+      const proofRecord = JSON.stringify({
+        proofType,
+        verificationId: recheck.id,
+        emailNormalized: user.email_normalized,
+        verifiedAt: verifiedAtIso,
+      });
+
+      await client.query(
+        `UPDATE users
+         SET email_verified = true,
+             email_verified_at = $2,
+             email_verification_proof = $3,
+             version = version + 1
+         WHERE id = $1;`,
+        [user.id, verifiedAtIso, proofRecord],
+      );
+
+      const workspaceId = await this.resolveUserWorkspaceId(client, user.id);
+      await recordAuditEvent(client, {
+        workspaceId,
+        actorUserId: user.id,
+        action: 'auth.email_verified',
+        entityType: 'user',
+        entityId: user.id,
+        requestId,
+        metadata: {
+          proof_type: proofType,
+          verification_id: recheck.id,
+          client_ip: clientIp,
+        },
+      });
+
+      await client.query('COMMIT');
+      this.verifyEmailConfirmLimiter.reset(clientIp);
+
+      return {
+        success: true,
+        message: 'Địa chỉ email đã được xác minh thành công.',
+        email_verified: true,
+        verified_at: verifiedAtIso,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Alias for verifyEmailWithProof used by the HTTP confirmation endpoint.
+   */
+  async confirmEmailVerification(params: {
+    token: string;
+    clientIp: string;
+    requestId: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    email_verified: boolean;
+    verified_at: string;
+  }> {
+    return this.verifyEmailWithProof({
+      token: params.token,
+      clientIp: params.clientIp,
+      requestId: params.requestId,
+      proofType: 'token_confirmation',
+    });
+  }
+
+  /**
+   * Updates a user's normalized email address, resets email_verified=false,
+   * and atomically revokes all pending email verification and password reset tokens.
+   */
+  async changeUserEmail(params: {
+    userId: string;
+    newEmail: string;
+    clientIp?: string;
+    requestId?: string;
+  }): Promise<{ email: string; email_verified: boolean }> {
+    const {
+      userId,
+      newEmail,
+      clientIp = '127.0.0.1',
+      requestId = 'email-change',
+    } = params;
+
+    if (
+      !newEmail ||
+      typeof newEmail !== 'string' ||
+      !newEmail.trim().includes('@') ||
+      !newEmail.trim().includes('.')
+    ) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Địa chỉ email mới không hợp lệ',
+        400,
+        [{ field: 'email', message: 'Địa chỉ email mới không hợp lệ' }],
+      );
+    }
+
+    const normalizedNewEmail = newEmail.trim().toLowerCase();
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
       const userRes = await client.query<{
         id: string;
         email_normalized: string;
@@ -1452,48 +1944,61 @@ export class AuthService {
         throw new AuthError('NOT_FOUND', 'User not found', 404);
       }
 
-      const proofRecord = JSON.stringify({
-        proofType,
-        metadata: proofMetadata || {},
-        verifiedAt: new Date().toISOString(),
-      });
+      const conflictRes = await client.query<{ id: string }>(
+        `SELECT id FROM users WHERE email_normalized = $1 AND id != $2 LIMIT 1;`,
+        [normalizedNewEmail, userId],
+      );
+      if (conflictRes.rows.length > 0) {
+        throw new AuthError(
+          'CONFLICT',
+          'Địa chỉ email này đã được sử dụng bởi tài khoản khác',
+          409,
+        );
+      }
 
       await client.query(
         `UPDATE users
-         SET email_verified = true,
-             email_verified_at = now(),
-             email_verification_proof = $2
+         SET email_normalized = $2,
+             email_verified = false,
+             email_verified_at = NULL,
+             email_verification_proof = NULL,
+             version = version + 1
          WHERE id = $1;`,
-        [userId, proofRecord],
+        [userId, normalizedNewEmail],
       );
 
+      // Revoke all pending email verification tokens for this user
       await client.query(
-        `INSERT INTO email_verifications (user_id, email_normalized, token_hash, proof_type, proof_metadata, verified_at)
-         VALUES ($1, $2, $3, $4, $5, now());`,
-        [
-          userId,
-          user.email_normalized,
-          hashToken(`proof_${userId}_${Date.now()}`),
-          proofType,
-          proofMetadata ? JSON.stringify(proofMetadata) : null,
-        ],
+        `UPDATE email_verifications
+         SET proof_type = 'token_revoked',
+             proof_metadata = COALESCE(proof_metadata, '{}'::jsonb) || jsonb_build_object('revoked_at', now(), 'revoke_reason', 'email_changed')
+         WHERE user_id = $1 AND verified_at IS NULL;`,
+        [userId],
+      );
+
+      // Revoke all unconsumed password reset tokens for this user
+      await client.query(
+        `UPDATE password_reset_tokens
+         SET consumed_at = now()
+         WHERE user_id = $1 AND consumed_at IS NULL;`,
+        [userId],
       );
 
       const workspaceId = await this.resolveUserWorkspaceId(client, userId);
       await recordAuditEvent(client, {
         workspaceId,
         actorUserId: userId,
-        action: 'auth.email_verified',
+        action: 'auth.email_changed',
         entityType: 'user',
         entityId: userId,
-        requestId: 'internal-email-verification',
+        requestId,
         metadata: {
-          proof_type: proofType,
+          client_ip: clientIp,
         },
       });
 
       await client.query('COMMIT');
-      return { success: true };
+      return { email: normalizedNewEmail, email_verified: false };
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
       throw err;

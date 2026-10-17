@@ -23,7 +23,7 @@ let API_BASE = '';
 let sharedPool = null;
 let sharedServer = null;
 let createdAdminId = null;
-let previousAdminVerifiedState = null;
+let isolatedUnverifiedEmail = '';
 let createdWorkspaceId = null;
 
 before(async () => {
@@ -45,27 +45,15 @@ before(async () => {
     );
   }
 
-  // Ensure unverified admin user fixture exists during test run
-  const adminCheck = await sharedPool.query(
-    `SELECT id, email_verified, email_verified_at FROM users WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
+  // Create an isolated unverified admin user fixture (never touch DEV Owner accounts)
+  const suffix = crypto.randomBytes(6).toString('hex');
+  createdAdminId = crypto.randomUUID();
+  isolatedUnverifiedEmail = `isolated-unverified-admin-${suffix}@example.invalid`;
+  await sharedPool.query(
+    `INSERT INTO users (id, username_normalized, email_normalized, status, email_verified, email_verified_at)
+     VALUES ($1, $2, $3, 'active', false, NULL);`,
+    [createdAdminId, `admin_pw_reset_qa_${suffix}`, isolatedUnverifiedEmail],
   );
-  if (adminCheck.rows.length === 0) {
-    createdAdminId = crypto.randomUUID();
-    await sharedPool.query(
-      `INSERT INTO users (id, username_normalized, email_normalized, status, email_verified, email_verified_at)
-       VALUES ($1, 'admin_pw_reset_qa', 'truhoaiphuong02@gmail.com', 'active', false, NULL);`,
-      [createdAdminId],
-    );
-  } else {
-    previousAdminVerifiedState = {
-      id: adminCheck.rows[0].id,
-      email_verified: adminCheck.rows[0].email_verified,
-      email_verified_at: adminCheck.rows[0].email_verified_at,
-    };
-    await sharedPool.query(
-      `UPDATE users SET email_verified = false, email_verified_at = NULL WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
-    );
-  }
 
   const csrfSecret = crypto.randomBytes(32).toString('hex');
   const authService = new AuthService(sharedPool, csrfSecret);
@@ -98,17 +86,6 @@ after(async () => {
         .catch(() => {});
       await sharedPool
         .query(`DELETE FROM users WHERE id = $1;`, [createdAdminId])
-        .catch(() => {});
-    } else if (previousAdminVerifiedState) {
-      await sharedPool
-        .query(
-          `UPDATE users SET email_verified = $2, email_verified_at = $3 WHERE id = $1;`,
-          [
-            previousAdminVerifiedState.id,
-            previousAdminVerifiedState.email_verified,
-            previousAdminVerifiedState.email_verified_at,
-          ],
-        )
         .catch(() => {});
     }
     if (createdWorkspaceId) {
@@ -181,13 +158,13 @@ test('REGRESSION 1: Route HTTP /api/v1/qa/mock-reset-token must NOT exist (HTTP 
   assert.equal(getRes.body.error.code, 'NOT_FOUND');
 
   const getWithQuery = await makeRequest(
-    `${API_BASE}/api/v1/qa/mock-reset-token?email=truhoaiphuong02@gmail.com`,
+    `${API_BASE}/api/v1/qa/mock-reset-token?email=${encodeURIComponent(isolatedUnverifiedEmail)}`,
   );
   assert.equal(getWithQuery.status, 404, 'Querying mock-reset-token with email must return 404');
 
   const postRes = await makeRequest(`${API_BASE}/api/v1/qa/mock-reset-token`, {
     method: 'POST',
-    body: { email: 'truhoaiphuong02@gmail.com' },
+    body: { email: isolatedUnverifiedEmail },
   });
   assert.equal(postRes.status, 404, 'POST to mock-reset-token must return 404');
 });
@@ -210,10 +187,10 @@ test('REGRESSION 2: Anti-enumeration & zero token leakage across all email types
   assert.equal(resUnknown.body.data.token, undefined);
   assert.equal(resUnknown.body.data.dev_token, undefined);
 
-  // Test admin email
+  // Test isolated unverified admin email
   const resAdmin = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
     method: 'POST',
-    body: { email: 'truhoaiphuong02@gmail.com' },
+    body: { email: isolatedUnverifiedEmail },
     ip: `10.99.${randSubnet}.2`,
   });
   assert.equal(resAdmin.status, 200);
@@ -228,12 +205,13 @@ test('REGRESSION 3: Cannot reset password knowing only email & unverified admin 
   const randSubnet = Math.floor(Math.random() * 200) + 10;
   const pool = new pg.Pool({ connectionString: DATABASE_URL });
   try {
-    // Verify admin in DB is NOT email_verified
+    // Verify isolated admin in DB is NOT email_verified
     const adminRes = await pool.query(
       `SELECT id, email_normalized, email_verified, email_verified_at, email_verification_proof
-       FROM users WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
+       FROM users WHERE email_normalized = $1;`,
+      [isolatedUnverifiedEmail],
     );
-    assert.ok(adminRes.rows.length > 0, 'Admin user must exist in DB');
+    assert.ok(adminRes.rows.length > 0, 'Isolated admin user must exist in DB');
     const admin = adminRes.rows[0];
     assert.equal(
       admin.email_verified,
@@ -251,7 +229,7 @@ test('REGRESSION 3: Cannot reset password knowing only email & unverified admin 
     // Call forgot-password for unverified admin
     const forgotRes = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
       method: 'POST',
-      body: { email: 'truhoaiphuong02@gmail.com' },
+      body: { email: isolatedUnverifiedEmail },
       ip: `10.99.${randSubnet}.3`,
     });
     assert.equal(forgotRes.status, 200);

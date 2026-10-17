@@ -492,7 +492,8 @@ export function createRequestHandler(
           }
           if (
             pathname === '/api/v1/auth/reset-password' ||
-            pathname === '/api/v1/auth/activate'
+            pathname === '/api/v1/auth/activate' ||
+            pathname.startsWith('/api/v1/auth/verify-email')
           ) {
             apiCache.clearAll();
           }
@@ -1448,6 +1449,82 @@ export function createRequestHandler(
             typeof body['new_password'] === 'string'
               ? body['new_password']
               : '',
+          clientIp,
+          requestId,
+        });
+
+        return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+      }
+
+      // 8c. POST /api/v1/auth/verify-email/request (or /resend)
+      if (
+        method === 'POST' &&
+        (pathname === '/api/v1/auth/verify-email/request' ||
+          pathname === '/api/v1/auth/verify-email/resend')
+      ) {
+        requireLoginOrigin(req, allowedOrigins, isProduction);
+        requireLoginJson(req);
+
+        if (!authService) {
+          const body = createErrorEnvelope(
+            'DATABASE_UNAVAILABLE',
+            'Authentication service is unavailable',
+            requestId,
+          );
+          return sendJson(res, 503, body);
+        }
+
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, ['email']);
+
+        let email = typeof body['email'] === 'string' ? body['email'].trim() : '';
+        if (!email) {
+          try {
+            const sessionContext = await requireAuth(
+              authService,
+              req,
+              isProduction,
+            );
+            email = sessionContext.user.email;
+          } catch {
+            // Fall through to validation error inside requestEmailVerification if unauthenticated and no email provided
+          }
+        }
+
+        const clientIp = getClientIp(req, trustedProxies);
+        const result = await authService.requestEmailVerification({
+          email,
+          clientIp,
+          requestId,
+        });
+
+        return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+      }
+
+      // 8d. POST /api/v1/auth/verify-email/confirm (or /verify-email)
+      if (
+        method === 'POST' &&
+        (pathname === '/api/v1/auth/verify-email/confirm' ||
+          pathname === '/api/v1/auth/verify-email')
+      ) {
+        requireLoginOrigin(req, allowedOrigins, isProduction);
+        requireLoginJson(req);
+
+        if (!authService) {
+          const body = createErrorEnvelope(
+            'DATABASE_UNAVAILABLE',
+            'Authentication service is unavailable',
+            requestId,
+          );
+          return sendJson(res, 503, body);
+        }
+
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, ['token']);
+
+        const clientIp = getClientIp(req, trustedProxies);
+        const result = await authService.confirmEmailVerification({
+          token: typeof body['token'] === 'string' ? body['token'] : '',
           clientIp,
           requestId,
         });

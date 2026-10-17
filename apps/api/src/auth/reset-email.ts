@@ -1,5 +1,6 @@
 export interface PasswordResetMailer {
   send(to: string, token: string): Promise<'accepted' | 'failed'>;
+  sendVerification?(to: string, token: string): Promise<'accepted' | 'failed'>;
 }
 
 /** HTTPS only, fixed provider endpoint, no provider payload/error logging or retries. */
@@ -28,36 +29,59 @@ export function createBrevoResetMailer(
     url.password
   )
     throw new Error('Invalid password recovery email configuration');
+
+  async function postBrevoTextEmail(
+    to: string,
+    subject: string,
+    textContent: string,
+  ): Promise<'accepted' | 'failed'> {
+    try {
+      const response = await request('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        redirect: 'error',
+        signal: AbortSignal.timeout(10000),
+        headers: {
+          'api-key': key!,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: 'Management Lite', email: sender },
+          to: [{ email: to }],
+          subject,
+          textContent,
+          // Plain text only. Verify received link/source in the real inbox
+          // before release; do not rely on undocumented tracking headers.
+        }),
+      });
+      const accepted = response.status === 201;
+      await response.body?.cancel();
+      return accepted ? 'accepted' : 'failed';
+    } catch {
+      return 'failed';
+    }
+  }
+
   return {
     async send(to, token) {
       const link = new URL('/reset-password', url);
       // Fragment keeps the bearer token out of HTTP access logs and Referer headers.
       link.hash = new URLSearchParams({ token }).toString();
-      try {
-        const response = await request('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          redirect: 'error',
-          signal: AbortSignal.timeout(10000),
-          headers: {
-            'api-key': key,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({
-            sender: { name: 'Management Lite', email: sender },
-            to: [{ email: to }],
-            subject: 'Đặt lại mật khẩu Management Lite',
-            textContent: `Bạn đã yêu cầu đặt lại mật khẩu Management Lite.\nMở liên kết: ${link.href}\nHoặc nhập mã xác minh: ${token}\nMã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
-            // Plain text only. Verify received link/source in the real inbox
-            // before release; do not rely on undocumented tracking headers.
-          }),
-        });
-        const accepted = response.status === 201;
-        await response.body?.cancel();
-        return accepted ? 'accepted' : 'failed';
-      } catch {
-        return 'failed';
-      }
+      return postBrevoTextEmail(
+        to,
+        'Đặt lại mật khẩu Management Lite',
+        `Bạn đã yêu cầu đặt lại mật khẩu Management Lite.\nMở liên kết: ${link.href}\nHoặc nhập mã xác minh: ${token}\nMã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+      );
+    },
+    async sendVerification(to, token) {
+      const link = new URL('/verify-email', url);
+      // Fragment keeps the bearer token out of HTTP access logs and Referer headers.
+      link.hash = new URLSearchParams({ token }).toString();
+      return postBrevoTextEmail(
+        to,
+        'Xác minh địa chỉ email Management Lite',
+        `Bạn đã yêu cầu xác minh địa chỉ email tài khoản Management Lite.\nMở liên kết: ${link.href}\nHoặc nhập mã xác minh: ${token}\nMã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+      );
     },
   };
 }

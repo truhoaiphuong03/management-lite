@@ -318,8 +318,28 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
             </form>
           )}
 
+          {/* Link to Email Verification */}
+          <div style={{ textAlign: 'center', marginTop: '12px' }}>
+            <button
+              type="button"
+              data-testid="forgot-password-verify-email-link"
+              onClick={() => onNavigate('/verify-email')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#14B8A6',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '4px 8px',
+              }}
+            >
+              Chưa xác minh email? Xác minh hoặc gửi lại thư tại đây
+            </button>
+          </div>
+
           {/* Back to Login Link */}
-          <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <div style={{ textAlign: 'center', marginTop: '12px' }}>
             <button
               type="button"
               onClick={() => onNavigate('/login')}
