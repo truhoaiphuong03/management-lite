@@ -812,7 +812,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       }
       setErrorMessage(
         sanitizeUiError(
-          err instanceof Error ? err.message : 'Lỗi kết nối khi xác thực bí mật',
+          err instanceof Error
+            ? err.message
+            : 'Lỗi kết nối khi xác thực bí mật',
         ),
       );
     } finally {
@@ -907,7 +909,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     } catch (err) {
       setErrorMessage(
         sanitizeUiError(
-          err instanceof Error ? err.message : 'Lỗi kết nối khi cập nhật bí mật',
+          err instanceof Error
+            ? err.message
+            : 'Lỗi kết nối khi cập nhật bí mật',
         ),
       );
     } finally {
@@ -1102,7 +1106,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                 gap: '16px',
                 padding: '16px',
                 backgroundColor: '#0F172A',
@@ -1425,7 +1430,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     marginTop: '2px',
                   }}
                 >
-                  Đổi mật khẩu tài khoản đăng nhập hệ thống trong Cài đặt & Hồ sơ.
+                  Đổi mật khẩu tài khoản đăng nhập hệ thống trong Cài đặt & Hồ
+                  sơ.
                 </div>
               </div>
             </div>
@@ -1443,7 +1449,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
               gap: '16px',
               marginBottom: '24px',
             }}

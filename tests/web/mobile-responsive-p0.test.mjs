@@ -169,6 +169,11 @@ test('MOBILE-P0-05: Audited screens use responsive grid minmax(min(100%, ...), 1
       mustNotInclude: 'minmax(420px, 1fr)',
     },
     {
+      file: 'apps/web/src/screens/FinanceEntryScreen.tsx',
+      mustInclude: 'minmax(min(100%, 220px), 1fr)',
+      mustNotInclude: 'minmax(220px, 1fr)',
+    },
+    {
       file: 'apps/web/src/screens/IssueDetailScreen.tsx',
       mustInclude: 'minmax(min(100%, 240px), 1fr)',
       mustNotInclude: 'minmax(280px, 1fr)',
@@ -177,6 +182,46 @@ test('MOBILE-P0-05: Audited screens use responsive grid minmax(min(100%, ...), 1
       file: 'apps/web/src/screens/AuditScreen.tsx',
       mustInclude: "flex: '1 1 160px'",
       mustNotInclude: null,
+    },
+    {
+      file: 'apps/web/src/screens/DashboardScreen.tsx',
+      mustInclude: 'minmax(min(100%, 240px), 1fr)',
+      mustNotInclude: 'minmax(240px, 1fr)',
+    },
+    {
+      file: 'apps/web/src/screens/EmployeesScreen.tsx',
+      mustInclude: 'min(100%, 220px)',
+      mustNotInclude: null,
+    },
+    {
+      file: 'apps/web/src/screens/EmployeeDetailScreen.tsx',
+      mustInclude: 'minmax(min(100%, 220px), 1fr)',
+      mustNotInclude: 'minmax(220px, 1fr)',
+    },
+    {
+      file: 'apps/web/src/screens/AccountsScreen.tsx',
+      mustInclude: 'minmax(min(100%, 220px), 1fr)',
+      mustNotInclude: 'minmax(220px, 1fr)',
+    },
+    {
+      file: 'apps/web/src/screens/StorageScreen.tsx',
+      mustInclude: 'minmax(min(100%, 200px), 1fr)',
+      mustNotInclude: 'minmax(200px, 1fr)',
+    },
+    {
+      file: 'apps/web/src/screens/SettingsScreen.tsx',
+      mustInclude: 'minmax(min(100%, 240px), 1fr)',
+      mustNotInclude: 'minmax(240px, 1fr)',
+    },
+    {
+      file: 'apps/web/src/screens/WorkScreen.tsx',
+      mustInclude: 'minmax(min(100%, 200px), 1fr)',
+      mustNotInclude: 'minmax(200px, 1fr)',
+    },
+    {
+      file: 'apps/web/src/screens/PayrollScreen.tsx',
+      mustInclude: 'minmax(min(100%, 200px), 1fr)',
+      mustNotInclude: 'minmax(200px, 1fr)',
     },
   ];
 
@@ -197,6 +242,9 @@ test('MOBILE-P0-05: Audited screens use responsive grid minmax(min(100%, ...), 1
 
 test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/1024px, scroll, tabs, modal, keyboard focus, and light/dark themes', async (t) => {
   const candidates = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     '/usr/bin/google-chrome',
@@ -283,6 +331,9 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
   const port = server.address().port;
   const baseUrl = `http://127.0.0.1:${port}`;
   const availableBrowsers = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     '/usr/bin/google-chrome',
@@ -324,6 +375,8 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
         `--remote-debugging-port=${debugPort}`,
         '--remote-debugging-address=127.0.0.1',
         `--user-data-dir=${userDataDir}`,
+        `--crash-dumps-dir=${userDataDir}`,
+        '--disable-crash-reporter',
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
@@ -346,6 +399,7 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
         stdio: ['ignore', 'ignore', 'pipe'],
         env: {
           ...process.env,
+          HOME: userDataDir,
           DBUS_SESSION_BUS_ADDRESS: '/dev/null',
         },
       },
@@ -407,6 +461,16 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
 
   let ws;
   try {
+    if (
+      (!list || list.length === 0) &&
+      (lastDiagnostics.includes('Operation not permitted') ||
+        lastDiagnostics.includes('Permission denied'))
+    ) {
+      t.skip(
+        `Headless browser blocked by OS sandbox restrictions (${lastDiagnostics.slice(0, 180)})`,
+      );
+      return;
+    }
     assert.ok(
       list && list.length > 0,
       `Chrome CDP endpoint must respond (${lastDiagnostics})`,
@@ -500,6 +564,40 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
         result.overflowRight,
         0,
         `Viewport ${vp.w}px must have zero right-overflowing elements`,
+      );
+    }
+
+    // Verify 320px zero-overflow across primary Admin routes
+    await send('Emulation.setDeviceMetricsOverride', {
+      width: 320,
+      height: 667,
+      deviceScaleFactor: 2,
+      mobile: true,
+    });
+    for (const adminRoute of [
+      '/',
+      '/employees',
+      '/finance',
+      '/work',
+      '/settings',
+    ]) {
+      await send('Page.navigate', { url: `${baseUrl}${adminRoute}` });
+      await new Promise((r) => setTimeout(r, 450));
+      const routeRes = (
+        await send('Runtime.evaluate', {
+          expression: `
+            (() => {
+              const docW = document.documentElement.clientWidth;
+              const scrollW = document.documentElement.scrollWidth;
+              return { docW, scrollW };
+            })()
+          `,
+          returnByValue: true,
+        })
+      ).result.value;
+      assert.ok(
+        routeRes.scrollW <= routeRes.docW + 1,
+        `Admin route ${adminRoute} at 320px must have zero horizontal scroll overflow (got scrollW=${routeRes.scrollW}, docW=${routeRes.docW})`,
       );
     }
 

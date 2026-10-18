@@ -33,7 +33,8 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
 }) => {
   const [employee, setEmployee] = useState<EmployeeData | null>(null);
   const [hourlyRates, setHourlyRates] = useState<HourlyRateData[]>([]);
-  const [currentHourlyRate, setCurrentHourlyRate] = useState<HourlyRateData | null>(null);
+  const [currentHourlyRate, setCurrentHourlyRate] =
+    useState<HourlyRateData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -143,11 +144,15 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
       });
       if (res.ok) {
         const body = await res.json();
-        const allRates: HourlyRateData[] = Array.isArray(body.data) ? body.data : [];
+        const allRates: HourlyRateData[] = Array.isArray(body.data)
+          ? body.data
+          : [];
         const empRates = allRates.filter((r) => r.employee_id === employeeId);
         setHourlyRates(empRates);
         const active = empRates.find((r) => !r.effective_to);
-        setCurrentHourlyRate(active ?? (empRates.length > 0 ? empRates[0]! : null));
+        setCurrentHourlyRate(
+          active ?? (empRates.length > 0 ? empRates[0]! : null),
+        );
       }
     } catch {
       // Silently fall back if payroll service is unreachable
@@ -164,7 +169,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
   const handleOpenRateModal = () => {
     rateIdempotencyKeyRef.current = null;
     savingRateLockRef.current = false;
-    setRateInput(currentHourlyRate ? String(currentHourlyRate.hourly_rate_vnd) : '');
+    setRateInput(
+      currentHourlyRate ? String(currentHourlyRate.hourly_rate_vnd) : '',
+    );
     setRateError(null);
     setIsRateModalOpen(true);
   };
@@ -207,7 +214,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
 
       const body = await res.json();
       if (!res.ok) {
-        throw new Error(body?.error?.message || 'Không thể lưu mức lương theo giờ');
+        throw new Error(
+          body?.error?.message || 'Không thể lưu mức lương theo giờ',
+        );
       }
 
       rateIdempotencyKeyRef.current = null;
@@ -218,7 +227,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
       });
       fetchRates();
     } catch (err: unknown) {
-      setRateError(err instanceof Error ? err.message : 'Lỗi cập nhật mức lương');
+      setRateError(
+        err instanceof Error ? err.message : 'Lỗi cập nhật mức lương',
+      );
     } finally {
       savingRateLockRef.current = false;
       setIsSavingRate(false);
@@ -537,7 +548,8 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
               gap: '16px',
               marginBottom: '20px',
             }}

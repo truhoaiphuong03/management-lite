@@ -438,7 +438,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           >
             {activeInviteUrl}
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <AppButton
               variant="primary"
               onClick={async () => {
@@ -535,7 +535,11 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
         </div>
 
         <div
-          style={{ minWidth: '220px', flex: '1 1 220px', maxWidth: '360px' }}
+          style={{
+            minWidth: 'min(100%, 220px)',
+            flex: '1 1 220px',
+            maxWidth: '360px',
+          }}
         >
           <input
             type="text"
@@ -580,6 +584,8 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'flex-start',
+                  flexWrap: 'wrap',
+                  gap: '8px',
                   marginBottom: '12px',
                 }}
               >
@@ -598,7 +604,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                       gap: '6px',
                     }}
                   >
-                    <AppSkeleton variant="text" width="160px" height="18px" />
+                    <AppSkeleton variant="text" width="140px" height="18px" />
                     <AppSkeleton variant="text" width="90px" height="14px" />
                   </div>
                 </div>
@@ -609,9 +615,11 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
                 }}
               >
-                <AppSkeleton variant="text" width="180px" height="14px" />
+                <AppSkeleton variant="text" width="150px" height="14px" />
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <AppSkeleton variant="circle" width={32} height={32} />
                   <AppSkeleton variant="circle" width={32} height={32} />

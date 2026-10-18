@@ -296,11 +296,7 @@ export function validateDisbursementSuccessResponse(
 }
 
 export type PendingAdjustmentStatus =
-  | 'in_flight'
-  | 'unresolved'
-  | 'error_unresolved'
-  | 'confirmed'
-  | 'rejected';
+  'in_flight' | 'unresolved' | 'error_unresolved' | 'confirmed' | 'rejected';
 
 export interface PendingAdjustmentOperation {
   operationId: string;
@@ -446,7 +442,8 @@ export function clearPendingAdjustmentFromStorage(
     if (
       employeeId &&
       month &&
-      reg[getAdjustmentOperationKey(employeeId, month)]?.operationId === operationId
+      reg[getAdjustmentOperationKey(employeeId, month)]?.operationId ===
+        operationId
     ) {
       delete reg[getAdjustmentOperationKey(employeeId, month)];
       changed = true;
@@ -458,7 +455,6 @@ export function clearPendingAdjustmentFromStorage(
     // Ignore
   }
 }
-
 
 /**
  * FIX-70 (Q69 cross-tab/identity): re-verify the canonical session at submit time,
@@ -1255,7 +1251,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
   // CSRF token, user and workspace context
   const [csrfToken, setCsrfToken] = useState<string>('');
   const [internalWorkspaceId, setInternalWorkspaceId] = useState<string>('');
-  const [internalCurrentUserId, setInternalCurrentUserId] = useState<string>('');
+  const [internalCurrentUserId, setInternalCurrentUserId] =
+    useState<string>('');
   const workspaceId = propWorkspaceId ?? internalWorkspaceId;
   const currentUserId = propCurrentUserId ?? internalCurrentUserId;
   const setWorkspaceId = setInternalWorkspaceId;
@@ -1355,7 +1352,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
     const onStorage = async () => {
       try {
         const id = await fetchCanonicalSessionIdentity();
-        if (id && (id.workspaceId !== workspaceId || id.userId !== currentUserId)) {
+        if (
+          id &&
+          (id.workspaceId !== workspaceId || id.userId !== currentUserId)
+        ) {
           sessionGenerationRef.current++;
           setWorkspaceId(id.workspaceId);
           setCurrentUserId(id.userId);
@@ -1541,7 +1541,11 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
   // Client-side pagination over the already-loaded list (totals use ALL rows)
   const [itemsPage, setItemsPage] = useState<number>(0);
   const [itemsPageSize, setItemsPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
-  const safeItemsPage = clampPage(itemsPage, filteredItems.length, itemsPageSize);
+  const safeItemsPage = clampPage(
+    itemsPage,
+    filteredItems.length,
+    itemsPageSize,
+  );
   const pagedItems = useMemo(
     () =>
       filteredItems.slice(
@@ -2722,7 +2726,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
               gap: '16px',
               marginBottom: '24px',
             }}
@@ -2751,10 +2756,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 borderBottom: '1px solid #334155',
                 display: 'flex',
                 justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
               }}
             >
-              <AppSkeleton variant="text" width="200px" height="20px" />
-              <AppSkeleton variant="text" width="120px" height="20px" />
+              <AppSkeleton variant="text" width="160px" height="20px" />
+              <AppSkeleton variant="text" width="100px" height="20px" />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {[1, 2, 3, 4].map((k) => (
@@ -2764,6 +2771,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '8px',
                     padding: '14px 16px',
                     borderBottom: '1px solid #1E293B',
                   }}
@@ -2797,12 +2806,16 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
         </div>
       ) : role === 'owner' ? (
         /* ======================== OWNER DASHBOARD VIEW ======================== */
-        <div data-testid="owner-payroll-dashboard" style={{ marginTop: '24px' }}>
+        <div
+          data-testid="owner-payroll-dashboard"
+          style={{ marginTop: '24px' }}
+        >
           {/* Summary Stat Cards */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
               gap: '16px',
               marginBottom: '24px',
             }}
@@ -3285,7 +3298,9 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
                         <ActionIconButton
                           action="view"
-                          label={isExpanded ? 'Thu gọn chi tiết' : 'Xem chi tiết'}
+                          label={
+                            isExpanded ? 'Thu gọn chi tiết' : 'Xem chi tiết'
+                          }
                           target={item.full_name}
                           testId={`btn-payroll-detail-${item.employee_id}`}
                           onClick={() =>
@@ -3302,7 +3317,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       style={{
                         display: 'grid',
                         gridTemplateColumns:
-                          'repeat(auto-fit, minmax(180px, 1fr))',
+                          'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
                         gap: '12px',
                         marginTop: '14px',
                       }}
@@ -4024,7 +4039,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
                   gap: '16px',
                 }}
               >
@@ -4783,7 +4799,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 {actionLoading
                   ? 'Đang lưu...'
                   : pendingAdjustment?.status === 'error_unresolved' ||
-                    pendingAdjustment?.status === 'unresolved'
+                      pendingAdjustment?.status === 'unresolved'
                     ? 'Thử lại gửi điều chỉnh'
                     : 'Lưu nghỉ phép'}
               </AppButton>

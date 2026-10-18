@@ -510,7 +510,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                 gap: '12px',
                 backgroundColor: '#0B1220',
                 padding: '16px',
@@ -608,7 +609,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
               gap: '12px',
               backgroundColor: '#0B1220',
               padding: '16px',
@@ -909,7 +911,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
               gap: '16px',
               maxWidth: '800px',
             }}
@@ -1071,7 +1074,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
               gap: '12px',
               backgroundColor: '#0B1220',
               padding: '16px',
@@ -1317,7 +1321,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                           style={{
                             display: 'grid',
                             gridTemplateColumns:
-                              'repeat(auto-fit, minmax(220px, 1fr))',
+                              'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
                             gap: '10px',
                             fontSize: '12px',
                           }}

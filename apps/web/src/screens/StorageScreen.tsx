@@ -862,7 +862,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                 gap: '16px',
                 padding: '16px',
                 backgroundColor: '#0F172A',
@@ -1840,7 +1841,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
           gap: '14px',
           marginBottom: '24px',
         }}

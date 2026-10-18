@@ -1485,7 +1485,8 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
               gap: '16px',
             }}
           >
@@ -1632,7 +1633,8 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
             gap: '16px',
             marginBottom: '20px',
           }}
@@ -1790,7 +1792,8 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
                   gap: '10px',
                   fontSize: '12px',
                 }}

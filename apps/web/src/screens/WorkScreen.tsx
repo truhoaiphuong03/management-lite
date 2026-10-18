@@ -984,7 +984,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                 gap: '16px',
                 marginBottom: '18px',
               }}
@@ -1120,7 +1121,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   style={{
                     display: 'grid',
                     gridTemplateColumns:
-                      'repeat(auto-fill, minmax(200px, 1fr))',
+                      'repeat(auto-fill, minmax(min(100%, 200px), 1fr))',
                     gap: '8px',
                     maxHeight: '180px',
                     overflowY: 'auto',
@@ -2413,7 +2414,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
             gap: '12px',
             alignItems: 'center',
           }}

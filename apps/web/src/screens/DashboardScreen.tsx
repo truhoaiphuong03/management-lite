@@ -452,7 +452,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
           gap: '16px',
           marginBottom: '24px',
         }}
@@ -633,7 +634,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+          gridTemplateColumns:
+            'repeat(auto-fill, minmax(min(100%, 220px), 1fr))',
           gap: '12px',
         }}
       >
