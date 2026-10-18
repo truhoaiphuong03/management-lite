@@ -103,7 +103,23 @@ export class AccountsService {
     return trimmed;
   }
 
-  private mapAccountRow(r: Record<string, any>): ManagedAccountData {
+  private mapAccountRow(r: {
+    id: string;
+    workspace_id: string;
+    platform: AccountPlatform;
+    username?: string | null | undefined;
+    platform_account_id?: string | null | undefined;
+    recovery_email?: string | null | undefined;
+    account_group?: string | null | undefined;
+    assigned_employee_id?: string | null | undefined;
+    assigned_employee_name?: string | null | undefined;
+    assigned_employee_code?: string | null | undefined;
+    status: ManagedAccountData['status'];
+    notes?: string | null | undefined;
+    version: number;
+    created_at: Date | string;
+    updated_at?: Date | string | null | undefined;
+  }): ManagedAccountData {
     return {
       id: r.id,
       workspace_id: r.workspace_id,

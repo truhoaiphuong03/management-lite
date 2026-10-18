@@ -10,7 +10,6 @@ const root = resolve(__dirname, '..');
 
 // Authoritative Acceptance Admin constants
 const ACCEPTANCE_ADMIN_ID = '2a565b98-868c-4d8b-821e-fdd9da94dacc';
-const ACCEPTANCE_ADMIN_IDENTIFIER = 'admin';
 const ACCEPTANCE_WORKSPACE_ID = '5c3bb47c-7566-4784-a262-11ff6cd32cbd';
 const CREDENTIAL_FILE = resolve(root, '.env.qa-credentials.local');
 const FORBIDDEN_PASSWORDS = new Set([
