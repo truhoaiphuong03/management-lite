@@ -27,7 +27,12 @@ export class AttendanceService {
    */
   private async getEmployeeForUser(
     context: AuthenticatedContext,
-  ): Promise<{ id: string; employee_code: string; full_name: string; employment_status: string } | null> {
+  ): Promise<{
+    id: string;
+    employee_code: string;
+    full_name: string;
+    employment_status: string;
+  } | null> {
     const res = await this.pool.query<{
       id: string;
       employee_code: string;
@@ -110,6 +115,9 @@ export class AttendanceService {
       pending_cr_created_at?: Date | null;
       pending_cr_version?: number | null;
       pending_cr_requested_by?: string | null;
+      approval_reason?: string | null;
+      approval_reviewed_at?: Date | null;
+      approval_reviewer_user_id?: string | null;
     },
     breaks: BreakData[],
   ): ShiftData {
@@ -156,6 +164,9 @@ export class AttendanceService {
       employee_id: row.employee_id,
       employee_code: row.employee_code,
       employee_name: row.employee_name,
+      shift_date: row.clock_in_at.toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+      }),
       clock_in_at: row.clock_in_at.toISOString(),
       clock_out_at: row.clock_out_at ? row.clock_out_at.toISOString() : null,
       run_state: row.run_state as ShiftData['run_state'],
@@ -166,23 +177,147 @@ export class AttendanceService {
       worked_seconds,
       created_at: row.created_at.toISOString(),
       pending_correction,
+      review_reason: row.approval_reason ?? null,
+      reviewed_at: row.approval_reviewed_at
+        ? row.approval_reviewed_at.toISOString()
+        : null,
+      reviewed_by_user_id: row.approval_reviewer_user_id ?? null,
     };
+  }
+
+  private parseFilterDate(val: string, isEndOfDay = false): Date {
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return new Date(
+        isEndOfDay
+          ? `${trimmed}T23:59:59.999+07:00`
+          : `${trimmed}T00:00:00.000+07:00`,
+      );
+    }
+    return new Date(trimmed);
   }
 
   /**
    * GET /api/v1/attendance/me
-   * Fetches current shift and recent history for the authenticated user.
+   * Fetches current shift and recent/filtered history for the authenticated user.
    */
   async getAttendanceMe(
     context: AuthenticatedContext,
+    filters: {
+      from_date?: string | undefined;
+      to_date?: string | undefined;
+      run_state?: string | undefined;
+      review_state?: string | undefined;
+      limit?: number | undefined;
+      offset?: number | undefined;
+    } = {},
   ): Promise<AttendanceMeResponseData> {
     const employee = await this.getEmployeeForUser(context);
     if (!employee) {
-      return { current_shift: null, recent_shifts: [] };
+      return { current_shift: null, recent_shifts: [], total: 0 };
     }
 
-    // 1. Query all shifts for this employee (ordered recent first, limit 30)
+    const limit = Math.min(Math.max(Number(filters.limit) || 30, 1), 100);
+    const offset = Math.max(Number(filters.offset) || 0, 0);
+    const filterParams: unknown[] = [context.workspace.id, employee.id];
+    let whereClause = '';
+
+    if (filters.run_state) {
+      filterParams.push(filters.run_state);
+      whereClause += ` AND s.run_state = $${filterParams.length}`;
+    }
+
+    if (filters.review_state) {
+      filterParams.push(filters.review_state);
+      whereClause += ` AND s.review_state = $${filterParams.length}`;
+    }
+
+    if (filters.from_date) {
+      filterParams.push(this.parseFilterDate(filters.from_date, false));
+      whereClause += ` AND s.clock_in_at >= $${filterParams.length}`;
+    }
+
+    if (filters.to_date) {
+      filterParams.push(this.parseFilterDate(filters.to_date, true));
+      whereClause += ` AND s.clock_in_at <= $${filterParams.length}`;
+    }
+
+    const countRes = await this.pool.query<{ cnt: number }>(
+      `SELECT COUNT(*)::int AS cnt
+       FROM attendance_shifts s
+       WHERE s.workspace_id = $1 AND s.employee_id = $2 ${whereClause};`,
+      filterParams,
+    );
+    const total = countRes.rows[0]?.cnt ?? 0;
+
+    const queryParams = [...filterParams, limit, offset];
+    const limitIdx = `$${filterParams.length + 1}`;
+    const offsetIdx = `$${filterParams.length + 2}`;
+
     const shiftsRes = await this.pool.query<{
+      id: string;
+      workspace_id: string;
+      employee_id: string;
+      employee_code: string;
+      employee_name: string;
+      clock_in_at: Date;
+      clock_out_at: Date | null;
+      run_state: string;
+      review_state: string;
+      version: number;
+      current_version_id: string | null;
+      created_at: Date;
+      pending_cr_id: string | null;
+      pending_cr_reason: string | null;
+      pending_cr_claimed_clock_out_at: Date | null;
+      pending_cr_evidence_note: string | null;
+      pending_cr_created_at: Date | null;
+      pending_cr_version: number | null;
+      pending_cr_requested_by: string | null;
+      approval_reason: string | null;
+      approval_reviewed_at: Date | null;
+      approval_reviewer_user_id: string | null;
+    }>(
+      `
+      SELECT
+        s.id,
+        s.workspace_id,
+        s.employee_id,
+        e.employee_code,
+        e.full_name AS employee_name,
+        s.clock_in_at,
+        s.clock_out_at,
+        s.run_state,
+        s.review_state,
+        s.version,
+        s.current_version_id,
+        s.created_at,
+        cr.id AS pending_cr_id,
+        cr.reason AS pending_cr_reason,
+        cr.claimed_clock_out_at AS pending_cr_claimed_clock_out_at,
+        cr.evidence_note AS pending_cr_evidence_note,
+        cr.created_at AS pending_cr_created_at,
+        cr.version AS pending_cr_version,
+        cr.requested_by_user_id AS pending_cr_requested_by,
+        ap.reason AS approval_reason,
+        ap.reviewed_at AS approval_reviewed_at,
+        ap.reviewer_user_id AS approval_reviewer_user_id
+      FROM attendance_shifts s
+      JOIN employees e ON e.id = s.employee_id
+      LEFT JOIN attendance_correction_requests cr
+        ON cr.shift_id = s.id AND cr.status = 'pending'
+      LEFT JOIN attendance_approvals ap
+        ON ap.workspace_id = s.workspace_id AND ap.shift_version_id = s.current_version_id
+      WHERE s.workspace_id = $1 AND s.employee_id = $2
+      ${whereClause}
+      ORDER BY s.clock_in_at DESC
+      LIMIT ${limitIdx} OFFSET ${offsetIdx};
+    `,
+      queryParams,
+    );
+
+    // Also ensure we always resolve current_shift even if filtered out of recent_shifts
+    const openShiftRes = await this.pool.query<{
       id: string;
       workspace_id: string;
       employee_id: string;
@@ -229,18 +364,32 @@ export class AttendanceService {
       LEFT JOIN attendance_correction_requests cr
         ON cr.shift_id = s.id AND cr.status = 'pending'
       WHERE s.workspace_id = $1 AND s.employee_id = $2
+        AND s.run_state IN ('working', 'paused')
       ORDER BY s.clock_in_at DESC
-      LIMIT 30;
+      LIMIT 1;
     `,
       [context.workspace.id, employee.id],
     );
 
-    if (shiftsRes.rows.length === 0) {
-      return { current_shift: null, recent_shifts: [] };
+    const allRows = [...shiftsRes.rows];
+    if (
+      openShiftRes.rows[0] &&
+      !allRows.some((r) => r.id === openShiftRes.rows[0]!.id)
+    ) {
+      allRows.push({
+        ...openShiftRes.rows[0]!,
+        approval_reason: null,
+        approval_reviewed_at: null,
+        approval_reviewer_user_id: null,
+      });
+    }
+
+    if (allRows.length === 0) {
+      return { current_shift: null, recent_shifts: [], total: 0 };
     }
 
     // 2. Fetch breaks for all returned shifts
-    const shiftIds = shiftsRes.rows.map((r) => r.id);
+    const shiftIds = allRows.map((r) => r.id);
     const breaksRes = await this.pool.query<{
       id: string;
       shift_id: string;
@@ -277,18 +426,27 @@ export class AttendanceService {
       breaksByShift.set(b.shift_id, list);
     }
 
-    const allMapped = shiftsRes.rows.map((row) =>
+    const recentMapped = shiftsRes.rows.map((row) =>
       this.mapShiftData(row, breaksByShift.get(row.id) || []),
     );
 
-    const current_shift =
-      allMapped.find(
-        (s) => s.run_state === 'working' || s.run_state === 'paused',
-      ) || null;
+    const openRow = openShiftRes.rows[0];
+    const current_shift = openRow
+      ? this.mapShiftData(
+          {
+            ...openRow,
+            approval_reason: null,
+            approval_reviewed_at: null,
+            approval_reviewer_user_id: null,
+          },
+          breaksByShift.get(openRow.id) || [],
+        )
+      : null;
 
     return {
       current_shift,
-      recent_shifts: allMapped,
+      recent_shifts: recentMapped,
+      total,
     };
   }
 
@@ -798,42 +956,53 @@ export class AttendanceService {
       run_state?: string | undefined;
       review_state?: string | undefined;
       limit?: number | undefined;
+      offset?: number | undefined;
     } = {},
   ): Promise<AttendanceShiftsResponseData> {
     requireRole(['owner'], context);
 
     const limit = Math.min(Math.max(Number(filters.limit) || 50, 1), 100);
-    const params: unknown[] = [context.workspace.id];
+    const offset = Math.max(Number(filters.offset) || 0, 0);
+    const filterParams: unknown[] = [context.workspace.id];
 
     let whereClause = '';
 
     if (filters.employee_id) {
-      params.push(filters.employee_id);
-      whereClause += ` AND s.employee_id = $${params.length}`;
+      filterParams.push(filters.employee_id);
+      whereClause += ` AND s.employee_id = $${filterParams.length}`;
     }
 
     if (filters.run_state) {
-      params.push(filters.run_state);
-      whereClause += ` AND s.run_state = $${params.length}`;
+      filterParams.push(filters.run_state);
+      whereClause += ` AND s.run_state = $${filterParams.length}`;
     }
 
     if (filters.review_state) {
-      params.push(filters.review_state);
-      whereClause += ` AND s.review_state = $${params.length}`;
+      filterParams.push(filters.review_state);
+      whereClause += ` AND s.review_state = $${filterParams.length}`;
     }
 
     if (filters.from_date) {
-      params.push(new Date(filters.from_date));
-      whereClause += ` AND s.clock_in_at >= $${params.length}`;
+      filterParams.push(this.parseFilterDate(filters.from_date, false));
+      whereClause += ` AND s.clock_in_at >= $${filterParams.length}`;
     }
 
     if (filters.to_date) {
-      params.push(new Date(filters.to_date));
-      whereClause += ` AND s.clock_in_at <= $${params.length}`;
+      filterParams.push(this.parseFilterDate(filters.to_date, true));
+      whereClause += ` AND s.clock_in_at <= $${filterParams.length}`;
     }
 
-    params.push(limit);
-    const limitPlaceholder = `$${params.length}`;
+    const countRes = await this.pool.query<{ cnt: number }>(
+      `SELECT COUNT(*)::int AS cnt
+       FROM attendance_shifts s
+       WHERE s.workspace_id = $1 ${whereClause};`,
+      filterParams,
+    );
+    const total = countRes.rows[0]?.cnt ?? 0;
+
+    const params = [...filterParams, limit, offset];
+    const limitPlaceholder = `$${filterParams.length + 1}`;
+    const offsetPlaceholder = `$${filterParams.length + 2}`;
 
     const shiftsRes = await this.pool.query<{
       id: string;
@@ -855,6 +1024,9 @@ export class AttendanceService {
       pending_cr_created_at: Date | null;
       pending_cr_version: number | null;
       pending_cr_requested_by: string | null;
+      approval_reason: string | null;
+      approval_reviewed_at: Date | null;
+      approval_reviewer_user_id: string | null;
     }>(
       `
       SELECT
@@ -876,21 +1048,26 @@ export class AttendanceService {
         cr.evidence_note AS pending_cr_evidence_note,
         cr.created_at AS pending_cr_created_at,
         cr.version AS pending_cr_version,
-        cr.requested_by_user_id AS pending_cr_requested_by
+        cr.requested_by_user_id AS pending_cr_requested_by,
+        ap.reason AS approval_reason,
+        ap.reviewed_at AS approval_reviewed_at,
+        ap.reviewer_user_id AS approval_reviewer_user_id
       FROM attendance_shifts s
       JOIN employees e ON e.id = s.employee_id
       LEFT JOIN attendance_correction_requests cr
         ON cr.shift_id = s.id AND cr.status = 'pending'
+      LEFT JOIN attendance_approvals ap
+        ON ap.workspace_id = s.workspace_id AND ap.shift_version_id = s.current_version_id
       WHERE s.workspace_id = $1
       ${whereClause}
       ORDER BY s.clock_in_at DESC
-      LIMIT ${limitPlaceholder};
+      LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder};
     `,
       params,
     );
 
     if (shiftsRes.rows.length === 0) {
-      return { shifts: [], total: 0 };
+      return { shifts: [], total };
     }
 
     const shiftIds = shiftsRes.rows.map((r) => r.id);
@@ -936,7 +1113,7 @@ export class AttendanceService {
 
     return {
       shifts,
-      total: shifts.length,
+      total,
     };
   }
 
@@ -944,6 +1121,7 @@ export class AttendanceService {
    * POST /api/v1/attendance/shifts/:id/reviews
    * Owner reviews completed shift version (approve or reject).
    * SCP-D05 / Doc 36 guard: Owner cannot review/approve their own shift!
+   * Prevents duplicate approval on the same shift version with 409 CONFLICT.
    */
   async reviewShift(
     context: AuthenticatedContext,
@@ -969,61 +1147,83 @@ export class AttendanceService {
       );
     }
 
-    const shiftRes = await this.pool.query<{
-      id: string;
-      workspace_id: string;
-      employee_id: string;
-      run_state: string;
-      review_state: string;
-      current_version_id: string | null;
-      employee_user_id: string | null;
-    }>(
-      `
-      SELECT s.id, s.workspace_id, s.employee_id, s.run_state, s.review_state, s.current_version_id, e.user_id AS employee_user_id
-      FROM attendance_shifts s
-      JOIN employees e ON e.id = s.employee_id
-      WHERE s.id = $1 AND s.workspace_id = $2;
-    `,
-      [shiftId, context.workspace.id],
-    );
-
-    if (shiftRes.rows.length === 0) {
-      throw new AuthError('NOT_FOUND', 'Ca làm việc không tồn tại.', 404);
-    }
-
-    const shift = shiftRes.rows[0]!;
-
-    // SCP-D05 / Doc 36: Reviewer user must not be employee's own user
-    if (shift.employee_user_id === context.user.id) {
-      throw new AuthError(
-        'FORBIDDEN',
-        'Chủ sở hữu không được phép tự duyệt ca làm việc của chính mình.',
-        403,
-      );
-    }
-
-    if (shift.run_state !== 'completed') {
-      throw new AuthError(
-        'INVALID_STATE_TRANSITION',
-        'Chỉ có thể duyệt ca làm việc đã hoàn thành (completed).',
-        422,
-      );
-    }
-
-    if (!shift.current_version_id) {
-      throw new AuthError(
-        'INVALID_STATE_TRANSITION',
-        'Ca làm không có snapshot version hợp lệ để duyệt.',
-        422,
-      );
-    }
-
     const now = new Date();
     const approvalId = crypto.randomUUID();
 
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+
+      const shiftRes = await client.query<{
+        id: string;
+        workspace_id: string;
+        employee_id: string;
+        run_state: string;
+        review_state: string;
+        current_version_id: string | null;
+        employee_user_id: string | null;
+      }>(
+        `
+        SELECT s.id, s.workspace_id, s.employee_id, s.run_state, s.review_state, s.current_version_id, e.user_id AS employee_user_id
+        FROM attendance_shifts s
+        JOIN employees e ON e.id = s.employee_id
+        WHERE s.id = $1 AND s.workspace_id = $2
+        FOR UPDATE OF s;
+      `,
+        [shiftId, context.workspace.id],
+      );
+
+      if (shiftRes.rows.length === 0) {
+        throw new AuthError('NOT_FOUND', 'Ca làm việc không tồn tại.', 404);
+      }
+
+      const shift = shiftRes.rows[0]!;
+
+      // SCP-D05 / Doc 36: Reviewer user must not be employee's own user
+      if (shift.employee_user_id === context.user.id) {
+        throw new AuthError(
+          'FORBIDDEN',
+          'Chủ sở hữu không được phép tự duyệt ca làm việc của chính mình.',
+          403,
+        );
+      }
+
+      if (shift.run_state !== 'completed') {
+        throw new AuthError(
+          'INVALID_STATE_TRANSITION',
+          'Chỉ có thể duyệt ca làm việc đã hoàn thành (completed).',
+          422,
+        );
+      }
+
+      if (!shift.current_version_id) {
+        throw new AuthError(
+          'INVALID_STATE_TRANSITION',
+          'Ca làm không có snapshot version hợp lệ để duyệt.',
+          422,
+        );
+      }
+
+      // Prevent duplicate approval on the same shift version
+      const existingApproval = await client.query<{ id: string }>(
+        `SELECT id
+         FROM attendance_approvals
+         WHERE workspace_id = $1 AND shift_version_id = $2
+         FOR SHARE;`,
+        [context.workspace.id, shift.current_version_id],
+      );
+
+      if (
+        existingApproval.rows.length > 0 ||
+        shift.review_state === 'approved' ||
+        shift.review_state === 'rejected'
+      ) {
+        throw new AuthError(
+          'CONFLICT',
+          'Ca làm việc này đã được duyệt trước đó (không thể duyệt trùng).',
+          409,
+        );
+      }
 
       // Insert immutable approval record
       await client.query(
@@ -1343,6 +1543,25 @@ export class AttendanceService {
           WHERE id = $4;
         `,
           [body.reason.trim(), context.user.id, now, cr.id],
+        );
+
+        const prevApprovalRes = cr.current_version_id
+          ? await client.query<{ decision: string }>(
+              `SELECT decision FROM attendance_approvals WHERE workspace_id = $1 AND shift_version_id = $2 LIMIT 1;`,
+              [context.workspace.id, cr.current_version_id],
+            )
+          : { rows: [] };
+        const restoredReviewState =
+          prevApprovalRes.rows[0]?.decision ??
+          (cr.run_state === 'completed' ? 'unreviewed' : 'needs_review');
+
+        await client.query(
+          `
+          UPDATE attendance_shifts
+          SET review_state = $1, updated_at = now()
+          WHERE id = $2 AND workspace_id = $3;
+        `,
+          [restoredReviewState, cr.shift_id, context.workspace.id],
         );
 
         await recordAuditEvent(client, {

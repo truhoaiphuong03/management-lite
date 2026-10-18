@@ -529,6 +529,59 @@ test('MVP Phase 3 ATT: Clock in/out, Break, History, Owner review, Correction, a
         attAuditRes.rows.length >= 4,
         'Audit log must record attendance shift and correction events',
       );
+
+      // 19. Verify duplicate review prevention (409 CONFLICT) and date/status filtering
+      const duplicateApproveRes = await makeRequest(
+        `${baseUrl}/api/v1/attendance/shifts/${shiftId}/reviews`,
+        {
+          method: 'POST',
+          headers: {
+            Cookie: ownerAuth.cookie,
+            Origin: allowedOrigin,
+            'X-CSRF-Token': ownerAuth.csrfToken,
+          },
+          body: { decision: 'approved', reason: 'Duyệt trùng lần 2' },
+        },
+      );
+      assert.equal(
+        duplicateApproveRes.status,
+        409,
+        'Reviewing an already-approved shift at the same version must return 409 CONFLICT',
+      );
+
+      // Verify GET /attendance/shifts returns review_reason & reviewed_at and supports date/status filters
+      const todayStr = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+      });
+      const filteredOwnerRes = await makeRequest(
+        `${baseUrl}/api/v1/attendance/shifts?review_state=approved&run_state=completed&from_date=${todayStr}&to_date=${todayStr}`,
+        {
+          headers: { Cookie: ownerAuth.cookie },
+        },
+      );
+      assert.equal(filteredOwnerRes.status, 200);
+      const approvedShiftItem = filteredOwnerRes.body.data.shifts.find(
+        (s) => s.id === shiftId,
+      );
+      assert.ok(approvedShiftItem, 'Filtered list must include approved shift');
+      assert.equal(
+        approvedShiftItem.review_reason,
+        'Ca làm đầy đủ, đúng giờ',
+      );
+      assert.ok(approvedShiftItem.reviewed_at, 'Must include reviewed_at timestamp');
+
+      // Verify GET /attendance/me supports date & status filters
+      const filteredMeRes = await makeRequest(
+        `${baseUrl}/api/v1/attendance/me?review_state=approved&from_date=${todayStr}&to_date=${todayStr}`,
+        {
+          headers: { Cookie: staffAuth.cookie },
+        },
+      );
+      assert.equal(filteredMeRes.status, 200);
+      assert.ok(
+        filteredMeRes.body.data.recent_shifts.some((s) => s.id === shiftId),
+        'Filtered personal history must include approved shift',
+      );
     } finally {
       await new Promise((res) => server.close(res));
     }

@@ -35,12 +35,19 @@ import type { EmployeeData } from '../../../../packages/contracts/src/employees.
 
 export interface ClockScreenProps {
   role?: UserRole;
+  mode?: 'clock' | 'history' | 'review';
   onNavigate?: (path: string) => void;
 }
 
-export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
+export const ClockScreen: React.FC<ClockScreenProps> = ({
+  role = 'owner',
+  mode = 'clock',
+  onNavigate,
+}) => {
   const [activeTab, setActiveTab] = useState<'my_clock' | 'owner_review'>(
-    'my_clock',
+    mode === 'review' || (mode === 'history' && role === 'owner')
+      ? 'owner_review'
+      : 'my_clock',
   );
 
   // Auth / CSRF State
@@ -49,21 +56,44 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
   // Self Attendance State
   const [currentShift, setCurrentShift] = useState<ShiftData | null>(null);
   const [recentShifts, setRecentShifts] = useState<ShiftData[]>([]);
+  const [myFromDate, setMyFromDate] = useState<string>('');
+  const [myToDate, setMyToDate] = useState<string>('');
+  const [myReviewStateFilter, setMyReviewStateFilter] = useState<string>('all');
   const [myShiftPage, setMyShiftPage] = useState<number>(0);
   const [myShiftPageSize, setMyShiftPageSize] =
     useState<number>(DEFAULT_PAGE_SIZE);
 
+  const filteredRecentShifts = React.useMemo(() => {
+    return recentShifts.filter((shift) => {
+      if (
+        myReviewStateFilter !== 'all' &&
+        shift.review_state !== myReviewStateFilter
+      ) {
+        return false;
+      }
+      if (myFromDate) {
+        const start = new Date(`${myFromDate}T00:00:00`);
+        if (new Date(shift.clock_in_at) < start) return false;
+      }
+      if (myToDate) {
+        const end = new Date(`${myToDate}T23:59:59.999`);
+        if (new Date(shift.clock_in_at) > end) return false;
+      }
+      return true;
+    });
+  }, [recentShifts, myReviewStateFilter, myFromDate, myToDate]);
+
   const safeMyShiftPage = clampPage(
     myShiftPage,
-    recentShifts.length,
+    filteredRecentShifts.length,
     myShiftPageSize,
   );
   const pagedRecentShifts = React.useMemo(() => {
-    return recentShifts.slice(
+    return filteredRecentShifts.slice(
       safeMyShiftPage * myShiftPageSize,
       (safeMyShiftPage + 1) * myShiftPageSize,
     );
-  }, [recentShifts, safeMyShiftPage, myShiftPageSize]);
+  }, [filteredRecentShifts, safeMyShiftPage, myShiftPageSize]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -74,7 +104,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
   } | null>(null);
   const [clockActionDialog, setClockActionDialog] = useState<
     | { type: 'confirm_clock_out' }
-    | { type: 'review_approve'; shift: ShiftData }
+    | { type: 'review_approve'; shift: ShiftData; reason: string }
     | { type: 'review_reject'; shift: ShiftData; reason: string }
     | {
         type: 'correction_reject';
@@ -101,7 +131,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
   const [claimedClockOut, setClaimedClockOut] = useState('');
   const [evidenceNote, setEvidenceNote] = useState('');
 
-  // Owner Review State
+  // Owner Review & History State
   const [ownerShifts, setOwnerShifts] = useState<ShiftData[]>([]);
   const [shiftPage, setShiftPage] = useState<number>(0);
   const [shiftPageSize, setShiftPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
@@ -110,6 +140,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
   const [employeesLoading, setEmployeesLoading] = useState<boolean>(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedToDate, setSelectedToDate] = useState<string>('');
+  const [selectedReviewState, setSelectedReviewState] = useState<string>(
+    mode === 'review' ? 'pending_all' : 'all',
+  );
+  const [selectedRunState, setSelectedRunState] = useState<string>('all');
   const [ownerLoading, setOwnerLoading] = useState(false);
 
   // Q65-05: Multi-page employee selector generation and abort management
@@ -264,12 +299,24 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
         params.append('employee_id', selectedEmployeeId);
       }
       if (selectedDate) {
-        const start = new Date(selectedDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(selectedDate);
-        end.setHours(23, 59, 59, 999);
+        const start = new Date(`${selectedDate}T00:00:00`);
         params.append('from_date', start.toISOString());
+      }
+      if (selectedToDate) {
+        const end = new Date(`${selectedToDate}T23:59:59.999`);
         params.append('to_date', end.toISOString());
+      } else if (selectedDate) {
+        const end = new Date(`${selectedDate}T23:59:59.999`);
+        params.append('to_date', end.toISOString());
+      }
+      if (
+        selectedReviewState !== 'all' &&
+        selectedReviewState !== 'pending_all'
+      ) {
+        params.append('review_state', selectedReviewState);
+      }
+      if (selectedRunState !== 'all') {
+        params.append('run_state', selectedRunState);
       }
       const url = `/api/v1/attendance/shifts?${params.toString()}`;
       const shiftInit: RequestInit = { credentials: 'include' };
@@ -289,6 +336,40 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
     }
   };
 
+  const filteredOwnerShifts = React.useMemo(() => {
+    return ownerShifts.filter((shift) => {
+      if (selectedReviewState === 'pending_all') {
+        return (
+          shift.review_state === 'unreviewed' ||
+          shift.review_state === 'needs_review' ||
+          Boolean(shift.pending_correction)
+        );
+      }
+      if (
+        selectedReviewState !== 'all' &&
+        shift.review_state !== selectedReviewState
+      ) {
+        return false;
+      }
+      if (selectedRunState !== 'all' && shift.run_state !== selectedRunState) {
+        return false;
+      }
+      return true;
+    });
+  }, [ownerShifts, selectedReviewState, selectedRunState]);
+
+  useEffect(() => {
+    if (mode === 'review') {
+      setActiveTab('owner_review');
+      setSelectedReviewState('pending_all');
+    } else if (mode === 'history') {
+      setActiveTab(role === 'owner' ? 'owner_review' : 'my_clock');
+      setSelectedReviewState('all');
+    } else {
+      setActiveTab('my_clock');
+    }
+  }, [mode, role]);
+
   useEffect(() => {
     const controller = new AbortController();
     initData(controller.signal);
@@ -303,7 +384,14 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
       setShiftPage(0);
       fetchOwnerShifts();
     }
-  }, [selectedEmployeeId, selectedDate, activeTab]);
+  }, [
+    selectedEmployeeId,
+    selectedDate,
+    selectedToDate,
+    selectedReviewState,
+    selectedRunState,
+    activeTab,
+  ]);
 
   const formatHoursMinutes = (totalSecs: number) => {
     const hrs = Math.floor(totalSecs / 3600);
@@ -557,6 +645,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
       setClockActionDialog({
         type: 'review_approve',
         shift,
+        reason: 'Xác nhận ca làm việc hợp lệ',
       });
     }
   };
@@ -566,6 +655,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
     decision: 'approved' | 'rejected',
     reason?: string,
   ) => {
+    if (decision === 'rejected' && (!reason || !reason.trim())) {
+      const msg = 'Vui lòng nhập lý do từ chối ca làm việc.';
+      setErrorMessage(msg);
+      setToast({ message: msg, variant: 'warning' });
+      return;
+    }
     setDialogLoading(true);
     setOwnerLoading(true);
     try {
@@ -690,11 +785,25 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
     return <LoadingState message="Đang nạp dữ liệu chấm công..." />;
   }
 
+  const headerTitle =
+    mode === 'review'
+      ? 'Duyệt công nhân viên'
+      : mode === 'history'
+        ? 'Lịch sử ca làm'
+        : 'Quản lý Chấm công (ATT)';
+
+  const headerSubtitle =
+    mode === 'review'
+      ? 'Kiểm duyệt danh sách ca làm chờ xử lý, phê duyệt hoặc từ chối có lý do và đối chiếu giải trình (Doc 20/36)'
+      : mode === 'history'
+        ? 'Tra cứu lịch sử chấm công theo nhân viên, khoảng thời gian, giờ vào/ra, tổng giờ công và trạng thái duyệt'
+        : 'Hệ thống chấm công thời gian thực, tạm nghỉ và duyệt công chuẩn xác (Doc 20/36)';
+
   return (
     <div>
       <PageHeader
-        title="Quản lý Chấm công (ATT)"
-        subtitle="Hệ thống chấm công thời gian thực, tạm nghỉ và duyệt công chuẩn xác (Doc 20/36)"
+        title={headerTitle}
+        subtitle={headerSubtitle}
         badge={
           <StatusBadge
             status={
@@ -737,8 +846,16 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
             variant={activeTab === 'owner_review' ? 'primary' : 'secondary'}
             onClick={() => setActiveTab('owner_review')}
           >
-            <UserIcon size={16} /> Duyệt công nhân viên
+            <UserIcon size={16} />{' '}
+            {mode === 'history'
+              ? 'Lịch sử & Duyệt công nhân viên'
+              : 'Duyệt công nhân viên'}
           </AppButton>
+          {onNavigate && mode !== 'clock' && (
+            <AppButton variant="secondary" onClick={() => onNavigate('/clock')}>
+              Mở Bấm giờ trực tiếp
+            </AppButton>
+          )}
         </div>
       )}
 
@@ -995,7 +1112,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                   gap: '8px',
                 }}
               >
-                <CalendarIcon size={20} /> Lịch sử chấm công gần đây
+                <CalendarIcon size={20} /> Lịch sử chấm công cá nhân
               </h3>
               {recentShifts.length > 0 && (
                 <AppButton
@@ -1029,10 +1146,144 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
               )}
             </div>
 
-            {recentShifts.length === 0 ? (
+            {/* Personal History Filter Bar */}
+            <AppCard
+              data-testid="my-history-filter-bar"
+              style={{ marginBottom: '16px', padding: '14px' }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  alignItems: 'flex-end',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: '150px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Từ ngày
+                  </label>
+                  <input
+                    data-testid="my-filter-from-date"
+                    type="date"
+                    value={myFromDate}
+                    onChange={(e) => {
+                      setMyFromDate(e.target.value);
+                      setMyShiftPage(0);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#0B1220',
+                      border: '1px solid #334155',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: '150px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Đến ngày
+                  </label>
+                  <input
+                    data-testid="my-filter-to-date"
+                    type="date"
+                    value={myToDate}
+                    onChange={(e) => {
+                      setMyToDate(e.target.value);
+                      setMyShiftPage(0);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#0B1220',
+                      border: '1px solid #334155',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: '170px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#94A3B8',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Trạng thái duyệt
+                  </label>
+                  <select
+                    data-testid="my-filter-review-state"
+                    value={myReviewStateFilter}
+                    onChange={(e) => {
+                      setMyReviewStateFilter(e.target.value);
+                      setMyShiftPage(0);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#0B1220',
+                      border: '1px solid #334155',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="unreviewed">Chờ duyệt</option>
+                    <option value="needs_review">Cần xử lý / Giải trình</option>
+                    <option value="approved">Đã duyệt</option>
+                    <option value="rejected">Bị từ chối</option>
+                  </select>
+                </div>
+                {(myFromDate || myToDate || myReviewStateFilter !== 'all') && (
+                  <AppButton
+                    variant="secondary"
+                    onClick={() => {
+                      setMyFromDate('');
+                      setMyToDate('');
+                      setMyReviewStateFilter('all');
+                      setMyShiftPage(0);
+                    }}
+                    style={{ minHeight: '44px' }}
+                  >
+                    Xóa lọc
+                  </AppButton>
+                )}
+              </div>
+            </AppCard>
+
+            {filteredRecentShifts.length === 0 ? (
               <EmptyState
                 title="Chưa có dữ liệu"
-                description="Bạn chưa có ca làm việc nào được ghi nhận."
+                description="Không có ca làm việc nào phù hợp với bộ lọc hiện tại."
               />
             ) : (
               <div
@@ -1139,6 +1390,27 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                       </div>
                     </div>
 
+                    {shift.review_reason && (
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: '#CBD5E1',
+                          backgroundColor: '#0B1220',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          marginTop: '8px',
+                          borderLeft:
+                            shift.review_state === 'rejected'
+                              ? '3px solid #EF4444'
+                              : '3px solid #10B981',
+                        }}
+                      >
+                        Phản hồi duyệt: <em>"{shift.review_reason}"</em>
+                        {shift.reviewed_at &&
+                          ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTime(shift.reviewed_at)}`}
+                      </div>
+                    )}
+
                     <div
                       style={{
                         display: 'flex',
@@ -1186,11 +1458,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                 ))}
               </div>
             )}
-            {recentShifts.length > 0 && (
+            {filteredRecentShifts.length > 0 && (
               <div style={{ marginTop: '16px' }}>
                 <Pagination
                   testId="my-shifts-pager"
-                  total={recentShifts.length}
+                  total={filteredRecentShifts.length}
                   page={safeMyShiftPage}
                   pageSize={myShiftPageSize}
                   onPage={setMyShiftPage}
@@ -1205,10 +1477,78 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
           </div>
         </div>
       ) : (
-        /* Owner Review Tab */
+        /* Owner Review & History Tab */
         <div>
+          {/* Quick Status Filter Pills */}
+          <div
+            data-testid="owner-review-quick-tabs"
+            style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginBottom: '16px',
+            }}
+          >
+            {[
+              { id: 'all', label: `Tất cả (${ownerShifts.length})` },
+              {
+                id: 'pending_all',
+                label: `Chờ xử lý (${ownerShifts.filter((s) => s.review_state === 'unreviewed' || s.review_state === 'needs_review' || Boolean(s.pending_correction)).length})`,
+              },
+              {
+                id: 'unreviewed',
+                label: `Chờ duyệt (${ownerShifts.filter((s) => s.review_state === 'unreviewed').length})`,
+              },
+              {
+                id: 'needs_review',
+                label: `Giải trình (${ownerShifts.filter((s) => s.review_state === 'needs_review' || Boolean(s.pending_correction)).length})`,
+              },
+              {
+                id: 'approved',
+                label: `Đã duyệt (${ownerShifts.filter((s) => s.review_state === 'approved').length})`,
+              },
+              {
+                id: 'rejected',
+                label: `Đã từ chối (${ownerShifts.filter((s) => s.review_state === 'rejected').length})`,
+              },
+            ].map((pill) => (
+              <button
+                key={pill.id}
+                type="button"
+                data-testid={`review-tab-${pill.id}`}
+                onClick={() => {
+                  setSelectedReviewState(pill.id);
+                  setShiftPage(0);
+                }}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  minHeight: '38px',
+                  border:
+                    selectedReviewState === pill.id
+                      ? '1px solid #14B8A6'
+                      : '1px solid #334155',
+                  backgroundColor:
+                    selectedReviewState === pill.id
+                      ? 'rgba(20, 184, 166, 0.16)'
+                      : '#151F30',
+                  color:
+                    selectedReviewState === pill.id ? '#14B8A6' : '#94A3B8',
+                }}
+              >
+                {pill.label}
+              </button>
+            ))}
+          </div>
+
           {/* Filter Bar */}
-          <AppCard style={{ marginBottom: '20px', padding: '16px' }}>
+          <AppCard
+            data-testid="owner-shifts-filter-bar"
+            style={{ marginBottom: '20px', padding: '16px' }}
+          >
             {employeesError && (
               <div
                 style={{
@@ -1250,12 +1590,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
             <div
               style={{
                 display: 'flex',
-                gap: '16px',
+                gap: '12px',
                 flexWrap: 'wrap',
                 alignItems: 'flex-end',
               }}
             >
-              <div style={{ flex: 1, minWidth: '180px' }}>
+              <div style={{ flex: 1, minWidth: '170px' }}>
                 <label
                   style={{
                     display: 'block',
@@ -1268,6 +1608,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                   Nhân viên
                 </label>
                 <select
+                  data-testid="filter-employee-select"
                   value={selectedEmployeeId}
                   onChange={(e) => setSelectedEmployeeId(e.target.value)}
                   style={{
@@ -1279,6 +1620,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                     color: '#F8FAFC',
                     fontSize: '14px',
                     minHeight: '44px',
+                    boxSizing: 'border-box',
                   }}
                 >
                   <option value="all">Tất cả nhân viên</option>
@@ -1290,7 +1632,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                 </select>
               </div>
 
-              <div style={{ flex: 1, minWidth: '180px' }}>
+              <div style={{ flex: 1, minWidth: '150px' }}>
                 <label
                   style={{
                     display: 'block',
@@ -1300,9 +1642,10 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                     marginBottom: '6px',
                   }}
                 >
-                  Ngày làm việc
+                  Từ ngày
                 </label>
                 <input
+                  data-testid="filter-from-date"
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
@@ -1315,17 +1658,131 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                     color: '#F8FAFC',
                     fontSize: '14px',
                     minHeight: '44px',
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
 
-              {selectedDate && (
+              <div style={{ flex: 1, minWidth: '150px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Đến ngày
+                </label>
+                <input
+                  data-testid="filter-to-date"
+                  type="date"
+                  value={selectedToDate}
+                  onChange={(e) => setSelectedToDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#0B1220',
+                    border: '1px solid #334155',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    minHeight: '44px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ flex: 1, minWidth: '160px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Trạng thái duyệt
+                </label>
+                <select
+                  data-testid="filter-review-state"
+                  value={selectedReviewState}
+                  onChange={(e) => setSelectedReviewState(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#0B1220',
+                    border: '1px solid #334155',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    minHeight: '44px',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <option value="all">Tất cả trạng thái duyệt</option>
+                  <option value="pending_all">Chờ xử lý (Tất cả)</option>
+                  <option value="unreviewed">Chờ duyệt</option>
+                  <option value="needs_review">Cần giải trình</option>
+                  <option value="approved">Đã duyệt</option>
+                  <option value="rejected">Đã từ chối</option>
+                </select>
+              </div>
+
+              <div style={{ flex: 1, minWidth: '150px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Trạng thái ca
+                </label>
+                <select
+                  data-testid="filter-run-state"
+                  value={selectedRunState}
+                  onChange={(e) => setSelectedRunState(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#0B1220',
+                    border: '1px solid #334155',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    minHeight: '44px',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <option value="all">Tất cả ca</option>
+                  <option value="completed">Đã đóng ca</option>
+                  <option value="working">Đang trong ca</option>
+                  <option value="paused">Đang tạm nghỉ</option>
+                </select>
+              </div>
+
+              {(selectedEmployeeId !== 'all' ||
+                selectedDate ||
+                selectedToDate ||
+                selectedReviewState !== 'all' ||
+                selectedRunState !== 'all') && (
                 <AppButton
                   variant="secondary"
-                  onClick={() => setSelectedDate('')}
+                  onClick={() => {
+                    setSelectedEmployeeId('all');
+                    setSelectedDate('');
+                    setSelectedToDate('');
+                    setSelectedReviewState('all');
+                    setSelectedRunState('all');
+                  }}
                   style={{ minHeight: '44px' }}
                 >
-                  Xóa ngày
+                  Đặt lại bộ lọc
                 </AppButton>
               )}
             </div>
@@ -1333,7 +1790,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
 
           {ownerLoading ? (
             <LoadingState message="Đang tải danh sách ca làm việc..." />
-          ) : ownerShifts.length === 0 ? (
+          ) : filteredOwnerShifts.length === 0 ? (
             <EmptyState
               title="Không tìm thấy ca làm"
               description="Không có ca làm việc nào phù hợp với bộ lọc."
@@ -1342,7 +1799,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
             <div
               style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
             >
-              {ownerShifts
+              {filteredOwnerShifts
                 .slice(
                   shiftPage * shiftPageSize,
                   (shiftPage + 1) * shiftPageSize,
@@ -1483,6 +1940,40 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                         ` (${shift.breaks.length} lần tạm nghỉ không tính công)`}
                     </div>
 
+                    {shift.review_reason && (
+                      <div
+                        data-testid="shift-review-reason"
+                        style={{
+                          fontSize: '13px',
+                          color: '#CBD5E1',
+                          backgroundColor: '#0B1220',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          marginBottom: '12px',
+                          borderLeft:
+                            shift.review_state === 'rejected'
+                              ? '4px solid #EF4444'
+                              : '4px solid #10B981',
+                        }}
+                      >
+                        <div>
+                          Ghi chú duyệt: <em>"{shift.review_reason}"</em>
+                        </div>
+                        {shift.reviewed_at && (
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: '#94A3B8',
+                              marginTop: '4px',
+                            }}
+                          >
+                            Thời điểm duyệt: {formatVnDate(shift.reviewed_at)}{' '}
+                            {formatVnTime(shift.reviewed_at)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Pending Correction Details */}
                     {shift.pending_correction && (
                       <div
@@ -1577,6 +2068,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                           }}
                         >
                           <AppButton
+                            data-testid="review-reject-btn"
                             variant="secondary"
                             onClick={() => handleReviewShift(shift, 'rejected')}
                             style={{ minHeight: '38px', fontSize: '13px' }}
@@ -1584,6 +2076,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                             <CloseIcon size={14} /> Từ chối ca
                           </AppButton>
                           <AppButton
+                            data-testid="review-approve-btn"
                             variant="primary"
                             onClick={() => handleReviewShift(shift, 'approved')}
                             style={{ minHeight: '38px', fontSize: '13px' }}
@@ -1594,11 +2087,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                       )}
                   </AppCard>
                 ))}
-              {ownerShifts.length > 0 && (
+              {filteredOwnerShifts.length > 0 && (
                 <div style={{ marginTop: '16px' }}>
                   <Pagination
                     testId="shifts-pager"
-                    total={ownerShifts.length}
+                    total={filteredOwnerShifts.length}
                     page={shiftPage}
                     pageSize={shiftPageSize}
                     onPage={setShiftPage}
@@ -1807,11 +2300,55 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
           confirmLabel="Duyệt ca"
           cancelLabel="Hủy"
           onConfirm={() =>
-            executeReviewShift(clockActionDialog.shift, 'approved')
+            executeReviewShift(
+              clockActionDialog.shift,
+              'approved',
+              clockActionDialog.reason,
+            )
           }
           confirmVariant="primary"
           isLoading={dialogLoading}
-        />
+        >
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: TOKENS.spacing[3],
+            }}
+          >
+            <label
+              htmlFor="clock-review-approve-reason"
+              style={{ fontSize: '13px', color: TOKENS.colors.muted }}
+            >
+              Ghi chú / lý do duyệt (tùy chọn):
+            </label>
+            <input
+              id="clock-review-approve-reason"
+              data-testid="review-approve-reason-input"
+              type="text"
+              value={clockActionDialog.reason}
+              onChange={(e) =>
+                setClockActionDialog({
+                  ...clockActionDialog,
+                  reason: e.target.value,
+                })
+              }
+              placeholder="Ví dụ: Đúng giờ quy định..."
+              disabled={dialogLoading}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: TOKENS.radii.md,
+                border: `1px solid ${TOKENS.colors.border}`,
+                backgroundColor: TOKENS.colors.background,
+                color: TOKENS.colors.text,
+                fontSize: '14px',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        </AppDialog>
       )}
 
       {clockActionDialog?.type === 'review_reject' && (
@@ -1844,11 +2381,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
             >
               Nhập lý do từ chối ca làm của{' '}
               {clockActionDialog.shift.employee_name ||
-                clockActionDialog.shift.employee_code}
-              :
+                clockActionDialog.shift.employee_code}{' '}
+              *
             </label>
             <input
               id="clock-review-reject-reason"
+              data-testid="review-reject-reason-input"
               type="text"
               value={clockActionDialog.reason}
               onChange={(e) =>

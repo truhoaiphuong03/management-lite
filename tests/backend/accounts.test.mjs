@@ -868,6 +868,129 @@ test('ACC-01 Managed Accounts & Secrets: security, crypto AEAD, reauth protocol,
         );
       },
     );
+
+    // S10: Extended Account Management fields & multi-secret AEAD vault
+    await t.test(
+      'S10: Extended fields (recovery_email, account_group, assigned_employee_id, status) and multi-secret AEAD vault (password, two_fa_secret, email_password)',
+      async () => {
+        // Create an employee in workspaceA to assign to account
+        const empId = crypto.randomUUID();
+        const empUserId = crypto.randomUUID();
+        const empMembershipId = crypto.randomUUID();
+        const empSuffix = crypto.randomBytes(4).toString('hex');
+        const empCode = `NV-ACC-${empSuffix.toUpperCase()}`;
+        await pool.query(
+          `INSERT INTO users (id, username_normalized, email_normalized, status)
+           VALUES ($1, $2, $3, 'active');`,
+          [empUserId, `nv_acc_${empSuffix}`, `nv_acc_${empSuffix}@test.local`],
+        );
+        await pool.query(
+          `INSERT INTO workspace_memberships (id, workspace_id, user_id, role, status)
+           VALUES ($1, $2, $3, 'staff', 'active');`,
+          [empMembershipId, workspaceA, empUserId],
+        );
+        await pool.query(
+          `INSERT INTO employees (id, workspace_id, user_id, employee_code, full_name, employment_status)
+           VALUES ($1, $2, $3, $4, 'Trần Phụ Trách Kênh', 'active');`,
+          [empId, workspaceA, empUserId, empCode],
+        );
+
+        // 1. Create account with recovery_email, account_group, assigned_employee_id, and initial_secrets
+        const createEnhancedRes = await request('/api/v1/accounts', ownerA, {
+          platform: 'tiktok',
+          username: 'shop_flagship_vn',
+          platform_account_id: 'UID-99887766',
+          recovery_email: 'recovery.flagship@hoaiphuong.click',
+          account_group: 'Marketing',
+          assigned_employee_id: empId,
+          notes: 'Kênh TikTok chính thức',
+          initial_secrets: [
+            { secret_type: 'password', secret_value: 'AccPass!2026' },
+            { secret_type: 'two_fa_secret', secret_value: 'JBSWY3DPEHPK3PXP' },
+            { secret_type: 'email_password', secret_value: 'MailPass#999' },
+          ],
+        });
+        assert.equal(createEnhancedRes.status, 201);
+        const enhAcc = createEnhancedRes.data.data;
+        assert.equal(enhAcc.username, 'shop_flagship_vn');
+        assert.equal(enhAcc.platform_account_id, 'UID-99887766');
+        assert.equal(enhAcc.recovery_email, 'recovery.flagship@hoaiphuong.click');
+        assert.equal(enhAcc.account_group, 'Marketing');
+        assert.equal(enhAcc.assigned_employee_id, empId);
+        assert.equal(enhAcc.assigned_employee_name, 'Trần Phụ Trách Kênh');
+        assert.equal(enhAcc.assigned_employee_code, empCode);
+        // Never leak secrets in create response
+        assert.equal(enhAcc.password, undefined);
+        assert.equal(enhAcc.email_password, undefined);
+        assert.equal(enhAcc.two_fa_secret, undefined);
+
+        // 2. Detail API lists secret_types without returning secret values
+        const enhDetailRes = await request(
+          `/api/v1/accounts/${enhAcc.id}`,
+          ownerA,
+          undefined,
+        );
+        assert.equal(enhDetailRes.status, 200);
+        assert.equal(enhDetailRes.data.data.has_secret, true);
+        assert.ok(enhDetailRes.data.data.secret_types.includes('password'));
+        assert.ok(enhDetailRes.data.data.secret_types.includes('two_fa_secret'));
+        assert.ok(enhDetailRes.data.data.secret_types.includes('email_password'));
+        assert.equal(enhDetailRes.data.data.secret_value, undefined);
+
+        // 3. Filter list by account_group and assigned_employee_id
+        const filterGrpRes = await request(
+          `/api/v1/accounts?account_group=Marketing&assigned_employee_id=${empId}`,
+          ownerA,
+          undefined,
+        );
+        assert.equal(filterGrpRes.status, 200);
+        assert.equal(filterGrpRes.data.data.items.length, 1);
+        assert.equal(filterGrpRes.data.data.items[0].id, enhAcc.id);
+
+        // 4. Reveal two_fa_secret and email_password via single-use reauth_proof
+        for (const [secType, expectedVal] of [
+          ['two_fa_secret', 'JBSWY3DPEHPK3PXP'],
+          ['email_password', 'MailPass#999'],
+        ]) {
+          const rAuth = await request('/api/v1/auth/reauth', ownerA, {
+            password: ownerA.pw,
+            action: 'secret_reveal',
+            account_id: enhAcc.id,
+          });
+          assert.equal(rAuth.status, 200);
+          const rev = await request(
+            `/api/v1/accounts/${enhAcc.id}/secrets/reveal`,
+            ownerA,
+            {
+              secret_type: secType,
+              reauth_proof: rAuth.data.data.reauth_proof,
+            },
+          );
+          assert.equal(rev.status, 200);
+          assert.equal(rev.data.data.secret_value, expectedVal);
+        }
+
+        // 5. Update metadata (recovery_email, account_group, status = archived)
+        const patchEnhRes = await request(
+          `/api/v1/accounts/${enhAcc.id}`,
+          ownerA,
+          {
+            recovery_email: 'updated.recovery@hoaiphuong.click',
+            account_group: 'Sales',
+            status: 'archived',
+          },
+          { 'If-Match': String(enhAcc.version) },
+          'PATCH',
+        );
+        assert.equal(patchEnhRes.status, 200);
+        assert.equal(
+          patchEnhRes.data.data.recovery_email,
+          'updated.recovery@hoaiphuong.click',
+        );
+        assert.equal(patchEnhRes.data.data.account_group, 'Sales');
+        assert.equal(patchEnhRes.data.data.status, 'archived');
+      },
+    );
   } finally {
     if (server) {
       await new Promise((r) => server.close(r));

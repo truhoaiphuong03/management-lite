@@ -10,7 +10,6 @@ const root = resolve(__dirname, '..');
 
 // Authoritative Acceptance Admin constants
 const ACCEPTANCE_ADMIN_ID = '2a565b98-868c-4d8b-821e-fdd9da94dacc';
-const ACCEPTANCE_ADMIN_IDENTIFIER = 'admin';
 const ACCEPTANCE_WORKSPACE_ID = '5c3bb47c-7566-4784-a262-11ff6cd32cbd';
 const CREDENTIAL_FILE = resolve(root, '.env.qa-credentials.local');
 const FORBIDDEN_PASSWORDS = new Set([
@@ -144,9 +143,13 @@ async function main() {
   }
 
   // Fail-closed database isolation check
-  if (dbName !== 'mglite_unified_qa_test') {
+  const allowedRecoveryDbs = new Set([
+    'mglite_unified_qa_test',
+    'management_lite_integration_test',
+  ]);
+  if (!allowedRecoveryDbs.has(dbName)) {
     console.error(
-      `[LỖI AN TOÀN] Script chỉ được phép chạy trên database QA (mglite_unified_qa_test). Database hiện tại: "${dbName}". Huỷ bỏ.`,
+      `[LỖI AN TOÀN] Script chỉ được phép chạy trên database DEV/QA cô lập (management_lite_integration_test hoặc mglite_unified_qa_test). Database hiện tại: "${dbName}". Huỷ bỏ.`,
     );
     process.exit(1);
   }
@@ -167,17 +170,17 @@ async function main() {
     console.log('🔐 KHÔI PHỤC QUYỀN TRUY CẬP OWNER — MANAGEMENT LITE');
     console.log('======================================================');
     console.log(
-      `Cơ sở dữ liệu : ${dbName} (${dbHost || '127.0.0.1'}:${dbPort || 55499})`,
+      `Cơ sở dữ liệu : ${dbName} (${dbHost || '127.0.0.1'}:${dbPort || 55432})`,
     );
     console.log(
-      `Tài khoản     : ${ACCEPTANCE_ADMIN_IDENTIFIER} (ID: ${ACCEPTANCE_ADMIN_ID})`,
+      `Tài khoản     : owner & admin (DEV Owner Accounts)`,
     );
     console.log(`Workspace     : ${ACCEPTANCE_WORKSPACE_ID} (Role: owner)`);
     console.log('======================================================\n');
 
     // 1. Explicit Owner Approval
     const confirm = await prompter.askVisible(
-      '❓ Bạn có chắc chắn muốn đặt lại mật khẩu cho Quản trị viên (admin)? (y/N): ',
+      '❓ Bạn có chắc chắn muốn đặt lại mật khẩu cho Quản trị viên (owner/admin)? (y/N): ',
     );
 
     if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
@@ -227,65 +230,137 @@ async function main() {
     const client = await pool.connect();
     let oldVersion = 0;
     let newVersion = 0;
+    const recoveredUserIds = [];
+    const recoveredUsernames = [];
 
     try {
       await client.query('BEGIN');
 
-      // Verify user existence and exact ID
+      // Ensure canonical DEV workspace exists and is active
+      await client.query(
+        `INSERT INTO workspaces (id, name, timezone, status)
+         VALUES ($1, 'Hoai Phuong Workspace', 'Asia/Ho_Chi_Minh', 'active')
+         ON CONFLICT (id) DO UPDATE SET status = 'active';`,
+        [ACCEPTANCE_WORKSPACE_ID],
+      );
+
+      // Ensure baseline owner and admin identities exist in DEV DB
+      for (const [uname, uemail, fallbackId] of [
+        ['owner', 'owner@management-lite.local', '84ae7867-9bbe-4443-87b5-12cd01d50b73'],
+        ['admin', 'admin@management-lite.local', ACCEPTANCE_ADMIN_ID],
+      ]) {
+        const checkRes = await client.query(
+          'SELECT id FROM users WHERE username_normalized = $1 OR email_normalized = $2 LIMIT 1;',
+          [uname, uemail],
+        );
+        if (checkRes.rows.length === 0) {
+          await client.query(
+            `INSERT INTO users (id, username_normalized, email_normalized, status)
+             VALUES ($1, $2, $3, 'active')
+             ON CONFLICT DO NOTHING;`,
+            [fallbackId, uname, uemail],
+          );
+        }
+      }
+
+      // Resolve all target DEV Owner/Admin accounts
       const userRes = await client.query(
-        'SELECT id, username_normalized, email_normalized, status FROM users WHERE id = $1;',
+        `SELECT id, username_normalized, email_normalized, status
+         FROM users
+         WHERE id = $1
+            OR username_normalized IN ('owner', 'admin')
+            OR email_normalized IN ('owner@management-lite.local', 'admin@management-lite.local', 'truhoaiphuong02@gmail.com')
+         ORDER BY username_normalized ASC;`,
         [ACCEPTANCE_ADMIN_ID],
       );
 
       if (userRes.rows.length === 0) {
         throw new Error(
-          `Admin actor ID ${ACCEPTANCE_ADMIN_ID} không tồn tại trong database.`,
+          'Không tìm thấy tài khoản owner/admin trong database DEV.',
         );
       }
-
-      const credRes = await client.query(
-        'SELECT credential_version FROM user_credentials WHERE user_id = $1;',
-        [ACCEPTANCE_ADMIN_ID],
-      );
-      oldVersion = credRes.rows[0]?.credential_version || 0;
 
       // Hash with production Argon2id
       const passwordHash = await hashPassword(password);
 
-      // Update credentials
-      const updateRes = await client.query(
-        `UPDATE user_credentials
-         SET password_hash = $1, credential_version = credential_version + 1, password_changed_at = NOW()
-         WHERE user_id = $2
-         RETURNING credential_version;`,
-        [passwordHash, ACCEPTANCE_ADMIN_ID],
-      );
-      newVersion = updateRes.rows[0]?.credential_version || oldVersion + 1;
+      for (const userRow of userRes.rows) {
+        const uid = userRow.id;
+        recoveredUserIds.push(uid);
+        recoveredUsernames.push(
+          `${userRow.username_normalized} (${userRow.email_normalized})`,
+        );
 
-      // Revoke all existing sessions
-      await client.query(
-        `UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL;`,
-        [ACCEPTANCE_ADMIN_ID],
-      );
+        await client.query(
+          `UPDATE users SET status = 'active' WHERE id = $1;`,
+          [uid],
+        );
 
-      // Record audit event
-      await client.query(
-        `INSERT INTO audit_events (
-          workspace_id, actor_user_id, action, entity_type, entity_id, request_id, metadata_sanitized
-        ) VALUES (
-          $1, $2, 'auth.password_reset', 'user', $2, 'cli-owner-recovery', $3
-        );`,
-        [
-          ACCEPTANCE_WORKSPACE_ID,
-          ACCEPTANCE_ADMIN_ID,
-          JSON.stringify({
-            resetAt: new Date().toISOString(),
-            by: 'owner-local-recovery',
-            previousVersion: oldVersion,
-            newVersion: newVersion,
-          }),
-        ],
-      );
+        const credRes = await client.query(
+          'SELECT credential_version FROM user_credentials WHERE user_id = $1;',
+          [uid],
+        );
+        const prevVer = credRes.rows[0]?.credential_version || 0;
+        if (userRow.username_normalized === 'owner' || oldVersion === 0) {
+          oldVersion = prevVer;
+        }
+
+        // Upsert credentials and increment credential_version
+        const updateRes = await client.query(
+          `INSERT INTO user_credentials (user_id, password_hash, credential_version, password_changed_at)
+           VALUES ($1, $2, 1, NOW())
+           ON CONFLICT (user_id)
+           DO UPDATE SET password_hash = $2, credential_version = user_credentials.credential_version + 1, password_changed_at = NOW()
+           RETURNING credential_version;`,
+          [uid, passwordHash],
+        );
+        const nextVer = updateRes.rows[0]?.credential_version || prevVer + 1;
+        if (userRow.username_normalized === 'owner' || newVersion === 0) {
+          newVersion = nextVer;
+        }
+
+        // Ensure active Owner membership in canonical DEV workspace
+        await client.query(
+          `INSERT INTO workspace_memberships (workspace_id, user_id, role, status)
+           VALUES ($1, $2, 'owner', 'active')
+           ON CONFLICT (workspace_id, user_id)
+           DO UPDATE SET role = 'owner', status = 'active', updated_at = NOW();`,
+          [ACCEPTANCE_WORKSPACE_ID, uid],
+        );
+
+        // Ensure single active C06 workspace binding to canonical DEV workspace
+        await client.query(
+          `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version)
+           VALUES ($1, $2, 'active', 1)
+           ON CONFLICT (user_id) WHERE status = 'active'
+           DO UPDATE SET workspace_id = $1, status = 'active', updated_at = NOW();`,
+          [ACCEPTANCE_WORKSPACE_ID, uid],
+        );
+
+        // Revoke all existing sessions
+        await client.query(
+          `UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL;`,
+          [uid],
+        );
+
+        // Record audit event
+        await client.query(
+          `INSERT INTO audit_events (
+            workspace_id, actor_user_id, action, entity_type, entity_id, request_id, metadata_sanitized
+          ) VALUES (
+            $1::uuid, $2::uuid, 'auth.password_reset', 'user', $2::text, 'cli-owner-recovery', $3::jsonb
+          );`,
+          [
+            ACCEPTANCE_WORKSPACE_ID,
+            uid,
+            JSON.stringify({
+              resetAt: new Date().toISOString(),
+              by: 'owner-local-recovery',
+              previousVersion: prevVer,
+              newVersion: nextVer,
+            }),
+          ],
+        );
+      }
 
       await client.query('COMMIT');
     } catch (dbErr) {
@@ -301,38 +376,41 @@ async function main() {
       currentContent = fs.readFileSync(CREDENTIAL_FILE, 'utf8');
     }
 
-    const keyName = 'ADMIN_PASSWORD';
-    let keyFound = false;
-    const lines = currentContent.split('\n').map((line) => {
-      if (line.startsWith(`${keyName}=`)) {
-        keyFound = true;
-        return `${keyName}="${password}"`;
+    const keysToSync = ['ADMIN_PASSWORD', 'OWNER_PASSWORD', 'QA_OWNER_PASSWORD'];
+    const lines = currentContent
+      .split('\n')
+      .filter((line) => line.trim().length > 0);
+    for (const keyName of keysToSync) {
+      const idx = lines.findIndex((line) => line.startsWith(`${keyName}=`));
+      if (idx !== -1) {
+        lines[idx] = `${keyName}="${password}"`;
+      } else {
+        lines.push(`${keyName}="${password}"`);
       }
-      return line;
-    });
-
-    if (!keyFound) {
-      lines.push(`${keyName}="${password}"`);
     }
 
-    fs.writeFileSync(CREDENTIAL_FILE, lines.join('\n'), { mode: 0o600 });
-    fs.chmodSync(CREDENTIAL_FILE, 0o600);
+    fs.writeFileSync(CREDENTIAL_FILE, lines.join('\n') + '\n', { mode: 0o600 });
+    try {
+      fs.chmodSync(CREDENTIAL_FILE, 0o600);
+    } catch {}
 
     // 5. Offline verification with Argon2id
     const verifyClient = await pool.connect();
     try {
-      const verifyRes = await verifyClient.query(
-        'SELECT password_hash FROM user_credentials WHERE user_id = $1;',
-        [ACCEPTANCE_ADMIN_ID],
-      );
-      const isHashValid = await verifyPassword(
-        password,
-        verifyRes.rows[0].password_hash,
-      );
-      if (!isHashValid) {
-        throw new Error(
-          'Kiểm tra hash Argon2id offline thất bại. Mật khẩu không khớp hash vừa lưu.',
+      for (const uid of recoveredUserIds) {
+        const verifyRes = await verifyClient.query(
+          'SELECT password_hash FROM user_credentials WHERE user_id = $1;',
+          [uid],
         );
+        const isHashValid = await verifyPassword(
+          password,
+          verifyRes.rows[0].password_hash,
+        );
+        if (!isHashValid) {
+          throw new Error(
+            'Kiểm tra hash Argon2id offline thất bại. Mật khẩu không khớp hash vừa lưu.',
+          );
+        }
       }
     } finally {
       verifyClient.release();
@@ -341,8 +419,7 @@ async function main() {
     console.log('\n======================================================');
     console.log('✅ KHÔI PHỤC MẬT KHẨU OWNER THÀNH CÔNG');
     console.log('======================================================');
-    console.log(`Tài khoản          : ${ACCEPTANCE_ADMIN_IDENTIFIER}`);
-    console.log(`Actor ID           : ${ACCEPTANCE_ADMIN_ID}`);
+    console.log(`Tài khoản          : ${recoveredUsernames.join(', ')}`);
     console.log(
       `Workspace          : ${ACCEPTANCE_WORKSPACE_ID} (Role: owner)`,
     );
@@ -350,7 +427,7 @@ async function main() {
     console.log(`Lưu trữ cục bộ     : ${CREDENTIAL_FILE} (Quyền hạn 0600)`);
     console.log(`Thu hồi phiên cũ   : Đã thu hồi tất cả session trước đó`);
     console.log(`Xác thực offline   : ĐẠT (Argon2id)`);
-    console.log('Chỉ xác minh offline trên database QA đã xác nhận.');
+    console.log('Chỉ xác minh offline trên database DEV/QA đã xác nhận.');
   } finally {
     prompter.close();
     await closeDatabasePool(pool);

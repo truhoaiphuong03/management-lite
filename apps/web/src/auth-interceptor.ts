@@ -88,8 +88,11 @@ export function isTargetAuthenticatedApiUrl(
   if (
     pathname === '/api/v1/auth/login' ||
     pathname === '/api/v1/auth/refresh' ||
+    pathname === '/api/v1/auth/activate' ||
     pathname === '/api/v1/auth/forgot-password' ||
-    pathname === '/api/v1/auth/reset-password'
+    pathname === '/api/v1/auth/reset-password' ||
+    pathname === '/api/v1/auth/verify-email' ||
+    pathname.startsWith('/api/v1/auth/verify-email/')
   ) {
     return false;
   }
@@ -161,8 +164,10 @@ export function triggerSessionExpired(url: string = ''): void {
   if (
     isSessionExpiredActive ||
     currentPath === '/login' ||
+    currentPath.startsWith('/activate') ||
     currentPath === '/forgot-password' ||
-    currentPath.startsWith('/reset-password')
+    currentPath.startsWith('/reset-password') ||
+    currentPath.startsWith('/verify-email')
   ) {
     return;
   }

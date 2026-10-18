@@ -4,6 +4,7 @@ export interface AuthUserData {
   id: string;
   username: string;
   email: string;
+  email_verified?: boolean | undefined;
 }
 
 export interface ActiveWorkspaceData {

@@ -672,6 +672,695 @@ test('FILE-01 Storage Backend: 8 API endpoints, contracts, revisions, receipts, 
         assert.equal(crossRes.data.error.code, 'NOT_FOUND');
       },
     );
+
+    // 15. Test: Google Drive Storage V2 (OAuth 2.0 AEAD encryption, Drive API v3 folder create, resumable video upload, permissions, sync, review, and non-destructive detachment)
+    await t.test(
+      'FILE-01 Google Drive V2: OAuth 2.0 encrypted token, direct Drive folder creation, resumable video upload, staff Google email permissions, sync, review, and non-destructive Drive record removal',
+      async () => {
+        // 15.1 Verify storage_drive_connections table exists
+        const connTbl = await pool.query(
+          `SELECT table_name FROM information_schema.tables
+           WHERE table_schema = 'public' AND table_name = 'storage_drive_connections'`,
+        );
+        assert.equal(connTbl.rows.length, 1);
+
+        // 15.2 Get OAuth URL -> must use drive.file scope
+        const oauthUrlRes = await request(
+          '/api/v1/storage/drive/oauth/url',
+          ownerA,
+        );
+        assert.equal(oauthUrlRes.status, 200);
+        assert.equal(
+          oauthUrlRes.data.data.scope,
+          'https://www.googleapis.com/auth/drive.file',
+        );
+        assert.ok(
+          oauthUrlRes.data.data.authorization_url.includes('drive.file'),
+          'OAuth URL must request drive.file scope',
+        );
+
+        // Staff cannot connect Google Drive OAuth -> 403
+        const staffConnect = await request(
+          '/api/v1/storage/drive/connect',
+          staffA1,
+          { code: 'mock_auth_code_123' },
+        );
+        assert.equal(staffConnect.status, 403);
+
+        // Unapproved wide scope rejected -> 400 FORBIDDEN_DRIVE_SCOPE
+        const wideScopeRes = await request(
+          '/api/v1/storage/drive/connect',
+          ownerA,
+          {
+            code: 'mock_auth_code_123',
+            scope: 'https://www.googleapis.com/auth/drive',
+          },
+        );
+        assert.equal(wideScopeRes.status, 400);
+        assert.equal(
+          wideScopeRes.data.error.code,
+          'FORBIDDEN_DRIVE_SCOPE',
+        );
+
+        // Missing OAuth state rejected -> 400 INVALID_OAUTH_STATE
+        const missingStateRes = await request(
+          '/api/v1/storage/drive/connect',
+          ownerA,
+          {
+            code: 'mock_auth_code_missing_state',
+            scope: 'https://www.googleapis.com/auth/drive.file',
+          },
+        );
+        assert.equal(missingStateRes.status, 400);
+        assert.equal(
+          missingStateRes.data.error.code,
+          'INVALID_OAUTH_STATE',
+        );
+
+        // Tampered OAuth state rejected -> 400 INVALID_OAUTH_STATE
+        const tamperedStateRes = await request(
+          '/api/v1/storage/drive/connect',
+          ownerA,
+          {
+            code: 'mock_auth_code_valid_2026',
+            state: 'tampered.invalid.signature',
+            scope: 'https://www.googleapis.com/auth/drive.file',
+          },
+        );
+        assert.equal(tamperedStateRes.status, 400);
+        assert.equal(
+          tamperedStateRes.data.error.code,
+          'INVALID_OAUTH_STATE',
+        );
+
+        // OAuth callback endpoint returns code & state when Accept: application/json
+        const callbackRes = await request(
+          `/api/v1/storage/drive/oauth/callback?code=mock_auth_code_valid_2026&state=${encodeURIComponent(oauthUrlRes.data.data.state)}`,
+          ownerA,
+          undefined,
+          { Accept: 'application/json' },
+        );
+        assert.equal(callbackRes.status, 200);
+        assert.equal(callbackRes.data.data.code, 'mock_auth_code_valid_2026');
+
+        // Valid OAuth connect with drive.file scope + signed state
+        const connectRes = await request(
+          '/api/v1/storage/drive/connect',
+          ownerA,
+          {
+            code: 'mock_auth_code_valid_2026',
+            state: oauthUrlRes.data.data.state,
+            google_email: 'admin-drive@hoaiphuong.click',
+            display_name: 'Hoài Phương Drive Admin',
+            scope: 'https://www.googleapis.com/auth/drive.file',
+          },
+        );
+        assert.equal(connectRes.status, 200);
+        assert.equal(connectRes.data.data.connected, true);
+        assert.equal(
+          connectRes.data.data.google_email,
+          'admin-drive@hoaiphuong.click',
+        );
+        assert.ok(connectRes.data.data.root_folder_id);
+        assert.equal(connectRes.data.data.oauth_mode, 'mock');
+
+        // Replaying the exact same OAuth state token a second time is rejected -> 400 OAUTH_STATE_REPLAYED
+        const replayStateRes = await request(
+          '/api/v1/storage/drive/connect',
+          ownerA,
+          {
+            code: 'mock_auth_code_valid_2026',
+            state: oauthUrlRes.data.data.state,
+            google_email: 'admin-drive@hoaiphuong.click',
+            scope: 'https://www.googleapis.com/auth/drive.file',
+          },
+        );
+        assert.equal(replayStateRes.status, 400);
+        assert.equal(
+          replayStateRes.data.error.code,
+          'OAUTH_STATE_REPLAYED',
+          'Replaying an already consumed OAuth state token must be blocked',
+        );
+
+        // Ensure response NEVER leaks refresh_token or ciphertext
+        const rawConnectJson = JSON.stringify(connectRes.data);
+        assert.equal(rawConnectJson.includes('refresh_token'), false);
+        assert.equal(rawConnectJson.includes('ciphertext'), false);
+
+        // Verify in DB that refresh_token is AEAD encrypted (not plaintext)
+        const dbConn = await pool.query(
+          'SELECT refresh_token_ciphertext, refresh_token_nonce, refresh_token_auth_tag, key_version FROM storage_drive_connections WHERE workspace_id = $1',
+          [workspaceA],
+        );
+        assert.equal(dbConn.rows.length, 1);
+        assert.ok(Buffer.isBuffer(dbConn.rows[0].refresh_token_ciphertext));
+        assert.ok(dbConn.rows[0].refresh_token_ciphertext.length > 0);
+        assert.equal(dbConn.rows[0].refresh_token_nonce.length, 12);
+        assert.equal(dbConn.rows[0].refresh_token_auth_tag.length, 16);
+        assert.equal(
+          dbConn.rows[0].refresh_token_ciphertext
+            .toString('utf8')
+            .includes('mock_refresh_token'),
+          false,
+          'Ciphertext must not contain plaintext refresh token',
+        );
+
+        // 15.3 Direct Folder Creation on Google Drive (without manual drive_url)
+        const directFolderRes = await request(
+          '/api/v1/storage/folders',
+          ownerA,
+          {
+            name: 'Thư mục Drive Trực Tiếp V2',
+            create_on_drive: true,
+            folder_type: 'source',
+            assigned_employee_ids: [staffA1.empId],
+            permission_role: 'reader',
+          },
+        );
+        assert.equal(directFolderRes.status, 201);
+        const v2Folder = directFolderRes.data.data;
+        assert.ok(v2Folder.provider_folder_id, 'Must store folderId');
+        assert.ok(v2Folder.provider_parent_id, 'Must store parentId');
+        assert.equal(
+          v2Folder.drive_owner_email,
+          'admin-drive@hoaiphuong.click',
+          'Must store owner email',
+        );
+        assert.ok(v2Folder.drive_created_at, 'Must store drive_created_at');
+        assert.ok(
+          v2Folder.drive_url.includes(v2Folder.provider_folder_id),
+          'Auto-generated Drive URL must reference provider_folder_id',
+        );
+
+        // Create a second independent folder to verify cross-folder data & permission isolation
+        const secondFolderRes = await request(
+          '/api/v1/storage/folders',
+          ownerA,
+          {
+            name: 'Thư mục Độc Lập B (Không Bị Ảnh Hưởng)',
+            create_on_drive: true,
+            folder_type: 'source',
+            assigned_employee_ids: [staffA1.empId],
+            permission_role: 'reader',
+          },
+        );
+        assert.equal(secondFolderRes.status, 201);
+        const isolatedFolder = secondFolderRes.data.data;
+        assert.notEqual(
+          isolatedFolder.provider_folder_id,
+          v2Folder.provider_folder_id,
+        );
+
+        // 15.4 Resumable Video Upload: initiate -> chunk -> interrupt -> retry to completion
+        const videoSize = 10 * 1024 * 1024; // 10 MB
+        const halfChunk = 5 * 1024 * 1024; // 5 MB
+        const initUploadRes = await request(
+          `/api/v1/storage/folders/${v2Folder.id}/files/upload-sessions`,
+          ownerA,
+          {
+            name: 'tvc_quang_cao_4k.mp4',
+            size_bytes: videoSize,
+            mime_type: 'video/mp4',
+            assigned_employee_id: staffA1.empId,
+            permission_role: 'writer',
+          },
+        );
+        assert.equal(initUploadRes.status, 201);
+        const videoFile = initUploadRes.data.data;
+        assert.equal(videoFile.upload_status, 'resumable_session_created');
+        assert.ok(videoFile.upload_session_id);
+        assert.equal(videoFile.uploaded_bytes, 0);
+        assert.equal(videoFile.upload_progress_pct, 0);
+        assert.equal(videoFile.assigned_employee_id, staffA1.empId);
+
+        // Upload first 50% chunk with real binary MP4 header base64
+        const sampleMp4Base64 = Buffer.from(
+          '00000018667479706d703432000000006d70343269736f6d',
+          'hex',
+        ).toString('base64');
+        const chunk1Res = await request(
+          `/api/v1/storage/files/${videoFile.id}/upload-chunk`,
+          ownerA,
+          {
+            chunk_size_bytes: halfChunk,
+            offset_bytes: 0,
+            chunk_base64: sampleMp4Base64,
+          },
+        );
+        assert.equal(chunk1Res.status, 200);
+        assert.equal(chunk1Res.data.data.upload_status, 'uploading');
+        assert.equal(chunk1Res.data.data.uploaded_bytes, halfChunk);
+        assert.equal(chunk1Res.data.data.upload_progress_pct, 50);
+
+        // Simulate network interruption on second chunk
+        const interruptRes = await request(
+          `/api/v1/storage/files/${videoFile.id}/upload-chunk`,
+          ownerA,
+          {
+            chunk_size_bytes: halfChunk,
+            offset_bytes: halfChunk,
+            simulate_interruption: true,
+          },
+        );
+        assert.equal(interruptRes.status, 200);
+        assert.equal(interruptRes.data.data.upload_status, 'interrupted');
+        assert.equal(interruptRes.data.data.uploaded_bytes, halfChunk);
+        assert.ok(interruptRes.data.data.upload_error_message);
+
+        // Retry from offset_bytes = halfChunk to completion
+        const retryRes = await request(
+          `/api/v1/storage/files/${videoFile.id}/upload-chunk`,
+          ownerA,
+          {
+            chunk_size_bytes: halfChunk,
+            offset_bytes: halfChunk,
+            chunk_base64: sampleMp4Base64,
+            retry: true,
+            is_final_chunk: true,
+          },
+        );
+        assert.equal(retryRes.status, 200);
+        assert.equal(retryRes.data.data.upload_status, 'completed');
+        assert.equal(retryRes.data.data.uploaded_bytes, videoSize);
+        assert.equal(retryRes.data.data.upload_progress_pct, 100);
+        assert.equal(retryRes.data.data.upload_retry_count, 1);
+        assert.equal(retryRes.data.data.upload_error_message, null);
+
+        // 15.5 Staff Google Email Permissions, anyoneWithLink forbidden, inheritance & audit log
+        const anyoneAttempt = await request(
+          `/api/v1/storage/folders/${v2Folder.id}/permissions`,
+          ownerA,
+          {
+            employee_id: staffA2.empId,
+            role: 'reader',
+            type: 'anyone',
+          },
+        );
+        assert.equal(anyoneAttempt.status, 400);
+        assert.equal(
+          anyoneAttempt.data.error.code,
+          'ANYONE_PERMISSION_FORBIDDEN',
+        );
+
+        // Before granting on v2Folder, staffA2 cannot access isolatedFolder (returns 404 NOT_FOUND to prevent enumeration)
+        const staffA2IsoBefore = await request(
+          `/api/v1/storage/folders/${isolatedFolder.id}/files`,
+          staffA2,
+        );
+        assert.equal(staffA2IsoBefore.status, 404);
+
+        // Grant writer permission on v2Folder to staffA2
+        const grantFolderRes = await request(
+          `/api/v1/storage/folders/${v2Folder.id}/permissions`,
+          ownerA,
+          {
+            employee_id: staffA2.empId,
+            role: 'writer',
+          },
+        );
+        assert.equal(grantFolderRes.status, 201);
+        assert.equal(grantFolderRes.data.data.drive_role, 'writer');
+        assert.equal(grantFolderRes.data.data.access_level, 'write');
+        assert.ok(grantFolderRes.data.data.google_email.includes('@'));
+        assert.ok(grantFolderRes.data.data.drive_permission_id);
+
+        // Verify staffA2 CAN access v2Folder files after grant
+        const staffA2V2AfterGrant = await request(
+          `/api/v1/storage/folders/${v2Folder.id}/files`,
+          staffA2,
+        );
+        assert.equal(
+          staffA2V2AfterGrant.status,
+          200,
+          'Staff must be able to access folder files once granted permission',
+        );
+
+        // Verify isolatedFolder permissions and data remain completely unaffected by v2Folder grant
+        const staffA2IsoDuring = await request(
+          `/api/v1/storage/folders/${isolatedFolder.id}/files`,
+          staffA2,
+        );
+        assert.equal(
+          staffA2IsoDuring.status,
+          404,
+          'Other folders must not be affected when granting permission on target folder',
+        );
+        const staffA1IsoDuring = await request(
+          `/api/v1/storage/folders/${isolatedFolder.id}/files`,
+          staffA1,
+        );
+        assert.equal(
+          staffA1IsoDuring.status,
+          200,
+          'Existing staff access on other folders must remain intact',
+        );
+
+        // Grant permission on file inside v2Folder to staffA2 -> detects inherited_from_resource_id
+        const grantFileRes = await request(
+          `/api/v1/storage/files/${videoFile.id}/permissions`,
+          ownerA,
+          {
+            employee_id: staffA2.empId,
+            role: 'reader',
+          },
+        );
+        assert.equal(grantFileRes.status, 201);
+        assert.equal(
+          grantFileRes.data.data.inherited_from_resource_id,
+          v2Folder.id,
+          'File permission must record inherited_from_resource_id from parent folder grant',
+        );
+
+        // Attempting to revoke an inherited child file permission directly while parent folder grant is active must fail closed -> 409 INHERITED_PERMISSION_ACTIVE_ON_PARENT
+        const directFileRevokeWhileInheritedRes = await request(
+          `/api/v1/storage/files/${videoFile.id}/permissions/revoke`,
+          ownerA,
+          {
+            employee_id: staffA2.empId,
+            reason: 'Thử thu hồi trực tiếp quyền kế thừa từ thư mục cha',
+          },
+        );
+        assert.equal(directFileRevokeWhileInheritedRes.status, 409);
+        assert.equal(
+          directFileRevokeWhileInheritedRes.data.error.code,
+          'INHERITED_PERMISSION_ACTIVE_ON_PARENT',
+          'Direct revocation of inherited file permission must fail closed while parent folder grant is active',
+        );
+
+        // Simulate Google Drive API HTTP 403 on revokePermission -> must fail closed (502) and NOT mark revoked_at in DB
+        const { MockGoogleDriveProvider } = await import(
+          '../../dist/apps/api/src/storage/provider.js'
+        );
+        const origRevokePermission =
+          MockGoogleDriveProvider.prototype.revokePermission;
+        MockGoogleDriveProvider.prototype.revokePermission = async () => {
+          throw new Error('GOOGLE_DRIVE_REVOKE_PERMISSION_FAILED: HTTP 403');
+        };
+        try {
+          const failedRevokeRes = await request(
+            `/api/v1/storage/folders/${v2Folder.id}/permissions/revoke`,
+            ownerA,
+            {
+              employee_id: staffA2.empId,
+              reason: 'Kiểm tra fail-closed khi Google Drive trả HTTP 403',
+            },
+          );
+          assert.equal(failedRevokeRes.status, 502);
+          assert.equal(
+            failedRevokeRes.data.error.code,
+            'GOOGLE_DRIVE_REVOKE_PERMISSION_FAILED',
+          );
+          const dbGrantStillActive = await pool.query(
+            `SELECT revoked_at FROM resource_access_grants
+             WHERE workspace_id = $1 AND resource_type = 'storage_folder'
+               AND resource_id = $2 AND employee_id = $3`,
+            [workspaceA, v2Folder.id, staffA2.empId],
+          );
+          assert.equal(
+            dbGrantStillActive.rows[0].revoked_at,
+            null,
+            'Permission must remain active in DB when Drive API returns HTTP 403',
+          );
+        } finally {
+          MockGoogleDriveProvider.prototype.revokePermission =
+            origRevokePermission;
+        }
+
+        // Revoke permission on folder for staffA2
+        const revokeRes = await request(
+          `/api/v1/storage/folders/${v2Folder.id}/permissions/revoke`,
+          ownerA,
+          {
+            employee_id: staffA2.empId,
+            reason: 'Hoàn thành nhiệm vụ dựng video',
+          },
+        );
+        assert.equal(revokeRes.status, 200);
+        assert.ok(revokeRes.data.data.revoked_at);
+
+        // Verify staffA2 immediately loses access to v2Folder and inherited child grant is revoked
+        const staffA2V2AfterRevoke = await request(
+          `/api/v1/storage/folders/${v2Folder.id}/files`,
+          staffA2,
+        );
+        assert.equal(
+          staffA2V2AfterRevoke.status,
+          404,
+          'Staff must immediately lose access to folder after permission revocation',
+        );
+        const inheritedChildAfterRevoke = await pool.query(
+          `SELECT revoked_at FROM resource_access_grants
+           WHERE workspace_id = $1 AND resource_type = 'storage_file'
+             AND resource_id = $2 AND employee_id = $3`,
+          [workspaceA, videoFile.id, staffA2.empId],
+        );
+        assert.ok(
+          inheritedChildAfterRevoke.rows[0].revoked_at,
+          'Inherited child file grant must also be marked revoked when parent folder permission is revoked',
+        );
+
+        // Verify audit logs recorded for OAuth, upload, permission grant, and permission revoke
+        const auditRes = await pool.query(
+          `SELECT action FROM audit_events
+           WHERE workspace_id = $1
+             AND action IN (
+               'storage.drive_oauth_connect',
+               'storage.video_upload_initiated',
+               'storage.video_upload_completed',
+               'storage.permission_grant',
+               'storage.permission_revoke'
+             )`,
+          [workspaceA],
+        );
+        assert.equal(auditRes.rows.length >= 5, true);
+
+        // 15.6 Sync folder files & review uploaded video
+        const syncRes = await request(
+          `/api/v1/storage/folders/${v2Folder.id}/sync`,
+          ownerA,
+          {},
+        );
+        assert.equal(syncRes.status, 200);
+        assert.equal(syncRes.data.data.synced_count >= 1, true);
+
+        const reviewRes = await request(
+          `/api/v1/storage/files/${videoFile.id}/review`,
+          ownerA,
+          {
+            review_status: 'approved',
+            notes: 'Chất lượng video 4K đạt chuẩn',
+          },
+        );
+        assert.equal(reviewRes.status, 200);
+        assert.equal(reviewRes.data.data.review_status, 'approved');
+
+        // 15.7 Non-Destructive Record Removal (Requirement 9): deleting in Management Lite NEVER deletes on Google Drive
+        const detachFileRes = await request(
+          `/api/v1/storage/files/${videoFile.id}`,
+          ownerA,
+          undefined,
+          {},
+          'DELETE',
+        );
+        assert.equal(detachFileRes.status, 200);
+        assert.equal(detachFileRes.data.data.detached, true);
+        assert.equal(detachFileRes.data.data.drive_data_preserved, true);
+
+        const dbFileAfterDetach = await pool.query(
+          'SELECT status, provider_file_id FROM storage_files WHERE id = $1',
+          [videoFile.id],
+        );
+        assert.equal(dbFileAfterDetach.rows[0].status, 'detached');
+        assert.ok(dbFileAfterDetach.rows[0].provider_file_id);
+
+        const detachFolderRes = await request(
+          `/api/v1/storage/folders/${v2Folder.id}`,
+          ownerA,
+          undefined,
+          {},
+          'DELETE',
+        );
+        assert.equal(detachFolderRes.status, 200);
+        assert.equal(detachFolderRes.data.data.detached, true);
+        assert.equal(detachFolderRes.data.data.drive_data_preserved, true);
+
+        const dbFolderAfterDetach = await pool.query(
+          'SELECT record_status, provider_folder_id FROM storage_folders WHERE id = $1',
+          [v2Folder.id],
+        );
+        assert.equal(dbFolderAfterDetach.rows[0].record_status, 'detached');
+        assert.ok(dbFolderAfterDetach.rows[0].provider_folder_id);
+
+        // Verify isolatedFolder is still active after detaching v2Folder
+        const dbIsolatedAfterDetach = await pool.query(
+          'SELECT record_status FROM storage_folders WHERE id = $1',
+          [isolatedFolder.id],
+        );
+        assert.equal(dbIsolatedAfterDetach.rows[0].record_status, 'active');
+
+        // 15.8 Disconnect OAuth wipes AEAD ciphertext, nonce, and auth tag at rest
+        const disconnectRes = await request(
+          '/api/v1/storage/drive/disconnect',
+          ownerA,
+          {},
+        );
+        assert.equal(disconnectRes.status, 200);
+        assert.equal(disconnectRes.data.data.connected, false);
+
+        const dbConnAfterDisconnect = await pool.query(
+          'SELECT status, refresh_token_ciphertext, refresh_token_nonce, refresh_token_auth_tag FROM storage_drive_connections WHERE workspace_id = $1',
+          [workspaceA],
+        );
+        assert.equal(dbConnAfterDisconnect.rows[0].status, 'disconnected');
+        assert.equal(
+          dbConnAfterDisconnect.rows[0].refresh_token_ciphertext,
+          null,
+          'Refresh token ciphertext must be wiped on disconnect',
+        );
+        assert.equal(dbConnAfterDisconnect.rows[0].refresh_token_nonce, null);
+        assert.equal(
+          dbConnAfterDisconnect.rows[0].refresh_token_auth_tag,
+          null,
+        );
+      },
+    );
+
+    // =========================================================================
+    // 16. OAuth Replay Protection Across API Process Restart & Chunk Retry Idempotency
+    // =========================================================================
+    await t.test(
+      '16. OAuth State Replay Blocked Across API Process Restart & Resumable Chunk Retry Buffer Idempotency',
+      async () => {
+        const { spawnSync } = await import('node:child_process');
+        const workerScript = `
+          import { StorageService } from './dist/apps/api/src/storage/service.js';
+          const mode = process.argv[1];
+          const inputState = process.argv[2] || '';
+          let exchangeCalls = 0;
+          const pool = { connect() { throw new Error('UNEXPECTED_DATABASE_ACCESS'); } };
+          const provider = {
+            providerName: 'google_drive',
+            parseFolderId: () => 'gdrive_folder_restart_test',
+            isValidDriveUrl: () => true,
+            trashFolder: async () => ({ success: true, status: 'completed', trashed: true, providerFolderId: 'x' }),
+            reconcileFolderStatus: async () => ({ success: true, status: 'completed' }),
+            async exchangeOAuthCode() {
+              exchangeCalls += 1;
+              throw new Error('Simulated token endpoint failure after code redemption');
+            },
+          };
+          const auth = {
+            user: { id: '33333333-3333-4333-8333-333333333333', username: 'owner', status: 'active' },
+            workspace: { id: '44444444-4444-4444-8444-444444444444', role: 'owner', membershipStatus: 'active' },
+            session: { id: '55555555-5555-4555-8555-555555555555' },
+          };
+          const service = new StorageService(pool, provider);
+          if (mode === 'first') {
+            const { state } = await service.getDriveOAuthUrl(auth);
+            try {
+              await service.connectDriveOAuth(auth, {
+                code: '4/0AVGzR1-restart-replay-check',
+                state,
+                scopes: ['https://www.googleapis.com/auth/drive.file'],
+              });
+            } catch (err) {
+              console.log(JSON.stringify({ state, exchangeCalls, message: err.message }));
+            }
+          } else {
+            try {
+              await service.connectDriveOAuth(auth, {
+                code: '4/0AVGzR1-restart-replay-check',
+                state: inputState,
+                scopes: ['https://www.googleapis.com/auth/drive.file'],
+              });
+              console.log(JSON.stringify({ replayed: false, exchangeCalls }));
+            } catch (err) {
+              console.log(JSON.stringify({ replayed: true, code: err.code, status: err.statusCode, exchangeCalls }));
+            }
+          }
+        `;
+
+        const firstProc = spawnSync(
+          process.execPath,
+          ['--input-type=module', '-e', workerScript, 'first'],
+          { encoding: 'utf8' },
+        );
+        assert.equal(firstProc.status, 0, firstProc.stderr);
+        const firstOut = JSON.parse(firstProc.stdout.trim());
+        assert.ok(firstOut.state);
+        assert.equal(firstOut.exchangeCalls, 1);
+
+        // Second separate Node process (simulating full API server restart) replaying the same state
+        const secondProc = spawnSync(
+          process.execPath,
+          [
+            '--input-type=module',
+            '-e',
+            workerScript,
+            'second',
+            firstOut.state,
+          ],
+          { encoding: 'utf8' },
+        );
+        assert.equal(secondProc.status, 0, secondProc.stderr);
+        const secondOut = JSON.parse(secondProc.stdout.trim());
+        assert.equal(
+          secondOut.replayed,
+          true,
+          'Replayed state after API process restart must throw',
+        );
+        assert.equal(secondOut.code, 'OAUTH_STATE_REPLAYED');
+        assert.equal(secondOut.status, 400);
+        assert.equal(
+          secondOut.exchangeCalls,
+          0,
+          'Provider exchangeOAuthCode must NOT be called when replaying a consumed state after restart',
+        );
+
+        // Verify chunk buffer retry idempotency at non-zero offset
+        const { MockGoogleDriveProvider } = await import(
+          '../../dist/apps/api/src/storage/provider.js'
+        );
+        const mockProvider = new MockGoogleDriveProvider();
+        const chunk0 = Buffer.from('AAAA', 'utf8').toString('base64');
+        const chunk1 = Buffer.from('BBBB', 'utf8').toString('base64');
+        await mockProvider.uploadResumableChunk({
+          sessionUri: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=test_buf',
+          providerFileId: 'gdrive_buf_test',
+          offsetBytes: 0,
+          chunkSizeBytes: 4,
+          totalBytes: 12,
+          chunkDataBase64: chunk0,
+          retry: false,
+        });
+        await mockProvider.uploadResumableChunk({
+          sessionUri: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=test_buf',
+          providerFileId: 'gdrive_buf_test',
+          offsetBytes: 4,
+          chunkSizeBytes: 4,
+          totalBytes: 12,
+          chunkDataBase64: chunk1,
+          retry: false,
+        });
+        // Retry same offset 4
+        await mockProvider.uploadResumableChunk({
+          sessionUri: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=test_buf',
+          providerFileId: 'gdrive_buf_test',
+          offsetBytes: 4,
+          chunkSizeBytes: 4,
+          totalBytes: 12,
+          chunkDataBase64: chunk1,
+          retry: true,
+        });
+        const chunkMap = mockProvider.fileChunkBuffers.get('gdrive_buf_test');
+        assert.ok(chunkMap instanceof Map);
+        assert.equal(
+          chunkMap.size,
+          2,
+          'Retrying a chunk at the same byte offset must overwrite rather than duplicate buffered chunks',
+        );
+      },
+    );
   } finally {
     if (server) {
       await new Promise((r) => server.close(r));

@@ -16,6 +16,7 @@ import { EmployeeDetailScreen } from './screens/EmployeeDetailScreen.js';
 import { ActivateScreen } from './screens/ActivateScreen.js';
 import { ForgotPasswordScreen } from './screens/ForgotPasswordScreen.js';
 import { ResetPasswordScreen } from './screens/ResetPasswordScreen.js';
+import { VerifyEmailScreen } from './screens/VerifyEmailScreen.js';
 import {
   installAuthInterceptor,
   addSessionExpiredListener,
@@ -70,11 +71,30 @@ export const App: React.FC = () => {
   };
 
   const [currentPath, setCurrentPath] = useState<string>(getInitialPath);
+  const [initialVerifyToken] = useState<string>(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.location.pathname.startsWith('/verify-email')
+    ) {
+      const params = new URLSearchParams(
+        window.location.hash.slice(1) || window.location.search,
+      );
+      return (params.get('token') || '').trim();
+    }
+    return '';
+  });
   const [role, setRole] = useState<UserRole>('owner');
   const [verifiedOwnerSession, setVerifiedOwnerSession] =
     useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+  const [emailVerified, setEmailVerified] = useState<boolean | undefined>(
+    undefined,
+  );
+  const [resendBannerState, setResendBannerState] = useState<
+    'idle' | 'sending' | 'sent' | 'error'
+  >('idle');
   const [workspaceId, setWorkspaceId] = useState<string | undefined>(undefined);
   const [workspaceName, setWorkspaceName] = useState<string | undefined>(
     undefined,
@@ -135,6 +155,8 @@ export const App: React.FC = () => {
     isLoggedIn: false,
     role: 'owner',
     userId: undefined,
+    userEmail: undefined,
+    emailVerified: undefined,
     workspaceId: undefined,
     workspaceName: undefined,
     csrfToken: '',
@@ -146,6 +168,8 @@ export const App: React.FC = () => {
     setIsLoggedIn(t.isLoggedIn);
     setRole(t.role);
     setUserId(t.userId);
+    setUserEmail(t.userEmail);
+    setEmailVerified(t.emailVerified);
     setWorkspaceId(t.workspaceId);
     setWorkspaceName(t.workspaceName);
     setCsrfToken(t.csrfToken);
@@ -344,6 +368,22 @@ export const App: React.FC = () => {
     return <ResetPasswordScreen onNavigate={handleNavigate} />;
   }
 
+  // If viewing email verification screen (accessible anonymously or while logged in)
+  if (currentPath.startsWith('/verify-email')) {
+    return (
+      <VerifyEmailScreen
+        initialToken={initialVerifyToken}
+        initialEmail={userEmail}
+        isEmailVerified={Boolean(emailVerified)}
+        isLoggedIn={isLoggedIn}
+        onNavigate={handleNavigate}
+        onVerified={() => {
+          void verifySession();
+        }}
+      />
+    );
+  }
+
   const renderExpiredBanner = () => {
     if (!sessionExpiredNotice) return null;
     return (
@@ -485,7 +525,22 @@ export const App: React.FC = () => {
           />
         );
       case '/clock':
-        return <ClockScreen role={role} onNavigate={handleNavigate} />;
+        return (
+          <ClockScreen role={role} mode="clock" onNavigate={handleNavigate} />
+        );
+      case '/attendance':
+        return (
+          <ClockScreen role={role} mode="history" onNavigate={handleNavigate} />
+        );
+      case '/attendance/review':
+        if (role !== 'owner') {
+          return (
+            <NotFoundScreen isForbidden onGoHome={() => handleNavigate('/')} />
+          );
+        }
+        return (
+          <ClockScreen role={role} mode="review" onNavigate={handleNavigate} />
+        );
       case '/schedule':
         return <ScheduleScreen role={role} onNavigate={handleNavigate} />;
       case '/reports':
@@ -636,6 +691,96 @@ export const App: React.FC = () => {
               trước khi gửi yêu cầu. Nếu máy chủ phản hồi lỗi, vui lòng thử lại
               sau.
             </span>
+          </div>
+        )}
+        {isLoggedIn && emailVerified === false && (
+          <div
+            role="status"
+            data-testid="unverified-email-banner"
+            style={{
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid #F59E0B',
+              color: '#FBBF24',
+              padding: '10px 16px',
+              fontSize: '13px',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px',
+              borderRadius: '8px',
+              marginBottom: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangleIcon size={16} />
+              <span>
+                Email tài khoản chưa được xác minh. Vui lòng xác minh email để
+                sử dụng tính năng khôi phục mật khẩu.
+                {resendBannerState === 'sent' &&
+                  ' (Đã gửi liên kết xác minh qua email)'}
+                {resendBannerState === 'error' &&
+                  ' (Không thể gửi thư, vui lòng thử lại)'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                data-testid="resend-verification-email-btn"
+                disabled={resendBannerState === 'sending'}
+                onClick={async () => {
+                  setResendBannerState('sending');
+                  try {
+                    const res = await fetch(
+                      '/api/v1/auth/verify-email/request',
+                      {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(
+                          userEmail ? { email: userEmail } : {},
+                        ),
+                      },
+                    );
+                    setResendBannerState(res.ok ? 'sent' : 'error');
+                  } catch {
+                    setResendBannerState('error');
+                  }
+                }}
+                style={{
+                  backgroundColor: '#F59E0B',
+                  color: '#0F172A',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {resendBannerState === 'sending'
+                  ? 'Đang gửi...'
+                  : 'Gửi lại email xác minh'}
+              </button>
+              <button
+                type="button"
+                data-testid="open-verify-email-page-btn"
+                onClick={() => handleNavigate('/verify-email')}
+                style={{
+                  backgroundColor: 'transparent',
+                  color: '#F8FAFC',
+                  border: '1px solid #475569',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Nhập mã xác minh
+              </button>
+            </div>
           </div>
         )}
         {renderContent()}

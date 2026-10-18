@@ -134,3 +134,57 @@ test('ATT-006: Shift history pagination for both staff and owner review', () => 
     'ClockScreen must render shifts-pager Pagination for owner review shifts',
   );
 });
+
+test('ATT-HISTORY-REVIEW-01: Dedicated Attendance History (/attendance) and Attendance Approval (/attendance/review) modes, filter bars, and RBAC guards', () => {
+  const clockScreen = readFileSync(
+    resolve(root, 'apps/web/src/screens/ClockScreen.tsx'),
+    'utf8',
+  );
+  const appSource = readFileSync(
+    resolve(root, 'apps/web/src/App.tsx'),
+    'utf8',
+  );
+
+  // 1. Dedicated modes in ClockScreen and App.tsx routing
+  assert.ok(
+    clockScreen.includes("mode?: 'clock' | 'history' | 'review'"),
+    'ClockScreen must accept mode prop for clock, history, and review views',
+  );
+  assert.ok(
+    appSource.includes("case '/attendance':") &&
+      appSource.includes('mode="history"'),
+    'App.tsx must dispatch /attendance to ClockScreen with mode="history"',
+  );
+  assert.ok(
+    appSource.includes("case '/attendance/review':") &&
+      appSource.includes('mode="review"'),
+    'App.tsx must dispatch /attendance/review to ClockScreen with mode="review"',
+  );
+
+  // 2. Filter bars & quick status tabs
+  assert.ok(
+    clockScreen.includes('data-testid="my-history-filter-bar"') &&
+      clockScreen.includes('data-testid="my-filter-from-date"') &&
+      clockScreen.includes('data-testid="my-filter-to-date"') &&
+      clockScreen.includes('data-testid="my-filter-review-state"'),
+    'ClockScreen must render personal history filter bar with date range and status filters',
+  );
+  assert.ok(
+    clockScreen.includes('data-testid="owner-shifts-filter-bar"') &&
+      clockScreen.includes('data-testid="filter-employee-select"') &&
+      clockScreen.includes('data-testid="filter-from-date"') &&
+      clockScreen.includes('data-testid="filter-to-date"') &&
+      clockScreen.includes('data-testid="filter-review-state"') &&
+      clockScreen.includes('data-testid="filter-run-state"'),
+    'ClockScreen must render owner attendance filter bar with employee, date range, review_state, and run_state filters',
+  );
+  assert.ok(
+    clockScreen.includes('data-testid="owner-review-quick-tabs"'),
+    'ClockScreen must render quick review status filter pills for Owner',
+  );
+  assert.ok(
+    clockScreen.includes('data-testid="shift-review-reason"'),
+    'ClockScreen must display review reason and timestamp on reviewed shifts',
+  );
+});
+

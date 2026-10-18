@@ -23,6 +23,7 @@ let API_BASE = '';
 let sharedPool = null;
 let sharedServer = null;
 let createdAdminId = null;
+let isolatedUnverifiedEmail = '';
 let createdWorkspaceId = null;
 
 before(async () => {
@@ -44,22 +45,15 @@ before(async () => {
     );
   }
 
-  // Ensure unverified admin user fixture exists
-  const adminCheck = await sharedPool.query(
-    `SELECT id FROM users WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
+  // Create an isolated unverified admin user fixture (never touch DEV Owner accounts)
+  const suffix = crypto.randomBytes(6).toString('hex');
+  createdAdminId = crypto.randomUUID();
+  isolatedUnverifiedEmail = `isolated-unverified-admin-${suffix}@example.invalid`;
+  await sharedPool.query(
+    `INSERT INTO users (id, username_normalized, email_normalized, status, email_verified, email_verified_at)
+     VALUES ($1, $2, $3, 'active', false, NULL);`,
+    [createdAdminId, `admin_pw_reset_qa_${suffix}`, isolatedUnverifiedEmail],
   );
-  if (adminCheck.rows.length === 0) {
-    createdAdminId = crypto.randomUUID();
-    await sharedPool.query(
-      `INSERT INTO users (id, username_normalized, email_normalized, status, email_verified, email_verified_at)
-       VALUES ($1, 'admin_pw_reset_qa', 'truhoaiphuong02@gmail.com', 'active', false, NULL);`,
-      [createdAdminId],
-    );
-  } else {
-    await sharedPool.query(
-      `UPDATE users SET email_verified = false, email_verified_at = NULL WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
-    );
-  }
 
   const csrfSecret = crypto.randomBytes(32).toString('hex');
   const authService = new AuthService(sharedPool, csrfSecret);
@@ -164,13 +158,13 @@ test('REGRESSION 1: Route HTTP /api/v1/qa/mock-reset-token must NOT exist (HTTP 
   assert.equal(getRes.body.error.code, 'NOT_FOUND');
 
   const getWithQuery = await makeRequest(
-    `${API_BASE}/api/v1/qa/mock-reset-token?email=truhoaiphuong02@gmail.com`,
+    `${API_BASE}/api/v1/qa/mock-reset-token?email=${encodeURIComponent(isolatedUnverifiedEmail)}`,
   );
   assert.equal(getWithQuery.status, 404, 'Querying mock-reset-token with email must return 404');
 
   const postRes = await makeRequest(`${API_BASE}/api/v1/qa/mock-reset-token`, {
     method: 'POST',
-    body: { email: 'truhoaiphuong02@gmail.com' },
+    body: { email: isolatedUnverifiedEmail },
   });
   assert.equal(postRes.status, 404, 'POST to mock-reset-token must return 404');
 });
@@ -193,10 +187,10 @@ test('REGRESSION 2: Anti-enumeration & zero token leakage across all email types
   assert.equal(resUnknown.body.data.token, undefined);
   assert.equal(resUnknown.body.data.dev_token, undefined);
 
-  // Test admin email
+  // Test isolated unverified admin email
   const resAdmin = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
     method: 'POST',
-    body: { email: 'truhoaiphuong02@gmail.com' },
+    body: { email: isolatedUnverifiedEmail },
     ip: `10.99.${randSubnet}.2`,
   });
   assert.equal(resAdmin.status, 200);
@@ -211,12 +205,13 @@ test('REGRESSION 3: Cannot reset password knowing only email & unverified admin 
   const randSubnet = Math.floor(Math.random() * 200) + 10;
   const pool = new pg.Pool({ connectionString: DATABASE_URL });
   try {
-    // Verify admin in DB is NOT email_verified
+    // Verify isolated admin in DB is NOT email_verified
     const adminRes = await pool.query(
       `SELECT id, email_normalized, email_verified, email_verified_at, email_verification_proof
-       FROM users WHERE email_normalized = 'truhoaiphuong02@gmail.com';`,
+       FROM users WHERE email_normalized = $1;`,
+      [isolatedUnverifiedEmail],
     );
-    assert.ok(adminRes.rows.length > 0, 'Admin user must exist in DB');
+    assert.ok(adminRes.rows.length > 0, 'Isolated admin user must exist in DB');
     const admin = adminRes.rows[0];
     assert.equal(
       admin.email_verified,
@@ -234,7 +229,7 @@ test('REGRESSION 3: Cannot reset password knowing only email & unverified admin 
     // Call forgot-password for unverified admin
     const forgotRes = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
       method: 'POST',
-      body: { email: 'truhoaiphuong02@gmail.com' },
+      body: { email: isolatedUnverifiedEmail },
       ip: `10.99.${randSubnet}.3`,
     });
     assert.equal(forgotRes.status, 200);
@@ -702,4 +697,67 @@ test('REGRESSION 9: Account-level rate limiting blocks distributed multi-IP atta
     false,
     'Rate limit error response must NEVER echo or disclose the target email',
   );
+});
+
+test('REGRESSION 10: Expired token returns TOKEN_EXPIRED and EMAIL_DELIVERY_BLOCKED leaves no active token for verified users', async () => {
+  const pool = new pg.Pool({ connectionString: DATABASE_URL });
+  let testUserId = null;
+  const suffix = crypto.randomBytes(6).toString('hex');
+  const email = `verified_blocked_${suffix}@example.com`;
+  const testIp = `10.66.${Math.floor(Math.random() * 200) + 10}.1`;
+
+  try {
+    const userRes = await pool.query(
+      `INSERT INTO users (username_normalized, email_normalized, status, email_verified, email_verified_at)
+       VALUES ($1, $2, 'active', true, now())
+       RETURNING id;`,
+      [`user_blk_${suffix}`, email],
+    );
+    testUserId = userRes.rows[0].id;
+
+    // 1. When mailer is not configured (EMAIL_DELIVERY_BLOCKED), requesting reset for verified user must not leave an unconsumed token
+    const forgotRes = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
+      method: 'POST',
+      body: { email },
+      ip: testIp,
+    });
+    assert.equal(forgotRes.status, 200);
+    assert.equal(forgotRes.body.data.delivery_status, 'EMAIL_DELIVERY_BLOCKED');
+
+    const activeTokens = await pool.query(
+      `SELECT count(*)::int AS count FROM password_reset_tokens WHERE user_id = $1 AND consumed_at IS NULL;`,
+      [testUserId],
+    );
+    assert.equal(
+      activeTokens.rows[0].count,
+      0,
+      'No active unconsumed reset token should exist when email delivery is blocked',
+    );
+
+    // 2. Expired token must be rejected with 400 TOKEN_EXPIRED and marked consumed
+    const expiredRaw = crypto.randomBytes(32).toString('hex');
+    const expiredHash = crypto.createHash('sha256').update(expiredRaw).digest('hex');
+    await pool.query(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, request_ip)
+       VALUES ($1, $2, now() - interval '2 minutes', $3);`,
+      [testUserId, expiredHash, testIp],
+    );
+
+    const expRes = await makeRequest(`${API_BASE}/api/v1/auth/reset-password`, {
+      method: 'POST',
+      body: {
+        token: expiredRaw,
+        new_password: 'NewStrongPassword2026!',
+      },
+      ip: testIp,
+    });
+    assert.equal(expRes.status, 400);
+    assert.equal(expRes.body.error.code, 'TOKEN_EXPIRED');
+  } finally {
+    if (testUserId) {
+      await pool.query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [testUserId]).catch(() => {});
+      await pool.query(`DELETE FROM users WHERE id = $1;`, [testUserId]).catch(() => {});
+    }
+    await pool.end();
+  }
 });

@@ -133,14 +133,22 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
             </p>
           </div>
 
-          {/* Success Message Banner */}
+          {/* Delivery Status Banner */}
           {successData && (
             <div
+              role="status"
+              data-delivery-status={successData.deliveryStatus}
               style={{
                 marginBottom: '20px',
                 padding: '16px',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid #10B981',
+                backgroundColor:
+                  successData.deliveryStatus === 'EMAIL_DELIVERY_BLOCKED'
+                    ? 'rgba(245, 158, 11, 0.08)'
+                    : 'rgba(16, 185, 129, 0.1)',
+                border:
+                  successData.deliveryStatus === 'EMAIL_DELIVERY_BLOCKED'
+                    ? '1px solid #F59E0B'
+                    : '1px solid #10B981',
                 borderRadius: '8px',
               }}
             >
@@ -149,14 +157,24 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: '10px',
-                  color: '#10B981',
+                  color:
+                    successData.deliveryStatus === 'EMAIL_DELIVERY_BLOCKED'
+                      ? '#F59E0B'
+                      : '#10B981',
                   marginBottom: '10px',
                 }}
               >
-                <CheckCircleIcon
-                  size={20}
-                  style={{ flexShrink: 0, marginTop: '2px' }}
-                />
+                {successData.deliveryStatus === 'EMAIL_DELIVERY_BLOCKED' ? (
+                  <AlertTriangleIcon
+                    size={20}
+                    style={{ flexShrink: 0, marginTop: '2px' }}
+                  />
+                ) : (
+                  <CheckCircleIcon
+                    size={20}
+                    style={{ flexShrink: 0, marginTop: '2px' }}
+                  />
+                )}
                 <span
                   style={{
                     fontSize: '13px',
@@ -164,7 +182,9 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                     fontWeight: 500,
                   }}
                 >
-                  {successData.message}
+                  {successData.deliveryStatus === 'EMAIL_DELIVERY_BLOCKED'
+                    ? 'Không thể gửi email khôi phục mật khẩu vì dịch vụ email đang bị chặn hoặc chưa hoàn tất cấu hình.'
+                    : successData.message}
                 </span>
               </div>
 
@@ -174,11 +194,12 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   style={{
                     fontSize: '12px',
                     color: '#F59E0B',
-                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
                     padding: '10px 12px',
                     borderRadius: '6px',
-                    border: '1px solid rgba(245, 158, 11, 0.2)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
                     lineHeight: '1.5',
+                    marginBottom: '12px',
                   }}
                 >
                   <strong>Trạng thái gửi thư:</strong>{' '}
@@ -186,8 +207,18 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                     {successData.deliveryStatus}
                   </span>
                   <p style={{ margin: '6px 0 0 0', color: '#CBD5E1' }}>
-                    Dịch vụ email chưa được cấu hình. Vui lòng liên hệ quản trị
-                    để khôi phục khả năng gửi email.
+                    Dịch vụ email chưa được cấu hình hoặc người gửi chưa xác
+                    minh. Chưa có email nào được gửi đi. Vui lòng liên hệ quản
+                    trị viên hoặc sử dụng công cụ khôi phục cục bộ trên máy chủ.
+                  </p>
+                  <p
+                    style={{
+                      margin: '6px 0 0 0',
+                      fontSize: '11px',
+                      color: '#94A3B8',
+                    }}
+                  >
+                    {successData.message}
                   </p>
                 </div>
               ) : (
@@ -287,8 +318,28 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
             </form>
           )}
 
+          {/* Link to Email Verification */}
+          <div style={{ textAlign: 'center', marginTop: '12px' }}>
+            <button
+              type="button"
+              data-testid="forgot-password-verify-email-link"
+              onClick={() => onNavigate('/verify-email')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#14B8A6',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '4px 8px',
+              }}
+            >
+              Chưa xác minh email? Xác minh hoặc gửi lại thư tại đây
+            </button>
+          </div>
+
           {/* Back to Login Link */}
-          <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <div style={{ textAlign: 'center', marginTop: '12px' }}>
             <button
               type="button"
               onClick={() => onNavigate('/login')}

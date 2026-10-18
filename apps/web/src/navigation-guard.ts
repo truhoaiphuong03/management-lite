@@ -58,8 +58,10 @@ export function sanitizePostLoginRedirect(rawPath: unknown): string {
     // Do not redirect back to public auth screens
     if (
       pathname === '/login' ||
+      pathname.startsWith('/activate') ||
       pathname === '/forgot-password' ||
-      pathname.startsWith('/reset-password')
+      pathname.startsWith('/reset-password') ||
+      pathname.startsWith('/verify-email')
     ) {
       return '/';
     }

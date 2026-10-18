@@ -86,6 +86,13 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     implemented: false,
     category: 'core',
   },
+  '/verify-email': {
+    id: 'UI02B',
+    path: '/verify-email',
+    title: 'Xác minh Email',
+    implemented: true,
+    category: 'core',
+  },
   '/': {
     id: 'UI03',
     path: '/',
@@ -111,7 +118,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     id: 'UI05',
     path: '/attendance',
     title: 'Lịch sử ca làm',
-    implemented: false,
+    implemented: true,
     category: 'attendance',
   },
   '/attendance/corrections': {
@@ -126,7 +133,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     path: '/attendance/review',
     title: 'Duyệt công nhân viên',
     ownerOnly: true,
-    implemented: false,
+    implemented: true,
     category: 'attendance',
   },
   '/reports': {

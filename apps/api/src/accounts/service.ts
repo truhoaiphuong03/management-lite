@@ -48,6 +48,8 @@ export const ALLOWED_SECRET_TYPES: AccountSecretType[] = [
   'api_key',
   'recovery_code',
   'totp_secret',
+  'two_fa_secret',
+  'email_password',
 ];
 
 export class AccountsService {
@@ -55,6 +57,87 @@ export class AccountsService {
     private readonly pool: DatabasePool,
     private readonly encryptionKey?: Buffer | undefined,
   ) {}
+
+  private normalizeOptionalEmail(
+    val: unknown,
+    fieldName = 'recovery_email',
+  ): string | null {
+    if (val === undefined || val === null) return null;
+    if (typeof val !== 'string') {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        `${fieldName} must be a string`,
+        400,
+      );
+    }
+    const trimmed = val.trim().toLowerCase();
+    if (!trimmed) return null;
+    if (trimmed.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        `Email khôi phục (${fieldName}) không hợp lệ`,
+        400,
+      );
+    }
+    return trimmed;
+  }
+
+  private normalizeOptionalGroup(val: unknown): string | null {
+    if (val === undefined || val === null) return null;
+    if (typeof val !== 'string') {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'account_group must be a string',
+        400,
+      );
+    }
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    if (trimmed.length > 100) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Nhóm tài khoản tối đa 100 ký tự',
+        400,
+      );
+    }
+    return trimmed;
+  }
+
+  private mapAccountRow(r: {
+    id: string;
+    workspace_id: string;
+    platform: AccountPlatform;
+    username?: string | null | undefined;
+    platform_account_id?: string | null | undefined;
+    recovery_email?: string | null | undefined;
+    account_group?: string | null | undefined;
+    assigned_employee_id?: string | null | undefined;
+    assigned_employee_name?: string | null | undefined;
+    assigned_employee_code?: string | null | undefined;
+    status: ManagedAccountData['status'];
+    notes?: string | null | undefined;
+    version: number;
+    created_at: Date | string;
+    updated_at?: Date | string | null | undefined;
+  }): ManagedAccountData {
+    return {
+      id: r.id,
+      workspace_id: r.workspace_id,
+      platform: r.platform,
+      username: r.username ?? null,
+      platform_account_id: r.platform_account_id ?? null,
+      recovery_email: r.recovery_email ?? null,
+      account_group: r.account_group ?? null,
+      assigned_employee_id: r.assigned_employee_id ?? null,
+      assigned_employee_name: r.assigned_employee_name ?? null,
+      assigned_employee_code: r.assigned_employee_code ?? null,
+      status: r.status,
+      notes: r.notes ?? null,
+      version: r.version,
+      created_at: new Date(r.created_at).toISOString(),
+      updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null,
+    };
+  }
 
   /**
    * Asserts valid UUID format to prevent malformed queries.
@@ -340,6 +423,8 @@ export class AccountsService {
 
     const platform = query.get('platform');
     const status = query.get('status') || 'active';
+    const accountGroup = (query.get('account_group') || '').trim();
+    const assignedEmployeeId = (query.get('assigned_employee_id') || '').trim();
     const search = (query.get('search') || '').trim();
 
     if (platform && !ALLOWED_PLATFORMS.includes(platform as AccountPlatform)) {
@@ -349,50 +434,64 @@ export class AccountsService {
       throw new AuthError('VALIDATION_ERROR', 'Invalid status filter', 400);
     }
 
-    const conditions: string[] = ['workspace_id = $1'];
+    const conditions: string[] = ['ma.workspace_id = $1'];
     const params: unknown[] = [context.workspace.id];
 
     if (status !== 'all') {
       params.push(status);
-      conditions.push(`status = $${params.length}`);
+      conditions.push(`ma.status = $${params.length}`);
     }
 
     if (platform) {
       params.push(platform);
-      conditions.push(`platform = $${params.length}`);
+      conditions.push(`ma.platform = $${params.length}`);
+    }
+
+    if (accountGroup && accountGroup !== 'all') {
+      params.push(accountGroup.toLowerCase());
+      conditions.push(
+        `LOWER(COALESCE(ma.account_group, '')) = $${params.length}`,
+      );
+    }
+
+    if (assignedEmployeeId && assignedEmployeeId !== 'all') {
+      if (assignedEmployeeId === 'unassigned') {
+        conditions.push('ma.assigned_employee_id IS NULL');
+      } else {
+        const cleanAssignee = this.assertUuid(
+          assignedEmployeeId,
+          'assigned_employee_id',
+        );
+        params.push(cleanAssignee);
+        conditions.push(`ma.assigned_employee_id = $${params.length}`);
+      }
     }
 
     if (search) {
       params.push(`%${search.toLowerCase()}%`);
       const pIdx = params.length;
       conditions.push(
-        `(LOWER(COALESCE(username, '')) LIKE $${pIdx} OR LOWER(COALESCE(platform_account_id, '')) LIKE $${pIdx} OR LOWER(COALESCE(notes, '')) LIKE $${pIdx})`,
+        `(LOWER(COALESCE(ma.username, '')) LIKE $${pIdx} OR LOWER(COALESCE(ma.platform_account_id, '')) LIKE $${pIdx} OR LOWER(COALESCE(ma.recovery_email, '')) LIKE $${pIdx} OR LOWER(COALESCE(ma.account_group, '')) LIKE $${pIdx} OR LOWER(COALESCE(ma.notes, '')) LIKE $${pIdx} OR LOWER(COALESCE(e.full_name, '')) LIKE $${pIdx} OR LOWER(COALESCE(e.employee_code, '')) LIKE $${pIdx})`,
       );
     }
 
     const sql = `
       SELECT
-        id, workspace_id, platform, platform_account_id, username,
-        status, notes, version, created_at, updated_at
-      FROM managed_accounts
+        ma.id, ma.workspace_id, ma.platform, ma.platform_account_id, ma.username,
+        ma.recovery_email, ma.account_group, ma.assigned_employee_id,
+        e.full_name AS assigned_employee_name, e.employee_code AS assigned_employee_code,
+        ma.status, ma.notes, ma.version, ma.created_at, ma.updated_at
+      FROM managed_accounts ma
+      LEFT JOIN employees e
+        ON e.workspace_id = ma.workspace_id AND e.id = ma.assigned_employee_id
       WHERE ${conditions.join(' AND ')}
-      ORDER BY created_at DESC;
+      ORDER BY ma.created_at DESC;
     `;
 
     const res = await this.pool.query(sql, params);
-
-    const items: ManagedAccountData[] = res.rows.map((r) => ({
-      id: r.id,
-      workspace_id: r.workspace_id,
-      platform: r.platform,
-      username: r.username,
-      platform_account_id: r.platform_account_id,
-      status: r.status,
-      notes: r.notes,
-      version: r.version,
-      created_at: new Date(r.created_at).toISOString(),
-      updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null,
-    }));
+    const items: ManagedAccountData[] = res.rows.map((r) =>
+      this.mapAccountRow(r),
+    );
 
     return {
       items,
@@ -402,7 +501,7 @@ export class AccountsService {
 
   /**
    * POST /api/v1/accounts
-   * Creates new managed account metadata.
+   * Creates new managed account metadata (and optional AEAD-encrypted initial secrets).
    * Owner only. Idempotency supported.
    */
   async createAccount(
@@ -417,11 +516,30 @@ export class AccountsService {
       throw new AuthError('VALIDATION_ERROR', 'Request body required', 400);
     }
 
-    const { platform, username, platform_account_id, notes } = body;
+    const {
+      platform,
+      username,
+      platform_account_id,
+      recovery_email,
+      account_group,
+      assigned_employee_id,
+      status,
+      notes,
+      initial_secrets,
+    } = body;
     if (!platform || !ALLOWED_PLATFORMS.includes(platform)) {
       throw new AuthError(
         'VALIDATION_ERROR',
         `Platform must be one of: ${ALLOWED_PLATFORMS.join(', ')}`,
+        400,
+      );
+    }
+
+    const cleanStatus = status === 'archived' ? 'archived' : 'active';
+    if (status !== undefined && status !== 'active' && status !== 'archived') {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        "status must be 'active' or 'archived'",
         400,
       );
     }
@@ -432,10 +550,70 @@ export class AccountsService {
       typeof platform_account_id === 'string' && platform_account_id.trim()
         ? platform_account_id.trim()
         : null;
+    const cleanRecoveryEmail = this.normalizeOptionalEmail(
+      recovery_email,
+      'recovery_email',
+    );
+    const cleanAccountGroup = this.normalizeOptionalGroup(account_group);
+    const cleanAssignedEmployeeId =
+      typeof assigned_employee_id === 'string' && assigned_employee_id.trim()
+        ? this.assertUuid(assigned_employee_id.trim(), 'assigned_employee_id')
+        : null;
     const cleanNotes =
       typeof notes === 'string' && notes.trim() ? notes.trim() : null;
 
+    const validInitialSecrets: Array<{
+      secret_type: AccountSecretType;
+      secret_value: string;
+    }> = [];
+    if (Array.isArray(initial_secrets)) {
+      for (const item of initial_secrets) {
+        if (!item || typeof item !== 'object') continue;
+        const st = item.secret_type;
+        const sv =
+          typeof item.secret_value === 'string' ? item.secret_value : '';
+        if (!sv) continue;
+        if (!st || !ALLOWED_SECRET_TYPES.includes(st)) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `secret_type must be one of: ${ALLOWED_SECRET_TYPES.join(', ')}`,
+            400,
+          );
+        }
+        if (sv.length > 4096) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'secret_value is too long',
+            400,
+          );
+        }
+        validInitialSecrets.push({ secret_type: st, secret_value: sv });
+      }
+    }
+
+    if (validInitialSecrets.length > 0 && !this.encryptionKey) {
+      throw new AuthError(
+        'SERVICE_UNAVAILABLE',
+        'Secret vault encryption key is unavailable or unconfigured',
+        503,
+      );
+    }
+
     const operationKey = `ACCOUNT_CREATE:${idempotencyKey || ''}`;
+    const fingerprintPayload = {
+      platform,
+      username: cleanUsername,
+      platform_account_id: cleanPlatformAccId,
+      recovery_email: cleanRecoveryEmail,
+      account_group: cleanAccountGroup,
+      assigned_employee_id: cleanAssignedEmployeeId,
+      status: cleanStatus,
+      notes: cleanNotes,
+      initial_secret_hashes: validInitialSecrets.map((s) => ({
+        secret_type: s.secret_type,
+        hash: hashToken(s.secret_value),
+      })),
+    };
 
     const client = await this.pool.connect();
     try {
@@ -449,7 +627,7 @@ export class AccountsService {
           requestFingerprint: computeRequestFingerprint(
             'POST',
             '/api/v1/accounts',
-            body,
+            fingerprintPayload,
           ),
         });
         if (claim.status === 'replay') {
@@ -465,33 +643,108 @@ export class AccountsService {
         }
       }
 
+      let assignedEmployeeName: string | null = null;
+      let assignedEmployeeCode: string | null = null;
+      if (cleanAssignedEmployeeId) {
+        const empRes = await client.query(
+          'SELECT id, full_name, employee_code FROM employees WHERE workspace_id = $1 AND id = $2 FOR SHARE;',
+          [context.workspace.id, cleanAssignedEmployeeId],
+        );
+        if (empRes.rows.length === 0) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'Nhân viên phụ trách không tồn tại trong workspace này',
+            400,
+          );
+        }
+        assignedEmployeeName = empRes.rows[0].full_name;
+        assignedEmployeeCode = empRes.rows[0].employee_code;
+      }
+
       const insertRes = await client.query(
         `INSERT INTO managed_accounts (
-          workspace_id, platform, username, platform_account_id, notes, status, version
-        ) VALUES ($1, $2, $3, $4, $5, 'active', 1)
-        RETURNING id, workspace_id, platform, platform_account_id, username, status, notes, version, created_at, updated_at;`,
+          workspace_id, platform, username, platform_account_id,
+          recovery_email, account_group, assigned_employee_id,
+          notes, status, version
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)
+        RETURNING id, workspace_id, platform, platform_account_id, username,
+          recovery_email, account_group, assigned_employee_id,
+          status, notes, version, created_at, updated_at;`,
         [
           context.workspace.id,
           platform,
           cleanUsername,
           cleanPlatformAccId,
+          cleanRecoveryEmail,
+          cleanAccountGroup,
+          cleanAssignedEmployeeId,
           cleanNotes,
+          cleanStatus,
         ],
       );
 
       const r = insertRes.rows[0];
-      const createdData: ManagedAccountData = {
-        id: r.id,
-        workspace_id: r.workspace_id,
-        platform: r.platform,
-        username: r.username,
-        platform_account_id: r.platform_account_id,
-        status: r.status,
-        notes: r.notes,
-        version: r.version,
-        created_at: new Date(r.created_at).toISOString(),
-        updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null,
-      };
+      const createdData: ManagedAccountData = this.mapAccountRow({
+        ...r,
+        assigned_employee_name: assignedEmployeeName,
+        assigned_employee_code: assignedEmployeeCode,
+      });
+
+      if (validInitialSecrets.length > 0 && this.encryptionKey) {
+        for (const sec of validInitialSecrets) {
+          const schemaVersion = 1;
+          const aad = `${context.workspace.id}:${createdData.id}:${sec.secret_type}:${schemaVersion}`;
+          const encrypted = encryptSecretAead(
+            sec.secret_value,
+            this.encryptionKey,
+            aad,
+          );
+
+          await client.query(
+            `INSERT INTO account_secrets (
+              workspace_id, account_id, secret_type, ciphertext, nonce, auth_tag,
+              key_version, encryption_schema_version, secret_version
+            ) VALUES ($1, $2, $3, $4, $5, $6, 'v1', $7, 1)
+            ON CONFLICT (workspace_id, account_id, secret_type)
+            DO UPDATE SET
+              ciphertext = EXCLUDED.ciphertext,
+              nonce = EXCLUDED.nonce,
+              auth_tag = EXCLUDED.auth_tag,
+              encryption_schema_version = EXCLUDED.encryption_schema_version,
+              secret_version = account_secrets.secret_version + 1,
+              updated_at = clock_timestamp();`,
+            [
+              context.workspace.id,
+              createdData.id,
+              sec.secret_type,
+              encrypted.ciphertext,
+              encrypted.nonce,
+              encrypted.authTag,
+              schemaVersion,
+            ],
+          );
+
+          await client.query(
+            `INSERT INTO secret_access_events (
+              workspace_id, actor_user_id, account_id, action, request_id
+            ) VALUES ($1, $2, $3, 'write', $4);`,
+            [context.workspace.id, context.user.id, createdData.id, requestId],
+          );
+
+          await recordAuditEvent(client, {
+            workspaceId: context.workspace.id,
+            actorUserId: context.user.id,
+            action: 'account_secret_write',
+            entityType: 'managed_account',
+            entityId: createdData.id,
+            requestId,
+            metadata: {
+              secret_type: sec.secret_type,
+              secret_version: 1,
+            },
+          });
+        }
+      }
 
       await recordAuditEvent(client, {
         workspaceId: context.workspace.id,
@@ -503,6 +756,8 @@ export class AccountsService {
         metadata: {
           platform: createdData.platform,
           username: createdData.username,
+          account_group: createdData.account_group,
+          assigned_employee_id: createdData.assigned_employee_id,
         },
       });
 
@@ -541,10 +796,14 @@ export class AccountsService {
 
     const res = await this.pool.query(
       `SELECT
-        id, workspace_id, platform, platform_account_id, username,
-        status, notes, version, created_at, updated_at
-      FROM managed_accounts
-      WHERE id = $1 AND workspace_id = $2;`,
+        ma.id, ma.workspace_id, ma.platform, ma.platform_account_id, ma.username,
+        ma.recovery_email, ma.account_group, ma.assigned_employee_id,
+        e.full_name AS assigned_employee_name, e.employee_code AS assigned_employee_code,
+        ma.status, ma.notes, ma.version, ma.created_at, ma.updated_at
+      FROM managed_accounts ma
+      LEFT JOIN employees e
+        ON e.workspace_id = ma.workspace_id AND e.id = ma.assigned_employee_id
+      WHERE ma.id = $1 AND ma.workspace_id = $2;`,
       [cleanId, context.workspace.id],
     );
 
@@ -568,16 +827,7 @@ export class AccountsService {
     );
 
     return {
-      id: r.id,
-      workspace_id: r.workspace_id,
-      platform: r.platform,
-      username: r.username,
-      platform_account_id: r.platform_account_id,
-      status: r.status,
-      notes: r.notes,
-      version: r.version,
-      created_at: new Date(r.created_at).toISOString(),
-      updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null,
+      ...this.mapAccountRow(r),
       has_secret: secretTypes.length > 0,
       secret_types: secretTypes,
     };
@@ -635,23 +885,78 @@ export class AccountsService {
               body.platform_account_id.trim()) ||
             null
           : existing.platform_account_id;
+      const newRecoveryEmail =
+        body.recovery_email !== undefined
+          ? this.normalizeOptionalEmail(body.recovery_email, 'recovery_email')
+          : existing.recovery_email;
+      const newAccountGroup =
+        body.account_group !== undefined
+          ? this.normalizeOptionalGroup(body.account_group)
+          : existing.account_group;
+      const newAssignedEmployeeId =
+        body.assigned_employee_id !== undefined
+          ? typeof body.assigned_employee_id === 'string' &&
+            body.assigned_employee_id.trim()
+            ? this.assertUuid(
+                body.assigned_employee_id.trim(),
+                'assigned_employee_id',
+              )
+            : null
+          : existing.assigned_employee_id;
+      const newStatus =
+        body.status !== undefined ? body.status : existing.status;
+      if (newStatus !== 'active' && newStatus !== 'archived') {
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          "status must be 'active' or 'archived'",
+          400,
+        );
+      }
       const newNotes =
         body.notes !== undefined
           ? (typeof body.notes === 'string' && body.notes.trim()) || null
           : existing.notes;
 
+      let assignedEmployeeName: string | null = null;
+      let assignedEmployeeCode: string | null = null;
+      if (newAssignedEmployeeId) {
+        const empRes = await client.query(
+          'SELECT id, full_name, employee_code FROM employees WHERE workspace_id = $1 AND id = $2 FOR SHARE;',
+          [context.workspace.id, newAssignedEmployeeId],
+        );
+        if (empRes.rows.length === 0) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'Nhân viên phụ trách không tồn tại trong workspace này',
+            400,
+          );
+        }
+        assignedEmployeeName = empRes.rows[0].full_name;
+        assignedEmployeeCode = empRes.rows[0].employee_code;
+      }
+
       const updateRes = await client.query(
         `UPDATE managed_accounts SET
           username = $1,
           platform_account_id = $2,
-          notes = $3,
+          recovery_email = $3,
+          account_group = $4,
+          assigned_employee_id = $5,
+          status = $6,
+          notes = $7,
           version = version + 1,
           updated_at = clock_timestamp()
-        WHERE id = $4 AND workspace_id = $5
-        RETURNING id, workspace_id, platform, platform_account_id, username, status, notes, version, created_at, updated_at;`,
+        WHERE id = $8 AND workspace_id = $9
+        RETURNING id, workspace_id, platform, platform_account_id, username,
+          recovery_email, account_group, assigned_employee_id,
+          status, notes, version, created_at, updated_at;`,
         [
           newUsername,
           newPlatformAccId,
+          newRecoveryEmail,
+          newAccountGroup,
+          newAssignedEmployeeId,
+          newStatus,
           newNotes,
           cleanId,
           context.workspace.id,
@@ -659,18 +964,11 @@ export class AccountsService {
       );
 
       const r = updateRes.rows[0];
-      const updatedData: ManagedAccountData = {
-        id: r.id,
-        workspace_id: r.workspace_id,
-        platform: r.platform,
-        username: r.username,
-        platform_account_id: r.platform_account_id,
-        status: r.status,
-        notes: r.notes,
-        version: r.version,
-        created_at: new Date(r.created_at).toISOString(),
-        updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null,
-      };
+      const updatedData: ManagedAccountData = this.mapAccountRow({
+        ...r,
+        assigned_employee_name: assignedEmployeeName,
+        assigned_employee_code: assignedEmployeeCode,
+      });
 
       await recordAuditEvent(client, {
         workspaceId: context.workspace.id,
@@ -681,6 +979,9 @@ export class AccountsService {
         requestId,
         metadata: {
           version: updatedData.version,
+          account_group: updatedData.account_group,
+          assigned_employee_id: updatedData.assigned_employee_id,
+          status: updatedData.status,
         },
       });
 
@@ -751,23 +1052,14 @@ export class AccountsService {
           version = version + 1,
           updated_at = clock_timestamp()
         WHERE id = $1 AND workspace_id = $2
-        RETURNING id, workspace_id, platform, platform_account_id, username, status, notes, version, created_at, updated_at;`,
+        RETURNING id, workspace_id, platform, platform_account_id, username,
+          recovery_email, account_group, assigned_employee_id,
+          status, notes, version, created_at, updated_at;`,
         [cleanId, context.workspace.id],
       );
 
       const r = updateRes.rows[0];
-      const archivedData: ManagedAccountData = {
-        id: r.id,
-        workspace_id: r.workspace_id,
-        platform: r.platform,
-        username: r.username,
-        platform_account_id: r.platform_account_id,
-        status: r.status,
-        notes: r.notes,
-        version: r.version,
-        created_at: new Date(r.created_at).toISOString(),
-        updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null,
-      };
+      const archivedData: ManagedAccountData = this.mapAccountRow(r);
 
       // Record immutable audit event
       await recordAuditEvent(client, {
@@ -852,23 +1144,14 @@ export class AccountsService {
           version = version + 1,
           updated_at = clock_timestamp()
         WHERE id = $1 AND workspace_id = $2
-        RETURNING id, workspace_id, platform, platform_account_id, username, status, notes, version, created_at, updated_at;`,
+        RETURNING id, workspace_id, platform, platform_account_id, username,
+          recovery_email, account_group, assigned_employee_id,
+          status, notes, version, created_at, updated_at;`,
         [cleanId, context.workspace.id],
       );
 
       const r = updateRes.rows[0];
-      const restoredData: ManagedAccountData = {
-        id: r.id,
-        workspace_id: r.workspace_id,
-        platform: r.platform,
-        username: r.username,
-        platform_account_id: r.platform_account_id,
-        status: r.status,
-        notes: r.notes,
-        version: r.version,
-        created_at: new Date(r.created_at).toISOString(),
-        updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null,
-      };
+      const restoredData: ManagedAccountData = this.mapAccountRow(r);
 
       await recordAuditEvent(client, {
         workspaceId: context.workspace.id,

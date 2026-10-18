@@ -7,6 +7,8 @@ export interface ParsedSessionData {
   isOwner: boolean;
   role: UserRole;
   userId?: string | undefined;
+  userEmail?: string | undefined;
+  emailVerified?: boolean | undefined;
   workspaceId?: string | undefined;
   workspaceName?: string | undefined;
   csrfToken?: string | undefined;
@@ -17,7 +19,7 @@ export function parseSessionPayload(body: unknown): ParsedSessionData | null {
   const b = body as {
     success?: boolean;
     data?: {
-      user?: { id?: unknown };
+      user?: { id?: unknown; email?: unknown; email_verified?: unknown };
       active_workspace?: { id?: unknown; name?: unknown; role?: unknown };
       csrf_token?: unknown;
     };
@@ -41,6 +43,14 @@ export function parseSessionPayload(body: unknown): ParsedSessionData | null {
     typeof b.data.user?.id === 'string' && b.data.user.id.length > 0
       ? b.data.user.id
       : undefined;
+  const userEmail =
+    typeof b.data.user?.email === 'string' && b.data.user.email.trim().length > 0
+      ? b.data.user.email.trim()
+      : undefined;
+  const emailVerified =
+    typeof b.data.user?.email_verified === 'boolean'
+      ? b.data.user.email_verified
+      : undefined;
   const workspaceId =
     typeof activeWs.id === 'string' && activeWs.id.length > 0
       ? activeWs.id
@@ -55,6 +65,8 @@ export function parseSessionPayload(body: unknown): ParsedSessionData | null {
     isOwner,
     role,
     userId,
+    userEmail,
+    emailVerified,
     workspaceId,
     workspaceName,
     csrfToken,
@@ -67,6 +79,8 @@ export interface SessionStateTracker {
   isLoggedIn: boolean;
   role: UserRole;
   userId?: string | undefined;
+  userEmail?: string | undefined;
+  emailVerified?: boolean | undefined;
   workspaceId?: string | undefined;
   workspaceName?: string | undefined;
   csrfToken: string;
@@ -107,6 +121,8 @@ export async function executeSessionVerification(
       tracker.verifiedOwnerSession = false;
       tracker.isLoggedIn = false;
       tracker.userId = undefined;
+      tracker.userEmail = undefined;
+      tracker.emailVerified = undefined;
       tracker.workspaceId = undefined;
       tracker.workspaceName = undefined;
       return false;
@@ -126,6 +142,8 @@ export async function executeSessionVerification(
       }
       tracker.role = parsed.role;
       tracker.userId = parsed.userId;
+      tracker.userEmail = parsed.userEmail;
+      tracker.emailVerified = parsed.emailVerified;
       tracker.workspaceId = parsed.workspaceId;
       tracker.workspaceName = parsed.workspaceName;
       if (parsed.csrfToken) {
@@ -140,6 +158,8 @@ export async function executeSessionVerification(
       tracker.verifiedOwnerSession = false;
       tracker.isLoggedIn = false;
       tracker.userId = undefined;
+      tracker.userEmail = undefined;
+      tracker.emailVerified = undefined;
       tracker.workspaceId = undefined;
       tracker.workspaceName = undefined;
       return false;
@@ -150,6 +170,8 @@ export async function executeSessionVerification(
       tracker.verifiedOwnerSession = false;
       tracker.isLoggedIn = false;
       tracker.userId = undefined;
+      tracker.userEmail = undefined;
+      tracker.emailVerified = undefined;
       tracker.workspaceId = undefined;
       tracker.workspaceName = undefined;
     }
@@ -164,6 +186,8 @@ export function executeLogout(tracker: SessionStateTracker) {
   tracker.verifiedOwnerSession = false;
   tracker.isLoggedIn = false;
   tracker.userId = undefined;
+  tracker.userEmail = undefined;
+  tracker.emailVerified = undefined;
   tracker.workspaceId = undefined;
   tracker.workspaceName = undefined;
   tracker.csrfToken = '';
@@ -174,11 +198,7 @@ export function determinePostVerificationRoute(
   verified: boolean,
 ): string | null {
   if (verified) {
-    if (
-      currentPath === '/login' ||
-      currentPath === '/forgot-password' ||
-      currentPath.startsWith('/reset-password')
-    ) {
+    if (currentPath === '/login') {
       return '/';
     }
     return null; // Keep current path
@@ -187,7 +207,8 @@ export function determinePostVerificationRoute(
       currentPath !== '/login' &&
       !currentPath.startsWith('/activate') &&
       currentPath !== '/forgot-password' &&
-      !currentPath.startsWith('/reset-password')
+      !currentPath.startsWith('/reset-password') &&
+      !currentPath.startsWith('/verify-email')
     ) {
       return '/login'; // Redirect to login
     }

@@ -49,7 +49,8 @@ test('route registry defines canonical V0.1 screens with RBAC guards', async () 
 
   // Unimplemented screens marked as not implemented
   assert.equal(ROUTE_REGISTRY['/activate']?.implemented, false);
-  assert.equal(ROUTE_REGISTRY['/attendance']?.implemented, false);
+  assert.equal(ROUTE_REGISTRY['/attendance']?.implemented, true);
+  assert.equal(ROUTE_REGISTRY['/attendance/review']?.implemented, true);
   assert.equal(ROUTE_REGISTRY['/attendance/corrections']?.implemented, false);
   // Implemented in V0.2 PAY-01
   assert.equal(ROUTE_REGISTRY['/payroll']?.implemented, true);
@@ -340,7 +341,10 @@ test('Vite server binds to localhost (127.0.0.1) by default and LAN (0.0.0.0) up
     /host:\s*isLan\s*\?\s*['"]0\.0\.0\.0['"]\s*:\s*['"]127\.0\.0\.1['"]/,
   );
   assert.match(viteConfigSource, /process\.env\.LAN\s*===\s*['"]true['"]/);
-  assert.match(viteConfigSource, /port:\s*3001/);
+  assert.match(
+    viteConfigSource,
+    /port:\s*(?:Number\.isFinite\(devPort\)\s*&&\s*devPort\s*>\s*0\s*\?\s*devPort\s*:\s*)?3001/,
+  );
   assert.match(viteConfigSource, /strictPort:\s*true/);
 
   // Assert package.json scripts provide explicit LAN opt-in

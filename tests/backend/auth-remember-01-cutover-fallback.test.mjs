@@ -235,14 +235,31 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
         `<html>sentinel-web-${baseSha}</html>\n`,
         'utf8',
       );
+      const compatMeta =
+        baseSha === shaCompat0023
+          ? {
+              schemaIdentity: validSchemaHash,
+              migrationCount: allMigrations.length,
+              maxMigrationId: allMigrations[allMigrations.length - 1].id,
+              authPolicyVersion: 'auth-remember-01',
+            }
+          : {};
       fs.writeFileSync(
         path.join(sandboxTarget, 'dist/release-version.json'),
-        JSON.stringify({ sha: baseSha, component: 'api' }, null, 2),
+        JSON.stringify(
+          { sha: baseSha, component: 'api', ...compatMeta },
+          null,
+          2,
+        ),
         'utf8',
       );
       fs.writeFileSync(
         path.join(sandboxTarget, 'apps/web/dist/release-version.json'),
-        JSON.stringify({ sha: baseSha, component: 'web' }, null, 2),
+        JSON.stringify(
+          { sha: baseSha, component: 'web', ...compatMeta },
+          null,
+          2,
+        ),
         'utf8',
       );
       fs.writeFileSync(
@@ -291,7 +308,7 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
     const provObj = readJson(`${validBundlePath}.provenance.json`);
     const validSchemaHash = provObj.schemaIdentity.toLowerCase();
     assert.equal(provObj.authPolicyVersion, 'auth-remember-01');
-    assert.equal(provObj.maxMigrationId, '0023_auth_session_remember_me');
+    assert.ok(provObj.maxMigrationId >= '0023_auth_session_remember_me');
 
     let seq = 1;
     const signAndPrepareReceipt = async ({
@@ -415,7 +432,7 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
       path.resolve(repoRoot, 'packages/database/src/migrations'),
     );
     const pre0023Migrations = allMigrations.filter(
-      (m) => m.id !== '0023_auth_session_remember_me',
+      (m) => m.id < '0023_auth_session_remember_me',
     );
     assert.equal(pre0023Migrations.length, 22);
     await runMigrations(qaPool, pre0023Migrations);
@@ -713,7 +730,7 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
         const migCountRes = await qaPool.query(
           'SELECT count(*)::int AS cnt FROM schema_migrations',
         );
-        assert.equal(migCountRes.rows[0].cnt, 23);
+        assert.equal(migCountRes.rows[0].cnt, allMigrations.length);
         const legacyRow = (
           await qaPool.query(
             'SELECT id, remember_me FROM auth_sessions WHERE id = $1',
