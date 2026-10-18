@@ -1015,6 +1015,12 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
               }}
             >
               <div>
+                <strong style={{ color: '#CBD5E1' }}>Hệ thống Web:</strong>{' '}
+                <span style={{ color: '#14B8A6', fontWeight: 600 }}>
+                  ql.hoaiphuong.click
+                </span>
+              </div>
+              <div>
                 <strong style={{ color: '#CBD5E1' }}>Vị trí phát sinh:</strong>{' '}
                 <span style={{ color: '#38BDF8' }}>{currentDisplayModule}</span>
                 {isUnknownOutcome &&
