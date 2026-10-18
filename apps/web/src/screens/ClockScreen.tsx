@@ -1007,8 +1007,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({ role = 'owner' }) => {
                       s.id,
                       s.clock_in_at,
                       s.clock_out_at || '',
-                      s.status,
-                      String(s.total_worked_minutes ?? 0),
+                      s.review_state || s.run_state,
+                      String(Math.round((s.worked_seconds ?? 0) / 60)),
                     ]);
                     const csv =
                       '\uFEFF' +
