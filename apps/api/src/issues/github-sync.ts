@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type { IssueSeverity } from '../../../../packages/contracts/src/issues.js';
 
 export interface CreateGitHubIssueInput {
@@ -35,10 +37,39 @@ export class GitHubSyncService {
   }
 
   /**
-   * Creates a GitHub Issue for a newly reported bug
+   * Creates a GitHub Issue for a newly reported bug and forwards to Telegram Remote Hub inbox
    */
   async createIssue(input: CreateGitHubIssueInput): Promise<GitHubIssueResult> {
     const formattedTitle = `[${input.bugCode}] ${input.title}`;
+
+    // Forward web bug report to Telegram Remote Hub (.anty-bug-inbox.json) if running on a managed machine
+    try {
+      const hubInboxPath = path.resolve(process.cwd(), '../anty-remote-hub/.anty-bug-inbox.json');
+      const altInboxPath = '/Users/duongbinh/Projects/anty-remote-hub/.anty-bug-inbox.json';
+      const targetInbox = fs.existsSync(path.dirname(altInboxPath)) ? altInboxPath : hubInboxPath;
+      if (fs.existsSync(path.dirname(targetInbox)) && !process.env.NODE_TEST_CONTEXT) {
+        let inbox: unknown[] = [];
+        if (fs.existsSync(targetInbox)) {
+          inbox = JSON.parse(fs.readFileSync(targetInbox, 'utf8'));
+          if (!Array.isArray(inbox)) inbox = [];
+        }
+        inbox.push({
+          id: `${input.bugCode}-${Date.now()}`,
+          project: this.repo.split('/')[1] || 'management-lite',
+          bugCode: input.bugCode,
+          title: input.title,
+          description: input.description,
+          routeTemplate: input.routeTemplate,
+          severity: input.severity || 'P2',
+          geminiSummary: input.geminiSummary || '',
+          createdAt: new Date().toISOString(),
+          notified: false,
+        });
+        fs.writeFileSync(targetInbox, JSON.stringify(inbox.slice(-50), null, 2), 'utf8');
+      }
+    } catch {
+      // Never block web bug submission if hub folder is absent
+    }
 
     if (!this.isAvailable()) {
       // Graceful offline fallback
