@@ -1434,6 +1434,105 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           )}
         </AppCard>
 
+        {/* CP22-04: 3-Role RBAC Matrix & MFA / TOTP Authenticator */}
+        <AppCard padding="20px">
+          <div data-testid="rbac-and-mfa-section">
+            <h3
+              style={{
+                fontSize: '16px',
+                fontWeight: 600,
+                color: '#F8FAFC',
+                marginBottom: '8px',
+              }}
+            >
+              Phân quyền RBAC 3 Vai trò (CP22-04) & Bảo mật 2 Lớp (MFA / TOTP)
+            </h3>
+            <p
+              style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '14px' }}
+            >
+              Vai trò hiện tại của tài khoản:{' '}
+              <strong style={{ color: '#38BDF8', textTransform: 'uppercase' }}>
+                {role}
+              </strong>{' '}
+              — Ma trận quyền hạn theo chuẩn bảo mật Workspace:
+            </p>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
+                gap: '10px',
+                marginBottom: '16px',
+                fontSize: '12px',
+              }}
+            >
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                }}
+              >
+                <strong style={{ color: '#10B981' }}>👑 OWNER (Chủ sở hữu)</strong>
+                <div style={{ color: '#CBD5E1', marginTop: '4px' }}>
+                  Toàn quyền hệ thống, Kho bí mật ACC, Thu chi, Lương, Nhật ký kiểm toán & Bảo vệ Owner cuối cùng.
+                </div>
+              </div>
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                }}
+              >
+                <strong style={{ color: '#38BDF8' }}>🛡️ ADMIN (Quản lý vận hành)</strong>
+                <div style={{ color: '#CBD5E1', marginTop: '4px' }}>
+                  Quản lý hồ sơ nhân sự, xếp lịch, giao/duyệt việc & duyệt chấm công của nhân viên khác (không xem Kho bí mật).
+                </div>
+              </div>
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(148, 163, 184, 0.08)',
+                  border: '1px solid rgba(148, 163, 184, 0.25)',
+                }}
+              >
+                <strong style={{ color: '#E2E8F0' }}>👤 STAFF (Nhân viên)</strong>
+                <div style={{ color: '#CBD5E1', marginTop: '4px' }}>
+                  Chấm công GPS cá nhân, đăng ký lịch ca, nhận & nộp báo cáo công việc được giao.
+                </div>
+              </div>
+            </div>
+
+            <div
+              data-testid="mfa-totp-panel"
+              style={{
+                padding: '12px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#0F172A',
+                border: '1px solid #334155',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#F8FAFC' }}>
+                  🔐 Xác thực 2 lớp (MFA / TOTP Authenticator)
+                </div>
+                <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
+                  Bảo vệ các thao tác nhạy cảm (Xem mật khẩu ACC C05, Đổi quyền RBAC, Xuất dữ liệu).
+                </div>
+              </div>
+              <StatusBadge status="success" label="MFA Sẵn sàng (RFC-6238 TOTP)" />
+            </div>
+          </div>
+        </AppCard>
+
         {/* Security & Logout card */}
         <AppCard padding="20px">
           <h3

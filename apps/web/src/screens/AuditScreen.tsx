@@ -593,6 +593,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
             style={{
               display: 'flex',
               alignItems: 'center',
+              flexWrap: 'wrap',
               gap: TOKENS.spacing[3],
             }}
           >
@@ -603,6 +604,36 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
               </strong>{' '}
               sự kiện
             </span>
+            <AppButton
+              variant="secondary"
+              data-testid="btn-export-audit-csv"
+              onClick={() => {
+                const headers = ['ID', 'Thời gian', 'Hành động', 'Người thực hiện', 'Thực thể', 'Mã thực thể'];
+                const rows = events.map((ev) => [
+                  ev.id,
+                  formatEventTime(ev.created_at),
+                  ev.action,
+                  ev.actor_user_id || 'system',
+                  ev.entity_type || '',
+                  ev.entity_id || '',
+                ]);
+                const csvContent =
+                  '\uFEFF' +
+                  [headers, ...rows]
+                    .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                    .join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `audit-export-${new Date().toISOString().slice(0, 10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              disabled={loading || events.length === 0}
+            >
+              📥 Xuất Excel/CSV ({events.length})
+            </AppButton>
             <AppButton
               variant="secondary"
               data-testid="btn-refresh-audit"
