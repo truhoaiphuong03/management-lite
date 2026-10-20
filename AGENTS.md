@@ -13,7 +13,8 @@
   - [x] Hoàn tất bộ kiểm thử nghiệm thu tự động `tests/web/cp22-04-extensions.test.mjs` (PASS 100%) — Sẵn sàng đồng bộ MacBook ↔ Windows Server.
   - [x] Hợp nhất toàn bộ tính năng phát triển trên máy Windows (`anty/feat-storage-v2-google-drive` `c145f5c`) vào `main`: Storage V2 Google Drive (migration `0025`), Xác thực Email Brevo `/verify-email`, Lịch sử/Phê duyệt chấm công & Form Tài khoản nâng cao (migration `0024`).
   - [x] Cập nhật danh mục phát hành chính thức `v0.1.2` (`RELEASE_NOTES_CATALOG`) và đồng bộ tự động cả Backend API + Frontend Web + Migration trực tiếp lên `https://ql.hoaiphuong.click`.
+  - [x] Kết nối dữ liệu toàn diện hai chiều giữa `ql.hoaiphuong.click` (`management-lite` `v0.1.3`) và `hoaiphuong.click` (`tiktok-ai-factory-v4`): Đồng bộ Nhân sự/Tài khoản, Tự động quy đổi sản lượng Kịch bản/Prompt/Video sang Báo cáo & Công việc, và Liên kết Kênh TikTok & Kho Google Drive.
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
-  - Dự án `#1 QuảnLý` (`v0.1.2`) đã hoàn tất, đồng bộ 100% (5/5 giai đoạn) giữa 3 máy và phát hành trực tiếp lên `https://ql.hoaiphuong.click`. Sẵn sàng nhận yêu cầu mới!
+  - Hệ sinh thái `ql.hoaiphuong.click` (`v0.1.3`) ↔ `hoaiphuong.click` đã kết nối dữ liệu toàn diện, kiểm thử PASS 100% và phát hành tự động lên web. Sẵn sàng nhận yêu cầu mới!
 
 <!-- LIVE_CHECKPOINT_END -->

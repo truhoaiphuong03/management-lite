@@ -80,6 +80,7 @@ import { AuditService, AuditServiceError } from './audit/service.js';
 import { IssuesService } from './issues/service.js';
 import { FinanceService } from './finance/service.js';
 import { DashboardService } from './dashboard/service.js';
+import { BridgeService } from './bridge/service.js';
 import { ScopedApiCache } from './cache/api-cache.js';
 import { FinanceValidationError } from '../../../packages/contracts/src/finance.js';
 import type {
@@ -109,6 +110,7 @@ export interface AppDependencies {
   issuesService?: IssuesService;
   financeService?: FinanceService;
   dashboardService?: DashboardService;
+  bridgeService?: BridgeService;
   apiCache?: ScopedApiCache;
   accountSecretKey?: Buffer | undefined;
   csrfSecret?: string;
@@ -442,6 +444,9 @@ export function createRequestHandler(
   const dashboardService =
     deps.dashboardService ??
     (deps.pool ? new DashboardService(deps.pool) : null);
+  const bridgeService =
+    deps.bridgeService ??
+    (deps.pool ? new BridgeService(deps.pool) : null);
   const apiCache = deps.apiCache ?? new ScopedApiCache();
 
   return async (req: http.IncomingMessage, res: http.ServerResponse) => {
@@ -544,6 +549,83 @@ export function createRequestHandler(
         return sendJson(res, 200, createSuccessEnvelope(data, requestId), {
           'Cache-Control': 'private, no-store',
           'X-Cache': cacheStatus,
+        });
+      }
+
+      // Cross-System Bridge endpoints: ql.hoaiphuong.click <-> hoaiphuong.click
+      if (method === 'GET' && pathname === '/api/v1/bridge/public-summary') {
+        if (!bridgeService) {
+          return sendJson(
+            res,
+            200,
+            createSuccessEnvelope(
+              {
+                system: 'management-lite',
+                domain: 'https://ql.hoaiphuong.click',
+                workspace_name: 'Hoài Phương Studio',
+                active_employees: 0,
+                active_work_items: 0,
+                today_reports: 0,
+                storage_connected: false,
+              },
+              requestId,
+            ),
+          );
+        }
+        const summary = await bridgeService.getPublicSummary();
+        return sendJson(res, 200, createSuccessEnvelope(summary, requestId));
+      }
+
+      if (method === 'GET' && pathname === '/api/v1/bridge/tiktok-v4') {
+        if (!authService || !bridgeService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Bridge service unavailable',
+              requestId,
+            ),
+          );
+        }
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+          sessionCookieName,
+        );
+        const statusData = await bridgeService.getTikTokV4Status(sessionContext);
+        return sendJson(res, 200, createSuccessEnvelope(statusData, requestId), {
+          'Cache-Control': 'private, no-store',
+        });
+      }
+
+      if (method === 'POST' && pathname === '/api/v1/bridge/tiktok-v4/sync') {
+        if (!authService || !bridgeService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Bridge service unavailable',
+              requestId,
+            ),
+          );
+        }
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+          sessionCookieName,
+        );
+        requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+        const syncResult = await bridgeService.syncWithTikTokV4(
+          sessionContext,
+          requestId,
+        );
+        apiCache.invalidateWorkspace(sessionContext.workspace.id);
+        return sendJson(res, 200, createSuccessEnvelope(syncResult, requestId), {
+          'Cache-Control': 'private, no-store',
         });
       }
 

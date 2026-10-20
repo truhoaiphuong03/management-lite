@@ -99,6 +99,139 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       subtext: 'Chưa có dữ liệu ca làm việc',
     });
 
+  const [bridgeStatus, setBridgeStatus] = useState<{
+    connected: boolean;
+    last_synced_at: string | null;
+    counts: {
+      products: number;
+      channels: number;
+      scripts: number;
+      prompts: number;
+      audio_deliverables: number;
+      video_deliverables: number;
+      active_members: number;
+    };
+    management_lite: {
+      active_employees: number;
+      synced_work_items: number;
+      synced_daily_reports: number;
+      storage_drive_connected: boolean;
+      storage_google_email: string | null;
+    };
+  } | null>(null);
+  const [bridgeSyncing, setBridgeSyncing] = useState(false);
+  const [bridgeFeedback, setBridgeFeedback] = useState<string | null>(null);
+
+  const handleSyncTikTokV4 = async () => {
+    if (typeof fetch !== 'function' || bridgeSyncing) return;
+    setBridgeSyncing(true);
+    setBridgeFeedback(null);
+    try {
+      let csrfToken = '';
+      const sessionRes = await fetch('/api/v1/auth/session', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (sessionRes.ok) {
+        const sessionJson = (await sessionRes.json()) as {
+          data?: { csrf_token?: string };
+        };
+        csrfToken = sessionJson?.data?.csrf_token ?? '';
+      }
+
+      const syncRes = await fetch('/api/v1/bridge/tiktok-v4/sync', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+        },
+        body: JSON.stringify({}),
+      });
+      if (!syncRes.ok) {
+        throw new Error(`Đồng bộ thất bại (${syncRes.status})`);
+      }
+      const syncJson = (await syncRes.json()) as {
+        data?: {
+          employees_synced?: number;
+          reports_synced?: number;
+          work_items_synced?: number;
+        };
+      };
+      setBridgeFeedback(
+        `Đã đồng bộ thành công: ${syncJson?.data?.employees_synced ?? 0} nhân sự, ${syncJson?.data?.reports_synced ?? 0} báo cáo sản lượng, ${syncJson?.data?.work_items_synced ?? 0} công việc từ hoaiphuong.click.`,
+      );
+
+      const statusRes = await fetch('/api/v1/bridge/tiktok-v4', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (statusRes.ok) {
+        const statusJson = (await statusRes.json()) as {
+          data?: {
+            connected?: boolean;
+            last_synced_at?: string | null;
+            tiktok_v4?: {
+              counts?: {
+                products?: number;
+                channels?: number;
+                scripts?: number;
+                prompts?: number;
+                audio_deliverables?: number;
+                video_deliverables?: number;
+                active_members?: number;
+              };
+            };
+            management_lite?: {
+              active_employees?: number;
+              synced_work_items?: number;
+              synced_daily_reports?: number;
+              storage_drive_connected?: boolean;
+              storage_google_email?: string | null;
+            };
+          };
+        };
+        if (statusJson?.data) {
+          setBridgeStatus({
+            connected: Boolean(statusJson.data.connected),
+            last_synced_at: statusJson.data.last_synced_at ?? null,
+            counts: {
+              products: statusJson.data.tiktok_v4?.counts?.products ?? 0,
+              channels: statusJson.data.tiktok_v4?.counts?.channels ?? 0,
+              scripts: statusJson.data.tiktok_v4?.counts?.scripts ?? 0,
+              prompts: statusJson.data.tiktok_v4?.counts?.prompts ?? 0,
+              audio_deliverables:
+                statusJson.data.tiktok_v4?.counts?.audio_deliverables ?? 0,
+              video_deliverables:
+                statusJson.data.tiktok_v4?.counts?.video_deliverables ?? 0,
+              active_members:
+                statusJson.data.tiktok_v4?.counts?.active_members ?? 0,
+            },
+            management_lite: {
+              active_employees:
+                statusJson.data.management_lite?.active_employees ?? 0,
+              synced_work_items:
+                statusJson.data.management_lite?.synced_work_items ?? 0,
+              synced_daily_reports:
+                statusJson.data.management_lite?.synced_daily_reports ?? 0,
+              storage_drive_connected: Boolean(
+                statusJson.data.management_lite?.storage_drive_connected,
+              ),
+              storage_google_email:
+                statusJson.data.management_lite?.storage_google_email ?? null,
+            },
+          });
+        }
+      }
+    } catch (err) {
+      setBridgeFeedback(
+        err instanceof Error ? err.message : 'Không thể đồng bộ lúc này.',
+      );
+    } finally {
+      setBridgeSyncing(false);
+    }
+  };
+
   useEffect(() => {
     if (typeof fetch !== 'function') return;
     const controller = new AbortController();
@@ -409,7 +542,76 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       ]);
     };
 
+    const loadBridgeData = async () => {
+      try {
+        const res = await fetch('/api/v1/bridge/tiktok-v4', {
+          method: 'GET',
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!res.ok || !active) return;
+        const json = (await res.json()) as {
+          data?: {
+            connected?: boolean;
+            last_synced_at?: string | null;
+            tiktok_v4?: {
+              counts?: {
+                products?: number;
+                channels?: number;
+                scripts?: number;
+                prompts?: number;
+                audio_deliverables?: number;
+                video_deliverables?: number;
+                active_members?: number;
+              };
+            };
+            management_lite?: {
+              active_employees?: number;
+              synced_work_items?: number;
+              synced_daily_reports?: number;
+              storage_drive_connected?: boolean;
+              storage_google_email?: string | null;
+            };
+          };
+        };
+        if (json?.data && active) {
+          setBridgeStatus({
+            connected: Boolean(json.data.connected),
+            last_synced_at: json.data.last_synced_at ?? null,
+            counts: {
+              products: json.data.tiktok_v4?.counts?.products ?? 0,
+              channels: json.data.tiktok_v4?.counts?.channels ?? 0,
+              scripts: json.data.tiktok_v4?.counts?.scripts ?? 0,
+              prompts: json.data.tiktok_v4?.counts?.prompts ?? 0,
+              audio_deliverables:
+                json.data.tiktok_v4?.counts?.audio_deliverables ?? 0,
+              video_deliverables:
+                json.data.tiktok_v4?.counts?.video_deliverables ?? 0,
+              active_members:
+                json.data.tiktok_v4?.counts?.active_members ?? 0,
+            },
+            management_lite: {
+              active_employees:
+                json.data.management_lite?.active_employees ?? 0,
+              synced_work_items:
+                json.data.management_lite?.synced_work_items ?? 0,
+              synced_daily_reports:
+                json.data.management_lite?.synced_daily_reports ?? 0,
+              storage_drive_connected: Boolean(
+                json.data.management_lite?.storage_drive_connected,
+              ),
+              storage_google_email:
+                json.data.management_lite?.storage_google_email ?? null,
+            },
+          });
+        }
+      } catch {
+        // Ignore bridge poll error in offline mode
+      }
+    };
+
     void loadSummary();
+    void loadBridgeData();
 
     return () => {
       active = false;
@@ -888,6 +1090,211 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
           <div style={{ fontSize: '13px', color: '#94A3B8' }}>
             Tùy chọn hiển thị & tài khoản
+          </div>
+        </AppCard>
+      </div>
+
+      {/* Cross-System Data Bridge: ql.hoaiphuong.click <-> hoaiphuong.click */}
+      <div style={{ marginTop: '28px' }}>
+        <AppCard padding="20px">
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '16px',
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <h2
+                  style={{
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                    margin: 0,
+                  }}
+                >
+                  Kết nối dữ liệu TikTok AI Factory (hoaiphuong.click)
+                </h2>
+                <StatusBadge
+                  status={bridgeStatus?.connected ? 'success' : 'neutral'}
+                  label={
+                    bridgeStatus?.connected
+                      ? 'Đã kết nối liên thông'
+                      : 'Sẵn sàng đồng bộ'
+                  }
+                />
+              </div>
+              <div
+                style={{
+                  fontSize: '13px',
+                  color: '#94A3B8',
+                  marginTop: '4px',
+                }}
+              >
+                Đồng bộ tự động Nhân sự, Sản lượng Kịch bản/Prompt/Video và Kho lưu trữ Google Drive giữa ql.hoaiphuong.click và hoaiphuong.click
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {role === 'owner' && (
+                <AppButton
+                  variant="primary"
+                  onClick={() => void handleSyncTikTokV4()}
+                  disabled={bridgeSyncing}
+                >
+                  {bridgeSyncing
+                    ? 'Đang đồng bộ...'
+                    : 'Đồng bộ toàn diện ngay'}
+                </AppButton>
+              )}
+              <AppButton
+                variant="secondary"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.open(
+                      'https://hoaiphuong.click',
+                      '_blank',
+                      'noopener,noreferrer',
+                    );
+                  }
+                }}
+              >
+                Mở hoaiphuong.click
+              </AppButton>
+            </div>
+          </div>
+
+          {bridgeFeedback && (
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                border: '1px solid rgba(20, 184, 166, 0.35)',
+                color: '#5EEAD4',
+                fontSize: '13px',
+                marginBottom: '16px',
+              }}
+            >
+              {bridgeFeedback}
+            </div>
+          )}
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+              gap: '12px',
+            }}
+          >
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Nhân sự &amp; Member đồng bộ
+              </div>
+              <div
+                style={{
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  color: '#F8FAFC',
+                  marginTop: '4px',
+                }}
+              >
+                {bridgeStatus?.counts.active_members ?? '--'}
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Sản phẩm &amp; Kênh TikTok
+              </div>
+              <div
+                style={{
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  color: '#F8FAFC',
+                  marginTop: '4px',
+                }}
+              >
+                {bridgeStatus
+                  ? `${bridgeStatus.counts.products} SP / ${bridgeStatus.counts.channels} Kênh`
+                  : '--'}
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Kịch bản &amp; Prompt AI
+              </div>
+              <div
+                style={{
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  color: '#F8FAFC',
+                  marginTop: '4px',
+                }}
+              >
+                {bridgeStatus
+                  ? `${bridgeStatus.counts.scripts} KB / ${bridgeStatus.counts.prompts} Prompt`
+                  : '--'}
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Thành phẩm Video / Audio Drive
+              </div>
+              <div
+                style={{
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  color: '#F8FAFC',
+                  marginTop: '4px',
+                }}
+              >
+                {bridgeStatus
+                  ? `${bridgeStatus.counts.video_deliverables} MP4 / ${bridgeStatus.counts.audio_deliverables} WAV`
+                  : '--'}
+              </div>
+            </div>
           </div>
         </AppCard>
       </div>
