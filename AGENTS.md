@@ -14,4 +14,5 @@
   - [x] Hợp nhất toàn bộ tính năng phát triển trên máy Windows (`anty/feat-storage-v2-google-drive` `c145f5c`) vào `main`: Storage V2 Google Drive (migration `0025`), Xác thực Email Brevo `/verify-email`, Lịch sử/Phê duyệt chấm công & Form Tài khoản nâng cao (migration `0024`).
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
   - Dự án `#1 QuảnLý` đã hoàn tất & đồng bộ 100% (5/5 giai đoạn) giữa Windows & MacBook — Sẵn sàng thực thi nhiệm vụ tiếp theo hoặc triển khai bản phát hành.
+  - [x] [WIN-1 • 2026-10-20 06:23] Tiến hành nâng cấp dự án
 <!-- LIVE_CHECKPOINT_END -->
