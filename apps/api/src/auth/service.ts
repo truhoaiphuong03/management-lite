@@ -1138,6 +1138,10 @@ export class AuthService {
     const genericResponse: {
       message: string;
       delivery_status: 'EMAIL_DELIVERY_BLOCKED' | 'EMAIL_DELIVERY_PENDING';
+      delivered?: boolean;
+      sent_to?: string;
+      sent_from?: string;
+      expires_in_minutes?: number;
     } = {
       message:
         'Nếu email tồn tại trong hệ thống và hợp lệ, hướng dẫn đặt lại mật khẩu đã được xử lý.',
@@ -1461,11 +1465,17 @@ export class AuthService {
     email: string;
     clientIp: string;
     requestId: string;
+    /** Only true for an authenticated session requesting its own email (no enumeration risk). */
+    revealDelivery?: boolean;
   }): Promise<{
     message: string;
     delivery_status: 'EMAIL_DELIVERY_BLOCKED' | 'EMAIL_DELIVERY_PENDING';
+    delivered?: boolean;
+    sent_to?: string;
+    sent_from?: string;
+    expires_in_minutes?: number;
   }> {
-    const { email, clientIp, requestId } = params;
+    const { email, clientIp, requestId, revealDelivery = false } = params;
 
     if (!email || typeof email !== 'string' || email.trim().length === 0) {
       throw new AuthError('VALIDATION_ERROR', 'Email is required', 400, [
@@ -1594,6 +1604,7 @@ export class AuthService {
 
       await client.query('COMMIT');
 
+      let deliveryAccepted = false;
       if (this.resetMailer) {
         let delivery: 'accepted' | 'failed' = 'failed';
         try {
@@ -1604,6 +1615,7 @@ export class AuthService {
           /* sanitized below */
         }
 
+        deliveryAccepted = delivery === 'accepted';
         if (delivery === 'failed') {
           await client.query(
             `UPDATE email_verifications
@@ -1628,6 +1640,20 @@ export class AuthService {
         });
       }
 
+      if (revealDelivery) {
+        const [localPart = '', domain = ''] = normalizedEmail.split('@');
+        const maskedLocal =
+          localPart.length <= 2
+            ? `${localPart.slice(0, 1)}***`
+            : `${localPart.slice(0, 2)}***${localPart.slice(-1)}`;
+        return {
+          ...genericResponse,
+          delivered: Boolean(this.resetMailer) && deliveryAccepted,
+          sent_to: `${maskedLocal}@${domain}`,
+          sent_from: 'no-reply@hoaiphuong.click',
+          expires_in_minutes: 15,
+        };
+      }
       return genericResponse;
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});

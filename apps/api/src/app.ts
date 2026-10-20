@@ -1560,17 +1560,22 @@ export function createRequestHandler(
         assertAllowedFields(body, ['email']);
 
         let email = typeof body['email'] === 'string' ? body['email'].trim() : '';
-        if (!email) {
-          try {
-            const sessionContext = await requireAuth(
-              authService,
-              req,
-              isProduction,
-            );
+        let revealDelivery = false;
+        try {
+          const sessionContext = await requireAuth(
+            authService,
+            req,
+            isProduction,
+          );
+          if (
+            !email ||
+            email.toLowerCase() === sessionContext.user.email.toLowerCase()
+          ) {
             email = sessionContext.user.email;
-          } catch {
-            // Fall through to validation error inside requestEmailVerification if unauthenticated and no email provided
+            revealDelivery = true;
           }
+        } catch {
+          // Unauthenticated: anti-enumeration generic response only
         }
 
         const clientIp = getClientIp(req, trustedProxies);
@@ -1578,6 +1583,7 @@ export function createRequestHandler(
           email,
           clientIp,
           requestId,
+          revealDelivery,
         });
 
         return sendJson(res, 200, createSuccessEnvelope(result, requestId));

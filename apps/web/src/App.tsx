@@ -95,6 +95,17 @@ export const App: React.FC = () => {
   const [resendBannerState, setResendBannerState] = useState<
     'idle' | 'sending' | 'sent' | 'error'
   >('idle');
+  const [verifyInfo, setVerifyInfo] = useState<{
+    delivered: boolean | null;
+    sentTo: string | null;
+    sentFrom: string | null;
+    expires: number;
+  } | null>(null);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [verifyCodeState, setVerifyCodeState] = useState<
+    'idle' | 'submitting' | 'success' | 'failed'
+  >('idle');
+  const [verifyCodeError, setVerifyCodeError] = useState<string | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | undefined>(undefined);
   const [workspaceName, setWorkspaceName] = useState<string | undefined>(
     undefined,
@@ -744,6 +755,24 @@ export const App: React.FC = () => {
                       },
                     );
                     setResendBannerState(res.ok ? 'sent' : 'error');
+                    if (res.ok) {
+                      const json = await res.json().catch(() => null);
+                      const d = json?.data ?? {};
+                      setVerifyCode('');
+                      setVerifyCodeState('idle');
+                      setVerifyCodeError(null);
+                      setVerifyInfo({
+                        delivered:
+                          typeof d.delivered === 'boolean' ? d.delivered : null,
+                        sentTo: typeof d.sent_to === 'string' ? d.sent_to : null,
+                        sentFrom:
+                          typeof d.sent_from === 'string' ? d.sent_from : null,
+                        expires:
+                          typeof d.expires_in_minutes === 'number'
+                            ? d.expires_in_minutes
+                            : 15,
+                      });
+                    }
                   } catch {
                     setResendBannerState('error');
                   }
@@ -766,7 +795,17 @@ export const App: React.FC = () => {
               <button
                 type="button"
                 data-testid="open-verify-email-page-btn"
-                onClick={() => handleNavigate('/verify-email')}
+                onClick={() =>
+                  setVerifyInfo(
+                    (prev) =>
+                      prev ?? {
+                        delivered: null,
+                        sentTo: null,
+                        sentFrom: null,
+                        expires: 15,
+                      },
+                  )
+                }
                 style={{
                   backgroundColor: 'transparent',
                   color: '#F8FAFC',
@@ -780,6 +819,208 @@ export const App: React.FC = () => {
               >
                 Nhập mã xác minh
               </button>
+            </div>
+          </div>
+        )}
+        {isLoggedIn && emailVerified === false && verifyInfo && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Xác minh email"
+            data-testid="verify-email-code-dialog"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(2, 6, 23, 0.7)',
+              padding: '16px',
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '440px',
+                backgroundColor: '#0F172A',
+                border: '1px solid #334155',
+                borderRadius: '12px',
+                padding: '20px',
+                color: '#F8FAFC',
+              }}
+            >
+              <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>
+                Xác minh email tài khoản
+              </h3>
+              {verifyInfo.delivered === true && (
+                <div
+                  data-testid="verify-email-sent-notice"
+                  style={{
+                    background: 'rgba(16,185,129,0.12)',
+                    border: '1px solid #10B981',
+                    color: '#6EE7B7',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    fontSize: '13px',
+                    marginBottom: '12px',
+                  }}
+                >
+                  ✅ Đã gửi mail xác minh thành công tới{' '}
+                  <strong>{verifyInfo.sentTo}</strong>
+                  {verifyInfo.sentFrom ? ` (gửi từ ${verifyInfo.sentFrom})` : ''}.
+                  Mã có hiệu lực {verifyInfo.expires} phút. Vui lòng mở hộp thư
+                  này và nhập mã bên dưới.
+                </div>
+              )}
+              {verifyInfo.delivered === false && (
+                <div
+                  style={{
+                    background: 'rgba(239,68,68,0.12)',
+                    border: '1px solid #EF4444',
+                    color: '#FCA5A5',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    fontSize: '13px',
+                    marginBottom: '12px',
+                  }}
+                >
+                  ❌ Không gửi được mail tới <strong>{verifyInfo.sentTo}</strong>.
+                  Vui lòng kiểm tra địa chỉ email tài khoản hoặc thử gửi lại.
+                </div>
+              )}
+              {verifyInfo.delivered === null && (
+                <div
+                  style={{
+                    fontSize: '13px',
+                    color: '#CBD5E1',
+                    marginBottom: '12px',
+                  }}
+                >
+                  Nhập mã xác minh đã nhận trong email{' '}
+                  {userEmail ? <strong>{userEmail}</strong> : 'của bạn'}.
+                </div>
+              )}
+              {userEmail && /\.local$/i.test(userEmail) && (
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#FBBF24',
+                    marginBottom: '12px',
+                  }}
+                >
+                  ⚠️ Email tài khoản hiện tại ({userEmail}) là địa chỉ nội bộ,
+                  không thể nhận thư. Hãy đổi sang email thật trong Hồ sơ trước
+                  khi xác minh.
+                </div>
+              )}
+              <label
+                htmlFor="verify-code-input"
+                style={{ fontSize: '12px', color: '#94A3B8' }}
+              >
+                Mã xác minh
+              </label>
+              <input
+                id="verify-code-input"
+                data-testid="verify-email-code-input"
+                value={verifyCode}
+                autoFocus
+                autoComplete="one-time-code"
+                onChange={(e) => setVerifyCode(e.target.value)}
+                placeholder="Dán mã xác minh từ email"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  margin: '4px 0 8px',
+                  padding: '10px 12px',
+                  fontSize: '16px',
+                  borderRadius: '8px',
+                  border: '1px solid #475569',
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                }}
+              />
+              {verifyCodeError && (
+                <div
+                  role="alert"
+                  style={{ color: '#FCA5A5', fontSize: '12px', marginBottom: '8px' }}
+                >
+                  {verifyCodeError}
+                </div>
+              )}
+              {verifyCodeState === 'success' && (
+                <div style={{ color: '#6EE7B7', fontSize: '13px', marginBottom: '8px' }}>
+                  ✅ Xác minh email thành công!
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setVerifyInfo(null)}
+                  style={{
+                    background: 'transparent',
+                    color: '#F8FAFC',
+                    border: '1px solid #475569',
+                    borderRadius: '6px',
+                    padding: '8px 14px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  data-testid="verify-email-code-submit"
+                  disabled={
+                    verifyCodeState === 'submitting' || !verifyCode.trim()
+                  }
+                  onClick={async () => {
+                    setVerifyCodeState('submitting');
+                    setVerifyCodeError(null);
+                    try {
+                      const res = await fetch(
+                        '/api/v1/auth/verify-email/confirm',
+                        {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({ token: verifyCode.trim() }),
+                        },
+                      );
+                      if (!res.ok) {
+                        const j = await res.json().catch(() => null);
+                        const code = j?.error?.code;
+                        setVerifyCodeState('failed');
+                        setVerifyCodeError(
+                          code === 'TOKEN_EXPIRED'
+                            ? 'Mã đã hết hạn. Vui lòng bấm "Gửi lại email xác minh".'
+                            : code === 'RATE_LIMITED'
+                              ? 'Nhập sai quá nhiều lần. Vui lòng thử lại sau ít phút.'
+                              : 'Mã xác minh không đúng hoặc đã được sử dụng.',
+                        );
+                        return;
+                      }
+                      setVerifyCodeState('success');
+                      await verifySession();
+                      setTimeout(() => setVerifyInfo(null), 1200);
+                    } catch {
+                      setVerifyCodeState('failed');
+                      setVerifyCodeError('Lỗi kết nối máy chủ. Vui lòng thử lại.');
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#14B8A6',
+                    color: '#0F172A',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 14px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {verifyCodeState === 'submitting' ? 'Đang xác nhận...' : 'Xác nhận'}
+                </button>
+              </div>
             </div>
           </div>
         )}
