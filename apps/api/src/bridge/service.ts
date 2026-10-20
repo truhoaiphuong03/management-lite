@@ -155,6 +155,17 @@ function createFallbackTikTokSummary(): TikTokV4SummaryPayload {
   };
 }
 
+function normalizeStudioWorkspaceName(rawName: string | null | undefined): string {
+  const trimmed = (rawName ?? '').trim();
+  if (
+    !trimmed ||
+    /synthetic|not real data|acceptance|test/i.test(trimmed)
+  ) {
+    return 'Hoài Phương Studio';
+  }
+  return trimmed;
+}
+
 export class BridgeService {
   constructor(private readonly pool: DatabasePool) {}
 
@@ -238,9 +249,23 @@ export class BridgeService {
   }> {
     try {
       const wsRes = await this.pool.query<{ id: string; name: string }>(
-        `SELECT id, name FROM workspaces WHERE status = 'active' ORDER BY created_at ASC LIMIT 1`,
+        `SELECT w.id, w.name
+         FROM workspaces w
+         WHERE w.status = 'active'
+           AND w.name NOT ILIKE '%SYNTHETIC%'
+           AND w.name NOT ILIKE '%NOT REAL DATA%'
+         ORDER BY
+           (SELECT COUNT(*) FROM employees e WHERE e.workspace_id = w.id AND e.employment_status = 'active') DESC,
+           w.created_at ASC
+         LIMIT 1`,
       );
-      const ws = wsRes.rows[0];
+      let ws = wsRes.rows[0];
+      if (!ws) {
+        const fallbackRes = await this.pool.query<{ id: string; name: string }>(
+          `SELECT id, name FROM workspaces WHERE status = 'active' ORDER BY created_at ASC LIMIT 1`,
+        );
+        ws = fallbackRes.rows[0];
+      }
       if (!ws) {
         return {
           system: 'management-lite',
@@ -277,7 +302,7 @@ export class BridgeService {
       return {
         system: 'management-lite',
         domain: 'https://ql.hoaiphuong.click',
-        workspace_name: ws.name,
+        workspace_name: normalizeStudioWorkspaceName(ws.name),
         active_employees: parseInt(empRes.rows[0]?.cnt ?? '0', 10) || 0,
         active_work_items: parseInt(workRes.rows[0]?.cnt ?? '0', 10) || 0,
         today_reports: parseInt(repRes.rows[0]?.cnt ?? '0', 10) || 0,
@@ -360,7 +385,7 @@ export class BridgeService {
       },
       management_lite: {
         workspace_id: auth.workspace.id,
-        workspace_name: wsRes.rows[0]?.name ?? 'Hoài Phương Studio',
+        workspace_name: normalizeStudioWorkspaceName(wsRes.rows[0]?.name),
         active_employees: activeEmployees,
         synced_work_items: parseInt(workRes.rows[0]?.cnt ?? '0', 10) || 0,
         synced_daily_reports: parseInt(repRes.rows[0]?.cnt ?? '0', 10) || 0,
