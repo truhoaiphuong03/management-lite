@@ -1,6 +1,6 @@
 {
   "name": "management-lite",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "packageManager": "npm@10.9.2",

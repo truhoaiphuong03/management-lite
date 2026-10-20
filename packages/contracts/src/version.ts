@@ -41,8 +41,27 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.1.1',
+    version: '0.1.2',
     commit: 'latest',
+    released_at: '2026-10-20T14:00:00.000Z',
+    summary:
+      'Hợp nhất toàn diện Storage V2 Google Drive, Phân quyền RBAC 3 vai trò (Owner/Admin/Staff), 4 tính năng mở rộng (Export Excel/CSV, Audit Export, GPS Geofencing, MFA/TOTP), Xác thực Email Brevo và Tự động phát hành GitHub ➔ Web Live.',
+    added: [
+      'Storage V2 Google Drive (migration 0025): kết nối Google Drive OAuth, cấp/thu hồi quyền thư mục, tải lên video phân đoạn và phê duyệt tệp lưu trữ.',
+      'Phân quyền RBAC 3 vai trò (Owner / Admin / Staff) và 4 tính năng mở rộng: Xuất báo cáo Excel/CSV, Xuất nhật ký kiểm toán, Chấm công GPS Geofencing và Bảo mật 2 lớp MFA/TOTP.',
+      'Xác thực Email qua Brevo (/verify-email), Lịch sử & Phê duyệt chấm công nâng cao và Biểu mẫu Kho Tài Khoản mở rộng (migration 0024).',
+    ],
+    improved: [
+      'Chuẩn hóa bố cục Responsive Mobile P0 (320px–Desktop) trên toàn bộ 14 màn hình quản trị.',
+      'Tự động hóa luồng đẩy GitHub và cập nhật đồng thời Backend API + Frontend Web + Migration trực tiếp lên ql.hoaiphuong.click.',
+    ],
+    fixed: [
+      'Đồng bộ tức thì mã phiên bản (release-version.json & running-components-sha.json) giữa Backend API và Frontend Web sau mỗi lần phát hành.',
+    ],
+  },
+  {
+    version: '0.1.1',
+    commit: 'c771cf9',
     released_at: '2026-10-16T00:15:00.000Z',
     summary:
       'Gia cố bảo mật cổng phát hành P0 (SCOPED_WINDOW tối đa 10 lần/7 ngày, mã hóa DPAPI cho GitHub PAT, khóa cứng NTFS ACL OWNER RIGHTS:RX và bảo toàn toàn bộ dịch vụ/backup).',
