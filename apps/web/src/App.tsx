@@ -100,6 +100,7 @@ export const App: React.FC = () => {
     sentTo: string | null;
     sentFrom: string | null;
     expires: number;
+    error?: string | null;
   } | null>(null);
   const [verifyCode, setVerifyCode] = useState('');
   const [verifyCodeState, setVerifyCodeState] = useState<
@@ -771,6 +772,10 @@ export const App: React.FC = () => {
                           typeof d.expires_in_minutes === 'number'
                             ? d.expires_in_minutes
                             : 15,
+                        error:
+                          typeof d.delivery_error === 'string'
+                            ? d.delivery_error
+                            : null,
                       });
                     }
                   } catch {
@@ -887,6 +892,11 @@ export const App: React.FC = () => {
                 >
                   ❌ Không gửi được mail tới <strong>{verifyInfo.sentTo}</strong>.
                   Vui lòng kiểm tra địa chỉ email tài khoản hoặc thử gửi lại.
+                  {verifyInfo.error && (
+                    <div style={{ marginTop: '6px', fontSize: '12px', opacity: 0.85 }}>
+                      Lý do kỹ thuật: {verifyInfo.error === 'mailer_not_configured' ? 'máy chủ chưa cấu hình dịch vụ gửi mail (thiếu BREVO_API_KEY)' : verifyInfo.error === 'http_401' ? 'khóa Brevo không hợp lệ' : verifyInfo.error === 'http_400' ? 'địa chỉ gửi/nhận bị Brevo từ chối (sender chưa xác thực?)' : verifyInfo.error}
+                    </div>
+                  )}
                 </div>
               )}
               {verifyInfo.delivered === null && (

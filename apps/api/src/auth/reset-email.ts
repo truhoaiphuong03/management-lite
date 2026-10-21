@@ -3,6 +3,8 @@ import crypto from 'node:crypto';
 export interface PasswordResetMailer {
   send(to: string, token: string): Promise<'accepted' | 'failed'>;
   sendVerification?(to: string, token: string): Promise<'accepted' | 'failed'>;
+  /** Non-secret reason code of the most recent failed send (e.g. http_401). */
+  lastFailure?: string | undefined;
 }
 
 function createMailReferenceCode(): string {
@@ -50,6 +52,8 @@ export function createBrevoResetMailer(
   )
     throw new Error('Invalid password recovery email configuration');
 
+  const state: { lastFailure?: string } = {};
+
   async function postBrevoTextEmail(
     to: string,
     subject: string,
@@ -76,13 +80,19 @@ export function createBrevoResetMailer(
       });
       const accepted = response.status === 201;
       await response.body?.cancel();
+      if (accepted) delete state.lastFailure;
+      else state.lastFailure = `http_${response.status}`;
       return accepted ? 'accepted' : 'failed';
     } catch {
+      state.lastFailure = 'network_error';
       return 'failed';
     }
   }
 
   return {
+    get lastFailure() {
+      return state.lastFailure;
+    },
     async send(to, token) {
       const refCode = createMailReferenceCode();
       const now = new Date();

@@ -1342,6 +1342,7 @@ export class AuthService {
       message: string;
       delivery_status: 'EMAIL_DELIVERY_BLOCKED' | 'EMAIL_DELIVERY_PENDING';
       delivered?: boolean;
+      delivery_error?: string;
       sent_to?: string;
       sent_from?: string;
       expires_in_minutes?: number;
@@ -1674,6 +1675,7 @@ export class AuthService {
     message: string;
     delivery_status: 'EMAIL_DELIVERY_BLOCKED' | 'EMAIL_DELIVERY_PENDING';
     delivered?: boolean;
+    delivery_error?: string;
     sent_to?: string;
     sent_from?: string;
     expires_in_minutes?: number;
@@ -1808,6 +1810,9 @@ export class AuthService {
       await client.query('COMMIT');
 
       let deliveryAccepted = false;
+      let deliveryError: string | undefined = this.resetMailer
+        ? undefined
+        : 'mailer_not_configured';
       if (this.resetMailer) {
         let delivery: 'accepted' | 'failed' = 'failed';
         try {
@@ -1819,6 +1824,9 @@ export class AuthService {
         }
 
         deliveryAccepted = delivery === 'accepted';
+        if (!deliveryAccepted) {
+          deliveryError = this.resetMailer.lastFailure || 'send_failed';
+        }
         if (delivery === 'failed') {
           await client.query(
             `UPDATE email_verifications
@@ -1852,6 +1860,7 @@ export class AuthService {
         return {
           ...genericResponse,
           delivered: Boolean(this.resetMailer) && deliveryAccepted,
+          ...(deliveryError ? { delivery_error: deliveryError } : {}),
           sent_to: `${maskedLocal}@${domain}`,
           sent_from: 'no-reply@hoaiphuong.click',
           expires_in_minutes: 15,
