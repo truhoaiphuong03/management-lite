@@ -5,6 +5,7 @@ export interface EmployeeUserData {
   username: string;
   email: string;
   status: string;
+  email_verified?: boolean;
 }
 
 export interface EmployeeData {
@@ -13,6 +14,7 @@ export interface EmployeeData {
   user_id: string | null;
   employee_code: string;
   full_name: string;
+  phone?: string | null;
   employment_status: EmploymentStatus;
   is_payroll_eligible: boolean;
   version: number;

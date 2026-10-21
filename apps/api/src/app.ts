@@ -1371,6 +1371,44 @@ export function createRequestHandler(
         );
       }
 
+      // 6B. PATCH /api/v1/auth/profile (self-service profile: name, phone, email)
+      if (method === 'PATCH' && pathname === '/api/v1/auth/profile') {
+        if (!authService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Authentication service is unavailable',
+              requestId,
+            ),
+          );
+        }
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+          sessionCookieName,
+        );
+        requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, [
+          'full_name',
+          'phone',
+          'email',
+          'current_password',
+        ]);
+        const result = await authService.updateProfile({
+          context: sessionContext,
+          fullName: body['full_name'],
+          phone: body['phone'],
+          email: body['email'],
+          currentPassword: body['current_password'],
+          requestId,
+        });
+        return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+      }
+
       // 7. POST /api/v1/auth/password/change (and aliases /api/v1/auth/password, /api/v1/auth/change-password)
       const isPasswordChangeRoute =
         pathname === '/api/v1/auth/password/change' ||

@@ -785,6 +785,209 @@ export class AuthService {
   }
 
   /**
+   * Self-service profile update (full name, phone, email).
+   * Changing the email requires the current password, enforces uniqueness,
+   * and resets email verification so the new address must be re-verified.
+   */
+  public async updateProfile(params: {
+    context: AuthenticatedContext;
+    fullName?: unknown;
+    phone?: unknown;
+    email?: unknown;
+    currentPassword?: unknown;
+    requestId: string;
+  }): Promise<{
+    message: string;
+    full_name: string | null;
+    phone: string | null;
+    email: string;
+    email_verified: boolean;
+    email_changed: boolean;
+  }> {
+    const { context, requestId } = params;
+    const invalid = (field: string, message: string): never => {
+      throw new AuthError('VALIDATION_ERROR', message, 400, [
+        { field, message },
+      ]);
+    };
+
+    let fullName: string | undefined;
+    if (params.fullName !== undefined) {
+      if (typeof params.fullName !== 'string') invalid('full_name', 'Họ tên không hợp lệ');
+      fullName = (params.fullName as string).trim();
+      if (fullName.length < 2 || fullName.length > 120)
+        invalid('full_name', 'Họ tên phải từ 2 đến 120 ký tự');
+    }
+
+    let phone: string | null | undefined;
+    if (params.phone !== undefined) {
+      if (params.phone === null || params.phone === '') {
+        phone = null;
+      } else {
+        if (typeof params.phone !== 'string') invalid('phone', 'Số điện thoại không hợp lệ');
+        const compact = (params.phone as string).replace(/[\s.\-()]/g, '');
+        if (!/^\+?[0-9]{8,15}$/.test(compact))
+          invalid('phone', 'Số điện thoại phải gồm 8–15 chữ số');
+        phone = compact;
+      }
+    }
+
+    let newEmail: string | undefined;
+    if (params.email !== undefined) {
+      if (typeof params.email !== 'string') invalid('email', 'Email không hợp lệ');
+      const e = (params.email as string).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || e.length > 254)
+        invalid('email', 'Địa chỉ email không đúng định dạng');
+      newEmail = e;
+    }
+
+    if (fullName === undefined && phone === undefined && newEmail === undefined) {
+      invalid('profile', 'Không có thông tin nào để cập nhật');
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const userRes = await client.query<{
+        email_normalized: string;
+        email_verified: boolean;
+      }>(
+        `SELECT email_normalized, email_verified FROM users WHERE id = $1 FOR UPDATE;`,
+        [context.user.id],
+      );
+      const userRow = userRes.rows[0];
+      if (!userRow) {
+        throw new AuthError('UNAUTHENTICATED', 'Session no longer valid', 401);
+      }
+
+      let emailChanged = false;
+      let emailVerified = userRow.email_verified;
+      let currentEmail = userRow.email_normalized;
+
+      if (newEmail !== undefined && newEmail !== userRow.email_normalized) {
+        if (
+          typeof params.currentPassword !== 'string' ||
+          params.currentPassword.length === 0
+        ) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'Cần nhập mật khẩu hiện tại để đổi email',
+            400,
+            [{ field: 'current_password', message: 'Bắt buộc khi đổi email' }],
+          );
+        }
+        const credRes = await client.query<{ password_hash: string }>(
+          `SELECT password_hash FROM user_credentials WHERE user_id = $1;`,
+          [context.user.id],
+        );
+        const hash = credRes.rows[0]?.password_hash;
+        if (!hash || !(await verifyPassword(params.currentPassword, hash))) {
+          throw new AuthError(
+            'INVALID_CREDENTIALS',
+            'Mật khẩu hiện tại không đúng',
+            401,
+          );
+        }
+        const dup = await client.query(
+          `SELECT 1 FROM users WHERE email_normalized = $1 AND id <> $2;`,
+          [newEmail, context.user.id],
+        );
+        if (dup.rowCount) {
+          throw new AuthError(
+            'CONFLICT',
+            'Email này đã được sử dụng bởi tài khoản khác',
+            409,
+          );
+        }
+        await client.query(
+          `UPDATE users
+           SET email_normalized = $1,
+               email_verified = false,
+               email_verified_at = NULL,
+               email_verification_proof = NULL,
+               version = version + 1
+           WHERE id = $2;`,
+          [newEmail, context.user.id],
+        );
+        await client.query(
+          `UPDATE email_verifications
+           SET proof_type = 'token_revoked'
+           WHERE user_id = $1 AND verified_at IS NULL AND proof_type = 'token_confirmation';`,
+          [context.user.id],
+        );
+        emailChanged = true;
+        emailVerified = false;
+        currentEmail = newEmail;
+      }
+
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+      if (fullName !== undefined) {
+        vals.push(fullName);
+        sets.push(`full_name = $${vals.length}`);
+      }
+      if (phone !== undefined) {
+        vals.push(phone);
+        sets.push(`phone = $${vals.length}`);
+      }
+      let resultName: string | null = fullName ?? null;
+      let resultPhone: string | null = phone ?? null;
+      if (sets.length > 0) {
+        vals.push(context.workspace.id, context.user.id);
+        const upd = await client.query<{ full_name: string; phone: string | null }>(
+          `UPDATE employees
+           SET ${sets.join(', ')}, version = version + 1, updated_at = now()
+           WHERE workspace_id = $${vals.length - 1} AND user_id = $${vals.length}
+           RETURNING full_name, phone;`,
+          vals,
+        );
+        if (!upd.rowCount) {
+          throw new AuthError(
+            'NOT_FOUND',
+            'Không tìm thấy hồ sơ nhân sự để cập nhật',
+            404,
+          );
+        }
+        resultName = upd.rows[0]!.full_name;
+        resultPhone = upd.rows[0]!.phone;
+      }
+
+      await recordAuditEvent(client, {
+        workspaceId: context.workspace.id,
+        actorUserId: context.user.id,
+        action: 'auth.profile_updated',
+        entityType: 'user',
+        entityId: context.user.id,
+        requestId,
+        metadata: {
+          fields: [
+            ...(fullName !== undefined ? ['full_name'] : []),
+            ...(phone !== undefined ? ['phone'] : []),
+            ...(emailChanged ? ['email'] : []),
+          ],
+        },
+      });
+
+      await client.query('COMMIT');
+      return {
+        message: emailChanged
+          ? 'Đã cập nhật thông tin. Email mới cần được xác minh lại.'
+          : 'Đã cập nhật thông tin cá nhân.',
+        full_name: resultName,
+        phone: resultPhone,
+        email: currentEmail,
+        email_verified: emailVerified,
+        email_changed: emailChanged,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Changes the authenticated user's password.
    * Acquires row-level lock on user_credentials to serialize concurrent password changes.
    * Increments credential_version, invalidates all other sessions, and rotates current session.

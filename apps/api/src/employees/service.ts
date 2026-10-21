@@ -298,6 +298,8 @@ export class EmployeeService {
       user_username: string | null;
       user_email: string | null;
       user_status: string | null;
+      phone: string | null;
+      user_email_verified: boolean | null;
     }>(
       `
       SELECT
@@ -313,7 +315,9 @@ export class EmployeeService {
         e.updated_at,
         u.username_normalized AS user_username,
         u.email_normalized AS user_email,
-        u.status AS user_status
+        u.status AS user_status,
+        to_jsonb(e) ->> 'phone' AS phone,
+        u.email_verified AS user_email_verified
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
       WHERE e.workspace_id = $1 AND e.user_id = $2;
@@ -336,6 +340,7 @@ export class EmployeeService {
       user_id: row.user_id,
       employee_code: row.employee_code,
       full_name: row.full_name,
+      phone: row.phone,
       employment_status:
         row.employment_status as EmployeeData['employment_status'],
       is_payroll_eligible: row.is_payroll_eligible,
@@ -348,6 +353,7 @@ export class EmployeeService {
             username: row.user_username || '',
             email: row.user_email || '',
             status: row.user_status || '',
+            email_verified: Boolean(row.user_email_verified),
           }
         : null,
     };

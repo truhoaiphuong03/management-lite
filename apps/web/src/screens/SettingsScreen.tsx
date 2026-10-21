@@ -130,6 +130,118 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [csrfToken, setCsrfToken] = useState<string>('');
 
+  // Profile edit states
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editEmailPassword, setEditEmailPassword] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (profile) {
+      setEditName(profile.full_name || '');
+      setEditPhone(profile.phone || '');
+      setEditEmail(profile.user?.email || '');
+    }
+  }, [profile]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    setProfileMsg(null);
+    const emailChanged =
+      editEmail.trim().toLowerCase() !==
+      (profile.user?.email || '').toLowerCase();
+    if (emailChanged && !editEmailPassword) {
+      setProfileMsg({
+        type: 'error',
+        text: 'Vui lòng nhập mật khẩu hiện tại để đổi email.',
+      });
+      return;
+    }
+    setProfileSaving(true);
+    try {
+      let token = csrfToken;
+      if (!token) {
+        const meRes = await fetch('/api/v1/auth/me', { credentials: 'include' });
+        if (meRes.ok) {
+          token = (await meRes.json()).data?.csrf_token || '';
+          setCsrfToken(token);
+        }
+      }
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers['X-CSRF-Token'] = token;
+      const payload: Record<string, unknown> = {
+        full_name: editName,
+        phone: editPhone,
+      };
+      if (emailChanged) {
+        payload['email'] = editEmail;
+        payload['current_password'] = editEmailPassword;
+      }
+      const res = await fetch('/api/v1/auth/profile', {
+        method: 'PATCH',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        const code = data?.error?.code;
+        setProfileMsg({
+          type: 'error',
+          text:
+            code === 'INVALID_CREDENTIALS'
+              ? 'Mật khẩu hiện tại không đúng.'
+              : data?.error?.message ||
+                'Không thể cập nhật thông tin. Vui lòng thử lại.',
+        });
+        return;
+      }
+      setEditEmailPassword('');
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              full_name: data.data.full_name ?? prev.full_name,
+              phone: data.data.phone,
+              user: prev.user
+                ? {
+                    ...prev.user,
+                    email: data.data.email,
+                    email_verified: data.data.email_verified,
+                  }
+                : null,
+            }
+          : prev,
+      );
+      setProfileMsg({
+        type: 'success',
+        text:
+          data.data.message +
+          (data.data.email_changed
+            ? ' Hãy bấm "Gửi lại email xác minh" ở banner phía trên.'
+            : ''),
+      });
+      if (data.data.email_changed) {
+        setTimeout(() => window.location.reload(), 2500);
+      }
+    } catch {
+      setProfileMsg({
+        type: 'error',
+        text: 'Lỗi kết nối máy chủ. Vui lòng thử lại.',
+      });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   // Password change states
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -649,6 +761,150 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
             </div>
           </div>
+        </AppCard>
+
+        {/* Edit Profile Card */}
+        <AppCard padding="20px">
+          <h3
+            style={{
+              fontSize: '16px',
+              fontWeight: 600,
+              color: '#F8FAFC',
+              margin: '0 0 8px',
+            }}
+          >
+            Chỉnh sửa thông tin cá nhân
+          </h3>
+          <p style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}>
+            Cập nhật họ tên, số điện thoại và email đăng nhập. Đổi mật khẩu ở
+            mục bên dưới.
+          </p>
+          {profile ? (
+            <form
+              onSubmit={handleSaveProfile}
+              data-testid="edit-profile-form"
+              style={{ maxWidth: '480px' }}
+            >
+              <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Họ và tên
+                <input
+                  data-testid="edit-profile-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  maxLength={120}
+                  style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                marginTop: '4px',
+                padding: '10px 12px',
+                fontSize: '16px',
+                borderRadius: '8px',
+                border: '1px solid #475569',
+                backgroundColor: '#1E293B',
+                color: '#F8FAFC',
+              }}
+                />
+              </label>
+              <div style={{ height: '12px' }} />
+              <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Số điện thoại
+                <input
+                  data-testid="edit-profile-phone"
+                  type="tel"
+                  inputMode="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="VD: 0901234567"
+                  style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                marginTop: '4px',
+                padding: '10px 12px',
+                fontSize: '16px',
+                borderRadius: '8px',
+                border: '1px solid #475569',
+                backgroundColor: '#1E293B',
+                color: '#F8FAFC',
+              }}
+                />
+              </label>
+              <div style={{ height: '12px' }} />
+              <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Email tài khoản
+                <input
+                  data-testid="edit-profile-email"
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                marginTop: '4px',
+                padding: '10px 12px',
+                fontSize: '16px',
+                borderRadius: '8px',
+                border: '1px solid #475569',
+                backgroundColor: '#1E293B',
+                color: '#F8FAFC',
+              }}
+                />
+              </label>
+              {editEmail.trim().toLowerCase() !==
+                (profile.user?.email || '').toLowerCase() && (
+                <>
+                  <div style={{ height: '12px' }} />
+                  <label style={{ fontSize: '12px', color: '#FBBF24' }}>
+                    Mật khẩu hiện tại (bắt buộc khi đổi email — email mới sẽ
+                    cần xác minh lại)
+                    <input
+                      data-testid="edit-profile-email-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={editEmailPassword}
+                      onChange={(e) => setEditEmailPassword(e.target.value)}
+                      style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                marginTop: '4px',
+                padding: '10px 12px',
+                fontSize: '16px',
+                borderRadius: '8px',
+                border: '1px solid #475569',
+                backgroundColor: '#1E293B',
+                color: '#F8FAFC',
+              }}
+                    />
+                  </label>
+                </>
+              )}
+              {profileMsg && (
+                <div
+                  role={profileMsg.type === 'error' ? 'alert' : 'status'}
+                  style={{
+                    marginTop: '12px',
+                    fontSize: '13px',
+                    color: profileMsg.type === 'error' ? '#FCA5A5' : '#6EE7B7',
+                  }}
+                >
+                  {profileMsg.text}
+                </div>
+              )}
+              <div style={{ marginTop: '16px' }}>
+                <AppButton
+                  type="submit"
+                  variant="primary"
+                  disabled={profileSaving}
+                  data-testid="btn-save-profile"
+                >
+                  {profileSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </AppButton>
+              </div>
+            </form>
+          ) : (
+            <div style={{ color: '#94A3B8', fontSize: '14px' }}>
+              Không có hồ sơ nhân sự để chỉnh sửa.
+            </div>
+          )}
         </AppCard>
 
         {/* Change Password Card (UI20) */}

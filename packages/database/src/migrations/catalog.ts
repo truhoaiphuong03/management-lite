@@ -1724,6 +1724,12 @@ ALTER TABLE storage_operations
   CHECK (operation_type IN ('trash_group', 'restore_group', 'sync_metadata', 'create_folder', 'upload_video', 'grant_permission', 'revoke_permission'));
 `;
 
+export const USER_PROFILE_PHONE_SQL = `-- Migration: 0026_user_profile_phone
+-- Scope: Self-service profile editing (phone number on employee profile).
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS phone text NULL;
+`;
+
 export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
   {
     id: '0001_m00_prerequisites',
@@ -1845,5 +1851,10 @@ export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
     id: '0025_storage_google_drive_v2',
     sql: STORAGE_GOOGLE_DRIVE_V2_SQL,
     checksum: calculateChecksum(STORAGE_GOOGLE_DRIVE_V2_SQL),
+  },
+  {
+    id: '0026_user_profile_phone',
+    sql: USER_PROFILE_PHONE_SQL,
+    checksum: calculateChecksum(USER_PROFILE_PHONE_SQL),
   },
 ];
