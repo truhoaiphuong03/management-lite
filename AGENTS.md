@@ -19,3 +19,11 @@
   - Hệ sinh thái `ql.hoaiphuong.click` (`v0.1.3`) ↔ `hoaiphuong.click` đã kết nối dữ liệu toàn diện, kiểm thử PASS 100% và phát hành tự động lên web. Sẵn sàng nhận yêu cầu mới!
 
 <!-- LIVE_CHECKPOINT_END -->
+
+## 🔄 QUY TRÌNH ĐỒNG BỘ ĐA MÁY (3 máy: MacBook M2 + 2 Windows)
+Script: `scripts/sync-all.sh` (macOS) · `scripts/sync-all.ps1` (Windows). Thư mục gốc `~/Projects` (đổi bằng biến `PROJECTS_DIR`).
+- **Trước khi làm:** `scripts/sync-all.sh start` → fetch + pull `--ff-only` cả 4 dự án (tự clone nếu thiếu; DỪNG nếu có thay đổi chưa commit).
+- **Sau khi làm:** cập nhật `LIVE_CHECKPOINT` → `scripts/sync-all.sh end` → auto commit + `pull --rebase` + push.
+- **Quy tắc:** mỗi máy chỉ làm 1 nhánh/1 dự án tại một thời điểm; không bao giờ đổi máy khi chưa push; không commit `.env`/secrets.
+- **Máy:** Máy 1 MacBook Air M2 `MacBook-Air-cua-Duong` · Windows 2 `DESKTOP-ATTJ7FE` · Windows 1.
+- **Windows lần đầu:** `git clone https://github.com/truhoaiphuong03/management-lite.git ~/Projects/management-lite` rồi chạy `.\scripts\sync-all.ps1 start` (có thể cần `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`).
