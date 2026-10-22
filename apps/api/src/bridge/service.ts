@@ -400,7 +400,7 @@ export class BridgeService {
         ),
         this.pool
           .query<{ cnt: string }>(
-            `SELECT COUNT(*)::text AS cnt FROM storage_drive_connections WHERE workspace_id = $1 AND status = 'connected'`,
+            `SELECT COUNT(*)::text AS cnt FROM storage_drive_connections WHERE workspace_id = $1 AND status = 'active'`,
             [ws.id],
           )
           .catch(() => ({ rows: [{ cnt: '0' }] })),
@@ -461,7 +461,7 @@ export class BridgeService {
           }>(
             `SELECT google_email, root_folder_id, status
              FROM storage_drive_connections
-             WHERE workspace_id = $1 AND status = 'connected'
+             WHERE workspace_id = $1 AND status = 'active'
              ORDER BY updated_at DESC LIMIT 1`,
             [auth.workspace.id],
           )
@@ -531,7 +531,7 @@ export class BridgeService {
          e.employee_code,
          e.full_name,
          e.employment_status,
-         u.email,
+         u.email_normalized AS email,
          m.role
        FROM employees e
        LEFT JOIN users u ON u.id = e.user_id
@@ -550,7 +550,7 @@ export class BridgeService {
     const driveRes = await this.pool
       .query<{ root_folder_id: string | null }>(
         `SELECT root_folder_id FROM storage_drive_connections
-         WHERE workspace_id = $1 AND status = 'connected'
+         WHERE workspace_id = $1 AND status = 'active'
          ORDER BY updated_at DESC LIMIT 1`,
         [auth.workspace.id],
       )

@@ -206,8 +206,6 @@ export function installAuthInterceptor(): void {
     input: RequestInfo | URL,
     init?: RequestInit,
   ): Promise<Response> {
-    const response = await originalFetch.apply(this, [input, init]);
-
     let urlStr = '';
     if (typeof input === 'string') {
       urlStr = input;
@@ -224,6 +222,15 @@ export function installAuthInterceptor(): void {
         : 'GET') ||
       'GET'
     ).toUpperCase();
+
+    // fetch consumes a Request body. Keep a separate copy before the first attempt.
+    const replayInput =
+      typeof Request !== 'undefined' &&
+      input instanceof Request &&
+      isTargetAuthenticatedApiUrl(urlStr)
+        ? input.clone()
+        : input;
+    const response = await originalFetch.apply(this, [input, init]);
 
     if (
       reqMethod !== 'GET' &&
@@ -245,15 +252,20 @@ export function installAuthInterceptor(): void {
         );
         if (refreshed.ok) {
           let retryInit = init;
-          if (refreshed.csrfToken && init?.headers) {
-            const nextHeaders = new Headers(init.headers);
+          if (refreshed.csrfToken) {
+            const nextHeaders = new Headers(
+              init?.headers ??
+                (typeof Request !== 'undefined' && input instanceof Request
+                  ? input.headers
+                  : undefined),
+            );
             if (nextHeaders.has('X-CSRF-Token')) {
               nextHeaders.set('X-CSRF-Token', refreshed.csrfToken);
             }
             retryInit = { ...init, headers: nextHeaders };
           }
           const retryResponse = await originalFetch.apply(this, [
-            input,
+            replayInput,
             retryInit,
           ]);
           if (retryResponse.status !== 401) {

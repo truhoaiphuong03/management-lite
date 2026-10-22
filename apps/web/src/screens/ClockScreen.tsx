@@ -1032,59 +1032,35 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 </div>
               )}
 
-              {/* GPS Geofencing Status & Verification */}
+              {/* Geofencing is unavailable until a server-side policy is implemented. */}
               <div
                 data-testid="gps-geofence-panel"
+                role="status"
                 style={{
                   marginTop: '14px',
                   padding: '10px 14px',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.28)',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '8px',
+                  backgroundColor: TOKENS.colors.warningSubtle,
+                  border: `1px solid ${TOKENS.colors.warning}`,
                 }}
               >
-                <span style={{ fontSize: '12px', color: '#34D399', fontWeight: 600 }}>
-                  📍 GPS Geofencing: Hợp lệ trong bán kính văn phòng (≤ 150m)
-                </span>
-                <button
-                  type="button"
-                  data-testid="btn-verify-gps"
-                  onClick={() => {
-                    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-                      navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                          setToast({
-                            message: `Đã xác thực GPS: (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}) — Hợp lệ`,
-                            variant: 'success',
-                          });
-                        },
-                        () => {
-                          setToast({
-                            message: 'Đã ghi nhận vị trí mạng nội bộ (Geofence Fallback).',
-                            variant: 'info',
-                          });
-                        },
-                      );
-                    }
-                  }}
+                <p
                   style={{
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    background: '#0F172A',
-                    color: '#38BDF8',
-                    border: '1px solid rgba(56, 189, 248, 0.35)',
-                    cursor: 'pointer',
+                    fontSize: '12px',
+                    color: TOKENS.colors.text,
+                    margin: '0 0 8px',
                   }}
                 >
-                  Định vị lại GPS
-                </button>
+                  GPS: Chưa triển khai xác minh bán kính văn phòng. Vị trí chưa
+                  được kiểm tra khi chấm công.
+                </p>
+                <AppButton
+                  data-testid="btn-verify-gps"
+                  disabled
+                  title="Chưa có chính sách vị trí và kiểm tra trên máy chủ"
+                >
+                  Xác minh GPS (chưa khả dụng)
+                </AppButton>
               </div>
             </div>
           </AppCard>
@@ -1119,7 +1095,13 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   variant="secondary"
                   data-testid="btn-export-attendance-csv"
                   onClick={() => {
-                    const headers = ['Mã ca', 'Vào ca', 'Ra ca', 'Trạng thái', 'Tổng phút'];
+                    const headers = [
+                      'Mã ca',
+                      'Vào ca',
+                      'Ra ca',
+                      'Trạng thái',
+                      'Tổng phút',
+                    ];
                     const rows = recentShifts.map((s) => [
                       s.id,
                       s.clock_in_at,
@@ -1130,9 +1112,15 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     const csv =
                       '\uFEFF' +
                       [headers, ...rows]
-                        .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+                        .map((r) =>
+                          r
+                            .map((c) => `"${String(c).replace(/"/g, '""')}"`)
+                            .join(','),
+                        )
                         .join('\n');
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const blob = new Blob([csv], {
+                      type: 'text/csv;charset=utf-8;',
+                    });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;

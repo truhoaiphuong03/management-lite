@@ -16,8 +16,10 @@
   - [x] Kết nối dữ liệu toàn diện hai chiều giữa `ql.hoaiphuong.click` (`management-lite` `v0.1.3`) và `hoaiphuong.click` (`tiktok-ai-factory-v4`): Đồng bộ Nhân sự/Tài khoản, Tự động quy đổi sản lượng Kịch bản/Prompt/Video sang Báo cáo & Công việc, và Liên kết Kênh TikTok & Kho Google Drive.
   - [x] [WIN-1 • 2026-10-20 15:36] Đã thực thi & kiểm tra (npm run typecheck && npm run test:security): Kiểm tra lại lần nữa
   - [x] [MAC • 2026-10-22] DEV: Sửa an toàn bridge (giữ nguyên báo cáo, chặn nguồn lỗi/thiếu khóa, xác nhận nhân sự, cache theo workspace, chống trùng công việc), bộ đếm ngày theo timezone và phiên bản UI 0.1.3. 40/40 kiểm thử hồi quy/bảo mật PASS; web 381 PASS, 4 SKIP. Chi tiết: `docs/reports/2026-10-22-bridge-safety-fix.md`. Chưa deploy Production.
+  - [x] [MAC • 2026-10-22 • Rà soát 2] DEV: Sửa retry Request/CSRF khi gia hạn phiên, cột email và trạng thái Drive trong bridge; bỏ thông báo GPS/MFA thành công giả, ghi rõ Admin chưa bật. Web 383 PASS/4 SKIP; backend chọn lọc 37 PASS/6 SKIP; hồi quy bridge + Request + CP22 23 PASS/1 SKIP. Đã thêm kiểm thử PostgreSQL bridge vào CI, chưa chạy tại Mac. Chi tiết: `docs/reports/2026-10-22-system-audit-round2.md`.
+- **KẾT LUẬN RÀ SOÁT (2026-10-22):** Nghiệm thu hệ thống hiện **HOLD**. Các mốc DONE lịch sử không chứng minh MFA/GPS/Admin đã triển khai: hiện chỉ có giao diện giới thiệu, membership DB vẫn owner/staff. Không tự cấp quyền hoặc khẳng định có MFA/geofencing.
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
-  - Nghiệm thu bản sửa bridge trên PostgreSQL QA/Windows và hai hệ thống với khóa riêng; chỉ phát hành khi được Owner cho phép. Tạm dừng tự ghi báo cáo sản lượng đến khi có ánh xạ nhân viên/ngày đáng tin cậy. Không ghi đè báo cáo hiện có.
+  - Chạy nghiệm thu PostgreSQL QA/Windows, kiểm thử hai hệ thống với khóa riêng; chưa deploy Production. Báo cáo sản lượng tự động vẫn tạm dừng đến khi có ánh xạ nhân viên/ngày đáng tin cậy. Rà tiếp metadata release, 63 phát hiện UI và các luồng tích hợp chưa chạy.
 
 <!-- LIVE_CHECKPOINT_END -->
 

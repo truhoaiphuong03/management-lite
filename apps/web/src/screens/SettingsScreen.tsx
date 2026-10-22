@@ -8,7 +8,7 @@ import {
   CheckCircleIcon,
   AlertTriangleIcon,
   SettingsIcon,
-} from '@management-lite/ui/components';
+} from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 import {
@@ -167,7 +167,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     try {
       let token = csrfToken;
       if (!token) {
-        const meRes = await fetch('/api/v1/auth/me', { credentials: 'include' });
+        const meRes = await fetch('/api/v1/auth/me', {
+          credentials: 'include',
+        });
         if (meRes.ok) {
           token = (await meRes.json()).data?.csrf_token || '';
           setCsrfToken(token);
@@ -775,7 +777,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           >
             Chỉnh sửa thông tin cá nhân
           </h3>
-          <p style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}>
+          <p
+            style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
+          >
             Cập nhật họ tên, số điện thoại và email đăng nhập. Đổi mật khẩu ở
             mục bên dưới.
           </p>
@@ -793,16 +797,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   onChange={(e) => setEditName(e.target.value)}
                   maxLength={120}
                   style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                marginTop: '4px',
-                padding: '10px 12px',
-                fontSize: '16px',
-                borderRadius: '8px',
-                border: '1px solid #475569',
-                backgroundColor: '#1E293B',
-                color: '#F8FAFC',
-              }}
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    marginTop: '4px',
+                    padding: '10px 12px',
+                    fontSize: '16px',
+                    borderRadius: '8px',
+                    border: '1px solid #475569',
+                    backgroundColor: '#1E293B',
+                    color: '#F8FAFC',
+                  }}
                 />
               </label>
               <div style={{ height: '12px' }} />
@@ -816,16 +820,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   onChange={(e) => setEditPhone(e.target.value)}
                   placeholder="VD: 0901234567"
                   style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                marginTop: '4px',
-                padding: '10px 12px',
-                fontSize: '16px',
-                borderRadius: '8px',
-                border: '1px solid #475569',
-                backgroundColor: '#1E293B',
-                color: '#F8FAFC',
-              }}
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    marginTop: '4px',
+                    padding: '10px 12px',
+                    fontSize: '16px',
+                    borderRadius: '8px',
+                    border: '1px solid #475569',
+                    backgroundColor: '#1E293B',
+                    color: '#F8FAFC',
+                  }}
                 />
               </label>
               <div style={{ height: '12px' }} />
@@ -837,16 +841,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                marginTop: '4px',
-                padding: '10px 12px',
-                fontSize: '16px',
-                borderRadius: '8px',
-                border: '1px solid #475569',
-                backgroundColor: '#1E293B',
-                color: '#F8FAFC',
-              }}
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    marginTop: '4px',
+                    padding: '10px 12px',
+                    fontSize: '16px',
+                    borderRadius: '8px',
+                    border: '1px solid #475569',
+                    backgroundColor: '#1E293B',
+                    color: '#F8FAFC',
+                  }}
                 />
               </label>
               {editEmail.trim().toLowerCase() !==
@@ -854,8 +858,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <>
                   <div style={{ height: '12px' }} />
                   <label style={{ fontSize: '12px', color: '#FBBF24' }}>
-                    Mật khẩu hiện tại (bắt buộc khi đổi email — email mới sẽ
-                    cần xác minh lại)
+                    Mật khẩu hiện tại (bắt buộc khi đổi email — email mới sẽ cần
+                    xác minh lại)
                     <input
                       data-testid="edit-profile-email-password"
                       type="password"
@@ -863,16 +867,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       value={editEmailPassword}
                       onChange={(e) => setEditEmailPassword(e.target.value)}
                       style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                marginTop: '4px',
-                padding: '10px 12px',
-                fontSize: '16px',
-                borderRadius: '8px',
-                border: '1px solid #475569',
-                backgroundColor: '#1E293B',
-                color: '#F8FAFC',
-              }}
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '10px 12px',
+                        fontSize: '16px',
+                        borderRadius: '8px',
+                        border: '1px solid #475569',
+                        backgroundColor: '#1E293B',
+                        color: '#F8FAFC',
+                      }}
                     />
                   </label>
                 </>
@@ -1701,10 +1705,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 marginBottom: '8px',
               }}
             >
-              Phân quyền RBAC 3 Vai trò (CP22-04) & Bảo mật 2 Lớp (MFA / TOTP)
+              Vai trò hệ thống & Trạng thái bảo mật 2 lớp (MFA / TOTP)
             </h3>
             <p
-              style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '14px' }}
+              style={{
+                fontSize: '13px',
+                color: '#94A3B8',
+                marginBottom: '14px',
+              }}
             >
               Vai trò hiện tại của tài khoản:{' '}
               <strong style={{ color: '#38BDF8', textTransform: 'uppercase' }}>
@@ -1715,7 +1723,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
                 gap: '10px',
                 marginBottom: '16px',
                 fontSize: '12px',
@@ -1729,9 +1738,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   border: '1px solid rgba(16, 185, 129, 0.25)',
                 }}
               >
-                <strong style={{ color: '#10B981' }}>👑 OWNER (Chủ sở hữu)</strong>
+                <strong style={{ color: '#10B981' }}>
+                  👑 OWNER (Chủ sở hữu)
+                </strong>
                 <div style={{ color: '#CBD5E1', marginTop: '4px' }}>
-                  Toàn quyền hệ thống, Kho bí mật ACC, Thu chi, Lương, Nhật ký kiểm toán & Bảo vệ Owner cuối cùng.
+                  Toàn quyền hệ thống, Kho bí mật ACC, Thu chi, Lương, Nhật ký
+                  kiểm toán & Bảo vệ Owner cuối cùng.
                 </div>
               </div>
               <div
@@ -1742,9 +1754,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   border: '1px solid rgba(56, 189, 248, 0.25)',
                 }}
               >
-                <strong style={{ color: '#38BDF8' }}>🛡️ ADMIN (Quản lý vận hành)</strong>
+                <strong style={{ color: '#38BDF8' }}>
+                  🛡️ ADMIN (Quản lý vận hành)
+                </strong>
                 <div style={{ color: '#CBD5E1', marginTop: '4px' }}>
-                  Quản lý hồ sơ nhân sự, xếp lịch, giao/duyệt việc & duyệt chấm công của nhân viên khác (không xem Kho bí mật).
+                  Đề xuất chưa bật trong hệ thống hiện tại. Quyền quản lý vận
+                  hành đang chờ hoàn thiện và nghiệm thu; không tự cấp quyền từ
+                  chức vụ.
                 </div>
               </div>
               <div
@@ -1755,9 +1771,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   border: '1px solid rgba(148, 163, 184, 0.25)',
                 }}
               >
-                <strong style={{ color: '#E2E8F0' }}>👤 STAFF (Nhân viên)</strong>
+                <strong style={{ color: '#E2E8F0' }}>
+                  👤 STAFF (Nhân viên)
+                </strong>
                 <div style={{ color: '#CBD5E1', marginTop: '4px' }}>
-                  Chấm công GPS cá nhân, đăng ký lịch ca, nhận & nộp báo cáo công việc được giao.
+                  Chấm công cá nhân, đăng ký lịch ca, nhận & nộp báo cáo công
+                  việc được giao.
                 </div>
               </div>
             </div>
@@ -1777,14 +1796,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               }}
             >
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#F8FAFC' }}>
+                <div
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                  }}
+                >
                   🔐 Xác thực 2 lớp (MFA / TOTP Authenticator)
                 </div>
-                <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
-                  Bảo vệ các thao tác nhạy cảm (Xem mật khẩu ACC C05, Đổi quyền RBAC, Xuất dữ liệu).
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                    marginTop: '2px',
+                  }}
+                >
+                  Chưa triển khai xác thực 2 lớp. Các thao tác yêu cầu xác minh
+                  lại mật khẩu hiện tại chưa tương đương với MFA.
                 </div>
               </div>
-              <StatusBadge status="success" label="MFA Sẵn sàng (RFC-6238 TOTP)" />
+              <StatusBadge status="warning" label="MFA chưa triển khai" />
             </div>
           </div>
         </AppCard>
