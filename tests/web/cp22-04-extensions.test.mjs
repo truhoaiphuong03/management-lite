@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 
-test('CP22-04 UI structure only; unavailable GPS/MFA/Admin must not imply runtime acceptance', () => {
+test('CP22-04 UI structure only; removed location controls and unavailable MFA/Admin must not imply runtime acceptance', () => {
   const auditScreen = fs.readFileSync(
     path.join(ROOT, 'apps/web/src/screens/AuditScreen.tsx'),
     'utf8',
@@ -19,8 +19,10 @@ test('CP22-04 UI structure only; unavailable GPS/MFA/Admin must not imply runtim
     path.join(ROOT, 'apps/web/src/screens/ClockScreen.tsx'),
     'utf8',
   );
-  assert.match(clockScreen, /data-testid="gps-geofence-panel"/);
-  assert.match(clockScreen, /data-testid="btn-verify-gps"/);
+  assert.doesNotMatch(
+    clockScreen,
+    /geolocation|getCurrentPosition|gps-geofence-panel|btn-verify-gps/,
+  );
   assert.match(clockScreen, /data-testid="btn-export-attendance-csv"/);
 
   const settingsScreen = fs.readFileSync(
@@ -84,15 +86,14 @@ test('Unavailable security features must not advertise successful verification',
     );
     for (let i = 0; i < 4; i++)
       await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-    assert.match(container.textContent, /GPS: Chưa triển khai/);
-    assert.doesNotMatch(container.textContent, /Hợp lệ trong bán kính/);
-    const button = dom.find(
-      container,
-      (node) => dom.props(node)['data-testid'] === 'btn-verify-gps',
-    )[0];
-    assert.ok(button);
-    assert.equal(dom.props(button).disabled, true);
-    assert.equal(dom.props(button).onClick, undefined);
+    assert.doesNotMatch(container.textContent, /GPS|bán kính văn phòng/);
+    assert.equal(
+      dom.find(
+        container,
+        (node) => dom.props(node)['data-testid'] === 'btn-verify-gps',
+      ).length,
+      0,
+    );
   } finally {
     await act(async () => root.unmount());
     for (const key of globals) {

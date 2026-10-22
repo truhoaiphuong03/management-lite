@@ -21,7 +21,11 @@ export function sanitizePostLoginRedirect(rawPath: unknown): string {
   }
 
   // 1. Must start with a single slash; reject protocol-relative (//) and backslash prefixes (/\\)
-  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.startsWith('/\\')) {
+  if (
+    !trimmed.startsWith('/') ||
+    trimmed.startsWith('//') ||
+    trimmed.startsWith('/\\')
+  ) {
     return '/';
   }
 
@@ -70,4 +74,11 @@ export function sanitizePostLoginRedirect(rawPath: unknown): string {
   } catch {
     return '/';
   }
+}
+
+export function managementSsoContinuation(search: string): string | null {
+  const state = new URLSearchParams(search).get('sso_state');
+  return state && /^[a-f0-9]{64}$/.test(state)
+    ? `/api/v1/bridge/sso/authorize?state=${state}`
+    : null;
 }

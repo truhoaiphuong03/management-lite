@@ -121,6 +121,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       storage_google_email: string | null;
     };
   } | null>(null);
+  const [bridgeReadError, setBridgeReadError] = useState<string | null>(null);
   const [bridgeSyncing, setBridgeSyncing] = useState(false);
   const [bridgeFeedbackError, setBridgeFeedbackError] = useState(false);
   const [bridgeFeedback, setBridgeFeedback] = useState<string | null>(null);
@@ -132,15 +133,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     setBridgeFeedbackError(false);
     try {
       let csrfToken = '';
-      const sessionRes = await fetch('/api/v1/auth/session', {
+      const sessionRes = await fetch('/api/v1/auth/me', {
         method: 'GET',
         credentials: 'include',
       });
+      if (!sessionRes.ok)
+        throw new Error(
+          'Không xác minh được phiên đăng nhập. Hãy đăng nhập lại.',
+        );
       if (sessionRes.ok) {
         const sessionJson = (await sessionRes.json()) as {
           data?: { csrf_token?: string };
         };
         csrfToken = sessionJson?.data?.csrf_token ?? '';
+        if (!csrfToken)
+          throw new Error(
+            'Không lấy được mã xác thực phiên. Hãy tải lại trang.',
+          );
       }
 
       const syncRes = await fetch('/api/v1/bridge/tiktok-v4/sync', {
@@ -564,7 +573,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           credentials: 'include',
           signal: controller.signal,
         });
-        if (!res.ok || !active) return;
+        if (!active) return;
+        if (!res.ok) {
+          const failure = (await res.json().catch(() => null)) as {
+            error?: { message?: string };
+          } | null;
+          setBridgeReadError(
+            failure?.error?.message ||
+              'Không đọc được dữ liệu từ hệ thống liên kết.',
+          );
+          return;
+        }
+        setBridgeReadError(null);
         const json = (await res.json()) as {
           data?: {
             connected?: boolean;
@@ -1178,7 +1198,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 onClick={() => {
                   if (typeof window !== 'undefined') {
                     window.open(
-                      'https://hoaiphuong.click',
+                      'https://hoaiphuong.click/api/auth/management/start',
                       '_blank',
                       'noopener,noreferrer',
                     );
@@ -1190,6 +1210,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
           </div>
 
+          {bridgeReadError && !bridgeFeedback && (
+            <p
+              role="status"
+              style={{ color: TOKENS.colors.warning, marginBottom: '12px' }}
+            >
+              {bridgeReadError}
+            </p>
+          )}
           {bridgeFeedback && bridgeFeedbackError && (
             <ErrorState message={bridgeFeedback} />
           )}

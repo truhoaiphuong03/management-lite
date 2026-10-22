@@ -1,3 +1,4 @@
+import { managementSsoContinuation } from './navigation-guard.js';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppShell } from './AppShell.js';
 import { LoginScreen } from './screens/LoginScreen.js';
@@ -259,6 +260,14 @@ export const App: React.FC = () => {
       const verified = await verifySession();
       if (active) {
         setIsCheckingSession(false);
+        const ssoTarget =
+          verified && window.location.pathname === '/login'
+            ? managementSsoContinuation(window.location.search)
+            : null;
+        if (ssoTarget) {
+          window.location.assign(ssoTarget);
+          return;
+        }
         const targetRoute = determinePostVerificationRoute(
           window.location.pathname,
           verified,
@@ -290,6 +299,11 @@ export const App: React.FC = () => {
     const verified = await verifySession();
     setIsCheckingSession(false);
     if (verified) {
+      const ssoTarget = managementSsoContinuation(window.location.search);
+      if (ssoTarget) {
+        window.location.assign(ssoTarget);
+        return;
+      }
       let returnUrl: string | null = null;
       try {
         returnUrl = sessionStorage.getItem('post_login_redirect');
@@ -765,7 +779,8 @@ export const App: React.FC = () => {
                       setVerifyInfo({
                         delivered:
                           typeof d.delivered === 'boolean' ? d.delivered : null,
-                        sentTo: typeof d.sent_to === 'string' ? d.sent_to : null,
+                        sentTo:
+                          typeof d.sent_to === 'string' ? d.sent_to : null,
                         sentFrom:
                           typeof d.sent_from === 'string' ? d.sent_from : null,
                         expires:
@@ -873,9 +888,11 @@ export const App: React.FC = () => {
                 >
                   ✅ Đã gửi mail xác minh thành công tới{' '}
                   <strong>{verifyInfo.sentTo}</strong>
-                  {verifyInfo.sentFrom ? ` (gửi từ ${verifyInfo.sentFrom})` : ''}.
-                  Mã có hiệu lực {verifyInfo.expires} phút. Vui lòng mở hộp thư
-                  này và nhập mã bên dưới.
+                  {verifyInfo.sentFrom
+                    ? ` (gửi từ ${verifyInfo.sentFrom})`
+                    : ''}
+                  . Mã có hiệu lực {verifyInfo.expires} phút. Vui lòng mở hộp
+                  thư này và nhập mã bên dưới.
                 </div>
               )}
               {verifyInfo.delivered === false && (
@@ -890,11 +907,25 @@ export const App: React.FC = () => {
                     marginBottom: '12px',
                   }}
                 >
-                  ❌ Không gửi được mail tới <strong>{verifyInfo.sentTo}</strong>.
-                  Vui lòng kiểm tra địa chỉ email tài khoản hoặc thử gửi lại.
+                  ❌ Không gửi được mail tới{' '}
+                  <strong>{verifyInfo.sentTo}</strong>. Vui lòng kiểm tra địa
+                  chỉ email tài khoản hoặc thử gửi lại.
                   {verifyInfo.error && (
-                    <div style={{ marginTop: '6px', fontSize: '12px', opacity: 0.85 }}>
-                      Lý do kỹ thuật: {verifyInfo.error === 'mailer_not_configured' ? 'máy chủ chưa cấu hình dịch vụ gửi mail (thiếu BREVO_API_KEY)' : verifyInfo.error === 'http_401' ? 'khóa Brevo không hợp lệ' : verifyInfo.error === 'http_400' ? 'địa chỉ gửi/nhận bị Brevo từ chối (sender chưa xác thực?)' : verifyInfo.error}
+                    <div
+                      style={{
+                        marginTop: '6px',
+                        fontSize: '12px',
+                        opacity: 0.85,
+                      }}
+                    >
+                      Lý do kỹ thuật:{' '}
+                      {verifyInfo.error === 'mailer_not_configured'
+                        ? 'máy chủ chưa cấu hình dịch vụ gửi mail (thiếu BREVO_API_KEY)'
+                        : verifyInfo.error === 'http_401'
+                          ? 'khóa Brevo không hợp lệ'
+                          : verifyInfo.error === 'http_400'
+                            ? 'địa chỉ gửi/nhận bị Brevo từ chối (sender chưa xác thực?)'
+                            : verifyInfo.error}
                     </div>
                   )}
                 </div>
@@ -953,17 +984,33 @@ export const App: React.FC = () => {
               {verifyCodeError && (
                 <div
                   role="alert"
-                  style={{ color: '#FCA5A5', fontSize: '12px', marginBottom: '8px' }}
+                  style={{
+                    color: '#FCA5A5',
+                    fontSize: '12px',
+                    marginBottom: '8px',
+                  }}
                 >
                   {verifyCodeError}
                 </div>
               )}
               {verifyCodeState === 'success' && (
-                <div style={{ color: '#6EE7B7', fontSize: '13px', marginBottom: '8px' }}>
+                <div
+                  style={{
+                    color: '#6EE7B7',
+                    fontSize: '13px',
+                    marginBottom: '8px',
+                  }}
+                >
                   ✅ Xác minh email thành công!
                 </div>
               )}
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  justifyContent: 'flex-end',
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setVerifyInfo(null)}
@@ -1015,7 +1062,9 @@ export const App: React.FC = () => {
                       setTimeout(() => setVerifyInfo(null), 1200);
                     } catch {
                       setVerifyCodeState('failed');
-                      setVerifyCodeError('Lỗi kết nối máy chủ. Vui lòng thử lại.');
+                      setVerifyCodeError(
+                        'Lỗi kết nối máy chủ. Vui lòng thử lại.',
+                      );
                     }
                   }}
                   style={{
@@ -1028,7 +1077,9 @@ export const App: React.FC = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  {verifyCodeState === 'submitting' ? 'Đang xác nhận...' : 'Xác nhận'}
+                  {verifyCodeState === 'submitting'
+                    ? 'Đang xác nhận...'
+                    : 'Xác nhận'}
                 </button>
               </div>
             </div>

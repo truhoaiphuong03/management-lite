@@ -81,6 +81,7 @@ import { IssuesService } from './issues/service.js';
 import { FinanceService } from './finance/service.js';
 import { DashboardService } from './dashboard/service.js';
 import { BridgeService } from './bridge/service.js';
+import { ManagementSsoIssuer } from './bridge/sso.js';
 import { ScopedApiCache } from './cache/api-cache.js';
 import { FinanceValidationError } from '../../../packages/contracts/src/finance.js';
 import type {
@@ -444,9 +445,11 @@ export function createRequestHandler(
   const dashboardService =
     deps.dashboardService ??
     (deps.pool ? new DashboardService(deps.pool) : null);
+  const ssoIssuer = new ManagementSsoIssuer(async (token) =>
+    authService ? authService.resolveSession(token) : null,
+  );
   const bridgeService =
-    deps.bridgeService ??
-    (deps.pool ? new BridgeService(deps.pool) : null);
+    deps.bridgeService ?? (deps.pool ? new BridgeService(deps.pool) : null);
   const apiCache = deps.apiCache ?? new ScopedApiCache();
 
   return async (req: http.IncomingMessage, res: http.ServerResponse) => {
@@ -552,26 +555,76 @@ export function createRequestHandler(
         });
       }
 
+      if (method === 'GET' && pathname === '/api/v1/bridge/sso/authorize') {
+        if (!authService)
+          throw new AuthError(
+            'DATABASE_UNAVAILABLE',
+            'Authentication unavailable',
+            503,
+          );
+        const state = new URL(
+          req.url || '/',
+          'http://localhost',
+        ).searchParams.get('state');
+        if (!state || !/^[a-f0-9]{64}$/.test(state))
+          throw new AuthError(
+            'SSO_INVALID_STATE',
+            'Phiên đăng nhập liên thông không hợp lệ.',
+            400,
+          );
+        let auth: Awaited<ReturnType<typeof requireAuth>>;
+        try {
+          auth = await requireAuth(
+            authService,
+            req,
+            isProduction,
+            sessionCookieName,
+          );
+        } catch (error) {
+          if (error instanceof AuthError && error.statusCode === 401) {
+            res.writeHead(303, {
+              Location: `/login?sso_state=${state}`,
+              'Cache-Control': 'no-store',
+              'Referrer-Policy': 'no-referrer',
+            });
+            return res.end();
+          }
+          throw error;
+        }
+        const location = ssoIssuer.authorize(
+          auth,
+          extractSessionToken(req, isProduction, sessionCookieName) || '',
+          state,
+        );
+        res.writeHead(303, {
+          Location: location,
+          'Cache-Control': 'no-store',
+          'Referrer-Policy': 'no-referrer',
+        });
+        return res.end();
+      }
+      if (method === 'POST' && pathname === '/api/v1/bridge/sso/exchange') {
+        const body = await parseJsonBody<{ code?: unknown; state?: unknown }>(
+          req,
+        );
+        const data = await ssoIssuer.exchange(
+          req.headers['x-hp-bridge-key'],
+          body?.code,
+          body?.state,
+        );
+        return sendJson(res, 200, createSuccessEnvelope(data, requestId), {
+          'Cache-Control': 'no-store',
+        });
+      }
+
       // Cross-System Bridge endpoints: ql.hoaiphuong.click <-> hoaiphuong.click
       if (method === 'GET' && pathname === '/api/v1/bridge/public-summary') {
-        if (!bridgeService) {
-          return sendJson(
-            res,
-            200,
-            createSuccessEnvelope(
-              {
-                system: 'management-lite',
-                domain: 'https://ql.hoaiphuong.click',
-                workspace_name: 'Hoài Phương Studio',
-                active_employees: 0,
-                active_work_items: 0,
-                today_reports: 0,
-                storage_connected: false,
-              },
-              requestId,
-            ),
+        if (!bridgeService)
+          throw new AuthError(
+            'DATABASE_UNAVAILABLE',
+            'Bridge service unavailable',
+            503,
           );
-        }
         const summary = await bridgeService.getPublicSummary();
         return sendJson(res, 200, createSuccessEnvelope(summary, requestId));
       }
@@ -594,10 +647,16 @@ export function createRequestHandler(
           isProduction,
           sessionCookieName,
         );
-        const statusData = await bridgeService.getTikTokV4Status(sessionContext);
-        return sendJson(res, 200, createSuccessEnvelope(statusData, requestId), {
-          'Cache-Control': 'private, no-store',
-        });
+        const statusData =
+          await bridgeService.getTikTokV4Status(sessionContext);
+        return sendJson(
+          res,
+          200,
+          createSuccessEnvelope(statusData, requestId),
+          {
+            'Cache-Control': 'private, no-store',
+          },
+        );
       }
 
       if (method === 'POST' && pathname === '/api/v1/bridge/tiktok-v4/sync') {
@@ -624,9 +683,14 @@ export function createRequestHandler(
           requestId,
         );
         apiCache.invalidateWorkspace(sessionContext.workspace.id);
-        return sendJson(res, 200, createSuccessEnvelope(syncResult, requestId), {
-          'Cache-Control': 'private, no-store',
-        });
+        return sendJson(
+          res,
+          200,
+          createSuccessEnvelope(syncResult, requestId),
+          {
+            'Cache-Control': 'private, no-store',
+          },
+        );
       }
 
       if (pathname === '/api/v1/fin' || pathname.startsWith('/api/v1/fin/')) {
@@ -1597,7 +1661,8 @@ export function createRequestHandler(
         const body = await parseJsonBody<Record<string, unknown>>(req);
         assertAllowedFields(body, ['email']);
 
-        let email = typeof body['email'] === 'string' ? body['email'].trim() : '';
+        let email =
+          typeof body['email'] === 'string' ? body['email'].trim() : '';
         let revealDelivery = false;
         try {
           const sessionContext = await requireAuth(
@@ -3079,7 +3144,11 @@ export function createRequestHandler(
             return sendJson(res, 200, createSuccessEnvelope(result, requestId));
           }
 
-          if (fileAction === 'upload-chunk' && !fileSubAction && method === 'POST') {
+          if (
+            fileAction === 'upload-chunk' &&
+            !fileSubAction &&
+            method === 'POST'
+          ) {
             requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
             const body = await parseJsonBody<Record<string, unknown>>(
               req,
@@ -3120,7 +3189,11 @@ export function createRequestHandler(
             return sendJson(res, 200, createSuccessEnvelope(result, requestId));
           }
 
-          if (fileAction === 'permissions' && !fileSubAction && method === 'GET') {
+          if (
+            fileAction === 'permissions' &&
+            !fileSubAction &&
+            method === 'GET'
+          ) {
             const result = await storageService.listPermissions(
               sessionContext,
               'storage_file',
@@ -3129,7 +3202,11 @@ export function createRequestHandler(
             return sendJson(res, 200, createSuccessEnvelope(result, requestId));
           }
 
-          if (fileAction === 'permissions' && !fileSubAction && method === 'POST') {
+          if (
+            fileAction === 'permissions' &&
+            !fileSubAction &&
+            method === 'POST'
+          ) {
             requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
             const body = await parseJsonBody<Record<string, unknown>>(req);
             assertAllowedFields(body, ['employee_id', 'role', 'type']);
@@ -3143,7 +3220,11 @@ export function createRequestHandler(
             return sendJson(res, 201, createSuccessEnvelope(result, requestId));
           }
 
-          if (fileAction === 'permissions' && fileSubAction === 'revoke' && method === 'POST') {
+          if (
+            fileAction === 'permissions' &&
+            fileSubAction === 'revoke' &&
+            method === 'POST'
+          ) {
             requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
             const body = await parseJsonBody<Record<string, unknown>>(req);
             assertAllowedFields(body, ['employee_id', 'grant_id', 'reason']);

@@ -33,6 +33,8 @@ try {
       .map((f) => 'tests/security/' + f),
     'tests/backend/cicd-policy.test.mjs',
     'tests/backend/bridge-safety.test.mjs',
+    'tests/backend/bridge-sso.test.mjs',
+    'tests/web/bridge-sync-mounted.test.mjs',
     'tests/backend/bridge-postgres.test.mjs',
     'tests/web/auth-request-retry.test.mjs',
     'tests/web/cp22-04-extensions.test.mjs',

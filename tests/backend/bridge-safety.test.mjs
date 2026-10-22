@@ -380,3 +380,14 @@ test('local transaction failure rolls back, releases client, and reports confirm
   const status = await f.service.getTikTokV4Status(auth());
   assert.equal(status.last_synced_at, null);
 });
+
+test('public summary cannot turn a database error into successful zero business data', async () => {
+  const service = new BridgeService({
+    query: async () => {
+      throw new Error('simulated DB unavailable');
+    },
+  });
+  await assert.rejects(service.getPublicSummary(), {
+    code: 'DATABASE_UNAVAILABLE',
+  });
+});

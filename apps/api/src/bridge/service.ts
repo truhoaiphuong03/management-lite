@@ -417,15 +417,11 @@ export class BridgeService {
           (parseInt(driveRes.rows[0]?.cnt ?? '0', 10) || 0) > 0,
       };
     } catch {
-      return {
-        system: 'management-lite',
-        domain: 'https://ql.hoaiphuong.click',
-        workspace_name: 'Hoài Phương Studio',
-        active_employees: 0,
-        active_work_items: 0,
-        today_reports: 0,
-        storage_connected: false,
-      };
+      throw new AuthError(
+        'DATABASE_UNAVAILABLE',
+        'Không đọc được dữ liệu tổng hợp hệ thống quản lý.',
+        503,
+      );
     }
   }
 

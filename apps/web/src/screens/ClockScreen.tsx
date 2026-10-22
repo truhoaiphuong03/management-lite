@@ -1031,37 +1031,6 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   </button>
                 </div>
               )}
-
-              {/* Geofencing is unavailable until a server-side policy is implemented. */}
-              <div
-                data-testid="gps-geofence-panel"
-                role="status"
-                style={{
-                  marginTop: '14px',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  backgroundColor: TOKENS.colors.warningSubtle,
-                  border: `1px solid ${TOKENS.colors.warning}`,
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: '12px',
-                    color: TOKENS.colors.text,
-                    margin: '0 0 8px',
-                  }}
-                >
-                  GPS: Chưa triển khai xác minh bán kính văn phòng. Vị trí chưa
-                  được kiểm tra khi chấm công.
-                </p>
-                <AppButton
-                  data-testid="btn-verify-gps"
-                  disabled
-                  title="Chưa có chính sách vị trí và kiểm tra trên máy chủ"
-                >
-                  Xác minh GPS (chưa khả dụng)
-                </AppButton>
-              </div>
             </div>
           </AppCard>
 
