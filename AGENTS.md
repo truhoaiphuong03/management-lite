@@ -20,6 +20,7 @@
 - **KẾT LUẬN RÀ SOÁT (2026-10-22):** Nghiệm thu hệ thống hiện **HOLD**. Các mốc DONE lịch sử không chứng minh MFA/GPS/Admin đã triển khai: hiện chỉ có giao diện giới thiệu, membership DB vẫn owner/staff. Không tự cấp quyền hoặc khẳng định có MFA/geofencing.
 - [DEV • MAC • 2026-10-22] Nhánh review `codex/shared-admin-sso-no-gps`: bỏ GPS, sửa CSRF Dashboard và chuẩn bị SSO Owner → admin V4, siết khóa bridge. 47 kiểm thử quản lý và HTTP liên thông cục bộ PASS. Chưa kích hoạt Production, chưa đổi mật khẩu/xóa tài khoản; V4 từ chối đăng nhập, số nhân sự bridge chưa khớp. Chi tiết: `docs/reports/2026-10-22-shared-admin-sso.md`.
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
+  - [MAC • 2026-10-22] Đã sửa lỗi PostgreSQL importer tạo trạng thái sai (`todo` bắt buộc) và dấu phân tách nguồn chống trùng; CI đang xác minh lại. Đã mở khôi phục V4, Owner cần tự hoàn tất mật khẩu. Cổng phát hành yêu cầu chữ ký Owner độc lập, không tự ký từ AI.
   - Chạy nghiệm thu PostgreSQL QA/Windows, kiểm thử hai hệ thống với khóa riêng; chưa deploy Production. Báo cáo sản lượng tự động vẫn tạm dừng đến khi có ánh xạ nhân viên/ngày đáng tin cậy. Rà tiếp metadata release, 63 phát hiện UI và các luồng tích hợp chưa chạy.
 
 <!-- LIVE_CHECKPOINT_END -->

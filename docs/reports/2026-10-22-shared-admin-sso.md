@@ -29,3 +29,8 @@ Mã một lần lưu trong bộ nhớ: khi nhiều replica cần sticky routing 
 - HTTP hai ứng dụng cục bộ PASS: phiên nguồn được xác minh, ánh xạ admin hiện hữu, chặn phát lại mã; dùng fixture, không chứng minh dữ liệu Production.
 - Giao diện chấm công cục bộ đã kiểm tra không còn khối/nút GPS.
 - Chưa nghiệm thu PostgreSQL QA hoặc Windows; các vấn đề UI và sản lượng đã ghi trong báo cáo trước vẫn còn mở.
+
+## Tiếp tục triển khai — 2026-10-22
+- CI GitHub lần 102: Windows security PASS; PostgreSQL bridge FAIL. Importer chèn `in_progress`, trái trigger bắt buộc công việc mới ở `todo`. Đã sửa trạng thái và dùng `chr(10)` tách dấu nguồn theo dòng, chống trùng khi đổi tiêu đề. Bổ sung kiểm thử trạng thái, giữ kiểm thử concurrent/retry PostgreSQL. CI đang xác minh lại.
+- Đã yêu cầu mã khôi phục qua giao diện V4 và bàn giao form đặt mật khẩu mới cho Owner. Thông báo chung không xác nhận email tồn tại hoặc mã đã được chuyển phát. Chưa đặt mật khẩu mới hoặc xóa tài khoản.
+- `scripts/deployment/Approve-ReleaseSha.ps1` yêu cầu Owner ký trong console Windows Administrator độc lập và chặn AI tự ký. `Deploy-SemiAutoWindows.ps1` kiểm tra gói, CI receipt và manifest phê duyệt. Không bỏ qua cổng này. Cần CI xanh, cấu hình ánh xạ SSO đúng trên hai máy chủ, rồi ký và triển khai qua controller.
