@@ -159,6 +159,14 @@ test('bridge against migrated PostgreSQL: real email column, active Drive, uncha
     results.reduce((n, r) => n + r.work_items_synced, 0),
     1,
   );
+  assert.equal(
+    (
+      await pool.query('SELECT status FROM work_items WHERE workspace_id=$1', [
+        workspace,
+      ])
+    ).rows[0].status,
+    'todo',
+  );
   title = 'Changed title';
   assert.equal(
     (await service.syncWithTikTokV4(auth, 'retry')).work_items_synced,

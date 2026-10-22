@@ -645,14 +645,14 @@ export class BridgeService {
           );
         const existingWork = await client.query<{ id: string }>(
           `SELECT id FROM work_items WHERE workspace_id = $1
-           AND (split_part(description, E'\\n', 1) = $2 OR (title = $3 AND description NOT LIKE 'TikTok V4 source:%')) LIMIT 1`,
+           AND (split_part(description, chr(10), 1) = $2 OR (title = $3 AND description NOT LIKE 'TikTok V4 source:%')) LIMIT 1`,
           [auth.workspace.id, sourceMarker, title],
         );
         if (!existingWork.rows[0]) {
           await client.query(
             `INSERT INTO work_items (
                workspace_id, title, description, work_type, priority, status, created_by
-             ) VALUES ($1, $2, $3, $4, 'high', 'in_progress', $5)`,
+             ) VALUES ($1, $2, $3, $4, 'high', 'todo', $5)`,
             [
               auth.workspace.id,
               title,

@@ -90,6 +90,7 @@ function setup(t) {
     if (sql.includes('SELECT w.id, w.name'))
       return { rows: [{ id: 'workspace-a', name: 'Studio' }] };
     if (sql.includes('SELECT id FROM work_items')) {
+      assert.ok(sql.includes('split_part(description, chr(10), 1)'));
       const row = work.find(
         (w) =>
           w.workspace === args[0] &&
@@ -100,6 +101,7 @@ function setup(t) {
       return { rows: row ? [{ id: 'existing-work' }] : [] };
     }
     if (sql.includes('INSERT INTO work_items')) {
+      assert.ok(sql.includes("'high', 'todo', $5"));
       work.push({ workspace: args[0], title: args[1], description: args[2] });
       return { rows: [] };
     }
