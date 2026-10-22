@@ -23,7 +23,10 @@ test('MGL-UI-CLEANUP-VERSION-24: Canonical global version contract and single so
 
   // 1. Single source of truth values
   assert.equal(SYSTEM_NAME, 'Management Lite');
-  assert.equal(SYSTEM_VERSION, '0.1.0-dev');
+  assert.equal(
+    SYSTEM_VERSION,
+    JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version,
+  );
   assert.equal(SYSTEM_COMMIT, 'ab7500c');
   assert.equal(SYSTEM_ENV, 'staging');
 
@@ -31,7 +34,7 @@ test('MGL-UI-CLEANUP-VERSION-24: Canonical global version contract and single so
   const info = getSystemInfo();
   assert.deepEqual(info, {
     name: 'Management Lite',
-    version: '0.1.0-dev',
+    version: '0.1.3',
     commit: 'ab7500c',
     environment: 'staging',
   });
@@ -40,7 +43,7 @@ test('MGL-UI-CLEANUP-VERSION-24: Canonical global version contract and single so
   const contractsIndex = await import(
     `file://${resolve(root, 'dist/packages/contracts/src/index.js')}`
   );
-  assert.equal(contractsIndex.SYSTEM_VERSION, '0.1.0-dev');
+  assert.equal(contractsIndex.SYSTEM_VERSION, '0.1.3');
   assert.equal(contractsIndex.SYSTEM_COMMIT, 'ab7500c');
 });
 
@@ -60,8 +63,8 @@ test('MGL-UI-CLEANUP-VERSION-24: Shared Navigation displays canonical subtle ver
 
   // 1. Displays canonical version
   assert.ok(
-    markup.includes('v0.1.0-dev'),
-    'DesktopSidebar must display canonical version v0.1.0-dev',
+    markup.includes('v0.1.3'),
+    'DesktopSidebar must display canonical version v0.1.3',
   );
 
   // 2. No hardcoded Demo tag

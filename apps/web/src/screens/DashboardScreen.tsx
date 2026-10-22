@@ -9,7 +9,9 @@ import {
   BanknoteIcon,
   SettingsIcon,
   NavIcon,
+  ErrorState,
 } from '../../../../packages/ui/src/components/index.js';
+import { TOKENS } from '../../../../packages/ui/src/tokens.js';
 import type { UserRole } from '../types.js';
 import type { AttendanceMeResponseData } from '../../../../packages/contracts/src/attendance.js';
 import type { DailyReportListItem } from '../../../../packages/contracts/src/reports.js';
@@ -120,12 +122,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     };
   } | null>(null);
   const [bridgeSyncing, setBridgeSyncing] = useState(false);
+  const [bridgeFeedbackError, setBridgeFeedbackError] = useState(false);
   const [bridgeFeedback, setBridgeFeedback] = useState<string | null>(null);
 
   const handleSyncTikTokV4 = async () => {
     if (typeof fetch !== 'function' || bridgeSyncing) return;
     setBridgeSyncing(true);
     setBridgeFeedback(null);
+    setBridgeFeedbackError(false);
     try {
       let csrfToken = '';
       const sessionRes = await fetch('/api/v1/auth/session', {
@@ -149,17 +153,27 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         body: JSON.stringify({}),
       });
       if (!syncRes.ok) {
-        throw new Error(`Đồng bộ thất bại (${syncRes.status})`);
+        const failure = (await syncRes.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        throw new Error(
+          failure?.error?.message || `Đồng bộ thất bại (${syncRes.status})`,
+        );
       }
       const syncJson = (await syncRes.json()) as {
         data?: {
           employees_synced?: number;
           reports_synced?: number;
           work_items_synced?: number;
+          warnings?: string[];
         };
       };
+      const warnings =
+        syncJson.data?.warnings?.filter(
+          (warning) => typeof warning === 'string',
+        ) ?? [];
       setBridgeFeedback(
-        `Đã đồng bộ thành công: ${syncJson?.data?.employees_synced ?? 0} nhân sự, ${syncJson?.data?.reports_synced ?? 0} báo cáo sản lượng, ${syncJson?.data?.work_items_synced ?? 0} công việc từ hoaiphuong.click.`,
+        `Đã đồng bộ thành công: ${syncJson?.data?.employees_synced ?? 0} nhân sự, ${syncJson?.data?.reports_synced ?? 0} báo cáo sản lượng, ${syncJson?.data?.work_items_synced ?? 0} công việc từ hoaiphuong.click.${warnings.length ? ` ${warnings.join(' ')}` : ''}`,
       );
 
       const statusRes = await fetch('/api/v1/bridge/tiktok-v4', {
@@ -224,6 +238,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         }
       }
     } catch (err) {
+      setBridgeFeedbackError(true);
       setBridgeFeedback(
         err instanceof Error ? err.message : 'Không thể đồng bộ lúc này.',
       );
@@ -587,8 +602,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 json.data.tiktok_v4?.counts?.audio_deliverables ?? 0,
               video_deliverables:
                 json.data.tiktok_v4?.counts?.video_deliverables ?? 0,
-              active_members:
-                json.data.tiktok_v4?.counts?.active_members ?? 0,
+              active_members: json.data.tiktok_v4?.counts?.active_members ?? 0,
             },
             management_lite: {
               active_employees:
@@ -1131,7 +1145,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   label={
                     bridgeStatus?.connected
                       ? 'Đã kết nối liên thông'
-                      : 'Sẵn sàng đồng bộ'
+                      : 'Chưa kết nối'
                   }
                 />
               </div>
@@ -1142,7 +1156,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   marginTop: '4px',
                 }}
               >
-                Đồng bộ tự động Nhân sự, Sản lượng Kịch bản/Prompt/Video và Kho lưu trữ Google Drive giữa ql.hoaiphuong.click và hoaiphuong.click
+                Đồng bộ nhân sự và công việc với hoaiphuong.click. Báo cáo sản
+                lượng chỉ tự ghi khi có ánh xạ nhân viên và ngày nghiệp vụ đã
+                xác minh.
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1154,7 +1170,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 >
                   {bridgeSyncing
                     ? 'Đang đồng bộ...'
-                    : 'Đồng bộ toàn diện ngay'}
+                    : 'Đồng bộ nhân sự & công việc'}
                 </AppButton>
               )}
               <AppButton
@@ -1174,14 +1190,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
           </div>
 
-          {bridgeFeedback && (
+          {bridgeFeedback && bridgeFeedbackError && (
+            <ErrorState message={bridgeFeedback} />
+          )}
+          {bridgeFeedback && !bridgeFeedbackError && (
             <div
+              role="status"
+              aria-live="polite"
               style={{
                 padding: '10px 14px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(20, 184, 166, 0.12)',
-                border: '1px solid rgba(20, 184, 166, 0.35)',
-                color: '#5EEAD4',
+                backgroundColor: TOKENS.colors.warningSubtle,
+                border: `1px solid ${TOKENS.colors.warning}`,
+                color: TOKENS.colors.text,
                 fontSize: '13px',
                 marginBottom: '16px',
               }}

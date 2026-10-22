@@ -32,6 +32,7 @@ try {
       .filter((f) => f.endsWith('.test.mjs'))
       .map((f) => 'tests/security/' + f),
     'tests/backend/cicd-policy.test.mjs',
+    'tests/backend/bridge-safety.test.mjs',
     'tests/backend/auth.test.mjs',
     'tests/backend/accounts.test.mjs',
     'tests/backend/function-verification.test.mjs',

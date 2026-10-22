@@ -4,8 +4,7 @@ import type { DatabasePool } from '../../../../packages/database/src/pool.js';
 import { recordAuditEvent } from '../../../../packages/database/src/audit.js';
 import type { AuthenticatedContext } from '../auth/service.js';
 import { requireRole } from '../auth/guard.js';
-
-export const DEFAULT_BRIDGE_SECRET = 'hp-cross-system-bridge-v1';
+import { AuthError } from '../auth/service.js';
 
 export interface TikTokV4SummaryPayload {
   system: string;
@@ -83,6 +82,7 @@ export interface BridgeSyncResultData {
   channels_linked: number;
   drive_connected: boolean;
   target_domain: string;
+  warnings: string[];
 }
 
 interface PersistedBridgeCache {
@@ -90,13 +90,17 @@ interface PersistedBridgeCache {
   last_summary: TikTokV4SummaryPayload | null;
 }
 
-function getLocalBridgeCachePath(): string {
-  return path.join(process.cwd(), '.data', 'tiktok-v4-bridge-cache.json');
+function getLocalBridgeCachePath(workspaceId: string): string {
+  return path.join(
+    process.cwd(),
+    '.data',
+    `tiktok-v4-bridge-${encodeURIComponent(workspaceId)}.json`,
+  );
 }
 
-function readLocalBridgeCache(): PersistedBridgeCache {
+function readLocalBridgeCache(workspaceId: string): PersistedBridgeCache {
   try {
-    const p = getLocalBridgeCachePath();
+    const p = getLocalBridgeCachePath(workspaceId);
     if (fs.existsSync(p)) {
       const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
       if (parsed && typeof parsed === 'object') {
@@ -115,9 +119,12 @@ function readLocalBridgeCache(): PersistedBridgeCache {
   return { last_synced_at: null, last_summary: null };
 }
 
-function writeLocalBridgeCache(cache: PersistedBridgeCache): void {
+function writeLocalBridgeCache(
+  workspaceId: string,
+  cache: PersistedBridgeCache,
+): void {
   try {
-    const p = getLocalBridgeCachePath();
+    const p = getLocalBridgeCachePath(workspaceId);
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, JSON.stringify(cache, null, 2), 'utf8');
   } catch {
@@ -131,9 +138,9 @@ function createFallbackTikTokSummary(): TikTokV4SummaryPayload {
     domain: 'https://hoaiphuong.click',
     connected_at: new Date().toISOString(),
     workspace: {
-      connected: true,
-      owner_uid: 'admin_default',
-      google_account_email: 'studio@hoaiphuong.click',
+      connected: false,
+      owner_uid: null,
+      google_account_email: null,
       drive_root_folder_id: null,
       drive_folders: {},
       spreadsheet_id: null,
@@ -155,12 +162,57 @@ function createFallbackTikTokSummary(): TikTokV4SummaryPayload {
   };
 }
 
-function normalizeStudioWorkspaceName(rawName: string | null | undefined): string {
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isTikTokSummary(value: unknown): value is TikTokV4SummaryPayload {
+  if (!value || typeof value !== 'object') return false;
+  const data = value as TikTokV4SummaryPayload;
+  const nullableString = (v: unknown) => v === null || typeof v === 'string';
+  return (
+    data.system === 'tiktok-ai-factory-v4' &&
+    !!data.workspace &&
+    typeof data.workspace.connected === 'boolean' &&
+    nullableString(data.workspace.google_account_email) &&
+    nullableString(data.workspace.drive_root_folder_id) &&
+    !!data.counts &&
+    [
+      'products',
+      'channels',
+      'scripts',
+      'prompts',
+      'audio_deliverables',
+      'video_deliverables',
+      'active_members',
+      'registered_accounts',
+      'today_checkins',
+    ].every((key) =>
+      isCount((data.counts as unknown as Record<string, unknown>)[key]),
+    ) &&
+    Array.isArray(data.recent_scripts) &&
+    data.recent_scripts.every(
+      (script) =>
+        script &&
+        typeof script.script_id === 'string' &&
+        script.script_id.trim().length > 0 &&
+        script.script_id.length <= 256 &&
+        ['title', 'product_id', 'channel_id', 'status'].every(
+          (key) =>
+            typeof (script as unknown as Record<string, unknown>)[key] ===
+            'string',
+        ),
+    ) &&
+    Array.isArray(data.channels) &&
+    Array.isArray(data.deliverables)
+  );
+}
+
+function normalizeStudioWorkspaceName(
+  rawName: string | null | undefined,
+): string {
   const trimmed = (rawName ?? '').trim();
-  if (
-    !trimmed ||
-    /synthetic|not real data|acceptance|test/i.test(trimmed)
-  ) {
+  if (!trimmed || /synthetic|not real data|acceptance|test/i.test(trimmed)) {
     return 'Hoài Phương Studio';
   }
   return trimmed;
@@ -170,68 +222,121 @@ export class BridgeService {
   constructor(private readonly pool: DatabasePool) {}
 
   private getBridgeSecret(): string {
-    return process.env['HP_BRIDGE_SECRET']?.trim() || DEFAULT_BRIDGE_SECRET;
+    const secret = process.env['HP_BRIDGE_SECRET']?.trim();
+    if (!secret) {
+      throw new AuthError(
+        'BRIDGE_NOT_CONFIGURED',
+        'Chưa cấu hình khóa kết nối liên hệ thống.',
+        503,
+      );
+    }
+    return secret;
   }
 
-  private getCandidateBaseUrls(): string[] {
-    const custom = process.env['TIKTOK_V4_BRIDGE_URL']?.trim();
-    return [
-      custom,
-      'http://127.0.0.1:3000',
-      'https://hoaiphuong.click',
-    ].filter((u): u is string => Boolean(u));
+  private getBaseUrl(): string {
+    const base =
+      process.env['TIKTOK_V4_BRIDGE_URL']?.trim() ||
+      (process.env['NODE_ENV'] === 'production'
+        ? 'https://hoaiphuong.click'
+        : 'http://127.0.0.1:3000');
+    let url: URL;
+    try {
+      url = new URL(base);
+    } catch {
+      throw new AuthError(
+        'BRIDGE_NOT_CONFIGURED',
+        'Địa chỉ kết nối liên hệ thống không hợp lệ.',
+        503,
+      );
+    }
+    const local = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+    if (
+      (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      throw new AuthError(
+        'BRIDGE_NOT_CONFIGURED',
+        'Kết nối liên hệ thống yêu cầu HTTPS hoặc địa chỉ loopback.',
+        503,
+      );
+    }
+    return url.href.replace(/\/+$/, '');
   }
 
-  private async fetchTikTokV4Summary(): Promise<{
+  private async requestRemote(
+    pathname: string,
+    body?: unknown,
+  ): Promise<unknown> {
+    const secret = this.getBridgeSecret();
+    const baseUrl = this.getBaseUrl();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    try {
+      const res = await fetch(`${baseUrl}${pathname}`, {
+        method: body === undefined ? 'GET' : 'POST',
+        redirect: 'error',
+        headers: {
+          Accept: 'application/json',
+          'x-hp-bridge-key': secret,
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error('Remote request failed');
+      const payload = (await res.json()) as {
+        success?: boolean;
+        data?: unknown;
+      };
+      if (
+        payload?.success !== true ||
+        !payload.data ||
+        typeof payload.data !== 'object'
+      ) {
+        throw new Error('Invalid remote response');
+      }
+      return payload.data;
+    } catch {
+      throw new AuthError(
+        'BRIDGE_UNAVAILABLE',
+        'Không xác nhận được kết quả từ hệ thống bên kia. Hãy kiểm tra trạng thái trước khi thử lại.',
+        502,
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private async fetchTikTokV4Summary(workspaceId: string): Promise<{
     reachable: boolean;
     source_url: string;
     summary: TikTokV4SummaryPayload;
   }> {
-    const secret = this.getBridgeSecret();
-    for (const baseUrl of this.getCandidateBaseUrls()) {
-      const cleanBase = baseUrl.replace(/\/+$/, '');
-      const url = `${cleanBase}/api/bridge/summary`;
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 3500);
-        const res = await fetch(url, {
-          method: 'GET',
-          headers: {
-            Accept: 'application/json',
-            'x-hp-bridge-key': secret,
-          },
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-        if (res.ok) {
-          const payload = (await res.json()) as {
-            success?: boolean;
-            data?: TikTokV4SummaryPayload;
-          };
-          if (payload?.data) {
-            const cache = readLocalBridgeCache();
-            writeLocalBridgeCache({
-              last_synced_at: cache.last_synced_at,
-              last_summary: payload.data,
-            });
-            return {
-              reachable: true,
-              source_url: cleanBase,
-              summary: payload.data,
-            };
-          }
-        }
-      } catch {
-        // Try next candidate URL
-      }
+    const sourceUrl = this.getBaseUrl();
+    try {
+      const summary = await this.requestRemote('/api/bridge/summary');
+      if (!isTikTokSummary(summary)) throw new Error('Invalid summary');
+      const cache = readLocalBridgeCache(workspaceId);
+      writeLocalBridgeCache(workspaceId, {
+        last_synced_at: cache.last_synced_at,
+        last_summary: summary,
+      });
+      return { reachable: true, source_url: sourceUrl, summary };
+    } catch (error) {
+      if (error instanceof AuthError && error.code === 'BRIDGE_NOT_CONFIGURED')
+        throw error;
+      const cached = readLocalBridgeCache(workspaceId);
+      return {
+        reachable: false,
+        source_url: sourceUrl,
+        summary: isTikTokSummary(cached.last_summary)
+          ? cached.last_summary
+          : createFallbackTikTokSummary(),
+      };
     }
-
-    const cached = readLocalBridgeCache();
-    return {
-      reachable: false,
-      source_url: 'https://hoaiphuong.click',
-      summary: cached.last_summary ?? createFallbackTikTokSummary(),
-    };
   }
 
   /**
@@ -288,7 +393,9 @@ export class BridgeService {
           [ws.id],
         ),
         this.pool.query<{ cnt: string }>(
-          `SELECT COUNT(*)::text AS cnt FROM daily_reports WHERE workspace_id = $1`,
+          `SELECT COUNT(*)::text AS cnt FROM daily_reports WHERE workspace_id = $1
+             AND report_date = (NOW() AT TIME ZONE COALESCE(
+               (SELECT timezone FROM workspaces WHERE id = $1), 'Asia/Ho_Chi_Minh'))::date`,
           [ws.id],
         ),
         this.pool
@@ -306,7 +413,8 @@ export class BridgeService {
         active_employees: parseInt(empRes.rows[0]?.cnt ?? '0', 10) || 0,
         active_work_items: parseInt(workRes.rows[0]?.cnt ?? '0', 10) || 0,
         today_reports: parseInt(repRes.rows[0]?.cnt ?? '0', 10) || 0,
-        storage_connected: (parseInt(driveRes.rows[0]?.cnt ?? '0', 10) || 0) > 0,
+        storage_connected:
+          (parseInt(driveRes.rows[0]?.cnt ?? '0', 10) || 0) > 0,
       };
     } catch {
       return {
@@ -332,7 +440,7 @@ export class BridgeService {
 
     const [remote, empRes, workRes, repRes, driveRes, wsRes] =
       await Promise.all([
-        this.fetchTikTokV4Summary(),
+        this.fetchTikTokV4Summary(auth.workspace.id),
         this.pool.query<{ cnt: string }>(
           `SELECT COUNT(*)::text AS cnt FROM employees WHERE workspace_id = $1 AND employment_status = 'active'`,
           [auth.workspace.id],
@@ -364,25 +472,16 @@ export class BridgeService {
         ),
       ]);
 
-    const cache = readLocalBridgeCache();
+    const cache = readLocalBridgeCache(auth.workspace.id);
     const driveRow = driveRes.rows[0] ?? null;
     const activeEmployees = parseInt(empRes.rows[0]?.cnt ?? '0', 10) || 0;
 
     return {
-      connected: remote.reachable || Boolean(cache.last_synced_at),
+      connected: remote.reachable,
       source_url: remote.source_url,
       target_domain: 'https://hoaiphuong.click',
       last_synced_at: cache.last_synced_at,
-      tiktok_v4: {
-        ...remote.summary,
-        counts: {
-          ...remote.summary.counts,
-          active_members: Math.max(
-            remote.summary.counts.active_members,
-            activeEmployees,
-          ),
-        },
-      },
+      tiktok_v4: remote.summary,
       management_lite: {
         workspace_id: auth.workspace.id,
         workspace_name: normalizeStudioWorkspaceName(wsRes.rows[0]?.name),
@@ -390,7 +489,9 @@ export class BridgeService {
         synced_work_items: parseInt(workRes.rows[0]?.cnt ?? '0', 10) || 0,
         synced_daily_reports: parseInt(repRes.rows[0]?.cnt ?? '0', 10) || 0,
         storage_drive_connected:
-          Boolean(driveRow) || remote.summary.workspace.connected,
+          Boolean(driveRow) ||
+          (remote.reachable &&
+            Boolean(remote.summary.workspace.drive_root_folder_id)),
         storage_google_email:
           driveRow?.google_email ??
           remote.summary.workspace.google_account_email ??
@@ -407,7 +508,7 @@ export class BridgeService {
    * POST /api/v1/bridge/tiktok-v4/sync
    * Executes full two-way synchronization:
    * 1. Active Employees & Accounts -> hoaiphuong.click (/api/bridge/sync-members)
-   * 2. Scripts/Prompts/Video Deliverables -> Daily Reports & Work Items on ql.hoaiphuong.click
+   * 2. Recent scripts -> Work Items; daily reports await verified attribution
    * 3. Channels & Google Drive Root Folder -> Storage V2 metadata link
    */
   async syncWithTikTokV4(
@@ -456,167 +557,100 @@ export class BridgeService {
       .catch(() => ({ rows: [] }));
     const storageRootFolderId = driveRes.rows[0]?.root_folder_id ?? null;
 
-    const employeesPayload = empRows.rows.map((r) => {
-      const cleanCode = r.employee_code
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9._-]/g, '');
-      const resolvedEmail =
-        r.email && r.email.includes('@')
-          ? r.email.trim().toLowerCase()
-          : `${cleanCode || 'staff'}@hoaiphuong.click`;
-      return {
-        employee_code: r.employee_code,
-        full_name: r.full_name,
-        email: resolvedEmail,
-        role: r.role ?? 'staff',
-        employment_status: r.employment_status,
-      };
+    const employeesPayload = empRows.rows.flatMap((r) => {
+      const email = r.email?.trim().toLowerCase();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return [];
+      return [
+        {
+          employee_code: r.employee_code,
+          full_name: r.full_name,
+          email,
+          role: r.role ?? 'staff',
+          employment_status: r.employment_status,
+        },
+      ];
     });
 
-    // 2. Push employee roster to hoaiphuong.click (/api/bridge/sync-members)
-    const secret = this.getBridgeSecret();
-    let remoteSyncedMembers = employeesPayload.length;
-    let remoteAutoApproved = 0;
-
-    for (const baseUrl of this.getCandidateBaseUrls()) {
-      const cleanBase = baseUrl.replace(/\/+$/, '');
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 3500);
-        const res = await fetch(`${cleanBase}/api/bridge/sync-members`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'x-hp-bridge-key': secret,
-          },
-          body: JSON.stringify({
-            employees: employeesPayload,
-            workspace_name: workspaceName,
-            storage_root_folder_id: storageRootFolderId,
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-        if (res.ok) {
-          const json = (await res.json()) as {
-            data?: {
-              synced_members?: number;
-              auto_approved_accounts?: number;
-            };
-          };
-          remoteSyncedMembers = Number(
-            json?.data?.synced_members ?? employeesPayload.length,
-          );
-          remoteAutoApproved = Number(
-            json?.data?.auto_approved_accounts ?? 0,
-          );
-          break;
-        }
-      } catch {
-        // Try next candidate
-      }
+    // Validate the source before sending members or writing local business data.
+    const remote = await this.fetchTikTokV4Summary(auth.workspace.id);
+    if (!remote.reachable) {
+      throw new AuthError(
+        'BRIDGE_UNAVAILABLE',
+        'Không lấy được dữ liệu nguồn mới. Chưa ghi dữ liệu đồng bộ.',
+        502,
+      );
     }
-
-    // 3. Pull latest production metrics & scripts from hoaiphuong.click
-    const remote = await this.fetchTikTokV4Summary();
     const summary = remote.summary;
-
-    // 4. Sync production output into daily_reports and work_items on ql.hoaiphuong.click
-    let reportsSynced = 0;
+    const ack = (await this.requestRemote('/api/bridge/sync-members', {
+      employees: employeesPayload,
+      workspace_name: workspaceName,
+      storage_root_folder_id: storageRootFolderId,
+    })) as {
+      synced_members?: unknown;
+      auto_approved_accounts?: unknown;
+      total_employees_received?: unknown;
+      workspace_connected?: unknown;
+    };
+    if (
+      !isCount(ack.synced_members) ||
+      !isCount(ack.auto_approved_accounts) ||
+      !isCount(ack.total_employees_received) ||
+      ack.total_employees_received !== employeesPayload.length ||
+      (employeesPayload.length > 0 && ack.workspace_connected !== true) ||
+      ack.synced_members < employeesPayload.length ||
+      ack.auto_approved_accounts > employeesPayload.length
+    ) {
+      throw new AuthError(
+        'BRIDGE_UNCONFIRMED',
+        'Phía nhận chưa xác nhận đầy đủ số nhân sự. Chưa ghi dữ liệu cục bộ; hãy kiểm tra trạng thái phía nhận.',
+        502,
+      );
+    }
+    const remoteSyncedMembers = ack.total_employees_received;
+    const remoteAutoApproved = ack.auto_approved_accounts;
+    // The summary has totals, not employee-attributed dated production events.
+    // Never infer payroll/report entries from those totals or overwrite manual reports.
+    const reportsSynced = 0;
+    const warnings = [
+      'Chưa tự ghi báo cáo sản lượng: dữ liệu nguồn chưa có ánh xạ nhân viên và ngày nghiệp vụ. Báo cáo hiện có được giữ nguyên.',
+    ];
+    const skippedEmployees = empRows.rows.length - employeesPayload.length;
+    if (skippedEmployees > 0) {
+      warnings.push(
+        `Có ${skippedEmployees} nhân sự chưa đồng bộ vì chưa có email tài khoản hợp lệ.`,
+      );
+    }
     let workItemsSynced = 0;
-    const primaryEmployee = empRows.rows[0] ?? null;
-    const todayIsoDate = new Date().toISOString().slice(0, 10);
-
-    const client = await this.pool.connect();
+    const localFailure = () =>
+      new AuthError(
+        'BRIDGE_LOCAL_SYNC_FAILED',
+        'Phía nhận đã xác nhận nhân sự, nhưng chưa hoàn tất ghi công việc cục bộ. Hãy kiểm tra trạng thái trước khi thử lại.',
+        503,
+      );
+    const client = await this.pool.connect().catch(() => {
+      throw localFailure();
+    });
     try {
       await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `tiktok-v4-bridge:${auth.workspace.id}`,
+      ]);
 
-      if (primaryEmployee) {
-        const scriptsAndPromptsCount = Math.max(
-          1,
-          summary.counts.scripts + summary.counts.prompts,
-        );
-        const videoAndAudioCount = Math.max(
-          0,
-          summary.counts.video_deliverables + summary.counts.audio_deliverables,
-        );
-        const syncNote = `Đồng bộ tự động từ hoaiphuong.click (Sản phẩm: ${summary.counts.products}, Kênh: ${summary.counts.channels}, Kịch bản: ${summary.counts.scripts}, Prompt: ${summary.counts.prompts}, Video/Audio: ${videoAndAudioCount})`;
-
-        const existingReport = await client.query<{
-          id: string;
-          version: number;
-        }>(
-          `SELECT id, version FROM daily_reports
-           WHERE workspace_id = $1 AND employee_id = $2 AND report_date = $3
-           LIMIT 1`,
-          [auth.workspace.id, primaryEmployee.id, todayIsoDate],
-        );
-
-        let reportId: string;
-        if (existingReport.rows[0]) {
-          reportId = existingReport.rows[0].id;
-          await client.query(
-            `UPDATE daily_reports
-             SET notes = $1, version = version + 1, updated_at = NOW()
-             WHERE workspace_id = $2 AND id = $3`,
-            [syncNote, auth.workspace.id, reportId],
+      // Only source records become work items; totals never create synthetic work.
+      const scripts = new Map(
+        summary.recent_scripts.map((script) => [script.script_id, script]),
+      );
+      for (const script of scripts.values()) {
+        const sourceMarker = `TikTok V4 source: ${encodeURIComponent(script.script_id)}`;
+        const title =
+          `[TikTok V4] Kịch bản: ${script.title || script.script_id}`.slice(
+            0,
+            190,
           );
-          await client.query(
-            `DELETE FROM daily_report_entries WHERE workspace_id = $1 AND report_id = $2`,
-            [auth.workspace.id, reportId],
-          );
-        } else {
-          const insRep = await client.query<{ id: string }>(
-            `INSERT INTO daily_reports (
-               workspace_id, employee_id, report_date, status, current_revision, version, notes
-             ) VALUES ($1, $2, $3, 'submitted', 1, 1, $4)
-             RETURNING id`,
-            [auth.workspace.id, primaryEmployee.id, todayIsoDate, syncNote],
-          );
-          reportId = insRep.rows[0]!.id;
-        }
-
-        await client.query(
-          `INSERT INTO daily_report_entries (
-             workspace_id, report_id, work_type, reported_count, notes, sort_order
-           ) VALUES
-             ($1, $2, 'content', $3, 'Kịch bản & Prompt AI từ hoaiphuong.click', 0),
-             ($1, $2, 'video', $4, 'Thành phẩm Video MP4 & Audio WAV từ hoaiphuong.click', 1)`,
-          [
-            auth.workspace.id,
-            reportId,
-            scriptsAndPromptsCount,
-            videoAndAudioCount,
-          ],
-        );
-        reportsSynced = 1;
-      }
-
-      // Sync recent scripts or production summary as work_items
-      const scriptItemsToSync =
-        summary.recent_scripts.length > 0
-          ? summary.recent_scripts.slice(0, 5).map((s) => ({
-              title: `[TikTok V4] Kịch bản: ${s.title || s.script_id}`.slice(
-                0,
-                190,
-              ),
-              description: `Đồng bộ từ hoaiphuong.click — Mã kịch bản: ${s.script_id} | Sản phẩm: ${s.product_id} | Kênh: ${s.channel_id} | Trạng thái: ${s.status}`,
-              work_type: 'content',
-            }))
-          : [
-              {
-                title: `[TikTok V4] Đồng bộ dây chuyền sản xuất Video & Kịch bản (${todayIsoDate})`,
-                description: `Liên kết tự động giữa ql.hoaiphuong.click và hoaiphuong.click — Nhân sự đồng bộ: ${employeesPayload.length}, Sản phẩm: ${summary.counts.products}, Kênh: ${summary.counts.channels}, Kịch bản: ${summary.counts.scripts}.`,
-                work_type: 'video',
-              },
-            ];
-
-      for (const item of scriptItemsToSync) {
         const existingWork = await client.query<{ id: string }>(
-          `SELECT id FROM work_items WHERE workspace_id = $1 AND title = $2 LIMIT 1`,
-          [auth.workspace.id, item.title],
+          `SELECT id FROM work_items WHERE workspace_id = $1
+           AND (split_part(description, E'\\n', 1) = $2 OR (title = $3 AND description NOT LIKE 'TikTok V4 source:%')) LIMIT 1`,
+          [auth.workspace.id, sourceMarker, title],
         );
         if (!existingWork.rows[0]) {
           await client.query(
@@ -625,9 +659,9 @@ export class BridgeService {
              ) VALUES ($1, $2, $3, $4, 'high', 'in_progress', $5)`,
             [
               auth.workspace.id,
-              item.title,
-              item.description,
-              item.work_type,
+              title,
+              `${sourceMarker}\nĐồng bộ từ hoaiphuong.click — Sản phẩm: ${script.product_id} | Kênh: ${script.channel_id} | Trạng thái: ${script.status}`,
+              'content',
               auth.user.id,
             ],
           );
@@ -652,15 +686,15 @@ export class BridgeService {
       });
 
       await client.query('COMMIT');
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
+    } catch {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw localFailure();
     } finally {
       client.release();
     }
 
     const syncedAt = new Date().toISOString();
-    writeLocalBridgeCache({
+    writeLocalBridgeCache(auth.workspace.id, {
       last_synced_at: syncedAt,
       last_summary: summary,
     });
@@ -673,8 +707,10 @@ export class BridgeService {
       work_items_synced: workItemsSynced,
       channels_linked: summary.counts.channels,
       drive_connected:
-        Boolean(storageRootFolderId) || summary.workspace.connected,
+        Boolean(storageRootFolderId) ||
+        Boolean(summary.workspace.drive_root_folder_id),
       target_domain: 'https://hoaiphuong.click',
+      warnings,
     };
   }
 }

@@ -15,8 +15,9 @@
   - [x] Cập nhật danh mục phát hành chính thức `v0.1.2` (`RELEASE_NOTES_CATALOG`) và đồng bộ tự động cả Backend API + Frontend Web + Migration trực tiếp lên `https://ql.hoaiphuong.click`.
   - [x] Kết nối dữ liệu toàn diện hai chiều giữa `ql.hoaiphuong.click` (`management-lite` `v0.1.3`) và `hoaiphuong.click` (`tiktok-ai-factory-v4`): Đồng bộ Nhân sự/Tài khoản, Tự động quy đổi sản lượng Kịch bản/Prompt/Video sang Báo cáo & Công việc, và Liên kết Kênh TikTok & Kho Google Drive.
   - [x] [WIN-1 • 2026-10-20 15:36] Đã thực thi & kiểm tra (npm run typecheck && npm run test:security): Kiểm tra lại lần nữa
+  - [x] [MAC • 2026-10-22] DEV: Sửa an toàn bridge (giữ nguyên báo cáo, chặn nguồn lỗi/thiếu khóa, xác nhận nhân sự, cache theo workspace, chống trùng công việc), bộ đếm ngày theo timezone và phiên bản UI 0.1.3. 40/40 kiểm thử hồi quy/bảo mật PASS; web 381 PASS, 4 SKIP. Chi tiết: `docs/reports/2026-10-22-bridge-safety-fix.md`. Chưa deploy Production.
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
-  - Hệ sinh thái `ql.hoaiphuong.click` (`v0.1.3`) ↔ `hoaiphuong.click` đã kết nối dữ liệu toàn diện, kiểm thử PASS 100% và phát hành tự động lên web. Sẵn sàng nhận yêu cầu mới!
+  - Nghiệm thu bản sửa bridge trên PostgreSQL QA/Windows và hai hệ thống với khóa riêng; chỉ phát hành khi được Owner cho phép. Tạm dừng tự ghi báo cáo sản lượng đến khi có ánh xạ nhân viên/ngày đáng tin cậy. Không ghi đè báo cáo hiện có.
 
 <!-- LIVE_CHECKPOINT_END -->
 

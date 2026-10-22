@@ -59,7 +59,7 @@ test('CROSS-SYSTEM-BRIDGE-01: management-lite API & Web expose full data bridge 
     'Owner Dashboard must render the TikTok AI Factory cross-system integration card',
   );
   assert.ok(
-    ownerHtml.includes('Đồng bộ toàn diện ngay'),
-    'Owner Dashboard must render 1-click full sync button',
+    ownerHtml.includes('Đồng bộ nhân sự &amp; công việc'),
+    'Owner Dashboard must describe the supported sync scope',
   );
 });
