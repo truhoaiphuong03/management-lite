@@ -88,3 +88,9 @@ Khi bật kết nối Google Drive thật trên máy chủ Windows (`ql.hoaiphuo
 - `GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_REDIRECT_URI=https://ql.hoaiphuong.click/api/v1/storage/google-drive/callback`
 - `DRIVE_ENCRYPTION_KEY_HEX` (64 ký tự hex / 32 byte để mã hóa refresh token AES-256-GCM)
+
+## Tự động cấp & điền sẵn Mã nhân viên trên `/employees/new` (`dccf5f3`)
+
+- **Backend:** Thêm `EmployeeService.getNextEmployeeCode` và endpoint `GET /api/v1/employees/next-code` trả về mã tuần tự kế tiếp (`NV001`, `NV002`, `NV003`...) theo workspace.
+- **Frontend (`EmployeeNewScreen.tsx`):** Tự động lấy và điền sẵn mã nhân viên kế tiếp vào ô `#empCode` ngay khi mở trang `/employees/new` (kèm fallback tính từ `GET /api/v1/employees?limit=50`), hiển thị huy hiệu `Tự động (NV...)` và nút `Dùng lại mã tự động` nếu người dùng sửa tay.
+- **Nhánh Git:** Đã hợp nhất (fast-forward) toàn bộ commit sang nhánh `main` và đẩy lên `origin/main`.
