@@ -41,6 +41,7 @@ try {
     'tests/backend/auth.test.mjs',
     'tests/backend/accounts.test.mjs',
     'tests/backend/function-verification.test.mjs',
+    'tests/backend/timesheet-postgres.test.mjs',
     'tests/database/config.test.mjs',
     'tests/database/migrator.test.mjs',
     'tests/database/integration.test.mjs',
