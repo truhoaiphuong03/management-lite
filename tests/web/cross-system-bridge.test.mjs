@@ -62,4 +62,17 @@ test('CROSS-SYSTEM-BRIDGE-01: management-lite API & Web expose full data bridge 
     ownerHtml.includes('Đồng bộ nhân sự &amp; công việc'),
     'Owner Dashboard must describe the supported sync scope',
   );
+
+  const staffHtml = renderToStaticMarkup(
+    React.createElement(DashboardScreen, {
+      role: 'staff',
+      workspaceName: 'Hoài Phương Studio',
+      onNavigate: () => {},
+    }),
+  );
+
+  assert.ok(
+    !staffHtml.includes('Kết nối dữ liệu TikTok AI Factory (hoaiphuong.click)'),
+    'Staff Dashboard must not render the TikTok AI Factory cross-system integration card',
+  );
 });

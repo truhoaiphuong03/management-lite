@@ -567,6 +567,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     };
 
     const loadBridgeData = async () => {
+      if (role !== 'owner') return;
       try {
         const res = await fetch('/api/v1/bridge/tiktok-v4', {
           method: 'GET',
@@ -1128,225 +1129,227 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </AppCard>
       </div>
 
-      {/* Cross-System Data Bridge: ql.hoaiphuong.click <-> hoaiphuong.click */}
-      <div style={{ marginTop: '28px' }}>
-        <AppCard padding="20px">
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '12px',
-              marginBottom: '16px',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <h2
-                  style={{
-                    fontSize: '16px',
-                    fontWeight: 600,
-                    color: '#F8FAFC',
-                    margin: 0,
-                  }}
-                >
-                  Kết nối dữ liệu TikTok AI Factory (hoaiphuong.click)
-                </h2>
-                <StatusBadge
-                  status={bridgeStatus?.connected ? 'success' : 'neutral'}
-                  label={
-                    bridgeStatus?.connected
-                      ? 'Đã kết nối liên thông'
-                      : 'Chưa kết nối'
-                  }
-                />
-              </div>
-              <div
-                style={{
-                  fontSize: '13px',
-                  color: '#94A3B8',
-                  marginTop: '4px',
-                }}
-              >
-                Đồng bộ nhân sự và công việc với hoaiphuong.click. Báo cáo sản
-                lượng chỉ tự ghi khi có ánh xạ nhân viên và ngày nghiệp vụ đã
-                xác minh.
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {role === 'owner' && (
-                <AppButton
-                  variant="primary"
-                  onClick={() => void handleSyncTikTokV4()}
-                  disabled={bridgeSyncing}
-                >
-                  {bridgeSyncing
-                    ? 'Đang đồng bộ...'
-                    : 'Đồng bộ nhân sự & công việc'}
-                </AppButton>
-              )}
-              <AppButton
-                variant="secondary"
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    window.open(
-                      'https://hoaiphuong.click/api/auth/management/start',
-                      '_blank',
-                      'noopener,noreferrer',
-                    );
-                  }
-                }}
-              >
-                Mở hoaiphuong.click
-              </AppButton>
-            </div>
-          </div>
-
-          {bridgeReadError && !bridgeFeedback && (
-            <p
-              role="status"
-              style={{ color: TOKENS.colors.warning, marginBottom: '12px' }}
-            >
-              {bridgeReadError}
-            </p>
-          )}
-          {bridgeFeedback && bridgeFeedbackError && (
-            <ErrorState message={bridgeFeedback} />
-          )}
-          {bridgeFeedback && !bridgeFeedbackError && (
+      {/* Cross-System Data Bridge: ql.hoaiphuong.click <-> hoaiphuong.click (Owner only) */}
+      {role === 'owner' && (
+        <div style={{ marginTop: '28px' }}>
+          <AppCard padding="20px">
             <div
-              role="status"
-              aria-live="polite"
               style={{
-                padding: '10px 14px',
-                borderRadius: '8px',
-                backgroundColor: TOKENS.colors.warningSubtle,
-                border: `1px solid ${TOKENS.colors.warning}`,
-                color: TOKENS.colors.text,
-                fontSize: '13px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '12px',
                 marginBottom: '16px',
               }}
             >
-              {bridgeFeedback}
-            </div>
-          )}
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-              gap: '12px',
-            }}
-          >
-            <div
-              style={{
-                padding: '12px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(148, 163, 184, 0.15)',
-              }}
-            >
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Nhân sự &amp; Member đồng bộ
+              <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      color: '#F8FAFC',
+                      margin: 0,
+                    }}
+                  >
+                    Kết nối dữ liệu TikTok AI Factory (hoaiphuong.click)
+                  </h2>
+                  <StatusBadge
+                    status={bridgeStatus?.connected ? 'success' : 'neutral'}
+                    label={
+                      bridgeStatus?.connected
+                        ? 'Đã kết nối liên thông'
+                        : 'Chưa kết nối'
+                    }
+                  />
+                </div>
+                <div
+                  style={{
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginTop: '4px',
+                  }}
+                >
+                  Đồng bộ nhân sự và công việc với hoaiphuong.click. Báo cáo sản
+                  lượng chỉ tự ghi khi có ánh xạ nhân viên và ngày nghiệp vụ đã
+                  xác minh.
+                </div>
               </div>
-              <div
-                style={{
-                  fontSize: '20px',
-                  fontWeight: 700,
-                  color: '#F8FAFC',
-                  marginTop: '4px',
-                }}
-              >
-                {bridgeStatus?.counts.active_members ?? '--'}
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: '12px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(148, 163, 184, 0.15)',
-              }}
-            >
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Sản phẩm &amp; Kênh TikTok
-              </div>
-              <div
-                style={{
-                  fontSize: '20px',
-                  fontWeight: 700,
-                  color: '#F8FAFC',
-                  marginTop: '4px',
-                }}
-              >
-                {bridgeStatus
-                  ? `${bridgeStatus.counts.products} SP / ${bridgeStatus.counts.channels} Kênh`
-                  : '--'}
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: '12px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(148, 163, 184, 0.15)',
-              }}
-            >
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Kịch bản &amp; Prompt AI
-              </div>
-              <div
-                style={{
-                  fontSize: '20px',
-                  fontWeight: 700,
-                  color: '#F8FAFC',
-                  marginTop: '4px',
-                }}
-              >
-                {bridgeStatus
-                  ? `${bridgeStatus.counts.scripts} KB / ${bridgeStatus.counts.prompts} Prompt`
-                  : '--'}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {role === 'owner' && (
+                  <AppButton
+                    variant="primary"
+                    onClick={() => void handleSyncTikTokV4()}
+                    disabled={bridgeSyncing}
+                  >
+                    {bridgeSyncing
+                      ? 'Đang đồng bộ...'
+                      : 'Đồng bộ nhân sự & công việc'}
+                  </AppButton>
+                )}
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.open(
+                        'https://hoaiphuong.click/api/auth/management/start',
+                        '_blank',
+                        'noopener,noreferrer',
+                      );
+                    }
+                  }}
+                >
+                  Mở hoaiphuong.click
+                </AppButton>
               </div>
             </div>
 
-            <div
-              style={{
-                padding: '12px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(148, 163, 184, 0.15)',
-              }}
-            >
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Thành phẩm Video / Audio Drive
-              </div>
+            {bridgeReadError && !bridgeFeedback && (
+              <p
+                role="status"
+                style={{ color: TOKENS.colors.warning, marginBottom: '12px' }}
+              >
+                {bridgeReadError}
+              </p>
+            )}
+            {bridgeFeedback && bridgeFeedbackError && (
+              <ErrorState message={bridgeFeedback} />
+            )}
+            {bridgeFeedback && !bridgeFeedbackError && (
               <div
+                role="status"
+                aria-live="polite"
                 style={{
-                  fontSize: '20px',
-                  fontWeight: 700,
-                  color: '#F8FAFC',
-                  marginTop: '4px',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: TOKENS.colors.warningSubtle,
+                  border: `1px solid ${TOKENS.colors.warning}`,
+                  color: TOKENS.colors.text,
+                  fontSize: '13px',
+                  marginBottom: '16px',
                 }}
               >
-                {bridgeStatus
-                  ? `${bridgeStatus.counts.video_deliverables} MP4 / ${bridgeStatus.counts.audio_deliverables} WAV`
-                  : '--'}
+                {bridgeFeedback}
+              </div>
+            )}
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+                gap: '12px',
+              }}
+            >
+              <div
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  border: '1px solid rgba(148, 163, 184, 0.15)',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Nhân sự &amp; Member đồng bộ
+                </div>
+                <div
+                  style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: '#F8FAFC',
+                    marginTop: '4px',
+                  }}
+                >
+                  {bridgeStatus?.counts.active_members ?? '--'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  border: '1px solid rgba(148, 163, 184, 0.15)',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Sản phẩm &amp; Kênh TikTok
+                </div>
+                <div
+                  style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: '#F8FAFC',
+                    marginTop: '4px',
+                  }}
+                >
+                  {bridgeStatus
+                    ? `${bridgeStatus.counts.products} SP / ${bridgeStatus.counts.channels} Kênh`
+                    : '--'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  border: '1px solid rgba(148, 163, 184, 0.15)',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Kịch bản &amp; Prompt AI
+                </div>
+                <div
+                  style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: '#F8FAFC',
+                    marginTop: '4px',
+                  }}
+                >
+                  {bridgeStatus
+                    ? `${bridgeStatus.counts.scripts} KB / ${bridgeStatus.counts.prompts} Prompt`
+                    : '--'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  border: '1px solid rgba(148, 163, 184, 0.15)',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Thành phẩm Video / Audio Drive
+                </div>
+                <div
+                  style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: '#F8FAFC',
+                    marginTop: '4px',
+                  }}
+                >
+                  {bridgeStatus
+                    ? `${bridgeStatus.counts.video_deliverables} MP4 / ${bridgeStatus.counts.audio_deliverables} WAV`
+                    : '--'}
+                </div>
               </div>
             </div>
-          </div>
-        </AppCard>
-      </div>
+          </AppCard>
+        </div>
+      )}
     </div>
   );
 };
