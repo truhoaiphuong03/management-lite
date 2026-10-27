@@ -303,7 +303,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                   color: '#94A3B8',
                 }}
               >
-                Mã nhân viên (đã tự động cấp — có thể sửa nếu cần):
+                Mã nhân viên (hệ thống tự động cấp — khóa chỉnh sửa):
               </label>
               {codeEditedManually ? (
                 <button
@@ -343,11 +343,14 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               type="text"
               autoComplete="off"
               value={employeeCode}
-              onChange={(e) => {
-                setEmployeeCode(e.target.value);
-                setCodeEditedManually(true);
+              readOnly
+              tabIndex={-1}
+              onChange={() => {
+                // Locked: employee code is strictly auto-assigned
+                // Do not allow manual override
               }}
               placeholder={`Tự động: ${suggestedCode}`}
+              title="Mã nhân viên được hệ thống tự động cấp tuần tự và không thể sửa tay"
               disabled={isLoading}
               style={{
                 width: '100%',
