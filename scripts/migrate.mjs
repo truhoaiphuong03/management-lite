@@ -39,6 +39,14 @@ async function main() {
     console.log(`Found ${migrations.length} migration files in registry.`);
 
     const result = await runMigrations(pool, migrations);
+    const roleCheck = await pool.query(
+      `SELECT 1 FROM pg_roles WHERE rolname = 'hp_app_test' LIMIT 1`,
+    );
+    if (roleCheck.rowCount && roleCheck.rowCount > 0) {
+      await pool.query(
+        `GRANT USAGE ON SCHEMA public TO hp_app_test; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO hp_app_test; REVOKE UPDATE, DELETE ON audit_events FROM hp_app_test; REVOKE ALL ON schema_migrations FROM hp_app_test; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO hp_app_test;`,
+      );
+    }
     console.log(
       `Migrations finished successfully. Applied: ${result.appliedCount}, Previously applied: ${result.alreadyAppliedCount}`,
     );

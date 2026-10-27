@@ -114,7 +114,7 @@ export class DashboardService {
         FROM daily_reports r
         JOIN target_emp te ON te.id = r.employee_id
         LEFT JOIN daily_report_entries e
-          ON e.report_id = r.id AND e.revision_number = r.current_revision
+          ON e.report_id = r.id AND e.workspace_id = r.workspace_id
         WHERE r.workspace_id = $1
         GROUP BY r.id, r.report_date, r.status, r.created_at
         ORDER BY r.report_date DESC, r.created_at DESC, r.id DESC
