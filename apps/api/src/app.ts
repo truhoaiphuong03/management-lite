@@ -1931,6 +1931,29 @@ export function createRequestHandler(
         return sendJson(res, 200, createSuccessEnvelope(emp, requestId));
       }
 
+      // 9a. GET /api/v1/employees/next-code (Next sequential NV code - Owner only)
+      if (method === 'GET' && pathname === '/api/v1/employees/next-code') {
+        if (!authService || !employeeService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+        );
+        const data = await employeeService.getNextEmployeeCode(sessionContext);
+        return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+      }
+
       // 10. GET /api/v1/employees (List employees - Owner only)
       if (method === 'GET' && pathname === '/api/v1/employees') {
         if (!authService || !employeeService) {

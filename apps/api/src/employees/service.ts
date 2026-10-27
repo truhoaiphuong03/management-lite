@@ -89,6 +89,26 @@ export class EmployeeService {
   }
 
   /**
+   * Computes the next sequential employee code (e.g. NV001, NV002) for the active workspace.
+   * Owner only.
+   */
+  async getNextEmployeeCode(
+    context: AuthenticatedContext,
+  ): Promise<{ next_employee_code: string }> {
+    requireRole(['owner'], context);
+    const countRes = await this.pool.query<{ max_num: number | null }>(
+      `SELECT COALESCE(MAX(SUBSTRING(employee_code FROM '^NV([0-9]+)$')::integer), 0) AS max_num
+       FROM employees
+       WHERE workspace_id = $1 AND employee_code ~ '^NV[0-9]+$';`,
+      [context.workspace.id],
+    );
+    const nextNum = (countRes.rows[0]?.max_num || 0) + 1;
+    return {
+      next_employee_code: `NV${String(nextNum).padStart(3, '0')}`,
+    };
+  }
+
+  /**
    * Lists employees for the active workspace.
    * Owner only. Redacted list per doc 25.
    */
@@ -373,7 +393,11 @@ export class EmployeeService {
     let code = (body.employee_code || '').trim();
     const fullName = (body.full_name || '').trim();
     const email = (body.email || '').trim().toLowerCase();
-    const username = (body.username || email.split('@')[0] || (code ? code.toLowerCase() : 'staff'))
+    const username = (
+      body.username ||
+      email.split('@')[0] ||
+      (code ? code.toLowerCase() : 'staff')
+    )
       .trim()
       .toLowerCase();
 

@@ -272,6 +272,9 @@ test('TIMESHEET + STATS + SYSTEM LOG against migrated PostgreSQL (HTTP, RBAC, id
       ).rows[0].n,
       1,
     );
+    const nextCodeRes = await request('/api/v1/employees/next-code', owner);
+    assert.equal(nextCodeRes.status, 200);
+    assert.equal(nextCodeRes.data.data.next_employee_code, 'NV002');
   });
 
   await t.test('Re-import is idempotent and never overwrites', async () => {

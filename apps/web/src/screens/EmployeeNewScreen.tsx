@@ -16,7 +16,9 @@ export interface EmployeeNewScreenProps {
 export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
   onNavigate,
 }) => {
-  const [employeeCode, setEmployeeCode] = useState('');
+  const [suggestedCode, setSuggestedCode] = useState('NV001');
+  const [employeeCode, setEmployeeCode] = useState('NV001');
+  const [codeEditedManually, setCodeEditedManually] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -26,11 +28,12 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
   const [createdEmployeeName, setCreatedEmployeeName] = useState<string>('');
+  const [createdEmployeeCode, setCreatedEmployeeCode] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    const fetchCsrf = async () => {
+    const fetchInitialData = async () => {
       try {
         const res = await fetch('/api/v1/auth/me', { credentials: 'include' });
         if (res.ok) {
@@ -42,8 +45,49 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
       } catch {
         // Silently ignore network failures on initial CSRF fetch
       }
+
+      try {
+        let resolvedCode = '';
+        const nextRes = await fetch('/api/v1/employees/next-code', {
+          credentials: 'include',
+        });
+        if (nextRes.ok) {
+          const nextBody = await nextRes.json().catch(() => null);
+          if (typeof nextBody?.data?.next_employee_code === 'string') {
+            resolvedCode = nextBody.data.next_employee_code.trim();
+          }
+        }
+        if (!resolvedCode) {
+          const listRes = await fetch('/api/v1/employees?limit=50', {
+            credentials: 'include',
+          });
+          if (listRes.ok) {
+            const listBody = await listRes.json().catch(() => null);
+            const items = Array.isArray(listBody?.data?.items)
+              ? listBody.data.items
+              : [];
+            let maxNum = 0;
+            for (const item of items) {
+              const m = String(item?.employee_code || '').match(/^NV(\d+)$/i);
+              if (m && m[1]) {
+                const n = parseInt(m[1], 10);
+                if (n > maxNum) maxNum = n;
+              }
+            }
+            resolvedCode = `NV${String(maxNum + 1).padStart(3, '0')}`;
+          }
+        }
+        if (active && resolvedCode) {
+          setSuggestedCode(resolvedCode);
+          setEmployeeCode((prev) =>
+            prev === 'NV001' || !prev.trim() ? resolvedCode : prev,
+          );
+        }
+      } catch {
+        // Keep default NV001 fallback
+      }
     };
-    fetchCsrf();
+    void fetchInitialData();
     return () => {
       active = false;
     };
@@ -67,12 +111,18 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
         headers['X-CSRF-Token'] = csrfToken;
       }
 
+      const trimmedCode = employeeCode.trim();
+      const sendCustomCode =
+        codeEditedManually && trimmedCode && trimmedCode !== suggestedCode
+          ? trimmedCode
+          : undefined;
+
       const res = await fetch('/api/v1/employees', {
         method: 'POST',
         headers,
         credentials: 'include',
         body: JSON.stringify({
-          employee_code: employeeCode.trim() || undefined,
+          employee_code: sendCustomCode,
           full_name: fullName.trim(),
           email: email.trim(),
           username: username.trim() || undefined,
@@ -86,6 +136,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
       }
 
       setCreatedEmployeeName(data.data.full_name);
+      setCreatedEmployeeCode(
+        data.data.employee_code || trimmedCode || suggestedCode,
+      );
       if (data.data.invite_token) {
         const url = `${window.location.origin}/activate?token=${encodeURIComponent(data.data.invite_token)}`;
         setCreatedInviteUrl(url);
@@ -106,7 +159,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
         <PageHeader
           title="Tạo nhân viên thành công"
-          subtitle={`Nhân viên ${createdEmployeeName} đã được thêm vào hệ thống`}
+          subtitle={`Nhân viên ${createdEmployeeName}${createdEmployeeCode ? ` (${createdEmployeeCode})` : ''} đã được thêm vào hệ thống`}
         />
 
         <AppCard padding="24px">
@@ -232,24 +285,69 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px' }}>
-            <label
-              htmlFor="empCode"
+            <div
               style={{
-                display: 'block',
-                fontSize: '14px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
                 marginBottom: '6px',
-                color: '#94A3B8',
               }}
             >
-              Mã nhân viên (tùy chọn, để trống để tự động tạo mã):
-            </label>
+              <label
+                htmlFor="empCode"
+                style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  color: '#94A3B8',
+                }}
+              >
+                Mã nhân viên (đã tự động cấp — có thể sửa nếu cần):
+              </label>
+              {codeEditedManually ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmployeeCode(suggestedCode);
+                    setCodeEditedManually(false);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#14B8A6',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  Dùng lại mã tự động ({suggestedCode})
+                </button>
+              ) : (
+                <span
+                  style={{
+                    fontSize: '12px',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    backgroundColor: 'rgba(20, 184, 166, 0.15)',
+                    color: '#14B8A6',
+                    fontWeight: 600,
+                  }}
+                >
+                  Tự động ({employeeCode})
+                </span>
+              )}
+            </div>
             <input
               id="empCode"
               type="text"
               autoComplete="off"
               value={employeeCode}
-              onChange={(e) => setEmployeeCode(e.target.value)}
-              placeholder="VD: NV002 (để trống hệ thống tự tạo NV001...)"
+              onChange={(e) => {
+                setEmployeeCode(e.target.value);
+                setCodeEditedManually(true);
+              }}
+              placeholder={`Tự động: ${suggestedCode}`}
               disabled={isLoading}
               style={{
                 width: '100%',
