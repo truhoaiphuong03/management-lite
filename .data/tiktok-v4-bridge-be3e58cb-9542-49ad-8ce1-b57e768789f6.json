@@ -1,0 +1,219 @@
+{
+  "last_synced_at": null,
+  "last_summary": {
+    "system": "tiktok-ai-factory-v4",
+    "domain": "https://hoaiphuong.click",
+    "connected_at": "2026-10-27T10:10:57.800Z",
+    "workspace": {
+      "connected": true,
+      "owner_uid": "yOmJ5GX6nOc5imkczOGvFNd2Fv42",
+      "google_account_email": "truhoaiphuong03@gmail.com",
+      "drive_root_folder_id": "1f8tpI7RRG183BBntVTm9oRzXQN3Xn5_Y",
+      "drive_folders": {
+        "Database": "13iOS76-4pQzulYsnGyGxFTfn8mpM4Z2U",
+        "Products": "1_ymq8jk2iLRYPYwYa7-1VbsNpZ5ajvKc",
+        "Characters": "1ZvLr9Zqw55A8vvF8ME0t2V_Moc-F0Ple",
+        "Images": "1ZvLr9Zqw55A8vvF8ME0t2V_Moc-F0Ple",
+        "Scripts": "1-GWj_ZLJVS-3RCczm0-StgWzRv2_ttBZ",
+        "Assets": "1HmpvtmQ5-gHIZ4oZqKXE9t8Fz7hjmvaz"
+      },
+      "spreadsheet_id": "1w3SayddFJMO32C3YjIwSdPDFEtvImlenuaw8EMEo1hg"
+    },
+    "counts": {
+      "products": 5,
+      "channels": 3,
+      "scripts": 5,
+      "prompts": 1,
+      "audio_deliverables": 0,
+      "video_deliverables": 0,
+      "active_members": 12,
+      "registered_accounts": 3,
+      "today_checkins": 0
+    },
+    "recent_scripts": [
+      {
+        "script_id": "script_43ec1d7be1ce4561",
+        "title": "Anh chị có bao giờ bực mình vì khăn kém chất lượng làm trầy xước sơn xe ô tô chưa nè? Em mang lại trải nghiệm thực tế siêu sạch.",
+        "product_id": "P_MU15JB6B",
+        "channel_id": "chan_4fa6921c6dc0a3fa",
+        "status": "Draft",
+        "created_at": "2026-10-20T12:38:13.287Z"
+      },
+      {
+        "script_id": "script_7310ebcc5dae938b",
+        "title": "Mấy bà hay than thở nhà mình nước yếu quá tắm hổng đã mà lại hay bị cặn bẩn bám dính đầy vòi sen phải hông nè.",
+        "product_id": "P_MU0PRQSW_1",
+        "channel_id": "chan_4fa6921c6dc0a3fa",
+        "status": "Ready",
+        "created_at": "2026-10-12T10:34:48.438Z"
+      },
+      {
+        "script_id": "script_01c6c1d03b3fbb8b",
+        "title": "Trời ơi anh chị hay gặp cảnh nước yếu hổng đã với lại nhiều cặn bẩn làm da dẻ cứ rít rát khó chịu ghê hông nè.",
+        "product_id": "P_MU0PRQSW_1",
+        "channel_id": "chan_4fa6921c6dc0a3fa",
+        "status": "Ready",
+        "created_at": "2026-09-18T00:44:58.682Z"
+      },
+      {
+        "script_id": "script_e706dfd7ec925a8e",
+        "title": "Trời ơi anh chị em ơi nhà mình đang gặp tình trạng nước yếu cặn bẩn xài bực mình lắm đúng hông nè",
+        "product_id": "P_MU0PRQSW_1",
+        "channel_id": "chan_4fa6921c6dc0a3fa",
+        "status": "Ready",
+        "created_at": "2026-09-18T00:44:58.682Z"
+      },
+      {
+        "script_id": "script_f5437b97f5b4f5a3",
+        "title": "Trời ơi anh chị hay gặp cảnh nước yếu hổng đã với lại nhiều cặn bẩn làm da dẻ cứ rít rát khó chịu ghê hông nè.",
+        "product_id": "P_MU0PRQSW_1",
+        "channel_id": "chan_4fa6921c6dc0a3fa",
+        "status": "Ready",
+        "created_at": "2026-09-18T00:44:50.669Z"
+      }
+    ],
+    "channels": [
+      {
+        "channel_id": "chan_4fa6921c6dc0a3fa",
+        "channel_name": "Tạp Hoá Nhà Bình",
+        "platform": "TikTok",
+        "status": "Active"
+      },
+      {
+        "channel_id": "chan_faa15b792b8d4227",
+        "channel_name": "Ba Phát Review",
+        "platform": "TikTok",
+        "status": "Active"
+      },
+      {
+        "channel_id": "chan_99c24713d4d3438b",
+        "channel_name": "Lão Sư Kê",
+        "platform": "TikTok",
+        "status": "Active"
+      }
+    ],
+    "deliverables": [],
+    "members": [
+      {
+        "member_id": "member_e7c9104727a5e7d1",
+        "email": "truhoaiphuong01@gmail.com",
+        "status": "active",
+        "workspace_id": "yOmJ5GX6nOc5imkczOGvFNd2Fv42",
+        "updated_at": "2026-10-20T15:16:13.031Z"
+      },
+      {
+        "member_id": "member_935ec3caefef48c1",
+        "email": "truhoaiphuong95@gmail.com",
+        "status": "active",
+        "workspace_id": "yOmJ5GX6nOc5imkczOGvFNd2Fv42",
+        "updated_at": "2026-10-20T15:16:13.099Z"
+      },
+      {
+        "member_id": "member_bdf0206cb38ffc17",
+        "email": "duongcambinh@gmail.com",
+        "status": "active",
+        "workspace_id": "yOmJ5GX6nOc5imkczOGvFNd2Fv42",
+        "updated_at": "2026-10-20T15:16:13.169Z"
+      },
+      {
+        "member_id": "member_bf626b116107ae1a",
+        "email": "truhoaiphuong01@gmail.com",
+        "status": "active",
+        "workspace_id": "USR_MTV9GIPO_2fbf6b40",
+        "updated_at": "2026-10-20T15:16:13.046Z"
+      },
+      {
+        "member_id": "member_ba8c1bac9f4ed002",
+        "email": "truhoaiphuong95@gmail.com",
+        "status": "active",
+        "workspace_id": "USR_MTV9GIPO_2fbf6b40",
+        "updated_at": "2026-10-20T15:16:13.115Z"
+      },
+      {
+        "member_id": "member_62a7fadcf1ce0da6",
+        "email": "duongcambinh@gmail.com",
+        "status": "active",
+        "workspace_id": "USR_MTV9GIPO_2fbf6b40",
+        "updated_at": "2026-10-20T15:16:13.187Z"
+      },
+      {
+        "member_id": "member_53e7fcad2149c667",
+        "email": "truhoaiphuong01@gmail.com",
+        "status": "active",
+        "workspace_id": "USR_MTX91AMO_cd091e11",
+        "updated_at": "2026-10-20T15:16:13.070Z"
+      },
+      {
+        "member_id": "member_16455aa8fc5f5202",
+        "email": "truhoaiphuong95@gmail.com",
+        "status": "active",
+        "workspace_id": "USR_MTX91AMO_cd091e11",
+        "updated_at": "2026-10-20T15:16:13.134Z"
+      },
+      {
+        "member_id": "member_b30e7cb7076cf199",
+        "email": "duongcambinh@gmail.com",
+        "status": "active",
+        "workspace_id": "USR_MTX91AMO_cd091e11",
+        "updated_at": "2026-10-20T15:16:13.202Z"
+      },
+      {
+        "member_id": "member_d4fd5699beda0b18",
+        "email": "truhoaiphuong01@gmail.com",
+        "status": "active",
+        "workspace_id": "USR_MU3CQ79A_c86af215",
+        "updated_at": "2026-10-20T15:16:13.083Z"
+      },
+      {
+        "member_id": "member_5fa7cb5480e99a3f",
+        "email": "truhoaiphuong95@gmail.com",
+        "status": "active",
+        "workspace_id": "USR_MU3CQ79A_c86af215",
+        "updated_at": "2026-10-20T15:16:13.149Z"
+      },
+      {
+        "member_id": "member_206e1db08a0c3d20",
+        "email": "duongcambinh@gmail.com",
+        "status": "active",
+        "workspace_id": "USR_MU3CQ79A_c86af215",
+        "updated_at": "2026-10-20T15:16:13.217Z"
+      }
+    ],
+    "accounts": [
+      {
+        "uid": "USR_MU3CQ79A_c86af215",
+        "email": "duongcambinh@gmail.com",
+        "display_name": "Binh Test",
+        "role": "editor",
+        "status": "ACTIVE",
+        "email_verified": true
+      },
+      {
+        "uid": "USR_MTX91AMO_cd091e11",
+        "email": "truhoaiphuong95@gmail.com",
+        "display_name": "phuong",
+        "role": "editor",
+        "status": "ACTIVE",
+        "email_verified": true
+      },
+      {
+        "uid": "USR_MTV9GIPO_2fbf6b40",
+        "email": "truhoaiphuong01@gmail.com",
+        "display_name": "Duong Binh",
+        "role": "editor",
+        "status": "ACTIVE",
+        "email_verified": true
+      }
+    ],
+    "management_lite_link": {
+      "reachable": true,
+      "domain": "https://ql.hoaiphuong.click",
+      "workspace_name": "Hoài Phương Studio",
+      "last_synced_at": "2026-10-20T15:16:13.232Z",
+      "synced_employees_count": 3,
+      "active_employees": 3,
+      "active_work_items": 0,
+      "storage_connected": false
+    }
+  }
+}
