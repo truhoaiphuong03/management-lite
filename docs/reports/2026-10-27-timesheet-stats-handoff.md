@@ -3,6 +3,7 @@
 Máy làm: Máy 1 MacBook Air M2. Nhánh: `codex/shared-admin-sso-no-gps`. Commit code: `61bfab5`.
 
 ## Đã làm
+
 - **Migration `0027_timesheet_import`**: thêm `attendance_shifts.source` (`clock`/`import`) và `import_ref` (duy nhất theo workspace) để nhập lại không bị trùng.
 - **Thống kê lương** `GET /api/v1/payroll-tools/stats?granularity=day|week|month|year&from&to&employee_id` (Owner). Dùng lại `PayrollService.overview` từng tháng nên khớp bảng lương tháng. Tuần Thứ Hai–Chủ nhật, múi giờ Asia/Ho_Chi_Minh. Mỗi ngày công gắn báo cáo công việc cùng nhân viên + ngày; có đếm ngày thiếu báo cáo.
 - **Excel**: `GET .../timesheet/export?employee_id&year` (mỗi tháng có dữ liệu một tab `T<m>`, đúng mẫu Google Sheet, có công thức, chỉ tháng có ca đã duyệt). `POST .../timesheet/import` (JSON `file_base64`, `year`, `employee_id` hoặc `new_employee_name`, `commit`). `commit=false` = Xem trước (chạy cùng đường code rồi ROLLBACK).
@@ -11,21 +12,25 @@ Máy làm: Máy 1 MacBook Air M2. Nhánh: `codex/shared-admin-sso-no-gps`. Commi
 - Tệp mới: `apps/api/src/payroll/{xlsx,timesheet,stats,timesheet-service}.ts`, test `tests/backend/timesheet-xlsx.test.mjs`.
 
 ## Kiểm tra đã chạy (Mac)
+
 typecheck, eslint, prettier PASS. Web 384 PASS. Backend 192 PASS / 16 FAIL (cũ: thiếu PostgreSQL/Windows, baseline trước khi sửa là 188/16). DB 28 PASS / 2 FAIL cũ.
 File Google Sheet thật đọc đúng: 53 ca, 167,28 giờ.
 
 ## CHƯA làm / chưa kiểm chứng
+
 - ~~Phần ghi DB chưa chạy trên PostgreSQL thật~~ → **đã kiểm chứng trên PostgreSQL 18 qua GitHub CI** (xem mục Kiểm chứng PostgreSQL). Máy Mac vẫn không có PostgreSQL cục bộ.
 - **Chưa deploy Production** và **chưa nhập dữ liệu thật**. Cổng phát hành yêu cầu chữ ký Owner độc lập; workflow `deploy.yml` chỉ chạy trên `main`. AI không tự ký.
 - Nhánh này chưa merge vào `main` (còn việc SSO/HOLD cũ).
 
 ## Việc tiếp theo cho máy khác
+
 1. `scripts/sync-all.sh start` (hoặc `.ps1`), `npm run build`.
 2. Trên PostgreSQL QA: `npm run migrate` (0027), chạy import ở chế độ Xem trước với file chấm công (Nguyễn Huỳnh Thế Vinh, năm 2026, đơn giá 20.000 → 25.000 từ 01/07). Kỳ vọng: 53 ca, 167,28 giờ, lương ≈ 3.896.250 đ (lệch vài đồng do làm tròn theo ngày).
 3. Nếu đạt: Owner duyệt, rồi quy trình phát hành chuẩn (Approve-ReleaseSha → Deploy) mới nhập Production.
 4. Cân nhắc viết test PostgreSQL cho import/stats (đặt trong `tests/database` hoặc `tests/backend` có điều kiện QA).
 
 ## Nhật ký hệ thống (`/system-logs`) — thêm cùng ngày
+
 - **Migration `0028_system_logs`**: bảng `system_logs` (level, source api/web, request_id, route đã chuẩn hóa, status, duration_ms, error_code, message, stack, fingerprint, release, metadata). Tự xóa bản ghi quá 30 ngày.
 - **Ghi log** (`apps/api/src/system-log/service.ts`, hook `res.once('finish')` trong `app.ts`): mọi 4xx (trừ 401 và 404 tệp tĩnh), 5xx, yêu cầu ≥ 3 giây. Ghi bất đồng bộ theo lô, không bao giờ làm hỏng request. Mật khẩu/token/chuỗi kết nối bị che trước khi lưu. Lỗi trình duyệt gửi qua `apps/web/src/client-error-reporter.ts` (giới hạn 20/phút/người, chống trùng).
 - **API (Owner)**: `GET /api/v1/system/logs` (lọc level, source, status_min, route, request_id, fingerprint, q, from, to, cursor), `/logs/summary?hours=`, `/logs/:id` (kèm audit cùng request_id và số lần gặp). `POST /api/v1/system/client-errors`.
@@ -34,13 +39,16 @@ File Google Sheet thật đọc đúng: 53 ca, 167,28 giờ.
 - **Lưu ý**: cờ `implemented:false` của `/activate`, `/employees*`, `/attendance/corrections` bị test khóa (ui-demo, ui-fix-43) — không đổi.
 
 ## Kiểm chứng PostgreSQL qua GitHub CI (2026-10-27)
+
 CI (`.github/workflows/foundation.yml`, bước `scripts/deployment/ci-isolated-tests.mjs`) có sẵn PostgreSQL 18, mỗi tệp test chạy trên một DB mới. Không cần máy Windows để kiểm thử DB.
+
 - **Mới thêm và đạt:** `timesheet-postgres.test.mjs` (11 mục): phân quyền Owner/Staff, Xem trước không ghi gì, nhập một lần, nhập lại không trùng, cách ly tenant, lương tháng khớp đơn giá lịch sử (140.000 + 243.750), thống kê 4 mức khớp nhau, báo cáo liên kết đúng ngày, xuất rồi nhập ngược, kiểm tra đầu vào, nhật ký hệ thống (ghi, gom nhóm, lọc, phân trang, che mật khẩu, giới hạn tốc độ, xóa >30 ngày, liên kết audit).
 - **Cũ nhưng trước đây bị SKIP, nay chạy thật và đạt:** `att-mvp`, `rep-mvp`, `work`, `schedule` (phải migrate DB trước khi chạy, script CI đã làm), `work-e2e`, `work-schedule-links`, `payroll` (23), `storage` (16), `storage-provider-safety`, `emp-mvp`, `issue-cp22-fixes`, `owner-self-lockout`, `admin-login`.
 - **Không chạy được trên CI:** `auth-remember-me` (cần Chrome + Edge), `reports-endpoint` (cần endpoint QA riêng), `finance-endpoint` (skip).
 - Chạy lại: push lên GitHub và xem `gh run list` / `gh run view <id> --log`.
 
 ## Liên kết báo cáo ↔ công việc (migration `0029`)
+
 - `daily_report_entries.work_item_id` (tùy chọn, FK tới `work_items`, `ON DELETE RESTRICT`).
 - `ReportsService.insertEntries` kiểm tra công việc đã được giao cho đúng nhân viên của báo cáo (nếu không: 422 `INVALID_WORK_ITEM`, giao dịch hoàn tác). Áp dụng cho tạo mới, sửa nháp và sửa sau khi nộp; liên kết nằm trong bản chụp phiên bản.
 - Giao diện: ô chọn "Công việc liên quan" ở 3 form của `ReportsScreen`; chi tiết báo cáo có đường dẫn `/work/:id`.
@@ -49,6 +57,34 @@ CI (`.github/workflows/foundation.yml`, bước `scripts/deployment/ci-isolated-
 - Việc còn lại: thưởng/khấu trừ (chờ chính sách OI-04), màn `/reports/:id` (cờ bị test khóa).
 
 ## Xem trước giao diện không cần DB (`scripts/dev/preview-screens.mjs`)
+
 Chạy `npm run build && npm run build:web && node scripts/dev/preview-screens.mjs <thư-mục>`: dựng `apps/web/dist` với API giả (dữ liệu mẫu) và chụp ảnh `/payroll/stats`, `/system-logs` bằng Chrome ẩn ở 1280px và 360px (Chrome không cho cửa sổ hẹp hơn ~500px nên bản điện thoại dùng iframe 360px). Dùng `spawn` bất đồng bộ vì API giả chạy cùng tiến trình.
+
 - Phát hiện khi xem ảnh và đã sửa: tổng "Ngày công/Ngày có báo cáo" bị gộp còn 1 ngày mỗi nhân viên (nay cộng từ các nhóm, hàm `sumBuckets`, có test); chữ mô tả quá mờ trên nền tối; breadcrumb `/payroll/stats` hiện sai.
-- Chưa tối ưu: bảng nhật ký hệ thống trên điện thoại phải cuộn ngang mới thấy cột nội dung.
+- Đã tối ưu bảng `/system-logs` trên điện thoại (`360px`): gộp gọn 3 cột (`Mức / Mã`, `Nội dung & yêu cầu` kèm đường dẫn + ms, `Thời gian`) nên đọc ngay được mã lỗi, nội dung và route mà không cần cuộn ngang.
+
+## Đối chiếu tệp chấm công thật (Nguyễn Huỳnh Thế Vinh — Năm 2026) trên PostgreSQL 18 CI
+
+Đã nhúng toàn bộ 53 ca thực tế từ tệp Google Sheet (`T6`..`T12`) vào `tests/backend/timesheet-postgres.test.mjs` và chạy cả chế độ **Xem trước (`commit=false`)** lẫn **Ghi thật (`commit=true`)** trên PostgreSQL 18:
+
+- **Tổng số ca:** `53` ca (`T6`: 14, `T7`: 10, `T8`: 11, `T9`: 13, `T10`: 5; `T11`–`T12`: 0).
+- **Tổng số giờ:** `167,28` giờ.
+- **Đơn giá lịch sử tự động tạo:** `2` mức (`20.000 đ/h` từ `01/06/2026`, `25.000 đ/h` từ `01/07/2026`).
+- **Lương theo tháng (`PAY-01` làm tròn half-up từng ngày):**
+  - `2026-06`: `1.143.333 đ` (57,17 giờ × 20.000)
+  - `2026-07`: `858.334 đ` (34,33 giờ × 25.000)
+  - `2026-08`: `771.668 đ` (30,87 giờ × 25.000)
+  - `2026-09`: `831.250 đ` (33,25 giờ × 25.000)
+  - `2026-10`: `291.667 đ` (11,67 giờ × 25.000)
+  - **Tổng cộng hệ thống:** **`3.896.252 đ`** (so với Google Sheet `3.896.250 đ` — chênh `+2 đ` do làm tròn 1 VND từng ngày theo chuẩn `PAY-01`).
+- **Báo cáo công việc tự động tạo:** `50` báo cáo `submitted`, tổng sản lượng bóc tách **`1.453` clip**.
+- **An toàn múi giờ/đồng hồ máy chủ:** Các ca có sẵn giờ vào + giờ ra trong tệp Excel không bị bỏ qua nếu đồng hồ máy chủ nhỏ hơn ngày trong bảng mà chỉ hiển thị cảnh báo kiểm tra năm trong màn Xem trước.
+
+## Checklist cấu hình Google Drive (`Storage V2`) trên Production
+
+Khi bật kết nối Google Drive thật trên máy chủ Windows (`ql.hoaiphuong.click`), kiểm tra đủ 5 biến môi trường:
+
+- `GOOGLE_DRIVE_LIVE_ENABLED=true`
+- `GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI=https://ql.hoaiphuong.click/api/v1/storage/google-drive/callback`
+- `DRIVE_ENCRYPTION_KEY_HEX` (64 ký tự hex / 32 byte để mã hóa refresh token AES-256-GCM)

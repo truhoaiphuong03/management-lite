@@ -458,6 +458,254 @@ test('TIMESHEET + STATS + SYSTEM LOG against migrated PostgreSQL (HTTP, RBAC, id
     },
   );
 
+  await t.test(
+    'Real 2026 timesheet (Nguyễn Huỳnh Thế Vinh, 53 shifts / 167.28h) dry-run and commit match sheet within 2 VND daily rounding',
+    async () => {
+      const vinhRaw = [
+        [
+          6,
+          20000,
+          [
+            [1, 540, 720, ''],
+            [2, 540, 780, ''],
+            [3, 570, 810, ''],
+            [4, 570, 690, 'Edit 8 clip kênh LSK'],
+            [
+              8,
+              570,
+              930,
+              'Edit 8 clip LSK: 4 Tonic, 2 men rắc, 2 tiêu phân-khử mùi; 4 clip LSKMM: 2 men rắc thảo dược, 2 men rắc tiêu phân - khử mùi',
+            ],
+            [
+              9,
+              570,
+              810,
+              '6 clip LSK: 2 Linco, 2 bổ gan thận, 2 Canxi B12. Phụ live TikTok',
+            ],
+            [10, 630, 900, '8 clip LSK: 4 Flodoxy, 4 Fensit. Live kênh LSKMM'],
+            [15, 630, 840, '4 Clip LSK: 2 Flodoxy, 2 Fensit. Phụ Live Tiktok'],
+            [
+              17,
+              540,
+              900,
+              '10 clip LSK: giải độc gan, Tonic, Flodoxy, Linco, Fensit',
+            ],
+            [18, 810, 1020, '2 clip thực tế Linco, 1 clip thực tế Flodoxy'],
+            [19, 630, 900, '6 clip thực tế: 3 Flodoxy,  3 Fensit'],
+            [
+              22,
+              630,
+              810,
+              '8 clip LSKMM: Flodoxy, Fensit, Linco, Flucasol. LIVE',
+            ],
+            [
+              23,
+              630,
+              900,
+              '6 clip LSK: linco, 4 fensit, flucasol. LIVE. 4 clip thực tế: 2 fensit, 2 flodoxy',
+            ],
+            [24, 640, 920, '5 clip thực tế: 2 flodoxy, 2 tonic, 1 canxi B12'],
+          ],
+        ],
+        [
+          7,
+          25000,
+          [
+            [
+              3,
+              675,
+              900,
+              '8 clip thực tế cho: flodoxy, linco, men rắc tiêu phân, fensit',
+            ],
+            [
+              7,
+              680,
+              910,
+              '7 clip LSK: 2Tonic, 3 linco, 2men rắc tiêu phân-khử mùi | 7 clip LSKMM',
+            ],
+            [9, 795, 915, '8 clip LSK: linco, tonic, canxiB12, giải độc gan'],
+            [
+              14,
+              585,
+              885,
+              'LSK: 10 clip: 2 canxi B12, 2 Gan, 2 Tonic, 4 Men sống| Thực tế: 3 men sống, 3 fensit',
+            ],
+            [20, 635, 840, '9 clip thực tế: Fensit, Linco, Men sống'],
+            [
+              21,
+              635,
+              840,
+              '17 clip kênh LSK: flucasol, flodoxy, men sống, men nửa ký, kích lông, canxi, fensit',
+            ],
+            [
+              22,
+              705,
+              870,
+              '17 clip kênh LSKMM: flucasol, flodoxy, men sống, men nửa ký, kích lông, canxi, fensit',
+            ],
+            [
+              23,
+              715,
+              950,
+              '8 clip LSK: men sống, flucasol, fensit, linco. 2 clip thực tế linco, men thảo dược.',
+            ],
+            [
+              29,
+              820,
+              1000,
+              'LSKMM:5 clip Nuôi gà theo mệnh. | Kenh2:15 clip MMG. | COCO: 15 clip MMG.',
+            ],
+            [
+              30,
+              800,
+              995,
+              '3 clip thực tế: linco, 3 clip thực tế men sống, 1 clip thực tế fensit.',
+            ],
+          ],
+        ],
+        [
+          8,
+          25000,
+          [
+            [
+              4,
+              635,
+              840,
+              '17 clip LSK: fensit, linco, canxi, men sống, men rắc, flodoxy, flucasol',
+            ],
+            [
+              5,
+              860,
+              1020,
+              'LSKMM: 15 clip màu mệnh, 5 clip mệnh gà. COCO: 15 clip màu mệnh',
+            ],
+            [6, 840, 1000, '8 clip thực tế: men sống, linco, fensit.'],
+            [
+              13,
+              805,
+              940,
+              'LSKMM: 16 clip MMG, COCO: 16 clip MMG. Chèn nhạc vào clip LSK 0408 30 phút( tại nhà)',
+            ],
+            [14, 840, 970, 'LSKMM: 15 clip MMG, COCO: 15 clip MM'],
+            [16, 860, 960, 'LSKMM: 15 clip MMG, COCO: 15 clip MM'],
+            [
+              18,
+              700,
+              975,
+              'LSK: 2 men song, 2 linco, 2flucasol, 2 canxi. 2 fensit, 1 gđ gan, 1 tonic, 1 flodoxy, 1 men rắc',
+            ],
+            [
+              19,
+              770,
+              960,
+              'LSK: 2flodoxy, 2 GDGan, 2Tonic, 2Men song, 2 Men rắc, 1 linco,1 đẹn, 1fensit, 1 canxi',
+            ],
+            [
+              20,
+              840,
+              1020,
+              'LSK 17 clip: linco, flucasol, fensit, canxi, flodoxy, Gan, Tonic, Men rắc, Men sống',
+            ],
+            [28, 870, 1020, '22 clip nhà máy cho kênh tạp hóa'],
+            [29, 860, 1027, '76 clip kênh tạp hóa cho các Dot4,5,6,7,8,9'],
+          ],
+        ],
+        [
+          9,
+          25000,
+          [
+            [3, 840, 990, '16 CLIP TRẠI GÀ, 29 CLIP BaPhat'],
+            [4, 860, 1040, '25 clip tạp hóa, 25 clip BaPhat.'],
+            [5, 795, 1065, 'taphoanhabinh:40 clip. Baphat: 48 clip'],
+            [6, 795, 915, '18 clip nhamaythuocga. 24 clip baphatreview'],
+            [
+              8,
+              865,
+              1035,
+              'taphoa.24sp.0509; baphat.24sp.0509.dot2; batphat.24sp.0609.dot1',
+            ],
+            [9, 1080, 1200, '48 clip baphat dot1, dot2'],
+            [10, 800, 1095, 'Tạp Hóa: 80 clip. Bá Phát: 56 clip'],
+            [16, 1290, 1350, 'Tạp hóa: 22 clip (không có lỗi)'],
+            [17, 840, 990, 'taphoa: 27 clip. baphat: 54 clip'],
+            [22, 870, 1050, 'tạp hóa: 39 clip. baphat: 38 clip'],
+            [23, 920, 1040, 'tạp hóa: 55 clip'],
+            [24, 960, 1080, 'taphoa: 58 clip'],
+            [25, 840, 900, 'taphoa: 32 clip'],
+          ],
+        ],
+        [
+          10,
+          25000,
+          [
+            [5, 825, 885, '26 clip tạp hóa'],
+            [13, 840, 960, '59 clip tạp hóa'],
+            [14, 800, 980, '70 clip tạp hóa'],
+            [15, 860, 1040, '44 clip tạp hóa'],
+            [21, 840, 1000, '38 clip tạp hóa'],
+          ],
+        ],
+        [11, 20000, []],
+        [12, 20000, []],
+      ];
+      const vinhWb = buildTimesheetXlsx({
+        employee_name: 'Nguyễn Huỳnh Thế Vinh',
+        year: 2026,
+        months: vinhRaw.map(([m, rate, days]) => ({
+          month: m,
+          rate,
+          days: days.map(([d, s, e, task]) => day(d, s, e, task)),
+        })),
+      }).toString('base64');
+
+      const before = await counts();
+      const dryRun = await request(importUrl, owner, {
+        file_base64: vinhWb,
+        year: 2026,
+        new_employee_name: 'Nguyễn Huỳnh Thế Vinh',
+        commit: false,
+      });
+      assert.equal(dryRun.status, 200);
+      assert.equal(dryRun.data.data.committed, false);
+      assert.equal(dryRun.data.data.totals.shifts_new, 53);
+      assert.equal(dryRun.data.data.totals.hours, 167.28);
+      assert.equal(dryRun.data.data.totals.expected_wage_vnd, 3896252);
+      assert.equal(dryRun.data.data.totals.rates_created, 2);
+      assert.equal(dryRun.data.data.totals.reports_created, 50);
+      assert.deepEqual(await counts(), before);
+
+      const committed = await request(importUrl, owner, {
+        file_base64: vinhWb,
+        year: 2026,
+        new_employee_name: 'Nguyễn Huỳnh Thế Vinh',
+        commit: true,
+      });
+      assert.equal(committed.status, 201);
+      const vinhId = committed.data.data.employee.id;
+      const statsRes = await request(
+        `/api/v1/payroll-tools/stats?granularity=month&from=2026-01-01&to=2026-12-31&employee_id=${vinhId}`,
+        owner,
+      );
+      assert.equal(statsRes.status, 200);
+      const st = statsRes.data.data;
+      assert.deepEqual(
+        st.buckets.map((b) => [b.key, b.wage_vnd]),
+        [
+          ['2026-06', 1143333],
+          ['2026-07', 858334],
+          ['2026-08', 771668],
+          ['2026-09', 831250],
+          ['2026-10', 291667],
+        ],
+      );
+      assert.equal(st.totals.wage_vnd, 3896252);
+      assert.equal(st.totals.worked_hours, 167.28);
+      assert.equal(st.totals.work_days, 53);
+      assert.equal(st.totals.report_days, 50);
+      assert.equal(st.totals.reported_clips, 1453);
+    },
+  );
+
   // ------------------------------------------------------------ system logs
   async function waitForLogs(path, actorCtx, predicate, ms = 4000) {
     const end = Date.now() + ms;

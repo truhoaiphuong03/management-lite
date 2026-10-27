@@ -423,8 +423,7 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        <th style={th}>Lỗi</th>
-                        <th style={th}>Nơi xảy ra</th>
+                        <th style={th}>Lỗi & nơi xảy ra</th>
                         <th style={{ ...th, textAlign: 'right' }}>Số lần</th>
                         <th style={{ ...th, textAlign: 'right' }}>
                           Người dùng
@@ -450,13 +449,20 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                             <strong>
                               {t.error_code ?? `HTTP ${t.status ?? ''}`}
                             </strong>
-                            <div style={{ opacity: 0.75 }}>
+                            <div style={{ opacity: 0.85 }}>
                               {t.message.slice(0, 120)}
                             </div>
-                          </td>
-                          <td style={{ ...td, ...mono }}>
-                            {t.source === 'web' ? '🌐 ' : ''}
-                            {t.route ?? '—'}
+                            <div
+                              style={{
+                                ...mono,
+                                opacity: 0.75,
+                                marginTop: 2,
+                                wordBreak: 'break-word',
+                              }}
+                            >
+                              {t.source === 'web' ? '🌐 ' : ''}
+                              {t.route ?? '—'}
+                            </div>
                           </td>
                           <td style={{ ...td, textAlign: 'right' }}>
                             <strong>{t.count}</strong>
@@ -464,7 +470,9 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                           <td style={{ ...td, textAlign: 'right' }}>
                             {t.users}
                           </td>
-                          <td style={td}>{fmtTime(t.last_seen)}</td>
+                          <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                            {fmtTime(t.last_seen)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -558,12 +566,9 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
+                    <th style={th}>Mức / Mã</th>
+                    <th style={th}>Nội dung & yêu cầu</th>
                     <th style={th}>Thời gian</th>
-                    <th style={th}>Mức</th>
-                    <th style={th}>Yêu cầu</th>
-                    <th style={th}>Mã</th>
-                    <th style={th}>Nội dung</th>
-                    <th style={{ ...th, textAlign: 'right' }}>ms</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -574,29 +579,39 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                       onClick={() => void open(r.id)}
                     >
                       <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                        {fmtTime(r.occurred_at)}
-                      </td>
-                      <td style={td}>
-                        <span
+                        <div
                           style={{
                             color: LEVEL_COLOR[r.level],
                             fontWeight: 600,
                           }}
                         >
                           {LEVEL_LABEL[r.level]}
-                        </span>
+                        </div>
+                        <div style={{ ...mono, opacity: 0.8 }}>
+                          {r.status ?? r.error_code ?? ''}
+                        </div>
                       </td>
-                      <td style={{ ...td, ...mono }}>
-                        {r.source === 'web' ? '🌐 ' : ''}
-                        {r.method} {r.route}
+                      <td style={{ ...td, wordBreak: 'break-word' }}>
+                        <div>
+                          {r.error_code && <strong>{r.error_code}: </strong>}
+                          {r.message.slice(0, 140)}
+                        </div>
+                        <div
+                          style={{
+                            ...mono,
+                            opacity: 0.75,
+                            marginTop: 2,
+                          }}
+                        >
+                          {r.source === 'web' ? '🌐 ' : ''}
+                          {r.method} {r.route}
+                          {r.duration_ms !== null
+                            ? ` · ${r.duration_ms} ms`
+                            : ''}
+                        </div>
                       </td>
-                      <td style={td}>{r.status ?? r.error_code ?? ''}</td>
-                      <td style={td}>
-                        {r.error_code && <strong>{r.error_code}: </strong>}
-                        {r.message.slice(0, 140)}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right' }}>
-                        {r.duration_ms ?? ''}
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                        {fmtTime(r.occurred_at)}
                       </td>
                     </tr>
                   ))}

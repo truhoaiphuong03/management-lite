@@ -564,6 +564,7 @@ export class TimesheetService {
       warnings.push(why);
     };
     let ignoredBonus = 0;
+    let futureShifts = 0;
     const monthsWithData: { month: number; rate: number | null }[] = [];
     for (const pm of parsedMonths) {
       const dim = daysInMonth(year, pm.month);
@@ -596,10 +597,7 @@ export class TimesheetService {
             `${tag}: cột SỐ GIỜ (${d.sheet_hours.toFixed(2)}) khác giờ vào/ra (${(dur / 60).toFixed(2)}); hệ thống dùng giờ vào/ra.`,
           );
         const clockIn = localMs(year, pm.month, d.day, d.start_min);
-        if (clockIn + dur * 60000 > now) {
-          skip(pm.month, `${tag}: ca nằm trong tương lai, bỏ qua.`);
-          continue;
-        }
+        if (clockIn + dur * 60000 > now) futureShifts++;
         const date = `${year}-${String(pm.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
         planned.push({
           month: pm.month,
@@ -619,6 +617,10 @@ export class TimesheetService {
               `T${pm.month} ngày ${d.day}: chỉ có công việc, không có giờ — không tạo ca.`,
             );
     }
+    if (futureShifts > 0)
+      warnings.push(
+        `Có ${futureShifts} ca có ngày lớn hơn giờ máy chủ hiện tại — hãy kiểm tra lại năm (${year}) trước khi xác nhận.`,
+      );
     if (ignoredBonus > 0)
       warnings.push(
         `Cột THƯỞNG (${ignoredBonus.toLocaleString('vi-VN')} đ) chưa được hệ thống lương hỗ trợ nên không nhập.`,

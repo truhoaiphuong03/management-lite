@@ -269,7 +269,26 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
         setImportMsg(
           `Đã nhập ${result.totals.shifts_new} ca, ${result.totals.reports_created} báo cáo, ${result.totals.rates_created} mức đơn giá.`,
         );
+        if (result.employee.created) {
+          setEmployees((prev) =>
+            prev.some((e) => e.id === result.employee.id)
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    id: result.employee.id,
+                    employee_code: result.employee.code,
+                    full_name: result.employee.full_name,
+                  },
+                ],
+          );
+          setXlsEmployee(result.employee.id);
+        }
         setFile(null);
+        const yStart = `${result.year}-01-01`;
+        const yEnd = `${result.year}-12-31`;
+        if (from > yStart) setFrom(yStart);
+        if (to < yEnd) setTo(yEnd);
         void load();
       }
     } catch (e) {
