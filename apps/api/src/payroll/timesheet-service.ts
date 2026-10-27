@@ -855,10 +855,11 @@ export class TimesheetService {
         };
       })
       .filter((m) => m.shifts_new > 0 || m.shifts_skipped > 0);
+    const rawHours = [...perMonth.values()].reduce((t, a) => t + a.hours, 0);
     const totals = {
       shifts_new: months.reduce((t, m) => t + m.shifts_new, 0),
       shifts_skipped: months.reduce((t, m) => t + m.shifts_skipped, 0),
-      hours: Math.round(months.reduce((t, m) => t + m.hours, 0) * 100) / 100,
+      hours: Math.round(rawHours * 100) / 100,
       expected_wage_vnd: months.every((m) => m.expected_wage_vnd !== null)
         ? months.reduce((t, m) => t + (m.expected_wage_vnd ?? 0), 0)
         : null,
