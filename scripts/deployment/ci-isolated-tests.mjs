@@ -42,6 +42,7 @@ try {
     'tests/backend/accounts.test.mjs',
     'tests/backend/function-verification.test.mjs',
     'tests/backend/timesheet-postgres.test.mjs',
+    'tests/backend/report-work-link-postgres.test.mjs',
     'tests/backend/att-mvp.test.mjs',
     'tests/backend/rep-mvp.test.mjs',
     'tests/backend/work.test.mjs',

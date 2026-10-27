@@ -6,6 +6,9 @@ export interface ReportEntryData {
   reported_count: number;
   notes?: string | null | undefined;
   sort_order?: number | undefined;
+  /** Optional link to the work item (nhận việc) this entry reports on. */
+  work_item_id?: string | null | undefined;
+  work_item_title?: string | null | undefined;
 }
 
 export interface ReportRevisionSnapshot {
@@ -13,6 +16,7 @@ export interface ReportRevisionSnapshot {
     work_type: string;
     reported_count: number;
     notes?: string | null | undefined;
+    work_item_id?: string | null | undefined;
   }>;
   notes?: string | null | undefined;
 }
@@ -69,6 +73,7 @@ export interface CreateReportRequestBody {
     work_type: string;
     reported_count: number;
     notes?: string | null | undefined;
+    work_item_id?: string | null | undefined;
   }>;
   notes?: string | null | undefined;
 }
@@ -78,6 +83,7 @@ export interface UpdateReportRequestBody {
     work_type: string;
     reported_count: number;
     notes?: string | null | undefined;
+    work_item_id?: string | null | undefined;
   }>;
   notes?: string | null | undefined;
 }
@@ -87,6 +93,7 @@ export interface ReviseReportRequestBody {
     work_type: string;
     reported_count: number;
     notes?: string | null | undefined;
+    work_item_id?: string | null | undefined;
   }>;
   notes?: string | null | undefined;
   reason?: string | null | undefined;

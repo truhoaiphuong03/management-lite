@@ -72,6 +72,76 @@ export class ReportsService {
   }
 
   /**
+   * Replaces nothing; inserts report entries in order. An entry may link to a
+   * work item, but only one that is assigned to the report's own employee.
+   */
+  private async insertEntries(
+    client: PoolClient,
+    workspaceId: string,
+    reportId: string,
+    entries: Array<{
+      work_type: string;
+      reported_count: number;
+      notes?: string | null | undefined;
+      work_item_id?: string | null | undefined;
+    }>,
+  ): Promise<ReportEntryData[]> {
+    const linked = [
+      ...new Set(
+        entries.map((e) => e.work_item_id).filter((v): v is string => !!v),
+      ),
+    ];
+    const titles = new Map<string, string>();
+    if (linked.length > 0) {
+      const ok = await client.query(
+        `SELECT w.id, w.title
+           FROM work_assignments a
+           JOIN work_items w ON w.workspace_id = a.workspace_id AND w.id = a.work_item_id
+           JOIN daily_reports r ON r.workspace_id = a.workspace_id AND r.employee_id = a.employee_id
+          WHERE a.workspace_id = $1 AND r.id = $2 AND a.work_item_id = ANY($3::uuid[])`,
+        [workspaceId, reportId, linked],
+      );
+      for (const row of ok.rows)
+        titles.set(row.id as string, row.title as string);
+      const missing = linked.filter((id) => !titles.has(id));
+      if (missing.length > 0)
+        throw new AuthError(
+          'INVALID_WORK_ITEM',
+          'Công việc liên kết không tồn tại hoặc chưa được giao cho bạn.',
+          422,
+          [{ field: 'work_item_id', message: missing[0]! }],
+        );
+    }
+    const created: ReportEntryData[] = [];
+    for (let i = 0; i < entries.length; i++) {
+      const item = entries[i]!;
+      const res = await client.query(
+        `INSERT INTO daily_report_entries (
+           workspace_id, report_id, work_type, reported_count, notes, sort_order, work_item_id
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, work_type, reported_count, notes, sort_order, work_item_id;`,
+        [
+          workspaceId,
+          reportId,
+          item.work_type.trim(),
+          Number(item.reported_count),
+          item.notes || null,
+          i,
+          item.work_item_id ?? null,
+        ],
+      );
+      const row = res.rows[0] as ReportEntryData;
+      created.push({
+        ...row,
+        work_item_title: row.work_item_id
+          ? (titles.get(row.work_item_id) ?? null)
+          : null,
+      });
+    }
+    return created;
+  }
+
+  /**
    * Helper: Validates report entries array.
    */
   private validateEntries(
@@ -79,6 +149,7 @@ export class ReportsService {
       work_type: string;
       reported_count: number;
       notes?: string | null | undefined;
+      work_item_id?: string | null | undefined;
     }>,
   ): void {
     if (!Array.isArray(entries) || entries.length === 0) {
@@ -98,6 +169,22 @@ export class ReportsService {
         throw new AuthError(
           'INVALID_REQUEST',
           `Entry at index ${index} must have a valid work_type`,
+          400,
+        );
+      }
+
+      const link = (entry as { work_item_id?: unknown }).work_item_id;
+      if (
+        link !== undefined &&
+        link !== null &&
+        (typeof link !== 'string' ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            link,
+          ))
+      ) {
+        throw new AuthError(
+          'INVALID_REQUEST',
+          `Entry at index ${index} has an invalid work_item_id`,
           400,
         );
       }
@@ -157,7 +244,11 @@ export class ReportsService {
 
       // 2. Validate timestamp format and validity (preserve original string, do not round-trip via JS Date)
       const tsTrimmed = decoded.created_at.trim();
-      if (!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}(:?\d{2})?)?$/.test(tsTrimmed)) {
+      if (
+        !/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}(:?\d{2})?)?$/.test(
+          tsTrimmed,
+        )
+      ) {
         throw new Error('Invalid timestamp format');
       }
       const parsedMs = Date.parse(tsTrimmed);
@@ -221,7 +312,11 @@ export class ReportsService {
 
     if (options.cursor) {
       const parsedCursor = this.parseReportCursor(options.cursor);
-      params.push(parsedCursor.report_date, parsedCursor.created_at, parsedCursor.id);
+      params.push(
+        parsedCursor.report_date,
+        parsedCursor.created_at,
+        parsedCursor.id,
+      );
       conditions.push(
         `(r.report_date, r.created_at, r.id) < ($${params.length - 2}::date, $${params.length - 1}::timestamptz, $${params.length}::uuid)`,
       );
@@ -329,7 +424,11 @@ export class ReportsService {
 
     if (options.cursor) {
       const parsedCursor = this.parseReportCursor(options.cursor);
-      params.push(parsedCursor.report_date, parsedCursor.created_at, parsedCursor.id);
+      params.push(
+        parsedCursor.report_date,
+        parsedCursor.created_at,
+        parsedCursor.id,
+      );
       conditions.push(
         `(r.report_date, r.created_at, r.id) < ($${params.length - 2}::date, $${params.length - 1}::timestamptz, $${params.length}::uuid)`,
       );
@@ -455,10 +554,12 @@ export class ReportsService {
 
     // Fetch entries
     const entriesRes = await this.pool.query<ReportEntryData>(
-      `SELECT id, work_type, reported_count, notes, sort_order
-       FROM daily_report_entries
-       WHERE workspace_id = $1 AND report_id = $2
-       ORDER BY sort_order ASC, created_at ASC;`,
+      `SELECT e.id, e.work_type, e.reported_count, e.notes, e.sort_order,
+              e.work_item_id, w.title AS work_item_title
+       FROM daily_report_entries e
+       LEFT JOIN work_items w ON w.workspace_id = e.workspace_id AND w.id = e.work_item_id
+       WHERE e.workspace_id = $1 AND e.report_id = $2
+       ORDER BY e.sort_order ASC, e.created_at ASC;`,
       [context.workspace.id, reportId],
     );
 
@@ -560,30 +661,12 @@ export class ReportsService {
       const report = insertReportRes.rows[0]!;
 
       // Insert entries
-      const createdEntries: ReportEntryData[] = [];
-      for (let i = 0; i < payload.entries.length; i++) {
-        const item = payload.entries[i]!;
-        const entryRes = await client.query<ReportEntryData>(
-          `INSERT INTO daily_report_entries (
-             workspace_id,
-             report_id,
-             work_type,
-             reported_count,
-             notes,
-             sort_order
-           ) VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id, work_type, reported_count, notes, sort_order;`,
-          [
-            context.workspace.id,
-            report.id,
-            item.work_type.trim(),
-            Number(item.reported_count),
-            item.notes || null,
-            i,
-          ],
-        );
-        createdEntries.push(entryRes.rows[0]!);
-      }
+      const createdEntries = await this.insertEntries(
+        client,
+        context.workspace.id,
+        report.id,
+        payload.entries,
+      );
 
       await client.query('COMMIT');
 
@@ -699,30 +782,12 @@ export class ReportsService {
         [context.workspace.id, reportId],
       );
 
-      const createdEntries: ReportEntryData[] = [];
-      for (let i = 0; i < payload.entries.length; i++) {
-        const item = payload.entries[i]!;
-        const entryRes = await client.query<ReportEntryData>(
-          `INSERT INTO daily_report_entries (
-             workspace_id,
-             report_id,
-             work_type,
-             reported_count,
-             notes,
-             sort_order
-           ) VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id, work_type, reported_count, notes, sort_order;`,
-          [
-            context.workspace.id,
-            reportId,
-            item.work_type.trim(),
-            Number(item.reported_count),
-            item.notes || null,
-            i,
-          ],
-        );
-        createdEntries.push(entryRes.rows[0]!);
-      }
+      const createdEntries = await this.insertEntries(
+        client,
+        context.workspace.id,
+        reportId,
+        payload.entries,
+      );
 
       // Update report record
       const updateRes = await client.query<{
@@ -847,7 +912,7 @@ export class ReportsService {
 
       // Fetch entries for snapshot
       const entriesRes = await client.query<ReportEntryData>(
-        `SELECT work_type, reported_count, notes
+        `SELECT work_type, reported_count, notes, work_item_id
          FROM daily_report_entries
          WHERE workspace_id = $1 AND report_id = $2
          ORDER BY sort_order ASC;`,
@@ -1002,30 +1067,12 @@ export class ReportsService {
         [context.workspace.id, reportId],
       );
 
-      const createdEntries: ReportEntryData[] = [];
-      for (let i = 0; i < payload.entries.length; i++) {
-        const item = payload.entries[i]!;
-        const entryRes = await client.query<ReportEntryData>(
-          `INSERT INTO daily_report_entries (
-             workspace_id,
-             report_id,
-             work_type,
-             reported_count,
-             notes,
-             sort_order
-           ) VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id, work_type, reported_count, notes, sort_order;`,
-          [
-            context.workspace.id,
-            reportId,
-            item.work_type.trim(),
-            Number(item.reported_count),
-            item.notes || null,
-            i,
-          ],
-        );
-        createdEntries.push(entryRes.rows[0]!);
-      }
+      const createdEntries = await this.insertEntries(
+        client,
+        context.workspace.id,
+        reportId,
+        payload.entries,
+      );
 
       // Update report record with new current_revision and incremented version
       const updateRes = await client.query<{
@@ -1070,6 +1117,7 @@ export class ReportsService {
               work_type: e.work_type,
               reported_count: e.reported_count,
               notes: e.notes,
+              work_item_id: e.work_item_id ?? null,
             })),
             notes: payload.notes !== undefined ? payload.notes : report.notes,
           }),

@@ -71,6 +71,7 @@ export interface ReportsScreenProps {
 }
 
 interface EntryFormItem {
+  work_item_id?: string;
   work_type: string;
   reported_count: number;
   notes: string;
@@ -78,7 +79,37 @@ interface EntryFormItem {
 
 export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   role = 'owner',
+  onNavigate,
 }) => {
+  // Work items the user can link a report entry to (nhận việc ↔ báo cáo).
+  const [workOptions, setWorkOptions] = useState<
+    { id: string; title: string; status: string }[]
+  >([]);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await fetch('/api/v1/work-items?limit=100', {
+          credentials: 'include',
+        });
+        if (!res.ok) return;
+        const body = await res.json();
+        const items = (body?.data?.items ?? []) as {
+          id: string;
+          title: string;
+          status: string;
+        }[];
+        if (alive)
+          setWorkOptions(items.filter((w) => w.status !== 'cancelled'));
+      } catch {
+        /* linking is optional */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'my_reports' | 'all_reports'>(
     role === 'owner' ? 'all_reports' : 'my_reports',
   );
@@ -484,6 +515,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             work_type: e.work_type,
             reported_count: Number(e.reported_count) || 0,
             notes: e.notes || undefined,
+            work_item_id: e.work_item_id || null,
           })),
           notes: newReportNotes || undefined,
         }),
@@ -527,6 +559,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             work_type: e.work_type,
             reported_count: e.reported_count,
             notes: e.notes || '',
+            work_item_id: e.work_item_id || '',
           })),
         );
         setShowEditDraftModal(true);
@@ -567,6 +600,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             work_type: e.work_type,
             reported_count: Number(e.reported_count) || 0,
             notes: e.notes || undefined,
+            work_item_id: e.work_item_id || null,
           })),
           notes: editNotes || undefined,
         }),
@@ -642,6 +676,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             work_type: e.work_type,
             reported_count: e.reported_count,
             notes: e.notes || '',
+            work_item_id: e.work_item_id || '',
           })),
         );
         setShowReviseModal(true);
@@ -688,6 +723,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               work_type: e.work_type,
               reported_count: Number(e.reported_count) || 0,
               notes: e.notes || undefined,
+              work_item_id: e.work_item_id || null,
             })),
             notes: reviseNotes || undefined,
             reason: reviseReason.trim(),
@@ -1594,6 +1630,37 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         fontSize: '13px',
                       }}
                     />
+                    {workOptions.length > 0 && (
+                      <select
+                        aria-label="Công việc liên quan"
+                        value={item.work_item_id ?? ''}
+                        onChange={(e) =>
+                          handleUpdateEntryRow(
+                            index,
+                            'work_item_id',
+                            e.target.value,
+                            setNewReportEntries,
+                          )
+                        }
+                        style={{
+                          flex: '2 1 150px',
+                          minWidth: 0,
+                          padding: '8px 10px',
+                          backgroundColor: '#0B1220',
+                          border: '1px solid #334155',
+                          borderRadius: '4px',
+                          color: '#F8FAFC',
+                          fontSize: '13px',
+                        }}
+                      >
+                        <option value="">Công việc liên quan (tùy chọn)</option>
+                        {workOptions.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.title}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {newReportEntries.length > 1 && (
                       <button
                         type="button"
@@ -1849,6 +1916,37 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         fontSize: '13px',
                       }}
                     />
+                    {workOptions.length > 0 && (
+                      <select
+                        aria-label="Công việc liên quan"
+                        value={item.work_item_id ?? ''}
+                        onChange={(e) =>
+                          handleUpdateEntryRow(
+                            index,
+                            'work_item_id',
+                            e.target.value,
+                            setEditEntries,
+                          )
+                        }
+                        style={{
+                          flex: '2 1 150px',
+                          minWidth: 0,
+                          padding: '8px 10px',
+                          backgroundColor: '#0B1220',
+                          border: '1px solid #334155',
+                          borderRadius: '4px',
+                          color: '#F8FAFC',
+                          fontSize: '13px',
+                        }}
+                      >
+                        <option value="">Công việc liên quan (tùy chọn)</option>
+                        {workOptions.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.title}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {editEntries.length > 1 && (
                       <button
                         type="button"
@@ -2167,6 +2265,37 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         fontSize: '13px',
                       }}
                     />
+                    {workOptions.length > 0 && (
+                      <select
+                        aria-label="Công việc liên quan"
+                        value={item.work_item_id ?? ''}
+                        onChange={(e) =>
+                          handleUpdateEntryRow(
+                            index,
+                            'work_item_id',
+                            e.target.value,
+                            setReviseEntries,
+                          )
+                        }
+                        style={{
+                          flex: '2 1 150px',
+                          minWidth: 0,
+                          padding: '8px 10px',
+                          backgroundColor: '#0B1220',
+                          border: '1px solid #334155',
+                          borderRadius: '4px',
+                          color: '#F8FAFC',
+                          fontSize: '13px',
+                        }}
+                      >
+                        <option value="">Công việc liên quan (tùy chọn)</option>
+                        {workOptions.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.title}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {reviseEntries.length > 1 && (
                       <button
                         type="button"
@@ -2445,6 +2574,18 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                             <td
                               style={{ padding: '10px 12px', color: '#94A3B8' }}
                             >
+                              {entry.work_item_title && entry.work_item_id && (
+                                <a
+                                  href={`/work/${entry.work_item_id}`}
+                                  onClick={(ev) => {
+                                    ev.preventDefault();
+                                    onNavigate?.(`/work/${entry.work_item_id}`);
+                                  }}
+                                  style={{ color: '#14B8A6', marginRight: 8 }}
+                                >
+                                  🔗 {entry.work_item_title}
+                                </a>
+                              )}
                               {entry.notes || '—'}
                             </td>
                           </tr>
