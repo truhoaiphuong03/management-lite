@@ -1724,6 +1724,24 @@ ALTER TABLE storage_operations
   CHECK (operation_type IN ('trash_group', 'restore_group', 'sync_metadata', 'create_folder', 'upload_video', 'grant_permission', 'revoke_permission'));
 `;
 
+export const TIMESHEET_IMPORT_SQL = `-- Migration: 0027_timesheet_import
+-- Scope: Mark shifts created by timesheet (xlsx) import and make re-import idempotent.
+
+ALTER TABLE attendance_shifts
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'clock',
+  ADD COLUMN IF NOT EXISTS import_ref text NULL;
+
+ALTER TABLE attendance_shifts
+  DROP CONSTRAINT IF EXISTS ck_attendance_shifts_source;
+
+ALTER TABLE attendance_shifts
+  ADD CONSTRAINT ck_attendance_shifts_source CHECK (source IN ('clock', 'import'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_shifts_import_ref
+  ON attendance_shifts (workspace_id, import_ref)
+  WHERE import_ref IS NOT NULL;
+`;
+
 export const USER_PROFILE_PHONE_SQL = `-- Migration: 0026_user_profile_phone
 -- Scope: Self-service profile editing (phone number on employee profile).
 
@@ -1856,5 +1874,10 @@ export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
     id: '0026_user_profile_phone',
     sql: USER_PROFILE_PHONE_SQL,
     checksum: calculateChecksum(USER_PROFILE_PHONE_SQL),
+  },
+  {
+    id: '0027_timesheet_import',
+    sql: TIMESHEET_IMPORT_SQL,
+    checksum: calculateChecksum(TIMESHEET_IMPORT_SQL),
   },
 ];

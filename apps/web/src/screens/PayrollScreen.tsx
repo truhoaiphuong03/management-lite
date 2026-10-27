@@ -1242,6 +1242,7 @@ export function removeUnresolvedDisbursement(
 
 export const PayrollScreen: React.FC<PayrollScreenProps> = ({
   role = 'owner',
+  onNavigate,
   workspaceId: propWorkspaceId,
   currentUserId: propCurrentUserId,
 }) => {
@@ -2453,6 +2454,16 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
           role === 'owner'
             ? 'Theo dõi tiền lương, chốt kỳ lương và ghi nhận chi trả theo nguyên tắc POLICY-01'
             : 'Chi tiết tiền công được tính theo giờ làm thực tế và các khoản thanh toán'
+        }
+        actions={
+          role === 'owner' ? (
+            <AppButton
+              variant="secondary"
+              onClick={() => onNavigate?.('/payroll/stats')}
+            >
+              Thống kê & Excel
+            </AppButton>
+          ) : undefined
         }
       />
 

@@ -28,6 +28,7 @@ import { AlertTriangleIcon } from '../../../packages/ui/src/components/index.js'
 import { NotFoundScreen } from './screens/NotFoundScreen.js';
 import { PlaceholderScreen } from './screens/PlaceholderScreen.js';
 import { PayrollScreen } from './screens/PayrollScreen.js';
+import { PayrollStatsScreen } from './screens/PayrollStatsScreen.js';
 import { WorkScreen } from './screens/WorkScreen.js';
 import { AccountsScreen } from './screens/AccountsScreen.js';
 import { StorageScreen } from './screens/StorageScreen.js';
@@ -582,6 +583,10 @@ export const App: React.FC = () => {
             role={role}
             onNavigate={handleNavigate}
           />
+        );
+      case '/payroll/stats':
+        return (
+          <PayrollStatsScreen role={role} onNavigate={handleNavigate} />
         );
       case '/payroll':
       case '/payroll/:id':

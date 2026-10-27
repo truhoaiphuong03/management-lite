@@ -189,6 +189,14 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     implemented: true,
     category: 'payroll',
   },
+  '/payroll/stats': {
+    id: 'UI15B',
+    path: '/payroll/stats',
+    title: 'Thống kê lương & Excel chấm công',
+    ownerOnly: true,
+    implemented: true,
+    category: 'payroll',
+  },
   '/payroll/:id': {
     id: 'UI15',
     path: '/payroll/:id',

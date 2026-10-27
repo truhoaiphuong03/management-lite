@@ -24,6 +24,7 @@ import { AttendanceService } from './attendance/service.js';
 import { ReportsService } from './reports/service.js';
 import { WorkService } from './work/service.js';
 import { PayrollService } from './payroll/service.js';
+import { TimesheetService } from './payroll/timesheet-service.js';
 import { SchedulesService } from './schedules/service.js';
 import { AccountsService } from './accounts/service.js';
 import {
@@ -104,6 +105,7 @@ export interface AppDependencies {
   reportsService?: ReportsService;
   schedulesService?: SchedulesService;
   payrollService?: PayrollService;
+  timesheetService?: TimesheetService;
   workService?: WorkService;
   accountsService?: AccountsService;
   storageService?: StorageService;
@@ -425,6 +427,11 @@ export function createRequestHandler(
     deps.workService ?? (deps.pool ? new WorkService(deps.pool) : null);
   const payrollService =
     deps.payrollService ?? (deps.pool ? new PayrollService(deps.pool) : null);
+  const timesheetService =
+    deps.timesheetService ??
+    (deps.pool && payrollService
+      ? new TimesheetService(deps.pool, payrollService)
+      : null);
   const schedulesService =
     deps.schedulesService ??
     (deps.pool ? new SchedulesService(deps.pool) : null);
@@ -2703,6 +2710,74 @@ export function createRequestHandler(
         }
         sendJson(res, status, createSuccessEnvelope(result, requestId));
         return;
+      }
+
+      // Payroll tools (Owner): statistics by day/week/month/year and timesheet xlsx export/import.
+      if (
+        pathname === '/api/v1/payroll-tools/stats' ||
+        pathname === '/api/v1/payroll-tools/timesheet/export' ||
+        pathname === '/api/v1/payroll-tools/timesheet/import'
+      ) {
+        if (!authService || !timesheetService)
+          throw new AuthError(
+            'SERVICE_UNAVAILABLE',
+            'Payroll service unavailable',
+            503,
+          );
+        const toolAuth = await requireAuth(authService, req, isProduction);
+        const sp = new URL(req.url ?? '/', 'http://localhost').searchParams;
+        if (method === 'GET' && pathname.endsWith('/stats')) {
+          const data = await timesheetService.stats(toolAuth, {
+            granularity: sp.get('granularity') ?? undefined,
+            from: sp.get('from') ?? undefined,
+            to: sp.get('to') ?? undefined,
+            employee_id: sp.get('employee_id') ?? undefined,
+          });
+          sendJson(res, 200, createSuccessEnvelope(data, requestId));
+          return;
+        }
+        if (method === 'GET' && pathname.endsWith('/export')) {
+          const file = await timesheetService.exportYear(
+            toolAuth,
+            sp.get('employee_id') ?? '',
+            Number(sp.get('year') ?? new Date().getFullYear()),
+          );
+          res.writeHead(200, {
+            'Content-Type':
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': `attachment; filename="${file.filename}"`,
+            'Content-Length': file.buffer.length,
+            'Cache-Control': 'no-store',
+          });
+          res.end(file.buffer);
+          return;
+        }
+        if (method === 'POST' && pathname.endsWith('/import')) {
+          requireCsrf(req, toolAuth, csrfSecret, allowedOrigins);
+          const body = await parseJsonBody<Record<string, unknown>>(
+            req,
+            3 * 1024 * 1024,
+          );
+          if (!body || typeof body !== 'object' || Array.isArray(body))
+            throw new AuthError('VALIDATION_ERROR', 'Object body required', 400);
+          assertAllowedFields(body, [
+            'file_base64',
+            'year',
+            'employee_id',
+            'new_employee_name',
+            'commit',
+          ]);
+          const data = await timesheetService.importWorkbook(
+            toolAuth,
+            body as unknown as Parameters<
+              TimesheetService['importWorkbook']
+            >[1],
+            requestId,
+          );
+          sendJson(res, data.committed ? 201 : 200, createSuccessEnvelope(data, requestId));
+          return;
+        }
+        throw new AuthError('NOT_FOUND', 'Endpoint not found', 404);
       }
 
       // Default 404 for unknown endpoints (Doc 24 compliant)

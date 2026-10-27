@@ -121,9 +121,20 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Filters for Owner
-  const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
+  // Deep-link from payroll statistics: /reports?employee=<uuid>&date=YYYY-MM-DD
+  const deepLink =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams();
+  const deepEmployee = deepLink.get('employee') ?? '';
+  const deepDate = deepLink.get('date') ?? '';
+  const [filterEmployeeId, setFilterEmployeeId] = useState<string>(
+    /^[0-9a-f-]{36}$/i.test(deepEmployee) ? deepEmployee : 'all',
+  );
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterDate, setFilterDate] = useState<string>('');
+  const [filterDate, setFilterDate] = useState<string>(
+    /^\d{4}-\d{2}-\d{2}$/.test(deepDate) ? deepDate : '',
+  );
 
   // Modal: Create Draft Report
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1063,7 +1074,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               </div>
             </div>
 
-            {(filterEmployeeId !== 'all' || filterStatus !== 'all' || Boolean(filterDate)) && (
+            {(filterEmployeeId !== 'all' ||
+              filterStatus !== 'all' ||
+              Boolean(filterDate)) && (
               <div style={{ alignSelf: 'flex-end' }}>
                 <AppButton
                   variant="secondary"
@@ -1085,7 +1098,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
       {/* Reports List */}
       {reportsToRender.length === 0 ? (
         activeTab === 'all_reports' &&
-        (filterEmployeeId !== 'all' || filterStatus !== 'all' || Boolean(filterDate)) ? (
+        (filterEmployeeId !== 'all' ||
+          filterStatus !== 'all' ||
+          Boolean(filterDate)) ? (
           <div
             data-testid="reports-empty-filter"
             style={{
@@ -1096,7 +1111,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               border: '1px dashed #334155',
             }}
           >
-            <p style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '16px' }}>
+            <p
+              style={{
+                color: '#94A3B8',
+                fontSize: '14px',
+                marginBottom: '16px',
+              }}
+            >
               Không tìm thấy báo cáo công việc nào theo bộ lọc đã chọn.
             </p>
             <AppButton
