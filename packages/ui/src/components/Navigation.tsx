@@ -79,6 +79,13 @@ export const NAV_ITEMS: NavItem[] = [
     ownerOnly: true,
   },
   {
+    id: 'system-logs',
+    label: 'Nhật ký hệ thống',
+    path: '/system-logs',
+    icon: 'audit',
+    ownerOnly: true,
+  },
+  {
     id: 'issues',
     label: 'Sổ tay Issues',
     path: '/issues',
@@ -137,7 +144,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Quản trị',
     path: '/groups/admin',
     icon: 'settings',
-    itemIds: ['accounts', 'audit', 'issues', 'settings'],
+    itemIds: ['accounts', 'audit', 'system-logs', 'issues', 'settings'],
   },
 ];
 

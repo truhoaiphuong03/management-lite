@@ -25,6 +25,7 @@ import { ReportsService } from './reports/service.js';
 import { WorkService } from './work/service.js';
 import { PayrollService } from './payroll/service.js';
 import { TimesheetService } from './payroll/timesheet-service.js';
+import { SystemLogService } from './system-log/service.js';
 import { SchedulesService } from './schedules/service.js';
 import { AccountsService } from './accounts/service.js';
 import {
@@ -106,6 +107,7 @@ export interface AppDependencies {
   schedulesService?: SchedulesService;
   payrollService?: PayrollService;
   timesheetService?: TimesheetService;
+  systemLogService?: SystemLogService;
   workService?: WorkService;
   accountsService?: AccountsService;
   storageService?: StorageService;
@@ -176,6 +178,9 @@ async function readRawBody(
 /**
  * Parses request body as JSON with maximum length bound to prevent DoS.
  */
+/** Errors thrown while handling a request, read by the system-log finish hook. */
+const errorByResponse = new WeakMap<http.ServerResponse, unknown>();
+
 async function parseJsonBody<T = unknown>(
   req: http.IncomingMessage,
   maxBytes = 64 * 1024,
@@ -427,6 +432,9 @@ export function createRequestHandler(
     deps.workService ?? (deps.pool ? new WorkService(deps.pool) : null);
   const payrollService =
     deps.payrollService ?? (deps.pool ? new PayrollService(deps.pool) : null);
+  const systemLogService =
+    deps.systemLogService ??
+    (deps.pool ? new SystemLogService(deps.pool) : null);
   const timesheetService =
     deps.timesheetService ??
     (deps.pool && payrollService
@@ -473,6 +481,55 @@ export function createRequestHandler(
 
       let authenticatedWorkspaceId: string | null = null;
       let authenticatedUserId: string | null = null;
+      const requestStartedAt = Date.now();
+      res.once('finish', () => {
+        if (!systemLogService || pathname === '/api/v1/health') return;
+        const status = res.statusCode;
+        const durationMs = Date.now() - requestStartedAt;
+        const slow = durationMs >= 3000;
+        if (status < 400 && !slow) return;
+        if (status === 401 || (status === 404 && !pathname.startsWith('/api/')))
+          return;
+        const err = errorByResponse.get(res);
+        const errObj = err instanceof Error ? err : null;
+        const isAppError =
+          err instanceof AuthError || err instanceof AuditServiceError;
+        systemLogService.record({
+          level: status >= 500 ? 'error' : 'warn',
+          source: 'api',
+          workspaceId: authenticatedWorkspaceId,
+          userId: authenticatedUserId,
+          requestId,
+          method,
+          route: pathname,
+          status,
+          durationMs,
+          errorCode: isAppError
+            ? (err as AuthError).code
+            : status >= 500
+              ? 'INTERNAL_SERVER_ERROR'
+              : slow && status < 400
+                ? 'SLOW_REQUEST'
+                : status === 404
+                  ? 'NOT_FOUND'
+                  : `HTTP_${status}`,
+          message:
+            errObj?.message ??
+            (slow && status < 400
+              ? `Slow request (${durationMs} ms)`
+              : `HTTP ${status}`),
+          stack: !isAppError || status >= 500 ? (errObj?.stack ?? null) : null,
+          release: SYSTEM_COMMIT.slice(0, 7),
+          metadata: {
+            query_keys: Object.keys(
+              Object.fromEntries(
+                new URL(req.url ?? '/', 'http://x').searchParams,
+              ),
+            ).slice(0, 20),
+          },
+        });
+      });
+
       const requireAuth: typeof rawRequireAuth = async (
         svc,
         r,
@@ -1039,6 +1096,95 @@ export function createRequestHandler(
           requestId,
         );
         return sendJson(res, 200, body);
+      }
+
+      // 2A. System log console (Owner only) + browser error intake
+      if (
+        pathname.startsWith('/api/v1/system/logs') ||
+        pathname === '/api/v1/system/client-errors'
+      ) {
+        if (!authService || !systemLogService)
+          throw new AuthError(
+            'SERVICE_UNAVAILABLE',
+            'System log service unavailable',
+            503,
+          );
+        const logAuth = await requireAuth(
+          authService,
+          req,
+          isProduction,
+          sessionCookieName,
+        );
+        const sp = new URL(req.url ?? '/', 'http://localhost').searchParams;
+        if (method === 'GET' && pathname === '/api/v1/system/logs') {
+          const data = await systemLogService.list(logAuth, {
+            level: sp.get('level') ?? undefined,
+            source: sp.get('source') ?? undefined,
+            status_min: sp.get('status_min') ?? undefined,
+            route: sp.get('route') ?? undefined,
+            request_id: sp.get('request_id') ?? undefined,
+            fingerprint: sp.get('fingerprint') ?? undefined,
+            q: sp.get('q') ?? undefined,
+            from: sp.get('from') ?? undefined,
+            to: sp.get('to') ?? undefined,
+            limit: sp.get('limit') ?? undefined,
+            cursor: sp.get('cursor') ?? undefined,
+          });
+          return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+        }
+        if (method === 'GET' && pathname === '/api/v1/system/logs/summary') {
+          const data = await systemLogService.summary(
+            logAuth,
+            sp.get('hours') ?? undefined,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+        }
+        const logId = /^\/api\/v1\/system\/logs\/([0-9a-f-]{36})$/i.exec(
+          pathname,
+        );
+        if (method === 'GET' && logId) {
+          const data = await systemLogService.detail(logAuth, logId[1]!);
+          return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+        }
+        if (method === 'POST' && pathname === '/api/v1/system/client-errors') {
+          requireCsrf(req, logAuth, csrfSecret, allowedOrigins);
+          if (!systemLogService.allowClientError(logAuth.user.id))
+            throw new AuthError('RATE_LIMITED', 'Too many error reports', 429);
+          const body = await parseJsonBody<Record<string, unknown>>(
+            req,
+            16 * 1024,
+          );
+          if (!body || typeof body !== 'object' || Array.isArray(body))
+            throw new AuthError(
+              'VALIDATION_ERROR',
+              'Object body required',
+              400,
+            );
+          assertAllowedFields(body, ['message', 'stack', 'url', 'component']);
+          const str = (v: unknown, n: number) =>
+            typeof v === 'string' ? v.slice(0, n) : '';
+          systemLogService.record({
+            level: 'error',
+            source: 'web',
+            workspaceId: logAuth.workspace.id,
+            userId: logAuth.user.id,
+            requestId,
+            method: 'UI',
+            route: str(body['url'], 300),
+            errorCode: 'CLIENT_ERROR',
+            message: str(body['message'], 600) || 'Client error',
+            stack: str(body['stack'], 4000) || null,
+            release: SYSTEM_COMMIT.slice(0, 7),
+            userAgent: str(req.headers['user-agent'], 200),
+            metadata: { component: str(body['component'], 120) },
+          });
+          return sendJson(
+            res,
+            202,
+            createSuccessEnvelope({ accepted: true }, requestId),
+          );
+        }
+        throw new AuthError('NOT_FOUND', 'Endpoint not found', 404);
       }
 
       // 2B. System Release History endpoint (Admin / Owner ONLY): GET /api/v1/system/releases
@@ -2759,7 +2905,11 @@ export function createRequestHandler(
             3 * 1024 * 1024,
           );
           if (!body || typeof body !== 'object' || Array.isArray(body))
-            throw new AuthError('VALIDATION_ERROR', 'Object body required', 400);
+            throw new AuthError(
+              'VALIDATION_ERROR',
+              'Object body required',
+              400,
+            );
           assertAllowedFields(body, [
             'file_base64',
             'year',
@@ -2774,7 +2924,11 @@ export function createRequestHandler(
             >[1],
             requestId,
           );
-          sendJson(res, data.committed ? 201 : 200, createSuccessEnvelope(data, requestId));
+          sendJson(
+            res,
+            data.committed ? 201 : 200,
+            createSuccessEnvelope(data, requestId),
+          );
           return;
         }
         throw new AuthError('NOT_FOUND', 'Endpoint not found', 404);
@@ -3945,6 +4099,7 @@ export function createRequestHandler(
       );
       return sendJson(res, 404, body);
     } catch (err) {
+      errorByResponse.set(res, err);
       if (err instanceof FinanceValidationError) {
         return sendJson(
           res,

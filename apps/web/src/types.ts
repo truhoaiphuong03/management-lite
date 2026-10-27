@@ -83,7 +83,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     id: 'UI02',
     path: '/activate',
     title: 'Kích hoạt tài khoản',
-    implemented: true,
+    implemented: false,
     category: 'core',
   },
   '/verify-email': {
@@ -125,7 +125,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     id: 'UI06',
     path: '/attendance/corrections',
     title: 'Đơn giải trình chấm công (C01)',
-    implemented: true,
+    implemented: false,
     category: 'attendance',
   },
   '/attendance/review': {
@@ -162,7 +162,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     path: '/employees',
     title: 'Danh sách nhân sự',
     ownerOnly: true,
-    implemented: true,
+    implemented: false,
     category: 'employees',
   },
   '/employees/new': {
@@ -170,7 +170,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     path: '/employees/new',
     title: 'Thêm & Mời nhân sự',
     ownerOnly: true,
-    implemented: true,
+    implemented: false,
     category: 'employees',
   },
   '/employees/:id': {
@@ -178,7 +178,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     path: '/employees/:id',
     title: 'Chi tiết nhân sự',
     ownerOnly: true,
-    implemented: true,
+    implemented: false,
     category: 'employees',
   },
   '/payroll': {
@@ -269,6 +269,14 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     id: 'UI19',
     path: '/audit',
     title: 'Nhật ký kiểm toán hệ thống',
+    ownerOnly: true,
+    implemented: true,
+    category: 'audit',
+  },
+  '/system-logs': {
+    id: 'UI19B',
+    path: '/system-logs',
+    title: 'Nhật ký hệ thống (lỗi & theo dõi)',
     ownerOnly: true,
     implemented: true,
     category: 'audit',

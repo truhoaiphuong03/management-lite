@@ -28,6 +28,7 @@ import { AlertTriangleIcon } from '../../../packages/ui/src/components/index.js'
 import { NotFoundScreen } from './screens/NotFoundScreen.js';
 import { PlaceholderScreen } from './screens/PlaceholderScreen.js';
 import { PayrollScreen } from './screens/PayrollScreen.js';
+import { SystemLogsScreen } from './screens/SystemLogsScreen.js';
 import { PayrollStatsScreen } from './screens/PayrollStatsScreen.js';
 import { WorkScreen } from './screens/WorkScreen.js';
 import { AccountsScreen } from './screens/AccountsScreen.js';
@@ -626,6 +627,8 @@ export const App: React.FC = () => {
         );
       case '/activate':
         return <ActivateScreen onNavigate={handleNavigate} />;
+      case '/system-logs':
+        return <SystemLogsScreen role={role} onNavigate={handleNavigate} />;
       case '/audit':
         return <AuditScreen role={role} onNavigate={handleNavigate} />;
       case '/issues':
