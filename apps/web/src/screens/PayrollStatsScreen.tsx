@@ -127,7 +127,7 @@ const th: React.CSSProperties = {
   padding: '8px 10px',
   borderBottom: '1px solid #e2e8f0',
   fontSize: 12,
-  color: '#475569',
+  opacity: 0.75,
   whiteSpace: 'nowrap',
 };
 const td: React.CSSProperties = {
@@ -477,7 +477,7 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
                                   )}
                                   {d.report?.notes && (
                                     <div
-                                      style={{ color: '#475569', fontSize: 13 }}
+                                      style={{ opacity: 0.75, fontSize: 13 }}
                                     >
                                       {d.report.notes}
                                     </div>
@@ -513,7 +513,7 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
                                   </a>
                                 </div>
                               ))}
-                          <div style={{ color: '#64748b', fontSize: 12 }}>
+                          <div style={{ opacity: 0.65, fontSize: 12 }}>
                             {fmtDate(b.from)} – {fmtDate(b.to)}
                           </div>
                         </td>
@@ -524,7 +524,7 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
               </tbody>
             </table>
           </AppCard>
-          <ul style={{ color: '#64748b', fontSize: 12, marginBottom: 16 }}>
+          <ul style={{ opacity: 0.65, fontSize: 12, marginBottom: 16 }}>
             {data.notes.map((n) => (
               <li key={n}>{n}</li>
             ))}
@@ -534,7 +534,7 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
 
       <AppCard style={card}>
         <h3 style={{ marginTop: 0 }}>Excel chấm công theo năm</h3>
-        <p style={{ color: '#475569', fontSize: 13 }}>
+        <p style={{ opacity: 0.75, fontSize: 13 }}>
           Mỗi tháng có dữ liệu là một tab (T1–T12), đúng mẫu bảng chấm công hiện
           tại. Tháng không có dữ liệu sẽ không xuất. Tệp xuất ra có thể chỉnh
           sửa rồi nhập lại; ca đã có trong hệ thống được bỏ qua, không bị ghi

@@ -21,6 +21,7 @@ import {
 } from './timesheet.js';
 import {
   aggregateStats,
+  sumBuckets,
   GRANULARITIES,
   type Granularity,
   type StatsBucket,
@@ -186,33 +187,7 @@ export class TimesheetService {
       }
     }
     const buckets = aggregateStats(rows, g);
-    const totals = aggregateStats(
-      rows.map((r) => ({ ...r, work_date: '2000-01-01' })),
-      'year',
-    )[0] ?? {
-      worked_seconds: 0,
-      worked_hours: 0,
-      work_days: 0,
-      shift_count: 0,
-      wage_vnd: 0,
-      report_days: 0,
-      reported_clips: 0,
-      missing_report_days: 0,
-      employees: [],
-    };
-    const {
-      key: _k,
-      label: _l,
-      from: _f,
-      to: _t,
-      days: _d,
-      ...totalOnly
-    } = totals as StatsBucket;
-    void _k;
-    void _l;
-    void _f;
-    void _t;
-    void _d;
+    const totalOnly = sumBuckets(buckets);
     return {
       granularity: g,
       from,

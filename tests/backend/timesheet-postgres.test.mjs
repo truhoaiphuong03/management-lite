@@ -332,6 +332,10 @@ test('TIMESHEET + STATS + SYSTEM LOG against migrated PostgreSQL (HTTP, RBAC, id
       );
       assert.equal(month.totals.wage_vnd, 383750);
       assert.equal(month.totals.worked_hours, 16.75);
+      assert.equal(month.totals.work_days, 6);
+      assert.equal(month.totals.report_days, 2);
+      assert.equal(month.totals.missing_report_days, 4);
+      assert.equal(month.totals.reported_clips, 42);
       for (const g of ['day', 'week', 'year']) {
         const r = (await request(q(g), owner)).data.data;
         assert.equal(

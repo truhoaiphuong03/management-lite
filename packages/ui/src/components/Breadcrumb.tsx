@@ -147,6 +147,19 @@ export function resolveNavigationBreadcrumbs(
     };
   }
 
+  // 2E2. Payroll statistics: /payroll/stats (fixed page, not a period id)
+  if (currentPath === '/payroll/stats') {
+    return {
+      items: [
+        { label: 'Nhân sự & Lương', path: '/groups/hr-payroll' },
+        { label: 'Bảng lương', path: '/payroll' },
+        { label: 'Thống kê lương' },
+      ],
+      parentLabel: 'Bảng lương',
+      parentPath: '/payroll',
+    };
+  }
+
   // 2F. Payroll: /payroll/:id
   if (currentPath.startsWith('/payroll/')) {
     const currentLabel = options?.customTitle || 'Chi tiết bảng lương';

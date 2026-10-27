@@ -47,3 +47,8 @@ CI (`.github/workflows/foundation.yml`, bước `scripts/deployment/ci-isolated-
 - Giả định thiết kế: liên kết là **tùy chọn** (Owner chưa trả lời câu hỏi; muốn bắt buộc thì đổi validate).
 - Lưu ý khi sửa `apps/api/src/reports/service.ts`: không chạy Prettier toàn tệp, vì test `reports-pagination` đọc trực tiếp mã nguồn và cần dòng regex UUID nằm trên một dòng.
 - Việc còn lại: thưởng/khấu trừ (chờ chính sách OI-04), màn `/reports/:id` (cờ bị test khóa).
+
+## Xem trước giao diện không cần DB (`scripts/dev/preview-screens.mjs`)
+Chạy `npm run build && npm run build:web && node scripts/dev/preview-screens.mjs <thư-mục>`: dựng `apps/web/dist` với API giả (dữ liệu mẫu) và chụp ảnh `/payroll/stats`, `/system-logs` bằng Chrome ẩn ở 1280px và 360px (Chrome không cho cửa sổ hẹp hơn ~500px nên bản điện thoại dùng iframe 360px). Dùng `spawn` bất đồng bộ vì API giả chạy cùng tiến trình.
+- Phát hiện khi xem ảnh và đã sửa: tổng "Ngày công/Ngày có báo cáo" bị gộp còn 1 ngày mỗi nhân viên (nay cộng từ các nhóm, hàm `sumBuckets`, có test); chữ mô tả quá mờ trên nền tối; breadcrumb `/payroll/stats` hiện sai.
+- Chưa tối ưu: bảng nhật ký hệ thống trên điện thoại phải cuộn ngang mới thấy cột nội dung.

@@ -55,6 +55,49 @@ test('fingerprint groups the same failure and separates different ones', () => {
   assert.equal(a.length, 16);
 });
 
+test('grand totals add up the buckets (work days are not collapsed)', async () => {
+  const { aggregateStats, sumBuckets } =
+    await import('../../dist/apps/api/src/payroll/stats.js');
+  const row = (d, e, sec, wage, report) => ({
+    employee_id: e,
+    employee_code: e,
+    employee_name: e,
+    work_date: d,
+    worked_seconds: sec,
+    shift_count: 1,
+    wage_vnd: wage,
+    hourly_rate_vnd: 1,
+    report,
+  });
+  const rep = {
+    id: 'r',
+    status: 'submitted',
+    total_reported_count: 5,
+    notes: null,
+  };
+  const rows = [
+    row('2026-06-01', 'a', 3600, 100, rep),
+    row('2026-06-02', 'a', 7200, 200, null),
+    row('2026-07-01', 'a', 3600, 100, rep),
+    row('2026-07-01', 'b', 3600, 300, null),
+  ];
+  const t = sumBuckets(aggregateStats(rows, 'month'));
+  assert.equal(t.work_days, 4);
+  assert.equal(t.report_days, 2);
+  assert.equal(t.missing_report_days, 2);
+  assert.equal(t.reported_clips, 10);
+  assert.equal(t.wage_vnd, 700);
+  assert.equal(t.worked_hours, 5);
+  assert.deepEqual(
+    t.employees.map((e) => [e.employee_id, e.wage_vnd, e.work_days]),
+    [
+      ['a', 400, 3],
+      ['b', 300, 1],
+    ],
+  );
+  assert.equal(sumBuckets([]).work_days, 0);
+});
+
 test('record() never throws and flush writes one batched, sanitised insert', async () => {
   const calls = [];
   const svc = new SystemLogService({

@@ -119,7 +119,7 @@ const th: React.CSSProperties = {
   padding: '8px 10px',
   borderBottom: '1px solid #e2e8f0',
   fontSize: 12,
-  color: '#475569',
+  opacity: 0.75,
   whiteSpace: 'nowrap',
 };
 const td: React.CSSProperties = {
@@ -450,7 +450,7 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                             <strong>
                               {t.error_code ?? `HTTP ${t.status ?? ''}`}
                             </strong>
-                            <div style={{ color: '#475569' }}>
+                            <div style={{ opacity: 0.75 }}>
                               {t.message.slice(0, 120)}
                             </div>
                           </td>

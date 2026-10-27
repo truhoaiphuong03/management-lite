@@ -145,3 +145,47 @@ export function aggregateStats(
   }
   return out;
 }
+
+/** Grand total across buckets. Buckets partition the days, so every figure is additive. */
+export function sumBuckets(
+  buckets: StatsBucket[],
+): Omit<StatsBucket, 'key' | 'label' | 'from' | 'to' | 'days'> {
+  const total: Omit<StatsBucket, 'key' | 'label' | 'from' | 'to' | 'days'> = {
+    worked_seconds: 0,
+    worked_hours: 0,
+    work_days: 0,
+    shift_count: 0,
+    wage_vnd: 0,
+    report_days: 0,
+    reported_clips: 0,
+    missing_report_days: 0,
+    employees: [],
+  };
+  const emps = new Map<string, StatsEmployeeTotal>();
+  for (const b of buckets) {
+    total.worked_seconds += b.worked_seconds;
+    total.work_days += b.work_days;
+    total.shift_count += b.shift_count;
+    total.wage_vnd += b.wage_vnd;
+    total.report_days += b.report_days;
+    total.reported_clips += b.reported_clips;
+    total.missing_report_days += b.missing_report_days;
+    for (const e of b.employees) {
+      const cur = emps.get(e.employee_id) ?? {
+        ...e,
+        worked_seconds: 0,
+        wage_vnd: 0,
+        work_days: 0,
+        report_days: 0,
+      };
+      cur.worked_seconds += e.worked_seconds;
+      cur.wage_vnd += e.wage_vnd;
+      cur.work_days += e.work_days;
+      cur.report_days += e.report_days;
+      emps.set(e.employee_id, cur);
+    }
+  }
+  total.worked_hours = Math.round((total.worked_seconds / 3600) * 100) / 100;
+  total.employees = [...emps.values()].sort((x, y) => y.wage_vnd - x.wage_vnd);
+  return total;
+}
