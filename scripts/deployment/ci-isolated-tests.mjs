@@ -42,6 +42,19 @@ try {
     'tests/backend/accounts.test.mjs',
     'tests/backend/function-verification.test.mjs',
     'tests/backend/timesheet-postgres.test.mjs',
+    'tests/backend/att-mvp.test.mjs',
+    'tests/backend/rep-mvp.test.mjs',
+    'tests/backend/work.test.mjs',
+    'tests/backend/schedule.test.mjs',
+    'tests/backend/work-e2e.test.mjs',
+    'tests/backend/work-schedule-links.test.mjs',
+    'tests/backend/payroll.test.mjs',
+    'tests/backend/storage.test.mjs',
+    'tests/backend/storage-provider-safety.test.mjs',
+    'tests/backend/emp-mvp.test.mjs',
+    'tests/backend/issue-cp22-fixes.test.mjs',
+    'tests/backend/owner-self-lockout.test.mjs',
+    'tests/backend/admin-login.test.mjs',
     'tests/database/config.test.mjs',
     'tests/database/migrator.test.mjs',
     'tests/database/integration.test.mjs',
@@ -49,6 +62,13 @@ try {
     'tests/database/audit-upgrade-qa.test.mjs',
     'tests/web/settings-screen.test.mjs',
   ];
+  // Suites that expect an already migrated database (they do not migrate themselves).
+  const premigrated = new Set([
+    'tests/backend/att-mvp.test.mjs',
+    'tests/backend/rep-mvp.test.mjs',
+    'tests/backend/work.test.mjs',
+    'tests/backend/schedule.test.mjs',
+  ]);
   for (let i = 0; i < files.length; i++) {
     const name = 'backend_test_ci_' + i;
     await admin.query(`CREATE DATABASE ${name}`);
@@ -64,6 +84,20 @@ try {
       ACCOUNT_SECRET_KEY: crypto.randomBytes(32).toString('hex'),
     };
     delete env.CSRF_SECRET;
+    if (premigrated.has(files[i])) {
+      const pre = new pg.Pool({ connectionString: target.href });
+      try {
+        const { runMigrations, loadMigrationFiles } = await import(
+          '../../dist/packages/database/src/migrator.js'
+        );
+        await runMigrations(
+          pre,
+          loadMigrationFiles('packages/database/src/migrations'),
+        );
+      } finally {
+        await pre.end();
+      }
+    }
     const run = spawnSync(process.execPath, ['--test', files[i]], {
       env,
       encoding: 'utf8',
