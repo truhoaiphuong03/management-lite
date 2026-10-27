@@ -273,14 +273,14 @@ test('REPORT ↔ WORK link against migrated PostgreSQL (assignment ownership, re
   );
 
   await t.test(
-    'A linked work item cannot be deleted from under a report (FK)',
+    'A linked work item cannot be deleted (history guard / FK)',
     async () => {
       await assert.rejects(
         pool.query('DELETE FROM work_items WHERE workspace_id=$1 AND id=$2', [
           workspace,
           aliceItem,
         ]),
-        /violates foreign key/,
+        /cannot be deleted|violates foreign key/,
       );
     },
   );

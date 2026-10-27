@@ -39,3 +39,11 @@ CI (`.github/workflows/foundation.yml`, bước `scripts/deployment/ci-isolated-
 - **Cũ nhưng trước đây bị SKIP, nay chạy thật và đạt:** `att-mvp`, `rep-mvp`, `work`, `schedule` (phải migrate DB trước khi chạy, script CI đã làm), `work-e2e`, `work-schedule-links`, `payroll` (23), `storage` (16), `storage-provider-safety`, `emp-mvp`, `issue-cp22-fixes`, `owner-self-lockout`, `admin-login`.
 - **Không chạy được trên CI:** `auth-remember-me` (cần Chrome + Edge), `reports-endpoint` (cần endpoint QA riêng), `finance-endpoint` (skip).
 - Chạy lại: push lên GitHub và xem `gh run list` / `gh run view <id> --log`.
+
+## Liên kết báo cáo ↔ công việc (migration `0029`)
+- `daily_report_entries.work_item_id` (tùy chọn, FK tới `work_items`, `ON DELETE RESTRICT`).
+- `ReportsService.insertEntries` kiểm tra công việc đã được giao cho đúng nhân viên của báo cáo (nếu không: 422 `INVALID_WORK_ITEM`, giao dịch hoàn tác). Áp dụng cho tạo mới, sửa nháp và sửa sau khi nộp; liên kết nằm trong bản chụp phiên bản.
+- Giao diện: ô chọn "Công việc liên quan" ở 3 form của `ReportsScreen`; chi tiết báo cáo có đường dẫn `/work/:id`.
+- Giả định thiết kế: liên kết là **tùy chọn** (Owner chưa trả lời câu hỏi; muốn bắt buộc thì đổi validate).
+- Lưu ý khi sửa `apps/api/src/reports/service.ts`: không chạy Prettier toàn tệp, vì test `reports-pagination` đọc trực tiếp mã nguồn và cần dòng regex UUID nằm trên một dòng.
+- Việc còn lại: thưởng/khấu trừ (chờ chính sách OI-04), màn `/reports/:id` (cờ bị test khóa).
