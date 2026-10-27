@@ -15,7 +15,7 @@ typecheck, eslint, prettier PASS. Web 384 PASS. Backend 192 PASS / 16 FAIL (cũ:
 File Google Sheet thật đọc đúng: 53 ca, 167,28 giờ.
 
 ## CHƯA làm / chưa kiểm chứng
-- Phần ghi DB của import và `stats`/`export` **chưa chạy trên PostgreSQL thật** (Mac không có PostgreSQL).
+- ~~Phần ghi DB chưa chạy trên PostgreSQL thật~~ → **đã kiểm chứng trên PostgreSQL 18 qua GitHub CI** (xem mục Kiểm chứng PostgreSQL). Máy Mac vẫn không có PostgreSQL cục bộ.
 - **Chưa deploy Production** và **chưa nhập dữ liệu thật**. Cổng phát hành yêu cầu chữ ký Owner độc lập; workflow `deploy.yml` chỉ chạy trên `main`. AI không tự ký.
 - Nhánh này chưa merge vào `main` (còn việc SSO/HOLD cũ).
 
@@ -32,3 +32,10 @@ File Google Sheet thật đọc đúng: 53 ca, 167,28 giờ.
 - **Màn hình**: thẻ tổng số lỗi/cảnh báo/chậm, biểu đồ theo thời gian, "Lỗi lặp lại nhiều nhất" (bấm để lọc), bảng có phân trang, chi tiết có stack + nút "Sao chép báo cáo lỗi".
 - **Chưa kiểm chứng**: đọc/ghi `system_logs` trên PostgreSQL thật (test hiện dùng DB giả cho phần ghi; hook yêu cầu đã chạy thử với handler thật).
 - **Lưu ý**: cờ `implemented:false` của `/activate`, `/employees*`, `/attendance/corrections` bị test khóa (ui-demo, ui-fix-43) — không đổi.
+
+## Kiểm chứng PostgreSQL qua GitHub CI (2026-10-27)
+CI (`.github/workflows/foundation.yml`, bước `scripts/deployment/ci-isolated-tests.mjs`) có sẵn PostgreSQL 18, mỗi tệp test chạy trên một DB mới. Không cần máy Windows để kiểm thử DB.
+- **Mới thêm và đạt:** `timesheet-postgres.test.mjs` (11 mục): phân quyền Owner/Staff, Xem trước không ghi gì, nhập một lần, nhập lại không trùng, cách ly tenant, lương tháng khớp đơn giá lịch sử (140.000 + 243.750), thống kê 4 mức khớp nhau, báo cáo liên kết đúng ngày, xuất rồi nhập ngược, kiểm tra đầu vào, nhật ký hệ thống (ghi, gom nhóm, lọc, phân trang, che mật khẩu, giới hạn tốc độ, xóa >30 ngày, liên kết audit).
+- **Cũ nhưng trước đây bị SKIP, nay chạy thật và đạt:** `att-mvp`, `rep-mvp`, `work`, `schedule` (phải migrate DB trước khi chạy, script CI đã làm), `work-e2e`, `work-schedule-links`, `payroll` (23), `storage` (16), `storage-provider-safety`, `emp-mvp`, `issue-cp22-fixes`, `owner-self-lockout`, `admin-login`.
+- **Không chạy được trên CI:** `auth-remember-me` (cần Chrome + Edge), `reports-endpoint` (cần endpoint QA riêng), `finance-endpoint` (skip).
+- Chạy lại: push lên GitHub và xem `gh run list` / `gh run view <id> --log`.

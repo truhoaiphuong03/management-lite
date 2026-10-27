@@ -87,9 +87,8 @@ try {
     if (premigrated.has(files[i])) {
       const pre = new pg.Pool({ connectionString: target.href });
       try {
-        const { runMigrations, loadMigrationFiles } = await import(
-          '../../dist/packages/database/src/migrator.js'
-        );
+        const { runMigrations, loadMigrationFiles } =
+          await import('../../dist/packages/database/src/migrator.js');
         await runMigrations(
           pre,
           loadMigrationFiles('packages/database/src/migrations'),
