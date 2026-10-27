@@ -83,7 +83,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     id: 'UI02',
     path: '/activate',
     title: 'Kích hoạt tài khoản',
-    implemented: false,
+    implemented: true,
     category: 'core',
   },
   '/verify-email': {
@@ -125,7 +125,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     id: 'UI06',
     path: '/attendance/corrections',
     title: 'Đơn giải trình chấm công (C01)',
-    implemented: false,
+    implemented: true,
     category: 'attendance',
   },
   '/attendance/review': {
@@ -147,7 +147,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     id: 'UI09',
     path: '/reports/new',
     title: 'Tạo báo cáo mới',
-    implemented: false,
+    implemented: true,
     category: 'reports',
   },
   '/reports/:id': {
@@ -162,7 +162,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     path: '/employees',
     title: 'Danh sách nhân sự',
     ownerOnly: true,
-    implemented: false,
+    implemented: true,
     category: 'employees',
   },
   '/employees/new': {
@@ -170,7 +170,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     path: '/employees/new',
     title: 'Thêm & Mời nhân sự',
     ownerOnly: true,
-    implemented: false,
+    implemented: true,
     category: 'employees',
   },
   '/employees/:id': {
@@ -178,7 +178,7 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     path: '/employees/:id',
     title: 'Chi tiết nhân sự',
     ownerOnly: true,
-    implemented: false,
+    implemented: true,
     category: 'employees',
   },
   '/payroll': {

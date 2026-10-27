@@ -137,7 +137,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   );
 
   // Modal: Create Draft Report
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(
+    typeof window !== 'undefined' &&
+      window.location.pathname === '/reports/new',
+  );
   const [newReportDate, setNewReportDate] = useState<string>(
     getVietnamTodayString(),
   );

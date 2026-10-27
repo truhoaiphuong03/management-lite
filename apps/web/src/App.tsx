@@ -555,6 +555,7 @@ export const App: React.FC = () => {
         return (
           <ClockScreen role={role} mode="clock" onNavigate={handleNavigate} />
         );
+      case '/attendance/corrections':
       case '/attendance':
         return (
           <ClockScreen role={role} mode="history" onNavigate={handleNavigate} />
@@ -570,6 +571,7 @@ export const App: React.FC = () => {
         );
       case '/schedule':
         return <ScheduleScreen role={role} onNavigate={handleNavigate} />;
+      case '/reports/new':
       case '/reports':
         return <ReportsScreen role={role} onNavigate={handleNavigate} />;
       case '/employees':
@@ -585,9 +587,7 @@ export const App: React.FC = () => {
           />
         );
       case '/payroll/stats':
-        return (
-          <PayrollStatsScreen role={role} onNavigate={handleNavigate} />
-        );
+        return <PayrollStatsScreen role={role} onNavigate={handleNavigate} />;
       case '/payroll':
       case '/payroll/:id':
       case '/my-pay':
