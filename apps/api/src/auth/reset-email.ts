@@ -106,7 +106,7 @@ export function createBrevoResetMailer(
       return postBrevoTextEmail(
         to,
         `Đặt lại mật khẩu Management Lite [Mã tham chiếu: #${refCode}]`,
-        `[Management Lite — Khôi phục mật khẩu | Mã tham chiếu: #${refCode}]\nThời điểm gửi: ${formatVietnamTimestamp(now)}\nThời hạn hiệu lực: 15 phút (hết hạn lúc ${formatVietnamTimestamp(expiresAt)})\n\nBạn đã yêu cầu đặt lại mật khẩu tài khoản Management Lite.\nMở liên kết: ${link.href}\nHoặc nhập mã xác minh: ${token}${devGuidance}\nLưu ý: Mã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[Management Lite — Khôi phục mật khẩu | Mã tham chiếu: #${refCode}]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• Thời điểm gửi: ${formatVietnamTimestamp(now)}\n• Thời hạn hiệu lực: 15 phút (hết hạn lúc ${formatVietnamTimestamp(expiresAt)})\n\nBạn đã yêu cầu đặt lại mật khẩu tài khoản Management Lite.\n\n👉 CÁCH 1 — SAO CHÉP MÃ XÁC MINH (Nhấp đúp vào dòng mã bên dưới để copy rồi dán vào ô "Mã xác minh" trên Web):\n\n${token}\n\n────────────────────────────────────────────────────────────\n👉 CÁCH 2 — HOẶC MỞ TRỰC TIẾP LIÊN KẾT ĐẶT LẠI MẬT KHẨU:\n${link.href}\n────────────────────────────────────────────────────────────${devGuidance}\nLưu ý: Mã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
       );
     },
     async sendVerification(to, token) {
@@ -122,9 +122,8 @@ export function createBrevoResetMailer(
       return postBrevoTextEmail(
         to,
         `Xác minh địa chỉ email Management Lite [Mã tham chiếu: #${refCode}]`,
-        `[Management Lite — Xác minh địa chỉ email | Mã tham chiếu: #${refCode}]\nThời điểm gửi: ${formatVietnamTimestamp(now)}\nThời hạn hiệu lực: 15 phút (hết hạn lúc ${formatVietnamTimestamp(expiresAt)})\n\nBạn đã yêu cầu xác minh địa chỉ email tài khoản Management Lite.\nMở liên kết: ${link.href}\nHoặc nhập mã xác minh: ${token}${devGuidance}\nLưu ý: Mã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[Management Lite — Xác minh địa chỉ email | Mã tham chiếu: #${refCode}]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• Thời điểm gửi: ${formatVietnamTimestamp(now)}\n• Thời hạn hiệu lực: 15 phút (hết hạn lúc ${formatVietnamTimestamp(expiresAt)})\n\nBạn đã yêu cầu xác minh địa chỉ email tài khoản Management Lite.\n\n👉 CÁCH 1 — SAO CHÉP MÃ XÁC MINH (Nhấp đúp vào dòng mã bên dưới để copy rồi dán vào ô "Mã xác minh" trên Web):\n\n${token}\n\n────────────────────────────────────────────────────────────\n👉 CÁCH 2 — HOẶC MỞ TRỰC TIẾP LIÊN KẾT XÁC MINH:\n${link.href}\n────────────────────────────────────────────────────────────${devGuidance}\nLưu ý: Mã chỉ dùng một lần và hết hạn sau 15 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
       );
     },
   };
 }
-
