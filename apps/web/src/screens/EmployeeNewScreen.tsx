@@ -23,6 +23,16 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [role, setRole] = useState<'staff' | 'admin'>('staff');
+  const [phone, setPhone] = useState('');
+  const [positionTitle, setPositionTitle] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
+  const [nationalId, setNationalId] = useState('');
+  const [address, setAddress] = useState('');
+  const [emergencyContact, setEmergencyContact] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountHolder, setBankAccountHolder] = useState('');
   const [csrfToken, setCsrfToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -127,6 +137,17 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
           email: email.trim(),
           username: username.trim() || undefined,
           role,
+          phone: phone.trim() || undefined,
+          position_title: positionTitle.trim() || undefined,
+          date_of_birth: dateOfBirth.trim() || undefined,
+          gender: gender.trim() || undefined,
+          national_id: nationalId.trim() || undefined,
+          address: address.trim() || undefined,
+          emergency_contact: emergencyContact.trim() || undefined,
+          bank_name: bankName.trim() || undefined,
+          bank_account_number: bankAccountNumber.trim() || undefined,
+          bank_account_holder:
+            bankAccountHolder.trim().toUpperCase() || undefined,
         }),
       });
 
@@ -508,6 +529,390 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 boxSizing: 'border-box',
               }}
             />
+          </div>
+
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              border: '1px solid #1E293B',
+              marginBottom: '16px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#14B8A6',
+                marginBottom: '12px',
+              }}
+            >
+              Thông tin cơ bản nhân sự (Tùy chọn)
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="newEmpPhone"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Số điện thoại:
+                </label>
+                <input
+                  id="newEmpPhone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="VD: 0901234567"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="newEmpPosition"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Chức danh / Vị trí:
+                </label>
+                <input
+                  id="newEmpPosition"
+                  type="text"
+                  value={positionTitle}
+                  onChange={(e) => setPositionTitle(e.target.value)}
+                  placeholder="VD: Editor, Kịch bản..."
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="newEmpDob"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Ngày sinh:
+                </label>
+                <input
+                  id="newEmpDob"
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="newEmpGender"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Giới tính:
+                </label>
+                <select
+                  id="newEmpGender"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <option value="">-- Chọn --</option>
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                  <option value="Khác">Khác</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="newEmpNationalId"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Số CCCD / CMND:
+                </label>
+                <input
+                  id="newEmpNationalId"
+                  type="text"
+                  value={nationalId}
+                  onChange={(e) => setNationalId(e.target.value)}
+                  placeholder="VD: 079200012345"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="newEmpEmergency"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Liên hệ khẩn cấp:
+                </label>
+                <input
+                  id="newEmpEmergency"
+                  type="text"
+                  value={emergencyContact}
+                  onChange={(e) => setEmergencyContact(e.target.value)}
+                  placeholder="Tên & SĐT người thân"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label
+                  htmlFor="newEmpAddress"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Địa chỉ nơi ở:
+                </label>
+                <input
+                  id="newEmpAddress"
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              border: '1px solid #1E293B',
+              marginBottom: '20px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#14B8A6',
+                marginBottom: '12px',
+              }}
+            >
+              🏦 Thông tin ngân hàng nhận lương (Tùy chọn)
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="newEmpBankName"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Ngân hàng:
+                </label>
+                <input
+                  id="newEmpBankName"
+                  type="text"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="VD: Vietcombank, MB Bank..."
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="newEmpBankNumber"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Số tài khoản:
+                </label>
+                <input
+                  id="newEmpBankNumber"
+                  type="text"
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  placeholder="VD: 1023456789"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="newEmpBankHolder"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '4px',
+                    color: '#94A3B8',
+                  }}
+                >
+                  Chủ tài khoản:
+                </label>
+                <input
+                  id="newEmpBankHolder"
+                  type="text"
+                  value={bankAccountHolder}
+                  onChange={(e) =>
+                    setBankAccountHolder(e.target.value.toUpperCase())
+                  }
+                  placeholder="VD: NGUYEN VAN A"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    minHeight: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '12px' }}>

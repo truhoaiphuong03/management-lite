@@ -157,7 +157,17 @@ export class EmployeeService {
         e.updated_at,
         u.username_normalized AS user_username,
         u.email_normalized AS user_email,
-        u.status AS user_status
+        u.status AS user_status,
+        to_jsonb(e) ->> 'phone' AS phone,
+        to_jsonb(e) ->> 'date_of_birth' AS date_of_birth,
+        to_jsonb(e) ->> 'gender' AS gender,
+        to_jsonb(e) ->> 'national_id' AS national_id,
+        to_jsonb(e) ->> 'address' AS address,
+        to_jsonb(e) ->> 'position_title' AS position_title,
+        to_jsonb(e) ->> 'emergency_contact' AS emergency_contact,
+        to_jsonb(e) ->> 'bank_name' AS bank_name,
+        to_jsonb(e) ->> 'bank_account_number' AS bank_account_number,
+        to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
       WHERE ${conditions.join(' AND ')}
@@ -180,6 +190,16 @@ export class EmployeeService {
       user_username: string | null;
       user_email: string | null;
       user_status: string | null;
+      phone?: string | null;
+      date_of_birth?: string | null;
+      gender?: string | null;
+      national_id?: string | null;
+      address?: string | null;
+      position_title?: string | null;
+      emergency_contact?: string | null;
+      bank_name?: string | null;
+      bank_account_number?: string | null;
+      bank_account_holder?: string | null;
     }>(query, params);
 
     const rows = res.rows;
@@ -203,6 +223,16 @@ export class EmployeeService {
       user_id: r.user_id,
       employee_code: r.employee_code,
       full_name: r.full_name,
+      phone: r.phone ?? null,
+      date_of_birth: r.date_of_birth ?? null,
+      gender: r.gender ?? null,
+      national_id: r.national_id ?? null,
+      address: r.address ?? null,
+      position_title: r.position_title ?? null,
+      emergency_contact: r.emergency_contact ?? null,
+      bank_name: r.bank_name ?? null,
+      bank_account_number: r.bank_account_number ?? null,
+      bank_account_holder: r.bank_account_holder ?? null,
       employment_status:
         r.employment_status as EmployeeData['employment_status'],
       is_payroll_eligible: r.is_payroll_eligible,
@@ -244,6 +274,16 @@ export class EmployeeService {
       user_username: string | null;
       user_email: string | null;
       user_status: string | null;
+      phone?: string | null;
+      date_of_birth?: string | null;
+      gender?: string | null;
+      national_id?: string | null;
+      address?: string | null;
+      position_title?: string | null;
+      emergency_contact?: string | null;
+      bank_name?: string | null;
+      bank_account_number?: string | null;
+      bank_account_holder?: string | null;
     }>(
       `
       SELECT
@@ -259,7 +299,17 @@ export class EmployeeService {
         e.updated_at,
         u.username_normalized AS user_username,
         u.email_normalized AS user_email,
-        u.status AS user_status
+        u.status AS user_status,
+        to_jsonb(e) ->> 'phone' AS phone,
+        to_jsonb(e) ->> 'date_of_birth' AS date_of_birth,
+        to_jsonb(e) ->> 'gender' AS gender,
+        to_jsonb(e) ->> 'national_id' AS national_id,
+        to_jsonb(e) ->> 'address' AS address,
+        to_jsonb(e) ->> 'position_title' AS position_title,
+        to_jsonb(e) ->> 'emergency_contact' AS emergency_contact,
+        to_jsonb(e) ->> 'bank_name' AS bank_name,
+        to_jsonb(e) ->> 'bank_account_number' AS bank_account_number,
+        to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
       WHERE e.workspace_id = $1 AND e.id = $2;
@@ -283,6 +333,16 @@ export class EmployeeService {
       user_id: row.user_id,
       employee_code: row.employee_code,
       full_name: row.full_name,
+      phone: row.phone ?? null,
+      date_of_birth: row.date_of_birth ?? null,
+      gender: row.gender ?? null,
+      national_id: row.national_id ?? null,
+      address: row.address ?? null,
+      position_title: row.position_title ?? null,
+      emergency_contact: row.emergency_contact ?? null,
+      bank_name: row.bank_name ?? null,
+      bank_account_number: row.bank_account_number ?? null,
+      bank_account_holder: row.bank_account_holder ?? null,
       employment_status:
         row.employment_status as EmployeeData['employment_status'],
       is_payroll_eligible: row.is_payroll_eligible,
@@ -319,6 +379,15 @@ export class EmployeeService {
       user_email: string | null;
       user_status: string | null;
       phone: string | null;
+      date_of_birth?: string | null;
+      gender?: string | null;
+      national_id?: string | null;
+      address?: string | null;
+      position_title?: string | null;
+      emergency_contact?: string | null;
+      bank_name?: string | null;
+      bank_account_number?: string | null;
+      bank_account_holder?: string | null;
       user_email_verified: boolean | null;
     }>(
       `
@@ -337,6 +406,15 @@ export class EmployeeService {
         u.email_normalized AS user_email,
         u.status AS user_status,
         to_jsonb(e) ->> 'phone' AS phone,
+        to_jsonb(e) ->> 'date_of_birth' AS date_of_birth,
+        to_jsonb(e) ->> 'gender' AS gender,
+        to_jsonb(e) ->> 'national_id' AS national_id,
+        to_jsonb(e) ->> 'address' AS address,
+        to_jsonb(e) ->> 'position_title' AS position_title,
+        to_jsonb(e) ->> 'emergency_contact' AS emergency_contact,
+        to_jsonb(e) ->> 'bank_name' AS bank_name,
+        to_jsonb(e) ->> 'bank_account_number' AS bank_account_number,
+        to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder,
         u.email_verified AS user_email_verified
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
@@ -360,7 +438,16 @@ export class EmployeeService {
       user_id: row.user_id,
       employee_code: row.employee_code,
       full_name: row.full_name,
-      phone: row.phone,
+      phone: row.phone ?? null,
+      date_of_birth: row.date_of_birth ?? null,
+      gender: row.gender ?? null,
+      national_id: row.national_id ?? null,
+      address: row.address ?? null,
+      position_title: row.position_title ?? null,
+      emergency_contact: row.emergency_contact ?? null,
+      bank_name: row.bank_name ?? null,
+      bank_account_number: row.bank_account_number ?? null,
+      bank_account_holder: row.bank_account_holder ?? null,
       employment_status:
         row.employment_status as EmployeeData['employment_status'],
       is_payroll_eligible: row.is_payroll_eligible,
@@ -514,6 +601,34 @@ export class EmployeeService {
         [context.workspace.id, userId, code, fullName],
       );
       const employeeId = empRes.rows[0]!.id;
+      const extraCols = [
+        'phone',
+        'date_of_birth',
+        'gender',
+        'national_id',
+        'address',
+        'position_title',
+        'emergency_contact',
+        'bank_name',
+        'bank_account_number',
+        'bank_account_holder',
+      ] as const;
+      const createSets: string[] = [];
+      const createVals: unknown[] = [];
+      for (const col of extraCols) {
+        const raw = body[col];
+        if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+          createVals.push(String(raw).trim());
+          createSets.push(`${col} = ${createVals.length}`);
+        }
+      }
+      if (createSets.length > 0) {
+        createVals.push(context.workspace.id, employeeId);
+        await client.query(
+          `UPDATE employees SET ${createSets.join(', ')} WHERE workspace_id = ${createVals.length - 1} AND id = ${createVals.length};`,
+          createVals,
+        );
+      }
 
       // 6. Generate activation invite token (CSPRNG 32 bytes)
       const rawToken = generateCsprngToken(32);
@@ -635,8 +750,33 @@ export class EmployeeService {
           ? Boolean(body.is_payroll_eligible)
           : emp.is_payroll_eligible;
 
-      await client.query(
-        `
+      const extraCols = [
+        'phone',
+        'date_of_birth',
+        'gender',
+        'national_id',
+        'address',
+        'position_title',
+        'emergency_contact',
+        'bank_name',
+        'bank_account_number',
+        'bank_account_holder',
+      ] as const;
+      const extraSets: string[] = [];
+      const extraVals: unknown[] = [newFullName, newEligibility];
+      for (const col of extraCols) {
+        if (body[col] !== undefined) {
+          const v =
+            body[col] === null || String(body[col]).trim() === ''
+              ? null
+              : String(body[col]).trim();
+          extraVals.push(v);
+          extraSets.push(`${col} = ${extraVals.length}`);
+        }
+      }
+      if (extraSets.length === 0) {
+        await client.query(
+          `
         UPDATE employees
         SET full_name = $1,
             is_payroll_eligible = $2,
@@ -644,8 +784,15 @@ export class EmployeeService {
             updated_at = now()
         WHERE workspace_id = $3 AND id = $4;
       `,
-        [newFullName, newEligibility, context.workspace.id, employeeId],
-      );
+          [newFullName, newEligibility, context.workspace.id, employeeId],
+        );
+      } else {
+        extraVals.push(context.workspace.id, employeeId);
+        await client.query(
+          `UPDATE employees SET full_name = $1, is_payroll_eligible = $2, ${extraSets.join(', ')}, version = version + 1, updated_at = now() WHERE workspace_id = ${extraVals.length - 1} AND id = ${extraVals.length};`,
+          extraVals,
+        );
+      }
 
       await recordAuditEvent(client, {
         workspaceId: context.workspace.id,

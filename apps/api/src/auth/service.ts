@@ -795,11 +795,29 @@ export class AuthService {
     phone?: unknown;
     email?: unknown;
     currentPassword?: unknown;
+    dateOfBirth?: unknown;
+    gender?: unknown;
+    nationalId?: unknown;
+    address?: unknown;
+    positionTitle?: unknown;
+    emergencyContact?: unknown;
+    bankName?: unknown;
+    bankAccountNumber?: unknown;
+    bankAccountHolder?: unknown;
     requestId: string;
   }): Promise<{
     message: string;
     full_name: string | null;
     phone: string | null;
+    date_of_birth?: string | null;
+    gender?: string | null;
+    national_id?: string | null;
+    address?: string | null;
+    position_title?: string | null;
+    emergency_contact?: string | null;
+    bank_name?: string | null;
+    bank_account_number?: string | null;
+    bank_account_holder?: string | null;
     email: string;
     email_verified: boolean;
     email_changed: boolean;
@@ -813,7 +831,8 @@ export class AuthService {
 
     let fullName: string | undefined;
     if (params.fullName !== undefined) {
-      if (typeof params.fullName !== 'string') invalid('full_name', 'Họ tên không hợp lệ');
+      if (typeof params.fullName !== 'string')
+        invalid('full_name', 'Họ tên không hợp lệ');
       fullName = (params.fullName as string).trim();
       if (fullName.length < 2 || fullName.length > 120)
         invalid('full_name', 'Họ tên phải từ 2 đến 120 ký tự');
@@ -824,7 +843,8 @@ export class AuthService {
       if (params.phone === null || params.phone === '') {
         phone = null;
       } else {
-        if (typeof params.phone !== 'string') invalid('phone', 'Số điện thoại không hợp lệ');
+        if (typeof params.phone !== 'string')
+          invalid('phone', 'Số điện thoại không hợp lệ');
         const compact = (params.phone as string).replace(/[\s.\-()]/g, '');
         if (!/^\+?[0-9]{8,15}$/.test(compact))
           invalid('phone', 'Số điện thoại phải gồm 8–15 chữ số');
@@ -834,14 +854,48 @@ export class AuthService {
 
     let newEmail: string | undefined;
     if (params.email !== undefined) {
-      if (typeof params.email !== 'string') invalid('email', 'Email không hợp lệ');
+      if (typeof params.email !== 'string')
+        invalid('email', 'Email không hợp lệ');
       const e = (params.email as string).trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || e.length > 254)
         invalid('email', 'Địa chỉ email không đúng định dạng');
       newEmail = e;
     }
 
-    if (fullName === undefined && phone === undefined && newEmail === undefined) {
+    const optionalTextMap: Record<string, string | null | undefined> = {};
+    const optionalKeyPairs: Array<[string, unknown, number]> = [
+      ['date_of_birth', params.dateOfBirth, 30],
+      ['gender', params.gender, 30],
+      ['national_id', params.nationalId, 40],
+      ['address', params.address, 300],
+      ['position_title', params.positionTitle, 120],
+      ['emergency_contact', params.emergencyContact, 200],
+      ['bank_name', params.bankName, 120],
+      ['bank_account_number', params.bankAccountNumber, 60],
+      ['bank_account_holder', params.bankAccountHolder, 120],
+    ];
+    for (const [col, rawVal, maxLen] of optionalKeyPairs) {
+      if (rawVal !== undefined) {
+        if (rawVal === null || rawVal === '') {
+          optionalTextMap[col] = null;
+        } else if (typeof rawVal !== 'string') {
+          invalid(col, 'Giá trị không hợp lệ');
+        } else {
+          const trimmed = rawVal.trim();
+          if (trimmed.length > maxLen) {
+            invalid(col, `Trường ${col} vượt quá ${maxLen} ký tự`);
+          }
+          optionalTextMap[col] = trimmed || null;
+        }
+      }
+    }
+
+    if (
+      fullName === undefined &&
+      phone === undefined &&
+      newEmail === undefined &&
+      Object.keys(optionalTextMap).length === 0
+    ) {
       invalid('profile', 'Không có thông tin nào để cập nhật');
     }
 
@@ -928,16 +982,23 @@ export class AuthService {
       }
       if (phone !== undefined) {
         vals.push(phone);
-        sets.push(`phone = $${vals.length}`);
+        sets.push(`phone = ${vals.length}`);
+      }
+      for (const [col, colVal] of Object.entries(optionalTextMap)) {
+        vals.push(colVal ?? null);
+        sets.push(`${col} = ${vals.length}`);
       }
       let resultName: string | null = fullName ?? null;
       let resultPhone: string | null = phone ?? null;
       if (sets.length > 0) {
         vals.push(context.workspace.id, context.user.id);
-        const upd = await client.query<{ full_name: string; phone: string | null }>(
+        const upd = await client.query<{
+          full_name: string;
+          phone: string | null;
+        }>(
           `UPDATE employees
            SET ${sets.join(', ')}, version = version + 1, updated_at = now()
-           WHERE workspace_id = $${vals.length - 1} AND user_id = $${vals.length}
+           WHERE workspace_id = ${vals.length - 1} AND user_id = ${vals.length}
            RETURNING full_name, phone;`,
           vals,
         );
@@ -975,6 +1036,33 @@ export class AuthService {
           : 'Đã cập nhật thông tin cá nhân.',
         full_name: resultName,
         phone: resultPhone,
+        ...(optionalTextMap['date_of_birth'] !== undefined
+          ? { date_of_birth: optionalTextMap['date_of_birth'] }
+          : {}),
+        ...(optionalTextMap['gender'] !== undefined
+          ? { gender: optionalTextMap['gender'] }
+          : {}),
+        ...(optionalTextMap['national_id'] !== undefined
+          ? { national_id: optionalTextMap['national_id'] }
+          : {}),
+        ...(optionalTextMap['address'] !== undefined
+          ? { address: optionalTextMap['address'] }
+          : {}),
+        ...(optionalTextMap['position_title'] !== undefined
+          ? { position_title: optionalTextMap['position_title'] }
+          : {}),
+        ...(optionalTextMap['emergency_contact'] !== undefined
+          ? { emergency_contact: optionalTextMap['emergency_contact'] }
+          : {}),
+        ...(optionalTextMap['bank_name'] !== undefined
+          ? { bank_name: optionalTextMap['bank_name'] }
+          : {}),
+        ...(optionalTextMap['bank_account_number'] !== undefined
+          ? { bank_account_number: optionalTextMap['bank_account_number'] }
+          : {}),
+        ...(optionalTextMap['bank_account_holder'] !== undefined
+          ? { bank_account_holder: optionalTextMap['bank_account_holder'] }
+          : {}),
         email: currentEmail,
         email_verified: emailVerified,
         email_changed: emailChanged,

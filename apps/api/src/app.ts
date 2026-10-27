@@ -1614,6 +1614,15 @@ export function createRequestHandler(
           'phone',
           'email',
           'current_password',
+          'date_of_birth',
+          'gender',
+          'national_id',
+          'address',
+          'position_title',
+          'emergency_contact',
+          'bank_name',
+          'bank_account_number',
+          'bank_account_holder',
         ]);
         const result = await authService.updateProfile({
           context: sessionContext,
@@ -1621,6 +1630,15 @@ export function createRequestHandler(
           phone: body['phone'],
           email: body['email'],
           currentPassword: body['current_password'],
+          dateOfBirth: body['date_of_birth'],
+          gender: body['gender'],
+          nationalId: body['national_id'],
+          address: body['address'],
+          positionTitle: body['position_title'],
+          emergencyContact: body['emergency_contact'],
+          bankName: body['bank_name'],
+          bankAccountNumber: body['bank_account_number'],
+          bankAccountHolder: body['bank_account_holder'],
           requestId,
         });
         return sendJson(res, 200, createSuccessEnvelope(result, requestId));
@@ -2015,6 +2033,16 @@ export function createRequestHandler(
           'email',
           'username',
           'role',
+          'phone',
+          'date_of_birth',
+          'gender',
+          'national_id',
+          'address',
+          'position_title',
+          'emergency_contact',
+          'bank_name',
+          'bank_account_number',
+          'bank_account_holder',
         ]);
 
         const result = await employeeService.createEmployee(
@@ -2141,7 +2169,20 @@ export function createRequestHandler(
           requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
 
           const body = await parseJsonBody<Record<string, unknown>>(req);
-          assertAllowedFields(body, ['full_name', 'is_payroll_eligible']);
+          assertAllowedFields(body, [
+            'full_name',
+            'is_payroll_eligible',
+            'phone',
+            'date_of_birth',
+            'gender',
+            'national_id',
+            'address',
+            'position_title',
+            'emergency_contact',
+            'bank_name',
+            'bank_account_number',
+            'bank_account_holder',
+          ]);
 
           const ifMatch = req.headers['if-match'];
           const result = await employeeService.updateEmployee(

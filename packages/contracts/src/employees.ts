@@ -15,6 +15,15 @@ export interface EmployeeData {
   employee_code: string;
   full_name: string;
   phone?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  national_id?: string | null;
+  address?: string | null;
+  position_title?: string | null;
+  emergency_contact?: string | null;
+  bank_name?: string | null;
+  bank_account_number?: string | null;
+  bank_account_holder?: string | null;
   employment_status: EmploymentStatus;
   is_payroll_eligible: boolean;
   version: number;
@@ -29,6 +38,16 @@ export interface CreateEmployeeRequestBody {
   email: string;
   username?: string;
   role?: 'staff' | 'admin';
+  phone?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  national_id?: string | null;
+  address?: string | null;
+  position_title?: string | null;
+  emergency_contact?: string | null;
+  bank_name?: string | null;
+  bank_account_number?: string | null;
+  bank_account_holder?: string | null;
 }
 
 export interface CreateEmployeeResponseData {
@@ -44,6 +63,16 @@ export interface CreateEmployeeResponseData {
 export interface UpdateEmployeeRequestBody {
   full_name?: string;
   is_payroll_eligible?: boolean;
+  phone?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  national_id?: string | null;
+  address?: string | null;
+  position_title?: string | null;
+  emergency_contact?: string | null;
+  bank_name?: string | null;
+  bank_account_number?: string | null;
+  bank_account_holder?: string | null;
 }
 
 export interface SuspendEmployeeRequestBody {

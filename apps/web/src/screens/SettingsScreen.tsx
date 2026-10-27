@@ -134,6 +134,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editDateOfBirth, setEditDateOfBirth] = useState('');
+  const [editGender, setEditGender] = useState('');
+  const [editNationalId, setEditNationalId] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editPositionTitle, setEditPositionTitle] = useState('');
+  const [editEmergencyContact, setEditEmergencyContact] = useState('');
+  const [editBankName, setEditBankName] = useState('');
+  const [editBankAccountNumber, setEditBankAccountNumber] = useState('');
+  const [editBankAccountHolder, setEditBankAccountHolder] = useState('');
   const [editEmailPassword, setEditEmailPassword] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{
@@ -146,6 +155,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       setEditName(profile.full_name || '');
       setEditPhone(profile.phone || '');
       setEditEmail(profile.user?.email || '');
+      setEditDateOfBirth(profile.date_of_birth || '');
+      setEditGender(profile.gender || '');
+      setEditNationalId(profile.national_id || '');
+      setEditAddress(profile.address || '');
+      setEditPositionTitle(profile.position_title || '');
+      setEditEmergencyContact(profile.emergency_contact || '');
+      setEditBankName(profile.bank_name || '');
+      setEditBankAccountNumber(profile.bank_account_number || '');
+      setEditBankAccountHolder(profile.bank_account_holder || '');
     }
   }, [profile]);
 
@@ -182,6 +200,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       const payload: Record<string, unknown> = {
         full_name: editName,
         phone: editPhone,
+        date_of_birth: editDateOfBirth,
+        gender: editGender,
+        national_id: editNationalId,
+        address: editAddress,
+        position_title: editPositionTitle,
+        emergency_contact: editEmergencyContact,
+        bank_name: editBankName,
+        bank_account_number: editBankAccountNumber,
+        bank_account_holder: editBankAccountHolder.toUpperCase(),
       };
       if (emailChanged) {
         payload['email'] = editEmail;
@@ -213,6 +240,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               ...prev,
               full_name: data.data.full_name ?? prev.full_name,
               phone: data.data.phone,
+              date_of_birth: data.data.date_of_birth ?? editDateOfBirth,
+              gender: data.data.gender ?? editGender,
+              national_id: data.data.national_id ?? editNationalId,
+              address: data.data.address ?? editAddress,
+              position_title: data.data.position_title ?? editPositionTitle,
+              emergency_contact:
+                data.data.emergency_contact ?? editEmergencyContact,
+              bank_name: data.data.bank_name ?? editBankName,
+              bank_account_number:
+                data.data.bank_account_number ?? editBankAccountNumber,
+              bank_account_holder:
+                data.data.bank_account_holder ??
+                editBankAccountHolder.toUpperCase(),
               user: prev.user
                 ? {
                     ...prev.user,
@@ -832,6 +872,244 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   }}
                 />
               </label>
+              <div style={{ height: '12px' }} />
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+                  gap: '12px',
+                }}
+              >
+                <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Ngày sinh
+                  <input
+                    data-testid="edit-profile-dob"
+                    type="date"
+                    value={editDateOfBirth}
+                    onChange={(e) => setEditDateOfBirth(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '10px 12px',
+                      fontSize: '15px',
+                      borderRadius: '8px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Giới tính
+                  <select
+                    data-testid="edit-profile-gender"
+                    value={editGender}
+                    onChange={(e) => setEditGender(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '10px 12px',
+                      fontSize: '15px',
+                      borderRadius: '8px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  >
+                    <option value="">-- Chọn --</option>
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </label>
+                <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Số CCCD / CMND
+                  <input
+                    data-testid="edit-profile-national-id"
+                    type="text"
+                    value={editNationalId}
+                    onChange={(e) => setEditNationalId(e.target.value)}
+                    placeholder="VD: 079200012345"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '10px 12px',
+                      fontSize: '15px',
+                      borderRadius: '8px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Chức danh / Vị trí
+                  <input
+                    data-testid="edit-profile-position"
+                    type="text"
+                    value={editPositionTitle}
+                    onChange={(e) => setEditPositionTitle(e.target.value)}
+                    placeholder="VD: Editor, Kịch bản..."
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '10px 12px',
+                      fontSize: '15px',
+                      borderRadius: '8px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                </label>
+              </div>
+              <div style={{ height: '12px' }} />
+              <label
+                style={{ fontSize: '12px', color: '#94A3B8', display: 'block' }}
+              >
+                Địa chỉ nơi ở hiện tại
+                <input
+                  data-testid="edit-profile-address"
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    marginTop: '4px',
+                    padding: '10px 12px',
+                    fontSize: '15px',
+                    borderRadius: '8px',
+                    border: '1px solid #475569',
+                    backgroundColor: '#1E293B',
+                    color: '#F8FAFC',
+                  }}
+                />
+              </label>
+              <div style={{ height: '12px' }} />
+              <label
+                style={{ fontSize: '12px', color: '#94A3B8', display: 'block' }}
+              >
+                Liên hệ khẩn cấp (Họ tên & SĐT người thân)
+                <input
+                  data-testid="edit-profile-emergency"
+                  type="text"
+                  value={editEmergencyContact}
+                  onChange={(e) => setEditEmergencyContact(e.target.value)}
+                  placeholder="VD: Nguyễn Thị B (Mẹ) - 0912345678"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    marginTop: '4px',
+                    padding: '10px 12px',
+                    fontSize: '15px',
+                    borderRadius: '8px',
+                    border: '1px solid #475569',
+                    backgroundColor: '#1E293B',
+                    color: '#F8FAFC',
+                  }}
+                />
+              </label>
+              <div
+                style={{
+                  marginTop: '14px',
+                  padding: '14px',
+                  borderRadius: '8px',
+                  backgroundColor: '#0B1220',
+                  border: '1px solid #334155',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#14B8A6',
+                    marginBottom: '10px',
+                  }}
+                >
+                  🏦 Thông tin ngân hàng nhận lương
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+                    gap: '10px',
+                  }}
+                >
+                  <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    Ngân hàng
+                    <input
+                      data-testid="edit-profile-bank-name"
+                      type="text"
+                      value={editBankName}
+                      onChange={(e) => setEditBankName(e.target.value)}
+                      placeholder="VD: Vietcombank, MB Bank..."
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '9px 10px',
+                        fontSize: '14px',
+                        borderRadius: '6px',
+                        border: '1px solid #475569',
+                        backgroundColor: '#1E293B',
+                        color: '#F8FAFC',
+                      }}
+                    />
+                  </label>
+                  <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    Số tài khoản
+                    <input
+                      data-testid="edit-profile-bank-number"
+                      type="text"
+                      value={editBankAccountNumber}
+                      onChange={(e) => setEditBankAccountNumber(e.target.value)}
+                      placeholder="VD: 1023456789"
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '9px 10px',
+                        fontSize: '14px',
+                        borderRadius: '6px',
+                        border: '1px solid #475569',
+                        backgroundColor: '#1E293B',
+                        color: '#F8FAFC',
+                      }}
+                    />
+                  </label>
+                  <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    Chủ tài khoản (in hoa)
+                    <input
+                      data-testid="edit-profile-bank-holder"
+                      type="text"
+                      value={editBankAccountHolder}
+                      onChange={(e) =>
+                        setEditBankAccountHolder(e.target.value.toUpperCase())
+                      }
+                      placeholder="VD: NGUYEN VAN A"
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '9px 10px',
+                        fontSize: '14px',
+                        borderRadius: '6px',
+                        border: '1px solid #475569',
+                        backgroundColor: '#1E293B',
+                        color: '#F8FAFC',
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
               <div style={{ height: '12px' }} />
               <label style={{ fontSize: '12px', color: '#94A3B8' }}>
                 Email tài khoản

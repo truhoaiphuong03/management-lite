@@ -1797,6 +1797,22 @@ export const USER_PROFILE_PHONE_SQL = `-- Migration: 0026_user_profile_phone
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS phone text NULL;
 `;
 
+export const EMPLOYEE_PROFILE_AND_BANK_INFO_SQL = `-- Migration: 0030_employee_profile_and_bank_info
+-- Scope: Extended employee basic HR info & bank account details for payroll/management.
+
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS phone text NULL,
+  ADD COLUMN IF NOT EXISTS date_of_birth text NULL,
+  ADD COLUMN IF NOT EXISTS gender text NULL,
+  ADD COLUMN IF NOT EXISTS national_id text NULL,
+  ADD COLUMN IF NOT EXISTS address text NULL,
+  ADD COLUMN IF NOT EXISTS position_title text NULL,
+  ADD COLUMN IF NOT EXISTS emergency_contact text NULL,
+  ADD COLUMN IF NOT EXISTS bank_name text NULL,
+  ADD COLUMN IF NOT EXISTS bank_account_number text NULL,
+  ADD COLUMN IF NOT EXISTS bank_account_holder text NULL;
+`;
+
 export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
   {
     id: '0001_m00_prerequisites',
@@ -1938,5 +1954,10 @@ export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
     id: '0029_report_entry_work_item',
     sql: REPORT_ENTRY_WORK_ITEM_SQL,
     checksum: calculateChecksum(REPORT_ENTRY_WORK_ITEM_SQL),
+  },
+  {
+    id: '0030_employee_profile_and_bank_info',
+    sql: EMPLOYEE_PROFILE_AND_BANK_INFO_SQL,
+    checksum: calculateChecksum(EMPLOYEE_PROFILE_AND_BANK_INFO_SQL),
   },
 ];

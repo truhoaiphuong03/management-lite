@@ -40,6 +40,16 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState('');
   const [isPayrollEligible, setIsPayrollEligible] = useState(true);
+  const [phone, setPhone] = useState('');
+  const [positionTitle, setPositionTitle] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
+  const [nationalId, setNationalId] = useState('');
+  const [address, setAddress] = useState('');
+  const [emergencyContact, setEmergencyContact] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountHolder, setBankAccountHolder] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [activeInviteUrl, setActiveInviteUrl] = useState<string | null>(null);
@@ -127,8 +137,18 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         );
       }
       setEmployee(data.data);
-      setFullName(data.data.full_name);
-      setIsPayrollEligible(data.data.is_payroll_eligible);
+      setFullName(data.data.full_name || '');
+      setIsPayrollEligible(Boolean(data.data.is_payroll_eligible));
+      setPhone(data.data.phone || '');
+      setPositionTitle(data.data.position_title || '');
+      setDateOfBirth(data.data.date_of_birth || '');
+      setGender(data.data.gender || '');
+      setNationalId(data.data.national_id || '');
+      setAddress(data.data.address || '');
+      setEmergencyContact(data.data.emergency_contact || '');
+      setBankName(data.data.bank_name || '');
+      setBankAccountNumber(data.data.bank_account_number || '');
+      setBankAccountHolder(data.data.bank_account_holder || '');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Lỗi tải hồ sơ nhân sự');
     } finally {
@@ -257,6 +277,16 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         body: JSON.stringify({
           full_name: fullName.trim(),
           is_payroll_eligible: isPayrollEligible,
+          phone: phone.trim() || null,
+          position_title: positionTitle.trim() || null,
+          date_of_birth: dateOfBirth.trim() || null,
+          gender: gender.trim() || null,
+          national_id: nationalId.trim() || null,
+          address: address.trim() || null,
+          emergency_contact: emergencyContact.trim() || null,
+          bank_name: bankName.trim() || null,
+          bank_account_number: bankAccountNumber.trim() || null,
+          bank_account_holder: bankAccountHolder.trim().toUpperCase() || null,
         }),
       });
       const data = await res.json();
@@ -545,125 +575,743 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         </h3>
 
         {!isEditing ? (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
-              gap: '16px',
-              marginBottom: '20px',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Mã nhân viên
+          <>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                gap: '16px',
+                marginBottom: '20px',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Mã nhân viên
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: '#F8FAFC',
+                    fontWeight: 600,
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.employee_code}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Họ và tên
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: '#F8FAFC',
+                    fontWeight: 600,
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.full_name}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Chức danh / Vị trí
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: employee.position_title ? '#F8FAFC' : '#64748B',
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.position_title || 'Chưa cập nhật'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Số điện thoại
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: employee.phone ? '#14B8A6' : '#F59E0B',
+                    fontWeight: 600,
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.phone || 'Chưa cập nhật'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Email tài khoản
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.user?.email || 'Chưa liên kết'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Tên đăng nhập
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.user?.username || '—'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Ngày sinh
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: employee.date_of_birth ? '#F8FAFC' : '#64748B',
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.date_of_birth || 'Chưa cập nhật'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Giới tính
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: employee.gender ? '#F8FAFC' : '#64748B',
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.gender || 'Chưa cập nhật'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Số CCCD / CMND
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: employee.national_id ? '#F8FAFC' : '#64748B',
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.national_id || 'Chưa cập nhật'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Tính lương tự động
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.is_payroll_eligible
+                    ? 'Có (Nhân viên)'
+                    : 'Không (Chủ sở hữu)'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Ngày tham gia
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: '#F8FAFC',
+                    marginTop: '2px',
+                  }}
+                >
+                  {new Date(employee.created_at).toLocaleDateString('vi-VN')}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Liên hệ khẩn cấp
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: employee.emergency_contact ? '#F8FAFC' : '#64748B',
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.emergency_contact || 'Chưa cập nhật'}
+                </div>
+              </div>
+
+              <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Địa chỉ thường trú / Nơi ở hiện tại
+                </div>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    color: employee.address ? '#F8FAFC' : '#64748B',
+                    marginTop: '2px',
+                  }}
+                >
+                  {employee.address || 'Chưa cập nhật'}
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Info Section */}
+            <div
+              data-testid="employee-bank-info-section"
+              style={{
+                padding: '16px',
+                borderRadius: '10px',
+                backgroundColor: '#0B1220',
+                border: '1px solid #1E293B',
+                marginBottom: '20px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#14B8A6',
+                  marginBottom: '12px',
+                }}
+              >
+                🏦 Thông tin ngân hàng (Nhận lương)
               </div>
               <div
                 style={{
-                  fontSize: '15px',
-                  color: '#F8FAFC',
-                  fontWeight: 600,
-                  marginTop: '2px',
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                  gap: '16px',
                 }}
               >
-                {employee.employee_code}
-              </div>
-            </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    Ngân hàng
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: employee.bank_name ? '#F8FAFC' : '#64748B',
+                      marginTop: '2px',
+                    }}
+                  >
+                    {employee.bank_name || 'Chưa thiết lập'}
+                  </div>
+                </div>
 
-            <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Họ và tên
-              </div>
-              <div
-                style={{
-                  fontSize: '15px',
-                  color: '#F8FAFC',
-                  fontWeight: 600,
-                  marginTop: '2px',
-                }}
-              >
-                {employee.full_name}
-              </div>
-            </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    Số tài khoản
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginTop: '2px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        fontFamily: employee.bank_account_number
+                          ? 'monospace'
+                          : 'inherit',
+                        color: employee.bank_account_number
+                          ? '#F8FAFC'
+                          : '#64748B',
+                      }}
+                    >
+                      {employee.bank_account_number || 'Chưa thiết lập'}
+                    </span>
+                    {employee.bank_account_number && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            employee.bank_account_number || '',
+                          );
+                          setToast({
+                            message: 'Đã sao chép số tài khoản ngân hàng!',
+                            variant: 'success',
+                          });
+                        }}
+                        style={{
+                          background: 'rgba(20, 184, 166, 0.15)',
+                          border: '1px solid rgba(20, 184, 166, 0.3)',
+                          borderRadius: '6px',
+                          color: '#14B8A6',
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Sao chép
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-            <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Email tài khoản
-              </div>
-              <div
-                style={{ fontSize: '15px', color: '#F8FAFC', marginTop: '2px' }}
-              >
-                {employee.user?.email || 'Chưa liên kết'}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Tên đăng nhập
-              </div>
-              <div
-                style={{ fontSize: '15px', color: '#F8FAFC', marginTop: '2px' }}
-              >
-                {employee.user?.username || '—'}
+                <div>
+                  <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    Chủ tài khoản
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: employee.bank_account_holder
+                        ? '#F8FAFC'
+                        : '#64748B',
+                      marginTop: '2px',
+                    }}
+                  >
+                    {employee.bank_account_holder || 'Chưa thiết lập'}
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Tính lương tự động
-              </div>
-              <div
-                style={{ fontSize: '15px', color: '#F8FAFC', marginTop: '2px' }}
-              >
-                {employee.is_payroll_eligible
-                  ? 'Có (Nhân viên)'
-                  : 'Không (Chủ sở hữu)'}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                Ngày tham gia
-              </div>
-              <div
-                style={{ fontSize: '15px', color: '#F8FAFC', marginTop: '2px' }}
-              >
-                {new Date(employee.created_at).toLocaleDateString('vi-VN')}
-              </div>
-            </div>
-          </div>
+          </>
         ) : (
           <form onSubmit={handleUpdate} style={{ marginBottom: '20px' }}>
-            <div style={{ marginBottom: '16px' }}>
-              <label
-                htmlFor="editName"
-                style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  color: '#94A3B8',
-                  marginBottom: '6px',
-                }}
-              >
-                Họ và tên nhân viên:
-              </label>
-              <input
-                id="editName"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                style={{
-                  width: '100%',
-                  minHeight: '44px',
-                  padding: '0 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#14B8A6',
+                marginBottom: '12px',
+              }}
+            >
+              1. Thông tin cơ bản nhân sự
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                gap: '14px',
+                marginBottom: '16px',
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="editName"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Họ và tên nhân viên: *
+                </label>
+                <input
+                  id="editName"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editPositionTitle"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Chức danh / Vị trí công việc:
+                </label>
+                <input
+                  id="editPositionTitle"
+                  type="text"
+                  value={positionTitle}
+                  onChange={(e) => setPositionTitle(e.target.value)}
+                  placeholder="VD: Editor, Kịch bản, Vận hành..."
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editPhone"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Số điện thoại liên hệ:
+                </label>
+                <input
+                  id="editPhone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="VD: 0901234567"
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editDob"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Ngày sinh:
+                </label>
+                <input
+                  id="editDob"
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editGender"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Giới tính:
+                </label>
+                <select
+                  id="editGender"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <option value="">-- Chọn giới tính --</option>
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                  <option value="Khác">Khác</option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editNationalId"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Số CCCD / CMND:
+                </label>
+                <input
+                  id="editNationalId"
+                  type="text"
+                  value={nationalId}
+                  onChange={(e) => setNationalId(e.target.value)}
+                  placeholder="VD: 079200012345"
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editEmergencyContact"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Liên hệ khẩn cấp (Người thân & SĐT):
+                </label>
+                <input
+                  id="editEmergencyContact"
+                  type="text"
+                  value={emergencyContact}
+                  onChange={(e) => setEmergencyContact(e.target.value)}
+                  placeholder="VD: Nguyễn Thị B (Mẹ) - 0912345678"
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label
+                  htmlFor="editAddress"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Địa chỉ thường trú / Nơi ở hiện tại:
+                </label>
+                <input
+                  id="editAddress"
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="VD: Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#14B8A6',
+                marginBottom: '12px',
+                marginTop: '8px',
+              }}
+            >
+              2. Thông tin ngân hàng nhận lương
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                gap: '14px',
+                marginBottom: '16px',
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="editBankName"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Ngân hàng:
+                </label>
+                <input
+                  id="editBankName"
+                  type="text"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="VD: Vietcombank, MB Bank, Techcombank..."
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editBankAccountNumber"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Số tài khoản ngân hàng:
+                </label>
+                <input
+                  id="editBankAccountNumber"
+                  type="text"
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  placeholder="VD: 1023456789"
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editBankAccountHolder"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Chủ tài khoản (in hoa không dấu):
+                </label>
+                <input
+                  id="editBankAccountHolder"
+                  type="text"
+                  value={bankAccountHolder}
+                  onChange={(e) =>
+                    setBankAccountHolder(e.target.value.toUpperCase())
+                  }
+                  placeholder="VD: TRU HOAI PHUONG"
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
             </div>
 
             {employee.employee_code !== 'OWNER' && (

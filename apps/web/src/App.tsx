@@ -110,6 +110,19 @@ export const App: React.FC = () => {
     'idle' | 'submitting' | 'success' | 'failed'
   >('idle');
   const [verifyCodeError, setVerifyCodeError] = useState<string | null>(null);
+  const [missingPhoneOpen, setMissingPhoneOpen] = useState<boolean>(false);
+  const [missingPhoneDismissed, setMissingPhoneDismissed] =
+    useState<boolean>(false);
+  const [promptPhone, setPromptPhone] = useState<string>('');
+  const [promptDob, setPromptDob] = useState<string>('');
+  const [promptGender, setPromptGender] = useState<string>('');
+  const [promptNationalId, setPromptNationalId] = useState<string>('');
+  const [promptAddress, setPromptAddress] = useState<string>('');
+  const [promptBankName, setPromptBankName] = useState<string>('');
+  const [promptBankNumber, setPromptBankNumber] = useState<string>('');
+  const [promptBankHolder, setPromptBankHolder] = useState<string>('');
+  const [promptSaving, setPromptSaving] = useState<boolean>(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | undefined>(undefined);
   const [workspaceName, setWorkspaceName] = useState<string | undefined>(
     undefined,
@@ -284,6 +297,54 @@ export const App: React.FC = () => {
       active = false;
     };
   }, [verifySession]);
+
+  // Check if authenticated employee is missing phone number -> show popup window to fill it in
+  useEffect(() => {
+    if (!isLoggedIn || !userId || missingPhoneDismissed) {
+      setMissingPhoneOpen(false);
+      return;
+    }
+    let active = true;
+    const checkEmployeePhone = async () => {
+      try {
+        const res = await fetch('/api/v1/employees/me', {
+          credentials: 'include',
+        });
+        if (!active || !res.ok) return;
+        const json = await res.json().catch(() => null);
+        const emp = json?.data;
+        if (
+          emp &&
+          typeof emp.id === 'string' &&
+          typeof emp.employee_code === 'string' &&
+          emp.employee_code !== 'OWNER'
+        ) {
+          const currentPhone =
+            typeof emp.phone === 'string' ? emp.phone.trim() : '';
+          if (!currentPhone) {
+            setPromptPhone('');
+            setPromptDob(emp.date_of_birth || '');
+            setPromptGender(emp.gender || '');
+            setPromptNationalId(emp.national_id || '');
+            setPromptAddress(emp.address || '');
+            setPromptBankName(emp.bank_name || '');
+            setPromptBankNumber(emp.bank_account_number || '');
+            setPromptBankHolder(emp.bank_account_holder || '');
+            setPromptError(null);
+            setMissingPhoneOpen(true);
+          } else {
+            setMissingPhoneOpen(false);
+          }
+        }
+      } catch {
+        // Ignore network errors during background profile check
+      }
+    };
+    void checkEmployeePhone();
+    return () => {
+      active = false;
+    };
+  }, [isLoggedIn, userId, missingPhoneDismissed]);
 
   // 4. Navigation handler synchronizes browser URL (History API)
   const handleNavigate = (path: string) => {
@@ -1088,6 +1149,408 @@ export const App: React.FC = () => {
                   {verifyCodeState === 'submitting'
                     ? 'Đang xác nhận...'
                     : 'Xác nhận'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {isLoggedIn && missingPhoneOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Bổ sung thông tin nhân viên"
+            data-testid="missing-phone-modal"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1100,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(2, 6, 23, 0.78)',
+              padding: '16px',
+              overflowY: 'auto',
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '520px',
+                backgroundColor: '#0F172A',
+                border: '1px solid #14B8A6',
+                borderRadius: '14px',
+                padding: '22px',
+                color: '#F8FAFC',
+                boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)',
+              }}
+            >
+              <h3
+                style={{
+                  margin: '0 0 6px',
+                  fontSize: '17px',
+                  fontWeight: 700,
+                  color: '#14B8A6',
+                }}
+              >
+                📱 Bổ sung thông tin hồ sơ nhân viên
+              </h3>
+              <p
+                style={{
+                  margin: '0 0 16px',
+                  fontSize: '13px',
+                  color: '#CBD5E1',
+                  lineHeight: 1.5,
+                }}
+              >
+                Hồ sơ nhân sự của bạn chưa có{' '}
+                <strong>Số điện thoại liên hệ</strong>. Vui lòng điền số điện
+                thoại và thông tin cơ bản / ngân hàng nhận lương bên dưới để
+                hoàn tất hồ sơ.
+              </p>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+                  gap: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div>
+                  <label
+                    htmlFor="missing-phone-input"
+                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                  >
+                    Số điện thoại liên hệ{' '}
+                    <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <input
+                    id="missing-phone-input"
+                    data-testid="missing-phone-input"
+                    type="tel"
+                    inputMode="tel"
+                    autoFocus
+                    value={promptPhone}
+                    onChange={(e) => setPromptPhone(e.target.value)}
+                    placeholder="VD: 0901234567"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '10px 12px',
+                      fontSize: '15px',
+                      borderRadius: '8px',
+                      border: '1px solid #14B8A6',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="missing-dob-input"
+                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                  >
+                    Ngày sinh
+                  </label>
+                  <input
+                    id="missing-dob-input"
+                    type="date"
+                    value={promptDob}
+                    onChange={(e) => setPromptDob(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="missing-gender-input"
+                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                  >
+                    Giới tính
+                  </label>
+                  <select
+                    id="missing-gender-input"
+                    value={promptGender}
+                    onChange={(e) => setPromptGender(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  >
+                    <option value="">-- Chọn --</option>
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="missing-cccd-input"
+                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                  >
+                    Số CCCD / CMND
+                  </label>
+                  <input
+                    id="missing-cccd-input"
+                    type="text"
+                    value={promptNationalId}
+                    onChange={(e) => setPromptNationalId(e.target.value)}
+                    placeholder="VD: 079200012345"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                </div>
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label
+                    htmlFor="missing-address-input"
+                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                  >
+                    Địa chỉ nơi ở hiện tại
+                  </label>
+                  <input
+                    id="missing-address-input"
+                    type="text"
+                    value={promptAddress}
+                    onChange={(e) => setPromptAddress(e.target.value)}
+                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  backgroundColor: '#0B1220',
+                  border: '1px solid #334155',
+                  marginBottom: '12px',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#14B8A6',
+                    marginBottom: '8px',
+                  }}
+                >
+                  🏦 Thông tin ngân hàng nhận lương (Tùy chọn)
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
+                    gap: '8px',
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={promptBankName}
+                    onChange={(e) => setPromptBankName(e.target.value)}
+                    placeholder="Tên ngân hàng (MB, VCB...)"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 10px',
+                      fontSize: '13px',
+                      borderRadius: '6px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={promptBankNumber}
+                    onChange={(e) => setPromptBankNumber(e.target.value)}
+                    placeholder="Số tài khoản"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 10px',
+                      fontSize: '13px',
+                      borderRadius: '6px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={promptBankHolder}
+                    onChange={(e) =>
+                      setPromptBankHolder(e.target.value.toUpperCase())
+                    }
+                    placeholder="CHỦ TÀI KHOẢN"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 10px',
+                      fontSize: '13px',
+                      borderRadius: '6px',
+                      border: '1px solid #475569',
+                      backgroundColor: '#1E293B',
+                      color: '#F8FAFC',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {promptError && (
+                <div
+                  role="alert"
+                  style={{
+                    color: '#FCA5A5',
+                    fontSize: '12px',
+                    marginBottom: '10px',
+                  }}
+                >
+                  {promptError}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '10px',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                <button
+                  type="button"
+                  data-testid="missing-phone-dismiss"
+                  onClick={() => {
+                    setMissingPhoneDismissed(true);
+                    setMissingPhoneOpen(false);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    color: '#94A3B8',
+                    border: '1px solid #475569',
+                    borderRadius: '8px',
+                    padding: '9px 14px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Để sau
+                </button>
+                <button
+                  type="button"
+                  data-testid="missing-phone-submit"
+                  disabled={promptSaving}
+                  onClick={async () => {
+                    const compact = promptPhone.replace(/[\s.\-()]/g, '');
+                    if (!/^\+?[0-9]{8,15}$/.test(compact)) {
+                      setPromptError(
+                        'Vui lòng nhập số điện thoại hợp lệ (từ 8 đến 15 chữ số).',
+                      );
+                      return;
+                    }
+                    setPromptSaving(true);
+                    setPromptError(null);
+                    try {
+                      let token = csrfToken;
+                      if (!token) {
+                        const meRes = await fetch('/api/v1/auth/me', {
+                          credentials: 'include',
+                        });
+                        if (meRes.ok) {
+                          const meJson = await meRes.json().catch(() => null);
+                          token = meJson?.data?.csrf_token || '';
+                        }
+                      }
+                      const headers: Record<string, string> = {
+                        'Content-Type': 'application/json',
+                      };
+                      if (token) headers['X-CSRF-Token'] = token;
+                      const res = await fetch('/api/v1/auth/profile', {
+                        method: 'PATCH',
+                        headers,
+                        credentials: 'include',
+                        body: JSON.stringify({
+                          phone: compact,
+                          date_of_birth: promptDob.trim() || null,
+                          gender: promptGender.trim() || null,
+                          national_id: promptNationalId.trim() || null,
+                          address: promptAddress.trim() || null,
+                          bank_name: promptBankName.trim() || null,
+                          bank_account_number: promptBankNumber.trim() || null,
+                          bank_account_holder:
+                            promptBankHolder.trim().toUpperCase() || null,
+                        }),
+                      });
+                      const data = await res.json().catch(() => null);
+                      if (!res.ok) {
+                        setPromptError(
+                          data?.error?.message ||
+                            'Không thể lưu thông tin. Vui lòng thử lại.',
+                        );
+                        return;
+                      }
+                      setMissingPhoneOpen(false);
+                      setMissingPhoneDismissed(true);
+                    } catch {
+                      setPromptError('Lỗi kết nối máy chủ. Vui lòng thử lại.');
+                    } finally {
+                      setPromptSaving(false);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#14B8A6',
+                    color: '#0F172A',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '9px 18px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {promptSaving ? 'Đang lưu...' : 'Lưu thông tin'}
                 </button>
               </div>
             </div>
