@@ -337,14 +337,25 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     }
   };
 
+  const isActionableUnreviewed = (shift: ShiftData) =>
+    shift.run_state === 'completed' &&
+    shift.review_state === 'unreviewed' &&
+    !shift.is_self_shift &&
+    shift.is_payroll_eligible !== false;
+
+  const isActionablePending = (shift: ShiftData) =>
+    isActionableUnreviewed(shift) ||
+    shift.review_state === 'needs_review' ||
+    Boolean(shift.pending_correction) ||
+    shift.run_state !== 'completed';
+
   const filteredOwnerShifts = React.useMemo(() => {
     return ownerShifts.filter((shift) => {
       if (selectedReviewState === 'pending_all') {
-        return (
-          shift.review_state === 'unreviewed' ||
-          shift.review_state === 'needs_review' ||
-          Boolean(shift.pending_correction)
-        );
+        return isActionablePending(shift);
+      }
+      if (selectedReviewState === 'unreviewed') {
+        return isActionableUnreviewed(shift);
       }
       if (
         selectedReviewState !== 'all' &&
@@ -694,10 +705,43 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       await fetchOwnerShifts();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Thao tác thất bại';
-      setErrorMessage(msg);
       setToast({ message: msg, variant: 'error' });
+      setClockActionDialog(null);
     } finally {
       setDialogLoading(false);
+      setOwnerLoading(false);
+    }
+  };
+
+  const handleOwnerCloseShift = async (shift: ShiftData) => {
+    setOwnerLoading(true);
+    try {
+      const res = await fetch(
+        `/api/v1/attendance/shifts/${shift.id}/owner-close`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            reason: 'Chủ sở hữu đóng ca & xác nhận giúp nhân viên',
+          }),
+        },
+      );
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message || 'Không thể đóng ca làm việc.');
+      }
+      const msg = `Đã đóng và xác nhận ca làm của ${shift.employee_name || shift.employee_code}!`;
+      setSuccessMessage(msg);
+      setToast({ message: msg, variant: 'success' });
+      await fetchOwnerShifts();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Không thể đóng ca';
+      setToast({ message: msg, variant: 'error' });
+    } finally {
       setOwnerLoading(false);
     }
   };
@@ -775,8 +819,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       await fetchOwnerShifts();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Thao tác thất bại';
-      setErrorMessage(msg);
       setToast({ message: msg, variant: 'error' });
+      setClockActionDialog(null);
     } finally {
       setDialogLoading(false);
       setOwnerLoading(false);
@@ -1493,11 +1537,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
               { id: 'all', label: `Tất cả (${ownerShifts.length})` },
               {
                 id: 'pending_all',
-                label: `Chờ xử lý (${ownerShifts.filter((s) => s.review_state === 'unreviewed' || s.review_state === 'needs_review' || Boolean(s.pending_correction)).length})`,
+                label: `Chờ xử lý (${ownerShifts.filter((s) => isActionablePending(s)).length})`,
               },
               {
                 id: 'unreviewed',
-                label: `Chờ duyệt (${ownerShifts.filter((s) => s.review_state === 'unreviewed').length})`,
+                label: `Chờ duyệt (${ownerShifts.filter((s) => isActionableUnreviewed(s)).length})`,
               },
               {
                 id: 'needs_review',
@@ -1882,26 +1926,43 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                           alignItems: 'center',
                         }}
                       >
-                        <StatusBadge
-                          status={
-                            shift.review_state === 'approved'
-                              ? 'success'
-                              : shift.review_state === 'rejected'
-                                ? 'error'
-                                : shift.review_state === 'needs_review'
-                                  ? 'warning'
-                                  : 'neutral'
-                          }
-                          label={
-                            shift.review_state === 'approved'
-                              ? 'Đã duyệt'
-                              : shift.review_state === 'rejected'
-                                ? 'Đã từ chối'
-                                : shift.review_state === 'needs_review'
-                                  ? 'Cần giải trình'
-                                  : 'Chờ duyệt'
-                          }
-                        />
+                        {shift.is_self_shift ||
+                        shift.is_payroll_eligible === false ? (
+                          <StatusBadge
+                            status="success"
+                            label="Ca Chủ sở hữu (Tự ghi nhận)"
+                          />
+                        ) : shift.run_state !== 'completed' &&
+                          shift.review_state === 'unreviewed' &&
+                          !shift.pending_correction ? (
+                          shift.worked_seconds > 12 * 3600 ? (
+                            <StatusBadge
+                              status="warning"
+                              label="Quá hạn chưa đóng ca"
+                            />
+                          ) : null
+                        ) : (
+                          <StatusBadge
+                            status={
+                              shift.review_state === 'approved'
+                                ? 'success'
+                                : shift.review_state === 'rejected'
+                                  ? 'error'
+                                  : shift.review_state === 'needs_review'
+                                    ? 'warning'
+                                    : 'neutral'
+                            }
+                            label={
+                              shift.review_state === 'approved'
+                                ? 'Đã duyệt'
+                                : shift.review_state === 'rejected'
+                                  ? 'Đã từ chối'
+                                  : shift.review_state === 'needs_review'
+                                    ? 'Cần giải trình'
+                                    : 'Chờ duyệt'
+                            }
+                          />
+                        )}
 
                         <StatusBadge
                           status={
@@ -2054,10 +2115,42 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       </div>
                     )}
 
+                    {/* Open Shift Owner Close Action (for stuck/active shifts) */}
+                    {shift.run_state !== 'completed' &&
+                      !shift.pending_correction && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: '8px',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            borderTop: '1px solid #334155',
+                            paddingTop: '12px',
+                          }}
+                        >
+                          <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                            {shift.worked_seconds > 12 * 3600
+                              ? '⚠️ Nhân viên quên bấm kết thúc ca — Chủ sở hữu có thể đóng và xác nhận ca ngay:'
+                              : '💡 Nhân viên đang trong ca làm việc:'}
+                          </span>
+                          <AppButton
+                            data-testid="owner-close-shift-btn"
+                            variant="primary"
+                            onClick={() => handleOwnerCloseShift(shift)}
+                            style={{ minHeight: '38px', fontSize: '13px' }}
+                          >
+                            <CheckIcon size={14} /> Đóng ca & Xác nhận giúp NV
+                          </AppButton>
+                        </div>
+                      )}
+
                     {/* Standard Owner Review Actions */}
                     {shift.run_state === 'completed' &&
                       shift.review_state === 'unreviewed' &&
-                      !shift.pending_correction && (
+                      !shift.pending_correction &&
+                      !shift.is_self_shift &&
+                      shift.is_payroll_eligible !== false && (
                         <div
                           style={{
                             display: 'flex',

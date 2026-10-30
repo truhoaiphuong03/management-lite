@@ -46,6 +46,8 @@ export interface ShiftData {
   review_reason?: string | null | undefined;
   reviewed_at?: string | null | undefined;
   reviewed_by_user_id?: string | null | undefined;
+  is_self_shift?: boolean | undefined;
+  is_payroll_eligible?: boolean | undefined;
 }
 
 export interface AttendanceMeResponseData {

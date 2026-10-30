@@ -2310,9 +2310,9 @@ export function createRequestHandler(
         return sendJson(res, 200, createSuccessEnvelope(data, requestId));
       }
 
-      // 16. Dynamic /api/v1/attendance/shifts/:id/(breaks|resume|clock-out|reviews|correction-requests)
+      // 16. Dynamic /api/v1/attendance/shifts/:id/(breaks|resume|clock-out|reviews|correction-requests|owner-close)
       const shiftActionMatch = pathname.match(
-        /^\/api\/v1\/attendance\/shifts\/([a-zA-Z0-9_-]+)\/(breaks|resume|clock-out|reviews|correction-requests)$/,
+        /^\/api\/v1\/attendance\/shifts\/([a-zA-Z0-9_-]+)\/(breaks|resume|clock-out|reviews|correction-requests|owner-close)$/,
       );
 
       if (shiftActionMatch && method === 'POST') {
@@ -2371,6 +2371,25 @@ export function createRequestHandler(
             sessionContext,
             shiftId,
             body as unknown as ReviewShiftRequestBody,
+            requestId,
+          );
+          return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+        }
+
+        if (action === 'owner-close') {
+          const body = await parseJsonBody<Record<string, unknown>>(req);
+          assertAllowedFields(body, ['clock_out_at', 'reason']);
+          const result = await attendanceService.ownerCloseShift(
+            sessionContext,
+            shiftId,
+            {
+              clock_out_at:
+                typeof body['clock_out_at'] === 'string'
+                  ? body['clock_out_at']
+                  : undefined,
+              reason:
+                typeof body['reason'] === 'string' ? body['reason'] : undefined,
+            },
             requestId,
           );
           return sendJson(res, 200, createSuccessEnvelope(result, requestId));

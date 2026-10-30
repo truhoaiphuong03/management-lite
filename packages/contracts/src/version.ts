@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.2.2';
-export const SYSTEM_COMMIT = 'e0c0536';
+export const SYSTEM_VERSION = '0.2.3';
+export const SYSTEM_COMMIT = 'a415f6e';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,25 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.2.2',
+    version: '0.2.3',
     commit: 'latest',
+    released_at: '2026-10-30T19:22:00.000Z',
+    summary:
+      'Hoàn tất Phase 7: Xử lý triệt để lỗi "Chủ sở hữu không được phép tự duyệt ca làm việc của chính mình" trên màn hình Duyệt công nhân viên (/attendance) & bổ sung nút Đóng ca giúp nhân viên khi quên bấm Kết thúc ca.',
+    added: [
+      'Nút "Đóng ca & Xác nhận giúp NV" ngay trên thẻ ca đang mở (/attendance) kèm API POST /api/v1/attendance/shifts/:id/owner-close để Chủ sở hữu đóng các ca nhân viên quên bấm Ra ca.',
+      'Nhãn "Ca Chủ sở hữu (Tự ghi nhận)" rõ ràng cho các ca của chính Owner và tự động duyệt khi Owner kết thúc ca.',
+    ],
+    improved: [
+      'Bộ lọc Chờ xử lý & Chờ duyệt chỉ đếm các ca nhân viên thực sự cần duyệt; ca đang mở hiển thị cảnh báo "Quá hạn chưa đóng ca" khi vượt 12 tiếng.',
+    ],
+    fixed: [
+      'Khắc phục lỗi bấm Duyệt ca trên ca của chính Chủ sở hữu làm bật hộp báo lỗi đỏ toàn màn hình "Chủ sở hữu không được phép tự duyệt ca làm việc của chính mình".',
+    ],
+  },
+  {
+    version: '0.2.2',
+    commit: 'a415f6e',
     released_at: '2026-10-30T19:07:00.000Z',
     summary:
       'Hoàn tất Phase 6: Chuẩn hóa cửa sổ Bổ sung thông tin nhân viên & Hồ sơ cá nhân — chỉ bắt buộc Số điện thoại (*), các mục CCCD/Địa chỉ/Ngày sinh/Ngân hàng đều ghi rõ Không bắt buộc; đổi bộ chọn Ngày sinh sang chuẩn Ngày / Tháng / Năm tiếng Việt và thêm ô Tìm kiếm nhanh 35 Ngân hàng Việt Nam.',

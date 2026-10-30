@@ -118,8 +118,11 @@ export class AttendanceService {
       approval_reason?: string | null;
       approval_reviewed_at?: Date | null;
       approval_reviewer_user_id?: string | null;
+      employee_user_id?: string | null;
+      is_payroll_eligible?: boolean | null;
     },
     breaks: BreakData[],
+    currentUserId?: string,
   ): ShiftData {
     let totalBreakSecs = 0;
     for (const b of breaks) {
@@ -182,6 +185,12 @@ export class AttendanceService {
         ? row.approval_reviewed_at.toISOString()
         : null,
       reviewed_by_user_id: row.approval_reviewer_user_id ?? null,
+      is_self_shift: Boolean(
+        currentUserId &&
+          row.employee_user_id &&
+          row.employee_user_id === currentUserId,
+      ),
+      is_payroll_eligible: row.is_payroll_eligible !== false,
     };
   }
 
@@ -277,6 +286,8 @@ export class AttendanceService {
       approval_reason: string | null;
       approval_reviewed_at: Date | null;
       approval_reviewer_user_id: string | null;
+      employee_user_id: string | null;
+      is_payroll_eligible: boolean | null;
     }>(
       `
       SELECT
@@ -285,6 +296,8 @@ export class AttendanceService {
         s.employee_id,
         e.employee_code,
         e.full_name AS employee_name,
+        e.user_id AS employee_user_id,
+        e.is_payroll_eligible,
         s.clock_in_at,
         s.clock_out_at,
         s.run_state,
@@ -381,6 +394,8 @@ export class AttendanceService {
         approval_reason: null,
         approval_reviewed_at: null,
         approval_reviewer_user_id: null,
+        employee_user_id: context.user.id,
+        is_payroll_eligible: null,
       });
     }
 
@@ -893,22 +908,45 @@ export class AttendanceService {
         ],
       );
 
-      // 2. Update attendance_shifts
+      // 2. Update attendance_shifts (auto-approve if Owner clocks out of own shift)
+      const isOwnerSelfShift = context.workspace.role === 'owner';
+      const nextReviewState = isOwnerSelfShift ? 'approved' : 'unreviewed';
       const updateRes = await client.query<{ version: number }>(
         `
         UPDATE attendance_shifts
         SET
           clock_out_at = $1,
           run_state = 'completed',
-          review_state = 'unreviewed',
+          review_state = $5,
           current_version_id = $2,
           version = version + 1,
           updated_at = now()
         WHERE id = $3 AND workspace_id = $4
         RETURNING version;
       `,
-        [now, shiftVersionId, shift.id, context.workspace.id],
+        [now, shiftVersionId, shift.id, context.workspace.id, nextReviewState],
       );
+
+      if (isOwnerSelfShift) {
+        await client.query(
+          `
+          INSERT INTO attendance_approvals (
+            id, workspace_id, shift_id, shift_version_id, reviewer_user_id, decision, reason, reviewed_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, 'approved', 'Tự động ghi nhận ca của Chủ sở hữu', $6
+          )
+          ON CONFLICT DO NOTHING;
+        `,
+          [
+            crypto.randomUUID(),
+            context.workspace.id,
+            shift.id,
+            shiftVersionId,
+            context.user.id,
+            now,
+          ],
+        );
+      }
 
       const newVersion = updateRes.rows[0]!.version;
 
@@ -1027,6 +1065,8 @@ export class AttendanceService {
       approval_reason: string | null;
       approval_reviewed_at: Date | null;
       approval_reviewer_user_id: string | null;
+      employee_user_id: string | null;
+      is_payroll_eligible: boolean | null;
     }>(
       `
       SELECT
@@ -1035,6 +1075,8 @@ export class AttendanceService {
         s.employee_id,
         e.employee_code,
         e.full_name AS employee_name,
+        e.user_id AS employee_user_id,
+        e.is_payroll_eligible,
         s.clock_in_at,
         s.clock_out_at,
         s.run_state,
@@ -1108,13 +1150,251 @@ export class AttendanceService {
     }
 
     const shifts = shiftsRes.rows.map((row) =>
-      this.mapShiftData(row, breaksByShift.get(row.id) || []),
+      this.mapShiftData(
+        row,
+        breaksByShift.get(row.id) || [],
+        context.user.id,
+      ),
     );
 
     return {
       shifts,
       total,
     };
+  }
+
+  /**
+   * POST /api/v1/attendance/shifts/:id/owner-close
+   * Allows Owner to close an open ('working' | 'paused') shift on behalf of an employee
+   * (e.g., when an employee forgot to clock out) and record a valid completed shift version.
+   */
+  async ownerCloseShift(
+    context: AuthenticatedContext,
+    shiftId: string,
+    body: { clock_out_at?: string | undefined; reason?: string | undefined },
+    requestId: string,
+  ): Promise<ReviewShiftResponseData> {
+    requireRole(['owner'], context);
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const shiftRes = await client.query<{
+        id: string;
+        workspace_id: string;
+        employee_id: string;
+        clock_in_at: Date;
+        run_state: string;
+        current_version_id: string | null;
+        employee_user_id: string | null;
+      }>(
+        `
+        SELECT s.id, s.workspace_id, s.employee_id, s.clock_in_at, s.run_state, s.current_version_id, e.user_id AS employee_user_id
+        FROM attendance_shifts s
+        JOIN employees e ON e.id = s.employee_id
+        WHERE s.id = $1 AND s.workspace_id = $2
+        FOR UPDATE OF s;
+      `,
+        [shiftId, context.workspace.id],
+      );
+
+      if (shiftRes.rows.length === 0) {
+        throw new AuthError('NOT_FOUND', 'Ca làm việc không tồn tại.', 404);
+      }
+
+      const shift = shiftRes.rows[0]!;
+      if (shift.run_state === 'completed') {
+        throw new AuthError(
+          'INVALID_STATE_TRANSITION',
+          'Ca làm việc này đã được đóng.',
+          422,
+        );
+      }
+
+      const now = new Date();
+      // Default to min(now, clock_in_at + 8 hours) if not explicitly provided
+      const defaultEnd = new Date(
+        Math.min(now.getTime(), shift.clock_in_at.getTime() + 8 * 3600 * 1000),
+      );
+      const explicitClockOut = body.clock_out_at
+        ? new Date(body.clock_out_at)
+        : defaultEnd > shift.clock_in_at
+          ? defaultEnd
+          : now;
+
+      if (
+        isNaN(explicitClockOut.getTime()) ||
+        explicitClockOut <= shift.clock_in_at
+      ) {
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          'Giờ kết thúc ca không hợp lệ hoặc sớm hơn giờ vào ca.',
+          400,
+        );
+      }
+
+      await client.query(
+        `
+        UPDATE attendance_breaks
+        SET ended_at = LEAST($1, started_at + interval '1 hour')
+        WHERE workspace_id = $2 AND shift_id = $3 AND ended_at IS NULL;
+      `,
+        [explicitClockOut, context.workspace.id, shift.id],
+      );
+
+      const breaksRes = await client.query<{
+        id: string;
+        started_at: Date;
+        ended_at: Date;
+        unpaid: boolean;
+      }>(
+        `
+        SELECT id, started_at, ended_at, unpaid
+        FROM attendance_breaks
+        WHERE workspace_id = $1 AND shift_id = $2
+        ORDER BY started_at ASC;
+      `,
+        [context.workspace.id, shift.id],
+      );
+
+      let totalBreakSecs = 0;
+      const breaksSnapshot = breaksRes.rows.map((b) => {
+        const dur = Math.max(
+          0,
+          Math.floor((b.ended_at.getTime() - b.started_at.getTime()) / 1000),
+        );
+        if (b.unpaid) totalBreakSecs += dur;
+        return {
+          id: b.id,
+          started_at: b.started_at.toISOString(),
+          ended_at: b.ended_at.toISOString(),
+          unpaid: b.unpaid,
+          duration_seconds: dur,
+        };
+      });
+
+      const grossSecs = Math.max(
+        0,
+        Math.floor(
+          (explicitClockOut.getTime() - shift.clock_in_at.getTime()) / 1000,
+        ),
+      );
+      const workedSeconds = Math.max(0, grossSecs - totalBreakSecs);
+
+      const versionNumRes = await client.query<{ next_version: number }>(
+        `
+        SELECT COALESCE(MAX(version_number), 0) + 1 AS next_version
+        FROM attendance_shift_versions
+        WHERE workspace_id = $1 AND shift_id = $2;
+      `,
+        [context.workspace.id, shift.id],
+      );
+      const nextVersionNumber = versionNumRes.rows[0]!.next_version;
+      const newVersionId = crypto.randomUUID();
+      const closeReason =
+        body.reason?.trim() || 'Chủ sở hữu đóng ca & xác nhận giúp nhân viên';
+
+      const snapshotHash = crypto
+        .createHash('sha256')
+        .update(
+          JSON.stringify({
+            shift_id: shift.id,
+            clock_in_at: shift.clock_in_at.toISOString(),
+            clock_out_at: explicitClockOut.toISOString(),
+            breaks: breaksSnapshot,
+            worked_seconds: workedSeconds,
+            version_number: nextVersionNumber,
+          }),
+        )
+        .digest('hex');
+
+      await client.query(
+        `
+        INSERT INTO attendance_shift_versions (
+          id, workspace_id, shift_id, version_number, clock_in_at, clock_out_at,
+          breaks_snapshot, worked_seconds, snapshot_hash, created_by, reason
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+        );
+      `,
+        [
+          newVersionId,
+          context.workspace.id,
+          shift.id,
+          nextVersionNumber,
+          shift.clock_in_at,
+          explicitClockOut,
+          JSON.stringify(breaksSnapshot),
+          workedSeconds,
+          snapshotHash,
+          context.user.id,
+          closeReason,
+        ],
+      );
+
+      await client.query(
+        `
+        UPDATE attendance_shifts
+        SET
+          clock_out_at = $1,
+          run_state = 'completed',
+          review_state = 'approved',
+          current_version_id = $2,
+          version = version + 1,
+          updated_at = now()
+        WHERE id = $3 AND workspace_id = $4;
+      `,
+        [explicitClockOut, newVersionId, shift.id, context.workspace.id],
+      );
+
+      await client.query(
+        `
+        INSERT INTO attendance_approvals (
+          id, workspace_id, shift_id, shift_version_id, reviewer_user_id, decision, reason, reviewed_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, 'approved', $6, $7
+        )
+        ON CONFLICT DO NOTHING;
+      `,
+        [
+          crypto.randomUUID(),
+          context.workspace.id,
+          shift.id,
+          newVersionId,
+          context.user.id,
+          closeReason,
+          now,
+        ],
+      );
+
+      await recordAuditEvent(client, {
+        workspaceId: context.workspace.id,
+        actorUserId: context.user.id,
+        action: 'attendance.owner_close_shift',
+        entityType: 'attendance_shift',
+        entityId: shift.id,
+        requestId,
+        metadata: {
+          shift_version_id: newVersionId,
+          clock_out_at: explicitClockOut.toISOString(),
+          worked_seconds: workedSeconds,
+          reason: closeReason,
+        },
+      });
+
+      await client.query('COMMIT');
+      return {
+        shift_id: shift.id,
+        review_state: 'approved',
+        reviewed_at: now.toISOString(),
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /**
