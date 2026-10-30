@@ -342,7 +342,10 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       (emp.employee_code && emp.employee_code.toLowerCase().includes(q)) ||
       (emp.full_name && emp.full_name.toLowerCase().includes(q)) ||
       (emp.user?.email && emp.user.email.toLowerCase().includes(q)) ||
-      (emp.user?.username && emp.user.username.toLowerCase().includes(q))
+      (emp.user?.username && emp.user.username.toLowerCase().includes(q)) ||
+      (emp.phone && emp.phone.toLowerCase().includes(q)) ||
+      (emp.position_title && emp.position_title.toLowerCase().includes(q)) ||
+      (emp.bank_name && emp.bank_name.toLowerCase().includes(q))
     );
   });
 
@@ -481,6 +484,60 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       )}
 
       {/* Search Input & Filter Tabs */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+        <AppButton
+          variant="secondary"
+          disabled={filteredEmployees.length === 0}
+          data-testid="btn-export-employees-csv"
+          onClick={() => {
+            if (filteredEmployees.length === 0) return;
+            const escapeCsv = (val: string | null | undefined) => {
+              const str = (val ?? '').toString().replace(/"/g, '""');
+              return `"${str}"`;
+            };
+            const headers = [
+              'Mã NV',
+              'Họ và tên',
+              'Chức danh',
+              'Số điện thoại',
+              'Email',
+              'Trạng thái',
+              'Ngân hàng',
+              'Số tài khoản',
+              'Chủ tài khoản',
+            ];
+            const rows = filteredEmployees.map((emp) => [
+              escapeCsv(emp.employee_code),
+              escapeCsv(emp.full_name),
+              escapeCsv(emp.position_title || ''),
+              escapeCsv(emp.phone || ''),
+              escapeCsv(emp.user?.email || ''),
+              escapeCsv(emp.employment_status),
+              escapeCsv(emp.bank_name || ''),
+              escapeCsv(emp.bank_account_number || ''),
+              escapeCsv(emp.bank_account_holder || ''),
+            ]);
+            const csvContent =
+              '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `danh-sach-nhan-su-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            setToast({
+              message: `Đã xuất ${filteredEmployees.length} hồ sơ nhân sự ra file CSV.`,
+              variant: 'success',
+            });
+          }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <span>📥 Xuất CSV danh sách ({filteredEmployees.length})</span>
+        </AppButton>
+      </div>
       <div
         style={{
           display: 'flex',
@@ -546,7 +603,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
             data-testid="employee-search-input"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm theo tên, mã NV, email..."
+            placeholder="Tìm theo tên, mã NV, SĐT, chức danh, ngân hàng..."
             aria-label="Tìm kiếm nhân sự"
             style={{
               width: '100%',
@@ -706,7 +763,44 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                       marginTop: '4px',
                     }}
                   >
-                    Email: {emp.user?.email || 'Chưa liên kết'}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+                      <span>Email: {emp.user?.email || 'Chưa liên kết'}</span>
+                      {emp.position_title && (
+                        <span
+                          data-testid={`emp-position-${emp.id}`}
+                          style={{
+                            fontSize: '11px',
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                            color: '#60A5FA',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {emp.position_title}
+                        </span>
+                      )}
+                      <span data-testid={`emp-phone-${emp.id}`}>
+                        {emp.phone ? (
+                          <span style={{ color: '#E2E8F0' }}>📞 {emp.phone}</span>
+                        ) : (
+                          <span style={{ color: '#F59E0B', fontSize: '12px' }}>
+                            ⚠️ Chưa có SĐT
+                          </span>
+                        )}
+                      </span>
+                      <span data-testid={`emp-bank-${emp.id}`}>
+                        {emp.bank_name && emp.bank_account_number ? (
+                          <span style={{ color: '#10B981', fontSize: '12px' }}>
+                            🏦 {emp.bank_name} • {emp.bank_account_number}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#64748B', fontSize: '12px' }}>
+                            Chưa có TK ngân hàng
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div>{getStatusBadge(emp.employment_status)}</div>

@@ -98,6 +98,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [justClockedOut, setJustClockedOut] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     variant?: ToastVariant;
@@ -560,6 +561,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
 
       const msg =
         'Kết thúc ca thành công! Ca làm đã được chuyển đến Owner để duyệt.';
+      setJustClockedOut(true);
       setSuccessMessage(msg);
       setToast({ message: msg, variant: 'success' });
       setClockActionDialog(null);
@@ -888,6 +890,47 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       {activeTab === 'my_clock' ? (
         <div>
           {/* Main Clock-in/out Card */}
+          {justClockedOut && onNavigate && (
+            <div
+              data-testid="post-clockout-report-prompt"
+              style={{
+                marginBottom: '16px',
+                padding: '14px 16px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.35)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#93C5FD' }}>
+                  📝 Bạn vừa kết thúc ca làm việc — Đừng quên nộp báo cáo ngày!
+                </div>
+                <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
+                  Ghi nhận ngay tiến độ và kết quả công việc trong ca hôm nay để Owner đối chiếu.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <AppButton
+                  variant="primary"
+                  data-testid="btn-post-clockout-create-report"
+                  onClick={() => onNavigate('/reports/new')}
+                >
+                  Nộp báo cáo công việc hôm nay →
+                </AppButton>
+                <AppButton
+                  variant="secondary"
+                  onClick={() => setJustClockedOut(false)}
+                >
+                  Để sau
+                </AppButton>
+              </div>
+            </div>
+          )}
           <AppCard style={{ marginBottom: '24px' }}>
             <div
               style={{

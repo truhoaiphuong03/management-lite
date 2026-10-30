@@ -4,12 +4,13 @@
 
 ## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
 
-- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.1.5`
-- **Tiến độ lũy kế:** Hoàn tất **Phase 2/4 (`50%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`):
+- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.1.6`
+- **Tiến độ lũy kế:** Hoàn tất **Phase 3/4 (`75%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`):
   - ✅ **Phase 1 (`v0.1.4`):** Hồ sơ Nhân sự mở rộng + Ngân hàng + Nhắc SĐT (`migration 0030`) + Kích hoạt `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY`, `FIN_RECEIPT_DIR` (`96d3d1e`).
-  - ✅ **Phase 2 (`v0.1.5`):** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel + Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương + Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)**.
+  - ✅ **Phase 2 (`v0.1.5`):** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel + Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương + Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** (`c4896f0`).
+  - ✅ **Phase 3 (`v0.1.6`):** Hiển thị **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV danh sách** trên `/employees` + Thẻ nhắc nộp **Báo cáo công việc** ngay sau khi Ra ca (`/clock`) + **Trung tâm Việc cần xử lý (`Action Center`)** trên `/dashboard`.
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
-  - Thực thi **Phase 3 (`v0.1.6`) — Task 3.1 & Task 3.2:** Hiển thị cột **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV/Excel** trên bảng Danh sách nhân sự (`/employees`), thêm nút nhắc nộp Báo cáo ngay sau khi Ra ca (`/clock`) và Trung tâm Việc cần xử lý trên Dashboard (`/dashboard`).
+  - Thực thi **Phase 4 (`v0.2.0`) — Task 4.1 & Task 4.2:** Giao diện xác nhận ánh xạ nhân sự cố định giữa V4 (`hoaiphuong.click`) và mã `NV001`, `NV002`... (`apps/api/src/bridge/service.ts`, `apps/web/src/screens/DashboardScreen.tsx`) & Chia nhỏ gói JS (`manualChunks`) giảm bundle chính xuống `< 400 kB` (`apps/web/vite.config.ts`).
 
 ---
 
@@ -22,9 +23,9 @@
 | **Phase 2 (`v0.1.5`)**<br>Bảng lương Thưởng/Khấu trừ, `VietQR` & Sổ thu chi | `Task 2.1` | Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel | `packages/contracts/src/payroll.ts`, `apps/api/src/payroll/service.ts`, `apps/api/src/payroll/timesheet-service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[DONE]` (`v0.1.5`) |
 | **Phase 2 (`v0.1.5`)** | `Task 2.2` | Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương | `packages/contracts/src/payroll.ts`, `apps/api/src/payroll/service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[DONE]` (`v0.1.5`) |
 | **Phase 2 (`v0.1.5`)** | `Task 2.3` | Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** khi xác nhận chi trả lương | `apps/api/src/payroll/service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[DONE]` (`v0.1.5`) |
-| **Phase 3 (`v0.1.6`)**<br>Nhân sự, Báo cáo & Dashboard UX | `Task 3.1` | Hiển thị cột **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV/Excel** trên bảng Danh sách nhân sự (`/employees`) | `apps/web/src/screens/EmployeesScreen.tsx` | `[TODO - NEXT]` |
-| **Phase 3 (`v0.1.6`)** | `Task 3.2` | Nút nhắc nộp Báo cáo ngay sau khi Ra ca (`/clock`) & Trung tâm Việc cần xử lý trên Dashboard (`/dashboard`) | `apps/web/src/screens/ClockScreen.tsx`, `apps/web/src/screens/DashboardScreen.tsx` | `[TODO]` |
-| **Phase 4 (`v0.2.0`)**<br>Liên thông V4 & Tối ưu Bundle | `Task 4.1` | Giao diện xác nhận ánh xạ nhân sự cố định giữa V4 (`hoaiphuong.click`) và mã `NV001`, `NV002`... | `apps/api/src/bridge/service.ts`, `apps/web/src/screens/DashboardScreen.tsx` | `[TODO]` |
+| **Phase 3 (`v0.1.6`)**<br>Nhân sự, Báo cáo & Dashboard UX | `Task 3.1` | Hiển thị cột **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV/Excel** trên bảng Danh sách nhân sự (`/employees`) | `apps/web/src/screens/EmployeesScreen.tsx` | `[DONE]` (`v0.1.6`) |
+| **Phase 3 (`v0.1.6`)** | `Task 3.2` | Nút nhắc nộp Báo cáo ngay sau khi Ra ca (`/clock`) & Trung tâm Việc cần xử lý trên Dashboard (`/dashboard`) | `apps/web/src/screens/ClockScreen.tsx`, `apps/web/src/screens/DashboardScreen.tsx` | `[DONE]` (`v0.1.6`) |
+| **Phase 4 (`v0.2.0`)**<br>Liên thông V4 & Tối ưu Bundle | `Task 4.1` | Giao diện xác nhận ánh xạ nhân sự cố định giữa V4 (`hoaiphuong.click`) và mã `NV001`, `NV002`... | `apps/api/src/bridge/service.ts`, `apps/web/src/screens/DashboardScreen.tsx` | `[TODO - NEXT]` |
 | **Phase 4 (`v0.2.0`)** | `Task 4.2` | Chia nhỏ gói JS (`manualChunks`) giảm bundle chính từ `~1 MB` xuống `< 400 kB` | `apps/web/vite.config.ts` | `[TODO]` |
 
 ---

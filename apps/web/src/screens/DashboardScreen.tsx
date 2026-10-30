@@ -857,6 +857,233 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         )}
       </div>
 
+      {/* Action Center — Trung tâm Việc cần xử lý */}
+      <div
+        data-testid="dashboard-action-center"
+        style={{
+          marginBottom: '24px',
+          padding: '16px',
+          borderRadius: '12px',
+          backgroundColor: '#0F172A',
+          border: '1px solid #1E293B',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '12px',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}
+        >
+          <h3
+            style={{
+              fontSize: '15px',
+              fontWeight: 700,
+              color: '#F8FAFC',
+              margin: 0,
+            }}
+          >
+            ⚡ Trung tâm Việc cần xử lý hôm nay
+          </h3>
+          <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+            {role === 'owner'
+              ? 'Nhắc việc vận hành dành cho Owner'
+              : 'Nhắc việc ca làm & báo cáo trong ngày'}
+          </span>
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '10px',
+          }}
+        >
+          {role === 'owner' ? (
+            <>
+              <button
+                type="button"
+                data-testid="action-center-attendance"
+                onClick={() => onNavigate('/attendance')}
+                style={{
+                  textAlign: 'left',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #334155',
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  ⏱️ Chấm công & Duyệt ca
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
+                  {shiftMetric.value}
+                </div>
+                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
+                  Kiểm tra & duyệt ca làm →
+                </div>
+              </button>
+
+              <button
+                type="button"
+                data-testid="action-center-reports"
+                onClick={() => onNavigate('/reports')}
+                style={{
+                  textAlign: 'left',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #334155',
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  📋 Báo cáo công việc ngày
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
+                  {reportMetric.value}
+                </div>
+                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
+                  Xem báo cáo nhân sự →
+                </div>
+              </button>
+
+              <button
+                type="button"
+                data-testid="action-center-employees"
+                onClick={() => onNavigate('/employees')}
+                style={{
+                  textAlign: 'left',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #334155',
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  👥 Hồ sơ SĐT & Ngân hàng
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
+                  {employeesMetric.value}
+                </div>
+                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
+                  Rà soát hồ sơ & xuất CSV →
+                </div>
+              </button>
+
+              <button
+                type="button"
+                data-testid="action-center-payroll"
+                onClick={() => onNavigate('/payroll')}
+                style={{
+                  textAlign: 'left',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #334155',
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  💰 Bảng lương & Chi trả VietQR
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
+                  {payrollMetric.value} ({payrollMetric.badgeLabel})
+                </div>
+                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
+                  Mở kỳ lương hiện tại →
+                </div>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                data-testid="action-center-staff-clock"
+                onClick={() => onNavigate('/clock')}
+                style={{
+                  textAlign: 'left',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #334155',
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  ⏱️ Trạng thái ca làm hiện tại
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
+                  {shiftMetric.value}
+                </div>
+                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
+                  Vào/ra ca làm việc →
+                </div>
+              </button>
+
+              <button
+                type="button"
+                data-testid="action-center-staff-report"
+                onClick={() => onNavigate('/reports/new')}
+                style={{
+                  textAlign: 'left',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #334155',
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  📝 Báo cáo công việc hôm nay
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
+                  {reportMetric.value}
+                </div>
+                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
+                  Nộp báo cáo ngày →
+                </div>
+              </button>
+
+              <button
+                type="button"
+                data-testid="action-center-staff-work"
+                onClick={() => onNavigate('/work')}
+                style={{
+                  textAlign: 'left',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #334155',
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  📌 Công việc được giao
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
+                  {staffAttendanceMetric.value}
+                </div>
+                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
+                  Xem danh sách công việc →
+                </div>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Quick Action Navigation Grid */}
       <h3
         style={{
