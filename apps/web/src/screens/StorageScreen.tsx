@@ -3654,6 +3654,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
       {/* 2. KPI Metrics Bar */}
       <div
+        className="kpi-grid-4"
         style={{
           display: 'grid',
           gridTemplateColumns:
@@ -3917,7 +3918,187 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         </div>
       ) : (
         <AppCard style={{ padding: 0, overflowX: 'auto' }}>
+          {/* Mobile Cards View (<= 768px) */}
+          <div className="storage-mobile-cards" data-testid="storage-mobile-cards">
+            {pagedFolders.map((folder) => {
+              const activeGrants = (folder.permission_grants ?? []).filter(
+                (g) => !g.revoked_at,
+              );
+              return (
+                <div
+                  key={`mobile-${folder.id}`}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '10px',
+                    backgroundColor: '#0F172A',
+                    border: '1px solid #334155',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '14px',
+                          color: '#F8FAFC',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {folder.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: '#64748B',
+                          marginTop: '2px',
+                        }}
+                      >
+                        v{folder.version} • Tạo{' '}
+                        {new Date(folder.created_at).toLocaleDateString('vi-VN')}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        backgroundColor:
+                          folder.folder_type === 'source'
+                            ? 'rgba(56, 189, 248, 0.1)'
+                            : 'rgba(168, 85, 247, 0.1)',
+                        color:
+                          folder.folder_type === 'source'
+                            ? '#38BDF8'
+                            : '#A855F7',
+                        border: `1px solid ${
+                          folder.folder_type === 'source'
+                            ? 'rgba(56, 189, 248, 0.3)'
+                            : 'rgba(168, 85, 247, 0.3)'
+                        }`,
+                      }}
+                    >
+                      {folder.folder_type === 'source'
+                        ? 'Thư mục gốc'
+                        : 'Thành phẩm'}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                      alignItems: 'center',
+                      fontSize: '12px',
+                      color: '#CBD5E1',
+                    }}
+                  >
+                    <span>
+                      👤 <strong>{folder.assigned_employee_name || 'Chưa gán'}</strong>
+                      {activeGrants.length > 0
+                        ? ` (${activeGrants.length} quyền)`
+                        : ''}
+                    </span>
+                    <span>•</span>
+                    <span style={{ color: '#38BDF8', fontWeight: 600 }}>
+                      📁{' '}
+                      {folder.deliverable_count ??
+                        folder.deliverables?.length ??
+                        0}{' '}
+                      thành phẩm
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                      paddingTop: '6px',
+                      borderTop: '1px solid #1E293B',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '6px',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {folder.staff_download_confirmed ||
+                      folder.staff_source_acknowledged ? (
+                        <StatusBadge status="success" label="Đã tải" />
+                      ) : (
+                        <StatusBadge status="warning" label="Chưa tải" />
+                      )}
+                      {folder.owner_review_confirmed ||
+                      folder.delete_readiness?.is_ready ? (
+                        <StatusBadge status="success" label="Đã duyệt" />
+                      ) : (
+                        <StatusBadge status="neutral" label="Chờ duyệt" />
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        gap: '6px',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <a
+                        href={folder.drive_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          padding: '5px 10px',
+                          backgroundColor: '#1E293B',
+                          color: '#38BDF8',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          textDecoration: 'none',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Mở Drive
+                      </a>
+                      <AppButton
+                        variant="secondary"
+                        onClick={() => onNavigate?.(`/storage/${folder.id}`)}
+                        style={{
+                          padding: '5px 10px',
+                          minHeight: '30px',
+                          fontSize: '12px',
+                        }}
+                      >
+                        Chi tiết
+                      </AppButton>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           <table
+            className="storage-desktop-table"
             style={{
               width: '100%',
               borderCollapse: 'collapse',

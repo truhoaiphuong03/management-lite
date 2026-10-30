@@ -2465,7 +2465,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
   return (
     <div
       style={{
-        padding: '24px 16px',
+        padding: '0',
         maxWidth: '1200px',
         margin: '0 auto',
         color: '#F8FAFC',
@@ -2847,6 +2847,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
         >
           {/* Summary Stat Cards */}
           <div
+            className="kpi-grid-4"
             style={{
               display: 'grid',
               gridTemplateColumns:
@@ -4575,7 +4576,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             style={{
               width: '100%',
               maxWidth: '440px',
-              padding: '24px',
+              maxHeight: 'calc(100dvh - 28px)',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+              padding: '20px',
               backgroundColor: '#151F30',
             }}
           >
@@ -4715,7 +4719,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             style={{
               width: '100%',
               maxWidth: '440px',
-              padding: '24px',
+              maxHeight: 'calc(100dvh - 28px)',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+              padding: '20px',
               backgroundColor: '#151F30',
             }}
           >
@@ -4984,7 +4991,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             style={{
               width: '100%',
               maxWidth: '460px',
-              padding: '24px',
+              maxHeight: 'calc(100dvh - 28px)',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+              padding: '20px',
               backgroundColor: '#151F30',
             }}
           >

@@ -294,7 +294,14 @@ export const AppShell: React.FC<AppShellProps> = ({
         }}
       >
         <div
-          className="app-shell-content"
+          className={`app-shell-content${
+            subNavItems.length > 1 &&
+            !/^\/(work|employees|accounts|storage|issues)\/[^/]+/.test(
+              currentPath,
+            )
+              ? ' has-subnav'
+              : ''
+          }`}
           style={{ flex: 1, minWidth: 0, width: '100%' }}
         >
           <Breadcrumb
@@ -541,6 +548,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         @media (max-width: 768px) {
           .desktop-sidebar-wrapper {
             display: none !important;
+          }
+          main {
+            padding: 12px 12px calc(80px + env(safe-area-inset-bottom, 0px)) 12px !important;
           }
           .app-shell-header {
             padding: 0 max(10px, env(safe-area-inset-right, 10px)) 0 max(10px, env(safe-area-inset-left, 10px)) !important;

@@ -1190,7 +1190,7 @@ export const App: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: 'rgba(2, 6, 23, 0.78)',
-              padding: '16px',
+              padding: '12px',
               overflowY: 'auto',
             }}
           >
@@ -1198,24 +1198,62 @@ export const App: React.FC = () => {
               style={{
                 width: '100%',
                 maxWidth: '520px',
+                maxHeight: 'calc(100dvh - 24px)',
+                overflowY: 'auto',
+                margin: 'auto',
                 backgroundColor: '#0F172A',
                 border: '1px solid #14B8A6',
                 borderRadius: '14px',
-                padding: '22px',
+                padding: '18px',
                 color: '#F8FAFC',
                 boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)',
+                boxSizing: 'border-box',
               }}
             >
-              <h3
+              <div
                 style={{
-                  margin: '0 0 6px',
-                  fontSize: '17px',
-                  fontWeight: 700,
-                  color: '#14B8A6',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  marginBottom: '6px',
                 }}
               >
-                📱 Bổ sung thông tin hồ sơ nhân viên
-              </h3>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    color: '#14B8A6',
+                  }}
+                >
+                  📱 Bổ sung thông tin hồ sơ nhân viên
+                </h3>
+                <button
+                  type="button"
+                  aria-label="Đóng cửa sổ bổ sung hồ sơ"
+                  onClick={() => {
+                    setMissingPhoneDismissed(true);
+                    setPromptError(null);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#94A3B8',
+                    width: '28px',
+                    height: '28px',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '14px',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
               <p
                 style={{
                   margin: '0 0 16px',

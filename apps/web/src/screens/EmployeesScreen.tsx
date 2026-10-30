@@ -354,7 +354,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       <PageHeader
         title="Quản lý nhân sự"
         subtitle="Danh sách nhân viên, tài khoản và trạng thái công tác thật trong cửa hàng"
-        badge={
+        actions={
           <AppButton
             variant="primary"
             onClick={() => onNavigate('/employees/new')}
@@ -736,6 +736,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                   <div
                     style={{
                       display: 'flex',
+                      flexWrap: 'wrap',
                       alignItems: 'center',
                       gap: '8px',
                     }}

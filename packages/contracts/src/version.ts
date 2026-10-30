@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.3.0';
-export const SYSTEM_COMMIT = '924d1b9';
+export const SYSTEM_VERSION = '0.3.1';
+export const SYSTEM_COMMIT = '11d2138';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,26 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.3.0',
+    version: '0.3.1',
     commit: 'latest',
+    released_at: '2026-10-30T21:42:00.000Z',
+    summary:
+      'Hoàn tất Phase 12 (Mobile UI/UX Optimization & Responsive Bugfix): Sửa triệt để các lỗi hiển thị trên màn hình điện thoại (iPhone/Android) — thanh điều hướng đáy 1 dòng gọn gàng, cửa sổ Modal tự cuộn mượt trong màn hình nhỏ, bố cục thẻ 2 cột tiết kiệm chiều dọc, danh sách Thư mục Drive dạng thẻ di động và chống tràn ngang trên mọi màn hình.',
+    added: [
+      'Chế độ hiển thị Thẻ thư mục di động (Mobile Cards) trên màn hình Tệp & Drive (/storage) thay thế bảng 7 cột khi xem bằng điện thoại, giúp xem trạng thái tải/duyệt và bấm Mở Drive 1 chạm.',
+    ],
+    improved: [
+      'Tối ưu Thanh điều hướng đáy trên điện thoại (MobileBottomNav): rút gọn nhãn hiển thị trên 1 dòng sắc nét (Tổng quan, Chấm công, Công việc, Nhân sự, Thu chi, Quản trị), không còn bị gãy chữ thành 2–3 dòng.',
+      'Tối ưu không gian đầu trang trên điện thoại: tự động ẩn nút Back lặp lại khi đã có Thanh điều hướng nhanh phân hệ (Sub-Navigation Bar), giảm khoảng đệm thừa hai bên và xếp các thẻ KPI / Lối tắt thao tác nhanh theo lưới 2 cột (2x2) gọn đẹp.',
+    ],
+    fixed: [
+      'Sửa lỗi các cửa sổ bật lên (Modal Bổ sung SĐT, Chi trả lương VietQR, Nghỉ phép) bị tràn khỏi mép trên/dưới màn hình điện thoại khi mở bàn phím ảo — bổ sung thanh cuộn mượt (100dvh) và nút đóng (✕) góc phải.',
+      'Sửa lỗi tràn ngang (Horizontal Overflow) tại hàng nhãn trạng thái Công việc (/work), ô gợi ý Ngân hàng và nút Thêm nhân sự trên màn hình điện thoại.',
+    ],
+  },
+  {
+    version: '0.3.0',
+    commit: '11d2138',
     released_at: '2026-10-30T20:45:00.000Z',
     summary:
       'Hoàn tất Phase 11 (UI/UX Redesign & Bugfix): Thiết kế lại toàn bộ giao diện hiện đại, gọn gàng, thân thiện người dùng — bổ sung Thanh điều hướng nhanh phân hệ (Sub-Navigation Bar), sửa triệt để lỗi đè chữ trên các ô chọn ngày, mở khóa Nhật ký hệ thống trên Quản trị và sửa liên kết Lịch làm việc trên Công việc.',

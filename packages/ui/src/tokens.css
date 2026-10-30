@@ -395,6 +395,60 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   border-color: rgba(45, 212, 191, 0.35);
 }
 
+/* Mobile bottom nav short/full label toggle & responsive mobile optimizations */
+.mobile-nav-label-short {
+  display: none;
+}
+
+.storage-mobile-cards {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-nav-label-full {
+    display: none !important;
+  }
+  .mobile-nav-label-short {
+    display: block !important;
+  }
+  .has-subnav .mobile-breadcrumb-back {
+    display: none !important;
+  }
+  .app-subnav-bar {
+    margin-bottom: 12px;
+    padding: 4px;
+    gap: 4px;
+    border-radius: 10px;
+  }
+  .app-subnav-item {
+    padding: 7px 11px;
+    font-size: 12.5px;
+    gap: 6px;
+  }
+  .kpi-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .storage-desktop-table {
+    display: none !important;
+  }
+  .storage-mobile-cards {
+    display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+  [role='dialog'] > div {
+    max-height: calc(100dvh - 24px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* Light Mode compatibility for inline dark cards & text */
 :root[data-theme='light'] h1,
 :root[data-theme='light'] h2,

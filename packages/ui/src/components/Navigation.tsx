@@ -422,6 +422,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     >
       {visibleGroups.map((group) => {
         const isGroupActive = isGroupActiveForPath(currentPath, group, itemMap);
+        const shortLabelMap: Record<string, string> = {
+          overview: 'Tổng quan',
+          attendance: 'Chấm công',
+          work: 'Công việc',
+          'hr-payroll': 'Nhân sự',
+          finance: 'Thu chi',
+          admin: 'Quản trị',
+        };
+        const shortLabel = shortLabelMap[group.id] || group.title;
         return (
           <button
             key={group.id}
@@ -465,6 +474,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               <NavIcon id={group.icon} size={18} />
             </span>
             <span
+              className="mobile-nav-label-full"
               style={{
                 fontSize: '10px',
                 lineHeight: 1.15,
@@ -478,6 +488,23 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               }}
             >
               {group.title}
+            </span>
+            <span
+              className="mobile-nav-label-short"
+              aria-hidden="true"
+              style={{
+                fontSize: '10.5px',
+                lineHeight: 1.15,
+                letterSpacing: '-0.01em',
+                fontWeight: isGroupActive ? 700 : 500,
+                maxWidth: '100%',
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {shortLabel}
             </span>
           </button>
         );

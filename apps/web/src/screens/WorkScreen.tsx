@@ -1403,7 +1403,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     const item = selectedWorkItem;
 
     return (
-      <div style={{ maxWidth: '840px', margin: '0 auto', padding: '16px' }}>
+      <div style={{ maxWidth: '840px', margin: '0 auto', padding: '0' }}>
         {/* Back navigation */}
         <div style={{ marginBottom: '16px' }}>
           <AppButton variant="secondary" onClick={() => onNavigate?.('/work')}>
@@ -1467,6 +1467,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               <div
                 style={{
                   display: 'flex',
+                  flexWrap: 'wrap',
                   gap: '8px',
                   alignItems: 'center',
                   marginBottom: '8px',
@@ -2373,6 +2374,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
       {/* KPI Cards */}
       <div
+        className="kpi-grid-4"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -2798,6 +2800,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   <div
                     style={{
                       display: 'flex',
+                      flexWrap: 'wrap',
                       gap: '8px',
                       alignItems: 'center',
                       marginBottom: '6px',

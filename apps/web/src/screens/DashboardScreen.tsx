@@ -720,6 +720,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       {/* Summary metric cards */}
       <div
+        className="kpi-grid-4"
         style={{
           display: 'grid',
           gridTemplateColumns:
@@ -1196,6 +1197,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         Lối tắt thao tác nhanh
       </h3>
       <div
+        className="quick-actions-grid"
         style={{
           display: 'grid',
           gridTemplateColumns:
@@ -1454,6 +1456,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             )}
 
             <div
+              className="kpi-grid-4"
               style={{
                 display: 'grid',
                 gridTemplateColumns:
