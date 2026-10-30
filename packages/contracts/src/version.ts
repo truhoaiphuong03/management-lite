@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.2.5';
-export const SYSTEM_COMMIT = 'cedb252';
+export const SYSTEM_VERSION = '0.2.6';
+export const SYSTEM_COMMIT = '5c688cd';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.2.5',
+    version: '0.2.6',
     commit: 'latest',
+    released_at: '2026-10-30T20:18:00.000Z',
+    summary:
+      'Hoàn tất Phase 10 (Master Plan ML-03, ML-04, ML-05): Nâng cấp Quản lý công việc (/work) thành Trung tâm điều phối chuẩn cho Web, App iPhone và Telegram/AWM — bổ sung mẫu Task Packet 1 chạm cho Máy/AI Executor, thanh lọc thông minh Hôm nay / Quá hạn / Cần sửa / Chờ duyệt và xem bằng chứng nộp bài trực tiếp.',
+    added: [
+      'Thanh lọc thông minh ML-04 (📅 Hôm nay, 🚨 Quá hạn, ⛔ Cần sửa / Bị chặn, ⏳ Chờ duyệt) khớp 100% dữ liệu nguồn trên /work.',
+      'Bộ nút chèn nhanh mẫu Task Packet chuẩn ML-03 (🤖 Anty Win 1, 🖥️ Máy Win 2, 💻 MacBook, 🎬 Sản xuất Video V4) khi giao việc mới (/work/new).',
+      'Hiển thị trực tiếp huy hiệu Máy/Executor, số lượng báo cáo nộp và đường link bằng chứng đính kèm (📎) ngay trên thẻ công việc (/work).',
+    ],
+    improved: [
+      'Sẵn sàng API đồng bộ đa thiết bị (ML-05) với kiểm soát phiên bản If-Match, chống tạo trùng Idempotency-Key và nhật ký kiểm toán Audit.',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.2.5',
+    commit: '2dfd336',
     released_at: '2026-10-30T20:14:00.000Z',
     summary:
       'Hoàn tất Phase 9: Đổi bộ lọc Từ ngày / Đến ngày sang chuẩn Ngày/Tháng/Năm (dd/mm/yyyy) tiếng Việt kèm nút chọn nhanh Hôm nay / 7 ngày qua / Tháng này trên Ca & Chấm công (/attendance); tự động hoàn tất kết nối Google Drive 1 chạm sau khi ủy quyền OAuth (/storage).',

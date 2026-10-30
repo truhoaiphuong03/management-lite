@@ -4,8 +4,8 @@
 
 ## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
 
-- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.2.5`
-- **Tiến độ lũy kế:** Hoàn tất **Phase 9/9 (`100%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`):
+- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.2.6`
+- **Tiến độ lũy kế:** Hoàn tất **Phase 10/10 (`100%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md` & Master Plan `ML-03..05`):
   - ✅ **Phase 1 (`v0.1.4`):** Hồ sơ Nhân sự mở rộng + Ngân hàng + Nhắc SĐT (`migration 0030`) + Kích hoạt `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY`, `FIN_RECEIPT_DIR` (`96d3d1e`).
   - ✅ **Phase 2 (`v0.1.5`):** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel + Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương + Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** (`c4896f0`).
   - ✅ **Phase 3 (`v0.1.6`):** Hiển thị **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV danh sách** trên `/employees` + Thẻ nhắc nộp **Báo cáo công việc** ngay sau khi Ra ca (`/clock`) + **Trung tâm Việc cần xử lý (`Action Center`)** trên `/dashboard` (`f41806b`).
@@ -14,9 +14,10 @@
   - ✅ **Phase 6 (`v0.2.2`):** Chuẩn hóa cửa sổ & biểu mẫu Hồ sơ nhân viên — chỉ bắt buộc **SĐT (*)**, ghi rõ **(Không bắt buộc)** cho CCCD/Địa chỉ/Ngày sinh/Ngân hàng, bộ chọn **Ngày / Tháng / Năm** tiếng Việt & ô **Tìm tên ngân hàng** tự động gợi ý 35 ngân hàng Napas (`a415f6e`).
   - ✅ **Phase 7 (`v0.2.3`):** Tự động ghi nhận ca của Chủ sở hữu khi Kết thúc ca, loại bỏ nút tự duyệt gây lỗi 403 trên ca Owner, bổ sung nút **Đóng ca & Xác nhận giúp NV** cho ca quên kết thúc (`owner-close`) và dọn sạch 2 ca treo trên DB (`ad3b092`).
   - ✅ **Phase 8 (`v0.2.4`):** Khắc phục triệt để lỗi `Invalid, missing, or mismatched CSRF token` trên màn hình **Tệp & Drive (`/storage`)** (`StorageScreen.tsx`) & kích hoạt kết nối Google Drive OAuth 2.0 cho `truhoaiphuong03@gmail.com` (`cedb252`).
-  - ✅ **Phase 9 (`v0.2.5`):** Đổi bộ lọc `Từ ngày` / `Đến ngày` (`mm/dd/yyyy`) sang chuẩn `Ngày/Tháng/Năm` (`dd/mm/yyyy`) tiếng Việt, thêm nút chọn nhanh `Hôm nay / 7 ngày qua / Tháng này` trên `/attendance` & tự động hoàn tất kết nối Google Drive 1 chạm sau callback OAuth trên `/storage`.
+  - ✅ **Phase 9 (`v0.2.5`):** Đổi bộ lọc `Từ ngày` / `Đến ngày` (`mm/dd/yyyy`) sang chuẩn `Ngày/Tháng/Năm` (`dd/mm/yyyy`) tiếng Việt, thêm nút chọn nhanh `Hôm nay / 7 ngày qua / Tháng này` trên `/attendance` & tự động hoàn tất kết nối Google Drive 1 chạm sau callback OAuth trên `/storage` (`2dfd336`).
+  - ✅ **Phase 10 (`v0.2.6` — Master Plan `ML-03`, `ML-04`, `ML-05`):** Nâng cấp `/work` thành Trung tâm điều phối chuẩn (mẫu Task Packet cho Máy/AI Executor `WIN-1`/`WIN-2`/`MacBook`, thanh lọc thông minh *Hôm nay / Quá hạn / Cần sửa / Chờ duyệt* & xem bằng chứng trực tiếp trên thẻ việc).
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
-  - Toàn bộ 9 Phase nâng cấp (`v0.1.4` → `v0.2.5`) trên `management-lite` đã hoàn tất `100%`. Sẵn sàng nhận yêu cầu nghiệp vụ tiếp theo từ Owner.
+  - Toàn bộ 10 Phase nâng cấp (`v0.1.4` → `v0.2.6`) trên `management-lite` đã hoàn tất `100%`. Sẵn sàng nhận yêu cầu nghiệp vụ tiếp theo từ Owner.
 
 ---
 
@@ -39,6 +40,8 @@
 | **Phase 7 (`v0.2.3`)**<br>Xử lý lỗi Tự duyệt ca Chủ sở hữu & Đóng ca treo giúp NV | `Task 7.1` | Tự động ghi nhận ca của Chủ sở hữu, thêm nút **Đóng ca & Xác nhận giúp NV** (`owner-close`) và ẩn nút tự duyệt gây lỗi 403 trên ca Owner | `packages/contracts/src/attendance.ts`, `apps/api/src/attendance/service.ts`, `apps/api/src/app.ts`, `apps/web/src/screens/ClockScreen.tsx` | `[DONE]` (`v0.2.3`) |
 | **Phase 8 (`v0.2.4`)**<br>Sửa lỗi CSRF Token trên `/storage` & Kết nối Google Drive OAuth 2.0 | `Task 8.1` | Sửa lỗi nạp `csrf_token` từ `/api/v1/auth/me` trong `StorageScreen.tsx`, cập nhật `GOOGLE_REDIRECT_URI` & kích hoạt kết nối Google Drive cho `truhoaiphuong03@gmail.com` | `apps/web/src/screens/StorageScreen.tsx`, `C:\HoaiPhuong-Server\config\test-secrets\api.env` | `[DONE]` (`v0.2.4`) |
 | **Phase 9 (`v0.2.5`)**<br>Bộ lọc Ngày/Tháng/Năm tiếng Việt, Chọn nhanh ngày & Auto-Connect Drive | `Task 9.1–9.3` | Hiển thị `Ngày / Tháng / Năm` (`dd/mm/yyyy`) thay cho `mm/dd/yyyy`, nút chọn nhanh `Hôm nay / 7 ngày qua / Tháng này` trên `/attendance` & tự động hoàn tất OAuth Drive trên `/storage` | `apps/web/src/screens/ClockScreen.tsx`, `apps/web/src/screens/StorageScreen.tsx` | `[DONE]` (`v0.2.5`) |
+| **Phase 10 (`v0.2.6`)**<br>Đồng bộ `Ngày/Tháng/Năm` toàn hệ thống | `Task 10.1` | Đồng bộ tự động định dạng `Ngày / Tháng / Năm` (`dd/mm/yyyy`) kèm mở lịch 1 chạm cho mọi `input[type="date"]` trên toàn bộ màn hình (`/reports`, `/finance`, `/payroll`, `/work`, `/employees/new`) | `apps/web/src/App.tsx`, `packages/ui/src/tokens.css` | `[DONE]` (`v0.2.6`) |
+| **Phase 10 (`v0.2.6`)**<br>Master Plan `ML-03`, `ML-04`, `ML-05` — Trung tâm Công việc | `Task 10.1–10.3` | Bổ sung mẫu Task Packet 1 chạm cho Máy/AI Executor (`ML-03`), thanh lọc thông minh *Hôm nay / Quá hạn / Cần sửa / Chờ duyệt* & xem bằng chứng trực tiếp (`ML-04`, `ML-05`) | `apps/web/src/screens/WorkScreen.tsx`, `packages/contracts/src/version.ts` | `[DONE]` (`v0.2.6`) |
 
 ---
 

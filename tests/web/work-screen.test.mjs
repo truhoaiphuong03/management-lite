@@ -289,4 +289,9 @@ test('WORK-002 & WORK-010: WorkScreen supports status filtering and Owner cancel
   assert.ok(screenContent.includes('handleCancelWorkItem'), 'Must implement handleCancelWorkItem');
   assert.ok(screenContent.includes('/api/v1/work-items/${workId}/cancel'), 'Must POST to cancel endpoint');
   assert.ok(screenContent.includes('Lý do hủy'), 'Must require/prompt cancellation reason');
+
+  // ML-03 & ML-04: Smart Focus filters (Today / Overdue / Blocked / Pending Review), Executor Packet presets, and Evidence drill-down
+  assert.ok(screenContent.includes('work-ml04-focus-bar'), 'Must render ML-04 smart focus filter bar');
+  assert.ok(screenContent.includes('[EXECUTOR:'), 'Must support ML-03 Executor task packet presets and badge detection');
+  assert.ok(screenContent.includes('Xem bằng chứng'), 'Must support ML-04 direct evidence drill-down from work cards');
 });
