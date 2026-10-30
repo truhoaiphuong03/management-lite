@@ -1644,7 +1644,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         marginTop: '8px',
                       }}
                     >
-                      <a href="/schedules" style={{ color: '#14B8A6' }}>
+                      <a href="/schedule" style={{ color: '#14B8A6' }}>
                         {link.work_date} · {link.start_time} ·{' '}
                         {link.status === 'registered'
                           ? 'Ca đã đăng ký'
@@ -2297,7 +2297,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   // RENDER VIEW 3: LIST VIEW (/work)
   // ==========================================
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '16px' }}>
+    <div style={{ width: '100%' }}>
       {/* Page Header */}
       <div
         style={{
@@ -2562,7 +2562,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           {onNavigate && (
             <AppButton
               variant="secondary"
-              onClick={() => onNavigate('/schedules')}
+              onClick={() => onNavigate('/schedule')}
               style={{
                 fontSize: '12px',
                 padding: '4px 10px',

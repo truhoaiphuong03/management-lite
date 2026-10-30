@@ -309,21 +309,100 @@ a:focus-visible,
   }
 }
 
-/* Global Vietnamese Date Input Display (DD/MM/YYYY instead of browser MM/DD/YYYY) */
-input[type='date'][data-vn-date] {
-  position: relative;
+/* Global Vietnamese Date Input & Form Control Polish */
+input[type='date'] {
   cursor: pointer;
+  color-scheme: dark;
+  font-family: var(--font-sans);
 }
-input[type='date'][data-vn-date]::-webkit-datetime-edit {
+
+:root[data-theme='light'] input[type='date'],
+[data-theme='light'] input[type='date'] {
+  color-scheme: light;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+/* Sub-navigation pill bar inside AppShell */
+.app-subnav-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px;
+  margin-bottom: 20px;
+  background: var(--surface-subtle-color, #0f172a);
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 12px;
+  scrollbar-width: none;
+}
+
+.app-subnav-bar::-webkit-scrollbar {
   display: none;
 }
-input[type='date'][data-vn-date]::before {
-  content: attr(data-vn-date);
-  color: var(--text-color, #f8fafc);
-  font-weight: 500;
-  margin-right: auto;
+
+.app-subnav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted-color, #94a3b8);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
-input[type='date'][data-vn-date='Ngày / Tháng / Năm']::before {
-  color: var(--muted-color, #64748b);
-  font-weight: 400;
+
+.app-subnav-item:hover {
+  color: var(--text-color, #f8fafc);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.app-subnav-item[data-active='true'] {
+  color: var(--brand-color, #2dd4bf);
+  background: rgba(20, 184, 166, 0.14);
+  border-color: rgba(45, 212, 191, 0.35);
+}
+
+/* Light Mode compatibility for inline dark cards & text */
+:root[data-theme='light'] h1,
+:root[data-theme='light'] h2,
+:root[data-theme='light'] h3,
+:root[data-theme='light'] h4,
+[data-theme='light'] h1,
+[data-theme='light'] h2,
+[data-theme='light'] h3,
+[data-theme='light'] h4 {
+  color: var(--text-color) !important;
 }

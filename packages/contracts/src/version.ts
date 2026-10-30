@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.2.6';
-export const SYSTEM_COMMIT = '5c688cd';
+export const SYSTEM_VERSION = '0.3.0';
+export const SYSTEM_COMMIT = '924d1b9';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,26 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.2.6',
+    version: '0.3.0',
     commit: 'latest',
+    released_at: '2026-10-30T20:45:00.000Z',
+    summary:
+      'Hoàn tất Phase 11 (UI/UX Redesign & Bugfix): Thiết kế lại toàn bộ giao diện hiện đại, gọn gàng, thân thiện người dùng — bổ sung Thanh điều hướng nhanh phân hệ (Sub-Navigation Bar), sửa triệt để lỗi đè chữ trên các ô chọn ngày, mở khóa Nhật ký hệ thống trên Quản trị và sửa liên kết Lịch làm việc trên Công việc.',
+    added: [
+      'Thanh điều hướng nhanh phân hệ (Sub-Navigation Bar) ngay dưới Breadcrumb giúp chuyển đổi 1 chạm giữa các màn hình cùng nhóm (Chấm công / Lịch làm việc / Lịch sử công / Duyệt công; Công việc / Báo cáo / Tệp & Drive; Nhân sự / Bảng lương; Quản trị).',
+    ],
+    improved: [
+      'Thiết kế lại trang Tổng quan (/dashboard): thẻ KPI tương tác trực tiếp, Trung tâm Việc cần xử lý và Lối tắt thao tác nhanh dạng ngang gọn gàng, thay toàn bộ nhãn tiếng Anh (Owner view / Staff view) sang tiếng Việt (Quản lý / Cá nhân).',
+      'Đồng bộ độ rộng khung nội dung chuẩn (1240px căn giữa) trên toàn bộ màn hình (/work, /storage, /dashboard, /clock) và tương thích hoàn chỉnh chế độ Sáng/Tối (Light/Dark Mode).',
+    ],
+    fixed: [
+      'Sửa triệt để lỗi đè chữ 2 lớp trên các ô chọn ngày (Từ ngày / Đến ngày) tại màn hình Chấm công & Duyệt công (/clock, /attendance) và lỗi mất nút chọn lịch trên các ô ngày hẹp.',
+      'Mở khóa mục Nhật ký hệ thống (/system-logs) bị báo nhầm "Chưa triển khai" tại nhóm Quản trị (/groups/admin) và sửa lỗi đường dẫn /schedules gây 404 trên màn hình Công việc (/work).',
+    ],
+  },
+  {
+    version: '0.2.6',
+    commit: '924d1b9',
     released_at: '2026-10-30T20:18:00.000Z',
     summary:
       'Hoàn tất Phase 10 (Master Plan ML-03, ML-04, ML-05): Nâng cấp Quản lý công việc (/work) thành Trung tâm điều phối chuẩn cho Web, App iPhone và Telegram/AWM — bổ sung mẫu Task Packet 1 chạm cho Máy/AI Executor, thanh lọc thông minh Hôm nay / Quá hạn / Cần sửa / Chờ duyệt và xem bằng chứng nộp bài trực tiếp.',

@@ -81,7 +81,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const [employeesMetric, setEmployeesMetric] = useState<MetricCardState>({
     badgeStatus: 'neutral',
-    badgeLabel: 'Owner view',
+    badgeLabel: 'Quản lý',
     value: '--',
     subtext: 'Chưa có dữ liệu nhân sự',
   });
@@ -96,7 +96,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [staffAttendanceMetric, setStaffAttendanceMetric] =
     useState<MetricCardState>({
       badgeStatus: 'neutral',
-      badgeLabel: 'Staff view',
+      badgeLabel: 'Cá nhân',
       value: '--',
       subtext: 'Chưa có dữ liệu ca làm việc',
     });
@@ -327,7 +327,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         const hours = Math.round((totalWorkedSeconds / 3600) * 10) / 10;
         setStaffAttendanceMetric({
           badgeStatus: completedCount > 0 ? 'success' : 'neutral',
-          badgeLabel: 'Staff view',
+          badgeLabel: 'Cá nhân',
           value: `${completedCount} ca hoàn tất`,
           subtext: `${hours} giờ làm việc đã ghi nhận`,
         });
@@ -357,7 +357,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         if (summary.employees) {
           setEmployeesMetric({
             badgeStatus: 'success',
-            badgeLabel: 'Owner view',
+            badgeLabel: 'Quản lý',
             value: `${summary.employees.active_count} nhân sự hoạt động`,
             subtext: `Tổng ${summary.employees.total_count} hồ sơ (${summary.employees.invited_count} chờ kích hoạt)`,
           });
@@ -436,7 +436,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             const hours = Math.round((totalWorkedSeconds / 3600) * 10) / 10;
             setStaffAttendanceMetric({
               badgeStatus: completedCount > 0 ? 'success' : 'neutral',
-              badgeLabel: 'Staff view',
+              badgeLabel: 'Cá nhân',
               value: `${completedCount} ca hoàn tất`,
               subtext: `${hours} giờ làm việc đã ghi nhận`,
             });
@@ -518,14 +518,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           ).length;
           setEmployeesMetric({
             badgeStatus: 'success',
-            badgeLabel: 'Owner view',
+            badgeLabel: 'Quản lý',
             value: `${activeCount} nhân sự hoạt động`,
             subtext: `Tổng ${allEmployees.length} hồ sơ (${invitedCount} chờ kích hoạt)`,
           });
         } else if (active) {
           setEmployeesMetric({
             badgeStatus: 'success',
-            badgeLabel: 'Owner view',
+            badgeLabel: 'Quản lý',
             value: '0 nhân sự hoạt động',
             subtext: 'Tổng 0 hồ sơ (0 chờ kích hoạt)',
           });
@@ -723,12 +723,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
-          gap: '16px',
-          marginBottom: '24px',
+            'repeat(auto-fit, minmax(min(100%, 230px), 1fr))',
+          gap: '14px',
+          marginBottom: '20px',
         }}
       >
-        <AppCard padding="16px">
+        <AppCard
+          padding="16px"
+          interactive
+          style={{ cursor: 'pointer' }}
+          onClick={() => onNavigate('/clock')}
+        >
           <div
             style={{
               display: 'flex',
@@ -736,7 +741,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               alignItems: 'flex-start',
             }}
           >
-            <span style={{ fontSize: '13px', color: '#94A3B8' }}>
+            <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
               Trạng thái ca làm
             </span>
             <StatusBadge
@@ -746,10 +751,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
           <div
             style={{
-              fontSize: '24px',
+              fontSize: '22px',
               fontWeight: 700,
               fontVariantNumeric: 'tabular-nums',
-              margin: '8px 0',
+              margin: '8px 0 4px 0',
               color: '#F8FAFC',
             }}
           >
@@ -760,7 +765,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
         </AppCard>
 
-        <AppCard padding="16px">
+        <AppCard
+          padding="16px"
+          interactive
+          style={{ cursor: 'pointer' }}
+          onClick={() => onNavigate('/reports')}
+        >
           <div
             style={{
               display: 'flex',
@@ -768,7 +778,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               alignItems: 'flex-start',
             }}
           >
-            <span style={{ fontSize: '13px', color: '#94A3B8' }}>
+            <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
               Báo cáo hàng ngày
             </span>
             <StatusBadge
@@ -778,10 +788,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
           <div
             style={{
-              fontSize: '24px',
+              fontSize: '22px',
               fontWeight: 700,
               fontVariantNumeric: 'tabular-nums',
-              margin: '8px 0',
+              margin: '8px 0 4px 0',
               color: '#F8FAFC',
             }}
           >
@@ -794,7 +804,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
         {role === 'owner' ? (
           <>
-            <AppCard padding="16px">
+            <AppCard
+              padding="16px"
+              interactive
+              style={{ cursor: 'pointer' }}
+              onClick={() => onNavigate('/employees')}
+            >
               <div
                 style={{
                   display: 'flex',
@@ -802,7 +817,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   alignItems: 'flex-start',
                 }}
               >
-                <span style={{ fontSize: '13px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
                   Nhân sự trực tiếp
                 </span>
                 <StatusBadge
@@ -812,9 +827,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </div>
               <div
                 style={{
-                  fontSize: '24px',
+                  fontSize: '22px',
                   fontWeight: 700,
-                  margin: '8px 0',
+                  margin: '8px 0 4px 0',
                   color: '#F8FAFC',
                 }}
               >
@@ -825,7 +840,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </div>
             </AppCard>
 
-            <AppCard padding="16px">
+            <AppCard
+              padding="16px"
+              interactive
+              style={{ cursor: 'pointer' }}
+              onClick={() => onNavigate('/payroll')}
+            >
               <div
                 style={{
                   display: 'flex',
@@ -833,7 +853,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   alignItems: 'flex-start',
                 }}
               >
-                <span style={{ fontSize: '13px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
                   Kỳ lương
                 </span>
                 <StatusBadge
@@ -843,9 +863,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </div>
               <div
                 style={{
-                  fontSize: '24px',
+                  fontSize: '22px',
                   fontWeight: 700,
-                  margin: '8px 0',
+                  margin: '8px 0 4px 0',
                   color: '#F8FAFC',
                 }}
               >
@@ -857,7 +877,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </AppCard>
           </>
         ) : (
-          <AppCard padding="16px">
+          <AppCard
+            padding="16px"
+            interactive
+            style={{ cursor: 'pointer' }}
+            onClick={() => onNavigate('/attendance')}
+          >
             <div
               style={{
                 display: 'flex',
@@ -865,7 +890,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 alignItems: 'flex-start',
               }}
             >
-              <span style={{ fontSize: '13px', color: '#94A3B8' }}>
+              <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
                 Công tháng hiện tại
               </span>
               <StatusBadge
@@ -875,9 +900,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
             <div
               style={{
-                fontSize: '24px',
+                fontSize: '22px',
                 fontWeight: 700,
-                margin: '8px 0',
+                margin: '8px 0 4px 0',
                 color: '#F8FAFC',
               }}
             >
@@ -894,8 +919,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       <div
         data-testid="dashboard-action-center"
         style={{
-          marginBottom: '24px',
-          padding: '16px',
+          marginBottom: '20px',
+          padding: '14px 16px',
           borderRadius: '12px',
           backgroundColor: '#0F172A',
           border: '1px solid #1E293B',
@@ -906,14 +931,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '12px',
+            marginBottom: '10px',
             flexWrap: 'wrap',
             gap: '8px',
           }}
         >
           <h3
             style={{
-              fontSize: '15px',
+              fontSize: '14px',
               fontWeight: 700,
               color: '#F8FAFC',
               margin: 0,
@@ -923,14 +948,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </h3>
           <span style={{ fontSize: '12px', color: '#94A3B8' }}>
             {role === 'owner'
-              ? 'Nhắc việc vận hành dành cho Owner'
+              ? 'Nhấp vào từng mục để xử lý ngay'
               : 'Nhắc việc ca làm & báo cáo trong ngày'}
           </span>
         </div>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
             gap: '10px',
           }}
         >
@@ -941,24 +966,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 data-testid="action-center-attendance"
                 onClick={() => onNavigate('/attendance')}
                 style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   textAlign: 'left',
-                  padding: '12px',
+                  padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1px solid #334155',
                   backgroundColor: '#1E293B',
                   color: '#F8FAFC',
                   cursor: 'pointer',
+                  gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                  ⏱️ Chấm công & Duyệt ca
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                    ⏱️ Duyệt ca làm việc
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                    {shiftMetric.value}
+                  </div>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
-                  {shiftMetric.value}
-                </div>
-                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
-                  Kiểm tra & duyệt ca làm →
-                </div>
+                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                  Mở →
+                </span>
               </button>
 
               <button
@@ -966,24 +997,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 data-testid="action-center-reports"
                 onClick={() => onNavigate('/reports')}
                 style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   textAlign: 'left',
-                  padding: '12px',
+                  padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1px solid #334155',
                   backgroundColor: '#1E293B',
                   color: '#F8FAFC',
                   cursor: 'pointer',
+                  gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                  📋 Báo cáo công việc ngày
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                    📋 Báo cáo ngày
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                    {reportMetric.value}
+                  </div>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
-                  {reportMetric.value}
-                </div>
-                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
-                  Xem báo cáo nhân sự →
-                </div>
+                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                  Xem →
+                </span>
               </button>
 
               <button
@@ -991,24 +1028,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 data-testid="action-center-employees"
                 onClick={() => onNavigate('/employees')}
                 style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   textAlign: 'left',
-                  padding: '12px',
+                  padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1px solid #334155',
                   backgroundColor: '#1E293B',
                   color: '#F8FAFC',
                   cursor: 'pointer',
+                  gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                  👥 Hồ sơ SĐT & Ngân hàng
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                    👥 Hồ sơ & Ngân hàng
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                    {employeesMetric.value}
+                  </div>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
-                  {employeesMetric.value}
-                </div>
-                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
-                  Rà soát hồ sơ & xuất CSV →
-                </div>
+                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                  Mở →
+                </span>
               </button>
 
               <button
@@ -1016,24 +1059,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 data-testid="action-center-payroll"
                 onClick={() => onNavigate('/payroll')}
                 style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   textAlign: 'left',
-                  padding: '12px',
+                  padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1px solid #334155',
                   backgroundColor: '#1E293B',
                   color: '#F8FAFC',
                   cursor: 'pointer',
+                  gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                  💰 Bảng lương & Chi trả VietQR
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                    💰 Chi trả lương VietQR
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                    {payrollMetric.value} ({payrollMetric.badgeLabel})
+                  </div>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
-                  {payrollMetric.value} ({payrollMetric.badgeLabel})
-                </div>
-                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
-                  Mở kỳ lương hiện tại →
-                </div>
+                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                  Mở →
+                </span>
               </button>
             </>
           ) : (
@@ -1043,24 +1092,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 data-testid="action-center-staff-clock"
                 onClick={() => onNavigate('/clock')}
                 style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   textAlign: 'left',
-                  padding: '12px',
+                  padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1px solid #334155',
                   backgroundColor: '#1E293B',
                   color: '#F8FAFC',
                   cursor: 'pointer',
+                  gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                  ⏱️ Trạng thái ca làm hiện tại
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                    ⏱️ Trạng thái ca làm
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                    {shiftMetric.value}
+                  </div>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
-                  {shiftMetric.value}
-                </div>
-                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
-                  Vào/ra ca làm việc →
-                </div>
+                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                  Vào/ra ca →
+                </span>
               </button>
 
               <button
@@ -1068,24 +1123,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 data-testid="action-center-staff-report"
                 onClick={() => onNavigate('/reports/new')}
                 style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   textAlign: 'left',
-                  padding: '12px',
+                  padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1px solid #334155',
                   backgroundColor: '#1E293B',
                   color: '#F8FAFC',
                   cursor: 'pointer',
+                  gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                  📝 Báo cáo công việc hôm nay
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                    📝 Báo cáo hôm nay
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                    {reportMetric.value}
+                  </div>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
-                  {reportMetric.value}
-                </div>
-                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
-                  Nộp báo cáo ngày →
-                </div>
+                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                  Nộp →
+                </span>
               </button>
 
               <button
@@ -1093,24 +1154,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 data-testid="action-center-staff-work"
                 onClick={() => onNavigate('/work')}
                 style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   textAlign: 'left',
-                  padding: '12px',
+                  padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1px solid #334155',
                   backgroundColor: '#1E293B',
                   color: '#F8FAFC',
                   cursor: 'pointer',
+                  gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                  📌 Công việc được giao
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                    📌 Công việc được giao
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                    {staffAttendanceMetric.value}
+                  </div>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
-                  {staffAttendanceMetric.value}
-                </div>
-                <div style={{ fontSize: '11px', color: '#38BDF8', marginTop: '4px' }}>
-                  Xem danh sách công việc →
-                </div>
+                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                  Xem →
+                </span>
               </button>
             </>
           )}
@@ -1120,8 +1187,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {/* Quick Action Navigation Grid */}
       <h3
         style={{
-          fontSize: '16px',
-          fontWeight: 600,
+          fontSize: '15px',
+          fontWeight: 700,
           marginBottom: '12px',
           color: '#F8FAFC',
         }}
@@ -1132,261 +1199,146 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns:
-            'repeat(auto-fill, minmax(min(100%, 220px), 1fr))',
-          gap: '12px',
+            'repeat(auto-fill, minmax(min(100%, 230px), 1fr))',
+          gap: '10px',
         }}
       >
-        <AppCard
-          padding="16px"
-          interactive
-          style={{ cursor: 'pointer' }}
-          onClick={() => onNavigate('/clock')}
-        >
-          <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-            <ClockIcon size={24} />
-          </div>
-          <div
-            style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
-          >
-            Chấm công
-          </div>
-          <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-            Vào ca, tạm dừng nghỉ, kết thúc ca
-          </div>
-        </AppCard>
-
-        <AppCard
-          padding="16px"
-          interactive
-          style={{ cursor: 'pointer' }}
-          onClick={() => onNavigate('/reports')}
-        >
-          <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-            <FileTextIcon size={24} />
-          </div>
-          <div
-            style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
-          >
-            Báo cáo
-          </div>
-          <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-            Xem danh sách báo cáo hàng ngày
-          </div>
-        </AppCard>
-
-        <AppCard
-          padding="16px"
-          interactive
-          style={{ cursor: 'pointer' }}
-          onClick={() => onNavigate('/work')}
-        >
-          <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-            <NavIcon id="work" size={24} />
-          </div>
-          <div
-            style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
-          >
-            Công việc
-          </div>
-          <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-            Giao việc, tiến độ và nghiệm thu
-          </div>
-        </AppCard>
-
-        <AppCard
-          padding="16px"
-          interactive
-          style={{ cursor: 'pointer' }}
-          onClick={() => onNavigate('/schedule')}
-        >
-          <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-            <NavIcon id="schedule" size={24} />
-          </div>
-          <div
-            style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
-          >
-            Lịch làm việc
-          </div>
-          <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-            Xếp ca và theo dõi lịch tuần
-          </div>
-        </AppCard>
-
-        <AppCard
-          padding="16px"
-          interactive
-          style={{ cursor: 'pointer' }}
-          onClick={() => onNavigate('/storage')}
-        >
-          <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-            <NavIcon id="storage" size={24} />
-          </div>
-          <div
-            style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
-          >
-            Lưu trữ & Drive
-          </div>
-          <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-            Thư mục nguồn và bàn giao sản phẩm
-          </div>
-        </AppCard>
-
-        {role === 'owner' ? (
-          <>
+        {(
+          [
+            {
+              path: '/clock',
+              icon: <ClockIcon size={20} />,
+              title: 'Chấm công',
+              desc: 'Vào ca, tạm nghỉ, kết thúc ca',
+              show: true,
+            },
+            {
+              path: '/work',
+              icon: <NavIcon id="work" size={20} />,
+              title: 'Công việc',
+              desc: 'Giao việc, tiến độ & nghiệm thu',
+              show: true,
+            },
+            {
+              path: '/reports',
+              icon: <FileTextIcon size={20} />,
+              title: 'Báo cáo',
+              desc: 'Báo cáo công việc hàng ngày',
+              show: true,
+            },
+            {
+              path: '/schedule',
+              icon: <NavIcon id="schedule" size={20} />,
+              title: 'Lịch làm việc',
+              desc: 'Xếp ca và theo dõi lịch tuần',
+              show: true,
+            },
+            {
+              path: '/storage',
+              icon: <NavIcon id="storage" size={20} />,
+              title: 'Lưu trữ & Drive',
+              desc: 'Thư mục nguồn & thành phẩm',
+              show: true,
+            },
+            {
+              path: '/employees',
+              icon: <NavIcon id="employees" size={20} />,
+              title: 'Nhân viên',
+              desc: 'Hồ sơ nhân sự & ngân hàng',
+              show: role === 'owner',
+            },
+            {
+              path: '/payroll',
+              icon: <BanknoteIcon size={20} />,
+              title: 'Bảng lương',
+              desc: 'Kỳ lương & chi trả VietQR',
+              show: role === 'owner',
+            },
+            {
+              path: '/finance',
+              icon: <NavIcon id="accounts" size={20} />,
+              title: 'Tài chính',
+              desc: 'Sổ thu chi & kế hoạch',
+              show: role === 'owner',
+            },
+            {
+              path: '/accounts',
+              icon: <NavIcon id="accounts" size={20} />,
+              title: 'Tài khoản ACC',
+              desc: 'Quản lý tài khoản dùng chung',
+              show: role === 'owner',
+            },
+            {
+              path: '/my-pay',
+              icon: <BanknoteIcon size={20} />,
+              title: 'Lương cá nhân',
+              desc: 'Xem phiếu lương & chi tiết công',
+              show: role !== 'owner',
+            },
+            {
+              path: '/settings',
+              icon: <SettingsIcon size={20} />,
+              title: 'Cài đặt',
+              desc: 'Hồ sơ cá nhân & giao diện',
+              show: true,
+            },
+          ] as const
+        )
+          .filter((item) => item.show)
+          .map((item) => (
             <AppCard
-              padding="16px"
+              key={item.path}
+              padding="12px 14px"
               interactive
-              style={{ cursor: 'pointer' }}
-              onClick={() => onNavigate('/employees')}
+              style={{
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}
+              onClick={() => onNavigate(item.path)}
             >
-              <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-                <NavIcon id="employees" size={24} />
-              </div>
               <div
                 style={{
-                  fontWeight: 600,
-                  color: '#F8FAFC',
-                  marginBottom: '4px',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                  border: '1px solid rgba(45, 212, 191, 0.25)',
+                  color: '#2DD4BF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
-                Nhân viên
+                {item.icon}
               </div>
-              <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-                Hồ sơ nhân sự, lời mời và trạng thái
-              </div>
-            </AppCard>
-
-            <AppCard
-              padding="16px"
-              interactive
-              style={{ cursor: 'pointer' }}
-              onClick={() => onNavigate('/payroll')}
-            >
-              <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-                <BanknoteIcon size={24} />
-              </div>
-              <div
-                style={{
-                  fontWeight: 600,
-                  color: '#F8FAFC',
-                  marginBottom: '4px',
-                }}
-              >
-                Bảng lương
-              </div>
-              <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-                Xem bảng lương kỳ hiện tại
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    color: '#F8FAFC',
+                    marginBottom: '2px',
+                  }}
+                >
+                  {item.title}
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {item.desc}
+                </div>
               </div>
             </AppCard>
-
-            <AppCard
-              padding="16px"
-              interactive
-              style={{ cursor: 'pointer' }}
-              onClick={() => onNavigate('/finance')}
-            >
-              <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-                <NavIcon id="accounts" size={24} />
-              </div>
-              <div
-                style={{
-                  fontWeight: 600,
-                  color: '#F8FAFC',
-                  marginBottom: '4px',
-                }}
-              >
-                Tài chính
-              </div>
-              <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-                Thu chi cá nhân, kế hoạch và hóa đơn
-              </div>
-            </AppCard>
-
-            <AppCard
-              padding="16px"
-              interactive
-              style={{ cursor: 'pointer' }}
-              onClick={() => onNavigate('/accounts')}
-            >
-              <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-                <NavIcon id="accounts" size={24} />
-              </div>
-              <div
-                style={{
-                  fontWeight: 600,
-                  color: '#F8FAFC',
-                  marginBottom: '4px',
-                }}
-              >
-                Tài khoản ACC
-              </div>
-              <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-                Quản lý tài khoản và phân quyền
-              </div>
-            </AppCard>
-
-            <AppCard
-              padding="16px"
-              interactive
-              style={{ cursor: 'pointer' }}
-              onClick={() => onNavigate('/issues')}
-            >
-              <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-                <NavIcon id="issues" size={24} />
-              </div>
-              <div
-                style={{
-                  fontWeight: 600,
-                  color: '#F8FAFC',
-                  marginBottom: '4px',
-                }}
-              >
-                Vấn đề & Issues
-              </div>
-              <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-                Theo dõi lỗi và tiến độ xử lý
-              </div>
-            </AppCard>
-          </>
-        ) : (
-          <AppCard
-            padding="16px"
-            interactive
-            style={{ cursor: 'pointer' }}
-            onClick={() => onNavigate('/my-pay')}
-          >
-            <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-              <BanknoteIcon size={24} />
-            </div>
-            <div
-              style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
-            >
-              Lương cá nhân
-            </div>
-            <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-              Xem phiếu lương và chi tiết công
-            </div>
-          </AppCard>
-        )}
-
-        <AppCard
-          padding="16px"
-          interactive
-          style={{ cursor: 'pointer' }}
-          onClick={() => onNavigate('/settings')}
-        >
-          <div style={{ color: '#14B8A6', marginBottom: '8px' }}>
-            <SettingsIcon size={24} />
-          </div>
-          <div
-            style={{ fontWeight: 600, color: '#F8FAFC', marginBottom: '4px' }}
-          >
-            Cài đặt
-          </div>
-          <div style={{ fontSize: '13px', color: '#94A3B8' }}>
-            Tùy chọn hiển thị & tài khoản
-          </div>
-        </AppCard>
+          ))}
       </div>
 
       {/* Cross-System Data Bridge: ql.hoaiphuong.click <-> hoaiphuong.click (Owner only) */}

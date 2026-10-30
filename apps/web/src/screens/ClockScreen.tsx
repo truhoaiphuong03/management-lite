@@ -1307,119 +1307,97 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   alignItems: 'flex-end',
                 }}
               >
-                <div style={{ flex: 1, minWidth: '150px' }}>
+                <div style={{ flex: 1, minWidth: '160px' }}>
                   <label
                     style={{
-                      display: 'block',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
                       fontSize: '12px',
                       fontWeight: 600,
                       color: '#94A3B8',
                       marginBottom: '6px',
                     }}
                   >
-                    Từ ngày (Ngày/Tháng/Năm)
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      data-testid="my-filter-from-date"
-                      type="date"
-                      value={myFromDate}
-                      onClick={(e) =>
-                        (
-                          e.currentTarget as HTMLInputElement & {
-                            showPicker?: () => void;
-                          }
-                        ).showPicker?.()
-                      }
-                      onChange={(e) => {
-                        setMyFromDate(e.target.value);
-                        setMyShiftPage(0);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
-                        color: 'transparent',
-                        fontSize: '14px',
-                        minHeight: '44px',
-                        boxSizing: 'border-box',
-                        cursor: 'pointer',
-                      }}
-                    />
-                    <span
-                      style={{
-                        position: 'absolute',
-                        left: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        pointerEvents: 'none',
-                        fontSize: '13px',
-                        fontWeight: myFromDate ? 600 : 400,
-                        color: myFromDate ? '#F8FAFC' : '#64748B',
-                      }}
-                    >
+                    <span>Từ ngày (Ngày/Tháng/Năm)</span>
+                    <span style={{ color: '#2DD4BF', fontWeight: 500 }}>
                       {formatIsoToVnLabel(myFromDate)}
                     </span>
-                  </div>
+                  </label>
+                  <input
+                    data-testid="my-filter-from-date"
+                    type="date"
+                    value={myFromDate}
+                    onClick={(e) =>
+                      (
+                        e.currentTarget as HTMLInputElement & {
+                          showPicker?: () => void;
+                        }
+                      ).showPicker?.()
+                    }
+                    onChange={(e) => {
+                      setMyFromDate(e.target.value);
+                      setMyShiftPage(0);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#0B1220',
+                      border: '1px solid #334155',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer',
+                    }}
+                  />
                 </div>
-                <div style={{ flex: 1, minWidth: '150px' }}>
+                <div style={{ flex: 1, minWidth: '160px' }}>
                   <label
                     style={{
-                      display: 'block',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
                       fontSize: '12px',
                       fontWeight: 600,
                       color: '#94A3B8',
                       marginBottom: '6px',
                     }}
                   >
-                    Đến ngày (Ngày/Tháng/Năm)
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      data-testid="my-filter-to-date"
-                      type="date"
-                      value={myToDate}
-                      onClick={(e) =>
-                        (
-                          e.currentTarget as HTMLInputElement & {
-                            showPicker?: () => void;
-                          }
-                        ).showPicker?.()
-                      }
-                      onChange={(e) => {
-                        setMyToDate(e.target.value);
-                        setMyShiftPage(0);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
-                        color: 'transparent',
-                        fontSize: '14px',
-                        minHeight: '44px',
-                        boxSizing: 'border-box',
-                        cursor: 'pointer',
-                      }}
-                    />
-                    <span
-                      style={{
-                        position: 'absolute',
-                        left: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        pointerEvents: 'none',
-                        fontSize: '13px',
-                        fontWeight: myToDate ? 600 : 400,
-                        color: myToDate ? '#F8FAFC' : '#64748B',
-                      }}
-                    >
+                    <span>Đến ngày (Ngày/Tháng/Năm)</span>
+                    <span style={{ color: '#2DD4BF', fontWeight: 500 }}>
                       {formatIsoToVnLabel(myToDate)}
                     </span>
-                  </div>
+                  </label>
+                  <input
+                    data-testid="my-filter-to-date"
+                    type="date"
+                    value={myToDate}
+                    onClick={(e) =>
+                      (
+                        e.currentTarget as HTMLInputElement & {
+                          showPicker?: () => void;
+                        }
+                      ).showPicker?.()
+                    }
+                    onChange={(e) => {
+                      setMyToDate(e.target.value);
+                      setMyShiftPage(0);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#0B1220',
+                      border: '1px solid #334155',
+                      color: '#F8FAFC',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer',
+                    }}
+                  />
                 </div>
                 <div style={{ flex: 1, minWidth: '170px' }}>
                   <label
@@ -1866,114 +1844,92 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 </select>
               </div>
 
-              <div style={{ flex: 1, minWidth: '150px' }}>
+              <div style={{ flex: 1, minWidth: '160px' }}>
                 <label
                   style={{
-                    display: 'block',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
                     fontSize: '13px',
                     fontWeight: 600,
                     color: '#94A3B8',
                     marginBottom: '6px',
                   }}
                 >
-                  Từ ngày (Ngày/Tháng/Năm)
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    data-testid="filter-from-date"
-                    type="date"
-                    value={selectedDate}
-                    onClick={(e) =>
-                      (
-                        e.currentTarget as HTMLInputElement & {
-                          showPicker?: () => void;
-                        }
-                      ).showPicker?.()
-                    }
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #334155',
-                      color: 'transparent',
-                      fontSize: '14px',
-                      minHeight: '44px',
-                      boxSizing: 'border-box',
-                      cursor: 'pointer',
-                    }}
-                  />
-                  <span
-                    style={{
-                      position: 'absolute',
-                      left: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      pointerEvents: 'none',
-                      fontSize: '13px',
-                      fontWeight: selectedDate ? 600 : 400,
-                      color: selectedDate ? '#F8FAFC' : '#64748B',
-                    }}
-                  >
+                  <span>Từ ngày (Ngày/Tháng/Năm)</span>
+                  <span style={{ color: '#2DD4BF', fontWeight: 500, fontSize: '12px' }}>
                     {formatIsoToVnLabel(selectedDate)}
                   </span>
-                </div>
+                </label>
+                <input
+                  data-testid="filter-from-date"
+                  type="date"
+                  value={selectedDate}
+                  onClick={(e) =>
+                    (
+                      e.currentTarget as HTMLInputElement & {
+                        showPicker?: () => void;
+                      }
+                    ).showPicker?.()
+                  }
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#0B1220',
+                    border: '1px solid #334155',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    minHeight: '44px',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer',
+                  }}
+                />
               </div>
 
-              <div style={{ flex: 1, minWidth: '150px' }}>
+              <div style={{ flex: 1, minWidth: '160px' }}>
                 <label
                   style={{
-                    display: 'block',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
                     fontSize: '13px',
                     fontWeight: 600,
                     color: '#94A3B8',
                     marginBottom: '6px',
                   }}
                 >
-                  Đến ngày (Ngày/Tháng/Năm)
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    data-testid="filter-to-date"
-                    type="date"
-                    value={selectedToDate}
-                    onClick={(e) =>
-                      (
-                        e.currentTarget as HTMLInputElement & {
-                          showPicker?: () => void;
-                        }
-                      ).showPicker?.()
-                    }
-                    onChange={(e) => setSelectedToDate(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #334155',
-                      color: 'transparent',
-                      fontSize: '14px',
-                      minHeight: '44px',
-                      boxSizing: 'border-box',
-                      cursor: 'pointer',
-                    }}
-                  />
-                  <span
-                    style={{
-                      position: 'absolute',
-                      left: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      pointerEvents: 'none',
-                      fontSize: '13px',
-                      fontWeight: selectedToDate ? 600 : 400,
-                      color: selectedToDate ? '#F8FAFC' : '#64748B',
-                    }}
-                  >
+                  <span>Đến ngày (Ngày/Tháng/Năm)</span>
+                  <span style={{ color: '#2DD4BF', fontWeight: 500, fontSize: '12px' }}>
                     {formatIsoToVnLabel(selectedToDate)}
                   </span>
-                </div>
+                </label>
+                <input
+                  data-testid="filter-to-date"
+                  type="date"
+                  value={selectedToDate}
+                  onClick={(e) =>
+                    (
+                      e.currentTarget as HTMLInputElement & {
+                        showPicker?: () => void;
+                      }
+                    ).showPicker?.()
+                  }
+                  onChange={(e) => setSelectedToDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#0B1220',
+                    border: '1px solid #334155',
+                    color: '#F8FAFC',
+                    fontSize: '14px',
+                    minHeight: '44px',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer',
+                  }}
+                />
               </div>
 
               <div style={{ flex: 1, minWidth: '160px' }}>

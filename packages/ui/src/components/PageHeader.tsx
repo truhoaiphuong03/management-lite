@@ -21,19 +21,20 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: '16px',
-        marginBottom: '24px',
+        marginBottom: '20px',
         paddingBottom: '16px',
-        borderBottom: '1px solid #334155',
+        borderBottom: '1px solid var(--border-color, #334155)',
       }}
     >
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <h1
             style={{
               fontSize: '22px',
               fontWeight: 700,
-              color: '#F8FAFC',
+              color: 'var(--text-color, #F8FAFC)',
               letterSpacing: '-0.02em',
+              margin: 0,
             }}
           >
             {title}
@@ -43,9 +44,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         {subtitle && (
           <p
             style={{
-              marginTop: '4px',
-              fontSize: '14px',
-              color: '#94A3B8',
+              margin: '6px 0 0 0',
+              fontSize: '13.5px',
+              lineHeight: 1.5,
+              color: 'var(--muted-color, #94A3B8)',
             }}
           >
             {subtitle}
@@ -54,7 +56,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       </div>
 
       {actions && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {actions}
         </div>
       )}

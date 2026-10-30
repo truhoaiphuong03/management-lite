@@ -45,6 +45,8 @@ const ITEM_DESCRIPTIONS: Record<string, string> = {
   finance: 'Theo dõi sổ thu chi riêng của bạn.',
   accounts: 'Quản lý danh mục tài khoản dịch vụ và thông tin xác thực.',
   audit: 'Theo dõi nhật ký hoạt động và sự kiện bảo mật trong hệ thống.',
+  'system-logs':
+    'Tra cứu nhật ký vận hành kỹ thuật, trạng thái tác vụ nền và kết nối dịch vụ.',
   issues: 'Theo dõi, phân loại và xử lý các sự cố kỹ thuật phát sinh.',
   settings: 'Cấu hình thông tin hệ thống và tùy chọn cá nhân.',
 };
@@ -65,6 +67,7 @@ const DISPATCHED_PATHS = new Set([
   '/finance',
   '/storage',
   '/audit',
+  '/system-logs',
   '/issues',
   '/settings',
 ]);

@@ -49,6 +49,40 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const itemMap = new Map(NAV_ITEMS.map((item) => [item.id, item]));
 
+  const isItemVisibleForRole = (item: (typeof NAV_ITEMS)[number]): boolean => {
+    if (
+      (item.id === 'issues' || item.id === 'finance') &&
+      (isOwnerVerified !== true || role !== 'owner')
+    )
+      return false;
+    if (role === 'staff' && item.ownerOnly) return false;
+    if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
+      return false;
+    return true;
+  };
+
+  const activeGroup = NAV_GROUPS.find((group) => {
+    if (currentPath === group.path) return true;
+    return group.itemIds.some((id) => {
+      const item = itemMap.get(id);
+      if (!item || !isItemVisibleForRole(item)) return false;
+      if (item.path === '/') return currentPath === '/';
+      return (
+        currentPath === item.path || currentPath.startsWith(item.path + '/')
+      );
+    });
+  });
+
+  const subNavItems =
+    activeGroup && !currentPath.startsWith('/groups/')
+      ? activeGroup.itemIds
+          .map((id) => itemMap.get(id))
+          .filter(
+            (item): item is (typeof NAV_ITEMS)[number] =>
+              Boolean(item) && isItemVisibleForRole(item!),
+          )
+      : [];
+
   const moreGroups = NAV_GROUPS.map((group) => {
     const items = group.itemIds
       .map((id) => itemMap.get(id))
@@ -57,15 +91,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         // Items not in primary bottom tabs
         const isPrimary = ['/', '/clock', '/reports'].includes(item.path);
         if (isPrimary) return false;
-        if (
-          (item.id === 'issues' || item.id === 'finance') &&
-          (isOwnerVerified !== true || role !== 'owner')
-        )
-          return false;
-        if (role === 'staff' && item.ownerOnly) return false;
-        if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
-          return false;
-        return true;
+        return isItemVisibleForRole(item);
       });
     return {
       ...group,
@@ -258,11 +284,10 @@ export const AppShell: React.FC<AppShellProps> = ({
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          marginTop: '44px',
-          marginBottom: '0px',
+          margin: '44px auto 0 auto',
           padding:
-            '16px 14px calc(84px + env(safe-area-inset-bottom, 0px)) 14px',
-          maxWidth: '1200px',
+            '20px 20px calc(84px + env(safe-area-inset-bottom, 0px)) 20px',
+          maxWidth: '1240px',
           width: '100%',
           overflowX: 'hidden',
           boxSizing: 'border-box',
@@ -277,6 +302,33 @@ export const AppShell: React.FC<AppShellProps> = ({
             onNavigate={onNavigate}
             role={role}
           />
+          {subNavItems.length > 1 && (
+            <nav
+              aria-label="Điều hướng phân hệ"
+              className="app-subnav-bar"
+              data-testid="app-subnav-bar"
+            >
+              {subNavItems.map((item) => {
+                const isItemActive =
+                  item.path === '/attendance'
+                    ? currentPath === '/attendance'
+                    : currentPath === item.path ||
+                      currentPath.startsWith(item.path + '/');
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="app-subnav-item"
+                    data-active={isItemActive ? 'true' : 'false'}
+                    onClick={() => onNavigate(item.path)}
+                  >
+                    <NavIcon id={item.id} size={15} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          )}
           {children}
         </div>
 

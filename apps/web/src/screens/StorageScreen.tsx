@@ -3539,16 +3539,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
   return (
     <div
       style={{
-        maxWidth: '1000px',
-        margin: '0 auto',
-        padding: '24px 16px',
+        width: '100%',
         color: '#F8FAFC',
       }}
     >
       {/* 1. Page Header */}
       <PageHeader
-        title="Quản lý Tệp & Drive (STORAGE)"
-        subtitle="Tích hợp Google Drive API v3 trực tiếp: OAuth 2.0, Tạo thư mục, Tải video Resumable và Phân quyền nhân viên (FILE-01)"
+        title="Quản lý Tệp & Google Drive"
+        subtitle="Tạo thư mục nguồn, tải video và bàn giao thành phẩm trực tiếp qua Google Drive"
         actions={
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {role === 'owner' && (
@@ -3609,7 +3607,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
       {/* 1B. Google Drive OAuth 2.0 Connection Bar */}
       <AppCard
-        style={{ padding: '14px 18px', marginBottom: '18px' }}
+        style={{ padding: '12px 16px', marginBottom: '18px' }}
         data-testid="storage-drive-connection-bar"
       >
         <div
@@ -3622,19 +3620,19 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             fontSize: '13px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <StatusBadge
               status={driveConnection?.connected ? 'success' : 'warning'}
               label={
                 driveConnection?.connected
                   ? 'Đã kết nối Google Drive'
-                  : 'Chưa kết nối OAuth 2.0'
+                  : 'Chưa kết nối Google Drive'
               }
             />
             <span style={{ color: '#CBD5E1' }}>
               {driveConnection?.connected
-                ? `Tài khoản: ${driveConnection.google_email} • Scope: drive.file (Least Privilege)`
-                : 'Kết nối tài khoản Google quản trị qua OAuth 2.0 để tự động tạo thư mục, tải video và phân quyền nhân viên.'}
+                ? `Tài khoản Google Drive: ${driveConnection.google_email}`
+                : 'Kết nối tài khoản Google quản trị để tự động tạo thư mục, tải video và phân quyền nhân viên.'}
             </span>
           </div>
 
