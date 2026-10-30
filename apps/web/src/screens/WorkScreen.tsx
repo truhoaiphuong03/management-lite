@@ -169,6 +169,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [smartFocusFilter, setSmartFocusFilter] = useState<
+    'all' | 'today' | 'overdue' | 'blocked' | 'pending_review'
+  >('all');
 
   // Form states (Create view /work/new)
   const [newTitle, setNewTitle] = useState<string>('');
@@ -411,9 +414,84 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     }
   };
 
+  // Helpers for ML-04 (Hôm nay / Quá hạn / Bị chặn / Chờ duyệt & Bằng chứng)
+  const todayVnDateStr = useMemo(() => {
+    try {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(new Date());
+      const y = parts.find((p) => p.type === 'year')?.value;
+      const m = parts.find((p) => p.type === 'month')?.value;
+      const d = parts.find((p) => p.type === 'day')?.value;
+      if (y && m && d) return `${y}-${m}-${d}`;
+    } catch {
+      // Fallback
+    }
+    return new Date().toISOString().slice(0, 10);
+  }, []);
+
+  const isItemToday = (item: WorkItemData): boolean => {
+    if (item.status === 'cancelled') return false;
+    if (item.due_at) {
+      try {
+        const dueDateVn = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date(item.due_at));
+        if (dueDateVn === todayVnDateStr) return true;
+      } catch {
+        if (item.due_at.slice(0, 10) === todayVnDateStr) return true;
+      }
+    }
+    return Boolean(
+      item.assignments?.some((a) =>
+        a.schedule_links?.some((l) => l.work_date === todayVnDateStr),
+      ),
+    );
+  };
+
+  const isItemOverdue = (item: WorkItemData): boolean => {
+    if (item.status === 'completed' || item.status === 'cancelled')
+      return false;
+    if (!item.due_at) return false;
+    const dueMs = Date.parse(item.due_at);
+    return Number.isFinite(dueMs) && dueMs < Date.now();
+  };
+
+  const isItemBlocked = (item: WorkItemData): boolean => {
+    if (item.status === 'completed' || item.status === 'cancelled')
+      return false;
+    const hasChangesRequested = Boolean(
+      item.assignments?.some(
+        (a) => a.latest_review?.decision === 'request_changes',
+      ),
+    );
+    const isUrgentUnassigned =
+      item.priority === 'urgent' &&
+      (!item.assignments || item.assignments.length === 0);
+    const hasBlockedTag = Boolean(
+      item.description && /\[(BLOCKED|HOLD|BỊ CHẶN)\]/i.test(item.description),
+    );
+    return hasChangesRequested || isUrgentUnassigned || hasBlockedTag;
+  };
+
   // 3. Filtered Work Items
   const filteredItems = useMemo(() => {
     return workItems.filter((item) => {
+      // Smart Focus filter (ML-04)
+      if (smartFocusFilter === 'today' && !isItemToday(item)) return false;
+      if (smartFocusFilter === 'overdue' && !isItemOverdue(item)) return false;
+      if (smartFocusFilter === 'blocked' && !isItemBlocked(item)) return false;
+      if (
+        smartFocusFilter === 'pending_review' &&
+        item.status !== 'in_review'
+      )
+        return false;
       // Status filter
       if (statusFilter !== 'all' && item.status !== statusFilter) return false;
       // Priority filter
@@ -444,12 +522,14 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     });
   }, [
     workItems,
+    smartFocusFilter,
     statusFilter,
     priorityFilter,
     assigneeFilter,
     searchQuery,
     role,
     currentEmployeeId,
+    todayVnDateStr,
   ]);
 
   // Client-side pagination over the already-loaded list (no API change).
@@ -465,12 +545,15 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     [filteredItems, safeListPage, listPageSize],
   );
 
-  // KPI stats
+  // KPI stats (including ML-04 Today / Overdue / Blocked / Pending Review)
   const kpiStats = useMemo(() => {
     let todo = 0;
     let inProgress = 0;
     let inReview = 0;
     let completed = 0;
+    let todayCount = 0;
+    let overdueCount = 0;
+    let blockedCount = 0;
     const targetItems =
       role === 'staff' && currentEmployeeId
         ? workItems.filter((i) =>
@@ -483,9 +566,22 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       else if (item.status === 'in_progress') inProgress++;
       else if (item.status === 'in_review') inReview++;
       else if (item.status === 'completed') completed++;
+
+      if (isItemToday(item)) todayCount++;
+      if (isItemOverdue(item)) overdueCount++;
+      if (isItemBlocked(item)) blockedCount++;
     }
-    return { todo, inProgress, inReview, completed, total: targetItems.length };
-  }, [workItems, role, currentEmployeeId]);
+    return {
+      todo,
+      inProgress,
+      inReview,
+      completed,
+      todayCount,
+      overdueCount,
+      blockedCount,
+      total: targetItems.length,
+    };
+  }, [workItems, role, currentEmployeeId, todayVnDateStr]);
 
   // Handle Create Work Item (Owner)
   const handleScheduleLink = async (
@@ -948,19 +1044,72 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               />
             </div>
 
-            {/* Description */}
+            {/* Description + ML-03 Task Packet Presets */}
             <div style={{ marginBottom: '18px' }}>
-              <label
+              <div
                 style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: 600,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
                   marginBottom: '6px',
-                  color: '#F8FAFC',
                 }}
               >
-                Chi tiết yêu cầu & Mô tả
-              </label>
+                <label
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: '#F8FAFC',
+                  }}
+                >
+                  Chi tiết yêu cầu & Mô tả (Chuẩn Task Packet ML-03)
+                </label>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[
+                    {
+                      label: '🤖 Anty (Win 1)',
+                      tpl: '[EXECUTOR: Anty | MÁY: WIN-1 | MÔI TRƯỜNG: DEV/QA]\n- Mục tiêu:\n- Tiêu chí PASS:\n- Bằng chứng cần nộp (SHA / Test / Link):',
+                    },
+                    {
+                      label: '🖥️ Máy Win 2',
+                      tpl: '[EXECUTOR: Anty | MÁY: WIN-2 | MÔI TRƯỜNG: STAGING/PROD]\n- Mục tiêu:\n- Tiêu chí PASS:\n- Kế hoạch Rollback:',
+                    },
+                    {
+                      label: '💻 MacBook',
+                      tpl: '[EXECUTOR: AI/Owner | MÁY: MACBOOK | MÔI TRƯỜNG: DEV/iOS]\n- Mục tiêu:\n- Tiêu chí PASS:',
+                    },
+                    {
+                      label: '🎬 Sản xuất Video V4',
+                      tpl: '[EXECUTOR: Nhân sự / V4 Lite | KÊNH: Phong Thủy Lão Sư]\n- Kịch bản & Giọng đọc:\n- Link thành phẩm Google Drive (MP4/WAV):',
+                    },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() =>
+                        setNewDescription((prev) =>
+                          prev.trim()
+                            ? `${preset.tpl}\n\n${prev}`
+                            : preset.tpl,
+                        )
+                      }
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                        border: '1px solid rgba(20, 184, 166, 0.35)',
+                        color: '#2DD4BF',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      + {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <textarea
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
@@ -2296,6 +2445,78 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         </AppCard>
       </div>
 
+      {/* ML-04 Smart Focus Filter Chips: Hôm nay / Quá hạn / Bị chặn / Chờ duyệt */}
+      <div
+        data-testid="work-ml04-focus-bar"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '8px',
+          marginBottom: '16px',
+          alignItems: 'center',
+        }}
+      >
+        {(
+          [
+            {
+              key: 'all',
+              label: `Tất cả (${kpiStats.total})`,
+              activeColor: '#38BDF8',
+            },
+            {
+              key: 'today',
+              label: `📅 Hôm nay (${kpiStats.todayCount})`,
+              activeColor: '#14B8A6',
+            },
+            {
+              key: 'overdue',
+              label: `🚨 Quá hạn (${kpiStats.overdueCount})`,
+              activeColor: '#EF4444',
+            },
+            {
+              key: 'blocked',
+              label: `⛔ Cần sửa / Bị chặn (${kpiStats.blockedCount})`,
+              activeColor: '#F97316',
+            },
+            {
+              key: 'pending_review',
+              label: `⏳ Chờ duyệt (${kpiStats.inReview})`,
+              activeColor: '#F59E0B',
+            },
+          ] as const
+        ).map((chip) => {
+          const isActive = smartFocusFilter === chip.key;
+          return (
+            <button
+              key={chip.key}
+              type="button"
+              data-testid={`work-focus-${chip.key}`}
+              onClick={() => {
+                setSmartFocusFilter(chip.key);
+                setListPage(0);
+              }}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '999px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                backgroundColor: isActive
+                  ? `${chip.activeColor}22`
+                  : '#0F172A',
+                border: isActive
+                  ? `1px solid ${chip.activeColor}`
+                  : '1px solid #1E293B',
+                color: isActive ? chip.activeColor : '#94A3B8',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Read-Only Schedule Connection (SCHEDULE + WORK - ISSUE #1) */}
       <AppCard
         style={{
@@ -2610,7 +2831,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                       <span
                         style={{
                           fontSize: '12px',
-                          color: '#94A3B8',
+                          color: isItemOverdue(item) ? '#EF4444' : '#94A3B8',
+                          fontWeight: isItemOverdue(item) ? 700 : 400,
                           display: 'flex',
                           alignItems: 'center',
                           gap: '4px',
@@ -2618,8 +2840,43 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                       >
                         <CalendarIcon size={13} />
                         {formatDateTimeDisplay(item.due_at)}
+                        {isItemOverdue(item) ? ' (Quá hạn)' : ''}
                       </span>
                     )}
+                    {isItemBlocked(item) && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: 'rgba(249, 115, 22, 0.16)',
+                          color: '#FB923C',
+                        }}
+                      >
+                        ⛔ Cần sửa / Bị chặn
+                      </span>
+                    )}
+                    {item.description &&
+                      /\[EXECUTOR:\s*([^\]]+)\]/i.test(item.description) && (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                            color: '#2DD4BF',
+                          }}
+                        >
+                          🤖{' '}
+                          {
+                            item.description.match(
+                              /\[EXECUTOR:\s*([^\]]+)\]/i,
+                            )?.[1]
+                          }
+                        </span>
+                      )}
                   </div>
                   <h4
                     style={{
@@ -2661,41 +2918,115 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 </p>
               )}
 
-              {/* Assignees badges */}
-              {item.assignments && item.assignments.length > 0 && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    flexWrap: 'wrap',
-                    paddingTop: '8px',
-                    borderTop: '1px solid #1E293B',
-                  }}
-                >
-                  <span style={{ fontSize: '12px', color: '#64748B' }}>
-                    Phân công:
-                  </span>
-                  {item.assignments.map((a) => (
-                    <span
-                      key={a.id}
+              {/* Assignees & Evidence Drill-down (ML-04) */}
+              {(() => {
+                const allSubmissions =
+                  item.assignments?.flatMap((a) => a.submissions || []) || [];
+                const allAttachments = allSubmissions.flatMap(
+                  (s) => s.attachments || [],
+                );
+                const hasAssignees = Boolean(
+                  item.assignments && item.assignments.length > 0,
+                );
+                if (!hasAssignees && allSubmissions.length === 0) return null;
+                return (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                      paddingTop: '8px',
+                      borderTop: '1px solid #1E293B',
+                    }}
+                  >
+                    <div
                       style={{
-                        fontSize: '12px',
-                        backgroundColor: '#1E293B',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        color: '#E2E8F0',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px',
+                        gap: '6px',
+                        flexWrap: 'wrap',
                       }}
                     >
-                      <UserIcon size={12} color="#14B8A6" />
-                      {a.full_name || a.employee_code}
-                    </span>
-                  ))}
-                </div>
-              )}
+                      <span style={{ fontSize: '12px', color: '#64748B' }}>
+                        Phân công:
+                      </span>
+                      {hasAssignees ? (
+                        item.assignments!.map((a) => (
+                          <span
+                            key={a.id}
+                            style={{
+                              fontSize: '12px',
+                              backgroundColor: '#1E293B',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              color: '#E2E8F0',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <UserIcon size={12} color="#14B8A6" />
+                            {a.full_name || a.employee_code}
+                          </span>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                          Chưa gán nhân viên
+                        </span>
+                      )}
+                    </div>
+
+                    {allSubmissions.length > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          flexWrap: 'wrap',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span
+                          onClick={() => onNavigate?.(`/work/${item.id}`)}
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                            color: '#34D399',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          📋 {allSubmissions.length} báo cáo nộp → Xem bằng chứng
+                        </span>
+                        {allAttachments.slice(0, 2).map((att, idx) => (
+                          <a
+                            key={`${att.url}-${idx}`}
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: 'rgba(56, 189, 248, 0.14)',
+                              color: '#38BDF8',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            📎 {att.name}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           ))}
           <Pagination
