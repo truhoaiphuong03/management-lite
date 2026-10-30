@@ -70,6 +70,13 @@ export interface BridgeStatusResponseData {
     storage_drive_connected: boolean;
     storage_google_email: string | null;
     storage_root_folder_id: string | null;
+    employee_mappings?: Array<{
+      employee_code: string;
+      full_name: string;
+      email: string | null;
+      position_title: string | null;
+      v4_linked: boolean;
+    }>;
   };
 }
 
@@ -471,6 +478,21 @@ export class BridgeService {
     const cache = readLocalBridgeCache(auth.workspace.id);
     const driveRow = driveRes.rows[0] ?? null;
     const activeEmployees = parseInt(empRes.rows[0]?.cnt ?? '0', 10) || 0;
+    const empMappingRes = await this.pool
+      .query<{
+        employee_code: string;
+        full_name: string;
+        email: string | null;
+        position_title: string | null;
+      }>(
+        `SELECT e.employee_code, e.full_name, u.email_normalized AS email, e.position_title
+         FROM employees e
+         LEFT JOIN users u ON u.id = e.user_id
+         WHERE e.workspace_id = $1 AND e.employment_status = 'active'
+         ORDER BY e.employee_code ASC`,
+        [auth.workspace.id],
+      )
+      .catch(() => ({ rows: [] }));
 
     return {
       connected: remote.reachable,
@@ -492,6 +514,13 @@ export class BridgeService {
           driveRow?.google_email ??
           remote.summary.workspace.google_account_email ??
           null,
+        employee_mappings: empMappingRes.rows.map((r) => ({
+          employee_code: r.employee_code,
+          full_name: r.full_name,
+          email: r.email,
+          position_title: r.position_title,
+          v4_linked: Boolean(r.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email)),
+        })),
         storage_root_folder_id:
           driveRow?.root_folder_id ??
           remote.summary.workspace.drive_root_folder_id ??

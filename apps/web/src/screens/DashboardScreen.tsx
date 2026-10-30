@@ -119,6 +119,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       synced_daily_reports: number;
       storage_drive_connected: boolean;
       storage_google_email: string | null;
+      employee_mappings?: Array<{
+        employee_code: string;
+        full_name: string;
+        email: string | null;
+        position_title: string | null;
+        v4_linked: boolean;
+      }>;
     };
   } | null>(null);
   const [bridgeReadError, setBridgeReadError] = useState<string | null>(null);
@@ -242,6 +249,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               ),
               storage_google_email:
                 statusJson.data.management_lite?.storage_google_email ?? null,
+              employee_mappings: Array.isArray(
+                (statusJson.data.management_lite as { employee_mappings?: unknown })?.employee_mappings,
+              )
+                ? ((statusJson.data.management_lite as {
+                    employee_mappings: Array<{
+                      employee_code: string;
+                      full_name: string;
+                      email: string | null;
+                      position_title: string | null;
+                      v4_linked: boolean;
+                    }>;
+                  }).employee_mappings)
+                : [],
             },
           });
         }
@@ -637,6 +657,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               ),
               storage_google_email:
                 json.data.management_lite?.storage_google_email ?? null,
+              employee_mappings: Array.isArray(
+                (json.data.management_lite as { employee_mappings?: unknown })?.employee_mappings,
+              )
+                ? ((json.data.management_lite as {
+                    employee_mappings: Array<{
+                      employee_code: string;
+                      full_name: string;
+                      email: string | null;
+                      position_title: string | null;
+                      v4_linked: boolean;
+                    }>;
+                  }).employee_mappings)
+                : [],
             },
           });
         }
@@ -1573,6 +1606,75 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     : '--'}
                 </div>
               </div>
+            </div>
+
+            {/* Bảng xác nhận ánh xạ nhân sự cố định giữa ql.hoaiphuong.click (NV001..NV00n) & hoaiphuong.click */}
+            <div
+              data-testid="bridge-employee-mapping-table"
+              style={{
+                marginTop: '16px',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                border: '1px solid rgba(56, 189, 248, 0.22)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  marginBottom: '8px',
+                }}
+              >
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#E2E8F0' }}>
+                  🔗 Bảng xác nhận ánh xạ nhân sự cố định (Management Lite ↔ TikTok AI Factory V4)
+                </span>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  Khóa định danh: Mã NV cố định + Email tài khoản xác thực
+                </span>
+              </div>
+              {bridgeStatus?.management_lite?.employee_mappings &&
+              bridgeStatus.management_lite.employee_mappings.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {bridgeStatus.management_lite.employee_mappings.map((emp) => (
+                    <div
+                      key={emp.employee_code}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: '#1E293B',
+                        border: `1px solid ${emp.v4_linked ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
+                        fontSize: '12px',
+                      }}
+                    >
+                      <strong style={{ color: '#38BDF8' }}>{emp.employee_code}</strong>
+                      <span style={{ color: '#F8FAFC' }}>{emp.full_name}</span>
+                      <span style={{ color: '#94A3B8' }}>
+                        ({emp.email || 'Chưa có email'})
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: emp.v4_linked ? '#10B981' : '#F59E0B',
+                        }}
+                      >
+                        {emp.v4_linked ? '✓ Đã ánh xạ V4' : '⚠️ Thiếu email'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Đang tải danh sách ánh xạ mã nhân viên cố định (NV001, NV002...) với tài khoản V4...
+                </div>
+              )}
             </div>
           </AppCard>
         </div>

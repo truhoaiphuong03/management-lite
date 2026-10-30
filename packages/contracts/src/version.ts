@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.1.6';
-export const SYSTEM_COMMIT = 'c4896f0';
+export const SYSTEM_VERSION = '0.2.0';
+export const SYSTEM_COMMIT = 'f41806b';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,23 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.1.6',
+    version: '0.2.0',
     commit: 'latest',
+    released_at: '2026-10-30T18:35:00.000Z',
+    summary:
+      'Hoàn tất Phase 4 (100% Lộ trình nâng cấp): Bổ sung Bảng xác nhận ánh xạ nhân sự cố định giữa Management Lite (NV001..NV00n) và TikTok AI Factory V4 (hoaiphuong.click) trên Dashboard; tối ưu hóa đóng gói Frontend (manualChunks) giảm kích thước mỗi gói JS xuống dưới 400 kB.',
+    added: [
+      'Bảng xác nhận ánh xạ nhân sự cố định (NV001, NV002... ↔ Email tài khoản V4 ↔ Trạng thái liên kết) ngay trong thẻ Kết nối dữ liệu TikTok AI Factory trên Dashboard (/dashboard).',
+      'Trường employee_mappings trong API GET /api/v1/bridge/tiktok-v4 trả về danh sách đối chiếu mã nhân viên cố định và trạng thái email liên thông V4.',
+    ],
+    improved: [
+      'Chia nhỏ gói JavaScript (Code-splitting / manualChunks trong vite.config.ts) thành 5 phân vùng độc lập (vendor-react, screen-payroll-finance, screen-attendance-schedule, screen-storage-work-reports, screen-employees-admin), xóa bỏ hoàn toàn cảnh báo chunk > 500 kB và tăng tốc tải trang trên 4G/Mobile.',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.1.6',
+    commit: 'f41806b',
     released_at: '2026-10-30T18:29:00.000Z',
     summary:
       'Hoàn tất Phase 3: Hiển thị SĐT, Chức danh, Ngân hàng & nút Xuất CSV danh sách nhân sự (/employees); bổ sung thẻ nhắc nộp Báo cáo ngày ngay sau khi Ra ca (/clock) và Trung tâm Việc cần xử lý trên Dashboard (/dashboard).',

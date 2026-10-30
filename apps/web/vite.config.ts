@@ -17,6 +17,53 @@ export default defineConfig(() => {
 
   return {
     plugins: [react()],
+    build: {
+      chunkSizeWarningLimit: 400,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              return 'vendor-react';
+            }
+            if (
+              id.includes('PayrollScreen') ||
+              id.includes('PayrollStatsScreen') ||
+              id.includes('EmployeeMyPayScreen') ||
+              id.includes('FinanceOverviewScreen') ||
+              id.includes('FinanceLedgerScreen')
+            ) {
+              return 'screen-payroll-finance';
+            }
+            if (
+              id.includes('ClockScreen') ||
+              id.includes('AttendanceScreen') ||
+              id.includes('ScheduleScreen')
+            ) {
+              return 'screen-attendance-schedule';
+            }
+            if (
+              id.includes('StorageScreen') ||
+              id.includes('ReportsScreen') ||
+              id.includes('ReportNewScreen') ||
+              id.includes('ReportDetailScreen') ||
+              id.includes('WorkScreen') ||
+              id.includes('WorkDetailScreen')
+            ) {
+              return 'screen-storage-work-reports';
+            }
+            if (
+              id.includes('EmployeesScreen') ||
+              id.includes('EmployeeDetailScreen') ||
+              id.includes('EmployeeNewScreen') ||
+              id.includes('AccountsScreen') ||
+              id.includes('SystemLogsScreen')
+            ) {
+              return 'screen-employees-admin';
+            }
+          },
+        },
+      },
+    },
     server: {
       port: Number.isFinite(devPort) && devPort > 0 ? devPort : 3001,
       strictPort: true,
