@@ -42,6 +42,30 @@ function formatVnd(amount: number | null | undefined): string {
   return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
 }
 
+function resolveVietQrBankCode(bankName: string | null | undefined): string {
+  const raw = (bankName || '').toLowerCase().trim();
+  if (!raw) return 'VCB';
+  if (raw.includes('vietcombank') || raw === 'vcb') return 'VCB';
+  if (raw.includes('techcombank') || raw === 'tcb') return 'TCB';
+  if (raw.includes('vietinbank') || raw === 'icb' || raw === 'ctg') return 'ICB';
+  if (raw.includes('bidv')) return 'BIDV';
+  if (raw.includes('agribank') || raw.includes(' nông nghiệp') || raw === 'vba') return 'VBA';
+  if (raw.includes('mb') || raw.includes('quân đội')) return 'MB';
+  if (raw.includes('acb') || raw.includes('á châu')) return 'ACB';
+  if (raw.includes('vpbank') || raw === 'vpb') return 'VPB';
+  if (raw.includes('tpbank') || raw === 'tpb') return 'TPB';
+  if (raw.includes('sacombank') || raw === 'stb') return 'STB';
+  if (raw.includes('hdbank') || raw === 'hdb') return 'HDB';
+  if (raw.includes('vib')) return 'VIB';
+  if (raw.includes('shb')) return 'SHB';
+  if (raw.includes('msb') || raw.includes('hàng hải')) return 'MSB';
+  if (raw.includes('ocb') || raw.includes('phương đông')) return 'OCB';
+  if (raw.includes('seabank')) return 'SEAB';
+  if (raw.includes('lpbank') || raw.includes('liên việt')) return 'LPB';
+  if (raw.includes('eximbank') || raw === 'eib') return 'EIB';
+  return raw.replace(/[^a-z0-9]/g, '').toUpperCase() || 'VCB';
+}
+
 // Helper: Format minutes to string
 function formatMinutes(minutes: number | null | undefined): string {
   if (!minutes || minutes <= 0) return '0p';
@@ -4649,7 +4673,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               <div
                 style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC' }}
               >
-                Ghi nhận nghỉ có lương
+                Ghi nhận nghỉ có lương / Thưởng / Phụ cấp / Khấu trừ
               </div>
               <button
                 type="button"
@@ -4751,7 +4775,73 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Lý do nghỉ có lương (Bắt buộc):
+                  Phân loại điều chỉnh nhanh:
+                </label>
+                <div
+                  data-testid="adjustment-category-pills"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gap: '6px',
+                    marginBottom: '12px',
+                  }}
+                >
+                  {[
+                    { label: '🏖️ Nghỉ có lương (+)', prefix: '' },
+                    { label: '🎁 Thưởng KPI/Chuyên cần (+)', prefix: '[THƯỞNG] ' },
+                    { label: '🍱 Phụ cấp ca/Ăn trưa (+)', prefix: '[PHỤ CẤP] ' },
+                    { label: '➖ Khấu trừ / Tạm ứng (-)', prefix: '[KHẤU TRỪ] ' },
+                  ].map((opt) => {
+                    const stripped = leaveReason.replace(
+                      /^\[(THƯỞNG|THUONG|PHỤ CẤP|PHU CAP|KHẤU TRỪ|KHAU TRU|TẠM ỨNG|TAM UNG|PHẠT|PHAT)\]\s*/i,
+                      '',
+                    );
+                    const isActive = opt.prefix
+                      ? leaveReason.toUpperCase().startsWith(opt.prefix.trim())
+                      : !/^\[(THƯỞNG|THUONG|PHỤ CẤP|PHU CAP|KHẤU TRỪ|KHAU TRU|TẠM ỨNG|TAM UNG|PHẠT|PHAT)\]/i.test(
+                          leaveReason.trim(),
+                        );
+                    return (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() =>
+                          setLeaveReason(
+                            opt.prefix
+                              ? `${opt.prefix}${stripped || (opt.prefix.includes('THƯỞNG') ? 'Thưởng chuyên cần / hiệu suất' : opt.prefix.includes('PHỤ CẤP') ? 'Phụ cấp ca làm việc' : 'Khấu trừ / tạm ứng lương')}`
+                              : stripped,
+                          )
+                        }
+                        style={{
+                          padding: '7px 10px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          border: isActive
+                            ? '1px solid #14B8A6'
+                            : '1px solid #334155',
+                          backgroundColor: isActive
+                            ? 'rgba(20, 184, 166, 0.15)'
+                            : '#0F172A',
+                          color: isActive ? '#2DD4BF' : '#CBD5E1',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    color: '#94A3B8',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Lý do nghỉ có lương / điều chỉnh (Bắt buộc):
                 </label>
                 <textarea
                   data-testid="adjustment-reason-input"
@@ -4971,6 +5061,179 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       (disburseEmployee.confirmed.paid_amount_vnd || 0),
                   )}
                 </span>
+              </div>
+            </div>
+
+            {/* Thông tin Ngân hàng nhận lương & Mã QR chuyển khoản VietQR */}
+            <div
+              data-testid="disburse-bank-qr-card"
+              style={{
+                backgroundColor: '#0F172A',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                marginBottom: '16px',
+                fontSize: '12px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '8px',
+                }}
+              >
+                <span style={{ fontWeight: 700, color: '#38BDF8', fontSize: '13px' }}>
+                  🏦 Tài khoản ngân hàng nhận lương (VietQR)
+                </span>
+                {disburseEmployee.bank_account_number && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (navigator.clipboard) {
+                        void navigator.clipboard.writeText(
+                          disburseEmployee.bank_account_number || '',
+                        );
+                      }
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid #334155',
+                      backgroundColor: '#1E293B',
+                      color: '#38BDF8',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Sao chép STK
+                  </button>
+                )}
+              </div>
+              {disburseEmployee.bank_name && disburseEmployee.bank_account_number ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '12px',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ flex: '1 1 180px', lineHeight: 1.6, color: '#CBD5E1' }}>
+                    <div>
+                      Ngân hàng:{' '}
+                      <strong style={{ color: '#F8FAFC' }}>
+                        {disburseEmployee.bank_name}
+                      </strong>
+                    </div>
+                    <div>
+                      Số TK:{' '}
+                      <strong
+                        style={{
+                          color: '#34D399',
+                          fontFamily: 'monospace',
+                          fontSize: '14px',
+                        }}
+                      >
+                        {disburseEmployee.bank_account_number}
+                      </strong>
+                    </div>
+                    <div>
+                      Chủ TK:{' '}
+                      <strong style={{ color: '#F8FAFC' }}>
+                        {disburseEmployee.bank_account_holder ||
+                          disburseEmployee.full_name}
+                      </strong>
+                    </div>
+                    {disburseEmployee.phone && (
+                      <div>
+                        SĐT: <strong>{disburseEmployee.phone}</strong>
+                      </div>
+                    )}
+                  </div>
+                  {disburseMethod === 'bank_transfer' &&
+                    Number(disburseAmount) > 0 && (
+                      <div
+                        style={{
+                          backgroundColor: '#FFFFFF',
+                          padding: '6px',
+                          borderRadius: '8px',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <img
+                          data-testid="disburse-vietqr-img"
+                          src={`https://img.vietqr.io/image/${resolveVietQrBankCode(disburseEmployee.bank_name)}-${encodeURIComponent(disburseEmployee.bank_account_number.trim())}-compact2.png?amount=${Math.max(0, parseInt(disburseAmount, 10) || 0)}&addInfo=${encodeURIComponent(`LUONG ${selectedMonth} ${disburseEmployee.employee_code} ${disburseEmployee.full_name}`)}&accountName=${encodeURIComponent(disburseEmployee.bank_account_holder || disburseEmployee.full_name)}`}
+                          alt="VietQR chuyển khoản lương"
+                          style={{
+                            width: '132px',
+                            height: '132px',
+                            objectFit: 'contain',
+                            display: 'block',
+                          }}
+                        />
+                        <div
+                          style={{
+                            fontSize: '10px',
+                            color: '#0F172A',
+                            fontWeight: 700,
+                            marginTop: '2px',
+                          }}
+                        >
+                          Quét mã VietQR
+                        </div>
+                      </div>
+                    )}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: '#FBBF24',
+                  }}
+                >
+                  <span>
+                    Nhân sự chưa cập nhật Số tài khoản ngân hàng trong hồ sơ.
+                  </span>
+                  {onNavigate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeDisburseModal();
+                        onNavigate(`/employees/${disburseEmployee.employee_id}`);
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #F59E0B',
+                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                        color: '#FCD34D',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Cập nhật TK ngân hàng →
+                    </button>
+                  )}
+                </div>
+              )}
+              <div
+                style={{
+                  marginTop: '8px',
+                  paddingTop: '8px',
+                  borderTop: '1px solid #1E293B',
+                  color: '#34D399',
+                  fontSize: '11px',
+                }}
+              >
+                ✓ Khi xác nhận chi trả, hệ thống tự động ghi nhận Phiếu chi lương vào Sổ thu chi (/finance).
               </div>
             </div>
 

@@ -30,6 +30,11 @@ interface Employee extends QueryResultRow {
   employee_code: string;
   full_name: string;
   user_id: string | null;
+  phone?: string | null;
+  position_title?: string | null;
+  bank_name?: string | null;
+  bank_account_number?: string | null;
+  bank_account_holder?: string | null;
 }
 interface Shift extends QueryResultRow {
   id: string;
@@ -479,13 +484,41 @@ export class PayrollService {
         p?.status === 'finalized' && item
           ? Number(item.base_pay_vnd)
           : sum(days);
+      const isBonusAdj = (r: unknown) =>
+        /^\[(THƯỞNG|THUONG)\]/i.test(String(r ?? '').trim());
+      const isAllowanceAdj = (r: unknown) =>
+        /^\[(PHỤ CẤP|PHU CAP)\]/i.test(String(r ?? '').trim());
+      const isDeductionAdj = (r: unknown) =>
+        /^\[(KHẤU TRỪ|KHAU TRU|TẠM ỨNG|TAM UNG|PHẠT|PHAT)\]/i.test(
+          String(r ?? '').trim(),
+        );
+      const bonus = exactMoney(
+        adjustments
+          .filter((a) => isBonusAdj(a.reason))
+          .reduce((s, a) => s + BigInt(a.amount_vnd), 0n),
+      );
+      const allowance = exactMoney(
+        adjustments
+          .filter((a) => isAllowanceAdj(a.reason))
+          .reduce((s, a) => s + BigInt(a.amount_vnd), 0n),
+      );
+      const deduction = exactMoney(
+        adjustments
+          .filter((a) => isDeductionAdj(a.reason))
+          .reduce((s, a) => s + BigInt(a.amount_vnd), 0n),
+      );
       const leave = exactMoney(
-        adjustments.reduce((s, a) => s + BigInt(a.amount_vnd), 0n),
+        adjustments
+          .filter((a) => !isDeductionAdj(a.reason))
+          .reduce((s, a) => s + BigInt(a.amount_vnd), 0n),
       );
       const net =
         p?.status === 'finalized' && item
           ? Number(item.net_pay_vnd)
-          : exactMoney(BigInt(base) + BigInt(leave));
+          : Math.max(
+              0,
+              exactMoney(BigInt(base) + BigInt(leave) - BigInt(deduction)),
+            );
       const paid = exactMoney(
         ledger.reduce((s, a) => s + BigInt(a.amount_vnd), 0n),
       );
@@ -495,6 +528,11 @@ export class PayrollService {
         employee_id: e.id,
         employee_code: e.employee_code,
         full_name: e.full_name,
+        phone: e.phone ?? null,
+        position_title: e.position_title ?? null,
+        bank_name: e.bank_name ?? null,
+        bank_account_number: e.bank_account_number ?? null,
+        bank_account_holder: e.bank_account_holder ?? null,
         // Display-only rate at server_as_of; never recalculate frozen wages.
         hourly_rate_vnd:
           rates.find(
@@ -508,9 +546,9 @@ export class PayrollService {
           approved_worked_minutes: Math.floor(seconds(days) / 60),
           base_pay_vnd: base,
           paid_leave_pay_vnd: leave,
-          allowance_vnd: 0,
-          bonus_vnd: 0,
-          deduction_vnd: 0,
+          allowance_vnd: allowance,
+          bonus_vnd: bonus,
+          deduction_vnd: deduction,
           net_pay_vnd: net,
           paid_amount_vnd: paid,
           remaining_balance_vnd: net - paid,
@@ -844,6 +882,69 @@ export class PayrollService {
             ],
           )
         ).rows[0]!;
+        try {
+          await c.query('SAVEPOINT sp_pay_fin_sync');
+          const empMeta = (
+            await c.query<{
+              full_name: string;
+              employee_code: string;
+              period_month: string;
+            }>(
+              'SELECT e.full_name, e.employee_code, p.period_month FROM employees e JOIN payroll_periods p ON p.workspace_id = e.workspace_id WHERE e.workspace_id = $1 AND e.id = $2 AND p.id = $3',
+              [auth.workspace.id, i.employee_id, i.period_id],
+            )
+          ).rows[0];
+          if (empMeta) {
+            const catName = 'Chi trả lương nhân sự';
+            const catRes = await c.query<{ id: string; name: string }>(
+              `INSERT INTO fin_categories (workspace_id, owner_user_id, direction, name)
+               VALUES ($1, $2, 'expense', $3)
+               ON CONFLICT (workspace_id, owner_user_id, direction, normalized_name) WHERE is_active
+               DO UPDATE SET updated_at = clock_timestamp()
+               RETURNING id, name`,
+              [auth.workspace.id, auth.user.id, catName],
+            );
+            const cat = catRes.rows[0];
+            if (cat) {
+              const entryId = crypto.randomUUID();
+              const opKey = `pay_disburse:${result.id}`;
+              const fp = crypto
+                .createHash('sha256')
+                .update(`${opKey}:${v}:${day}`)
+                .digest('hex');
+              const refSuffix = body.reference_note
+                ? ` - ${String(body.reference_note).trim()}`
+                : '';
+              const noteText = `Chi trả lương kỳ ${empMeta.period_month} - ${empMeta.full_name} (${empMeta.employee_code})${refSuffix}`.slice(
+                0,
+                2000,
+              );
+              await c.query(
+                `INSERT INTO fin_entries (
+                  id, root_entry_id, workspace_id, owner_user_id, revision_number,
+                  direction, category_id, category_name_snapshot, amount_vnd,
+                  occurred_on, note, operation_key, request_fingerprint
+                ) VALUES ($1, $1, $2, $3, 1, 'expense', $4, $5, $6, $7, $8, $9, $10)
+                ON CONFLICT (workspace_id, owner_user_id, operation_key) DO NOTHING`,
+                [
+                  entryId,
+                  auth.workspace.id,
+                  auth.user.id,
+                  cat.id,
+                  cat.name,
+                  v,
+                  day,
+                  noteText,
+                  opKey,
+                  fp,
+                ],
+              );
+            }
+          }
+          await c.query('RELEASE SAVEPOINT sp_pay_fin_sync');
+        } catch {
+          await c.query('ROLLBACK TO SAVEPOINT sp_pay_fin_sync');
+        }
         return { ...result, amount_vnd: Number(result.amount_vnd) };
       },
     );

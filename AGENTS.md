@@ -4,10 +4,12 @@
 
 ## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
 
-- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.1.4`
-- **Tiến độ lũy kế:** Hoàn tất **Phase 1/4 (`25%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`), cộng với 100% khung 14 màn hình quản trị, 30/30 migrations trên PostgreSQL 18 (`management_lite_test`), RBAC, Brevo Email, Storage V2 Google Drive, Liên thông V4 Bridge và Import/Export Excel lương.
+- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.1.5`
+- **Tiến độ lũy kế:** Hoàn tất **Phase 2/4 (`50%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`):
+  - ✅ **Phase 1 (`v0.1.4`):** Hồ sơ Nhân sự mở rộng + Ngân hàng + Nhắc SĐT (`migration 0030`) + Kích hoạt `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY`, `FIN_RECEIPT_DIR` (`96d3d1e`).
+  - ✅ **Phase 2 (`v0.1.5`):** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel + Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương + Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)**.
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
-  - Thực thi **Phase 2 (`v0.1.5`) — Task 2.1, Task 2.2, Task 2.3:** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)**, hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương, và tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)**.
+  - Thực thi **Phase 3 (`v0.1.6`) — Task 3.1 & Task 3.2:** Hiển thị cột **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV/Excel** trên bảng Danh sách nhân sự (`/employees`), thêm nút nhắc nộp Báo cáo ngay sau khi Ra ca (`/clock`) và Trung tâm Việc cần xử lý trên Dashboard (`/dashboard`).
 
 ---
 
@@ -16,11 +18,11 @@
 | Phase & Version đích | Mã Task | Nội dung Task | File mục tiêu (Chỉ mở đúng file này) | Trạng thái |
 |---|---|---|---|---|
 | **Phase 1 (`v0.1.4`)**<br>Hồ sơ Nhân sự, Ngân hàng & Kích hoạt Hạ tầng Server | `Task 1.0` | Mở rộng hồ sơ nhân sự (SĐT, CCCD, Ngày sinh, Địa chỉ, Chức danh) + Thông tin Ngân hàng + Modal nhắc SĐT (`migration 0030`) | `packages/database/src/migrations/0030_employee_profile_and_bank_info.sql`, `apps/api/src/employees/service.ts`, `apps/web/src/screens/EmployeeDetailScreen.tsx`, `apps/web/src/App.tsx` | `[DONE]` (`5b9e996`) |
-| **Phase 1 (`v0.1.4`)** | `Task 1.1` | Hợp nhất `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY` & `FIN_RECEIPT_DIR` vào `api.env` và phát hành `v0.1.4` | `C:\HoaiPhuong-Server\config\test-secrets\api.env`, `packages/contracts/src/version.ts`, `package.json` | `[DONE]` (`v0.1.4`) |
-| **Phase 2 (`v0.1.5`)**<br>Bảng lương Thưởng/Khấu trừ, `VietQR` & Sổ thu chi | `Task 2.1` | Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel | `packages/contracts/src/payroll.ts`, `apps/api/src/payroll/service.ts`, `apps/api/src/payroll/timesheet-service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[TODO - NEXT]` |
-| **Phase 2 (`v0.1.5`)** | `Task 2.2` | Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương | `packages/contracts/src/payroll.ts`, `apps/api/src/payroll/service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[TODO]` |
-| **Phase 2 (`v0.1.5`)** | `Task 2.3` | Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** khi xác nhận chi trả lương | `apps/api/src/payroll/service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[TODO]` |
-| **Phase 3 (`v0.1.6`)**<br>Nhân sự, Báo cáo & Dashboard UX | `Task 3.1` | Hiển thị cột **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV/Excel** trên bảng Danh sách nhân sự (`/employees`) | `apps/web/src/screens/EmployeesScreen.tsx` | `[TODO]` |
+| **Phase 1 (`v0.1.4`)** | `Task 1.1` | Hợp nhất `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY` & `FIN_RECEIPT_DIR` vào `api.env` và phát hành `v0.1.4` | `C:\HoaiPhuong-Server\config\test-secrets\api.env`, `packages/contracts/src/version.ts`, `package.json` | `[DONE]` (`96d3d1e` • `v0.1.4`) |
+| **Phase 2 (`v0.1.5`)**<br>Bảng lương Thưởng/Khấu trừ, `VietQR` & Sổ thu chi | `Task 2.1` | Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel | `packages/contracts/src/payroll.ts`, `apps/api/src/payroll/service.ts`, `apps/api/src/payroll/timesheet-service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[DONE]` (`v0.1.5`) |
+| **Phase 2 (`v0.1.5`)** | `Task 2.2` | Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương | `packages/contracts/src/payroll.ts`, `apps/api/src/payroll/service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[DONE]` (`v0.1.5`) |
+| **Phase 2 (`v0.1.5`)** | `Task 2.3` | Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** khi xác nhận chi trả lương | `apps/api/src/payroll/service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[DONE]` (`v0.1.5`) |
+| **Phase 3 (`v0.1.6`)**<br>Nhân sự, Báo cáo & Dashboard UX | `Task 3.1` | Hiển thị cột **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV/Excel** trên bảng Danh sách nhân sự (`/employees`) | `apps/web/src/screens/EmployeesScreen.tsx` | `[TODO - NEXT]` |
 | **Phase 3 (`v0.1.6`)** | `Task 3.2` | Nút nhắc nộp Báo cáo ngay sau khi Ra ca (`/clock`) & Trung tâm Việc cần xử lý trên Dashboard (`/dashboard`) | `apps/web/src/screens/ClockScreen.tsx`, `apps/web/src/screens/DashboardScreen.tsx` | `[TODO]` |
 | **Phase 4 (`v0.2.0`)**<br>Liên thông V4 & Tối ưu Bundle | `Task 4.1` | Giao diện xác nhận ánh xạ nhân sự cố định giữa V4 (`hoaiphuong.click`) và mã `NV001`, `NV002`... | `apps/api/src/bridge/service.ts`, `apps/web/src/screens/DashboardScreen.tsx` | `[TODO]` |
 | **Phase 4 (`v0.2.0`)** | `Task 4.2` | Chia nhỏ gói JS (`manualChunks`) giảm bundle chính từ `~1 MB` xuống `< 400 kB` | `apps/web/vite.config.ts` | `[TODO]` |
@@ -38,7 +40,7 @@
 | **Nhân sự (`/employees`)** | `packages/contracts/src/employees.ts`, `migrations/0030_*.sql` | `employees/service.ts`, `app.ts` | `screens/EmployeesScreen.tsx`, `screens/EmployeeDetailScreen.tsx`, `screens/EmployeeNewScreen.tsx` | `tests/web/employee-detail-screen.test.mjs` |
 | **Chấm công (`/clock`, `/attendance`)** | `packages/contracts/src/attendance.ts` | `attendance/service.ts` | `screens/ClockScreen.tsx`, `screens/AttendanceScreen.tsx` | `tests/backend/att-*.test.mjs` |
 | **Báo cáo & Công việc (`/reports`, `/work`)** | `packages/contracts/src/reports.ts`, `work.ts` | `reports/service.ts`, `work/service.ts` | `screens/ReportsScreen.tsx`, `screens/WorkScreen.tsx`, `screens/WorkDetailScreen.tsx` | `tests/backend/report-work-link-postgres.test.mjs` |
-| **Bảng lương & Thống kê (`/payroll`)** | `packages/contracts/src/payroll.ts`, `migrations/0027_*.sql` | `payroll/service.ts`, `payroll/timesheet-service.ts` | `screens/PayrollScreen.tsx`, `screens/PayrollStatsScreen.tsx` | `tests/backend/pay-18-23-invariants.test.mjs`, `tests/web/payroll-stats-screen.test.mjs` |
+| **Bảng lương & Thống kê (`/payroll`)** | `packages/contracts/src/payroll.ts`, `migrations/0027_*.sql` | `payroll/service.ts`, `payroll/timesheet-service.ts` | `screens/PayrollScreen.tsx`, `screens/PayrollStatsScreen.tsx` | `tests/web/payroll-screen.test.mjs`, `tests/backend/payroll.test.mjs` |
 | **Sổ thu chi (`/finance`)** | `packages/contracts/src/finance.ts` | `finance/service.ts`, `finance/receipt-store.ts` | `screens/FinanceOverviewScreen.tsx`, `screens/FinanceLedgerScreen.tsx` | `tests/web/finance-*.test.mjs` |
 | **Kho Google Drive (`/storage`)** | `packages/contracts/src/storage.ts`, `migrations/0025_*.sql` | `storage/service.ts`, `storage/google-drive-provider.ts` | `screens/StorageScreen.tsx` | `tests/backend/storage-*.test.mjs` |
 | **Tài khoản dùng chung (`/accounts`)** | `packages/contracts/src/accounts.ts` | `accounts/service.ts` | `screens/AccountsScreen.tsx` | `tests/web/accounts-*.test.mjs` |

@@ -84,8 +84,12 @@ export interface ConfirmedPayData {
   approved_worked_minutes: number;
   base_pay_vnd: number;
   paid_leave_pay_vnd: number;
+  allowance_vnd?: number | undefined;
+  bonus_vnd?: number | undefined;
+  deduction_vnd?: number | undefined;
   net_pay_vnd: number;
   paid_amount_vnd: number;
+  remaining_balance_vnd?: number | undefined;
   payment_status: 'unpaid' | 'partially_paid' | 'paid';
 }
 
@@ -111,6 +115,11 @@ export interface PayrollEmployeeItemData {
   employee_id: string;
   employee_code: string;
   full_name: string;
+  phone?: string | null | undefined;
+  position_title?: string | null | undefined;
+  bank_name?: string | null | undefined;
+  bank_account_number?: string | null | undefined;
+  bank_account_holder?: string | null | undefined;
   /**
    * Hourly rate effective at server_as_of, or null if not configured.
    * Does NOT represent the rate of the entire period; past shifts use their snapshot rate.

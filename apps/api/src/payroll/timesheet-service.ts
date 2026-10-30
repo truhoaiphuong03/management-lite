@@ -8,6 +8,7 @@ import {
   calculateDays,
   instant,
   localDate,
+  monthBounds,
   subtractBreaks,
   type PayInterval,
   type PayRate,
@@ -621,10 +622,60 @@ export class TimesheetService {
       warnings.push(
         `Có ${futureShifts} ca có ngày lớn hơn giờ máy chủ hiện tại — hãy kiểm tra lại năm (${year}) trước khi xác nhận.`,
       );
-    if (ignoredBonus > 0)
+    if (ignoredBonus > 0) {
+      for (const pm of parsedMonths) {
+        const periodMonth = `${year}-${String(pm.month).padStart(2, '0')}`;
+        for (const d of pm.days) {
+          if (d.bonus > 0 && d.day >= 1 && d.day <= daysInMonth(year, pm.month)) {
+            const bonusDate = `${periodMonth}-${String(d.day).padStart(2, '0')}`;
+            const bonusAmt = Math.round(d.bonus);
+            if (bonusAmt > 0) {
+              try {
+                await c.query('SAVEPOINT sp_ts_bonus');
+                const bBounds = monthBounds(periodMonth);
+                await c.query(
+                  `INSERT INTO payroll_periods(workspace_id,period_month,starts_on,ends_on) VALUES($1,$2,$3,$4) ON CONFLICT(workspace_id,period_month) DO NOTHING`,
+                  [ws, periodMonth, bBounds.starts_on, bBounds.ends_on],
+                );
+                const pRow = (
+                  await c.query<{ id: string; status: string }>(
+                    'SELECT id, status FROM payroll_periods WHERE workspace_id=$1 AND period_month=$2',
+                    [ws, periodMonth],
+                  )
+                ).rows[0];
+                if (pRow && pRow.status !== 'finalized') {
+                  const itemRow = (
+                    await c.query<{ id: string }>(
+                      'INSERT INTO payroll_employee_items(workspace_id,period_id,employee_id,net_pay_vnd) VALUES($1,$2,$3,0) ON CONFLICT(workspace_id,period_id,employee_id) DO UPDATE SET updated_at=clock_timestamp() RETURNING id',
+                      [ws, pRow.id, employee.id],
+                    )
+                  ).rows[0];
+                  if (itemRow) {
+                    const reasonText = `[THƯỞNG] Thưởng chấm công ngày ${bonusDate}${d.task ? ` - ${d.task}` : ''}`.slice(0, 1000);
+                    const dupAdj = await c.query(
+                      'SELECT 1 FROM payroll_adjustments WHERE workspace_id=$1 AND payroll_item_id=$2 AND attributable_date=$3 AND amount_vnd=$4 AND reason=$5 LIMIT 1',
+                      [ws, itemRow.id, bonusDate, bonusAmt, reasonText],
+                    );
+                    if (!dupAdj.rowCount) {
+                      await c.query(
+                        "INSERT INTO payroll_adjustments(workspace_id,payroll_item_id,adjustment_type,attributable_date,amount_vnd,reason,created_by) VALUES($1,$2,'paid_leave',$3,$4,$5,$6)",
+                        [ws, itemRow.id, bonusDate, bonusAmt, reasonText, auth.user.id],
+                      );
+                    }
+                  }
+                }
+                await c.query('RELEASE SAVEPOINT sp_ts_bonus');
+              } catch {
+                await c.query('ROLLBACK TO SAVEPOINT sp_ts_bonus');
+              }
+            }
+          }
+        }
+      }
       warnings.push(
-        `Cột THƯỞNG (${ignoredBonus.toLocaleString('vi-VN')} đ) chưa được hệ thống lương hỗ trợ nên không nhập.`,
+        `Đã tự động ghi nhận cột THƯỞNG (${ignoredBonus.toLocaleString('vi-VN')} đ) vào mục điều chỉnh thưởng bảng lương.`,
       );
+    }
 
     // 3. Rates
     const existingRates = (

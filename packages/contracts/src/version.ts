@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.1.4';
-export const SYSTEM_COMMIT = '5b9e996';
+export const SYSTEM_VERSION = '0.1.5';
+export const SYSTEM_COMMIT = '96d3d1e';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,27 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.1.4',
+    version: '0.1.5',
     commit: 'latest',
+    released_at: '2026-10-30T18:18:00.000Z',
+    summary:
+      'Hoàn tất Phase 2: Mở khóa tính Thưởng (bonus), Phụ cấp (allowance), Khấu trừ (deduction) trong Bảng lương & Import Excel, tích hợp hiển thị Tài khoản Ngân hàng & Mã QR chuyển khoản VietQR tự động trong cửa sổ Chi trả lương, và tự động ghi nhận Phiếu chi lương sang Sổ thu chi (/finance).',
+    added: [
+      'Bộ chọn phân loại điều chỉnh lương nhanh trên Bảng lương (/payroll): Nghỉ có lương (+), Thưởng KPI/Chuyên cần (+), Phụ cấp ca/Ăn trưa (+), và Khấu trừ / Tạm ứng (-).',
+      'Khung Thông tin Ngân hàng nhận lương & Mã QR chuyển khoản VietQR tự động (điền sẵn số tiền còn phải chi và nội dung LUONG <KY> <MA_NV> <HO_TEN>) ngay trong cửa sổ Ghi nhận chi trả lương.',
+      'Tự động đồng bộ Phiếu chi lương sang Sổ thu chi (/finance, danh mục "Chi trả lương nhân sự") ngay khi xác nhận chi trả lương.',
+    ],
+    improved: [
+      'Tự động nhập cột THƯỞNG từ file Excel chấm công Google Sheet (.xlsx) vào mục điều chỉnh thưởng của kỳ lương tương ứng.',
+      'Bổ sung nút Sao chép nhanh Số tài khoản và lối tắt chuyển sang cập nhật TK ngân hàng nếu nhân sự chưa có thông tin ngân hàng.',
+    ],
+    fixed: [
+      'Đảm bảo tương thích ngược 100% với hợp đồng kiểm toán bất biến (PAY-01) và cơ chế chống chi trả trùng lặp (Idempotency).',
+    ],
+  },
+  {
+    version: '0.1.4',
+    commit: '96d3d1e',
     released_at: '2026-10-30T17:58:00.000Z',
     summary:
       'Hoàn tất Phase 1: Bổ sung Hồ sơ Nhân sự mở rộng, Thông tin Ngân hàng nhận lương & Nhắc cập nhật SĐT tự động (migration 0030), Thống kê & Import/Export Excel lương (migration 0027), Nhật ký hệ thống (migration 0028) và kích hoạt Google Drive Live OAuth + Mã hóa Tài khoản dùng chung + Quét hóa đơn AI trên Server.',
@@ -133,88 +152,6 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     fixed: [
       'Khắc phục lỗi tải danh sách nhân sự nhiều trang tại màn hình Lịch làm việc và Công việc.',
       'Tăng cường kiểm soát phân quyền truy cập trực tiếp đường dẫn phân hệ Vấn đề (/issues) đối với tài khoản nhân viên.',
-    ],
-  },
-  {
-    version: '0.0.9',
-    commit: '3743e99',
-    released_at: '2026-10-14T22:18:17.000Z',
-    summary:
-      'Phát hành phân hệ Quản lý Tài chính (Sổ thu chi, Danh mục, Kế hoạch ngân sách, Đính kèm chứng từ) và quy trình đóng gói bản phát hành chuẩn SHA-256.',
-    added: [
-      'Phân hệ Tài chính (Finance): quản lý bút toán thu/chi, đính kèm ảnh hóa đơn/chứng từ và đối soát kế hoạch ngân sách.',
-      'Công cụ đóng gói bản phát hành có xác thực chữ ký số Ed25519 và kiểm tra toàn vẹn tệp tin SHA-256.',
-    ],
-    improved: [
-      'Tăng cường bảo mật phiên làm việc (CSRF, Rate Limiting, khóa tài khoản tạm thời khi nhập sai mật khẩu nhiều lần).',
-    ],
-    fixed: [
-      'Chuẩn hóa thông tin phiên bản hiển thị trên thanh điều hướng và màn hình Đăng nhập.',
-    ],
-  },
-  {
-    version: '0.0.8',
-    commit: 'cdb7046',
-    released_at: '2026-10-14T07:39:08.876Z',
-    summary:
-      'Hoàn thiện bảo mật vận hành và chuẩn hóa dữ liệu các phân hệ Nhân sự, Chấm công, Lịch làm việc, Bảng lương, Công việc, Vấn đề, Tài khoản và Lưu trữ.',
-    added: [
-      'Cơ chế kiểm soát truy cập theo vai trò (Chủ sở hữu / Nhân viên) và nhật ký kiểm toán bảo mật.',
-      'Tùy chọn giao diện Sáng/Tối, cấu hình múi giờ và tiền tệ trong mục Cài đặt cá nhân.',
-    ],
-    improved: [
-      'Tối ưu hiệu năng truy vấn danh sách nhân sự, bảng chấm công và tổng hợp bảng lương theo kỳ.',
-    ],
-    fixed: [
-      'Đồng bộ múi giờ chuẩn Việt Nam (Asia/Ho_Chi_Minh) cho toàn bộ dữ liệu chấm công và báo cáo.',
-    ],
-  },
-  {
-    version: '0.0.7',
-    commit: 'db91003',
-    released_at: '2026-10-13T22:22:45.678Z',
-    summary:
-      'Triển khai đồng bộ các phân hệ quản lý nội bộ: Công việc, Vấn đề phát sinh, Kho tài khoản dùng chung và Lưu trữ đám mây.',
-    added: [
-      'Phân hệ Quản lý Công việc, theo dõi Vấn đề phát sinh, Tài khoản dùng chung (mã hóa AES-256-GCM) và theo dõi Lưu trữ.',
-    ],
-    improved: [
-      'Áp dụng cô lập dữ liệu không gian làm việc (Workspace Isolation — C06) trên toàn bộ API.',
-    ],
-    fixed: [
-      'Sửa lỗi hiển thị trạng thái phiên làm việc khi chuyển đổi giữa các màn hình chức năng.',
-    ],
-  },
-  {
-    version: '0.0.6',
-    commit: '1a54557',
-    released_at: '2026-10-13T20:54:04.658Z',
-    summary:
-      'Cập nhật quy trình Chấm công vào/ra ca, phân ca Lịch làm việc và tự động tính Bảng lương nhân sự.',
-    added: [
-      'Chức năng chấm công trực tuyến, quản lý ca làm việc và chốt bảng lương định kỳ.',
-    ],
-    improved: [
-      'Giao diện tra cứu lịch sử chấm công và báo cáo tổng hợp giờ công.',
-    ],
-    fixed: [
-      'Khắc phục lỗi biên dịch và đồng bộ dịch vụ API trên máy chủ Windows.',
-    ],
-  },
-  {
-    version: '0.0.5',
-    commit: '9a51c58',
-    released_at: '2026-10-13T20:40:36.602Z',
-    summary:
-      'Khởi tạo hệ thống Management Lite trên môi trường Production với phân hệ Hồ sơ Nhân sự và Xác thực bảo mật.',
-    added: [
-      'Hệ thống đăng nhập bảo mật Argon2id, quản lý hồ sơ nhân sự và cấu hình máy chủ Production.',
-    ],
-    improved: [
-      'Thiết lập kết nối an toàn qua Cloudflare Tunnel và dịch vụ chạy nền tự động.',
-    ],
-    fixed: [
-      'Hoàn thiện cấu hình khởi động dịch vụ API và cơ sở dữ liệu PostgreSQL.',
     ],
   },
 ];
