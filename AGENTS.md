@@ -1,46 +1,57 @@
-# AGENTS.md — `management-lite`
+# AGENTS.md — `management-lite` (`https://ql.hoaiphuong.click`)
 
 <!-- LIVE_CHECKPOINT_START -->
 
-## 📌 LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM KIỂM TRA LẠI VIỆC ĐÃ XONG)
+## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
 
-- **Dự án:** `management-lite` | **Nhánh:** `main`
-- **Tiến độ lũy kế:** Giai đoạn 5/5 (100%)
-- **Hạng mục ĐÃ XONG (`DONE`):**
-  - [x] Khung quản lý vận hành Lite & Mobile P0 multi-profile headless browser launcher (`481977f`).
-  - [x] Hoàn thiện kiểm thử tự động Mobile P0 (macOS/Linux/Windows headless + multi-route 320px audit) & chuẩn hóa bố cục responsive `minmax(min(100%, ...), 1fr)` trên toàn bộ 14 màn hình quản trị.
-  - [x] Hoàn thành phân quyền RBAC 3 vai trò (`CP22-04`: `Owner` / `Admin` / `Staff`) và 4 tính năng mở rộng (Export Excel/CSV, Audit Export, GPS Geofencing, MFA/TOTP) (`c771cf9`).
-  - [x] Hoàn tất bộ kiểm thử nghiệm thu tự động `tests/web/cp22-04-extensions.test.mjs` (PASS 100%) — Sẵn sàng đồng bộ MacBook ↔ Windows Server.
-  - [x] Hợp nhất toàn bộ tính năng phát triển trên máy Windows (`anty/feat-storage-v2-google-drive` `c145f5c`) vào `main`: Storage V2 Google Drive (migration `0025`), Xác thực Email Brevo `/verify-email`, Lịch sử/Phê duyệt chấm công & Form Tài khoản nâng cao (migration `0024`).
-  - [x] Cập nhật danh mục phát hành chính thức `v0.1.2` (`RELEASE_NOTES_CATALOG`) và đồng bộ tự động cả Backend API + Frontend Web + Migration trực tiếp lên `https://ql.hoaiphuong.click`.
-  - [x] Kết nối dữ liệu toàn diện hai chiều giữa `ql.hoaiphuong.click` (`management-lite` `v0.1.3`) và `hoaiphuong.click` (`tiktok-ai-factory-v4`): Đồng bộ Nhân sự/Tài khoản, Tự động quy đổi sản lượng Kịch bản/Prompt/Video sang Báo cáo & Công việc, và Liên kết Kênh TikTok & Kho Google Drive.
-  - [x] [WIN-1 • 2026-10-20 15:36] Đã thực thi & kiểm tra (npm run typecheck && npm run test:security): Kiểm tra lại lần nữa
-  - [x] [MAC • 2026-10-22] DEV: Sửa an toàn bridge (giữ nguyên báo cáo, chặn nguồn lỗi/thiếu khóa, xác nhận nhân sự, cache theo workspace, chống trùng công việc), bộ đếm ngày theo timezone và phiên bản UI 0.1.3. 40/40 kiểm thử hồi quy/bảo mật PASS; web 381 PASS, 4 SKIP. Chi tiết: `docs/reports/2026-10-22-bridge-safety-fix.md`. Chưa deploy Production.
-  - [x] [MAC • 2026-10-22 • Rà soát 2] DEV: Sửa retry Request/CSRF khi gia hạn phiên, cột email và trạng thái Drive trong bridge; bỏ thông báo GPS/MFA thành công giả, ghi rõ Admin chưa bật. Web 383 PASS/4 SKIP; backend chọn lọc 37 PASS/6 SKIP; hồi quy bridge + Request + CP22 23 PASS/1 SKIP. Đã thêm kiểm thử PostgreSQL bridge vào CI, chưa chạy tại Mac. Chi tiết: `docs/reports/2026-10-22-system-audit-round2.md`.
-  - [x] [WIN-1 • 2026-10-22 10:23] Đã thực thi & kiểm tra (npm run typecheck && npm run test:security): Kiểm tra báo cáo tiến độ dự án #5
-  - [x] [MAC • 2026-10-27] DEV: Thống kê lương theo ngày/tuần/tháng/năm (`/payroll/stats`, API `/api/v1/payroll-tools/stats`, liên kết báo cáo công việc theo nhân viên + ngày), xuất/nhập Excel chấm công theo năm đúng mẫu Google Sheet (mỗi tháng một tab, chỉ tháng có dữ liệu; `/api/v1/payroll-tools/timesheet/{export,import}`, có xem trước, không ghi đè ca đã có), migration `0027_timesheet_import`. Web 384 PASS; backend +4 PASS mới, 16 FAIL cũ do thiếu PostgreSQL/Windows (giống trước khi sửa). Phần ghi DB đã được CI PostgreSQL kiểm chứng (xem mục TEST bên dưới). Chưa nhập dữ liệu thật, chưa deploy. Bàn giao: `docs/reports/2026-10-27-timesheet-stats-handoff.md`.
-  - [x] [MAC • 2026-10-27] DEV: Rà soát chấm công/lương/báo cáo/công việc/Drive: nối route `/attendance/corrections` và `/reports/new` (mở sẵn form tạo). LƯU Ý: cờ `implemented:false` của `/activate`, `/employees*`, `/attendance/corrections` là quyết định chuẩn bị khóa bởi test (ui-demo, ui-fix-43) — KHÔNG đổi sang true. Web 384 PASS. 2 FAIL backend còn lại là do thiếu DB QA (`TEST_DATABASE_URL`), không phải lỗi code. CÒN THIẾU: thưởng/khấu trừ (cần Owner quyết định OI-04), route `/reports/:id` chưa có màn chi tiết (cờ bị test khóa).
-  - [x] [MAC • 2026-10-27] DEV: Nhật ký hệ thống cho Owner (`/system-logs`, nhóm Quản trị): bảng `system_logs` (migration `0028`, giữ 30 ngày), ghi lỗi 4xx/5xx + yêu cầu chậm ≥3s + lỗi trình duyệt (`POST /api/v1/system/client-errors`), gom nhóm lỗi theo fingerprint, lọc theo mức/nguồn/đường dẫn/request ID, chi tiết có stack, hành động audit cùng request, nút sao chép báo cáo lỗi. API `GET /api/v1/system/logs[/summary|/:id]`. Web 384 PASS; backend +5 PASS mới (16 FAIL cũ do thiếu DB). Phần đọc/ghi `system_logs` đã được CI PostgreSQL kiểm chứng; chưa deploy. Bàn giao: `docs/reports/2026-10-27-timesheet-stats-handoff.md` (mục Nhật ký hệ thống).
-  - [x] [MAC • 2026-10-27] TEST: Đã kiểm chứng trên PostgreSQL 18 thật qua GitHub CI (`ci-isolated-tests.mjs`, xanh): nhập/xuất Excel chấm công, thống kê lương ngày/tuần/tháng/năm, nhật ký hệ thống (`tests/backend/timesheet-postgres.test.mjs`, 11 mục), cùng ATT, REP, WORK, schedule, PAY (23), storage (16), nhân sự, issues, khóa Owner, đăng nhập admin. KHÔNG chạy được trên CI: `auth-remember-me` (cần Chrome+Edge), `reports-endpoint` (cần endpoint QA riêng), `finance-endpoint` (skip). Migration `0027`, `0028` đã áp dụng thành công trên PG18. Chưa deploy.
-  - [x] [MAC • 2026-10-27] DEV: Liên kết báo cáo ↔ công việc (migration `0029`): mỗi dòng báo cáo có thể chọn một công việc ĐÃ GIAO cho chính nhân viên đó (tùy chọn); API trả `work_item_id`/`work_item_title`, lưu trong bản chụp phiên bản; lỗi `INVALID_WORK_ITEM` (422) khi chọn việc của người khác/chưa giao. `ReportsScreen` có ô chọn "Công việc liên quan" ở cả 3 form và liên kết sang `/work/:id`. Kiểm thử PostgreSQL: `tests/backend/report-work-link-postgres.test.mjs`. Web 384 PASS.
-  - [x] [MAC • 2026-10-27 • Hoàn tất Stage C] TEST & POLISH: Đã đối chiếu trực tiếp dữ liệu thật của **Nguyễn Huỳnh Thế Vinh** (năm 2026, 53 ca / 167,28 giờ, đơn giá `20.000 → 25.000` từ `01/07/2026`) ở cả chế độ Xem trước (`commit=false`) và Ghi thật (`commit=true`) trên PostgreSQL 18 CI (`tests/backend/timesheet-postgres.test.mjs`): khớp chính xác **53 ca**, **167,28 giờ**, **50 báo cáo** (**1.453 clip**), tổng lương **`3.896.252 đ`** (so với Google Sheet `3.896.250 đ`, lệch `+2 đ` do làm tròn 1 VND từng ngày theo `PAY-01`); đổi kiểm tra ca tương lai khi import Excel từ bỏ qua sang cảnh báo để không phụ thuộc đồng hồ máy chủ; tối ưu bảng `/system-logs` trên màn hình điện thoại 360px.
-  - [x] [MAC • 2026-10-27] FIX (`/employees/new`): Tự động cấp và điền sẵn mã nhân viên kế tiếp (`NV001`, `NV002`...) ngay trong ô `Mã nhân viên` khi mở trang Thêm nhân sự mới (`EmployeeNewScreen.tsx` + API `GET /api/v1/employees/next-code`), kèm huy hiệu `Tự động` và nút khôi phục mã tự động nếu người dùng sửa tay.
-  - [x] [WIN-1 • 2026-10-27] RELEASE & DB MIGRATION (`0027`..`0030`): Đã đồng bộ `main`, thực thi đầy đủ 30/30 migrations (`0027_timesheet_import`, `0028_system_logs`, `0029_report_entry_work_item`, `0030_employee_profile_and_bank_info`) trên PostgreSQL 18 (`management_lite_test`), bổ sung tự động cấp quyền least-privilege (`GRANT SELECT,INSERT,UPDATE,DELETE`) cho `hp_app_test` trên bảng mới (`system_logs`, `storage_drive_connections`, `work_schedule_links`) trong `scripts/migrate.mjs`, sửa lỗi truy vấn cột `e.revision_number` không tồn tại trên `daily_report_entries` tại `DashboardService.getSummary`, nạp `BREVO_API_KEY` & `HP_BRIDGE_SECRET` vào `api.env`, khóa `readOnly` ô `Mã nhân viên` tự động tại `/employees/new`, nhập đầy đủ 53 ca chấm công & lương 2026 (`3.896.252 đ`) của Nguyễn Huỳnh Thế Vinh (`NV001`), tách riêng dòng mã xác minh Brevo email (`5ae5acc`), bỏ hậu tố `V0.1` trên tiêu đề tab trình duyệt (`70c6ecd`), ẩn thẻ kết nối TikTok AI Factory trên Dashboard đối với vai trò Staff (`c2ed61d`), bổ sung hồ sơ nhân sự mở rộng (SĐT, ngày sinh, giới tính, CCCD, địa chỉ, chức danh, liên hệ khẩn cấp) + thông tin ngân hàng nhận lương (Ngân hàng, Số tài khoản, Chủ tài khoản) + cửa sổ tự động nhắc nhân viên cập nhật số điện thoại khi chưa có, build & phát hành lên `https://ql.hoaiphuong.click`.
-- **KẾT LUẬN RÀ SOÁT (2026-10-22):** Nghiệm thu hệ thống hiện **HOLD**. Các mốc DONE lịch sử không chứng minh MFA/GPS/Admin đã triển khai: hiện chỉ có giao diện giới thiệu, membership DB vẫn owner/staff. Không tự cấp quyền hoặc khẳng định có MFA/geofencing.
-- [DEV • MAC • 2026-10-22] Nhánh review `codex/shared-admin-sso-no-gps`: bỏ GPS, sửa CSRF Dashboard và chuẩn bị SSO Owner → admin V4, siết khóa bridge. 47 kiểm thử quản lý và HTTP liên thông cục bộ PASS. Chưa kích hoạt Production, chưa đổi mật khẩu/xóa tài khoản; V4 từ chối đăng nhập, số nhân sự bridge chưa khớp. Chi tiết: `docs/reports/2026-10-22-shared-admin-sso.md`.
+- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.1.4`
+- **Tiến độ lũy kế:** Hoàn tất **Phase 1/4 (`25%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`), cộng với 100% khung 14 màn hình quản trị, 30/30 migrations trên PostgreSQL 18 (`management_lite_test`), RBAC, Brevo Email, Storage V2 Google Drive, Liên thông V4 Bridge và Import/Export Excel lương.
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
-  - **[OWNER DUYỆT & PHÁT HÀNH TRÊN WINDOWS SERVER]:** Toàn bộ code, migration (`0027`..`0029`) và kiểm thử PostgreSQL 18 (bao gồm dry-run & commit 53 ca chấm công thật năm 2026 của Nguyễn Huỳnh Thế Vinh = `3.896.252 đ`) đã PASS 100% trên CI. Bước tiếp theo cần Owner quyết định: (1) Merge/cherry-pick sang `main`, ký phát hành độc lập (`Approve-ReleaseSha.ps1` → `Deploy-Release.ps1`) trên Windows Server; (2) Vào `https://ql.hoaiphuong.click/payroll/stats` tải tệp `.xlsx` của Nguyễn Huỳnh Thế Vinh → bấm **Xem trước** → bấm **Xác nhận nhập**.
-  - [MAC • 2026-10-22] Đã sửa lỗi PostgreSQL importer tạo trạng thái sai (`todo` bắt buộc) và dấu phân tách nguồn chống trùng; CI đang xác minh lại. Đã mở khôi phục V4, Owner cần tự hoàn tất mật khẩu. Cổng phát hành yêu cầu chữ ký Owner độc lập, không tự ký từ AI.
-  - Chạy nghiệm thu PostgreSQL QA/Windows, kiểm thử hai hệ thống với khóa riêng; chưa deploy Production. Báo cáo sản lượng tự động vẫn tạm dừng đến khi có ánh xạ nhân viên/ngày đáng tin cậy. Rà tiếp metadata release, 63 phát hiện UI và các luồng tích hợp chưa chạy.
+  - Thực thi **Phase 2 (`v0.1.5`) — Task 2.1, Task 2.2, Task 2.3:** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)**, hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương, và tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)**.
+
+---
+
+## 📊 2. BẢNG THEO DÕI TIẾN ĐỘ NÂNG CẤP (`PHASE_TASK_TRACKER`)
+
+| Phase & Version đích | Mã Task | Nội dung Task | File mục tiêu (Chỉ mở đúng file này) | Trạng thái |
+|---|---|---|---|---|
+| **Phase 1 (`v0.1.4`)**<br>Hồ sơ Nhân sự, Ngân hàng & Kích hoạt Hạ tầng Server | `Task 1.0` | Mở rộng hồ sơ nhân sự (SĐT, CCCD, Ngày sinh, Địa chỉ, Chức danh) + Thông tin Ngân hàng + Modal nhắc SĐT (`migration 0030`) | `packages/database/src/migrations/0030_employee_profile_and_bank_info.sql`, `apps/api/src/employees/service.ts`, `apps/web/src/screens/EmployeeDetailScreen.tsx`, `apps/web/src/App.tsx` | `[DONE]` (`5b9e996`) |
+| **Phase 1 (`v0.1.4`)** | `Task 1.1` | Hợp nhất `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY` & `FIN_RECEIPT_DIR` vào `api.env` và phát hành `v0.1.4` | `C:\HoaiPhuong-Server\config\test-secrets\api.env`, `packages/contracts/src/version.ts`, `package.json` | `[DONE]` (`v0.1.4`) |
+| **Phase 2 (`v0.1.5`)**<br>Bảng lương Thưởng/Khấu trừ, `VietQR` & Sổ thu chi | `Task 2.1` | Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel | `packages/contracts/src/payroll.ts`, `apps/api/src/payroll/service.ts`, `apps/api/src/payroll/timesheet-service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[TODO - NEXT]` |
+| **Phase 2 (`v0.1.5`)** | `Task 2.2` | Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương | `packages/contracts/src/payroll.ts`, `apps/api/src/payroll/service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[TODO]` |
+| **Phase 2 (`v0.1.5`)** | `Task 2.3` | Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** khi xác nhận chi trả lương | `apps/api/src/payroll/service.ts`, `apps/web/src/screens/PayrollScreen.tsx` | `[TODO]` |
+| **Phase 3 (`v0.1.6`)**<br>Nhân sự, Báo cáo & Dashboard UX | `Task 3.1` | Hiển thị cột **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV/Excel** trên bảng Danh sách nhân sự (`/employees`) | `apps/web/src/screens/EmployeesScreen.tsx` | `[TODO]` |
+| **Phase 3 (`v0.1.6`)** | `Task 3.2` | Nút nhắc nộp Báo cáo ngay sau khi Ra ca (`/clock`) & Trung tâm Việc cần xử lý trên Dashboard (`/dashboard`) | `apps/web/src/screens/ClockScreen.tsx`, `apps/web/src/screens/DashboardScreen.tsx` | `[TODO]` |
+| **Phase 4 (`v0.2.0`)**<br>Liên thông V4 & Tối ưu Bundle | `Task 4.1` | Giao diện xác nhận ánh xạ nhân sự cố định giữa V4 (`hoaiphuong.click`) và mã `NV001`, `NV002`... | `apps/api/src/bridge/service.ts`, `apps/web/src/screens/DashboardScreen.tsx` | `[TODO]` |
+| **Phase 4 (`v0.2.0`)** | `Task 4.2` | Chia nhỏ gói JS (`manualChunks`) giảm bundle chính từ `~1 MB` xuống `< 400 kB` | `apps/web/vite.config.ts` | `[TODO]` |
+
+---
+
+## 🗺️ 3. BẢN ĐỒ MODULE & FILE CỐT LÕI (`MODULE_FILE_MAP` — TRA CỨU NHANH ĐỂ TIẾT KIỆM TOKEN)
+
+> **Quy tắc tiết kiệm Token:** Khi làm việc với phân hệ nào, **CHỈ MỞ** đúng file trong dòng của phân hệ đó (kết hợp `StartLine`/`EndLine`). **CẤM** đọc các phân hệ không liên quan.
+
+| Phân hệ (Module) | Hợp đồng & Schema (`packages/`) | Backend API (`apps/api/src/`) | Giao diện Web (`apps/web/src/`) | Bộ kiểm thử chọn lọc (`tests/`) |
+|---|---|---|---|---|
+| **Phiên bản & Release** | `packages/contracts/src/version.ts` | `app.ts` (`/api/v1/system/version`) | `screens/SettingsScreen.tsx` | `tests/web/settings-screen.test.mjs` |
+| **Xác thực & Hồ sơ cá nhân** | `packages/contracts/src/auth.ts` | `auth/service.ts`, `email/brevo-service.ts` | `App.tsx`, `screens/LoginScreen.tsx`, `screens/SettingsScreen.tsx` | `tests/web/settings-screen.test.mjs` |
+| **Nhân sự (`/employees`)** | `packages/contracts/src/employees.ts`, `migrations/0030_*.sql` | `employees/service.ts`, `app.ts` | `screens/EmployeesScreen.tsx`, `screens/EmployeeDetailScreen.tsx`, `screens/EmployeeNewScreen.tsx` | `tests/web/employee-detail-screen.test.mjs` |
+| **Chấm công (`/clock`, `/attendance`)** | `packages/contracts/src/attendance.ts` | `attendance/service.ts` | `screens/ClockScreen.tsx`, `screens/AttendanceScreen.tsx` | `tests/backend/att-*.test.mjs` |
+| **Báo cáo & Công việc (`/reports`, `/work`)** | `packages/contracts/src/reports.ts`, `work.ts` | `reports/service.ts`, `work/service.ts` | `screens/ReportsScreen.tsx`, `screens/WorkScreen.tsx`, `screens/WorkDetailScreen.tsx` | `tests/backend/report-work-link-postgres.test.mjs` |
+| **Bảng lương & Thống kê (`/payroll`)** | `packages/contracts/src/payroll.ts`, `migrations/0027_*.sql` | `payroll/service.ts`, `payroll/timesheet-service.ts` | `screens/PayrollScreen.tsx`, `screens/PayrollStatsScreen.tsx` | `tests/backend/pay-18-23-invariants.test.mjs`, `tests/web/payroll-stats-screen.test.mjs` |
+| **Sổ thu chi (`/finance`)** | `packages/contracts/src/finance.ts` | `finance/service.ts`, `finance/receipt-store.ts` | `screens/FinanceOverviewScreen.tsx`, `screens/FinanceLedgerScreen.tsx` | `tests/web/finance-*.test.mjs` |
+| **Kho Google Drive (`/storage`)** | `packages/contracts/src/storage.ts`, `migrations/0025_*.sql` | `storage/service.ts`, `storage/google-drive-provider.ts` | `screens/StorageScreen.tsx` | `tests/backend/storage-*.test.mjs` |
+| **Tài khoản dùng chung (`/accounts`)** | `packages/contracts/src/accounts.ts` | `accounts/service.ts` | `screens/AccountsScreen.tsx` | `tests/web/accounts-*.test.mjs` |
+| **Tổng quan & Bridge V4 (`/dashboard`)** | `packages/contracts/src/dashboard.ts` | `dashboard/service.ts`, `bridge/service.ts` | `screens/DashboardScreen.tsx` | `tests/web/cross-system-bridge.test.mjs` |
+| **Nhật ký hệ thống (`/system-logs`)** | `migrations/0028_system_logs.sql` | `system-logs/service.ts` | `screens/SystemLogsScreen.tsx` | `tests/web/system-logs-screen.test.mjs` |
 
 <!-- LIVE_CHECKPOINT_END -->
 
-## 🔄 QUY TRÌNH ĐỒNG BỘ ĐA MÁY (3 máy: MacBook M2 + 2 Windows)
+## 🔄 4. QUY TRÌNH ĐỒNG BỘ ĐA MÁY & PHÁT HÀNH VERSION
 
-Script: `scripts/sync-all.sh` (macOS) · `scripts/sync-all.ps1` (Windows). Thư mục gốc `~/Projects` (đổi bằng biến `PROJECTS_DIR`).
-
-- **Trước khi làm:** `scripts/sync-all.sh start` → fetch + pull `--ff-only` cả 4 dự án (tự clone nếu thiếu; DỪNG nếu có thay đổi chưa commit).
-- **Sau khi làm:** cập nhật `LIVE_CHECKPOINT` → `scripts/sync-all.sh end` → auto commit + `pull --rebase` + push.
-- **Quy tắc:** mỗi máy chỉ làm 1 nhánh/1 dự án tại một thời điểm; không bao giờ đổi máy khi chưa push; không commit `.env`/secrets.
-- **Máy:** Máy 1 MacBook Air M2 `MacBook-Air-cua-Duong` · Windows 2 `DESKTOP-ATTJ7FE` · Windows 1.
-- **Windows lần đầu:** `git clone https://github.com/truhoaiphuong03/management-lite.git ~/Projects/management-lite` rồi chạy `.\scripts\sync-all.ps1 start` (có thể cần `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`).
+- **Trước khi làm:** Đọc duy nhất mục `1. LIVE_CHECKPOINT` & `2. PHASE_TASK_TRACKER`, mở đúng file trong `3. MODULE_FILE_MAP`.
+- **Sau khi xong mỗi Phase:**
+  1. Chạy kiểm thử chọn lọc của phân hệ vừa sửa + `npm run build` + `npm run build:web`.
+  2. Tăng số Version trong `package.json` và `packages/contracts/src/version.ts` (`SYSTEM_VERSION` & `RELEASE_NOTES_CATALOG`).
+  3. Cập nhật bảng `PHASE_TASK_TRACKER` trong `AGENTS.md`.
+  4. `git commit` + `git tag v0.1.x` + `git push` lên GitHub và đồng bộ sang `C:\HoaiPhuong-Server\apps\management-lite`.
