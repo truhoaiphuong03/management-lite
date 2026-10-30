@@ -79,7 +79,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
   const [oauthUrlPreview, setOauthUrlPreview] = useState<string>('');
   const [oauthState, setOauthState] = useState<string>('');
   const [oauthGoogleEmail, setOauthGoogleEmail] = useState<string>(
-    'drive-admin@hoaiphuong.click',
+    'truhoaiphuong03@gmail.com',
   );
   const [oauthCode, setOauthCode] = useState<string>(
     '4/0AVGzR1-google-oauth-code',
@@ -148,6 +148,33 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
   const employeesAbortControllerRef = useRef<AbortController | null>(null);
   const trashLockRef = useRef<boolean>(false);
 
+  const ensureCsrfToken = async (): Promise<string> => {
+    if (csrfToken) return csrfToken;
+    try {
+      const meRes = await fetch('/api/v1/auth/me', { credentials: 'include' });
+      if (meRes.ok) {
+        const meBody = await meRes.json();
+        const tok = meBody?.data?.csrf_token || '';
+        if (tok) {
+          setCsrfToken(tok);
+          return tok;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    const match =
+      typeof document !== 'undefined'
+        ? document.cookie.match(/csrf_token=([^;]+)/)
+        : null;
+    if (match && match[1]) {
+      const decoded = decodeURIComponent(match[1]);
+      setCsrfToken(decoded);
+      return decoded;
+    }
+    return '';
+  };
+
   // 1. Fetch CSRF token, Google Drive OAuth status & Employee List
   useEffect(() => {
     const controller = new AbortController();
@@ -173,9 +200,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           signal: controller.signal,
         });
         if (meRes.ok) {
-          const match = document.cookie.match(/csrf_token=([^;]+)/);
-          if (match && match[1] && active) {
-            setCsrfToken(decodeURIComponent(match[1]));
+          const meBody = await meRes.json();
+          if (active && meBody?.data?.csrf_token) {
+            setCsrfToken(meBody.data.csrf_token);
+          } else {
+            const match = document.cookie.match(/csrf_token=([^;]+)/);
+            if (match && match[1] && active) {
+              setCsrfToken(decodeURIComponent(match[1]));
+            }
           }
         }
 
@@ -552,7 +584,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -590,7 +622,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
         },
         credentials: 'include',
       });
@@ -648,7 +680,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
         },
         credentials: 'include',
         body: JSON.stringify(payload),
@@ -695,7 +727,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
           'If-Match': `"${folder.version}"`,
         },
         credentials: 'include',
@@ -757,7 +789,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
         },
         credentials: 'include',
         body: JSON.stringify(payload),
@@ -804,7 +836,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
           'If-Match': `"${folder.version}"`,
         },
         credentials: 'include',
@@ -879,7 +911,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
+            'X-CSRF-Token': await ensureCsrfToken(),
           },
           credentials: 'include',
           body: JSON.stringify({
@@ -916,7 +948,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -940,7 +972,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
+            'X-CSRF-Token': await ensureCsrfToken(),
           },
           credentials: 'include',
           body: JSON.stringify({
@@ -990,7 +1022,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -1029,7 +1061,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -1068,7 +1100,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
+            'X-CSRF-Token': await ensureCsrfToken(),
           },
           credentials: 'include',
         },
@@ -1098,7 +1130,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       const res = await fetch(`/api/v1/storage/files/${file.id}`, {
         method: 'DELETE',
         headers: {
-          'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': await ensureCsrfToken(),
         },
         credentials: 'include',
       });
@@ -1133,7 +1165,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
+            'X-CSRF-Token': await ensureCsrfToken(),
           },
           credentials: 'include',
           body: JSON.stringify({
@@ -1173,7 +1205,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
+            'X-CSRF-Token': await ensureCsrfToken(),
           },
           credentials: 'include',
           body: JSON.stringify({
@@ -1233,7 +1265,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
+            'X-CSRF-Token': await ensureCsrfToken(),
             'If-Match': `"${folder.version}"`,
             'Idempotency-Key': `trash-init-${folder.id}-${folder.version}`,
           },
@@ -1288,7 +1320,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
+            'X-CSRF-Token': await ensureCsrfToken(),
             'Idempotency-Key': `trash-confirm-${trashRequestData.trash_request_id}`,
           },
           credentials: 'include',

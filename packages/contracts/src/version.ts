@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.2.3';
-export const SYSTEM_COMMIT = 'a415f6e';
+export const SYSTEM_VERSION = '0.2.4';
+export const SYSTEM_COMMIT = 'ad3b092';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.2.3',
+    version: '0.2.4',
     commit: 'latest',
+    released_at: '2026-10-30T19:35:00.000Z',
+    summary:
+      'Hoàn tất Phase 8: Sửa triệt để lỗi "Invalid, missing, or mismatched CSRF token" trên màn hình Quản lý Tệp & Drive (/storage) và kết nối sẵn Google Drive OAuth 2.0 cho truhoaiphuong03@gmail.com.',
+    added: [
+      'Cơ chế tự động nạp và đảm bảo CSRF token (ensureCsrfToken) từ /api/v1/auth/me cho toàn bộ 17 thao tác trên màn hình Quản lý Tệp & Drive (/storage).',
+    ],
+    improved: [
+      'Chuẩn hóa GOOGLE_REDIRECT_URI sang https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback và kích hoạt sẵn kết nối Google Drive cho truhoaiphuong03@gmail.com.',
+    ],
+    fixed: [
+      'Khắc phục lỗi "Invalid, missing, or mismatched CSRF token" khi bấm Kết nối Google Drive, Tạo thư mục hoặc Tải tệp trên /storage.',
+    ],
+  },
+  {
+    version: '0.2.3',
+    commit: 'ad3b092',
     released_at: '2026-10-30T19:22:00.000Z',
     summary:
       'Hoàn tất Phase 7: Xử lý triệt để lỗi "Chủ sở hữu không được phép tự duyệt ca làm việc của chính mình" trên màn hình Duyệt công nhân viên (/attendance) & bổ sung nút Đóng ca giúp nhân viên khi quên bấm Kết thúc ca.',
