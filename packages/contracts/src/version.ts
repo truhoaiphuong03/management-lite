@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.2.4';
-export const SYSTEM_COMMIT = 'ad3b092';
+export const SYSTEM_VERSION = '0.2.5';
+export const SYSTEM_COMMIT = 'cedb252';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,23 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.2.4',
+    version: '0.2.5',
     commit: 'latest',
+    released_at: '2026-10-30T20:14:00.000Z',
+    summary:
+      'Hoàn tất Phase 9: Đổi bộ lọc Từ ngày / Đến ngày sang chuẩn Ngày/Tháng/Năm (dd/mm/yyyy) tiếng Việt kèm nút chọn nhanh Hôm nay / 7 ngày qua / Tháng này trên Ca & Chấm công (/attendance); tự động hoàn tất kết nối Google Drive 1 chạm sau khi ủy quyền OAuth (/storage).',
+    added: [
+      'Thanh chọn nhanh khoảng thời gian 1 chạm (📅 Hôm nay, 📆 7 ngày qua, 🗓️ Tháng này, 🔄 Toàn thời gian) trên cả tab Duyệt công nhân viên và Lịch sử cá nhân (/attendance).',
+      'Tự động hoàn tất kết nối Google Drive ngay khi Google OAuth redirect về /storage?oauth_code=... mà không cần bấm xác nhận lần 2.',
+    ],
+    improved: [
+      'Hiển thị chuẩn Ngày / Tháng / Năm (dd/mm/yyyy) tiếng Việt trực tiếp trên các ô lọc Từ ngày / Đến ngày, thay thế hoàn toàn chữ mm/dd/yyyy tiếng Anh.',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.2.4',
+    commit: 'cedb252',
     released_at: '2026-10-30T19:35:00.000Z',
     summary:
       'Hoàn tất Phase 8: Sửa triệt để lỗi "Invalid, missing, or mismatched CSRF token" trên màn hình Quản lý Tệp & Drive (/storage) và kết nối sẵn Google Drive OAuth 2.0 cho truhoaiphuong03@gmail.com.',

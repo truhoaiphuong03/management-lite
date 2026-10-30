@@ -180,6 +180,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     const controller = new AbortController();
     let active = true;
 
+    let pendingOAuthCode = '';
+    let pendingOAuthState = '';
     if (typeof window !== 'undefined' && role === 'owner') {
       const searchParams = new URLSearchParams(window.location.search);
       const returnedCode =
@@ -187,14 +189,16 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       const returnedState =
         searchParams.get('oauth_state') || searchParams.get('state');
       if (returnedCode) {
+        pendingOAuthCode = returnedCode;
+        pendingOAuthState = returnedState || '';
         setOauthCode(returnedCode);
         if (returnedState) setOauthState(returnedState);
-        setShowDriveOAuthModal(true);
       }
     }
 
     const fetchSessionAndEmployees = async () => {
       try {
+        let resolvedCsrf = '';
         const meRes = await fetch('/api/v1/auth/me', {
           credentials: 'include',
           signal: controller.signal,
@@ -202,23 +206,56 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         if (meRes.ok) {
           const meBody = await meRes.json();
           if (active && meBody?.data?.csrf_token) {
-            setCsrfToken(meBody.data.csrf_token);
+            resolvedCsrf = meBody.data.csrf_token;
+            setCsrfToken(resolvedCsrf);
           } else {
             const match = document.cookie.match(/csrf_token=([^;]+)/);
             if (match && match[1] && active) {
-              setCsrfToken(decodeURIComponent(match[1]));
+              resolvedCsrf = decodeURIComponent(match[1]);
+              setCsrfToken(resolvedCsrf);
             }
           }
         }
 
-        const connRes = await fetch('/api/v1/storage/drive/connection', {
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        if (connRes.ok && active) {
-          const connBody = await connRes.json();
-          if (connBody.success && connBody.data) {
-            setDriveConnection(connBody.data);
+        if (pendingOAuthCode && pendingOAuthState && resolvedCsrf && active) {
+          const autoConnRes = await fetch('/api/v1/storage/drive/connect', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': resolvedCsrf,
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              code: pendingOAuthCode,
+              state: pendingOAuthState,
+              google_email: oauthGoogleEmail.trim(),
+              root_folder_name: oauthRootFolderName.trim(),
+              scopes: ['https://www.googleapis.com/auth/drive.file'],
+            }),
+          });
+          const autoConnBody = await autoConnRes.json();
+          if (autoConnRes.ok && autoConnBody.success && autoConnBody.data) {
+            setDriveConnection(autoConnBody.data);
+            setShowDriveOAuthModal(false);
+            setSuccessMessage(
+              `Đã tự động kết nối Google Drive (${autoConnBody.data.google_email}) thành công!`,
+            );
+            if (typeof window !== 'undefined' && window.history?.replaceState) {
+              window.history.replaceState({}, '', window.location.pathname);
+            }
+          } else {
+            setShowDriveOAuthModal(true);
+          }
+        } else {
+          const connRes = await fetch('/api/v1/storage/drive/connection', {
+            credentials: 'include',
+            signal: controller.signal,
+          });
+          if (connRes.ok && active) {
+            const connBody = await connRes.json();
+            if (connBody.success && connBody.data) {
+              setDriveConnection(connBody.data);
+            }
           }
         }
 

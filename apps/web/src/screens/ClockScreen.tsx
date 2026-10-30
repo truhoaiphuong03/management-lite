@@ -337,6 +337,73 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     }
   };
 
+  const formatIsoToVnLabel = (iso: string): string => {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      return 'Ngày / Tháng / Năm';
+    }
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
+  const applyQuickDateRange = (
+    preset: 'today' | 'last7d' | 'month' | 'all',
+    target: 'owner' | 'my',
+  ) => {
+    const now = new Date();
+    const toIso = (dt: Date) =>
+      dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const todayIso = toIso(now);
+
+    if (preset === 'all') {
+      if (target === 'owner') {
+        setSelectedDate('');
+        setSelectedToDate('');
+      } else {
+        setMyFromDate('');
+        setMyToDate('');
+        setMyShiftPage(0);
+      }
+      return;
+    }
+
+    if (preset === 'today') {
+      if (target === 'owner') {
+        setSelectedDate(todayIso);
+        setSelectedToDate(todayIso);
+      } else {
+        setMyFromDate(todayIso);
+        setMyToDate(todayIso);
+        setMyShiftPage(0);
+      }
+      return;
+    }
+
+    if (preset === 'last7d') {
+      const d7 = new Date(now.getTime() - 6 * 24 * 3600 * 1000);
+      const fromIso = toIso(d7);
+      if (target === 'owner') {
+        setSelectedDate(fromIso);
+        setSelectedToDate(todayIso);
+      } else {
+        setMyFromDate(fromIso);
+        setMyToDate(todayIso);
+        setMyShiftPage(0);
+      }
+      return;
+    }
+
+    const [y, m] = todayIso.split('-');
+    const monthStart = `${y}-${m}-01`;
+    if (target === 'owner') {
+      setSelectedDate(monthStart);
+      setSelectedToDate(todayIso);
+    } else {
+      setMyFromDate(monthStart);
+      setMyToDate(todayIso);
+      setMyShiftPage(0);
+    }
+  };
+
   const isActionableUnreviewed = (shift: ShiftData) =>
     shift.run_state === 'completed' &&
     shift.review_state === 'unreviewed' &&
@@ -1198,6 +1265,43 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
               <div
                 style={{
                   display: 'flex',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  marginBottom: '10px',
+                }}
+              >
+                <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Chọn nhanh:
+                </span>
+                {[
+                  { id: 'today' as const, label: '📅 Hôm nay' },
+                  { id: 'last7d' as const, label: '📆 7 ngày qua' },
+                  { id: 'month' as const, label: '🗓️ Tháng này' },
+                  { id: 'all' as const, label: '🔄 Toàn thời gian' },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => applyQuickDateRange(p.id, 'my')}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      border: '1px solid #334155',
+                      backgroundColor: '#0B1220',
+                      color: '#CBD5E1',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <div
+                style={{
+                  display: 'flex',
                   gap: '12px',
                   flexWrap: 'wrap',
                   alignItems: 'flex-end',
@@ -1213,28 +1317,52 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       marginBottom: '6px',
                     }}
                   >
-                    Từ ngày
+                    Từ ngày (Ngày/Tháng/Năm)
                   </label>
-                  <input
-                    data-testid="my-filter-from-date"
-                    type="date"
-                    value={myFromDate}
-                    onChange={(e) => {
-                      setMyFromDate(e.target.value);
-                      setMyShiftPage(0);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #334155',
-                      color: '#F8FAFC',
-                      fontSize: '14px',
-                      minHeight: '44px',
-                      boxSizing: 'border-box',
-                    }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      data-testid="my-filter-from-date"
+                      type="date"
+                      value={myFromDate}
+                      onClick={(e) =>
+                        (
+                          e.currentTarget as HTMLInputElement & {
+                            showPicker?: () => void;
+                          }
+                        ).showPicker?.()
+                      }
+                      onChange={(e) => {
+                        setMyFromDate(e.target.value);
+                        setMyShiftPage(0);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        backgroundColor: '#0B1220',
+                        border: '1px solid #334155',
+                        color: 'transparent',
+                        fontSize: '14px',
+                        minHeight: '44px',
+                        boxSizing: 'border-box',
+                        cursor: 'pointer',
+                      }}
+                    />
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        pointerEvents: 'none',
+                        fontSize: '13px',
+                        fontWeight: myFromDate ? 600 : 400,
+                        color: myFromDate ? '#F8FAFC' : '#64748B',
+                      }}
+                    >
+                      {formatIsoToVnLabel(myFromDate)}
+                    </span>
+                  </div>
                 </div>
                 <div style={{ flex: 1, minWidth: '150px' }}>
                   <label
@@ -1246,28 +1374,52 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       marginBottom: '6px',
                     }}
                   >
-                    Đến ngày
+                    Đến ngày (Ngày/Tháng/Năm)
                   </label>
-                  <input
-                    data-testid="my-filter-to-date"
-                    type="date"
-                    value={myToDate}
-                    onChange={(e) => {
-                      setMyToDate(e.target.value);
-                      setMyShiftPage(0);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #334155',
-                      color: '#F8FAFC',
-                      fontSize: '14px',
-                      minHeight: '44px',
-                      boxSizing: 'border-box',
-                    }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      data-testid="my-filter-to-date"
+                      type="date"
+                      value={myToDate}
+                      onClick={(e) =>
+                        (
+                          e.currentTarget as HTMLInputElement & {
+                            showPicker?: () => void;
+                          }
+                        ).showPicker?.()
+                      }
+                      onChange={(e) => {
+                        setMyToDate(e.target.value);
+                        setMyShiftPage(0);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        backgroundColor: '#0B1220',
+                        border: '1px solid #334155',
+                        color: 'transparent',
+                        fontSize: '14px',
+                        minHeight: '44px',
+                        boxSizing: 'border-box',
+                        cursor: 'pointer',
+                      }}
+                    />
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        pointerEvents: 'none',
+                        fontSize: '13px',
+                        fontWeight: myToDate ? 600 : 400,
+                        color: myToDate ? '#F8FAFC' : '#64748B',
+                      }}
+                    >
+                      {formatIsoToVnLabel(myToDate)}
+                    </span>
+                  </div>
                 </div>
                 <div style={{ flex: 1, minWidth: '170px' }}>
                   <label
@@ -1632,6 +1784,44 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
               </div>
             )}
             <div
+              data-testid="quick-date-range-bar"
+              style={{
+                display: 'flex',
+                gap: '6px',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                Chọn nhanh khoảng ngày:
+              </span>
+              {[
+                { id: 'today' as const, label: '📅 Hôm nay' },
+                { id: 'last7d' as const, label: '📆 7 ngày qua' },
+                { id: 'month' as const, label: '🗓️ Tháng này' },
+                { id: 'all' as const, label: '🔄 Toàn thời gian' },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyQuickDateRange(p.id, 'owner')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                    border: '1px solid #334155',
+                    backgroundColor: '#0B1220',
+                    color: '#CBD5E1',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div
               style={{
                 display: 'flex',
                 gap: '12px',
@@ -1686,25 +1876,49 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Từ ngày
+                  Từ ngày (Ngày/Tháng/Năm)
                 </label>
-                <input
-                  data-testid="filter-from-date"
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
-                    fontSize: '14px',
-                    minHeight: '44px',
-                    boxSizing: 'border-box',
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    data-testid="filter-from-date"
+                    type="date"
+                    value={selectedDate}
+                    onClick={(e) =>
+                      (
+                        e.currentTarget as HTMLInputElement & {
+                          showPicker?: () => void;
+                        }
+                      ).showPicker?.()
+                    }
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#0B1220',
+                      border: '1px solid #334155',
+                      color: 'transparent',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      fontSize: '13px',
+                      fontWeight: selectedDate ? 600 : 400,
+                      color: selectedDate ? '#F8FAFC' : '#64748B',
+                    }}
+                  >
+                    {formatIsoToVnLabel(selectedDate)}
+                  </span>
+                </div>
               </div>
 
               <div style={{ flex: 1, minWidth: '150px' }}>
@@ -1717,25 +1931,49 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Đến ngày
+                  Đến ngày (Ngày/Tháng/Năm)
                 </label>
-                <input
-                  data-testid="filter-to-date"
-                  type="date"
-                  value={selectedToDate}
-                  onChange={(e) => setSelectedToDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
-                    fontSize: '14px',
-                    minHeight: '44px',
-                    boxSizing: 'border-box',
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    data-testid="filter-to-date"
+                    type="date"
+                    value={selectedToDate}
+                    onClick={(e) =>
+                      (
+                        e.currentTarget as HTMLInputElement & {
+                          showPicker?: () => void;
+                        }
+                      ).showPicker?.()
+                    }
+                    onChange={(e) => setSelectedToDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#0B1220',
+                      border: '1px solid #334155',
+                      color: 'transparent',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      fontSize: '13px',
+                      fontWeight: selectedToDate ? 600 : 400,
+                      color: selectedToDate ? '#F8FAFC' : '#64748B',
+                    }}
+                  >
+                    {formatIsoToVnLabel(selectedToDate)}
+                  </span>
+                </div>
               </div>
 
               <div style={{ flex: 1, minWidth: '160px' }}>
