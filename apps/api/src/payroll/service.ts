@@ -634,6 +634,9 @@ export class PayrollService {
           id: i.employee_id,
           employee_code: i.employee_code,
           full_name: i.full_name,
+          bank_name: i.bank_name ?? null,
+          bank_account_number: i.bank_account_number ?? null,
+          bank_account_holder: i.bank_account_holder ?? null,
         },
         ...i,
       };

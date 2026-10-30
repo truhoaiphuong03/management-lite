@@ -662,6 +662,9 @@ export class BridgeService {
       ]);
 
       // Only source records become work items; totals never create synthetic work.
+      const deliverablesMap = new Map(
+        (summary.deliverables || []).map((d) => [d.script_id, d]),
+      );
       const scripts = new Map(
         summary.recent_scripts.map((script) => [script.script_id, script]),
       );
@@ -685,7 +688,7 @@ export class BridgeService {
             [
               auth.workspace.id,
               title,
-              `${sourceMarker}\nĐồng bộ từ hoaiphuong.click — Sản phẩm: ${script.product_id} | Kênh: ${script.channel_id} | Trạng thái: ${script.status}`,
+              `${sourceMarker}\nĐồng bộ từ hoaiphuong.click — Sản phẩm: ${script.product_id} | Kênh: ${script.channel_id} | Trạng thái: ${script.status}${deliverablesMap.get(script.script_id)?.has_video ? ' | 🎬 Đã có Video MP4 Drive' : ''}${deliverablesMap.get(script.script_id)?.has_audio ? ' | 🎙️ Đã có Audio WAV Drive' : ''}`,
               'content',
               auth.user.id,
             ],

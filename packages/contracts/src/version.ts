@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.2.0';
-export const SYSTEM_COMMIT = 'f41806b';
+export const SYSTEM_VERSION = '0.2.1';
+export const SYSTEM_COMMIT = 'c444ffe';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,26 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.2.0',
+    version: '0.2.1',
     commit: 'latest',
+    released_at: '2026-10-30T18:51:00.000Z',
+    summary:
+      'Hoàn tất Phase 5: Hiển thị chi tiết Thưởng (+), Phụ cấp (+), Khấu trừ (-) và Tài khoản ngân hàng nhận lương trực tiếp trên cả Bảng lương Owner (/payroll) và Phiếu lương cá nhân (/my-pay); làm giàu mô tả thành phẩm Video/Audio Drive khi đồng bộ công việc từ TikTok AI Factory V4.',
+    added: [
+      'Hiển thị dòng chi tiết Thưởng (+), Phụ cấp (+), Khấu trừ (-) màu sắc trực quan ngay trên thẻ Thu nhập đã duyệt (Tier 1) của cả Owner (/payroll) và Nhân viên (/my-pay).',
+      'Hiển thị thông tin Tài khoản ngân hàng nhận lương (Ngân hàng, Số TK, Chủ TK hoặc cảnh báo chưa cập nhật) ngay trên đầu Phiếu lương cá nhân (/my-pay).',
+      'Tự động gắn nhãn thành phẩm 🎬 Video MP4 Drive & 🎙️ Audio WAV Drive từ TikTok AI Factory V4 vào mô tả công việc đồng bộ trên /work.',
+    ],
+    improved: [
+      'Hiển thị chính xác dấu trừ (-) màu đỏ đối với các khoản điều chỉnh thuộc nhóm [KHẤU TRỪ] / [TẠM ỨNG] trong danh sách lịch sử điều chỉnh lương.',
+    ],
+    fixed: [
+      'Đảm bảo nhân viên có khoản Khấu trừ nhưng không có Nghỉ phép vẫn hiển thị đầy đủ dòng Khấu trừ trên thẻ tổng hợp lương.',
+    ],
+  },
+  {
+    version: '0.2.0',
+    commit: 'c444ffe',
     released_at: '2026-10-30T18:35:00.000Z',
     summary:
       'Hoàn tất Phase 4 (100% Lộ trình nâng cấp): Bổ sung Bảng xác nhận ánh xạ nhân sự cố định giữa Management Lite (NV001..NV00n) và TikTok AI Factory V4 (hoaiphuong.click) trên Dashboard; tối ưu hóa đóng gói Frontend (manualChunks) giảm kích thước mỗi gói JS xuống dưới 400 kB.',

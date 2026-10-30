@@ -164,6 +164,9 @@ export interface StaffPayslipData {
     id: string;
     employee_code: string;
     full_name: string;
+    bank_name?: string | null | undefined;
+    bank_account_number?: string | null | undefined;
+    bank_account_holder?: string | null | undefined;
   };
   /**
    * Hourly rate effective at server_as_of, or null if not configured.

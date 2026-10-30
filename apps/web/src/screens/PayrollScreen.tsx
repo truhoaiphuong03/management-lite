@@ -3388,7 +3388,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           )}{' '}
                           ({formatVnd(item.confirmed.base_pay_vnd)})
                         </div>
-                        {item.confirmed.paid_leave_pay_vnd > 0 && (
+                        {(item.confirmed.paid_leave_pay_vnd > 0 || (item.confirmed.deduction_vnd ?? 0) > 0) && (
                           <div
                             style={{
                               fontSize: '12px',
@@ -3398,6 +3398,21 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           >
                             + Phép:{' '}
                             {formatVnd(item.confirmed.paid_leave_pay_vnd)}
+                            {(item.confirmed.bonus_vnd ?? 0) > 0 && (
+                              <div style={{ color: '#10B981', marginTop: '2px' }}>
+                                🎁 Thưởng: +{formatVnd(item.confirmed.bonus_vnd ?? 0)}
+                              </div>
+                            )}
+                            {(item.confirmed.allowance_vnd ?? 0) > 0 && (
+                              <div style={{ color: '#38BDF8', marginTop: '2px' }}>
+                                🍱 Phụ cấp: +{formatVnd(item.confirmed.allowance_vnd ?? 0)}
+                              </div>
+                            )}
+                            {(item.confirmed.deduction_vnd ?? 0) > 0 && (
+                              <div style={{ color: '#F87171', marginTop: '2px' }}>
+                                ➖ Khấu trừ: -{formatVnd(item.confirmed.deduction_vnd ?? 0)}
+                              </div>
+                            )}
                           </div>
                         )}
                         <div
@@ -3783,7 +3798,11 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                         color: '#A78BFA',
                                       }}
                                     >
-                                      +{formatVnd(pl.amount_vnd)}
+                                      {/^\[?\s*(KHẤU TRỪ|KHAU TRU|PHẠT|PHAT|TẠM ỨNG|TAM UNG)/i.test(pl.reason || '') ? (
+                                        <span style={{ color: '#F87171' }}>-{formatVnd(pl.amount_vnd)}</span>
+                                      ) : (
+                                        <>+{formatVnd(pl.amount_vnd)}</>
+                                      )}
                                     </div>
                                   </div>
                                 ),
@@ -3990,6 +4009,25 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     >
                       {formatVnd(myPayslip.confirmed.net_pay_vnd)}
                     </div>
+                    <div
+                      data-testid="staff-bank-info"
+                      style={{ fontSize: '12px', marginTop: '6px' }}
+                    >
+                      {myPayslip.employee?.bank_name &&
+                      myPayslip.employee?.bank_account_number ? (
+                        <span style={{ color: '#10B981' }}>
+                          🏦 Nhận lương: {myPayslip.employee.bank_name} •{' '}
+                          <strong>{myPayslip.employee.bank_account_number}</strong>
+                          {myPayslip.employee.bank_account_holder
+                            ? ` (${myPayslip.employee.bank_account_holder})`
+                            : ''}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#F59E0B' }}>
+                          ⚠️ Chưa cập nhật TK ngân hàng nhận lương
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -4116,7 +4154,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     </span>
                     )
                   </div>
-                  {myPayslip.confirmed.paid_leave_pay_vnd > 0 && (
+                  {(myPayslip.confirmed.paid_leave_pay_vnd > 0 || (myPayslip.confirmed.deduction_vnd ?? 0) > 0) && (
                     <div
                       style={{
                         fontSize: '12px',
@@ -4126,6 +4164,21 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     >
                       Nghỉ có lương: +
                       {formatVnd(myPayslip.confirmed.paid_leave_pay_vnd)}
+                      {(myPayslip.confirmed.bonus_vnd ?? 0) > 0 && (
+                        <div style={{ color: '#10B981', marginTop: '2px' }}>
+                          🎁 Thưởng: +{formatVnd(myPayslip.confirmed.bonus_vnd ?? 0)}
+                        </div>
+                      )}
+                      {(myPayslip.confirmed.allowance_vnd ?? 0) > 0 && (
+                        <div style={{ color: '#38BDF8', marginTop: '2px' }}>
+                          🍱 Phụ cấp: +{formatVnd(myPayslip.confirmed.allowance_vnd ?? 0)}
+                        </div>
+                      )}
+                      {(myPayslip.confirmed.deduction_vnd ?? 0) > 0 && (
+                        <div style={{ color: '#F87171', marginTop: '2px' }}>
+                          ➖ Khấu trừ: -{formatVnd(myPayslip.confirmed.deduction_vnd ?? 0)}
+                        </div>
+                      )}
                     </div>
                   )}
                 </AppCard>
@@ -4416,7 +4469,11 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                               fontSize: '14px',
                             }}
                           >
-                            +{formatVnd(pl.amount_vnd)}
+                            {/^\[?\s*(KHẤU TRỪ|KHAU TRU|PHẠT|PHAT|TẠM ỨNG|TAM UNG)/i.test(pl.reason || '') ? (
+                              <span style={{ color: '#F87171' }}>-{formatVnd(pl.amount_vnd)}</span>
+                            ) : (
+                              <>+{formatVnd(pl.amount_vnd)}</>
+                            )}
                           </div>
                         </div>
                       ),
