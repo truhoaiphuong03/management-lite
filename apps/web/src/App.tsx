@@ -389,6 +389,55 @@ export const App: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const syncDateInputs = () => {
+      const inputs = document.querySelectorAll<HTMLInputElement>(
+        'input[type="date"]',
+      );
+      inputs.forEach((el) => {
+        if (el.style.color === 'transparent') return;
+        const val = el.value || '';
+        const vnLabel = /^\d{4}-\d{2}-\d{2}$/.test(val)
+          ? `${val.slice(8, 10)}/${val.slice(5, 7)}/${val.slice(0, 4)}`
+          : 'Ngày / Tháng / Năm';
+        if (el.getAttribute('data-vn-date') !== vnLabel) {
+          el.setAttribute('data-vn-date', vnLabel);
+        }
+      });
+    };
+    const handleClick = (e: Event) => {
+      const t = e.target as HTMLInputElement & { showPicker?: () => void };
+      if (t && t.tagName === 'INPUT' && t.type === 'date') {
+        try {
+          t.showPicker?.();
+        } catch {
+          // ignore
+        }
+      }
+    };
+    syncDateInputs();
+    document.addEventListener('input', syncDateInputs, true);
+    document.addEventListener('change', syncDateInputs, true);
+    document.addEventListener('click', handleClick, true);
+    const observer =
+      typeof MutationObserver !== 'undefined'
+        ? new MutationObserver(() => syncDateInputs())
+        : null;
+    observer?.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['value'],
+    });
+    return () => {
+      document.removeEventListener('input', syncDateInputs, true);
+      document.removeEventListener('change', syncDateInputs, true);
+      document.removeEventListener('click', handleClick, true);
+      observer?.disconnect();
+    };
+  }, [currentPath, isLoggedIn]);
+
   const handleLogout = async () => {
     clearPendingExpiryTimer();
     executeLogout(sessionTrackerRef.current);

@@ -308,3 +308,22 @@ a:focus-visible,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Global Vietnamese Date Input Display (DD/MM/YYYY instead of browser MM/DD/YYYY) */
+input[type='date'][data-vn-date] {
+  position: relative;
+  cursor: pointer;
+}
+input[type='date'][data-vn-date]::-webkit-datetime-edit {
+  display: none;
+}
+input[type='date'][data-vn-date]::before {
+  content: attr(data-vn-date);
+  color: var(--text-color, #f8fafc);
+  font-weight: 500;
+  margin-right: auto;
+}
+input[type='date'][data-vn-date='Ngày / Tháng / Năm']::before {
+  color: var(--muted-color, #64748b);
+  font-weight: 400;
+}
