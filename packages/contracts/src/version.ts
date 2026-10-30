@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.2.1';
-export const SYSTEM_COMMIT = 'c444ffe';
+export const SYSTEM_VERSION = '0.2.2';
+export const SYSTEM_COMMIT = 'e0c0536';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,23 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.2.1',
+    version: '0.2.2',
     commit: 'latest',
+    released_at: '2026-10-30T19:07:00.000Z',
+    summary:
+      'Hoàn tất Phase 6: Chuẩn hóa cửa sổ Bổ sung thông tin nhân viên & Hồ sơ cá nhân — chỉ bắt buộc Số điện thoại (*), các mục CCCD/Địa chỉ/Ngày sinh/Ngân hàng đều ghi rõ Không bắt buộc; đổi bộ chọn Ngày sinh sang chuẩn Ngày / Tháng / Năm tiếng Việt và thêm ô Tìm kiếm nhanh 35 Ngân hàng Việt Nam.',
+    added: [
+      'Bộ chọn Ngày sinh 3 cột chuẩn tiếng Việt (Ngày / Tháng / Năm) thay cho lịch MM/DD/YYYY tiếng Anh của trình duyệt.',
+      'Ô Tìm kiếm tên ngân hàng thông minh (VnBankAutocompleteInput) hỗ trợ gõ tìm nhanh 35 ngân hàng Việt Nam (MB Bank, Vietcombank, Techcombank, VietinBank, BIDV, ACB, Agribank...).',
+    ],
+    improved: [
+      'Ghi chú rõ ràng "(Bắt buộc)" tại ô Số điện thoại liên hệ (*) và "(Không bắt buộc)" tại tất cả các mục Ngày sinh, Giới tính, Số CCCD/CMND, Địa chỉ nơi ở hiện tại và Ngân hàng nhận lương.',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.2.1',
+    commit: 'e0c0536',
     released_at: '2026-10-30T18:51:00.000Z',
     summary:
       'Hoàn tất Phase 5: Hiển thị chi tiết Thưởng (+), Phụ cấp (+), Khấu trừ (-) và Tài khoản ngân hàng nhận lương trực tiếp trên cả Bảng lương Owner (/payroll) và Phiếu lương cá nhân (/my-pay); làm giàu mô tả thành phẩm Video/Audio Drive khi đồng bộ công việc từ TikTok AI Factory V4.',

@@ -10,6 +10,10 @@ import {
   SettingsIcon,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
+import {
+  VnDateOfBirthSelect,
+  VnBankAutocompleteInput,
+} from '../components/VnProfileInputs.js';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 import {
   SYSTEM_VERSION,
@@ -882,23 +886,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 }}
               >
                 <label style={{ fontSize: '12px', color: '#94A3B8' }}>
-                  Ngày sinh
-                  <input
-                    data-testid="edit-profile-dob"
-                    type="date"
+                  Ngày sinh (Ngày/Tháng/Năm — Không bắt buộc)
+                  <VnDateOfBirthSelect
+                    testId="edit-profile-dob"
                     value={editDateOfBirth}
-                    onChange={(e) => setEditDateOfBirth(e.target.value)}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      marginTop: '4px',
-                      padding: '10px 12px',
-                      fontSize: '15px',
-                      borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
-                    }}
+                    onChange={setEditDateOfBirth}
                   />
                 </label>
                 <label style={{ fontSize: '12px', color: '#94A3B8' }}>
@@ -926,7 +918,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   </select>
                 </label>
                 <label style={{ fontSize: '12px', color: '#94A3B8' }}>
-                  Số CCCD / CMND
+                  Số CCCD / CMND (Không bắt buộc)
                   <input
                     data-testid="edit-profile-national-id"
                     type="text"
@@ -972,7 +964,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <label
                 style={{ fontSize: '12px', color: '#94A3B8', display: 'block' }}
               >
-                Địa chỉ nơi ở hiện tại
+                Địa chỉ nơi ở hiện tại (Không bắt buộc)
                 <input
                   data-testid="edit-profile-address"
                   type="text"
@@ -1044,25 +1036,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   }}
                 >
                   <label style={{ fontSize: '12px', color: '#94A3B8' }}>
-                    Ngân hàng
-                    <input
-                      data-testid="edit-profile-bank-name"
-                      type="text"
-                      value={editBankName}
-                      onChange={(e) => setEditBankName(e.target.value)}
-                      placeholder="VD: Vietcombank, MB Bank..."
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        marginTop: '4px',
-                        padding: '9px 10px',
-                        fontSize: '14px',
-                        borderRadius: '6px',
-                        border: '1px solid #475569',
-                        backgroundColor: '#1E293B',
-                        color: '#F8FAFC',
-                      }}
-                    />
+                    Ngân hàng (Không bắt buộc)
+                    <div style={{ marginTop: '4px' }}>
+                      <VnBankAutocompleteInput
+                        testId="edit-profile-bank-name"
+                        value={editBankName}
+                        onChange={setEditBankName}
+                        placeholder="🔍 Tìm tên ngân hàng (MB, VCB...)"
+                      />
+                    </div>
                   </label>
                   <label style={{ fontSize: '12px', color: '#94A3B8' }}>
                     Số tài khoản

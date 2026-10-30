@@ -19,6 +19,10 @@ import { TOKENS } from '../../../../packages/ui/src/tokens.js';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 import type { HourlyRateData } from '../../../../packages/contracts/src/payroll.js';
 import type { UserRole } from '../types.js';
+import {
+  VnDateOfBirthSelect,
+  VnBankAutocompleteInput,
+} from '../components/VnProfileInputs.js';
 
 export interface EmployeeDetailScreenProps {
   employeeId: string;
@@ -1034,25 +1038,13 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Ngày sinh:
+                  Ngày sinh (Ngày/Tháng/Năm — Không bắt buộc):
                 </label>
-                <input
+                <VnDateOfBirthSelect
                   id="editDob"
-                  type="date"
+                  testId="editDob"
                   value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                  style={{
-                    width: '100%',
-                    minHeight: '44px',
-                    padding: '0 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
+                  onChange={setDateOfBirth}
                 />
               </div>
 
@@ -1102,7 +1094,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Số CCCD / CMND:
+                  Số CCCD / CMND (Không bắt buộc):
                 </label>
                 <input
                   id="editNationalId"
@@ -1168,7 +1160,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Địa chỉ thường trú / Nơi ở hiện tại:
+                  Địa chỉ thường trú / Nơi ở hiện tại (Không bắt buộc):
                 </label>
                 <input
                   id="editAddress"
@@ -1222,26 +1214,14 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Ngân hàng:
+                  Ngân hàng (Không bắt buộc):
                 </label>
-                <input
+                <VnBankAutocompleteInput
                   id="editBankName"
-                  type="text"
+                  testId="editBankName"
                   value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  placeholder="VD: Vietcombank, MB Bank, Techcombank..."
-                  style={{
-                    width: '100%',
-                    minHeight: '44px',
-                    padding: '0 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
+                  onChange={setBankName}
+                  placeholder="🔍 Tìm tên ngân hàng (MB, VCB, Techcombank...)"
                 />
               </div>
 

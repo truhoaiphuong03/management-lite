@@ -1,6 +1,10 @@
 import { managementSsoContinuation } from './navigation-guard.js';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppShell } from './AppShell.js';
+import {
+  VnDateOfBirthSelect,
+  VnBankAutocompleteInput,
+} from './components/VnProfileInputs.js';
 import { LoginScreen } from './screens/LoginScreen.js';
 import { DashboardScreen } from './screens/DashboardScreen.js';
 import { ClockScreen } from './screens/ClockScreen.js';
@@ -1202,10 +1206,13 @@ export const App: React.FC = () => {
                   lineHeight: 1.5,
                 }}
               >
-                Hồ sơ nhân sự của bạn chưa có{' '}
-                <strong>Số điện thoại liên hệ</strong>. Vui lòng điền số điện
-                thoại và thông tin cơ bản / ngân hàng nhận lương bên dưới để
-                hoàn tất hồ sơ.
+                Chỉ bắt buộc điền{' '}
+                <strong style={{ color: '#F8FAFC' }}>
+                  Số điện thoại liên hệ (*)
+                </strong>
+                . Các thông tin khác (Ngày sinh, Giới tính, Số CCCD/CMND, Địa chỉ,
+                Ngân hàng) đều <strong>không bắt buộc</strong> — có thể điền hoặc
+                bỏ trống.
               </p>
 
               <div
@@ -1223,7 +1230,9 @@ export const App: React.FC = () => {
                     style={{ fontSize: '12px', color: '#94A3B8' }}
                   >
                     Số điện thoại liên hệ{' '}
-                    <span style={{ color: '#EF4444' }}>*</span>
+                    <span style={{ color: '#EF4444', fontWeight: 700 }}>
+                      * (Bắt buộc)
+                    </span>
                   </label>
                   <input
                     id="missing-phone-input"
@@ -1253,24 +1262,13 @@ export const App: React.FC = () => {
                     htmlFor="missing-dob-input"
                     style={{ fontSize: '12px', color: '#94A3B8' }}
                   >
-                    Ngày sinh
+                    Ngày sinh (Ngày / Tháng / Năm — Không bắt buộc)
                   </label>
-                  <input
+                  <VnDateOfBirthSelect
                     id="missing-dob-input"
-                    type="date"
+                    testId="missing-dob-input"
                     value={promptDob}
-                    onChange={(e) => setPromptDob(e.target.value)}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      marginTop: '4px',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
-                    }}
+                    onChange={setPromptDob}
                   />
                 </div>
 
@@ -1279,7 +1277,8 @@ export const App: React.FC = () => {
                     htmlFor="missing-gender-input"
                     style={{ fontSize: '12px', color: '#94A3B8' }}
                   >
-                    Giới tính
+                    Giới tính{' '}
+                    <span style={{ color: '#64748B' }}>(Không bắt buộc)</span>
                   </label>
                   <select
                     id="missing-gender-input"
@@ -1309,14 +1308,15 @@ export const App: React.FC = () => {
                     htmlFor="missing-cccd-input"
                     style={{ fontSize: '12px', color: '#94A3B8' }}
                   >
-                    Số CCCD / CMND
+                    Số CCCD / CMND{' '}
+                    <span style={{ color: '#64748B' }}>(Không bắt buộc)</span>
                   </label>
                   <input
                     id="missing-cccd-input"
                     type="text"
                     value={promptNationalId}
                     onChange={(e) => setPromptNationalId(e.target.value)}
-                    placeholder="VD: 079200012345"
+                    placeholder="Có thể bỏ trống (VD: 079200012345)"
                     style={{
                       width: '100%',
                       boxSizing: 'border-box',
@@ -1336,14 +1336,15 @@ export const App: React.FC = () => {
                     htmlFor="missing-address-input"
                     style={{ fontSize: '12px', color: '#94A3B8' }}
                   >
-                    Địa chỉ nơi ở hiện tại
+                    Địa chỉ nơi ở hiện tại{' '}
+                    <span style={{ color: '#64748B' }}>(Không bắt buộc)</span>
                   </label>
                   <input
                     id="missing-address-input"
                     type="text"
                     value={promptAddress}
                     onChange={(e) => setPromptAddress(e.target.value)}
-                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+                    placeholder="Không bắt buộc — Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
                     style={{
                       width: '100%',
                       boxSizing: 'border-box',
@@ -1376,7 +1377,7 @@ export const App: React.FC = () => {
                     marginBottom: '8px',
                   }}
                 >
-                  🏦 Thông tin ngân hàng nhận lương (Tùy chọn)
+                  🏦 Thông tin ngân hàng nhận lương (Không bắt buộc)
                 </div>
                 <div
                   style={{
@@ -1386,21 +1387,11 @@ export const App: React.FC = () => {
                     gap: '8px',
                   }}
                 >
-                  <input
-                    type="text"
+                  <VnBankAutocompleteInput
+                    testId="missing-bank-name-input"
                     value={promptBankName}
-                    onChange={(e) => setPromptBankName(e.target.value)}
-                    placeholder="Tên ngân hàng (MB, VCB...)"
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      padding: '8px 10px',
-                      fontSize: '13px',
-                      borderRadius: '6px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
-                    }}
+                    onChange={setPromptBankName}
+                    placeholder="🔍 Tìm tên ngân hàng (MB, VCB...)"
                   />
                   <input
                     type="text"

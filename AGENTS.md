@@ -4,15 +4,16 @@
 
 ## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
 
-- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.2.1`
-- **Tiến độ lũy kế:** Hoàn tất **Phase 5/5 (`100%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`):
+- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.2.2`
+- **Tiến độ lũy kế:** Hoàn tất **Phase 6/6 (`100%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`):
   - ✅ **Phase 1 (`v0.1.4`):** Hồ sơ Nhân sự mở rộng + Ngân hàng + Nhắc SĐT (`migration 0030`) + Kích hoạt `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY`, `FIN_RECEIPT_DIR` (`96d3d1e`).
   - ✅ **Phase 2 (`v0.1.5`):** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel + Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương + Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** (`c4896f0`).
   - ✅ **Phase 3 (`v0.1.6`):** Hiển thị **SĐT, Chức danh, Ngân hàng** & nút **Xuất CSV danh sách** trên `/employees` + Thẻ nhắc nộp **Báo cáo công việc** ngay sau khi Ra ca (`/clock`) + **Trung tâm Việc cần xử lý (`Action Center`)** trên `/dashboard` (`f41806b`).
   - ✅ **Phase 4 (`v0.2.0`):** Bảng xác nhận **Ánh xạ nhân sự cố định (`NV001`, `NV002`... ↔ Email V4)** trên `/dashboard` & Chia nhỏ gói JS (`manualChunks` trong `vite.config.ts`) xuống `< 300 kB/chunk` (`c444ffe`).
-  - ✅ **Phase 5 (`v0.2.1`):** Hiển thị chi tiết **Thưởng (+), Phụ cấp (+), Khấu trừ (-)** & **Ngân hàng nhận lương** trên Phiếu lương cá nhân (`/my-pay`) và thẻ Bảng lương (`/payroll`) + Gắn nhãn thành phẩm **Video/Audio Drive V4** khi đồng bộ công việc (`/work`).
+  - ✅ **Phase 5 (`v0.2.1`):** Hiển thị chi tiết **Thưởng (+), Phụ cấp (+), Khấu trừ (-)** & **Ngân hàng nhận lương** trên Phiếu lương cá nhân (`/my-pay`) và thẻ Bảng lương (`/payroll`) + Gắn nhãn thành phẩm **Video/Audio Drive V4** khi đồng bộ công việc (`/work`) (`e0c0536`).
+  - ✅ **Phase 6 (`v0.2.2`):** Chuẩn hóa cửa sổ & biểu mẫu Hồ sơ nhân viên — chỉ bắt buộc **SĐT (*)**, ghi rõ **(Không bắt buộc)** cho CCCD/Địa chỉ/Ngày sinh/Ngân hàng, bộ chọn **Ngày / Tháng / Năm** tiếng Việt & ô **Tìm tên ngân hàng** tự động gợi ý 35 ngân hàng Napas.
 - **VIỆC TIẾP THEO (`NEXT_ACTION`):**
-  - Toàn bộ 5 Phase nâng cấp (`v0.1.4` → `v0.2.1`) trên `management-lite` đã hoàn tất `100%`. Sẵn sàng nhận yêu cầu nghiệp vụ tiếp theo từ Owner.
+  - Toàn bộ 6 Phase nâng cấp (`v0.1.4` → `v0.2.2`) trên `management-lite` đã hoàn tất `100%`. Sẵn sàng nhận yêu cầu nghiệp vụ tiếp theo từ Owner.
 
 ---
 
@@ -31,6 +32,7 @@
 | **Phase 4 (`v0.2.0`)** | `Task 4.2` | Chia nhỏ gói JS (`manualChunks`) giảm bundle chính từ `~1 MB` xuống `< 400 kB` | `apps/web/vite.config.ts` | `[DONE]` (`v0.2.0`) |
 | **Phase 5 (`v0.2.1`)**<br>Phiếu lương cá nhân (`/my-pay`) & Thành phẩm V4 | `Task 5.1` | Hiển thị chi tiết **Thưởng (+), Phụ cấp (+), Khấu trừ (-)** & **Ngân hàng nhận lương** trên `/my-pay` và `/payroll` | `apps/web/src/screens/PayrollScreen.tsx` | `[DONE]` (`v0.2.1`) |
 | **Phase 5 (`v0.2.1`)** | `Task 5.2` | Đồng bộ nhãn thành phẩm **Video MP4 / Audio WAV Drive V4** vào mô tả công việc (`/work`) | `apps/api/src/bridge/service.ts` | `[DONE]` (`v0.2.1`) |
+| **Phase 6 (`v0.2.2`)**<br>Chuẩn hóa Hồ sơ: Ngày/Tháng/Năm, Tìm Ngân hàng & Không bắt buộc CCCD/Địa chỉ | `Task 6.1` | Bộ chọn **Ngày / Tháng / Năm**, ô **Tìm tên ngân hàng** & ghi rõ chỉ bắt buộc **SĐT (*)** (CCCD, Địa chỉ, Ngày sinh không bắt buộc) | `apps/web/src/components/VnProfileInputs.tsx`, `apps/web/src/App.tsx`, `apps/web/src/screens/SettingsScreen.tsx`, `apps/web/src/screens/EmployeeDetailScreen.tsx` | `[DONE]` (`v0.2.2`) |
 
 ---
 
