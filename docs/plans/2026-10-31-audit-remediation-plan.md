@@ -12,14 +12,17 @@
 | 14.3 | Validate `X-Request-Id`; gom `sessionCookieName` vào closure `requireAuth` (41/50 chỗ đang bỏ sót); handler `uncaughtException`/`unhandledRejection`; timeout cho server + proxy | `apps/api/src/app.ts`, `apps/api/src/main.ts`, `apps/api/src/server.ts` | Test đặt `SESSION_COOKIE_NAME` tùy chỉnh vẫn đăng nhập được mọi route |
 | 14.4 | Job dọn `auth_sessions` hết hạn >7 ngày, `idempotency_records` quá TTL; `statement_timeout=15s`, `application_name` | `apps/api/src/auth/service.ts`, `packages/database/src/config.ts`, migration `0031` | Test dọn dữ liệu; truy vấn treo bị cắt |
 
-## Phase 15 (`v0.3.4`) — Tốc độ tải trang
+## Phase 15 (`v0.5.2`) — Tốc độ tải trang — **ĐÃ XONG**
+
+> Đánh số lại: phiên UI đã phát hành `v0.5.0` và giữ `v0.5.1` cho Phase UI-5, nên các Phase 15–19 lấy số trống kế tiếp tại thời điểm phát hành (Phase 15 = `v0.5.2`).
+> Kết quả đo: JS tải lần đầu `1.080 kB → 418 kB` thô, `260 kB → 119 kB` nén; tải lại không còn request asset nào (đã kiểm chứng bằng Chrome thật).
 
 | Task | Nội dung | File mục tiêu | Nghiệm thu |
 |---|---|---|---|
 | 15.1 | Máy chủ tĩnh: `/assets/*` cache `immutable` 1 năm, `index.html` `no-cache`+ETag, nén brotli/gzip, 404 thật cho asset thiếu, fs bất đồng bộ | `scripts/runtime/serve-web.cjs` | Tải lần 2 ≈ 0 KB JS; có `content-encoding` |
 | 15.2 | `React.lazy` + `Suspense` theo route (hiện 0 lazy, 29 màn nạp cùng lúc) | `apps/web/src/App.tsx`, `apps/web/vite.config.ts` | JS khởi đầu ≤ 500 KB thô / ≤ 140 KB gzip (hiện 1.080 / 260 KB) |
 | 15.3 | `/api/v1/health`: tính thông tin phát hành 1 lần lúc khởi động, bỏ `execFileSync git` và đọc file đồng bộ mỗi request | `apps/api/src/app.ts` | Không còn lệnh đồng bộ trong health |
-| 15.4 | `AccountsScreen`: bỏ `setInterval 500ms` | `apps/web/src/screens/AccountsScreen.tsx` | Test ACC-005 vẫn đạt |
+| 15.4 | ~~`AccountsScreen`: bỏ `setInterval 500ms`~~ **Bỏ có chủ đích:** timer chỉ tồn tại ≤30 giây khi đang hiện bí mật và điều khiển đồng hồ đếm ngược; không phải polling nền. Mục P-06 của kiểm toán đã đánh giá sai | `apps/web/src/screens/AccountsScreen.tsx` | Không đổi; test ACC-005 giữ nguyên |
 | 15.5 | Script ngân sách bundle chạy trong `verify` | `scripts/check-bundle-budget.mjs` | Fail khi vượt ngân sách |
 
 ## Phase 16 (`v0.3.5`) — Toàn vẹn phát hành & nợ kiểm thử

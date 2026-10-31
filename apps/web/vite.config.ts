@@ -21,44 +21,12 @@ export default defineConfig(() => {
       chunkSizeWarningLimit: 400,
       rollupOptions: {
         output: {
+          // Third-party code changes rarely, so it lives in its own long-cached chunk.
+          // Screens are NOT grouped here: App.tsx loads each one on demand (React.lazy),
+          // and Rollup emits one chunk per route plus shared chunks for common code.
           manualChunks(id) {
             if (id.includes('node_modules')) {
               return 'vendor-react';
-            }
-            if (
-              id.includes('PayrollScreen') ||
-              id.includes('PayrollStatsScreen') ||
-              id.includes('EmployeeMyPayScreen') ||
-              id.includes('FinanceOverviewScreen') ||
-              id.includes('FinanceLedgerScreen')
-            ) {
-              return 'screen-payroll-finance';
-            }
-            if (
-              id.includes('ClockScreen') ||
-              id.includes('AttendanceScreen') ||
-              id.includes('ScheduleScreen')
-            ) {
-              return 'screen-attendance-schedule';
-            }
-            if (
-              id.includes('StorageScreen') ||
-              id.includes('ReportsScreen') ||
-              id.includes('ReportNewScreen') ||
-              id.includes('ReportDetailScreen') ||
-              id.includes('WorkScreen') ||
-              id.includes('WorkDetailScreen')
-            ) {
-              return 'screen-storage-work-reports';
-            }
-            if (
-              id.includes('EmployeesScreen') ||
-              id.includes('EmployeeDetailScreen') ||
-              id.includes('EmployeeNewScreen') ||
-              id.includes('AccountsScreen') ||
-              id.includes('SystemLogsScreen')
-            ) {
-              return 'screen-employees-admin';
             }
           },
         },

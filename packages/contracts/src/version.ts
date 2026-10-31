@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.5.0';
-export const SYSTEM_COMMIT = 'e65ae75';
+export const SYSTEM_VERSION = '0.5.2';
+export const SYSTEM_COMMIT = 'a0122fb';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,27 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.5.0',
+    version: '0.5.2',
     commit: 'latest',
+    released_at: '2026-10-31T06:00:00.000Z',
+    summary:
+      'Hoàn tất Phase 15 (Tốc độ tải trang): chỉ tải phần cần thiết khi mở ứng dụng — mã JavaScript tải lần đầu giảm từ khoảng 1,08 MB xuống 0,42 MB (đã nén: từ khoảng 260 KB xuống 119 KB), và các lần mở sau gần như không phải tải lại.',
+    added: [
+      'Mỗi màn hình được tải theo yêu cầu (chỉ khi bạn mở màn hình đó) thay vì tải toàn bộ ngay từ đầu; có khung chờ "Đang tải màn hình..." trong lúc tải.',
+      'Công cụ kiểm tra dung lượng gói tải lần đầu (npm run check:bundle) với ngưỡng cảnh báo khi vượt ngân sách.',
+    ],
+    improved: [
+      'Tệp giao diện đã băm tên (assets) được trình duyệt lưu 1 năm; trang chính luôn kiểm tra bản mới. Mở lại ứng dụng không còn tải lại toàn bộ mã.',
+      'Tệp văn bản (JS, CSS, HTML) được nén brotli/gzip và lưu sẵn trong bộ nhớ máy chủ, hỗ trợ ETag nên trình duyệt chỉ nhận mã 304 khi không đổi.',
+      'Kiểm tra sức khỏe hệ thống (/api/v1/health) không còn chạy lệnh git mỗi lần gọi; thông tin phát hành được nạp một lần khi khởi động.',
+    ],
+    fixed: [
+      'Tệp giao diện bị thiếu (ví dụ bản cũ sau khi cập nhật) giờ trả về lỗi 404 đúng nghĩa thay vì trả trang HTML với mã 200 gây lỗi khó hiểu trên trình duyệt.',
+    ],
+  },
+  {
+    version: '0.5.0',
+    commit: 'a0122fb',
     released_at: '2026-10-31T05:45:00.000Z',
     summary:
       'Chu?n h�a giao di?n to�n h? th?ng (Phase UI-0 ? UI-4): giao di?n S�ng d�ng du?c tr�n m?i m�n h�nh, thanh di?u hu?ng d�y di?n tho?i c� t�n truy c?p, b?ng t? chuy?n th�nh th? tr�n di?n tho?i v� c� c�ng c? ki?m tra giao di?n t? d?ng.',

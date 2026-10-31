@@ -3,13 +3,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import type { DatabasePool } from '../../../packages/database/src/pool.js';
 import { checkDatabaseHealth } from '../../../packages/database/src/pool.js';
 import {
-  SYSTEM_VERSION,
   SYSTEM_COMMIT,
-  SYSTEM_ENV,
   RELEASE_NOTES_CATALOG,
   type ReleaseHistoryEntry,
 } from '../../../packages/contracts/src/version.js';
@@ -18,6 +15,7 @@ import {
   createErrorEnvelope,
   sendJson,
 } from './envelope.js';
+import { resolveReleaseState } from './release-info.js';
 import { AuthService, AuthError } from './auth/service.js';
 import { createBrevoResetMailer } from './auth/reset-email.js';
 import { EmployeeService } from './employees/service.js';
@@ -500,6 +498,14 @@ export function createRequestHandler(
     deps.bridgeService ?? (deps.pool ? new BridgeService(deps.pool) : null);
   const apiCache = deps.apiCache ?? new ScopedApiCache();
 
+  // Resolve release info once at boot so the one-time git fallback never runs while a
+  // (public) health request is waiting on it.
+  try {
+    resolveReleaseState(isProduction);
+  } catch {
+    // Release metadata is informational; never block startup on it.
+  }
+
   return async (req: http.IncomingMessage, res: http.ServerResponse) => {
     // 1. Assign a deterministic request_id. A client-supplied id is only honoured when it
     // is a short, log-safe token; anything else is replaced to prevent log/header injection.
@@ -968,156 +974,8 @@ export function createRequestHandler(
                 : await financeService.createEntry(auth, body, key, requestId);
         return sendJson(res, result.status, result.body);
       }
-      const resolveRuntimeReleaseState = () => {
-        let runtimeVersion = '0.1.0';
-        let runtimeSha = SYSTEM_COMMIT;
-        let runtimeReleasedAt: string | null = null;
-        let runtimeEnv = isProduction ? 'production' : SYSTEM_ENV;
-
-        try {
-          const pkgPath = path.resolve(process.cwd(), 'package.json');
-          if (fs.existsSync(pkgPath)) {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as {
-              version?: string;
-            };
-            if (pkg.version) {
-              runtimeVersion = String(pkg.version).replace(/^v/i, '');
-            }
-          }
-        } catch {
-          // Ignore fallback read errors
-        }
-
-        const releaseVerCandidates = [
-          path.resolve(process.cwd(), 'dist/release-version.json'),
-          path.resolve(process.cwd(), 'apps/web/dist/release-version.json'),
-        ];
-        for (const candidate of releaseVerCandidates) {
-          try {
-            if (fs.existsSync(candidate)) {
-              const rel = JSON.parse(fs.readFileSync(candidate, 'utf8')) as {
-                version?: string;
-                sha?: string;
-                shortSha?: string;
-                releasedAt?: string;
-                builtAt?: string;
-                environment?: string;
-              };
-              if (rel.version) {
-                runtimeVersion = String(rel.version).replace(/^v/i, '');
-              }
-              if (rel.sha) {
-                runtimeSha = String(rel.sha).trim();
-              } else if (rel.shortSha) {
-                runtimeSha = String(rel.shortSha).trim();
-              }
-              if (rel.releasedAt || rel.builtAt) {
-                runtimeReleasedAt = String(rel.releasedAt || rel.builtAt);
-              }
-              if (rel.environment) {
-                runtimeEnv = String(rel.environment);
-              }
-              break;
-            }
-          } catch {
-            // Try next candidate
-          }
-        }
-
-        const explicitReportsDir = process.env['SERVER_REPORTS_DIR'];
-        const reportsDir =
-          explicitReportsDir || 'C:\\HoaiPhuong-Server\\reports';
-        let rcVerifiedAt: string | null = null;
-        try {
-          const runningCompPath = path.join(
-            reportsDir,
-            'running-components-sha.json',
-          );
-          if (fs.existsSync(runningCompPath)) {
-            const rc = JSON.parse(fs.readFileSync(runningCompPath, 'utf8')) as {
-              sha?: string;
-              verified_at_utc?: string;
-            };
-            if (rc.sha) {
-              const rcShaTrimmed = String(rc.sha).trim();
-              if (
-                explicitReportsDir ||
-                runtimeSha === SYSTEM_COMMIT ||
-                rcShaTrimmed.slice(0, 7).toLowerCase() ===
-                  runtimeSha.slice(0, 7).toLowerCase()
-              ) {
-                runtimeSha = rcShaTrimmed;
-                if (rc.verified_at_utc) {
-                  rcVerifiedAt = String(rc.verified_at_utc);
-                  runtimeReleasedAt = rcVerifiedAt;
-                }
-              }
-            }
-          } else if (explicitReportsDir) {
-            const liveShaPath = path.join(reportsDir, 'current-live-sha.txt');
-            if (fs.existsSync(liveShaPath)) {
-              const liveSha = fs.readFileSync(liveShaPath, 'utf8').trim();
-              if (liveSha) runtimeSha = liveSha;
-            }
-          }
-        } catch {
-          // Ignore optional server report read errors
-        }
-
-        if (runtimeSha === SYSTEM_COMMIT) {
-          try {
-            const gitSha = execFileSync('git', ['rev-parse', 'HEAD'], {
-              cwd: process.cwd(),
-              encoding: 'utf8',
-              timeout: 1500,
-              stdio: ['ignore', 'pipe', 'ignore'],
-            }).trim();
-            if (gitSha) runtimeSha = gitSha;
-            if (!runtimeReleasedAt) {
-              const gitDate = execFileSync(
-                'git',
-                ['log', '-1', '--format=%cI'],
-                {
-                  cwd: process.cwd(),
-                  encoding: 'utf8',
-                  timeout: 1500,
-                  stdio: ['ignore', 'pipe', 'ignore'],
-                },
-              ).trim();
-              if (gitDate) runtimeReleasedAt = gitDate;
-            }
-          } catch {
-            // Keep fallback SYSTEM_COMMIT
-          }
-        }
-
-        const shortCommit = runtimeSha.slice(0, 7).toLowerCase();
-        const matchedHistorical = RELEASE_NOTES_CATALOG.find(
-          (item) =>
-            item.commit !== 'latest' &&
-            item.commit.slice(0, 7).toLowerCase() === shortCommit,
-        );
-        if (matchedHistorical) {
-          runtimeVersion = matchedHistorical.version.replace(/^v/i, '');
-          if (!rcVerifiedAt) {
-            runtimeReleasedAt = matchedHistorical.released_at;
-          }
-        }
-
-        const isProdActive =
-          isProduction || runtimeEnv.toLowerCase() === 'production';
-
-        return {
-          version: runtimeVersion || SYSTEM_VERSION.replace(/^v/i, ''),
-          commit: shortCommit,
-          sha: runtimeSha,
-          releasedAt: runtimeReleasedAt,
-          environment: isProdActive ? 'production' : runtimeEnv,
-          productionStatus: isProdActive
-            ? 'Production — Đang hoạt động'
-            : 'Staging / Dev — Đang hoạt động',
-        };
-      };
+      const resolveRuntimeReleaseState = () =>
+        resolveReleaseState(isProduction);
 
       // 2. Health / Liveness endpoint: GET /api/v1/health
       if (method === 'GET' && pathname === '/api/v1/health') {

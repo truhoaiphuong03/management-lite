@@ -6,47 +6,52 @@ import {
   VnBankAutocompleteInput,
 } from './components/VnProfileInputs.js';
 import { LoginScreen } from './screens/LoginScreen.js';
-import { DashboardScreen } from './screens/DashboardScreen.js';
-import { ClockScreen } from './screens/ClockScreen.js';
-import { ScheduleScreen } from './screens/ScheduleScreen.js';
-import { ReportsScreen } from './screens/ReportsScreen.js';
+import {
+  DashboardScreen,
+  ClockScreen,
+  ScheduleScreen,
+  ReportsScreen,
+  EmployeesScreen,
+  EmployeeNewScreen,
+  EmployeeDetailScreen,
+  ActivateScreen,
+  ForgotPasswordScreen,
+  ResetPasswordScreen,
+  VerifyEmailScreen,
+  PayrollScreen,
+  SystemLogsScreen,
+  PayrollStatsScreen,
+  WorkScreen,
+  AccountsScreen,
+  StorageScreen,
+  AuditScreen,
+  IssuesScreen,
+  IssueDetailScreen,
+  GroupOverviewScreen,
+  FinanceOverviewScreen,
+  FinanceHistoryScreen,
+  FinanceEntryScreen,
+  FinanceCategoriesScreen,
+  FinancePlanScreen,
+} from './lazy-screens.js';
 import {
   SettingsScreen,
   applyTheme,
   removeThemeListener,
 } from './screens/SettingsScreen.js';
-import { EmployeesScreen } from './screens/EmployeesScreen.js';
-import { EmployeeNewScreen } from './screens/EmployeeNewScreen.js';
-import { EmployeeDetailScreen } from './screens/EmployeeDetailScreen.js';
-import { ActivateScreen } from './screens/ActivateScreen.js';
-import { ForgotPasswordScreen } from './screens/ForgotPasswordScreen.js';
-import { ResetPasswordScreen } from './screens/ResetPasswordScreen.js';
-import { VerifyEmailScreen } from './screens/VerifyEmailScreen.js';
 import {
   installAuthInterceptor,
   addSessionExpiredListener,
   resetSessionExpiredState,
 } from './auth-interceptor.js';
 import { sanitizePostLoginRedirect } from './navigation-guard.js';
-import { AlertTriangleIcon } from '../../../packages/ui/src/components/index.js';
+import {
+  AlertTriangleIcon,
+  LoadingState,
+} from '../../../packages/ui/src/components/index.js';
 import { NotFoundScreen } from './screens/NotFoundScreen.js';
 import { PlaceholderScreen } from './screens/PlaceholderScreen.js';
-import { PayrollScreen } from './screens/PayrollScreen.js';
-import { SystemLogsScreen } from './screens/SystemLogsScreen.js';
-import { PayrollStatsScreen } from './screens/PayrollStatsScreen.js';
-import { WorkScreen } from './screens/WorkScreen.js';
-import { AccountsScreen } from './screens/AccountsScreen.js';
-import { StorageScreen } from './screens/StorageScreen.js';
-import { AuditScreen } from './screens/AuditScreen.js';
-import { IssuesScreen } from './screens/IssuesScreen.js';
-import { IssueDetailScreen } from './screens/IssueDetailScreen.js';
-import { GroupOverviewScreen } from './screens/GroupOverviewScreen.js';
-import { FinanceOverviewScreen } from './screens/FinanceOverviewScreen.js';
-import { FinanceHistoryScreen } from './screens/FinanceHistoryScreen.js';
-import { FinanceEntryScreen } from './screens/FinanceEntryScreen.js';
 import { createReceiptApi } from './finance/client.js';
-import { FinanceCategoriesScreen } from './screens/FinanceCategoriesScreen.js';
-import { FinancePlanScreen } from './screens/FinancePlanScreen.js';
 import {
   parseSessionPayload,
   executeSessionVerification,
@@ -67,6 +72,13 @@ export {
   type ParsedSessionData,
   type SessionStateTracker,
 };
+
+/** Shows a lightweight placeholder while a lazily loaded screen chunk is downloading. */
+const withSuspense = (node: React.ReactNode): React.ReactElement => (
+  <React.Suspense fallback={<LoadingState message="Äang táº£i mÃ n hÃ¬nh..." />}>
+    {node}
+  </React.Suspense>
+);
 
 export const App: React.FC = () => {
   // 1. Initial route from browser URL location (deep link / refresh support)
@@ -476,22 +488,22 @@ export const App: React.FC = () => {
 
   // If viewing activate screen (accessible anonymously with token)
   if (currentPath.startsWith('/activate')) {
-    return <ActivateScreen onNavigate={handleNavigate} />;
+    return withSuspense(<ActivateScreen onNavigate={handleNavigate} />);
   }
 
   // If viewing forgot password screen (accessible anonymously)
   if (currentPath === '/forgot-password') {
-    return <ForgotPasswordScreen onNavigate={handleNavigate} />;
+    return withSuspense(<ForgotPasswordScreen onNavigate={handleNavigate} />);
   }
 
   // If viewing reset password screen (accessible anonymously with token)
   if (currentPath.startsWith('/reset-password')) {
-    return <ResetPasswordScreen onNavigate={handleNavigate} />;
+    return withSuspense(<ResetPasswordScreen onNavigate={handleNavigate} />);
   }
 
   // If viewing email verification screen (accessible anonymously or while logged in)
   if (currentPath.startsWith('/verify-email')) {
-    return (
+    return withSuspense(
       <VerifyEmailScreen
         initialToken={initialVerifyToken}
         initialEmail={userEmail}
@@ -501,7 +513,7 @@ export const App: React.FC = () => {
         onVerified={() => {
           void verifySession();
         }}
-      />
+      />,
     );
   }
 
@@ -1676,7 +1688,7 @@ export const App: React.FC = () => {
             </div>
           </div>
         )}
-        {renderContent()}
+        {withSuspense(renderContent())}
       </AppShell>
     </>
   );
