@@ -24,6 +24,10 @@ import {
   DEFAULT_SESSION_MAX_AGE_SECONDS,
   getRememberMeMaxAgeSeconds,
 } from '../cookie.js';
+import {
+  normalizeDateOfBirth,
+  normalizeBankAccountNumber,
+} from '../employees/profile-validator.js';
 
 export class AuthError extends Error {
   constructor(
@@ -912,7 +916,13 @@ export class AuthService {
           if (trimmed.length > maxLen) {
             invalid(col, `Trường ${col} vượt quá ${maxLen} ký tự`);
           }
-          optionalTextMap[col] = trimmed || null;
+          if (col === 'date_of_birth') {
+            optionalTextMap[col] = normalizeDateOfBirth(trimmed);
+          } else if (col === 'bank_account_number') {
+            optionalTextMap[col] = normalizeBankAccountNumber(trimmed);
+          } else {
+            optionalTextMap[col] = trimmed || null;
+          }
         }
       }
     }

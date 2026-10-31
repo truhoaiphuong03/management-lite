@@ -43,19 +43,21 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
     version: '0.5.5',
     commit: 'latest',
-    released_at: '2026-10-31T07:05:00.000Z',
+    released_at: '2026-10-31T07:10:00.000Z',
     summary:
-      'Hoàn tất Phase 18 (Hiệu năng Backend/DB & Sức khỏe Mã nguồn): bổ sung bảng định tuyến O(1) RouteTable và tách 4 module định tuyến lớn khỏi app.ts, gộp chèn lịch tuần bằng UNNEST 1 lượt, hỗ trợ phân trang con trỏ (keyset cursor) cho Chấm công, tách bộ hàm tiện ích màn hình Web và bổ sung bộ chỉ mục + đo EXPLAIN ANALYZE.',
+      'Hoàn tất Phase UI-5 (Đổi nhãn menu tiếng Việt thân thiện & đạt 0 lỗi tương phản màu Sáng/Tối) và Phase 18 (Hiệu năng Backend/DB & Sức khỏe Mã nguồn: bảng định tuyến O(1) RouteTable, gộp UNNEST lịch tuần, phân trang con trỏ Chấm công, tách module tiện ích Web và chỉ mục đường nóng).',
     added: [
       'Bộ định tuyến RouteTable tra cứu đường dẫn cố định O(1) kết hợp phân nhánh theo tiền tố (apps/api/src/routes/router.ts) và 4 module định tuyến độc lập (schedules, accounts, storage, issues/audit).',
       'Bộ chỉ mục tối ưu đường nóng (scripts/perf/ensure-hot-indexes.sql) và công cụ đo kế hoạch thực thi truy vấn EXPLAIN ANALYZE (scripts/perf/explain-hot-queries.mjs).',
       'Các module hàm tiện ích giao diện độc lập (payroll-helpers.ts, work-helpers.ts, accounts-helpers.ts, storage-helpers.ts) giúp giảm kích thước các màn hình lớn.',
     ],
     improved: [
+      'Đổi nhãn điều hướng và đường dẫn (Breadcrumb) sang tiếng Việt rõ nghĩa: "Tài khoản ACC" → "Tài khoản dùng chung", "Sổ tay Issues" → "Sổ tay lỗi".',
       'Gộp thao tác lưu các ca đăng ký lịch làm việc trong tuần (SchedulesService) thành 1 truy vấn UNNEST duy nhất thay vì lặp 7 lệnh INSERT tuần tự.',
       'Bổ sung phân trang con trỏ (keyset cursor) không dùng OFFSET cho danh sách ca chấm công (/api/v1/attendance/shifts và /api/v1/attendance/me).',
     ],
     fixed: [
+      'Xử lý triệt để toàn bộ lỗi tương phản màu (axe color-contrast = 0 trên cả 2 chế độ Sáng và Tối qua 144 lượt kiểm tra 24 màn hình × 3 khung nhìn) cho StatusBadge, AppButton, Breadcrumb và các thẻ nền mờ.',
       'Khắc phục tình trạng tập trung hơn 4.100 dòng mã định tuyến vào một tệp app.ts duy nhất (giảm gần 1.200 dòng trong app.ts) và loại bỏ nút thắt N+1 INSERT khi lưu lịch làm việc tuần.',
     ],
   },

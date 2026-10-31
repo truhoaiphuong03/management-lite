@@ -6,6 +6,10 @@ import {
 } from '../../../../packages/security/src/tokens.js';
 import { AuthError, type AuthenticatedContext } from '../auth/service.js';
 import { requireRole } from '../auth/guard.js';
+import {
+  normalizeDateOfBirth,
+  normalizeBankAccountNumber,
+} from './profile-validator.js';
 import type {
   EmployeeData,
   CreateEmployeeRequestBody,
@@ -618,14 +622,22 @@ export class EmployeeService {
       for (const col of extraCols) {
         const raw = body[col];
         if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
-          createVals.push(String(raw).trim());
-          createSets.push(`${col} = ${createVals.length}`);
+          const normalizedVal =
+            col === 'date_of_birth'
+              ? normalizeDateOfBirth(String(raw))
+              : col === 'bank_account_number'
+                ? normalizeBankAccountNumber(String(raw))
+                : String(raw).trim();
+          if (normalizedVal !== null) {
+            createVals.push(normalizedVal);
+            createSets.push(`${col} = $${createVals.length}`);
+          }
         }
       }
       if (createSets.length > 0) {
         createVals.push(context.workspace.id, employeeId);
         await client.query(
-          `UPDATE employees SET ${createSets.join(', ')} WHERE workspace_id = ${createVals.length - 1} AND id = ${createVals.length};`,
+          `UPDATE employees SET ${createSets.join(', ')} WHERE workspace_id = $${createVals.length - 1} AND id = $${createVals.length};`,
           createVals,
         );
       }
@@ -766,12 +778,20 @@ export class EmployeeService {
       const extraVals: unknown[] = [newFullName, newEligibility];
       for (const col of extraCols) {
         if (body[col] !== undefined) {
-          const v =
+          const rawVal =
             body[col] === null || String(body[col]).trim() === ''
               ? null
               : String(body[col]).trim();
+          const v =
+            rawVal === null
+              ? null
+              : col === 'date_of_birth'
+                ? normalizeDateOfBirth(rawVal)
+                : col === 'bank_account_number'
+                  ? normalizeBankAccountNumber(rawVal)
+                  : rawVal;
           extraVals.push(v);
-          extraSets.push(`${col} = ${extraVals.length}`);
+          extraSets.push(`${col} = $${extraVals.length}`);
         }
       }
       if (extraSets.length === 0) {
@@ -789,7 +809,7 @@ export class EmployeeService {
       } else {
         extraVals.push(context.workspace.id, employeeId);
         await client.query(
-          `UPDATE employees SET full_name = $1, is_payroll_eligible = $2, ${extraSets.join(', ')}, version = version + 1, updated_at = now() WHERE workspace_id = ${extraVals.length - 1} AND id = ${extraVals.length};`,
+          `UPDATE employees SET full_name = $1, is_payroll_eligible = $2, ${extraSets.join(', ')}, version = version + 1, updated_at = now() WHERE workspace_id = $${extraVals.length - 1} AND id = $${extraVals.length};`,
           extraVals,
         );
       }
