@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.5.5';
-export const SYSTEM_COMMIT = '0f6384e';
+export const SYSTEM_VERSION = '0.5.6';
+export const SYSTEM_COMMIT = 'f1d2da2';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,26 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.5.5',
+    version: '0.5.6',
     commit: 'latest',
+    released_at: '2026-10-31T07:15:00.000Z',
+    summary:
+      'Hoàn tất Phase 19 (Vệ sinh dữ liệu, chuẩn hóa Hồ sơ nhân sự & Công cụ Vận hành an toàn): sửa lỗi SQL placeholder khi cập nhật hồ sơ nhân viên trong EmployeeService, kiểm tra chặt Ngày sinh (YYYY-MM-DD / DD/MM/YYYY) và Số tài khoản ngân hàng (chỉ chữ số), đồng thời bổ sung bộ công cụ kiểm toán & diễn tập khôi phục sao lưu (RPO/RTO).',
+    added: [
+      'Bộ kiểm tra và chuẩn hóa dữ liệu hồ sơ nhân sự (apps/api/src/employees/profile-validator.ts) cho cả AuthService và EmployeeService.',
+      'Bộ 4 công cụ vận hành an toàn chế độ Dry-Run (scripts/ops/audit-test-workspaces.mjs, audit-secrets-hygiene.mjs, backup-restore-drill.mjs, verify-profile-data.mjs).',
+    ],
+    improved: [
+      'Chuẩn hóa tự động Ngày sinh từ định dạng Ngày/Tháng/Năm (DD/MM/YYYY) hoặc YYYY-MM-DD sang chuẩn ISO YYYY-MM-DD và chặn các ngày không tồn tại trên lịch.',
+      'Chuẩn hóa Số tài khoản ngân hàng (loại bỏ khoảng trắng/dấu gạch ngang thừa và chỉ cho phép từ 6 đến 25 chữ số).',
+    ],
+    fixed: [
+      'Sửa triệt để lỗi thiếu ký hiệu $ trong câu lệnh SQL UPDATE employees của EmployeeService.createEmployee và EmployeeService.updateEmployee khi lưu SĐT, Ngày sinh, CCCD và Ngân hàng.',
+    ],
+  },
+  {
+    version: '0.5.5',
+    commit: 'f1d2da2',
     released_at: '2026-10-31T07:10:00.000Z',
     summary:
       'Hoàn tất Phase UI-5 (Đổi nhãn menu tiếng Việt thân thiện & đạt 0 lỗi tương phản màu Sáng/Tối) và Phase 18 (Hiệu năng Backend/DB & Sức khỏe Mã nguồn: bảng định tuyến O(1) RouteTable, gộp UNNEST lịch tuần, phân trang con trỏ Chấm công, tách module tiện ích Web và chỉ mục đường nóng).',

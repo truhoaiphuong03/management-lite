@@ -101,7 +101,7 @@ test('Phase 19.4: EmployeeService.updateEmployee binds SQL placeholders ($3, $4.
             ],
           };
         }
-        return { rows: [] };
+        return { rows: [{ id: '00000000-0000-4000-8000-000000000099' }] };
       },
       release: () => {},
     }),
@@ -182,7 +182,7 @@ test('Phase 19.2 & 19.3: Secret hygiene auditor and isolated backup-restore dril
         if (sql.includes('SELECT manifest_sha256')) {
           return { rows: [{ manifest_sha256: params[0], payload: {} }] };
         }
-        return { rows: [] };
+        return { rows: [{ id: '00000000-0000-4000-8000-000000000099' }] };
       },
       release: () => {},
     }),

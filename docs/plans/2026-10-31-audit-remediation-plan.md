@@ -51,11 +51,11 @@
 | 18.3 | Tách các module hàm tiện ích giao diện độc lập (`payroll-helpers.ts`, `work-helpers.ts`, `accounts-helpers.ts`, `storage-helpers.ts`) khỏi 4 màn hình lớn | `apps/web/src/screens/*`, `apps/web/src/screens/helpers/*` |
 | 18.4 | Bộ chỉ mục tối ưu đường nóng (`ensure-hot-indexes.sql`) & công cụ đo `EXPLAIN ANALYZE` (`explain-hot-queries.mjs`) | `scripts/perf/*`, `tests/backend/phase18-perf-architecture.test.mjs` |
 
-## Phase 19 (`v0.5.6`) — Vệ sinh dữ liệu & vận hành (cần Owner quyết)
+## Phase 19 (`v0.5.6`) — Vệ sinh dữ liệu & vận hành — **ĐÃ XONG (Code & Công cụ Dry-Run)**
 
 | Task | Nội dung |
 |---|---|
-| 19.1 | Dọn tài khoản/workspace thử nghiệm trong DB Production (sao lưu trước); thay lọc theo **tên** workspace bằng cờ `is_test` |
-| 19.2 | Bí mật: gỡ `ADMIN_PASSWORD` khỏi `api.env` sau bootstrap; đổi tên `test-secrets`/nhãn "internal test"; quy trình xoay khóa |
-| 19.3 | Diễn tập khôi phục sao lưu trên DB cô lập; bản sao ngoài máy; ghi RPO/RTO |
-| 19.4 | Kiểm tra dữ liệu hồ sơ: ngày sinh kiểu `DATE`, số tài khoản chỉ chữ số |
+| 19.1 | Nhận diện workspace thử nghiệm bằng cờ `is_test` (`isTestWorkspaceRecord`) & công cụ kiểm toán `scripts/ops/audit-test-workspaces.mjs` (chế độ đọc an toàn) |
+| 19.2 | Công cụ kiểm toán vệ sinh biến môi trường & sinh bộ khóa xoay vòng CSPRNG (`scripts/ops/audit-secrets-hygiene.mjs`) |
+| 19.3 | Công cụ diễn tập khôi phục sao lưu cô lập trong transaction (`scripts/ops/backup-restore-drill.mjs`), đo RPO/RTO và kiểm tra SHA-256 |
+| 19.4 | Chuẩn hóa kiểm tra Ngày sinh (`YYYY-MM-DD` / `DD/MM/YYYY`), Số tài khoản chỉ chữ số (`6–25 số`) trong `profile-validator.ts`, sửa lỗi thiếu `$` SQL placeholder trong `EmployeeService` & công cụ `scripts/ops/verify-profile-data.mjs` |
