@@ -3,7 +3,7 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.6.1';
+export const SYSTEM_VERSION = '0.6.2';
 export const SYSTEM_COMMIT = '6e1ee4f';
 export const SYSTEM_ENV = 'staging';
 
@@ -40,6 +40,23 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  * Bản 'latest' tự động gắn với commit thực tế của bản dựng mới nhất khi đóng gói và triển khai.
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
+  {
+    version: '0.6.2',
+    commit: 'latest',
+    released_at: '2026-10-31',
+    summary:
+      'Tinh gọn & làm đẹp giao diện Quản lý Tài khoản (/accounts) theo hướng đơn giản cho người dùng, ẩn tùy chọn nâng cao trong cửa sổ Thêm tài khoản và sửa lỗi truy vấn API/Migration 0031.',
+    added: [
+      'Nút thu gọn/mở rộng "Tùy chọn nâng cao" (Progressive Disclosure) trong cửa sổ Thêm tài khoản.',
+    ],
+    improved: [
+      'Thiết kế lại đầu trang, thẻ thống kê và thanh công cụ Quản lý Tài khoản gọn gàng trên 1 khung hợp nhất.',
+    ],
+    fixed: [
+      'Sửa lỗi hiển thị khung truy vết tìm kiếm khi ô tìm kiếm đang trống.',
+      'Sửa lỗi GRANT bảng không tồn tại trong migration 0031 và tự động dự phòng cột trong AccountsService.',
+    ],
+  },
   {
     version: '0.6.0',
     commit: 'latest',

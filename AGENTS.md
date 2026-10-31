@@ -4,7 +4,7 @@
 
 ## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
 
-- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.6.1`
+- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.6.2`
 - **Tiến độ lũy kế:** Hoàn tất **Phase 20 (`v0.6.0` — Hệ sinh thái Tài khoản 4 Tầng `SĐT ➔ Gmail ➔ TikTok/FB/YTB` + `GG Authenticator` + `TK Khôi phục`)** & **Phase 13/13 (`100%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`, Master Plan `ML-03..05` & Đợt chuẩn hóa UI/UX Desktop + Mobile `v0.3.0`–`v0.3.2`):
   - ✅ **Phase 1 (`v0.1.4`):** Hồ sơ Nhân sự mở rộng + Ngân hàng + Nhắc SĐT (`migration 0030`) + Kích hoạt `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY`, `FIN_RECEIPT_DIR` (`96d3d1e`).
   - ✅ **Phase 2 (`v0.1.5`):** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel + Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương + Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** (`c4896f0`).
@@ -38,6 +38,7 @@
     - `Task 21.2` `[DONE]`: Giao diện `apps/web/src/screens/SystemLogsScreen.tsx` (nút `🔧 Yêu cầu AI sửa`, nút `✓ Đã xử lý` trên từng dòng lỗi, nút `🧹 Dọn sạch log cũ` & chuẩn hóa biến màu Theme).
     - `Task 21.3` `[DONE]`: Cảnh báo lỗi chủ động trong **Trung tâm Việc cần xử lý (`Action Center`)** trên `apps/web/src/screens/DashboardScreen.tsx` (`action-center-system-errors`, chỉ nạp khi `role === 'owner'`).
     - `Task 21.4` `[DONE]`: API `POST /api/v1/issues/bulk-confirm` & Nút **`✓ Duyệt & Đóng tất cả (N)`** trên `apps/web/src/screens/IssuesScreen.tsx` và `apps/api/src/issues/service.ts`.
+  - ✅ **Phase 22 (`v0.6.2` — Tinh gọn Giao diện Quản lý Tài khoản `/accounts` & Sửa lỗi Migration `0031`):** Gộp thanh chuyển chế độ xem + tìm kiếm + bộ lọc vào 1 khung gọn đẹp, bỏ biểu tượng kính lúp trùng lặp, ẩn thanh kết quả tìm kiếm khi chưa nhập từ khóa, rút gọn cửa sổ **Thêm tài khoản** xuống các trường cơ bản kèm nút mở rộng *Tùy chọn nâng cao*, và sửa lỗi `GRANT` trong `0031_accounts_ecosystem_hierarchy.sql` + fallback tự động trong `AccountsService`.
 
 ---
 
@@ -75,6 +76,7 @@
 | **Phase 19 (`v0.5.6`)**<br>Dữ liệu & vận hành | `Task 19.1–19.4` | Sửa SQL placeholder `EmployeeService`, chuẩn hóa Ngày sinh & Số TK ngân hàng (`profile-validator.ts`), bộ 4 công cụ kiểm toán & diễn tập sao lưu (`scripts/ops/*`) | `apps/api/src/employees/{service,profile-validator}.ts`, `apps/api/src/auth/service.ts`, `scripts/ops/*`, `tests/backend/phase19-ops-data-hygiene.test.mjs` | `[DONE]` (`v0.5.6`) |
 | **Phase 20 (`v0.6.0`)**<br>Hệ sinh thái Tài khoản 4 Tầng (`docs/plans/2026-10-31-accounts-ecosystem-v060-plan.md`) | `Task 20.1–20.4` | Nền tảng `Gmail/TikTok/FB/YTB/GG Authenticator/TK Khôi phục`, đếm `1 SĐT ➔ N Gmail` + vị trí SIM, liên kết 4 chiều, tra cứu 2 chiều 360° (từ ID TikTok ra toàn bộ gốc & ngược lại), sinh mã 6 số 2FA trực tiếp, lưu lịch sử mật khẩu cũ, 4 Tab góc nhìn & nhập nhanh | `packages/database/src/migrations/catalog.ts`, `packages/contracts/src/accounts.ts`, `apps/api/src/accounts/service.ts`, `apps/api/src/routes/accounts-routes.ts`, `apps/web/src/screens/helpers/accounts-helpers.ts`, `apps/web/src/screens/AccountsScreen.tsx`, `tests/web/accounts-screen.test.mjs` | `[DONE]` (`v0.6.0`) |
 | **Phase 21 (`v0.6.1`)**<br>Tự động Cảnh báo Lỗi, Yêu cầu AI Fix 1-Chạm & Dọn Log (`docs/plans/2026-10-31-auto-error-alert-and-one-click-fix-plan.md`) | `Task 21.1–21.4` | Mở `GET /api/v1/system/version`, API dọn log cũ (`DELETE /api/v1/system/logs`), API chuyển lỗi sang Sổ tay lỗi + sinh `AI Fix Prompt` (`POST /api/v1/system/logs/escalate`), nút 1-chạm trên `/system-logs`, thẻ cảnh báo lỗi chủ động trên `/dashboard` & nút Đóng hàng loạt (`Bulk Confirm`) trên `/issues` | `apps/api/src/system-log/service.ts`, `apps/api/src/app.ts`, `apps/api/src/issues/service.ts`, `apps/api/src/routes/issues-routes.ts`, `apps/web/src/screens/SystemLogsScreen.tsx`, `apps/web/src/screens/DashboardScreen.tsx`, `apps/web/src/screens/IssuesScreen.tsx`, `tests/web/phase21-error-alert-and-fix.test.mjs` | `[DONE]` (`v0.6.1`) |
+| **Phase 22 (`v0.6.2`)**<br>Tinh gọn UI Quản lý Tài khoản & Sửa lỗi Migration `0031` | `Task 22.1–22.2` | Làm gọn đẹp `/accounts` (hợp nhất thanh Tab + Tìm kiếm + Lọc, bỏ kính lúp trùng, ẩn banner tìm kiếm rỗng, thu gọn Modal Thêm tài khoản bằng Progressive Disclosure) & sửa lỗi `An unexpected internal error occurred` (`0031` GRANT + `AccountsService` fallback) | `apps/web/src/screens/AccountsScreen.tsx`, `apps/api/src/accounts/service.ts`, `packages/database/src/migrations/catalog.ts`, `packages/database/src/migrations/0031_accounts_ecosystem_hierarchy.sql` | `[DONE]` (`v0.6.2`) |
 
 ---
 
