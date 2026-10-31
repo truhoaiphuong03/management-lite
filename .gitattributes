@@ -1,2 +1,9 @@
-# Canonical provenance is verified by byte hashes. Preserve repository bytes on Windows.
+* text=auto eol=lf
 docs/canonical/** -text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

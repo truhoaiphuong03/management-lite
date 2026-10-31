@@ -217,6 +217,14 @@ if (typeArg === 'full') {
     path.join(bundleStageDir, 'migrations'),
   );
 
+  if (fs.existsSync('scripts/runtime')) {
+    console.log('[PACKAGER] Copying runtime web server (scripts/runtime)...');
+    copyFiltered(
+      'scripts/runtime',
+      path.join(bundleStageDir, 'scripts/runtime'),
+    );
+  }
+
   // Sanitize package.json for runtime execution
   const runtimePkg = {
     name: rootPkg.name,

@@ -1,5 +1,8 @@
 docs/canonical/
 package-lock.json
 dist/
+apps/web/dist/
 node_modules/
+.data/
+scripts/ui-audit/out*/
 README.md
