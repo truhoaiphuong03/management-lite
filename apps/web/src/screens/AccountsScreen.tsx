@@ -36,6 +36,7 @@ import type {
   UpdateAccountRequest,
   AccountPlatform,
   AccountStatus,
+  AccountHealthStatus,
   AccountSecretType,
 } from '../../../../packages/contracts/src/accounts.js';
 import type { UserRole } from '../types.js';
@@ -48,11 +49,29 @@ export interface AccountsScreenProps {
 
 import {
   getPlatformConfig,
+  getHealthStatusConfig,
+  normalizeVnPhone,
+  filterAccounts360,
+  buildGmailClusters,
+  buildPhoneClusters,
+  buildProtectionClusters,
+  computeTotpCode,
+  parseBulkAccountsInput,
   sanitizeUiError,
   type PlatformConfig,
 } from './helpers/accounts-helpers.js';
 
-export { sanitizeUiError, type PlatformConfig };
+export {
+  sanitizeUiError,
+  filterAccounts360,
+  buildGmailClusters,
+  buildPhoneClusters,
+  buildProtectionClusters,
+  computeTotpCode,
+  parseBulkAccountsInput,
+  normalizeVnPhone,
+  type PlatformConfig,
+};
 
 export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   role = 'owner',
@@ -89,29 +108,49 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Filters (List view)
+  // Filters & View Modes (List view)
+  const [viewMode, setViewMode] = useState<
+    'all' | 'clusters' | 'phones' | 'protection'
+  >('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [healthFilter, setHealthFilter] = useState<string>('all');
+  const [phoneFilter, setPhoneFilter] = useState<string>('all');
   const [groupFilter, setGroupFilter] = useState<string>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
   // Client-side paging: GET /api/v1/accounts has no cursor/limit, so slice locally.
   const [page, setPage] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
   // Create Modal
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
-  const [newPlatform, setNewPlatform] = useState<AccountPlatform>('tiktok');
+  const [createMode, setCreateMode] = useState<'single' | 'bulk'>('single');
+  const [newPlatform, setNewPlatform] = useState<AccountPlatform>('gmail');
   const [newUsername, setNewUsername] = useState<string>('');
   const [newPlatformAccountId, setNewPlatformAccountId] = useState<string>('');
   const [newRecoveryEmail, setNewRecoveryEmail] = useState<string>('');
   const [newAccountGroup, setNewAccountGroup] = useState<string>('');
   const [newAssignedEmployeeId, setNewAssignedEmployeeId] =
     useState<string>('');
+  const [newHealthStatus, setNewHealthStatus] =
+    useState<AccountHealthStatus>('healthy');
+  const [newPhoneNumber, setNewPhoneNumber] = useState<string>('');
+  const [newPhoneNote, setNewPhoneNote] = useState<string>('');
+  const [newParentAccountId, setNewParentAccountId] = useState<string>('');
+  const [newRecoveryAccountId, setNewRecoveryAccountId] = useState<string>('');
+  const [newAuthenticatorAccountId, setNewAuthenticatorAccountId] =
+    useState<string>('');
+  const [newChildPlatforms, setNewChildPlatforms] = useState<AccountPlatform[]>(
+    [],
+  );
   const [newNotes, setNewNotes] = useState<string>('');
   const [newInitPassword, setNewInitPassword] = useState<string>('');
   const [newInitTwoFa, setNewInitTwoFa] = useState<string>('');
   const [newInitEmailPassword, setNewInitEmailPassword] = useState<string>('');
+  const [newInitRecoveryCode, setNewInitRecoveryCode] = useState<string>('');
+  const [bulkPasteText, setBulkPasteText] = useState<string>('');
 
   // Edit Modal
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
@@ -126,6 +165,15 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [editAssignedEmployeeId, setEditAssignedEmployeeId] =
     useState<string>('');
   const [editStatus, setEditStatus] = useState<'active' | 'archived'>('active');
+  const [editHealthStatus, setEditHealthStatus] =
+    useState<AccountHealthStatus>('healthy');
+  const [editPhoneNumber, setEditPhoneNumber] = useState<string>('');
+  const [editPhoneNote, setEditPhoneNote] = useState<string>('');
+  const [editParentAccountId, setEditParentAccountId] = useState<string>('');
+  const [editRecoveryAccountId, setEditRecoveryAccountId] =
+    useState<string>('');
+  const [editAuthenticatorAccountId, setEditAuthenticatorAccountId] =
+    useState<string>('');
   const [editNotes, setEditNotes] = useState<string>('');
 
   // Archive Modal
@@ -141,11 +189,18 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     useState<ManagedAccountData | null>(null);
   const [revealSecretType, setRevealSecretType] =
     useState<AccountSecretType>('password');
+  const [revealHistoryId, setRevealHistoryId] = useState<string | null>(null);
   const [revealReauthPassword, setRevealReauthPassword] = useState<string>('');
   const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
   const [revealedSecretAccountId, setRevealedSecretAccountId] = useState<
     string | null
   >(null);
+  const [liveTotp, setLiveTotp] = useState<{
+    code: string;
+    formattedCode: string;
+    remainingSeconds: number;
+  } | null>(null);
+  const [copiedTotp, setCopiedTotp] = useState<boolean>(false);
   const [revealCountdown, setRevealCountdown] = useState<number>(0);
   const [copiedSecret, setCopiedSecret] = useState<boolean>(false);
   const revealDeadlineRef = useRef<number | null>(null);
@@ -171,6 +226,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     }
     setRevealedSecret(null);
     setRevealedSecretAccountId(null);
+    setRevealHistoryId(null);
+    setLiveTotp(null);
+    setCopiedTotp(false);
     setRevealCountdown(0);
     setCopiedSecret(false);
     revealDeadlineRef.current = null;
@@ -180,6 +238,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     (
       account: ManagedAccountData,
       secretType: AccountSecretType = 'password',
+      historyId: string | null = null,
     ) => {
       // Invalidate previous generations and abort pending request
       revealGenerationRef.current++;
@@ -198,9 +257,12 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
       setRevealTargetAccount(account);
       setRevealSecretType(secretType);
+      setRevealHistoryId(historyId);
       setRevealReauthPassword('');
       setRevealedSecret(null);
       setRevealedSecretAccountId(null);
+      setLiveTotp(null);
+      setCopiedTotp(false);
       setErrorMessage(null);
       showRevealReauthModalRef.current = true;
       setShowRevealReauthModal(true);
@@ -285,14 +347,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           setSelectedAccount(null);
         }
       } else {
-        // Fetch accounts list
+        // Fetch full workspace accounts list (up to 200) so 360° graph traversal & cluster views have complete parent/child/phone links
         const params = new URLSearchParams();
-        if (platformFilter !== 'all') params.append('platform', platformFilter);
-        if (statusFilter !== 'all') params.append('status', statusFilter);
-        if (groupFilter !== 'all') params.append('account_group', groupFilter);
-        if (assigneeFilter !== 'all')
-          params.append('assigned_employee_id', assigneeFilter);
-        if (searchQuery.trim()) params.append('search', searchQuery.trim());
+        params.append('limit', '200');
 
         const res = await fetch(`/api/v1/accounts?${params.toString()}`, {
           credentials: 'include',
@@ -325,7 +382,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setShowRevealReauthModal(false);
     setSelectedAccount(null);
     loadData();
-  }, [accountId, platformFilter, statusFilter, groupFilter, assigneeFilter]);
+  }, [accountId]);
 
   // 3a. Dedicated lifecycle visibility listener (ACC-005):
   // Active THROUGHOUT component lifecycle, regardless of whether revealedSecret is null,
@@ -458,12 +515,30 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     }
   }, [showRevealReauthModal, showUpdateSecretModal, showArchiveModal]);
 
-  // Filtered accounts for display
+  // 360° Bidirectional Lookup + Filtered accounts for display
+  const lookup360Result = useMemo(
+    () => filterAccounts360(accounts, searchQuery),
+    [accounts, searchQuery],
+  );
+
   const filteredAccounts = useMemo(() => {
-    return accounts.filter((acc) => {
+    const baseList = searchQuery.trim()
+      ? lookup360Result.visibleAccounts
+      : accounts;
+    return baseList.filter((acc) => {
       if (platformFilter !== 'all' && acc.platform !== platformFilter)
         return false;
       if (statusFilter !== 'all' && acc.status !== statusFilter) return false;
+      if (
+        healthFilter !== 'all' &&
+        (acc.health_status || 'healthy') !== healthFilter
+      )
+        return false;
+      if (
+        phoneFilter !== 'all' &&
+        normalizeVnPhone(acc.phone_number) !== normalizeVnPhone(phoneFilter)
+      )
+        return false;
       if (groupFilter !== 'all' && acc.account_group !== groupFilter)
         return false;
       if (
@@ -471,36 +546,66 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         acc.assigned_employee_id !== assigneeFilter
       )
         return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const u = (acc.username || '').toLowerCase();
-        const p = (acc.platform || '').toLowerCase();
-        const pid = (acc.platform_account_id || '').toLowerCase();
-        const rec = (acc.recovery_email || '').toLowerCase();
-        const grp = (acc.account_group || '').toLowerCase();
-        const emp = (acc.assigned_employee_name || '').toLowerCase();
-        const n = (acc.notes || '').toLowerCase();
-        if (
-          !u.includes(q) &&
-          !p.includes(q) &&
-          !pid.includes(q) &&
-          !rec.includes(q) &&
-          !grp.includes(q) &&
-          !emp.includes(q) &&
-          !n.includes(q)
-        )
-          return false;
-      }
       return true;
     });
   }, [
     accounts,
+    lookup360Result,
     platformFilter,
     statusFilter,
+    healthFilter,
+    phoneFilter,
     groupFilter,
     assigneeFilter,
     searchQuery,
   ]);
+
+  const gmailClustersData = useMemo(
+    () => buildGmailClusters(filteredAccounts),
+    [filteredAccounts],
+  );
+
+  const phoneClustersData = useMemo(
+    () => buildPhoneClusters(filteredAccounts),
+    [filteredAccounts],
+  );
+
+  const allPhoneClusters = useMemo(
+    () => buildPhoneClusters(accounts),
+    [accounts],
+  );
+
+  const protectionClustersData = useMemo(
+    () => buildProtectionClusters(filteredAccounts),
+    [filteredAccounts],
+  );
+
+  const gmailAccountsList = useMemo(
+    () => accounts.filter((a) => a.platform === 'gmail'),
+    [accounts],
+  );
+
+  const authenticatorAccountsList = useMemo(
+    () =>
+      accounts.filter(
+        (a) => a.platform === 'authenticator' || a.platform === 'gmail',
+      ),
+    [accounts],
+  );
+
+  const recoveryAccountsList = useMemo(
+    () =>
+      accounts.filter(
+        (a) => a.platform === 'recovery' || a.platform === 'gmail',
+      ),
+    [accounts],
+  );
+
+  const selectedNewPhoneStats = useMemo(() => {
+    const norm = normalizeVnPhone(newPhoneNumber);
+    if (!norm) return null;
+    return allPhoneClusters.phones.find((p) => p.phone_number === norm) || null;
+  }, [allPhoneClusters, newPhoneNumber]);
 
   const safePage = clampPage(page, filteredAccounts.length, pageSize);
   const pagedAccounts = useMemo(
@@ -514,20 +619,159 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     const total = accounts.length;
     let active = 0;
     let archived = 0;
+    let verifyRequired = 0;
+    let gmailCount = 0;
+    let socialCount = 0;
     for (const a of accounts) {
       if (a.status === 'active') active++;
       else if (a.status === 'archived') archived++;
+      if (a.health_status === 'verify_required' || a.health_status === 'locked')
+        verifyRequired++;
+      if (a.platform === 'gmail') gmailCount++;
+      if (
+        a.platform === 'tiktok' ||
+        a.platform === 'facebook' ||
+        a.platform === 'youtube'
+      )
+        socialCount++;
     }
-    return { total, active, archived };
-  }, [accounts]);
+    return {
+      total,
+      active,
+      archived,
+      verifyRequired,
+      gmailCount,
+      socialCount,
+      phoneCount: allPhoneClusters.phones.length,
+    };
+  }, [accounts, allPhoneClusters]);
 
-  // Handler: Create Account (POST /api/v1/accounts)
+  const handleCopyQuickText = async (text: string, idKey: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedTextId(idKey);
+      setTimeout(() => setCopiedTextId(null), 1800);
+    } catch {
+      // Ignored
+    }
+  };
+
+  const openEditModalForAccount = (account: ManagedAccountData) => {
+    setEditAccount(account);
+    setEditUsername(account.username || '');
+    setEditPlatformAccountId(account.platform_account_id || '');
+    setEditRecoveryEmail(account.recovery_email || '');
+    setEditAccountGroup(account.account_group || '');
+    setEditAssignedEmployeeId(account.assigned_employee_id || '');
+    setEditStatus(account.status);
+    setEditHealthStatus(account.health_status || 'healthy');
+    setEditPhoneNumber(account.phone_number || '');
+    setEditPhoneNote(account.phone_note || '');
+    setEditParentAccountId(account.parent_account_id || '');
+    setEditRecoveryAccountId(account.recovery_account_id || '');
+    setEditAuthenticatorAccountId(account.authenticator_account_id || '');
+    setEditNotes(account.notes || '');
+    setShowEditModal(true);
+  };
+
+  const openQuickAddChildModal = (
+    parentAcc: ManagedAccountData,
+    childPlatform: AccountPlatform = 'tiktok',
+  ) => {
+    setCreateMode('single');
+    setNewPlatform(childPlatform);
+    setNewParentAccountId(parentAcc.id);
+    setNewUsername(parentAcc.username || '');
+    setNewPhoneNumber(parentAcc.phone_number || '');
+    setNewPhoneNote(parentAcc.phone_note || '');
+    setNewRecoveryEmail(parentAcc.recovery_email || '');
+    setNewRecoveryAccountId(parentAcc.recovery_account_id || '');
+    setNewAuthenticatorAccountId(parentAcc.authenticator_account_id || '');
+    setNewAccountGroup(parentAcc.account_group || '');
+    setNewAssignedEmployeeId(parentAcc.assigned_employee_id || '');
+    setNewChildPlatforms([]);
+    setShowCreateModal(true);
+  };
+
+  // Handler: Create Account (POST /api/v1/accounts — single or bulk paste)
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
     setErrorMessage(null);
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+      if (createMode === 'bulk') {
+        const parsedRows = parseBulkAccountsInput(bulkPasteText, newPlatform);
+        if (parsedRows.length === 0) {
+          throw new Error(
+            'Vui lòng dán ít nhất 1 dòng tài khoản hợp lệ (email|mật_khẩu|mail_khôi_phục|2fa|sđt).',
+          );
+        }
+        let createdCount = 0;
+        for (const row of parsedRows) {
+          const rowSecrets: Array<{
+            secret_type: AccountSecretType;
+            secret_value: string;
+          }> = [];
+          if (row.password) {
+            rowSecrets.push({
+              secret_type: 'password',
+              secret_value: row.password,
+            });
+          }
+          if (row.two_fa_secret) {
+            rowSecrets.push({
+              secret_type: 'totp_secret',
+              secret_value: row.two_fa_secret,
+            });
+          }
+          const bulkPayload: CreateAccountRequest = {
+            platform: row.platform,
+            username: row.username,
+            recovery_email:
+              row.recovery_email || newRecoveryEmail.trim() || undefined,
+            phone_number:
+              row.phone_number ||
+              normalizeVnPhone(newPhoneNumber) ||
+              undefined,
+            phone_note: row.phone_note || newPhoneNote.trim() || undefined,
+            parent_account_id: newParentAccountId || undefined,
+            recovery_account_id: newRecoveryAccountId || undefined,
+            authenticator_account_id: newAuthenticatorAccountId || undefined,
+            account_group: newAccountGroup.trim() || undefined,
+            assigned_employee_id: newAssignedEmployeeId || undefined,
+            initial_secrets: rowSecrets.length > 0 ? rowSecrets : undefined,
+          };
+          const res = await fetch('/api/v1/accounts', {
+            method: 'POST',
+            headers,
+            credentials: 'include',
+            body: JSON.stringify(bulkPayload),
+          });
+          const body = await res.json();
+          if (!res.ok || !body.success) {
+            throw new Error(
+              body.error?.message ||
+                `Không thể tạo tài khoản dòng "${row.username}"`,
+            );
+          }
+          createdCount++;
+        }
+        setSuccessMessage(
+          `Đã nhập hàng loạt thành công ${createdCount} tài khoản!`,
+        );
+        setShowCreateModal(false);
+        setBulkPasteText('');
+        await loadData();
+        return;
+      }
+
       const initialSecrets: Array<{
         secret_type: AccountSecretType;
         secret_value: string;
@@ -550,6 +794,12 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           secret_value: newInitEmailPassword,
         });
       }
+      if (newInitRecoveryCode.trim()) {
+        initialSecrets.push({
+          secret_type: 'recovery_code',
+          secret_value: newInitRecoveryCode,
+        });
+      }
 
       const payload: CreateAccountRequest = {
         platform: newPlatform,
@@ -558,14 +808,19 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         recovery_email: newRecoveryEmail.trim() || undefined,
         account_group: newAccountGroup.trim() || undefined,
         assigned_employee_id: newAssignedEmployeeId || undefined,
+        health_status: newHealthStatus,
+        phone_number: normalizeVnPhone(newPhoneNumber) || undefined,
+        phone_note: newPhoneNote.trim() || undefined,
+        parent_account_id: newParentAccountId || undefined,
+        recovery_account_id: newRecoveryAccountId || undefined,
+        authenticator_account_id: newAuthenticatorAccountId || undefined,
+        create_child_platforms:
+          newPlatform === 'gmail' && newChildPlatforms.length > 0
+            ? newChildPlatforms
+            : undefined,
         notes: newNotes.trim() || undefined,
         initial_secrets: initialSecrets.length > 0 ? initialSecrets : undefined,
       };
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
       const res = await fetch('/api/v1/accounts', {
         method: 'POST',
@@ -586,10 +841,18 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       setNewRecoveryEmail('');
       setNewAccountGroup('');
       setNewAssignedEmployeeId('');
+      setNewHealthStatus('healthy');
+      setNewPhoneNumber('');
+      setNewPhoneNote('');
+      setNewParentAccountId('');
+      setNewRecoveryAccountId('');
+      setNewAuthenticatorAccountId('');
+      setNewChildPlatforms([]);
       setNewNotes('');
       setNewInitPassword('');
       setNewInitTwoFa('');
       setNewInitEmailPassword('');
+      setNewInitRecoveryCode('');
       await loadData();
     } catch (err) {
       setErrorMessage(
@@ -615,6 +878,12 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         account_group: editAccountGroup.trim() || null,
         assigned_employee_id: editAssignedEmployeeId || null,
         status: editStatus,
+        health_status: editHealthStatus,
+        phone_number: normalizeVnPhone(editPhoneNumber) || null,
+        phone_note: editPhoneNote.trim() || null,
+        parent_account_id: editParentAccountId || null,
+        recovery_account_id: editRecoveryAccountId || null,
+        authenticator_account_id: editAuthenticatorAccountId || null,
         notes: editNotes.trim() || undefined,
       };
 
@@ -805,6 +1074,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           body: JSON.stringify({
             secret_type: revealSecretType,
             reauth_proof: reauthProof,
+            history_id: revealHistoryId || undefined,
           }),
         },
       );
@@ -844,11 +1114,26 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       }
 
       // Thành công: Hiển thị tạm thời trong UI, bật đếm lùi 30 giây (ACC-005) và xóa password reauth
+      const rawSecretVal = String(revealBody.data.secret_value || '');
       revealDeadlineRef.current = Date.now() + 30000;
-      setRevealedSecret(revealBody.data.secret_value);
+      setRevealedSecret(rawSecretVal);
       setRevealedSecretAccountId(targetAccountId);
       setRevealCountdown(30);
       setRevealReauthPassword('');
+      if (
+        revealSecretType === 'totp_secret' ||
+        revealSecretType === 'two_fa_secret'
+      ) {
+        computeTotpCode(rawSecretVal)
+          .then((totp) => {
+            if (totp && showRevealReauthModalRef.current) {
+              setLiveTotp(totp);
+            }
+          })
+          .catch(() => {});
+      } else {
+        setLiveTotp(null);
+      }
       setSuccessMessage(
         'Xác thực thành công. Mật khẩu sẽ tự động ẩn sau 30 giây.',
       );
