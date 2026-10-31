@@ -99,6 +99,8 @@ export interface HealthStatusConfig {
   shortLabel: string;
   badgeStatus: 'success' | 'warning' | 'danger' | 'neutral';
   color: string;
+  bg: string;
+  border: string;
 }
 
 export const HEALTH_STATUS_CONFIG: Record<
@@ -110,18 +112,24 @@ export const HEALTH_STATUS_CONFIG: Record<
     shortLabel: 'Tốt',
     badgeStatus: 'success',
     color: 'var(--success-text)',
+    bg: 'rgba(16, 185, 129, 0.12)',
+    border: 'rgba(16, 185, 129, 0.35)',
   },
   verify_required: {
     label: 'Cần xác minh / Checkpoint',
     shortLabel: 'Cần xác minh',
     badgeStatus: 'warning',
     color: 'var(--warning-text)',
+    bg: 'rgba(245, 158, 11, 0.14)',
+    border: 'rgba(245, 158, 11, 0.38)',
   },
   locked: {
     label: 'Bị khóa / Die',
     shortLabel: 'Bị khóa',
     badgeStatus: 'danger',
     color: 'var(--danger-text)',
+    bg: 'rgba(239, 68, 68, 0.14)',
+    border: 'rgba(239, 68, 68, 0.38)',
   },
 };
 
@@ -169,8 +177,10 @@ export function sanitizeUiError(msg: unknown): string {
  */
 export interface Filter360Result {
   matchedIds: Set<string>;
+  directMatchIds: Set<string>;
   includedClusterIds: Set<string>;
   visibleAccounts: ManagedAccountData[];
+  matchedAccounts: ManagedAccountData[];
 }
 
 export function filterAccounts360(
@@ -179,10 +189,13 @@ export function filterAccounts360(
 ): Filter360Result {
   const q = rawQuery.trim().toLowerCase();
   if (!q) {
+    const empty = new Set<string>();
     return {
-      matchedIds: new Set<string>(),
-      includedClusterIds: new Set<string>(),
+      matchedIds: empty,
+      directMatchIds: empty,
+      includedClusterIds: empty,
       visibleAccounts: accounts,
+      matchedAccounts: accounts,
     };
   }
 
@@ -237,12 +250,7 @@ export function filterAccounts360(
 
     if (isMatch) {
       matchedIds.add(acc.id);
-      if (
-        acc.phone_number &&
-        ((normalizedPhoneQ.length >= 4 &&
-          normalizeVnPhone(acc.phone_number).includes(normalizedPhoneQ)) ||
-          (acc.phone_note && acc.phone_note.toLowerCase().includes(q)))
-      ) {
+      if (acc.phone_number) {
         matchedPhones.add(normalizeVnPhone(acc.phone_number));
       }
     }
@@ -255,12 +263,18 @@ export function filterAccounts360(
     const acc = byId.get(id);
     if (!acc) continue;
 
-    // 1. Upward traversal: include parent Gmail, recovery account, authenticator account
+    // 1. Upward traversal: include parent Gmail, recovery account, authenticator account, and phone
+    if (acc.phone_number) {
+      matchedPhones.add(normalizeVnPhone(acc.phone_number));
+    }
     if (acc.parent_account_id) {
       includedClusterIds.add(acc.parent_account_id);
       rootParentIdsToExpand.add(acc.parent_account_id);
       const parentAcc = byId.get(acc.parent_account_id);
       if (parentAcc) {
+        if (parentAcc.phone_number) {
+          matchedPhones.add(normalizeVnPhone(parentAcc.phone_number));
+        }
         if (parentAcc.recovery_account_id) {
           includedClusterIds.add(parentAcc.recovery_account_id);
         }
@@ -327,19 +341,23 @@ export function filterAccounts360(
 
   return {
     matchedIds,
+    directMatchIds: matchedIds,
     includedClusterIds,
     visibleAccounts,
+    matchedAccounts: visibleAccounts,
   };
 }
 
 export interface GmailClusterItem {
   root: ManagedAccountData;
+  gmail: ManagedAccountData;
   children: ManagedAccountData[];
 }
 
 export interface GmailClustersViewData {
   clusters: GmailClusterItem[];
   standalone: ManagedAccountData[];
+  unlinkedAccounts: ManagedAccountData[];
 }
 
 export function buildGmailClusters(
@@ -372,6 +390,7 @@ export function buildGmailClusters(
     if (acc.platform === 'gmail' || children.length > 0) {
       clusters.push({
         root: acc,
+        gmail: acc,
         children,
       });
     } else {
@@ -379,7 +398,7 @@ export function buildGmailClusters(
     }
   }
 
-  return { clusters, standalone };
+  return { clusters, standalone, unlinkedAccounts: standalone };
 }
 
 export interface PhoneClusterItem {
@@ -392,6 +411,7 @@ export interface PhoneClusterItem {
   gmails: ManagedAccountData[];
   socials: ManagedAccountData[];
   all: ManagedAccountData[];
+  accounts: ManagedAccountData[];
 }
 
 export function buildPhoneClusters(accounts: ManagedAccountData[]): {
@@ -419,6 +439,7 @@ export function buildPhoneClusters(accounts: ManagedAccountData[]): {
         gmails: [],
         socials: [],
         all: [],
+        accounts: [],
       };
       map.set(cleanPhone, group);
     } else if (!group.phone_note && acc.phone_note) {
@@ -427,6 +448,7 @@ export function buildPhoneClusters(accounts: ManagedAccountData[]): {
 
     group.total_count += 1;
     group.all.push(acc);
+    group.accounts.push(acc);
     if (acc.platform === 'gmail') {
       group.gmail_count += 1;
       group.gmails.push(acc);
@@ -454,6 +476,7 @@ export function buildPhoneClusters(accounts: ManagedAccountData[]): {
 
 export interface ProtectionClusterItem {
   protector: ManagedAccountData;
+  account: ManagedAccountData;
   protectedAccounts: ManagedAccountData[];
 }
 
@@ -466,10 +489,18 @@ export function buildProtectionClusters(accounts: ManagedAccountData[]): {
 
   for (const acc of accounts) {
     if (acc.platform === 'authenticator') {
-      authById.set(acc.id, { protector: acc, protectedAccounts: [] });
+      authById.set(acc.id, {
+        protector: acc,
+        account: acc,
+        protectedAccounts: [],
+      });
     }
     if (acc.platform === 'recovery') {
-      recById.set(acc.id, { protector: acc, protectedAccounts: [] });
+      recById.set(acc.id, {
+        protector: acc,
+        account: acc,
+        protectedAccounts: [],
+      });
     }
   }
 
@@ -484,7 +515,11 @@ export function buildProtectionClusters(accounts: ManagedAccountData[]): {
       if (!group) {
         const protector = byId.get(acc.authenticator_account_id);
         if (protector) {
-          group = { protector, protectedAccounts: [] };
+          group = {
+            protector,
+            account: protector,
+            protectedAccounts: [],
+          };
           authById.set(protector.id, group);
         }
       }
@@ -498,7 +533,11 @@ export function buildProtectionClusters(accounts: ManagedAccountData[]): {
       if (!group) {
         const protector = byId.get(acc.recovery_account_id);
         if (protector) {
-          group = { protector, protectedAccounts: [] };
+          group = {
+            protector,
+            account: protector,
+            protectedAccounts: [],
+          };
           recById.set(protector.id, group);
         }
       }

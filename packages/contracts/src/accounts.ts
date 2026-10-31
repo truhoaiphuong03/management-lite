@@ -31,7 +31,7 @@ export interface LinkedAccountSummary {
   username: string | null;
   platform_account_id: string | null;
   status: AccountStatus;
-  health_status?: AccountHealthStatus;
+  health_status?: AccountHealthStatus | undefined;
 }
 
 export interface PhoneUsageSummary {
@@ -65,19 +65,21 @@ export interface ManagedAccountData {
   assigned_employee_name: string | null;
   assigned_employee_code: string | null;
   status: AccountStatus;
-  health_status?: AccountHealthStatus;
-  phone_number?: string | null;
-  phone_note?: string | null;
-  phone_gmail_count?: number;
-  phone_total_count?: number;
-  parent_account_id?: string | null;
-  parent_account_username?: string | null;
-  parent_account_platform?: AccountPlatform | null;
-  recovery_account_id?: string | null;
-  recovery_account_username?: string | null;
-  authenticator_account_id?: string | null;
-  authenticator_account_username?: string | null;
-  child_accounts?: LinkedAccountSummary[];
+  health_status?: AccountHealthStatus | undefined;
+  phone_number?: string | null | undefined;
+  phone_note?: string | null | undefined;
+  phone_gmail_count?: number | undefined;
+  phone_total_count?: number | undefined;
+  parent_account_id?: string | null | undefined;
+  parent_account_username?: string | null | undefined;
+  parent_account_platform?: AccountPlatform | null | undefined;
+  recovery_account_id?: string | null | undefined;
+  recovery_account_username?: string | null | undefined;
+  authenticator_account_id?: string | null | undefined;
+  authenticator_account_username?: string | null | undefined;
+  child_count?: number | undefined;
+  child_platforms?: AccountPlatform[] | undefined;
+  child_accounts?: LinkedAccountSummary[] | undefined;
   notes: string | null;
   version: number;
   created_at: string;
@@ -90,17 +92,17 @@ export interface ManagedAccountData {
  * but NEVER the secret values themselves.
  */
 export interface ManagedAccountDetailData extends ManagedAccountData {
-  has_secret: boolean;
-  secret_types: AccountSecretType[];
-  secret_history?: SecretHistoryMetadata[];
-  protected_accounts?: LinkedAccountSummary[];
-  same_phone_accounts?: LinkedAccountSummary[];
+  has_secret?: boolean | undefined;
+  secret_types?: AccountSecretType[] | undefined;
+  secret_history?: SecretHistoryMetadata[] | undefined;
+  protected_accounts?: LinkedAccountSummary[] | undefined;
+  same_phone_accounts?: LinkedAccountSummary[] | undefined;
 }
 
 export interface AccountListResponseData {
   items: ManagedAccountData[];
   total: number;
-  phone_summaries?: PhoneUsageSummary[];
+  phone_summaries?: PhoneUsageSummary[] | undefined;
 }
 
 export interface InitialSecretInput {
@@ -110,41 +112,41 @@ export interface InitialSecretInput {
 
 export interface CreateAccountRequest {
   platform: AccountPlatform;
-  username?: string | null;
-  platform_account_id?: string | null;
-  recovery_email?: string | null;
-  account_group?: string | null;
-  assigned_employee_id?: string | null;
-  status?: AccountStatus;
-  health_status?: AccountHealthStatus;
-  phone_number?: string | null;
-  phone_note?: string | null;
-  parent_account_id?: string | null;
-  recovery_account_id?: string | null;
-  authenticator_account_id?: string | null;
-  create_child_platforms?: AccountPlatform[];
-  notes?: string | null;
-  initial_secrets?: InitialSecretInput[];
+  username?: string | null | undefined;
+  platform_account_id?: string | null | undefined;
+  recovery_email?: string | null | undefined;
+  account_group?: string | null | undefined;
+  assigned_employee_id?: string | null | undefined;
+  status?: AccountStatus | undefined;
+  health_status?: AccountHealthStatus | undefined;
+  phone_number?: string | null | undefined;
+  phone_note?: string | null | undefined;
+  parent_account_id?: string | null | undefined;
+  recovery_account_id?: string | null | undefined;
+  authenticator_account_id?: string | null | undefined;
+  create_child_platforms?: AccountPlatform[] | undefined;
+  notes?: string | null | undefined;
+  initial_secrets?: InitialSecretInput[] | undefined;
 }
 
 export interface UpdateAccountRequest {
-  username?: string | null;
-  platform_account_id?: string | null;
-  recovery_email?: string | null;
-  account_group?: string | null;
-  assigned_employee_id?: string | null;
-  status?: AccountStatus;
-  health_status?: AccountHealthStatus;
-  phone_number?: string | null;
-  phone_note?: string | null;
-  parent_account_id?: string | null;
-  recovery_account_id?: string | null;
-  authenticator_account_id?: string | null;
-  notes?: string | null;
+  username?: string | null | undefined;
+  platform_account_id?: string | null | undefined;
+  recovery_email?: string | null | undefined;
+  account_group?: string | null | undefined;
+  assigned_employee_id?: string | null | undefined;
+  status?: AccountStatus | undefined;
+  health_status?: AccountHealthStatus | undefined;
+  phone_number?: string | null | undefined;
+  phone_note?: string | null | undefined;
+  parent_account_id?: string | null | undefined;
+  recovery_account_id?: string | null | undefined;
+  authenticator_account_id?: string | null | undefined;
+  notes?: string | null | undefined;
 }
 
 export interface ArchiveAccountRequest {
-  reason?: string | null;
+  reason?: string | null | undefined;
 }
 
 export interface PutAccountSecretRequest {
@@ -161,7 +163,7 @@ export interface PutAccountSecretResponseData {
 export interface RevealAccountSecretRequest {
   secret_type: AccountSecretType;
   reauth_proof: string;
-  history_id?: string | null;
+  history_id?: string | null | undefined;
 }
 
 export interface RevealAccountSecretResponseData {

@@ -1062,3 +1062,139 @@ test('ACC-ENHANCED-01: AccountsScreen supports recovery_email, account_group, as
     'AccountsScreen detail view must provide reveal actions for 2FA and Email Password',
   );
 });
+
+
+test('Phase 20 (v0.6.0): 4-Tier Account Ecosystem, 360° Bidirectional Lookup, Phone/Gmail Clusters, and Live 6-Digit TOTP', async () => {
+  const {
+    filterAccounts360,
+    buildGmailClusters,
+    buildPhoneClusters,
+    buildProtectionClusters,
+    computeTotpCode,
+    parseBulkAccountsInput,
+    normalizeVnPhone,
+  } = await import(
+    `file://${resolve(root, 'dist/apps/web/src/screens/helpers/accounts-helpers.js')}`
+  );
+
+  assert.equal(normalizeVnPhone('+84 901 234 567'), '0901234567');
+  assert.equal(normalizeVnPhone('0901-234-567'), '0901234567');
+
+  const sampleAccounts = [
+    {
+      id: 'auth-1',
+      platform: 'authenticator',
+      username: 'auth_master@gmail.com',
+      status: 'active',
+      version: 1,
+    },
+    {
+      id: 'rec-1',
+      platform: 'recovery',
+      username: 'recovery_vault@gmail.com',
+      status: 'active',
+      version: 1,
+    },
+    {
+      id: 'gmail-1',
+      platform: 'gmail',
+      username: 'shop_main@gmail.com',
+      phone_number: '0901234567',
+      phone_note: 'SIM Viettel 1 - Máy iPhone X',
+      authenticator_account_id: 'auth-1',
+      recovery_account_id: 'rec-1',
+      status: 'active',
+      version: 1,
+    },
+    {
+      id: 'gmail-2',
+      platform: 'gmail',
+      username: 'shop_sub@gmail.com',
+      phone_number: '0901234567',
+      phone_note: 'SIM Viettel 1 - Máy iPhone X',
+      status: 'active',
+      version: 1,
+    },
+    {
+      id: 'tt-1',
+      platform: 'tiktok',
+      username: 'tiktok_hoaiphuong',
+      platform_account_id: 'UID_TT_999',
+      parent_account_id: 'gmail-1',
+      phone_number: '0901234567',
+      status: 'active',
+      version: 1,
+    },
+    {
+      id: 'fb-1',
+      platform: 'facebook',
+      username: 'fb_hoaiphuong',
+      platform_account_id: 'UID_FB_888',
+      parent_account_id: 'gmail-1',
+      status: 'active',
+      version: 1,
+    },
+    {
+      id: 'ytb-1',
+      platform: 'youtube',
+      username: 'ytb_hoaiphuong',
+      platform_account_id: 'UID_YTB_777',
+      parent_account_id: 'gmail-1',
+      status: 'active',
+      version: 1,
+    },
+  ];
+
+  // 1. Reverse Lookup: Search by TikTok ID -> finds TikTok + Parent Gmail + Sibling FB/YTB + Authenticator + Recovery + Same Phone Gmail
+  const resFromTikTok = filterAccounts360(sampleAccounts, 'UID_TT_999');
+  assert.ok(resFromTikTok.directMatchIds.has('tt-1'));
+  const foundIds = new Set(resFromTikTok.matchedAccounts.map((a) => a.id));
+  assert.ok(foundIds.has('tt-1'), 'Must include matched TikTok');
+  assert.ok(foundIds.has('gmail-1'), 'Must discover parent Gmail');
+  assert.ok(foundIds.has('fb-1'), 'Must discover sibling Facebook');
+  assert.ok(foundIds.has('ytb-1'), 'Must discover sibling YouTube');
+  assert.ok(foundIds.has('auth-1'), 'Must discover linked GG Authenticator');
+  assert.ok(foundIds.has('rec-1'), 'Must discover linked Recovery account');
+  assert.ok(foundIds.has('gmail-2'), 'Must discover sibling Gmail on same phone');
+
+  // 2. Forward Lookup: Search by Gmail -> finds Gmail + all child TikTok/FB/YTB + Authenticator + Recovery
+  const resFromGmail = filterAccounts360(sampleAccounts, 'shop_main@gmail.com');
+  assert.equal(resFromGmail.matchedAccounts.length, 7);
+
+  // 3. Gmail Clusters builder
+  const gmailClusters = buildGmailClusters(sampleAccounts);
+  assert.equal(gmailClusters.clusters.length, 2);
+  const mainCluster = gmailClusters.clusters.find(
+    (c) => c.gmail.id === 'gmail-1',
+  );
+  assert.equal(mainCluster.children.length, 3);
+
+  // 4. Phone Clusters builder (1 Phone -> 2 Gmails, 3 total accounts)
+  const phoneClusters = buildPhoneClusters(sampleAccounts);
+  assert.equal(phoneClusters.phones.length, 1);
+  assert.equal(phoneClusters.phones[0].phone_number, '0901234567');
+  assert.equal(phoneClusters.phones[0].gmail_count, 2);
+  assert.equal(phoneClusters.phones[0].total_count, 3);
+
+  // 5. Protection Clusters builder
+  const protClusters = buildProtectionClusters(sampleAccounts);
+  assert.equal(protClusters.authenticators.length, 1);
+  assert.equal(protClusters.authenticators[0].protectedAccounts.length, 1);
+  assert.equal(protClusters.recoveries.length, 1);
+  assert.equal(protClusters.recoveries[0].protectedAccounts.length, 1);
+
+  // 6. Live 6-Digit TOTP Generator (RFC 6238)
+  const totp = await computeTotpCode('JBSWY3DPEHPK3PXP', 1700000000000);
+  assert.ok(totp, 'Must compute valid 6-digit TOTP from Base32 secret');
+  assert.equal(totp.code.length, 6);
+  assert.match(totp.code, /^\d{6}$/);
+
+  // 7. Bulk Paste Parser
+  const parsed = parseBulkAccountsInput(
+    'acc1@gmail.com|Pass123|rec@gmail.com|JBSWY3DPEHPK3PXP|+84909111222\nacc2@gmail.com|Pass456',
+  );
+  assert.equal(parsed.length, 2);
+  assert.equal(parsed[0].username, 'acc1@gmail.com');
+  assert.equal(parsed[0].phone_number, '0909111222');
+  assert.equal(parsed[1].username, 'acc2@gmail.com');
+});

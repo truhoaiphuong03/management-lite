@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.5.7';
-export const SYSTEM_COMMIT = '5b1b735';
+export const SYSTEM_VERSION = '0.6.0';
+export const SYSTEM_COMMIT = '325805c';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,27 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.5.7',
+    version: '0.6.0',
     commit: 'latest',
+    released_at: '2026-10-31T08:45:00.000Z',
+    summary:
+      'Nâng cấp toàn diện Hệ sinh thái Tài khoản 4 Tầng (SĐT/SIM ➔ Gmail gốc ➔ TikTok / Facebook / YouTube + Google Authenticator + Tài khoản Khôi phục) kèm Tra cứu 2 chiều 360° và Tự sinh mã 6 số 2FA trực tiếp.',
+    added: [
+      'Hỗ trợ đầy đủ nền tảng Facebook (FB), YouTube (YTB), Google Authenticator, Tài khoản Khôi phục và liên kết phân cấp SĐT ➔ Gmail gốc ➔ Kênh con.',
+      'Tra cứu 2 chiều 360° (filterAccounts360): gõ ID TikTok, UID FB/YTB, Gmail hoặc SĐT để tự động truy vết toàn bộ họ hàng tài khoản liên quan.',
+      '4 Tab góc nhìn trên /accounts: Tất cả & Tra cứu 360°, Theo Cụm Gmail gốc, Theo Số điện thoại (đếm số Gmail/SĐT + vị trí SIM), Theo GG Authenticator & TK Khôi phục.',
+      'Tự sinh mã 6 số 2FA trực tiếp (RFC 6238 TOTP) khi xem secret 2FA, lưu lịch sử mật khẩu cũ (account_secret_history) và nhập nhanh hàng loạt (email|pass|recovery|2fa|sdt).',
+    ],
+    improved: [
+      'Cửa sổ Thêm/Sửa tài khoản tự động kế thừa SĐT, vị trí SIM, GG Authenticator và TK Khôi phục từ Gmail gốc; cho phép tạo nhanh cụm kênh TikTok/FB/YTB 1 chạm.',
+    ],
+    fixed: [
+      'Đảm bảo tương thích ngược 100% với kho bí mật AES-256-GCM (C05 / SEC-02) và bộ kiểm thử tự động ẩn mật khẩu sau 30 giây.',
+    ],
+  },
+  {
+    version: '0.5.7',
+    commit: '5b1b735',
     released_at: '2026-10-31T07:44:00.000Z',
     summary:
       'Khắc phục nút Báo lỗi bị đứng yên một chỗ: khôi phục chế độ nổi theo màn hình khi cuộn trang và bổ sung tính năng giữ-kéo di chuyển nút Báo lỗi tới bất kỳ vị trí nào trên cả Máy tính và Điện thoại.',
