@@ -1289,6 +1289,18 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     }
   };
 
+  const handleCopyTotp = async () => {
+    if (!liveTotp?.code || revealedSecretAccountId !== revealTargetAccount?.id)
+      return;
+    try {
+      await navigator.clipboard.writeText(liveTotp.code);
+      setCopiedTotp(true);
+      setTimeout(() => setCopiedTotp(false), 2000);
+    } catch {
+      // Ignored
+    }
+  };
+
   // ==========================================
   // RENDER VIEW: DETAIL VIEW (/accounts/:id)
   // ==========================================
@@ -1325,6 +1337,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     }
 
     const platformInfo = getPlatformConfig(selectedAccount.platform);
+    const healthInfo = getHealthStatusConfig(selectedAccount.health_status);
 
     return (
       <div
@@ -1358,7 +1371,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
         <PageHeader
           title={`Chi tiết tài khoản: ${selectedAccount.username || selectedAccount.platform}`}
-          subtitle="Quản lý thông tin định danh và bảo mật bí mật (C05 / SEC-02)"
+          subtitle="Quản lý thông tin định danh, liên kết hệ sinh thái 4 tầng và bảo mật bí mật (C05 / SEC-02)"
         />
 
         {/* Alerts */}
@@ -1423,7 +1436,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     marginBottom: '8px',
                   }}
                 >
-                  {platformInfo.label}
+                  {platformInfo.icon} {platformInfo.label}
                 </span>
                 <h2
                   style={{
@@ -1437,7 +1450,21 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </h2>
               </div>
 
-              <div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: healthInfo.color,
+                    backgroundColor: healthInfo.bg,
+                    border: `1px solid ${healthInfo.border}`,
+                  }}
+                >
+                  {healthInfo.label}
+                </span>
                 {selectedAccount.status === 'active' ? (
                   <StatusBadge status="success" label="Đang hoạt động" />
                 ) : (
@@ -1476,7 +1503,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               </div>
               <div>
                 <span style={{ color: 'var(--muted-color)' }}>
-                  Email khôi phục (Recovery Email):
+                  Số điện thoại & SIM:
                 </span>
                 <div
                   style={{
@@ -1485,7 +1512,136 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     marginTop: '2px',
                   }}
                 >
-                  {selectedAccount.recovery_email || 'Chưa thiết lập'}
+                  {selectedAccount.phone_number ? (
+                    <>
+                      📱 {selectedAccount.phone_number}{' '}
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: 'rgba(59, 130, 246, 0.14)',
+                          color: 'var(--info-text, #60A5FA)',
+                        }}
+                      >
+                        {selectedAccount.phone_gmail_count || 0} Gmail
+                      </span>
+                      {selectedAccount.phone_note ? (
+                        <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                          {selectedAccount.phone_note}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    'Chưa gắn SĐT'
+                  )}
+                </div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--muted-color)' }}>
+                  Tài khoản Gmail gốc:
+                </span>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: 'var(--text-color)',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedAccount.parent_account_id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onNavigate?.(`/accounts/${selectedAccount.parent_account_id}`)
+                      }
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: 'var(--accent-text)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        fontSize: '13px',
+                      }}
+                    >
+                      📧 {selectedAccount.parent_account_username || 'Xem Gmail gốc'}
+                    </button>
+                  ) : (
+                    'Tài khoản độc lập / Gmail gốc'
+                  )}
+                </div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--muted-color)' }}>
+                  TK GG Authenticator bảo vệ:
+                </span>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: 'var(--text-color)',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedAccount.authenticator_account_id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onNavigate?.(
+                          `/accounts/${selectedAccount.authenticator_account_id}`,
+                        )
+                      }
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: 'var(--accent-text)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        fontSize: '13px',
+                      }}
+                    >
+                      🔐 {selectedAccount.authenticator_account_username || 'Xem TK 2FA'}
+                    </button>
+                  ) : (
+                    'Chưa liên kết'
+                  )}
+                </div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--muted-color)' }}>
+                  TK / Email Khôi phục:
+                </span>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: 'var(--text-color)',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedAccount.recovery_account_id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onNavigate?.(`/accounts/${selectedAccount.recovery_account_id}`)
+                      }
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: 'var(--accent-text)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        fontSize: '13px',
+                      }}
+                    >
+                      🛡️ {selectedAccount.recovery_account_username}
+                    </button>
+                  ) : (
+                    selectedAccount.recovery_email || 'Chưa thiết lập'
+                  )}
                 </div>
               </div>
               <div>
@@ -1515,7 +1671,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </div>
               </div>
               <div>
-                <span style={{ color: 'var(--muted-color)' }}>Phiên bản (Version):</span>
+                <span style={{ color: 'var(--muted-color)' }}>Phiên bản & Ngày tạo:</span>
                 <div
                   style={{
                     fontWeight: 600,
@@ -1523,24 +1679,153 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     marginTop: '2px',
                   }}
                 >
-                  v{selectedAccount.version}
-                </div>
-              </div>
-              <div>
-                <span style={{ color: 'var(--muted-color)' }}>Ngày tạo:</span>
-                <div
-                  style={{
-                    fontWeight: 600,
-                    color: 'var(--text-color)',
-                    marginTop: '2px',
-                  }}
-                >
+                  v{selectedAccount.version} •{' '}
                   {new Date(selectedAccount.created_at).toLocaleDateString(
                     'vi-VN',
                   )}
                 </div>
               </div>
             </div>
+
+            {/* Child Channels / Protected Accounts / Same Phone Accounts */}
+            {(selectedAccount.child_accounts?.length ||
+              selectedAccount.protected_accounts?.length ||
+              selectedAccount.same_phone_accounts?.length) ? (
+              <div
+                style={{
+                  padding: '14px 16px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  marginBottom: '20px',
+                }}
+              >
+                {selectedAccount.child_accounts &&
+                selectedAccount.child_accounts.length > 0 ? (
+                  <div style={{ marginBottom: '10px' }}>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: 'var(--muted-color)',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      🌳 CÁC KÊNH MXH GẮN VỚI GMAIL NÀY (
+                      {selectedAccount.child_accounts.length}):
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {selectedAccount.child_accounts.map((ch) => {
+                        const chCfg = getPlatformConfig(ch.platform);
+                        return (
+                          <button
+                            key={ch.id}
+                            type="button"
+                            onClick={() => onNavigate?.(`/accounts/${ch.id}`)}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: chCfg.bg,
+                              border: `1px solid ${chCfg.border}`,
+                              color: chCfg.color,
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {chCfg.icon} {chCfg.shortLabel}:{' '}
+                            {ch.username || ch.platform_account_id || ch.id.slice(0, 6)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                {selectedAccount.protected_accounts &&
+                selectedAccount.protected_accounts.length > 0 ? (
+                  <div style={{ marginBottom: '10px' }}>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: 'var(--muted-color)',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      🔐 CÁC TÀI KHOẢN ĐANG ĐƯỢC BẢO VỆ / KHÔI PHỤC BỞI TK NÀY (
+                      {selectedAccount.protected_accounts.length}):
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {selectedAccount.protected_accounts.map((pa) => {
+                        const paCfg = getPlatformConfig(pa.platform);
+                        return (
+                          <button
+                            key={pa.id}
+                            type="button"
+                            onClick={() => onNavigate?.(`/accounts/${pa.id}`)}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: paCfg.bg,
+                              border: `1px solid ${paCfg.border}`,
+                              color: paCfg.color,
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {paCfg.icon} {paCfg.shortLabel}:{' '}
+                            {pa.username || pa.platform_account_id || pa.id.slice(0, 6)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                {selectedAccount.same_phone_accounts &&
+                selectedAccount.same_phone_accounts.length > 0 ? (
+                  <div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: 'var(--muted-color)',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      📱 TÀI KHOẢN KHÁC CÙNG SỐ ĐIỆN THOẠI{' '}
+                      {selectedAccount.phone_number} (
+                      {selectedAccount.same_phone_accounts.length}):
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {selectedAccount.same_phone_accounts.map((sp) => {
+                        const spCfg = getPlatformConfig(sp.platform);
+                        return (
+                          <button
+                            key={sp.id}
+                            type="button"
+                            onClick={() => onNavigate?.(`/accounts/${sp.id}`)}
+                            style={{
+                              padding: '4px 9px',
+                              borderRadius: '6px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {spCfg.icon} {sp.username || sp.platform_account_id}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             {selectedAccount.notes && (
               <div style={{ marginBottom: '20px' }}>
@@ -1565,22 +1850,18 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 action="edit"
                 target={selectedAccount.username || selectedAccount.platform}
                 testId="account-detail-edit"
-                onClick={() => {
-                  setEditAccount(selectedAccount);
-                  setEditUsername(selectedAccount.username || '');
-                  setEditPlatformAccountId(
-                    selectedAccount.platform_account_id || '',
-                  );
-                  setEditRecoveryEmail(selectedAccount.recovery_email || '');
-                  setEditAccountGroup(selectedAccount.account_group || '');
-                  setEditAssignedEmployeeId(
-                    selectedAccount.assigned_employee_id || '',
-                  );
-                  setEditStatus(selectedAccount.status);
-                  setEditNotes(selectedAccount.notes || '');
-                  setShowEditModal(true);
-                }}
+                onClick={() => openEditModalForAccount(selectedAccount)}
               />
+
+              {selectedAccount.platform === 'gmail' && (
+                <AppButton
+                  variant="secondary"
+                  onClick={() => openQuickAddChildModal(selectedAccount, 'tiktok')}
+                >
+                  <PlusIcon size={14} />
+                  <span>Thêm kênh con (TikTok/FB/YTB)</span>
+                </AppButton>
+              )}
 
               {selectedAccount.status === 'active' ? (
                 <ActionIconButton
@@ -1636,7 +1917,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 lineHeight: '1.5',
               }}
             >
-              Mật khẩu, mã 2FA và mật khẩu email được mã hóa AEAD (AES-256-GCM)
+              Mật khẩu, mã 2FA (tự sinh mã 6 số trực tiếp) và mật khẩu email được mã hóa AEAD (AES-256-GCM)
               độc lập. Mật khẩu không bao giờ lưu plaintext và chỉ được giải mã
               tạm thời khi Chủ sở hữu xác thực lại danh tính (Reauthentication).
             </p>
@@ -1729,7 +2010,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     color: 'var(--text-color)',
                   }}
                 >
-                  Mã xác thực 2 lớp (Two-Factor / 2FA Secret)
+                  Mã xác thực 2 lớp (Two-Factor / 2FA Secret + Tự sinh 6 số)
                 </div>
                 <div
                   style={{
@@ -1740,7 +2021,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 >
                   {selectedAccount.secret_types?.includes('totp_secret') ||
                   selectedAccount.secret_types?.includes('two_fa_secret')
-                    ? 'Đã lưu mã bí mật 2FA trong vault'
+                    ? 'Đã lưu mã bí mật 2FA trong vault (Bấm Xem để lấy ngay mã 6 số)'
                     : 'Chưa thiết lập mã xác thực 2 lớp'}
                 </div>
               </div>
@@ -1783,6 +2064,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 backgroundColor: 'var(--surface-subtle)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
+                marginBottom: '12px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -1838,6 +2120,152 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </AppButton>
               </div>
             </div>
+
+            {/* 4. Backup / Recovery Codes */}
+            <div
+              style={{
+                padding: '16px',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'var(--text-color)',
+                  }}
+                >
+                  Mã khôi phục dự phòng (Backup / Recovery Codes)
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--muted-color)',
+                    marginTop: '2px',
+                  }}
+                >
+                  {selectedAccount.secret_types?.includes('recovery_code')
+                    ? 'Đã lưu mã dự phòng 8 số trong vault'
+                    : 'Chưa lưu mã khôi phục dự phòng'}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    if (selectedAccount)
+                      openRevealModal(selectedAccount, 'recovery_code');
+                  }}
+                >
+                  <EyeIcon size={16} />
+                  <span>Xem mã dự phòng</span>
+                </AppButton>
+
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    setUpdateSecretTargetAccount(selectedAccount);
+                    setNewSecretType('recovery_code');
+                    setShowUpdateSecretModal(true);
+                  }}
+                >
+                  <LockIcon size={16} />
+                  <span>Cập nhật mã dự phòng</span>
+                </AppButton>
+              </div>
+            </div>
+
+            {/* 5. Secret History (Old Passwords for Account Recovery) */}
+            {selectedAccount.secret_history &&
+            selectedAccount.secret_history.length > 0 ? (
+              <div
+                style={{
+                  marginTop: '20px',
+                  paddingTop: '16px',
+                  borderTop: '1px dashed var(--border-color)',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: 'var(--text-color)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  🕒 Lịch sử mật khẩu / bí mật cũ ({selectedAccount.secret_history.length} bản lưu)
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--muted-color)',
+                    marginBottom: '10px',
+                  }}
+                >
+                  Dùng khi Google / Facebook / TikTok hỏi &ldquo;Nhập mật khẩu gần nhất bạn nhớ&rdquo; lúc kháng nghị hoặc khôi phục tài khoản.
+                </div>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {selectedAccount.secret_history.map((hist) => (
+                    <div
+                      key={hist.id}
+                      style={{
+                        padding: '10px 14px',
+                        backgroundColor: 'var(--surface-hover)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                        fontSize: '12px',
+                      }}
+                    >
+                      <div>
+                        <strong style={{ color: 'var(--text-color)' }}>
+                          {hist.secret_type}
+                        </strong>{' '}
+                        <span style={{ color: 'var(--muted-color)' }}>
+                          (v{hist.secret_version} • Lưu trữ ngày{' '}
+                          {new Date(hist.archived_at).toLocaleString('vi-VN')})
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openRevealModal(
+                            selectedAccount,
+                            hist.secret_type,
+                            hist.id,
+                          )
+                        }
+                        style={{
+                          padding: '4px 10px',
+                          backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                          border: '1px solid rgba(20, 184, 166, 0.35)',
+                          borderRadius: '6px',
+                          color: 'var(--accent-text)',
+                          fontWeight: 600,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Xem mật khẩu cũ này
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </AppCard>
         </div>
       </div>
