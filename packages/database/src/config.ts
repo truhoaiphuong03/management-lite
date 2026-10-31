@@ -9,6 +9,10 @@ export interface DatabaseConfig {
   max: number;
   idleTimeoutMillis: number;
   connectionTimeoutMillis: number;
+  /** Server-side per-statement cap (ms). Omitted/0 disables the cap. */
+  statementTimeoutMillis?: number;
+  /** Shown in pg_stat_activity so operators can tell the API pool apart. */
+  applicationName?: string;
 }
 
 /**
@@ -28,15 +32,29 @@ export function loadDatabaseConfig(
     10,
   );
 
+  const statementTimeout = Number.parseInt(
+    env['DB_STATEMENT_TIMEOUT_MS'] || '30000',
+    10,
+  );
+
   const baseConfig: Pick<
     DatabaseConfig,
-    'max' | 'idleTimeoutMillis' | 'connectionTimeoutMillis'
+    | 'max'
+    | 'idleTimeoutMillis'
+    | 'connectionTimeoutMillis'
+    | 'statementTimeoutMillis'
+    | 'applicationName'
   > = {
     max: Number.isFinite(maxPool) && maxPool > 0 ? maxPool : 10,
     idleTimeoutMillis:
       Number.isFinite(idleTimeout) && idleTimeout > 0 ? idleTimeout : 30000,
     connectionTimeoutMillis:
       Number.isFinite(connTimeout) && connTimeout > 0 ? connTimeout : 5000,
+    statementTimeoutMillis:
+      Number.isFinite(statementTimeout) && statementTimeout >= 0
+        ? statementTimeout
+        : 30000,
+    applicationName: env['DB_APPLICATION_NAME'] || 'management-lite-api',
   };
 
   if (env['DATABASE_URL']) {

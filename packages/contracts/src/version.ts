@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.3.2';
-export const SYSTEM_COMMIT = 'bc2f076';
+export const SYSTEM_VERSION = '0.3.3';
+export const SYSTEM_COMMIT = 'e65ae75';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,12 +41,36 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.3.2',
+    version: '0.3.3',
     commit: 'latest',
+    released_at: '2026-10-31T12:40:00.000Z',
+    summary:
+      'Hoàn tất Phase 14 (Bảo mật khẩn từ kiểm toán 31/10): chặn giả mạo địa chỉ IP để vượt giới hạn đăng nhập, thêm giới hạn thử sai theo từng tài khoản, bổ sung header bảo mật cho giao diện và API, dọn phiên đăng nhập cũ và đặt giới hạn thời gian truy vấn cơ sở dữ liệu.',
+    added: [
+      'Giới hạn số lần đăng nhập sai theo từng tài khoản (20 lần / 15 phút) bên cạnh giới hạn theo địa chỉ IP, chống dò mật khẩu từ nhiều địa chỉ khác nhau.',
+      'Header bảo mật cho giao diện web: Content-Security-Policy, chống nhúng khung (clickjacking), HSTS khi chạy qua HTTPS, Referrer-Policy và Permissions-Policy.',
+      'Tác vụ nền tự dọn phiên đăng nhập hết hạn, bằng chứng xác thực lại đã dùng và bản ghi idempotency quá hạn.',
+    ],
+    improved: [
+      'Nhận diện địa chỉ IP người dùng an toàn: không còn tin phần tử đầu của X-Forwarded-For (do người dùng tự đặt), ưu tiên CF-Connecting-IP của Cloudflare hoặc phần tử đáng tin cậy ngoài cùng bên phải.',
+      'Mọi phản hồi JSON của API có thêm X-Frame-Options, X-Content-Type-Options, Referrer-Policy và Cross-Origin-Resource-Policy.',
+      'Máy chủ API có timeout kết nối, bắt lỗi ngoài dự kiến và tự thoát để dịch vụ khởi động lại; truy vấn cơ sở dữ liệu tối đa 30 giây và gắn nhãn application_name.',
+      'Máy chủ web được đưa vào kho mã (scripts/runtime/serve-web.cjs) với proxy API có timeout và ghi nhận chuỗi chuyển tiếp IP.',
+    ],
+    fixed: [
+      'Giá trị X-Request-Id do máy khách gửi lên chỉ được dùng khi hợp lệ (tối đa 64 ký tự chữ, số, dấu chấm, gạch dưới, gạch nối), tránh làm bẩn nhật ký.',
+      'Tên cookie phiên tùy chỉnh (SESSION_COOKIE_NAME) giờ áp dụng cho mọi đường dẫn API; trước đây 41/50 chỗ bỏ sót nên đổi tên sẽ làm hỏng đăng nhập.',
+    ],
+  },
+  {
+    version: '0.3.2',
+    commit: 'e65ae75',
     released_at: '2026-10-31T11:36:00.000Z',
     summary:
       'Hoàn tất Phase 13 (Hotfix Cửa sổ Bổ sung Hồ sơ & Lưu thông tin cá nhân): Sửa lỗi lưu thông tin cá nhân (PATCH /api/v1/auth/profile), sửa nút đóng (✕) trên cửa sổ Bổ sung hồ sơ nhân viên, căn thẳng hàng tuyệt đối các trường SĐT / Ngày sinh / Ngân hàng và chuẩn hóa tên Workspace Hoài Phương Media.',
-    added: [],
+    added: [
+      'Ngày sinh, giới tính và thông tin ngân hàng nhập ở cửa sổ Bổ sung hồ sơ được lưu thật vào hồ sơ nhân sự (trước đây bị lỗi SQL nên không lưu).',
+    ],
     improved: [
       'Căn chỉnh thẳng hàng 100% các ô nhập liệu trong cửa sổ Bổ sung thông tin hồ sơ nhân viên: đồng bộ chiều cao 40px giữa Số điện thoại và Ngày/Tháng/Năm, mở rộng ô Tìm tên ngân hàng ra toàn chiều ngang để không bị cắt chữ.',
       'Ghi nhớ trạng thái đóng cửa sổ nhắc bổ sung SĐT trong suốt phiên làm việc và cập nhật tên Workspace chuẩn "Hoài Phương Media".',

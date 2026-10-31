@@ -6,6 +6,8 @@ export interface PurgeSchedulerOptions {
   intervalMs?: number;
   /** Receives only a fixed message and the error class name, never error text or payloads. */
   logger?: { warn: (message: string) => void };
+  /** Names the job in the failure log line. Defaults to the FIN receipt cleanup. */
+  label?: string;
   setIntervalFn?: (fn: () => void, ms: number) => Timer;
   clearIntervalFn?: (t: Timer) => void;
 }
@@ -39,7 +41,9 @@ export function startPurgeScheduler(
       } catch (err) {
         const kind = err instanceof Error ? err.name : 'UnknownError';
         try {
-          options.logger?.warn(`FIN receipt cleanup failed (${kind})`);
+          options.logger?.warn(
+            `${options.label ?? 'FIN receipt'} cleanup failed (${kind})`,
+          );
         } catch {
           // logging must never affect the server
         }

@@ -69,6 +69,10 @@ export function sendJson(
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(json),
     'X-Request-Id': body.meta.request_id,
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Cross-Origin-Resource-Policy': 'same-origin',
     ...headers,
   };
   res.writeHead(statusCode, responseHeaders);

@@ -172,13 +172,24 @@ test('startServer: runs a cleanup on boot, keeps manual FIN reachable when clean
       pool,
     );
     const deadline = Date.now() + 2000;
-    while (!warns.length && Date.now() < deadline)
+    while (warns.length < 2 && Date.now() < deadline)
       await new Promise((r) => setTimeout(r, 20));
     assert.ok(
       queries.some((q) => q.includes('fin_receipts')),
       'cleanup query issued at startup',
     );
-    assert.deepEqual(warns, ['FIN receipt cleanup failed (ConnError)']);
+    assert.ok(
+      queries.some((q) => q.includes('account_reauth_proofs')),
+      'auth/session housekeeping also runs at startup',
+    );
+    assert.deepEqual(
+      [...warns].sort(),
+      [
+        'Auth session cleanup failed (ConnError)',
+        'FIN receipt cleanup failed (ConnError)',
+      ],
+      'each housekeeping job reports its own name and never leaks error text',
+    );
     assert.ok(!warns.join().includes('hunter2'));
     const res = await fetch(
       `http://127.0.0.1:${running.server.address().port}/api/v1/health`,

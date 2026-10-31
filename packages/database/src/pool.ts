@@ -29,6 +29,14 @@ export function createDatabasePool(config: DatabaseConfig): DatabasePool {
         connectionTimeoutMillis: config.connectionTimeoutMillis,
       };
 
+  // Cap runaway statements server-side and label the pool for pg_stat_activity.
+  if (config.statementTimeoutMillis && config.statementTimeoutMillis > 0) {
+    poolConfig.statement_timeout = config.statementTimeoutMillis;
+  }
+  if (config.applicationName) {
+    poolConfig.application_name = config.applicationName;
+  }
+
   const pool = new Pool(poolConfig);
 
   // Prevent uncaughtException when idle clients encounter connection errors

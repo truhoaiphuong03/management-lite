@@ -82,6 +82,12 @@ export const STAFF_PERMISSIONS = [
 
 export class AuthService {
   public readonly loginLimiter: RateLimiter;
+  /**
+   * Defence in depth against distributed guessing: counts FAILED logins per account
+   * identifier regardless of source IP. The ceiling is deliberately well above the
+   * per-IP limit so a stranger cannot cheaply lock the real owner out.
+   */
+  public readonly loginAccountLimiter: RateLimiter;
   public readonly changePasswordLimiter: RateLimiter;
   public readonly forgotPasswordLimiter: RateLimiter;
   public readonly forgotPasswordAccountLimiter: RateLimiter;
@@ -95,6 +101,7 @@ export class AuthService {
     private readonly csrfSecret: string,
     options: {
       loginLimiter?: RateLimiter;
+      loginAccountLimiter?: RateLimiter;
       changePasswordLimiter?: RateLimiter;
       forgotPasswordLimiter?: RateLimiter;
       forgotPasswordAccountLimiter?: RateLimiter;
@@ -109,6 +116,9 @@ export class AuthService {
     this.loginLimiter =
       options.loginLimiter ??
       new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
+    this.loginAccountLimiter =
+      options.loginAccountLimiter ??
+      new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 20 });
     this.changePasswordLimiter =
       options.changePasswordLimiter ??
       new RateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 5 });
@@ -185,6 +195,22 @@ export class AuthService {
 
     const normalizedIdentifier = identifier.trim().toLowerCase();
 
+    // 1b. Per-account ceiling on failed attempts (independent of client IP). The key is
+    // the typed identifier whether or not it exists, so this reveals nothing about accounts.
+    const accountKey = normalizedIdentifier.slice(0, 254);
+    const accountCheck = this.loginAccountLimiter.check(accountKey);
+    if (!accountCheck.allowed) {
+      throw new AuthError(
+        'RATE_LIMITED',
+        `Too many login attempts. Please retry after ${accountCheck.retryAfterSeconds} seconds.`,
+        429,
+      );
+    }
+    const failCredentials = (): never => {
+      this.loginAccountLimiter.increment(accountKey);
+      throw new AuthError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+    };
+
     // 2. Query user identity & credentials
     const userRes = await this.pool.query<{
       id: string;
@@ -216,7 +242,7 @@ export class AuthService {
     const distinctUserIds = new Set(userRes.rows.map((row) => row.id));
     if (distinctUserIds.size > 1) {
       await verifyPassword(password, await getDummyHash());
-      throw new AuthError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+      return failCredentials();
     }
     const userRow = userRes.rows[0];
 
@@ -227,17 +253,18 @@ export class AuthService {
       userRow.user_status !== 'active'
     ) {
       await verifyPassword(password, await getDummyHash());
-      throw new AuthError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+      return failCredentials();
     }
 
     // 3. Verify Argon2id password hash
     const passwordMatch = await verifyPassword(password, userRow.password_hash);
     if (!passwordMatch) {
-      throw new AuthError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
+      return failCredentials();
     }
 
     // Reset rate limiter on successful credentials
     this.loginLimiter.reset(clientIp);
+    this.loginAccountLimiter.reset(accountKey);
 
     // 4. Resolve C06 active workspace binding (preauthorized active context)
     // Canonical Doc 30/36: POST /auth/login succeeds only if exactly one preauthorized

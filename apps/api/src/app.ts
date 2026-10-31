@@ -1,6 +1,7 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { DatabasePool } from '../../../packages/database/src/pool.js';
@@ -231,27 +232,59 @@ async function parseJsonBody<T = unknown>(
 
 /**
  * Securely resolves the client IP address.
- * NEVER trusts client-supplied headers (X-Forwarded-For) unless the direct
- * connecting peer (remoteAddress) is explicitly listed in trustedProxies.
+ * NEVER trusts client-supplied headers unless the direct connecting peer
+ * (remoteAddress) is explicitly listed in trustedProxies. Behind a trusted proxy:
+ *  1. `CF-Connecting-IP` (set/overwritten by Cloudflare, cannot be forged by a client
+ *     that reaches us through it) when it is a valid IP;
+ *  2. otherwise the right-most `X-Forwarded-For` entry that is not itself a trusted
+ *     proxy. The LEFT-most entry is attacker-controlled (clients may pre-fill the
+ *     header), so it is never used.
+ * Falls back to the socket peer address.
  */
 export function getClientIp(
   req: http.IncomingMessage,
   trustedProxies: string[] = [],
 ): string {
   const remoteIp = req.socket.remoteAddress || '127.0.0.1';
+  if (
+    trustedProxies.length === 0 ||
+    !isTrustedProxy(remoteIp, trustedProxies)
+  ) {
+    return remoteIp;
+  }
 
-  // Only trust forwarded headers if the immediate peer is explicitly in trustedProxies
-  if (trustedProxies.length > 0 && trustedProxies.includes(remoteIp)) {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.length > 0) {
-      const firstIp = forwarded.split(',')[0]?.trim();
-      if (firstIp && firstIp.length > 0) {
-        return firstIp;
-      }
+  const cf = req.headers['cf-connecting-ip'];
+  if (typeof cf === 'string') {
+    const candidate = cf.trim();
+    if (net.isIP(candidate) !== 0) return candidate;
+  }
+
+  const forwarded = req.headers['x-forwarded-for'];
+  const rawForwarded = Array.isArray(forwarded)
+    ? forwarded.join(',')
+    : forwarded;
+  if (typeof rawForwarded === 'string' && rawForwarded.length > 0) {
+    const hops = rawForwarded
+      .split(',')
+      .map((hop) => hop.trim())
+      .filter((hop) => hop.length > 0);
+    for (let i = hops.length - 1; i >= 0; i--) {
+      const hop = hops[i]!;
+      if (net.isIP(hop) === 0) break;
+      if (!isTrustedProxy(hop, trustedProxies)) return hop;
     }
   }
 
   return remoteIp;
+}
+
+function isTrustedProxy(ip: string, trustedProxies: string[]): boolean {
+  const v4 = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+  return (
+    trustedProxies.includes(ip) ||
+    trustedProxies.includes(v4) ||
+    trustedProxies.includes(`::ffff:${v4}`)
+  );
 }
 
 /** Reject malformed authority and request targets before route dispatch. */
@@ -468,10 +501,12 @@ export function createRequestHandler(
   const apiCache = deps.apiCache ?? new ScopedApiCache();
 
   return async (req: http.IncomingMessage, res: http.ServerResponse) => {
-    // 1. Assign deterministic or header-provided request_id
+    // 1. Assign a deterministic request_id. A client-supplied id is only honoured when it
+    // is a short, log-safe token; anything else is replaced to prevent log/header injection.
     const headerRequestId = req.headers['x-request-id'];
     const requestId =
-      typeof headerRequestId === 'string' && headerRequestId.length > 0
+      typeof headerRequestId === 'string' &&
+      /^[A-Za-z0-9._-]{1,64}$/.test(headerRequestId)
         ? headerRequestId
         : crypto.randomUUID();
 
@@ -536,7 +571,13 @@ export function createRequestHandler(
         prod,
         cookieName,
       ) => {
-        const ctx = await rawRequireAuth(svc, r, prod, cookieName);
+        // Bind the configured session cookie name once so no call site can forget it.
+        const ctx = await rawRequireAuth(
+          svc,
+          r,
+          prod,
+          cookieName ?? sessionCookieName,
+        );
         authenticatedWorkspaceId = ctx.workspace.id;
         authenticatedUserId = ctx.user.id;
         return ctx;

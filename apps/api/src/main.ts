@@ -1,6 +1,10 @@
 import { loadApiConfig } from './config.js';
 import { createDatabasePool } from '../../../packages/database/src/pool.js';
-import { startServer, setupGracefulShutdown } from './server.js';
+import {
+  startServer,
+  setupGracefulShutdown,
+  setupProcessSafetyNets,
+} from './server.js';
 import { createFinanceAiCore } from './finance/ai-wiring.js';
 
 async function main(): Promise<void> {
@@ -12,6 +16,7 @@ async function main(): Promise<void> {
       createFinanceAiCore(process.env, authorize),
   });
   setupGracefulShutdown(running);
+  setupProcessSafetyNets(running);
   console.log(
     `Management Lite API listening at http://${running.host}:${running.port} (${config.nodeEnv})`,
   );
