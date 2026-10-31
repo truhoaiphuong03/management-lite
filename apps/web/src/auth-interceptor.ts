@@ -29,9 +29,6 @@ export function resetSessionExpiredState(): void {
   isSessionExpiredActive = false;
 }
 
-export function isSessionExpiredHandlingActive(): boolean {
-  return isSessionExpiredActive;
-}
 
 /**
  * Evaluates whether an intercepted request URL is an internal authenticated API endpoint.

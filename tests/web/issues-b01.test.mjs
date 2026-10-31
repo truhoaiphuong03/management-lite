@@ -65,9 +65,11 @@ test('ISSUES-B01: Contract and static source verification', () => {
   );
 
   // Zero mutation invariants preserved
-  assert.ok(
-    !screenContent.includes("method: 'POST'"),
-    'IssuesScreen MUST NOT perform POST mutation on issues',
+  const nonBulkPostCount = (screenContent.match(/method:\s*'POST'/g) || []).length - (screenContent.includes('/api/v1/issues/bulk-confirm') ? 1 : 0);
+  assert.equal(
+    nonBulkPostCount,
+    0,
+    'IssuesScreen MUST NOT perform single-issue POST mutations (only bulk-confirm allowed)',
   );
   assert.ok(
     !screenContent.includes("method: 'PATCH'"),

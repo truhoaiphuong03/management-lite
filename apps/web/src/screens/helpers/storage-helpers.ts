@@ -11,18 +11,3 @@ export function formatStorageBytes(bytes: number | null | undefined): string {
   }
   return `${value >= 10 || idx === 0 ? Math.round(value) : value.toFixed(1)} ${units[idx]}`;
 }
-
-export function getFolderTypeBadgeLabel(
-  folderType: string | null | undefined,
-): string {
-  switch (folderType) {
-    case 'source':
-      return 'Thư mục nguồn';
-    case 'deliverable':
-      return 'Thư mục thành phẩm';
-    case 'root':
-      return 'Thư mục gốc';
-    default:
-      return folderType || 'Khác';
-  }
-}

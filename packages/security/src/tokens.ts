@@ -63,7 +63,7 @@ export function timingSafeEqualTokens(a: string, b: string): boolean {
  * prefixes, suffixes, or length indicators of the secret are ever exposed.
  * Note: Raw secrets, tokens, and secret-derived values should never be logged.
  */
-export function maskSecret(value?: unknown): string {
-  void value;
+export function maskSecret(_value?: unknown): string {
+  void _value;
   return '[REDACTED]';
 }

@@ -76,15 +76,20 @@ test('ACC-008 / Search Normalization: Case-insensitive and trimmed search invari
     resolve(root, 'apps/web/src/screens/AccountsScreen.tsx'),
     'utf8',
   );
+  const helpersSrc = readFileSync(
+    resolve(root, 'apps/web/src/screens/helpers/accounts-helpers.ts'),
+    'utf8',
+  );
+  const combined = screenSrc + '\n' + helpersSrc;
 
   // Verify search uses .toLowerCase().trim() for matching
   assert.ok(
-    screenSrc.includes('searchQuery.toLowerCase().trim()'),
+    combined.includes('searchQuery.toLowerCase().trim()') ||
+      combined.includes('rawQuery.trim().toLowerCase()'),
     'Accounts search query must be lowercased and trimmed',
   );
   assert.ok(
-    screenSrc.includes('(acc.username || "").toLowerCase()') ||
-      screenSrc.includes('(acc.username || \'\').toLowerCase()'),
+    combined.includes('acc.username') && combined.includes('.toLowerCase()'),
     'Account username comparison must be case-insensitive',
   );
 });

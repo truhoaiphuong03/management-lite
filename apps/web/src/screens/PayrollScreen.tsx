@@ -913,45 +913,6 @@ export function loadAllUnresolvedDisbursements(
   return inspection.records;
 }
 
-export function persistUnresolvedDisbursements(
-  workspaceId: string,
-  userId: string,
-  map: Map<string, UnresolvedDisbursementRecord>,
-): StorageVerificationResult {
-  if (!workspaceId || !userId) {
-    return {
-      success: false,
-      error: 'Thiếu định danh workspace hoặc user để lưu trữ.',
-    };
-  }
-
-  if (typeof window === 'undefined' || !window.sessionStorage) {
-    return {
-      success: false,
-      error:
-        'Bộ nhớ phiên làm việc (sessionStorage) không khả dụng trên môi trường hiện tại.',
-    };
-  }
-
-  try {
-    const storageKey = getScopedDisbursementStorageKey(workspaceId, userId);
-    const arr = Array.from(map.values());
-    const writeErr = writeVerifiedItem(storageKey, JSON.stringify(arr));
-    if (writeErr) {
-      return {
-        success: false,
-        error: `Lỗi ghi/đọc lại sessionStorage: ${writeErr}`,
-      };
-    }
-    return { success: true };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: `Lỗi ghi vào sessionStorage: ${err instanceof Error ? err.message : String(err)}`,
-    };
-  }
-}
-
 /**
  * Q65-01 & Q67-02: Fail-closed persistence check with mandatory read-back verification before payment POST.
  * In-memory fallback is strictly disallowed from passing this gate.

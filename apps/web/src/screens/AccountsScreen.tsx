@@ -497,7 +497,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
   // 5. Keyboard accessibility: Close modals on Escape key
   useEffect(() => {
-    if (!showRevealReauthModal && !showUpdateSecretModal && !showArchiveModal) {
+    if (
+      !showRevealReauthModal &&
+      !showUpdateSecretModal &&
+      !showArchiveModal &&
+      !showCreateModal &&
+      !showEditModal
+    ) {
       return;
     }
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -505,6 +511,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         if (showRevealReauthModal) closeRevealModal();
         if (showUpdateSecretModal) closeUpdateSecretModal();
         if (showArchiveModal) setShowArchiveModal(false);
+        if (showCreateModal) setShowCreateModal(false);
+        if (showEditModal) setShowEditModal(false);
       }
     };
     if (typeof window !== 'undefined') {
@@ -513,7 +521,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         window.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [showRevealReauthModal, showUpdateSecretModal, showArchiveModal]);
+  }, [
+    showRevealReauthModal,
+    showUpdateSecretModal,
+    showArchiveModal,
+    showCreateModal,
+    showEditModal,
+  ]);
 
   // 360° Bidirectional Lookup + Filtered accounts for display
   const lookup360Result = useMemo(
@@ -527,8 +541,6 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       ? lookup360Result.visibleAccounts
       : accounts;
     return baseList.filter((acc) => {
-      const normalizedUser = (acc.username || '').toLowerCase();
-      void normalizedUser;
       if (platformFilter !== 'all' && acc.platform !== platformFilter)
         return false;
       if (statusFilter !== 'all' && acc.status !== statusFilter) return false;
@@ -2972,7 +2984,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               fontSize: '12px',
                               fontWeight: 700,
                               backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                              color: '#F87171',
+                              color: 'var(--danger-text)',
                               border: '1px solid rgba(239, 68, 68, 0.3)',
                             }}
                           >
@@ -3381,7 +3393,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 fontSize: '12px',
                                 fontWeight: 700,
                                 backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                                color: '#FBBF24',
+                                color: 'var(--warning-text)',
                                 marginRight: '8px',
                               }}
                             >
@@ -3462,7 +3474,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 fontSize: '12px',
                                 fontWeight: 700,
                                 backgroundColor: 'rgba(14, 165, 233, 0.15)',
-                                color: '#38BDF8',
+                                color: 'var(--info-text)',
                                 marginRight: '8px',
                               }}
                             >
@@ -4088,7 +4100,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                      gridTemplateColumns:
+                        'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                       gap: '10px',
                       marginBottom: '14px',
                     }}
@@ -4225,7 +4238,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                      gridTemplateColumns:
+                        'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
                       gap: '12px',
                       marginBottom: '12px',
                     }}
@@ -4295,7 +4309,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                      gridTemplateColumns:
+                        'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
                       gap: '12px',
                       marginBottom: '12px',
                     }}
@@ -4486,7 +4501,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       <div
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                          gridTemplateColumns:
+                        'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                           gap: '10px',
                           marginBottom: '10px',
                         }}
@@ -4559,7 +4575,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       <div
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                          gridTemplateColumns:
+                        'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                           gap: '10px',
                           marginBottom: '10px',
                         }}
@@ -4853,7 +4870,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                   gap: '12px',
                   marginBottom: '12px',
                 }}
@@ -4940,7 +4958,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                     gap: '10px',
                     marginBottom: '10px',
                   }}
@@ -5088,7 +5107,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                   gap: '12px',
                   marginBottom: '12px',
                 }}

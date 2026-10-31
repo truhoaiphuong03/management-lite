@@ -16,6 +16,7 @@ import {
   InfoIcon,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
+import { formatDateDisplay } from './helpers/payroll-helpers.js';
 import type {
   ScheduleData,
   ScheduleEntryData,
@@ -58,13 +59,6 @@ function formatDateIso(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-// Helper: Formats YYYY-MM-DD to DD/MM/YYYY
-function formatDateDisplay(isoDate: string): string {
-  if (!isoDate) return '';
-  const parts = isoDate.split('-');
-  if (parts.length !== 3) return isoDate;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
-}
 
 // Helper: Given any Date, return the Date of Monday for that week
 function getMondayOfWeek(d: Date): Date {

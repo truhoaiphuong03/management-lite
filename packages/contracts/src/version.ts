@@ -3,7 +3,7 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.6.2';
+export const SYSTEM_VERSION = '0.6.3';
 export const SYSTEM_COMMIT = '6e1ee4f';
 export const SYSTEM_ENV = 'staging';
 
@@ -40,6 +40,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  * Bản 'latest' tự động gắn với commit thực tế của bản dựng mới nhất khi đóng gói và triển khai.
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
+  {
+    version: '0.6.3',
+    commit: 'latest',
+    released_at: '2026-10-31',
+    summary:
+      'Kiểm tra toàn diện hệ thống, chuẩn hóa tương phản giao diện Sáng/Tối & khung nhìn 320px trên /accounts, hợp nhất helper dùng chung (/issues, /schedules) và loại bỏ code thừa không sử dụng.',
+    added: [
+      'Module tiện ích dùng chung issues-helpers.ts cho Sổ tay lỗi (/issues & /issues/:id).',
+    ],
+    improved: [
+      'Chuẩn hóa biến màu tương phản AA (var(--danger-text), var(--warning-text), var(--info-text)) cho các nhãn nền tảng & cụm bảo vệ trên /accounts.',
+      'Hỗ trợ đóng nhanh cửa sổ Thêm/Sửa tài khoản bằng phím Escape và loại bỏ các hàm/hằng xuất khẩu dư thừa không sử dụng.',
+    ],
+    fixed: [
+      'Sửa 3 lỗi ESLint prefer-const trong AccountsService và chuẩn hóa lưới responsive minmax(min(100%, 220px), 1fr) chống tràn ngang ở khung nhìn 320px.',
+      'Đồng bộ bộ kiểm thử Sổ tay lỗi (issues-b01, issues-screen) tương thích với thao tác Đóng hàng loạt (bulk-confirm).',
+    ],
+  },
   {
     version: '0.6.2',
     commit: 'latest',

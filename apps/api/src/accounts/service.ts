@@ -1408,9 +1408,9 @@ export class AccountsService {
     }
 
     // Retrieve related accounts (children, protected accounts, same-phone accounts)
-    let childAccounts: LinkedAccountSummary[] = [];
-    let protectedAccounts: LinkedAccountSummary[] = [];
-    let samePhoneAccounts: LinkedAccountSummary[] = [];
+    const childAccounts: LinkedAccountSummary[] = [];
+    const protectedAccounts: LinkedAccountSummary[] = [];
+    const samePhoneAccounts: LinkedAccountSummary[] = [];
     let phoneGmailCount = 0;
     let phoneTotalCount = 0;
 

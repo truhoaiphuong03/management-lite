@@ -1136,28 +1136,6 @@ export class MockGoogleDriveProvider implements IStorageProvider {
   }
 }
 
-export function extractGoogleDriveFolderId(driveUrl: string): string | null {
-  try {
-    const parsed = new URL(driveUrl);
-    if (
-      parsed.hostname !== 'drive.google.com' &&
-      parsed.hostname !== 'docs.google.com'
-    ) {
-      return null;
-    }
-    const foldersMatch = parsed.pathname.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-    if (foldersMatch?.[1]) {
-      return foldersMatch[1];
-    }
-    const idParam = parsed.searchParams.get('id');
-    if (idParam && /^[a-zA-Z0-9_-]+$/.test(idParam)) {
-      return idParam;
-    }
-    return `gdrive_${Buffer.from(parsed.pathname).toString('hex').slice(0, 16)}`;
-  } catch {
-    return null;
-  }
-}
 
 export function isValidDriveUrl(driveUrl: string): boolean {
   try {

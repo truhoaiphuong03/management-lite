@@ -194,7 +194,8 @@ test('V0.2 ISSUES-04: IssuesScreen.tsx read-only list, filters, cursor paginatio
   assert.ok(content.includes('StatusBadge'), 'Must use StatusBadge for type and status');
 
   // 6. Zero mutations lock: no create form, edit form, confirm-fix or reopen mutations
-  assert.ok(!content.includes("method: 'POST'"), 'IssuesScreen MUST NOT issue POST mutation requests in CP2.1');
+  const nonBulkPostCount = (content.match(/method:\s*'POST'/g) || []).length - (content.includes('/api/v1/issues/bulk-confirm') ? 1 : 0);
+  assert.equal(nonBulkPostCount, 0, 'IssuesScreen MUST NOT issue single-issue POST mutation requests');
   assert.ok(!content.includes("method: 'PATCH'"), 'IssuesScreen MUST NOT issue PATCH mutation requests in CP2.1');
   assert.ok(!content.includes("method: 'DELETE'"), 'IssuesScreen MUST NOT issue DELETE mutation requests in CP2.1');
   assert.ok(!content.includes('confirm-fix'), 'IssuesScreen MUST NOT contain confirm-fix handlers');

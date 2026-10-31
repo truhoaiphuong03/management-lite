@@ -51,12 +51,6 @@ export const fieldStyle: React.CSSProperties = {
   borderRadius: 8,
   padding: 10,
 };
-/** Soft warning outline for non-final destructive row actions (the confirm dialog stays solid red). */
-export const softWarningButtonStyle: React.CSSProperties = {
-  color: THEME_COLORS.warning,
-  borderColor: 'rgba(245, 158, 11, 0.45)',
-  backgroundColor: 'transparent',
-};
 export type FinanceIconAction = 'edit' | 'deactivate' | 'reactivate' | 'detail';
 /** FIN adapter over the shared design-system ActionIconButton (`detail` maps to the eye "view" action). */
 export function FinanceIconButton({
