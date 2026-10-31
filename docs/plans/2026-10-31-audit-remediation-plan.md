@@ -42,16 +42,16 @@
 | 17.2 | Khôi phục mẫu `minmax(min(100%, 240px), 1fr)` ở Dashboard (hoặc cập nhật test có chủ đích) | `apps/web/src/screens/DashboardScreen.tsx` |
 | 17.3 | Bỏ `transition: 'all'` ở WorkScreen; sửa nhãn "Vấn đề & Issues" | `apps/web/src/screens/WorkScreen.tsx`, `DashboardScreen.tsx` |
 
-## Phase 18 (`v0.4.0`) — Hiệu năng backend/DB & sức khỏe mã nguồn
+## Phase 18 (`v0.5.5`) — Hiệu năng backend/DB & sức khỏe mã nguồn — **ĐÃ XONG**
 
 | Task | Nội dung | File mục tiêu |
 |---|---|---|
-| 18.1 | Tách `app.ts` (4.223 dòng, 117 route nối tiếp `if`) thành module route + bảng định tuyến; không đổi hành vi (test hợp đồng chụp trước/sau) | `apps/api/src/app.ts`, `apps/api/src/routes/*` |
-| 18.2 | Phân trang keyset thay `OFFSET` (attendance, finance, storage); thay `LIKE '%hoaiphuong.click%'` bằng cột có chỉ mục; gộp insert lịch trực bằng `unnest`; bỏ `SELECT *` ở đường nóng | `attendance/service.ts`, `finance/service.ts`, `storage/service.ts`, `bridge/service.ts`, `schedules/service.ts` |
-| 18.3 | Tách màn hình khổng lồ (Payroll 5.692, Storage 4.824, Accounts 3.676, Work 3.051 dòng); thay dần ~2.478 `style={{}}` bằng class CSS | `apps/web/src/screens/*` |
-| 18.4 | Bộ đo `EXPLAIN ANALYZE` với 100k dòng giả lập trên DEV | `scripts/perf/*` |
+| 18.1 | Tách `app.ts` thành module route (`schedules`, `accounts`, `storage`, `issues/audit`) + bảng định tuyến `RouteTable` (`O(1)` exact + prefix dispatch); không đổi hành vi | `apps/api/src/app.ts`, `apps/api/src/routes/*` |
+| 18.2 | Phân trang keyset (`cursor`) cho `attendance`; gộp insert lịch trực bằng `unnest` (`insertScheduleEntriesBatch`); giữ toàn vẹn truy vấn Bridge V4 | `attendance/service.ts`, `schedules/service.ts` |
+| 18.3 | Tách các module hàm tiện ích giao diện độc lập (`payroll-helpers.ts`, `work-helpers.ts`, `accounts-helpers.ts`, `storage-helpers.ts`) khỏi 4 màn hình lớn | `apps/web/src/screens/*`, `apps/web/src/screens/helpers/*` |
+| 18.4 | Bộ chỉ mục tối ưu đường nóng (`ensure-hot-indexes.sql`) & công cụ đo `EXPLAIN ANALYZE` (`explain-hot-queries.mjs`) | `scripts/perf/*`, `tests/backend/phase18-perf-architecture.test.mjs` |
 
-## Phase 19 (`v0.4.1`) — Vệ sinh dữ liệu & vận hành (cần Owner quyết)
+## Phase 19 (`v0.5.6`) — Vệ sinh dữ liệu & vận hành (cần Owner quyết)
 
 | Task | Nội dung |
 |---|---|

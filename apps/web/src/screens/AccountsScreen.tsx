@@ -46,62 +46,13 @@ export interface AccountsScreenProps {
   onNavigate?: (path: string) => void;
 }
 
-interface PlatformConfig {
-  label: string;
-  color: string;
-  bg: string;
-  border: string;
-}
+import {
+  getPlatformConfig,
+  sanitizeUiError,
+  type PlatformConfig,
+} from './helpers/accounts-helpers.js';
 
-const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
-  label: 'Nền tảng khác',
-  color: '#A855F7',
-  bg: 'rgba(168, 85, 247, 0.1)',
-  border: 'rgba(168, 85, 247, 0.3)',
-};
-
-const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
-  tiktok: {
-    label: 'TikTok',
-    color: '#F43F5E',
-    bg: 'rgba(244, 63, 94, 0.1)',
-    border: 'rgba(244, 63, 94, 0.3)',
-  },
-  gmail: {
-    label: 'Gmail / Google',
-    color: '#EA4335',
-    bg: 'rgba(234, 67, 53, 0.1)',
-    border: 'rgba(234, 67, 53, 0.3)',
-  },
-  ai: {
-    label: 'AI / LLM',
-    color: 'var(--success-text)',
-    bg: 'rgba(16, 185, 129, 0.1)',
-    border: 'rgba(16, 185, 129, 0.3)',
-  },
-  pm: {
-    label: 'PM / Dự án',
-    color: 'var(--info-text)',
-    bg: 'rgba(56, 189, 248, 0.1)',
-    border: 'rgba(56, 189, 248, 0.3)',
-  },
-  other: DEFAULT_PLATFORM_CONFIG,
-};
-
-const getPlatformConfig = (platform: string): PlatformConfig => {
-  return PLATFORM_CONFIG[platform] ?? DEFAULT_PLATFORM_CONFIG;
-};
-
-export function sanitizeUiError(msg: unknown): string {
-  if (!msg) return 'Đã có lỗi xảy ra.';
-  let str = msg instanceof Error ? msg.message : String(msg);
-  str = str.replace(/bearer\s+[^\s&"']+/gi, 'Bearer [REDACTED]');
-  str = str.replace(
-    /(password|token|secret|key|proof)\s*[:=]\s*[^\s&"',]+/gi,
-    '$1=[REDACTED]',
-  );
-  return str;
-}
+export { sanitizeUiError, type PlatformConfig };
 
 export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   role = 'owner',
@@ -1678,7 +1629,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             data-testid="banner-personal-password-change"
             style={{
               padding: '14px 18px',
-              backgroundColor: 'rgba(30, 41, 59, 0.7)',
+              backgroundColor: 'var(--surface-subtle)',
               border: '1px solid rgba(51, 65, 85, 0.8)',
               borderRadius: '8px',
               marginBottom: '20px',
@@ -2535,7 +2486,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               <div
                 style={{
                   padding: '12px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid rgba(20, 184, 166, 0.35)',
                   borderRadius: '6px',
                   marginBottom: '12px',
@@ -3302,7 +3253,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       backgroundColor: copiedSecret ? '#10B981' : 'var(--surface-hover)',
                       border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: copiedSecret ? '#0B1220' : 'var(--info-text)',
+                      color: copiedSecret ? 'var(--inverse-text, #0B1220)' : 'var(--info-text)',
                       cursor: 'pointer',
                       fontSize: '12px',
                       fontWeight: 600,

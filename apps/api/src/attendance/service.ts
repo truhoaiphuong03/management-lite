@@ -206,6 +206,29 @@ export class AttendanceService {
     return new Date(trimmed);
   }
 
+  private parseKeysetCursor(
+    cursor: string | undefined,
+  ): { clockInAt: Date; id: string } | null {
+    if (!cursor) return null;
+    const raw = cursor.trim();
+    const sep = raw.indexOf('|');
+    if (sep > 0) {
+      const ts = new Date(raw.slice(0, sep));
+      const id = raw.slice(sep + 1).trim();
+      if (!isNaN(ts.getTime()) && /^[a-f0-9-]{36}$/i.test(id)) {
+        return { clockInAt: ts, id };
+      }
+    }
+    const tsOnly = new Date(raw);
+    if (!isNaN(tsOnly.getTime())) {
+      return {
+        clockInAt: tsOnly,
+        id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      };
+    }
+    return null;
+  }
+
   /**
    * GET /api/v1/attendance/me
    * Fetches current shift and recent/filtered history for the authenticated user.
@@ -219,6 +242,7 @@ export class AttendanceService {
       review_state?: string | undefined;
       limit?: number | undefined;
       offset?: number | undefined;
+      cursor?: string | undefined;
     } = {},
   ): Promise<AttendanceMeResponseData> {
     const employee = await this.getEmployeeForUser(context);
@@ -228,6 +252,7 @@ export class AttendanceService {
 
     const limit = Math.min(Math.max(Number(filters.limit) || 30, 1), 100);
     const offset = Math.max(Number(filters.offset) || 0, 0);
+    const parsedCursor = this.parseKeysetCursor(filters.cursor);
     const filterParams: unknown[] = [context.workspace.id, employee.id];
     let whereClause = '';
 
@@ -259,9 +284,22 @@ export class AttendanceService {
     );
     const total = countRes.rows[0]?.cnt ?? 0;
 
-    const queryParams = [...filterParams, limit, offset];
-    const limitIdx = `$${filterParams.length + 1}`;
-    const offsetIdx = `$${filterParams.length + 2}`;
+    const pageParams = [...filterParams];
+    let cursorClause = '';
+    if (parsedCursor) {
+      pageParams.push(parsedCursor.clockInAt, parsedCursor.id);
+      const tsIdx = `$${pageParams.length - 1}`;
+      const idIdx = `$${pageParams.length}`;
+      cursorClause = ` AND (s.clock_in_at, s.id) < (${tsIdx}, ${idIdx}::uuid)`;
+    }
+
+    const queryParams = parsedCursor
+      ? [...pageParams, limit]
+      : [...pageParams, limit, offset];
+    const limitIdx = `$${pageParams.length + 1}`;
+    const offsetClause = parsedCursor
+      ? ''
+      : ` OFFSET $${pageParams.length + 2}`;
 
     const shiftsRes = await this.pool.query<{
       id: string;
@@ -322,9 +360,9 @@ export class AttendanceService {
       LEFT JOIN attendance_approvals ap
         ON ap.workspace_id = s.workspace_id AND ap.shift_version_id = s.current_version_id
       WHERE s.workspace_id = $1 AND s.employee_id = $2
-      ${whereClause}
-      ORDER BY s.clock_in_at DESC
-      LIMIT ${limitIdx} OFFSET ${offsetIdx};
+      ${whereClause}${cursorClause}
+      ORDER BY s.clock_in_at DESC, s.id DESC
+      LIMIT ${limitIdx}${offsetClause};
     `,
       queryParams,
     );
@@ -995,12 +1033,14 @@ export class AttendanceService {
       review_state?: string | undefined;
       limit?: number | undefined;
       offset?: number | undefined;
+      cursor?: string | undefined;
     } = {},
   ): Promise<AttendanceShiftsResponseData> {
     requireRole(['owner'], context);
 
     const limit = Math.min(Math.max(Number(filters.limit) || 50, 1), 100);
     const offset = Math.max(Number(filters.offset) || 0, 0);
+    const parsedCursor = this.parseKeysetCursor(filters.cursor);
     const filterParams: unknown[] = [context.workspace.id];
 
     let whereClause = '';
@@ -1038,9 +1078,22 @@ export class AttendanceService {
     );
     const total = countRes.rows[0]?.cnt ?? 0;
 
-    const params = [...filterParams, limit, offset];
-    const limitPlaceholder = `$${filterParams.length + 1}`;
-    const offsetPlaceholder = `$${filterParams.length + 2}`;
+    const pageParams = [...filterParams];
+    let cursorClause = '';
+    if (parsedCursor) {
+      pageParams.push(parsedCursor.clockInAt, parsedCursor.id);
+      const tsIdx = `$${pageParams.length - 1}`;
+      const idIdx = `$${pageParams.length}`;
+      cursorClause = ` AND (s.clock_in_at, s.id) < (${tsIdx}, ${idIdx}::uuid)`;
+    }
+
+    const params = parsedCursor
+      ? [...pageParams, limit]
+      : [...pageParams, limit, offset];
+    const limitPlaceholder = `$${pageParams.length + 1}`;
+    const offsetClause = parsedCursor
+      ? ''
+      : ` OFFSET $${pageParams.length + 2}`;
 
     const shiftsRes = await this.pool.query<{
       id: string;
@@ -1101,9 +1154,9 @@ export class AttendanceService {
       LEFT JOIN attendance_approvals ap
         ON ap.workspace_id = s.workspace_id AND ap.shift_version_id = s.current_version_id
       WHERE s.workspace_id = $1
-      ${whereClause}
-      ORDER BY s.clock_in_at DESC
-      LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder};
+      ${whereClause}${cursorClause}
+      ORDER BY s.clock_in_at DESC, s.id DESC
+      LIMIT ${limitPlaceholder}${offsetClause};
     `,
       params,
     );

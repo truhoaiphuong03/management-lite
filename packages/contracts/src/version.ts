@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.5.4';
-export const SYSTEM_COMMIT = '93e8b5d';
+export const SYSTEM_VERSION = '0.5.5';
+export const SYSTEM_COMMIT = '0f6384e';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,27 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.5.4',
+    version: '0.5.5',
     commit: 'latest',
+    released_at: '2026-10-31T07:05:00.000Z',
+    summary:
+      'Hoàn tất Phase 18 (Hiệu năng Backend/DB & Sức khỏe Mã nguồn): bổ sung bảng định tuyến O(1) RouteTable và tách 4 module định tuyến lớn khỏi app.ts, gộp chèn lịch tuần bằng UNNEST 1 lượt, hỗ trợ phân trang con trỏ (keyset cursor) cho Chấm công, tách bộ hàm tiện ích màn hình Web và bổ sung bộ chỉ mục + đo EXPLAIN ANALYZE.',
+    added: [
+      'Bộ định tuyến RouteTable tra cứu đường dẫn cố định O(1) kết hợp phân nhánh theo tiền tố (apps/api/src/routes/router.ts) và 4 module định tuyến độc lập (schedules, accounts, storage, issues/audit).',
+      'Bộ chỉ mục tối ưu đường nóng (scripts/perf/ensure-hot-indexes.sql) và công cụ đo kế hoạch thực thi truy vấn EXPLAIN ANALYZE (scripts/perf/explain-hot-queries.mjs).',
+      'Các module hàm tiện ích giao diện độc lập (payroll-helpers.ts, work-helpers.ts, accounts-helpers.ts, storage-helpers.ts) giúp giảm kích thước các màn hình lớn.',
+    ],
+    improved: [
+      'Gộp thao tác lưu các ca đăng ký lịch làm việc trong tuần (SchedulesService) thành 1 truy vấn UNNEST duy nhất thay vì lặp 7 lệnh INSERT tuần tự.',
+      'Bổ sung phân trang con trỏ (keyset cursor) không dùng OFFSET cho danh sách ca chấm công (/api/v1/attendance/shifts và /api/v1/attendance/me).',
+    ],
+    fixed: [
+      'Khắc phục tình trạng tập trung hơn 4.100 dòng mã định tuyến vào một tệp app.ts duy nhất (giảm gần 1.200 dòng trong app.ts) và loại bỏ nút thắt N+1 INSERT khi lưu lịch làm việc tuần.',
+    ],
+  },
+  {
+    version: '0.5.4',
+    commit: '0f6384e',
     released_at: '2026-10-31T06:50:00.000Z',
     summary:
       'Hoàn tất Phase 16 & Phase 17 (Toàn vẹn phát hành, chuẩn hóa định dạng đa hệ điều hành & hiển thị điện thoại 320px): tự động sinh thông tin bản dựng từ Git, tài liệu hóa quy trình phát hành qua cổng Owner, sửa lỗi tràn ngang trên màn hình 320px và đạt 100% kiểm thử xanh (436/436 test).',

@@ -245,6 +245,51 @@ export class SchedulesService {
   }
 
   /**
+   * Inserts all schedule entries for a week in a single round-trip query via UNNEST.
+   */
+  async insertScheduleEntriesBatch(
+    client: {
+      query: <T>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
+    },
+    workspaceId: string,
+    scheduleId: string,
+    entries: Array<{
+      work_date: string;
+      day_of_week: number;
+      start_time: string;
+      notes?: string | null | undefined;
+    }>,
+  ): Promise<ScheduleEntryData[]> {
+    if (entries.length === 0) {
+      return [];
+    }
+
+    const workDates = entries.map((e) => e.work_date);
+    const daysOfWeek = entries.map((e) => e.day_of_week);
+    const startTimes = entries.map((e) => e.start_time);
+    const notesList = entries.map((e) => e.notes || null);
+
+    const entRes = await client.query<ScheduleEntryData>(
+      `INSERT INTO staff_schedule_entries (
+         workspace_id, schedule_id, work_date, day_of_week, start_time, notes
+       )
+       SELECT
+         $1,
+         $2,
+         u.work_date::date,
+         u.day_of_week::int,
+         u.start_time,
+         u.notes
+       FROM unnest($3::text[], $4::int[], $5::text[], $6::text[])
+         AS u(work_date, day_of_week, start_time, notes)
+       ORDER BY u.work_date::date ASC
+       RETURNING id, workspace_id, schedule_id, work_date::text AS work_date, day_of_week, start_time, notes, created_at;`,
+      [workspaceId, scheduleId, workDates, daysOfWeek, startTimes, notesList],
+    );
+    return entRes.rows;
+  }
+
+  /**
    * Staff: Get own schedule for a given week.
    */
   async getStaffSchedule(
@@ -385,25 +430,13 @@ export class SchedulesService {
       );
       const schedule = schedRes.rows[0]!;
 
-      // Insert entries
-      const createdEntries: ScheduleEntryData[] = [];
-      for (const entry of body.entries) {
-        const entRes = await client.query<ScheduleEntryData>(
-          `INSERT INTO staff_schedule_entries (
-             workspace_id, schedule_id, work_date, day_of_week, start_time, notes
-           ) VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id, workspace_id, schedule_id, work_date::text AS work_date, day_of_week, start_time, notes, created_at;`,
-          [
-            ctx.workspace.id,
-            schedule.id,
-            entry.work_date,
-            entry.day_of_week,
-            entry.start_time,
-            entry.notes || null,
-          ],
-        );
-        createdEntries.push(entRes.rows[0]!);
-      }
+      // Insert entries in a single batched UNNEST round-trip
+      const createdEntries = await this.insertScheduleEntriesBatch(
+        client,
+        ctx.workspace.id,
+        schedule.id,
+        body.entries,
+      );
 
       // Insert revision 1
       const snapshot = {
@@ -590,25 +623,13 @@ export class SchedulesService {
         [ctx.workspace.id, schedule.id],
       );
 
-      // Insert new entries
-      const updatedEntries: ScheduleEntryData[] = [];
-      for (const entry of body.entries) {
-        const entRes = await client.query<ScheduleEntryData>(
-          `INSERT INTO staff_schedule_entries (
-             workspace_id, schedule_id, work_date, day_of_week, start_time, notes
-           ) VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id, workspace_id, schedule_id, work_date::text AS work_date, day_of_week, start_time, notes, created_at;`,
-          [
-            ctx.workspace.id,
-            schedule.id,
-            entry.work_date,
-            entry.day_of_week,
-            entry.start_time,
-            entry.notes || null,
-          ],
-        );
-        updatedEntries.push(entRes.rows[0]!);
-      }
+      // Insert new entries in a single batched UNNEST round-trip
+      const updatedEntries = await this.insertScheduleEntriesBatch(
+        client,
+        ctx.workspace.id,
+        schedule.id,
+        body.entries,
+      );
 
       const nextRevision = schedule.current_revision + 1;
       const nextVersion = schedule.version + 1;

@@ -36,77 +36,14 @@ export interface PayrollScreenProps {
   currentUserId?: string;
 }
 
-// Helper: Format VNĐ currency
-function formatVnd(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined || isNaN(amount)) return '0 đ';
-  return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
-}
-
-function resolveVietQrBankCode(bankName: string | null | undefined): string {
-  const raw = (bankName || '').toLowerCase().trim();
-  if (!raw) return 'VCB';
-  if (raw.includes('vietcombank') || raw === 'vcb') return 'VCB';
-  if (raw.includes('techcombank') || raw === 'tcb') return 'TCB';
-  if (raw.includes('vietinbank') || raw === 'icb' || raw === 'ctg') return 'ICB';
-  if (raw.includes('bidv')) return 'BIDV';
-  if (raw.includes('agribank') || raw.includes(' nông nghiệp') || raw === 'vba') return 'VBA';
-  if (raw.includes('mb') || raw.includes('quân đội')) return 'MB';
-  if (raw.includes('acb') || raw.includes('á châu')) return 'ACB';
-  if (raw.includes('vpbank') || raw === 'vpb') return 'VPB';
-  if (raw.includes('tpbank') || raw === 'tpb') return 'TPB';
-  if (raw.includes('sacombank') || raw === 'stb') return 'STB';
-  if (raw.includes('hdbank') || raw === 'hdb') return 'HDB';
-  if (raw.includes('vib')) return 'VIB';
-  if (raw.includes('shb')) return 'SHB';
-  if (raw.includes('msb') || raw.includes('hàng hải')) return 'MSB';
-  if (raw.includes('ocb') || raw.includes('phương đông')) return 'OCB';
-  if (raw.includes('seabank')) return 'SEAB';
-  if (raw.includes('lpbank') || raw.includes('liên việt')) return 'LPB';
-  if (raw.includes('eximbank') || raw === 'eib') return 'EIB';
-  return raw.replace(/[^a-z0-9]/g, '').toUpperCase() || 'VCB';
-}
-
-// Helper: Format minutes to string
-function formatMinutes(minutes: number | null | undefined): string {
-  if (!minutes || minutes <= 0) return '0p';
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}p`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}p`;
-}
-
-// Helper: Format YYYY-MM-DD to DD/MM/YYYY
-function formatDateDisplay(isoDate: string): string {
-  if (!isoDate) return '';
-  const parts = isoDate.split('-');
-  if (parts.length !== 3) return isoDate;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
-}
-
-// Helper: Get current month YYYY-MM
-function getCurrentMonth(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  return `${year}-${month}`;
-}
-
-// Helper: Add or subtract months
-function shiftMonth(monthStr: string, offset: number): string {
-  const [yStr, mStr] = monthStr.split('-');
-  let y = parseInt(yStr || '2026', 10);
-  let m = parseInt(mStr || '10', 10) + offset;
-  while (m > 12) {
-    m -= 12;
-    y += 1;
-  }
-  while (m < 1) {
-    m += 12;
-    y -= 1;
-  }
-  return `${y}-${String(m).padStart(2, '0')}`;
-}
+import {
+  formatVnd,
+  resolveVietQrBankCode,
+  formatMinutes,
+  formatDateDisplay,
+  getCurrentMonth,
+  shiftMonth,
+} from './helpers/payroll-helpers.js';
 
 export interface UnresolvedDisbursementRecord {
   workspaceId: string;
@@ -2890,7 +2827,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   fontSize: '20px',
                   fontWeight: 700,
-                  color: '#A78BFA',
+                  color: 'var(--purple-text, #A78BFA)',
                   marginTop: '6px',
                 }}
               >
@@ -3255,7 +3192,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                               backgroundColor: 'var(--surface-hover)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
-                              color: '#A78BFA',
+                              color: 'var(--purple-text, #A78BFA)',
                               cursor: 'pointer',
                               fontSize: '12px',
                               fontWeight: 600,
@@ -3313,7 +3250,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                 color: itemUnresolved
                                   ? '#FFFFFF'
                                   : canDisburse
-                                    ? '#0B1220'
+                                    ? 'var(--inverse-text, #0B1220)'
                                     : 'var(--muted-color)',
                                 cursor: canDisburse ? 'pointer' : 'not-allowed',
                                 fontSize: '12px',
@@ -3394,7 +3331,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           <div
                             style={{
                               fontSize: '12px',
-                              color: '#A78BFA',
+                              color: 'var(--purple-text, #A78BFA)',
                               marginTop: '2px',
                             }}
                           >
@@ -3739,7 +3676,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                               style={{
                                 fontSize: '13px',
                                 fontWeight: 700,
-                                color: '#A78BFA',
+                                color: 'var(--purple-text, #A78BFA)',
                                 marginBottom: '8px',
                               }}
                             >
@@ -3797,7 +3734,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                     <div
                                       style={{
                                         fontWeight: 700,
-                                        color: '#A78BFA',
+                                        color: 'var(--purple-text, #A78BFA)',
                                       }}
                                     >
                                       {/^\[?\s*(KHẤU TRỪ|KHAU TRU|PHẠT|PHAT|TẠM ỨNG|TAM UNG)/i.test(pl.reason || '') ? (
@@ -4160,7 +4097,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     <div
                       style={{
                         fontSize: '12px',
-                        color: '#A78BFA',
+                        color: 'var(--purple-text, #A78BFA)',
                         marginTop: '2px',
                       }}
                     >
@@ -4416,7 +4353,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     style={{
                       fontSize: '14px',
                       fontWeight: 700,
-                      color: '#A78BFA',
+                      color: 'var(--purple-text, #A78BFA)',
                       marginBottom: '12px',
                     }}
                   >
@@ -4467,7 +4404,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           <div
                             style={{
                               fontWeight: 700,
-                              color: '#A78BFA',
+                              color: 'var(--purple-text, #A78BFA)',
                               fontSize: '14px',
                             }}
                           >
@@ -5628,7 +5565,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 }}
               >
                 <span>Tổng tiền nghỉ có lương:</span>
-                <strong style={{ color: '#A78BFA' }}>
+                <strong style={{ color: 'var(--purple-text, #A78BFA)' }}>
                   {formatVnd(aggregateMetrics.totalPaidLeave)}
                 </strong>
               </div>
