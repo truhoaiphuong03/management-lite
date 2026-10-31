@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.5.3';
-export const SYSTEM_COMMIT = 'a0122fb';
+export const SYSTEM_VERSION = '0.5.4';
+export const SYSTEM_COMMIT = '93e8b5d';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,27 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.5.3',
+    version: '0.5.4',
     commit: 'latest',
+    released_at: '2026-10-31T06:50:00.000Z',
+    summary:
+      'Hoàn tất Phase 16 & Phase 17 (Toàn vẹn phát hành, chuẩn hóa định dạng đa hệ điều hành & hiển thị điện thoại 320px): tự động sinh thông tin bản dựng từ Git, tài liệu hóa quy trình phát hành qua cổng Owner, sửa lỗi tràn ngang trên màn hình 320px và đạt 100% kiểm thử xanh (436/436 test).',
+    added: [
+      'Công cụ tự động sinh thông tin bản dựng (scripts/gen-build-info.mjs) vào dist/release-version.json và apps/web/dist/release-version.json trực tiếp từ package.json và Git HEAD.',
+      'Tài liệu quy trình phát hành chuẩn qua Cổng Khóa Chủ sở hữu (docs/deployment/OWNER-RELEASE-RUNBOOK.md) và đóng gói kèm máy chủ tĩnh (scripts/runtime/serve-web.cjs).',
+      'Khôi phục thẻ lối tắt "Vấn đề & Issues" dành cho Chủ sở hữu trên trang Tổng quan (/dashboard).',
+    ],
+    improved: [
+      'Chuẩn hóa ký tự xuống dòng đa hệ điều hành (.gitattributes và endOfLine: auto trong .prettierrc.json), giữ nguyên toàn vẹn băm SHA-256 cho thư mục docs/canonical.',
+      'Thanh điều hướng nhanh phân hệ (.app-subnav-bar) tự động xuống dòng gọn gàng trên màn hình điện thoại nhỏ (320px), không còn phần tử tràn mép phải.',
+    ],
+    fixed: [
+      'Khắc phục toàn bộ 11 bài kiểm thử tự động bị đỏ do lệch dòng CRLF/LF, thiếu bản ghi lịch sử 0.0.9 khi kiểm thử khôi phục (Rollback) và tràn ngang ở độ rộng 320px.',
+    ],
+  },
+  {
+    version: '0.5.3',
+    commit: '4908051',
     released_at: '2026-10-31T06:50:00.000Z',
     summary:
       'Đánh bóng giao diện (Phase UI-5): ô nhập/chọn có tên truy cập cho trình đọc màn hình, dấu chấm lửng chuẩn "…" và chữ không còn nhỏ hơn 12px.',

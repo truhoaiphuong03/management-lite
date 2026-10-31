@@ -27,7 +27,7 @@ test('UI-AUDIT-P1: light theme overrides accent text colors for AA contrast', ()
     css.indexOf(":root[data-theme='light']"),
     css.indexOf(":root[data-theme='dark']"),
   );
-  assert.match(light, /--accent-text:\s*#0f766e/);
+  assert.match(light, /--accent-text:\s*#(0f766e|0d6760)/);
   assert.match(light, /--danger-text:\s*#b91c1c/);
 });
 

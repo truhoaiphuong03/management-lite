@@ -25,7 +25,7 @@
 | 15.4 | ~~`AccountsScreen`: bỏ `setInterval 500ms`~~ **Bỏ có chủ đích:** timer chỉ tồn tại ≤30 giây khi đang hiện bí mật và điều khiển đồng hồ đếm ngược; không phải polling nền. Mục P-06 của kiểm toán đã đánh giá sai | `apps/web/src/screens/AccountsScreen.tsx` | Không đổi; test ACC-005 giữ nguyên |
 | 15.5 | Script ngân sách bundle chạy trong `verify` | `scripts/check-bundle-budget.mjs` | Fail khi vượt ngân sách |
 
-## Phase 16 (`v0.3.5`) — Toàn vẹn phát hành & nợ kiểm thử
+## Phase 16 (`v0.5.4`) — Toàn vẹn phát hành & nợ kiểm thử — **ĐÃ XONG**
 
 | Task | Nội dung | File mục tiêu |
 |---|---|---|
@@ -34,7 +34,7 @@
 | 16.3 | `.gitattributes` + `endOfLine` Prettier để hết 394 file lệch format | `.gitattributes`, `.prettierrc.json` |
 | 16.4 | Sửa 11 test đang đỏ (5 file): cập nhật test lỗi thời hoặc sửa code thật; bắt buộc chạy **toàn bộ** `tests/web` + `tests/security` trước mỗi lần báo PASS | `tests/web/{mobile-responsive-p0,ui-demo,ui-fix-45,uiux-audit-01,version}.test.mjs` |
 
-## Phase 17 (`v0.3.6`) — Điện thoại 320px & hồi quy giao diện
+## Phase 17 (`v0.5.4`) — Điện thoại 320px & hồi quy giao diện — **ĐÃ XONG**
 
 | Task | Nội dung | File mục tiêu |
 |---|---|---|
