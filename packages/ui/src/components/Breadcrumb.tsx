@@ -277,7 +277,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
             minWidth: '44px',
             padding: '8px 14px',
             borderRadius: '8px',
-            backgroundColor: 'rgba(30, 41, 59, 0.7)',
+            backgroundColor: 'var(--surface-subtle)',
             border: '1px solid var(--border-color)',
             color: 'var(--accent-text)',
             fontSize: '13px',
@@ -290,7 +290,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
             e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.4)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(30, 41, 59, 0.7)';
+            e.currentTarget.style.backgroundColor = 'var(--surface-subtle)';
             e.currentTarget.style.borderColor = '#334155';
           }}
         >

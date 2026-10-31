@@ -837,7 +837,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               borderRadius: '6px',
               backgroundColor:
                 activeTab === 'all_reports' ? 'var(--primary-color)' : 'transparent',
-              color: activeTab === 'all_reports' ? '#0B1220' : 'var(--muted-color)',
+              color: activeTab === 'all_reports' ? 'var(--inverse-text, #0B1220)' : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               border: 'none',
@@ -860,7 +860,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               borderRadius: '6px',
               backgroundColor:
                 activeTab === 'my_reports' ? 'var(--primary-color)' : 'transparent',
-              color: activeTab === 'my_reports' ? '#0B1220' : 'var(--muted-color)',
+              color: activeTab === 'my_reports' ? 'var(--inverse-text, #0B1220)' : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               border: 'none',

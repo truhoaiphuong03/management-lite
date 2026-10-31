@@ -33,7 +33,7 @@
 
   /* Semantic status colors */
   --error-color: #f87171;
-  --danger-color: #ef4444;
+  --danger-color: #dc2626;
   --danger-hover: #dc2626;
   --danger-active: #b91c1c;
   --danger-subtle: rgba(239, 68, 68, 0.15);
@@ -83,9 +83,10 @@
   /* Theme-aware text accents (AA contrast on surfaces in each theme) */
   --accent-text: #14b8a6;
   --info-text: #38bdf8;
-  --danger-text: #ef4444;
+  --danger-text: #f87171;
   --success-text: #10b981;
   --warning-text: #f59e0b;
+  --purple-text: #a78bfa;
 
   /* Aliases used by shared CSS */
   --brand-color: var(--accent-text);
@@ -127,7 +128,8 @@
   --info-text: #0369a1;
   --danger-text: #b91c1c;
   --success-text: #047857;
-  --warning-text: #b45309;
+  --warning-text: #92400e;
+  --purple-text: #6d28d9;
 
   /* Light theme: darker brand/status colors so white-on-color buttons and tinted badges meet AA */
   --primary-color: #0f766e;
@@ -136,7 +138,7 @@
   --focus-ring: #0f766e;
   --success-color: #047857;
   --success-hover: #065f46;
-  --warning-color: #b45309;
+  --warning-color: #92400e;
   --warning-hover: #92400e;
   --danger-color: #b91c1c;
   --error-color: #b91c1c;
@@ -191,7 +193,8 @@
     --info-text: #0369a1;
     --danger-text: #b91c1c;
     --success-text: #047857;
-    --warning-text: #b45309;
+    --warning-text: #92400e;
+  --purple-text: #6d28d9;
 
     /* Light theme: darker brand/status colors so white-on-color buttons and tinted badges meet AA */
     --primary-color: #0f766e;
@@ -200,7 +203,7 @@
     --focus-ring: #0f766e;
     --success-color: #047857;
     --success-hover: #065f46;
-    --warning-color: #b45309;
+    --warning-color: #92400e;
     --warning-hover: #92400e;
     --danger-color: #b91c1c;
     --error-color: #b91c1c;

@@ -1004,7 +1004,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
             <div
               data-testid="report-metadata-box"
               style={{
-                backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                backgroundColor: 'var(--surface-subtle)',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: '8px',
                 padding: '10px 14px',
@@ -1320,7 +1320,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                       padding: '8px 14px',
                       borderRadius: '6px',
                       border: '1px dashed var(--border-hover)',
-                      backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                      backgroundColor: 'var(--surface-subtle)',
                       color: 'var(--muted-color)',
                       fontSize: '13px',
                       cursor: isFormLocked ? 'not-allowed' : 'pointer',

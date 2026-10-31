@@ -61,7 +61,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
             : isHovered && !isDisabled
               ? THEME_COLORS.dangerHover
               : THEME_COLORS.danger,
-          text: THEME_COLORS.text,
+          text: '#F8FAFC',
           border: isActive
             ? THEME_COLORS.dangerActive
             : isHovered && !isDisabled

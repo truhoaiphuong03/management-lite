@@ -306,7 +306,7 @@ export function FinancePlanScreen({
                     : `1px solid ${THEME_COLORS.borderSubtle}`,
                 backgroundColor: i.is_active
                   ? 'transparent'
-                  : 'rgba(15, 23, 42, 0.35)',
+                  : 'var(--surface-subtle)',
               }}
             >
               <div

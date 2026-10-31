@@ -947,7 +947,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   padding: '4px 10px',
                   borderRadius: '4px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                  backgroundColor: 'var(--surface-subtle)',
                   color: testResultMeta.color,
                   border: `1px solid ${testResultMeta.color}`,
                   fontSize: '12px',
@@ -1183,7 +1183,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             padding: '24px',
             border: '1px solid rgba(56, 189, 248, 0.4)',
             background:
-              'linear-gradient(180deg, rgba(56, 189, 248, 0.05) 0%, rgba(15, 23, 42, 0.6) 100%)',
+              'linear-gradient(180deg, rgba(56, 189, 248, 0.05) 0%, var(--surface-subtle) 100%)',
           }}
         >
           <div
@@ -1270,7 +1270,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   padding: '14px 16px',
                   borderRadius: '6px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid var(--border-color)',
                 }}
               >
@@ -1305,7 +1305,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   padding: '14px 16px',
                   borderRadius: '6px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid var(--border-color)',
                 }}
               >
@@ -1774,7 +1774,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 marginTop: '20px',
                 padding: '14px 16px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                backgroundColor: 'var(--surface-subtle)',
                 border: '1px solid var(--border-subtle)',
               }}
             >
@@ -2438,7 +2438,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     minHeight: '44px',
                     backgroundColor: '#F59E0B',
                     borderColor: '#F59E0B',
-                    color: '#0B1220',
+                    color: 'var(--inverse-text, #0B1220)',
                     fontWeight: 600,
                   }}
                 >

@@ -306,7 +306,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   gap: '12px',
                   padding: '12px 14px',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid var(--border-subtle)',
                 }}
               >
@@ -356,7 +356,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   gap: '12px',
                   padding: '12px 14px',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid var(--border-subtle)',
                 }}
               >
@@ -406,7 +406,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   gap: '12px',
                   padding: '12px 14px',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid var(--border-subtle)',
                 }}
               >

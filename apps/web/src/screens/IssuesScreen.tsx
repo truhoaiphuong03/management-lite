@@ -765,7 +765,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     padding: '2px 8px',
                     borderRadius: '10px',
                     backgroundColor: isActive ? 'var(--primary-color)' : 'var(--surface-hover)',
-                    color: isActive ? '#0F172A' : 'var(--text-secondary)',
+                    color: isActive ? 'var(--inverse-text, #0B1220)' : 'var(--text-secondary)',
                     fontSize: '12px',
                     fontWeight: 700,
                   }}
@@ -1244,7 +1244,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                         style={{
                           padding: '2px 8px',
                           borderRadius: '4px',
-                          backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                          backgroundColor: 'var(--surface-subtle)',
                           color: testResultMeta.color,
                           border: `1px solid ${testResultMeta.color}`,
                           fontSize: '12px',

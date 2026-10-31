@@ -1475,7 +1475,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 style={{
                   padding: '12px',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid rgba(148, 163, 184, 0.15)',
                 }}
               >
@@ -1498,7 +1498,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 style={{
                   padding: '12px',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid rgba(148, 163, 184, 0.15)',
                 }}
               >
@@ -1523,7 +1523,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 style={{
                   padding: '12px',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid rgba(148, 163, 184, 0.15)',
                 }}
               >
@@ -1548,7 +1548,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 style={{
                   padding: '12px',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid rgba(148, 163, 184, 0.15)',
                 }}
               >
@@ -1577,7 +1577,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 marginTop: '16px',
                 padding: '12px 14px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                backgroundColor: 'var(--surface-subtle)',
                 border: '1px solid rgba(56, 189, 248, 0.22)',
               }}
             >

@@ -118,3 +118,15 @@ test('UI-AUDIT-P5: loading copy uses a real ellipsis character', () => {
   assert.match(spinner, /Đang tải…/);
   assert.doesNotMatch(spinner, /Đang tải\.\.\./);
 });
+
+test('UI-AUDIT-P5: navigation and breadcrumbs use plain Vietnamese labels and theme-aware badge contrast', () => {
+  const bc = read('packages/ui/src/components/Breadcrumb.tsx');
+  const sb = read('packages/ui/src/components/StatusBadge.tsx');
+  assert.match(nav, /label:\s*'Tài khoản dùng chung'/);
+  assert.match(nav, /label:\s*'Sổ tay lỗi'/);
+  assert.doesNotMatch(nav, /Tài khoản ACC|Sổ tay Issues/);
+  assert.match(bc, /label:\s*'Tài khoản dùng chung'/);
+  assert.match(bc, /label:\s*'Sổ tay lỗi'/);
+  assert.match(sb, /var\(--warning-text,\s*#F59E0B\)/);
+  assert.match(sb, /var\(--success-text,\s*#10B981\)/);
+});

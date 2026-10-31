@@ -535,7 +535,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
             style={{
               padding: '16px',
               borderRadius: '10px',
-              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              backgroundColor: 'var(--surface-subtle)',
               border: '1px solid var(--border-subtle)',
               marginBottom: '16px',
             }}
@@ -791,7 +791,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
             style={{
               padding: '16px',
               borderRadius: '10px',
-              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              backgroundColor: 'var(--surface-subtle)',
               border: '1px solid var(--border-subtle)',
               marginBottom: '20px',
             }}
