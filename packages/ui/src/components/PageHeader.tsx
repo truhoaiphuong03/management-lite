@@ -15,22 +15,31 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => {
   return (
     <div
+      className="page-header-root"
       style={{
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '16px',
-        marginBottom: '20px',
-        paddingBottom: '16px',
+        gap: '12px',
+        marginBottom: '16px',
+        paddingBottom: '14px',
         borderBottom: '1px solid var(--border-color, #334155)',
       }}
     >
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+          }}
+        >
           <h1
+            className="page-header-title"
             style={{
-              fontSize: '22px',
+              fontSize: '20px',
               fontWeight: 700,
               color: 'var(--text-color, #F8FAFC)',
               letterSpacing: '-0.02em',
@@ -43,10 +52,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         </div>
         {subtitle && (
           <p
+            className="page-header-subtitle"
             style={{
-              margin: '6px 0 0 0',
-              fontSize: '13.5px',
-              lineHeight: 1.5,
+              margin: '4px 0 0 0',
+              fontSize: '13px',
+              lineHeight: 1.45,
               color: 'var(--muted-color, #94A3B8)',
             }}
           >
@@ -56,7 +66,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       </div>
 
       {actions && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div
+          className="page-header-actions"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+          }}
+        >
           {actions}
         </div>
       )}

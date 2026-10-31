@@ -130,6 +130,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   } | null>(null);
   const [bridgeReadError, setBridgeReadError] = useState<string | null>(null);
   const [bridgeSyncing, setBridgeSyncing] = useState(false);
+  const [showBridgeDetails, setShowBridgeDetails] = useState(false);
   const [bridgeFeedbackError, setBridgeFeedbackError] = useState(false);
   const [bridgeFeedback, setBridgeFeedback] = useState<string | null>(null);
   const [systemErrorAlert, setSystemErrorAlert] = useState<{
@@ -257,17 +258,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               storage_google_email:
                 statusJson.data.management_lite?.storage_google_email ?? null,
               employee_mappings: Array.isArray(
-                (statusJson.data.management_lite as { employee_mappings?: unknown })?.employee_mappings,
+                (
+                  statusJson.data.management_lite as {
+                    employee_mappings?: unknown;
+                  }
+                )?.employee_mappings,
               )
-                ? ((statusJson.data.management_lite as {
-                    employee_mappings: Array<{
-                      employee_code: string;
-                      full_name: string;
-                      email: string | null;
-                      position_title: string | null;
-                      v4_linked: boolean;
-                    }>;
-                  }).employee_mappings)
+                ? (
+                    statusJson.data.management_lite as {
+                      employee_mappings: Array<{
+                        employee_code: string;
+                        full_name: string;
+                        email: string | null;
+                        position_title: string | null;
+                        v4_linked: boolean;
+                      }>;
+                    }
+                  ).employee_mappings
                 : [],
             },
           });
@@ -665,17 +672,20 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               storage_google_email:
                 json.data.management_lite?.storage_google_email ?? null,
               employee_mappings: Array.isArray(
-                (json.data.management_lite as { employee_mappings?: unknown })?.employee_mappings,
+                (json.data.management_lite as { employee_mappings?: unknown })
+                  ?.employee_mappings,
               )
-                ? ((json.data.management_lite as {
-                    employee_mappings: Array<{
-                      employee_code: string;
-                      full_name: string;
-                      email: string | null;
-                      position_title: string | null;
-                      v4_linked: boolean;
-                    }>;
-                  }).employee_mappings)
+                ? (
+                    json.data.management_lite as {
+                      employee_mappings: Array<{
+                        employee_code: string;
+                        full_name: string;
+                        email: string | null;
+                        position_title: string | null;
+                        v4_linked: boolean;
+                      }>;
+                    }
+                  ).employee_mappings
                 : [],
             },
           });
@@ -788,7 +798,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               alignItems: 'flex-start',
             }}
           >
-            <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
+            <span
+              style={{
+                fontSize: '13px',
+                color: 'var(--muted-color)',
+                fontWeight: 500,
+              }}
+            >
               Trạng thái ca làm
             </span>
             <StatusBadge
@@ -825,7 +841,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               alignItems: 'flex-start',
             }}
           >
-            <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
+            <span
+              style={{
+                fontSize: '13px',
+                color: 'var(--muted-color)',
+                fontWeight: 500,
+              }}
+            >
               Báo cáo hàng ngày
             </span>
             <StatusBadge
@@ -864,7 +886,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   alignItems: 'flex-start',
                 }}
               >
-                <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
+                <span
+                  style={{
+                    fontSize: '13px',
+                    color: 'var(--muted-color)',
+                    fontWeight: 500,
+                  }}
+                >
                   Nhân sự trực tiếp
                 </span>
                 <StatusBadge
@@ -900,7 +928,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   alignItems: 'flex-start',
                 }}
               >
-                <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
+                <span
+                  style={{
+                    fontSize: '13px',
+                    color: 'var(--muted-color)',
+                    fontWeight: 500,
+                  }}
+                >
                   Kỳ lương
                 </span>
                 <StatusBadge
@@ -937,7 +971,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 alignItems: 'flex-start',
               }}
             >
-              <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
+              <span
+                style={{
+                  fontSize: '13px',
+                  color: 'var(--muted-color)',
+                  fontWeight: 500,
+                }}
+              >
                 Công tháng hiện tại
               </span>
               <StatusBadge
@@ -1002,7 +1042,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
             gap: '10px',
           }}
         >
@@ -1084,14 +1125,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-color)',
+                    }}
+                  >
                     ⏱️ Duyệt ca làm việc
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '2px',
+                    }}
+                  >
                     {shiftMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--accent-text)',
+                    fontWeight: 600,
+                  }}
+                >
                   Mở →
                 </span>
               </button>
@@ -1115,14 +1174,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-color)',
+                    }}
+                  >
                     📋 Báo cáo ngày
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '2px',
+                    }}
+                  >
                     {reportMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--accent-text)',
+                    fontWeight: 600,
+                  }}
+                >
                   Xem →
                 </span>
               </button>
@@ -1146,14 +1223,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-color)',
+                    }}
+                  >
                     👥 Hồ sơ & Ngân hàng
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '2px',
+                    }}
+                  >
                     {employeesMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--accent-text)',
+                    fontWeight: 600,
+                  }}
+                >
                   Mở →
                 </span>
               </button>
@@ -1177,14 +1272,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-color)',
+                    }}
+                  >
                     💰 Chi trả lương VietQR
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '2px',
+                    }}
+                  >
                     {payrollMetric.value} ({payrollMetric.badgeLabel})
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--accent-text)',
+                    fontWeight: 600,
+                  }}
+                >
                   Mở →
                 </span>
               </button>
@@ -1210,14 +1323,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-color)',
+                    }}
+                  >
                     ⏱️ Trạng thái ca làm
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '2px',
+                    }}
+                  >
                     {shiftMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--accent-text)',
+                    fontWeight: 600,
+                  }}
+                >
                   Vào/ra ca →
                 </span>
               </button>
@@ -1241,14 +1372,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-color)',
+                    }}
+                  >
                     📝 Báo cáo hôm nay
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '2px',
+                    }}
+                  >
                     {reportMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--accent-text)',
+                    fontWeight: 600,
+                  }}
+                >
                   Nộp →
                 </span>
               </button>
@@ -1272,14 +1421,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-color)',
+                    }}
+                  >
                     📌 Công việc được giao
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '2px',
+                    }}
+                  >
                     {staffAttendanceMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--accent-text)',
+                    fontWeight: 600,
+                  }}
+                >
                   Xem →
                 </span>
               </button>
@@ -1438,6 +1605,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   {item.title}
                 </div>
                 <div
+                  className="quick-action-desc"
                   style={{
                     fontSize: '12px',
                     color: 'var(--muted-color)',
@@ -1521,6 +1689,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 )}
                 <AppButton
                   variant="secondary"
+                  onClick={() => setShowBridgeDetails((v) => !v)}
+                >
+                  {showBridgeDetails ? '▲ Ẩn chi tiết V4' : '▾ Chi tiết V4'}
+                </AppButton>
+                <AppButton
+                  variant="secondary"
                   onClick={() => {
                     if (typeof window !== 'undefined') {
                       window.open(
@@ -1566,180 +1740,219 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             )}
 
             <div
-              className="kpi-grid-4"
               style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-                gap: '12px',
+                display: showBridgeDetails ? 'block' : 'none',
+                marginTop: '14px',
               }}
             >
               <div
+                className="kpi-grid-4"
                 style={{
-                  padding: '12px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid rgba(148, 163, 184, 0.15)',
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+                  gap: '12px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Nhân sự &amp; Member đồng bộ
-                </div>
                 <div
                   style={{
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    color: 'var(--text-color)',
-                    marginTop: '4px',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid rgba(148, 163, 184, 0.15)',
                   }}
                 >
-                  {bridgeStatus?.counts.active_members ?? '--'}
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Nhân sự &amp; Member đồng bộ
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '20px',
+                      fontWeight: 700,
+                      color: 'var(--text-color)',
+                      marginTop: '4px',
+                    }}
+                  >
+                    {bridgeStatus?.counts.active_members ?? '--'}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid rgba(148, 163, 184, 0.15)',
+                  }}
+                >
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Sản phẩm &amp; Kênh TikTok
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '20px',
+                      fontWeight: 700,
+                      color: 'var(--text-color)',
+                      marginTop: '4px',
+                    }}
+                  >
+                    {bridgeStatus
+                      ? `${bridgeStatus.counts.products} SP / ${bridgeStatus.counts.channels} Kênh`
+                      : '--'}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid rgba(148, 163, 184, 0.15)',
+                  }}
+                >
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Kịch bản &amp; Prompt AI
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '20px',
+                      fontWeight: 700,
+                      color: 'var(--text-color)',
+                      marginTop: '4px',
+                    }}
+                  >
+                    {bridgeStatus
+                      ? `${bridgeStatus.counts.scripts} KB / ${bridgeStatus.counts.prompts} Prompt`
+                      : '--'}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid rgba(148, 163, 184, 0.15)',
+                  }}
+                >
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Thành phẩm Video / Audio Drive
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '20px',
+                      fontWeight: 700,
+                      color: 'var(--text-color)',
+                      marginTop: '4px',
+                    }}
+                  >
+                    {bridgeStatus
+                      ? `${bridgeStatus.counts.video_deliverables} MP4 / ${bridgeStatus.counts.audio_deliverables} WAV`
+                      : '--'}
+                  </div>
                 </div>
               </div>
 
+              {/* Bảng xác nhận ánh xạ nhân sự cố định giữa ql.hoaiphuong.click (NV001..NV00n) & hoaiphuong.click */}
               <div
+                data-testid="bridge-employee-mapping-table"
                 style={{
-                  padding: '12px',
+                  marginTop: '16px',
+                  padding: '12px 14px',
                   borderRadius: '8px',
                   backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid rgba(148, 163, 184, 0.15)',
+                  border: '1px solid rgba(56, 189, 248, 0.22)',
                 }}
               >
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Sản phẩm &amp; Kênh TikTok
-                </div>
                 <div
                   style={{
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    color: 'var(--text-color)',
-                    marginTop: '4px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    marginBottom: '8px',
                   }}
                 >
-                  {bridgeStatus
-                    ? `${bridgeStatus.counts.products} SP / ${bridgeStatus.counts.channels} Kênh`
-                    : '--'}
+                  <span
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--text-color)',
+                    }}
+                  >
+                    🔗 Bảng xác nhận ánh xạ nhân sự cố định (Management Lite ↔
+                    TikTok AI Factory V4)
+                  </span>
+                  <span
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Khóa định danh: Mã NV cố định + Email tài khoản xác thực
+                  </span>
                 </div>
+                {bridgeStatus?.management_lite?.employee_mappings &&
+                bridgeStatus.management_lite.employee_mappings.length > 0 ? (
+                  <div
+                    style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}
+                  >
+                    {bridgeStatus.management_lite.employee_mappings.map(
+                      (emp) => (
+                        <div
+                          key={emp.employee_code}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: 'var(--surface-hover)',
+                            border: `1px solid ${emp.v4_linked ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
+                            fontSize: '12px',
+                          }}
+                        >
+                          <strong style={{ color: 'var(--info-text)' }}>
+                            {emp.employee_code}
+                          </strong>
+                          <span style={{ color: 'var(--text-color)' }}>
+                            {emp.full_name}
+                          </span>
+                          <span style={{ color: 'var(--muted-color)' }}>
+                            ({emp.email || 'Chưa có email'})
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              color: emp.v4_linked
+                                ? 'var(--success-text)'
+                                : 'var(--warning-text)',
+                            }}
+                          >
+                            {emp.v4_linked
+                              ? '✓ Đã ánh xạ V4'
+                              : '⚠️ Thiếu email'}
+                          </span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Đang tải danh sách ánh xạ mã nhân viên cố định (NV001,
+                    NV002…) với tài khoản V4…
+                  </div>
+                )}
               </div>
-
-              <div
-                style={{
-                  padding: '12px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid rgba(148, 163, 184, 0.15)',
-                }}
-              >
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Kịch bản &amp; Prompt AI
-                </div>
-                <div
-                  style={{
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    color: 'var(--text-color)',
-                    marginTop: '4px',
-                  }}
-                >
-                  {bridgeStatus
-                    ? `${bridgeStatus.counts.scripts} KB / ${bridgeStatus.counts.prompts} Prompt`
-                    : '--'}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  padding: '12px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid rgba(148, 163, 184, 0.15)',
-                }}
-              >
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Thành phẩm Video / Audio Drive
-                </div>
-                <div
-                  style={{
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    color: 'var(--text-color)',
-                    marginTop: '4px',
-                  }}
-                >
-                  {bridgeStatus
-                    ? `${bridgeStatus.counts.video_deliverables} MP4 / ${bridgeStatus.counts.audio_deliverables} WAV`
-                    : '--'}
-                </div>
-              </div>
-            </div>
-
-            {/* Bảng xác nhận ánh xạ nhân sự cố định giữa ql.hoaiphuong.click (NV001..NV00n) & hoaiphuong.click */}
-            <div
-              data-testid="bridge-employee-mapping-table"
-              style={{
-                marginTop: '16px',
-                padding: '12px 14px',
-                borderRadius: '8px',
-                backgroundColor: 'var(--surface-subtle)',
-                border: '1px solid rgba(56, 189, 248, 0.22)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '8px',
-                  marginBottom: '8px',
-                }}
-              >
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-color)' }}>
-                  🔗 Bảng xác nhận ánh xạ nhân sự cố định (Management Lite ↔ TikTok AI Factory V4)
-                </span>
-                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Khóa định danh: Mã NV cố định + Email tài khoản xác thực
-                </span>
-              </div>
-              {bridgeStatus?.management_lite?.employee_mappings &&
-              bridgeStatus.management_lite.employee_mappings.length > 0 ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {bridgeStatus.management_lite.employee_mappings.map((emp) => (
-                    <div
-                      key={emp.employee_code}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        backgroundColor: 'var(--surface-hover)',
-                        border: `1px solid ${emp.v4_linked ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
-                        fontSize: '12px',
-                      }}
-                    >
-                      <strong style={{ color: 'var(--info-text)' }}>{emp.employee_code}</strong>
-                      <span style={{ color: 'var(--text-color)' }}>{emp.full_name}</span>
-                      <span style={{ color: 'var(--muted-color)' }}>
-                        ({emp.email || 'Chưa có email'})
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: emp.v4_linked ? 'var(--success-text)' : 'var(--warning-text)',
-                        }}
-                      >
-                        {emp.v4_linked ? '✓ Đã ánh xạ V4' : '⚠️ Thiếu email'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Đang tải danh sách ánh xạ mã nhân viên cố định (NV001, NV002…) với tài khoản V4…
-                </div>
-              )}
             </div>
           </AppCard>
         </div>

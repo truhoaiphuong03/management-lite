@@ -188,4 +188,9 @@ test('UI-NAV-STREAMLINE: sidebar/bottom-nav navigate directly to first group ite
   assert.match(nav, /onNavigate\(group\.items\[0\]\?\.path \|\| group\.path\)/);
   assert.match(shell, /isDetailSubRoute/);
   assert.match(shell, /isDetailSubRoute &&[\s\S]*<Breadcrumb/);
+  assert.match(css, /\.page-header-subtitle \{\s*display: none !important;/);
+  assert.match(
+    css,
+    /table\.rt-cards td\[data-empty='true'\] \{\s*display: none !important;/,
+  );
 });

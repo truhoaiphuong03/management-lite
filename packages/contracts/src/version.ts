@@ -3,7 +3,7 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.6.4';
+export const SYSTEM_VERSION = '0.6.5';
 export const SYSTEM_COMMIT = '6e1ee4f';
 export const SYSTEM_ENV = 'staging';
 
@@ -41,8 +41,22 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.6.4',
+    version: '0.6.5',
     commit: 'latest',
+    released_at: '2026-10-31',
+    summary:
+      'Tối giản hóa toàn diện giao diện Điện thoại & Máy tính: gỡ bỏ khoảng đệm thừa, gom thanh Sub-Navigation 1 dòng cuộn mượt, ẩn phụ đề dài trên di động, thu gọn bộ lọc nâng cao (/accounts, /dashboard) và tự động ẩn dòng trống trên thẻ bảng di động.',
+    added: [],
+    improved: [
+      'Giao diện Điện thoại (<=768px): loại bỏ padding kép làm hẹp màn hình, chuyển thanh Sub-Navigation thành 1 dòng ngang gọn gàng, ẩn dòng mô tả dài dưới tiêu đề trang và thu gọn nút Báo lỗi thành biểu tượng tròn.',
+      'Bảng dữ liệu trên Điện thoại (rt-cards): tự động ẩn các ô trống (— / Chưa gán) và đưa cột tên chính lên làm tiêu đề thẻ rõ ràng, dễ đọc.',
+      'Màn hình Tài khoản (/accounts) & Tổng quan (/dashboard): ẩn 4 thẻ KPI khi chưa có tài khoản, chỉ giữ 1 nút "+ Thêm tài khoản", thu gọn 4 bộ lọc phụ vào nút "▾ Lọc nâng cao" và thu gọn bảng chi tiết V4 vào nút "▾ Chi tiết V4".',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.6.4',
+    commit: '00e8fa0',
     released_at: '2026-10-31',
     summary:
       'Tối ưu hóa điều hướng 1-chạm (bấm phân hệ vào thẳng tab chức năng đầu tiên, bỏ qua màn hình thẻ trung gian) và loại bỏ dòng Breadcrumb trùng lặp phía trên thanh Sub-Navigation ngang.',
@@ -196,9 +210,7 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
       'Dấu chấm lửng chuẩn "…" thay cho "..." ở các thông báo đang tải và gợi ý nhập liệu.',
       'Chữ nhỏ hơn 12px trên các màn hình và thành phần dùng chung được nâng lên 12px để dễ đọc trên điện thoại.',
     ],
-    fixed: [
-      'Ô chọn tháng ở Bảng lương nay có nhãn truy cập.',
-    ],
+    fixed: ['Ô chọn tháng ở Bảng lương nay có nhãn truy cập.'],
   },
   {
     version: '0.5.2',

@@ -30,6 +30,22 @@ export function enhanceTables(root: ParentNode): void {
         if (cell.getAttribute('data-label') !== label) {
           cell.setAttribute('data-label', label);
         }
+        const rawText = (cell.textContent ?? '').trim();
+        const isEmptyPlaceholder =
+          col > 0 &&
+          !cell.querySelector('button, a, input, select') &&
+          (rawText === '' ||
+            rawText === '—' ||
+            rawText === '--' ||
+            rawText === '-' ||
+            rawText === 'Chưa gán' ||
+            rawText === 'Chưa phân nhóm' ||
+            rawText === 'Không có');
+        if (isEmptyPlaceholder) {
+          cell.setAttribute('data-empty', 'true');
+        } else {
+          cell.removeAttribute('data-empty');
+        }
         col += 1;
       });
     });
