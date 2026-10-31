@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { TOKENS } from '../tokens.js';
+import { TOKENS, THEME_COLORS } from '../tokens.js';
 import {
   CheckCircleIcon,
   AlertCircleIcon,
@@ -42,30 +42,30 @@ export const AppToast: React.FC<AppToastProps> = ({
 
   const variantStyles = {
     success: {
-      color: TOKENS.colors.success,
-      subtle: TOKENS.colors.successSubtle,
+      color: THEME_COLORS.success,
+      subtle: THEME_COLORS.successSubtle,
       icon: (
-        <CheckCircleIcon size={18} style={{ color: TOKENS.colors.success }} />
+        <CheckCircleIcon size={18} style={{ color: THEME_COLORS.success }} />
       ),
     },
     error: {
-      color: TOKENS.colors.danger,
-      subtle: TOKENS.colors.dangerSubtle,
+      color: THEME_COLORS.danger,
+      subtle: THEME_COLORS.dangerSubtle,
       icon: (
-        <AlertCircleIcon size={18} style={{ color: TOKENS.colors.danger }} />
+        <AlertCircleIcon size={18} style={{ color: THEME_COLORS.danger }} />
       ),
     },
     warning: {
-      color: TOKENS.colors.warning,
-      subtle: TOKENS.colors.warningSubtle,
+      color: THEME_COLORS.warning,
+      subtle: THEME_COLORS.warningSubtle,
       icon: (
-        <AlertTriangleIcon size={18} style={{ color: TOKENS.colors.warning }} />
+        <AlertTriangleIcon size={18} style={{ color: THEME_COLORS.warning }} />
       ),
     },
     info: {
-      color: TOKENS.colors.info,
-      subtle: TOKENS.colors.infoSubtle,
-      icon: <InfoIcon size={18} style={{ color: TOKENS.colors.info }} />,
+      color: THEME_COLORS.info,
+      subtle: THEME_COLORS.infoSubtle,
+      icon: <InfoIcon size={18} style={{ color: THEME_COLORS.info }} />,
     },
   }[variant];
 
@@ -81,7 +81,7 @@ export const AppToast: React.FC<AppToastProps> = ({
         maxWidth: '420px',
         width: 'calc(100vw - 32px)',
         zIndex: 1000,
-        backgroundColor: TOKENS.colors.surface,
+        backgroundColor: THEME_COLORS.surface,
         border: `1px solid ${variantStyles.color}40`,
         borderLeft: `4px solid ${variantStyles.color}`,
         borderRadius: TOKENS.radii.md,
@@ -92,7 +92,7 @@ export const AppToast: React.FC<AppToastProps> = ({
         justifyContent: 'space-between',
         padding: `${TOKENS.spacing[3]} ${TOKENS.spacing[4]}`,
         gap: TOKENS.spacing[3],
-        color: TOKENS.colors.text,
+        color: THEME_COLORS.text,
         fontSize: '14px',
         lineHeight: 1.5,
         wordBreak: 'break-word',
@@ -114,7 +114,7 @@ export const AppToast: React.FC<AppToastProps> = ({
         <div
           style={{
             flex: 1,
-            color: TOKENS.colors.text,
+            color: THEME_COLORS.text,
             fontSize: '13px',
             fontWeight: 500,
           }}
@@ -164,7 +164,7 @@ export const AppToast: React.FC<AppToastProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',

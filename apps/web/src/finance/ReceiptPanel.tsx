@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppButton, TOKENS } from '../../../../packages/ui/src/index.js';
+import { AppButton, TOKENS, THEME_COLORS } from '../../../../packages/ui/src/index.js';
 import {
   checkReceiptBytes,
   receiptRejectionMessage,
@@ -143,7 +143,7 @@ export function ReceiptPanel({
       <span
         style={{
           fontSize: TOKENS.typography.fontSize.sm,
-          color: TOKENS.colors.textSecondary,
+          color: THEME_COLORS.textSecondary,
         }}
       >
         Ảnh hóa đơn (không bắt buộc)
@@ -158,11 +158,11 @@ export function ReceiptPanel({
           flexWrap: 'wrap',
           padding: '12px 14px',
           borderRadius: TOKENS.radii.md,
-          border: `1px dashed ${focused ? TOKENS.colors.primary : TOKENS.colors.border}`,
-          backgroundColor: TOKENS.colors.surfaceSubtle,
+          border: `1px dashed ${focused ? THEME_COLORS.primary : THEME_COLORS.border}`,
+          backgroundColor: THEME_COLORS.surfaceSubtle,
           cursor: disabled || busy ? 'not-allowed' : 'pointer',
           opacity: disabled || busy ? 0.6 : 1,
-          outline: focused ? `2px solid ${TOKENS.colors.primary}` : 'none',
+          outline: focused ? `2px solid ${THEME_COLORS.primary}` : 'none',
           outlineOffset: 2,
         }}
       >
@@ -189,9 +189,9 @@ export function ReceiptPanel({
           style={{
             padding: '6px 12px',
             borderRadius: TOKENS.radii.sm,
-            border: `1px solid ${TOKENS.colors.border}`,
-            backgroundColor: TOKENS.colors.surface,
-            color: TOKENS.colors.text,
+            border: `1px solid ${THEME_COLORS.border}`,
+            backgroundColor: THEME_COLORS.surface,
+            color: THEME_COLORS.text,
             fontSize: TOKENS.typography.fontSize.sm,
             fontWeight: TOKENS.typography.fontWeight.semibold,
           }}
@@ -201,7 +201,7 @@ export function ReceiptPanel({
         <span
           style={{
             fontSize: TOKENS.typography.fontSize.xs,
-            color: TOKENS.colors.muted,
+            color: THEME_COLORS.muted,
           }}
         >
           JPEG hoặc PNG, tối đa 4 MB
@@ -216,7 +216,7 @@ export function ReceiptPanel({
             maxHeight: 160,
             objectFit: 'contain',
             borderRadius: TOKENS.radii.sm,
-            border: `1px solid ${TOKENS.colors.borderSubtle}`,
+            border: `1px solid ${THEME_COLORS.borderSubtle}`,
           }}
         />
       )}
@@ -265,5 +265,5 @@ export function ReceiptPanel({
 const statusText: React.CSSProperties = {
   margin: 0,
   fontSize: TOKENS.typography.fontSize.sm,
-  color: TOKENS.colors.textSecondary,
+  color: THEME_COLORS.textSecondary,
 };

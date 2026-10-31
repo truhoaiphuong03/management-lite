@@ -17,7 +17,7 @@ import {
   AppCard,
   AppDialog,
   ListFooter,
-  TOKENS,
+  TOKENS, THEME_COLORS,
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,
@@ -278,9 +278,9 @@ export function FinanceEntryScreen({
             gap: 10,
             padding: 12,
             borderRadius: TOKENS.radii.sm,
-            border: `1px solid ${TOKENS.colors.error}`,
+            border: `1px solid ${THEME_COLORS.error}`,
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            color: TOKENS.colors.text,
+            color: THEME_COLORS.text,
           }}
         >
           <span>Bạn có dữ liệu chưa lưu. Bỏ thay đổi và đóng hộp thoại?</span>

@@ -278,8 +278,8 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
             padding: '8px 14px',
             borderRadius: '8px',
             backgroundColor: 'rgba(30, 41, 59, 0.7)',
-            border: '1px solid #334155',
-            color: '#14B8A6',
+            border: '1px solid var(--border-color)',
+            color: 'var(--accent-text)',
             fontSize: '13px',
             fontWeight: 600,
             cursor: 'pointer',
@@ -339,7 +339,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
               {idx > 0 && (
                 <span
                   style={{
-                    color: '#64748B',
+                    color: 'var(--muted-color)',
                     userSelect: 'none',
                     fontSize: '12px',
                     margin: '0 2px',
@@ -359,7 +359,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
                     border: 'none',
                     padding: '4px 6px',
                     borderRadius: '4px',
-                    color: '#CBD5E1',
+                    color: 'var(--text-secondary)',
                     fontSize: '13px',
                     fontWeight: 500,
                     cursor: 'pointer',
@@ -391,7 +391,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
                   aria-current={isLast ? 'page' : undefined}
                   style={{
                     padding: '4px 6px',
-                    color: isLast ? '#94A3B8' : '#CBD5E1',
+                    color: isLast ? 'var(--muted-color)' : 'var(--text-secondary)',
                     fontWeight: isLast ? 600 : 500,
                     lineHeight: 1.3,
                   }}

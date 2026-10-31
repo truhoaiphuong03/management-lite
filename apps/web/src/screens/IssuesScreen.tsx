@@ -99,7 +99,7 @@ function getSeverityBadge(severity?: IssueSeverity): {
     case 'P0':
       return {
         bg: 'rgba(239, 68, 68, 0.2)',
-        color: '#EF4444',
+        color: 'var(--danger-text)',
         border: '#EF4444',
         label: 'P0 - Khẩn cấp',
       };
@@ -120,7 +120,7 @@ function getSeverityBadge(severity?: IssueSeverity): {
     case 'P3':
       return {
         bg: 'rgba(100, 116, 139, 0.2)',
-        color: '#94A3B8',
+        color: 'var(--muted-color)',
         border: '#64748B',
         label: 'P3 - Thấp',
       };
@@ -136,13 +136,13 @@ function getTestResultBadge(testResult?: IssueTestResult | null): {
   if (!testResult) return null;
   switch (testResult) {
     case 'passed':
-      return { color: '#10B981', label: 'Test: PASS' };
+      return { color: 'var(--success-text)', label: 'Test: PASS' };
     case 'failed':
-      return { color: '#EF4444', label: 'Test: FAIL' };
+      return { color: 'var(--danger-text)', label: 'Test: FAIL' };
     case 'manual':
       return { color: '#A855F7', label: 'Test: Thủ công' };
     case 'pending':
-      return { color: '#F59E0B', label: 'Test: Chờ chạy' };
+      return { color: 'var(--warning-text)', label: 'Test: Chờ chạy' };
     default:
       return null;
   }
@@ -744,11 +744,11 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                 gap: '8px',
                 padding: '8px 16px',
                 borderRadius: '20px',
-                border: isActive ? '1px solid #14B8A6' : '1px solid #334155',
+                border: isActive ? '1px solid #14B8A6' : '1px solid var(--border-color)',
                 backgroundColor: isActive
                   ? 'rgba(20, 184, 166, 0.15)'
-                  : '#0F172A',
-                color: isActive ? '#14B8A6' : '#94A3B8',
+                  : 'var(--surface-subtle)',
+                color: isActive ? 'var(--accent-text)' : 'var(--muted-color)',
                 fontSize: '13px',
                 fontWeight: isActive ? 600 : 500,
                 cursor: 'pointer',
@@ -764,8 +764,8 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   style={{
                     padding: '2px 8px',
                     borderRadius: '10px',
-                    backgroundColor: isActive ? '#14B8A6' : '#1E293B',
-                    color: isActive ? '#0F172A' : '#CBD5E1',
+                    backgroundColor: isActive ? '#14B8A6' : 'var(--surface-hover)',
+                    color: isActive ? '#0F172A' : 'var(--text-secondary)',
                     fontSize: '11px',
                     fontWeight: 700,
                   }}
@@ -807,7 +807,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   display: 'block',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '4px',
                 }}
               >
@@ -823,9 +823,9 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   minHeight: '44px',
                   padding: '8px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
                   fontSize: '13px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -855,7 +855,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   display: 'block',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '4px',
                 }}
               >
@@ -871,9 +871,9 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   minHeight: '44px',
                   padding: '8px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
                   fontSize: '13px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -892,7 +892,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   display: 'block',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '4px',
                 }}
               >
@@ -910,9 +910,9 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   minHeight: '44px',
                   padding: '8px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
                   fontSize: '13px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -947,11 +947,11 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           gap: '12px',
           padding: '12px 16px',
           backgroundColor:
-            selectedIssuesMap.size > 0 ? 'rgba(20, 184, 166, 0.08)' : '#0F172A',
+            selectedIssuesMap.size > 0 ? 'rgba(20, 184, 166, 0.08)' : 'var(--surface-subtle)',
           border:
             selectedIssuesMap.size > 0
               ? '1px solid rgba(20, 184, 166, 0.3)'
-              : '1px solid #1E293B',
+              : '1px solid var(--border-subtle)',
           borderRadius: '8px',
           marginBottom: '16px',
         }}
@@ -971,7 +971,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
               gap: '8px',
               cursor: issues.length === 0 ? 'not-allowed' : 'pointer',
               fontSize: '13px',
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               fontWeight: 500,
               userSelect: 'none',
             }}
@@ -995,7 +995,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           {selectedIssuesMap.size > 0 && (
             <>
               <span
-                style={{ fontSize: '13px', color: '#14B8A6', fontWeight: 600 }}
+                style={{ fontSize: '13px', color: 'var(--accent-text)', fontWeight: 600 }}
               >
                 • Đã chọn: {selectedIssuesMap.size} lỗi
               </span>
@@ -1006,7 +1006,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   fontSize: '12px',
                   cursor: 'pointer',
                   textDecoration: 'underline',
@@ -1063,7 +1063,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
             borderRadius: '6px',
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             border: '1px solid rgba(239, 68, 68, 0.3)',
-            color: '#F87171',
+            color: 'var(--danger-text)',
             fontSize: '13px',
             marginBottom: '16px',
             display: 'flex',
@@ -1078,7 +1078,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#F87171',
+              color: 'var(--danger-text)',
               cursor: 'pointer',
               fontWeight: 600,
               padding: '0 4px',
@@ -1144,7 +1144,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     'border-color 0.15s ease, background-color 0.15s ease',
                   border: isSelected
                     ? '1px solid #14B8A6'
-                    : '1px solid #334155',
+                    : '1px solid var(--border-color)',
                   backgroundColor: isSelected
                     ? 'rgba(20, 184, 166, 0.04)'
                     : undefined,
@@ -1199,7 +1199,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                           padding: '2px 8px',
                           borderRadius: '4px',
                           backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                          color: '#14B8A6',
+                          color: 'var(--accent-text)',
                           border: '1px solid rgba(20, 184, 166, 0.4)',
                           fontFamily: 'monospace',
                           fontSize: '12px',
@@ -1263,7 +1263,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                             padding: '2px 6px',
                             borderRadius: '4px',
                             backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                            color: '#EF4444',
+                            color: 'var(--danger-text)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
                             fontSize: '11px',
                             fontWeight: 600,
@@ -1278,7 +1278,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                         padding: '2px 8px',
                         borderRadius: '4px',
                         backgroundColor: 'rgba(51, 65, 85, 0.4)',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         fontFamily: 'monospace',
                         fontSize: '12px',
                       }}
@@ -1288,14 +1288,14 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     <span
                       style={{
                         fontSize: '12px',
-                        color: '#64748B',
+                        color: 'var(--muted-color)',
                       }}
                     >
                       v{issue.version}
                     </span>
                   </div>
 
-                  <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                     Cập nhật: {formatTimestamp(issue.updated_at)}
                   </span>
                 </div>
@@ -1314,7 +1314,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                       style={{
                         fontSize: '16px',
                         fontWeight: 600,
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         marginBottom: '6px',
                         lineHeight: 1.4,
                       }}
@@ -1325,7 +1325,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     <p
                       style={{
                         fontSize: '13px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         lineHeight: 1.5,
                         margin: 0,
                         overflow: 'hidden',
@@ -1349,7 +1349,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                           backgroundColor: 'rgba(56, 189, 248, 0.08)',
                           border: '1px solid rgba(56, 189, 248, 0.25)',
                           fontSize: '12px',
-                          color: '#38BDF8',
+                          color: 'var(--info-text)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
@@ -1360,7 +1360,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                         </span>
                         <span
                           style={{
-                            color: '#CBD5E1',
+                            color: 'var(--text-secondary)',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',

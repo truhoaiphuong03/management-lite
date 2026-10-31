@@ -868,7 +868,10 @@ export const NavIcon: React.FC<{ id: string; size?: number }> = ({
       return <UsersIcon size={size} />;
     case 'payroll':
     case 'my-pay':
+    case 'finance':
       return <BanknoteIcon size={size} />;
+    case 'system-logs':
+      return <ShieldAlertIcon size={size} />;
     case 'accounts':
       return <LockIcon size={size} />;
     case 'audit':

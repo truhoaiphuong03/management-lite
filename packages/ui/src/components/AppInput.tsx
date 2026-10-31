@@ -1,5 +1,5 @@
 import React, { forwardRef, useState, useId, useRef } from 'react';
-import { TOKENS } from '../tokens.js';
+import { TOKENS, THEME_COLORS } from '../tokens.js';
 
 export interface AppInputProps extends Omit<
   React.InputHTMLAttributes<HTMLInputElement>,
@@ -97,15 +97,15 @@ export const AppInput = forwardRef<HTMLInputElement, AppInputProps>(
               fontSize: TOKENS.typography.fontSize.base,
               fontWeight: TOKENS.typography.fontWeight.semibold,
               color: hasError
-                ? TOKENS.colors.error
-                : TOKENS.colors.textSecondary,
+                ? THEME_COLORS.error
+                : THEME_COLORS.textSecondary,
               marginBottom: '6px',
               userSelect: 'none',
             }}
           >
             {label}
             {props.required && (
-              <span style={{ color: TOKENS.colors.error, marginLeft: '4px' }}>
+              <span style={{ color: THEME_COLORS.error, marginLeft: '4px' }}>
                 *
               </span>
             )}
@@ -135,7 +135,7 @@ export const AppInput = forwardRef<HTMLInputElement, AppInputProps>(
                 left: '12px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: isFocused ? TOKENS.colors.primary : TOKENS.colors.muted,
+                color: isFocused ? THEME_COLORS.primary : THEME_COLORS.muted,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -172,18 +172,18 @@ export const AppInput = forwardRef<HTMLInputElement, AppInputProps>(
               borderRadius: TOKENS.radii.sm, // 8px
               border: `1px solid ${
                 hasError
-                  ? TOKENS.colors.error
+                  ? THEME_COLORS.error
                   : isFocused
-                    ? TOKENS.colors.primary
-                    : TOKENS.colors.border
+                    ? THEME_COLORS.primary
+                    : THEME_COLORS.border
               }`,
               boxShadow: hasError
-                ? `0 0 0 1px ${TOKENS.colors.error}`
+                ? `0 0 0 1px ${THEME_COLORS.error}`
                 : isFocused
-                  ? `0 0 0 1px ${TOKENS.colors.primary}`
+                  ? `0 0 0 1px ${THEME_COLORS.primary}`
                   : 'none',
-              backgroundColor: TOKENS.colors.background, // #0B1220
-              color: TOKENS.colors.text,
+              backgroundColor: THEME_COLORS.background, // #0B1220
+              color: THEME_COLORS.text,
               fontSize: sStyles.fontSize,
               outline: 'none',
               cursor: disabled ? 'not-allowed' : 'text',
@@ -203,10 +203,10 @@ export const AppInput = forwardRef<HTMLInputElement, AppInputProps>(
                 top: '50%',
                 transform: 'translateY(-50%)',
                 color: hasError
-                  ? TOKENS.colors.error
+                  ? THEME_COLORS.error
                   : isFocused
-                    ? TOKENS.colors.primary
-                    : TOKENS.colors.muted,
+                    ? THEME_COLORS.primary
+                    : THEME_COLORS.muted,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -223,7 +223,7 @@ export const AppInput = forwardRef<HTMLInputElement, AppInputProps>(
             role="alert"
             style={{
               fontSize: TOKENS.typography.fontSize.sm,
-              color: TOKENS.colors.error,
+              color: THEME_COLORS.error,
               marginTop: '5px',
               display: 'flex',
               alignItems: 'center',
@@ -237,7 +237,7 @@ export const AppInput = forwardRef<HTMLInputElement, AppInputProps>(
             id={helperId}
             style={{
               fontSize: TOKENS.typography.fontSize.sm,
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               marginTop: '5px',
             }}
           >
@@ -299,14 +299,14 @@ export const AppTextarea = forwardRef<HTMLTextAreaElement, AppTextareaProps>(
               fontSize: TOKENS.typography.fontSize.base,
               fontWeight: TOKENS.typography.fontWeight.semibold,
               color: hasError
-                ? TOKENS.colors.error
-                : TOKENS.colors.textSecondary,
+                ? THEME_COLORS.error
+                : THEME_COLORS.textSecondary,
               marginBottom: '6px',
             }}
           >
             {label}
             {props.required && (
-              <span style={{ color: TOKENS.colors.error, marginLeft: '4px' }}>
+              <span style={{ color: THEME_COLORS.error, marginLeft: '4px' }}>
                 *
               </span>
             )}
@@ -335,18 +335,18 @@ export const AppTextarea = forwardRef<HTMLTextAreaElement, AppTextareaProps>(
             borderRadius: TOKENS.radii.sm,
             border: `1px solid ${
               hasError
-                ? TOKENS.colors.error
+                ? THEME_COLORS.error
                 : isFocused
-                  ? TOKENS.colors.primary
-                  : TOKENS.colors.border
+                  ? THEME_COLORS.primary
+                  : THEME_COLORS.border
             }`,
             boxShadow: hasError
-              ? `0 0 0 1px ${TOKENS.colors.error}`
+              ? `0 0 0 1px ${THEME_COLORS.error}`
               : isFocused
-                ? `0 0 0 1px ${TOKENS.colors.primary}`
+                ? `0 0 0 1px ${THEME_COLORS.primary}`
                 : 'none',
-            backgroundColor: TOKENS.colors.background,
-            color: TOKENS.colors.text,
+            backgroundColor: THEME_COLORS.background,
+            color: THEME_COLORS.text,
             fontSize: TOKENS.typography.fontSize.md,
             outline: 'none',
             cursor: disabled ? 'not-allowed' : 'text',
@@ -366,7 +366,7 @@ export const AppTextarea = forwardRef<HTMLTextAreaElement, AppTextareaProps>(
             role="alert"
             style={{
               fontSize: TOKENS.typography.fontSize.sm,
-              color: TOKENS.colors.error,
+              color: THEME_COLORS.error,
               marginTop: '5px',
             }}
           >
@@ -377,7 +377,7 @@ export const AppTextarea = forwardRef<HTMLTextAreaElement, AppTextareaProps>(
             id={helperId}
             style={{
               fontSize: TOKENS.typography.fontSize.sm,
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               marginTop: '5px',
             }}
           >

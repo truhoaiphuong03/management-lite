@@ -5,7 +5,7 @@ import {
   AppButton,
   AppToast,
   Pagination,
-  TOKENS,
+  TOKENS, THEME_COLORS,
   PAGINATION_PAGE_SIZES,
   pageCount as sharedPageCount,
   clampPage,
@@ -33,7 +33,7 @@ export const financeStyle: React.CSSProperties = {
   display: 'grid',
   gap: 16,
   minWidth: 0,
-  color: TOKENS.colors.text,
+  color: THEME_COLORS.text,
 };
 /** Top-level FIN page container: extra bottom room so the floating "Báo lỗi" widget never covers the last row/buttons. */
 export const financePageStyle: React.CSSProperties = {
@@ -45,15 +45,15 @@ export const fieldStyle: React.CSSProperties = {
   maxWidth: '100%',
   width: '100%',
   boxSizing: 'border-box',
-  background: TOKENS.colors.background,
-  color: TOKENS.colors.text,
-  border: `1px solid ${TOKENS.colors.border}`,
+  background: THEME_COLORS.background,
+  color: THEME_COLORS.text,
+  border: `1px solid ${THEME_COLORS.border}`,
   borderRadius: 8,
   padding: 10,
 };
 /** Soft warning outline for non-final destructive row actions (the confirm dialog stays solid red). */
 export const softWarningButtonStyle: React.CSSProperties = {
-  color: TOKENS.colors.warning,
+  color: THEME_COLORS.warning,
   borderColor: 'rgba(245, 158, 11, 0.45)',
   backgroundColor: 'transparent',
 };
@@ -204,7 +204,7 @@ export function FinanceHeader({
             margin: 0,
             fontSize: TOKENS.typography.fontSize['2xl'],
             fontWeight: TOKENS.typography.fontWeight.bold,
-            color: TOKENS.colors.text,
+            color: THEME_COLORS.text,
           }}
         >
           {title}
@@ -214,7 +214,7 @@ export function FinanceHeader({
             style={{
               margin: '4px 0 0',
               fontSize: TOKENS.typography.fontSize.sm,
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
             }}
           >
             {description}
@@ -244,8 +244,8 @@ export function FinanceStat({
       style={{
         padding: '16px 20px',
         borderRadius: TOKENS.radii.md,
-        border: `1px solid ${TOKENS.colors.border}`,
-        backgroundColor: TOKENS.colors.surface,
+        border: `1px solid ${THEME_COLORS.border}`,
+        backgroundColor: THEME_COLORS.surface,
         borderLeft: `3px solid ${color}`,
         minWidth: 0,
       }}
@@ -253,7 +253,7 @@ export function FinanceStat({
       <div
         style={{
           fontSize: TOKENS.typography.fontSize.xs,
-          color: TOKENS.colors.muted,
+          color: THEME_COLORS.muted,
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
           fontWeight: TOKENS.typography.fontWeight.semibold,
@@ -279,7 +279,7 @@ export function FinanceStat({
           style={{
             marginTop: 6,
             fontSize: TOKENS.typography.fontSize.xs,
-            color: TOKENS.colors.muted,
+            color: THEME_COLORS.muted,
           }}
         >
           {hint}

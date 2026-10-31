@@ -133,7 +133,7 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppCard variants, slots, and interactive states',
     ),
   );
 
-  assert.ok(markup.includes('background-color:#151F30'));
+  assert.ok(markup.includes('background-color:var(--surface-color, #151F30)'));
   assert.ok(markup.includes('border-radius:12px'));
   assert.ok(markup.includes('Tiêu đề thẻ'));
   assert.ok(markup.includes('Nội dung thẻ'));

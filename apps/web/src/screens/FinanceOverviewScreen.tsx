@@ -7,7 +7,7 @@ import {
   AppButton,
   AppCard,
   AppToast,
-  TOKENS,
+  TOKENS, THEME_COLORS,
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,
@@ -73,8 +73,8 @@ export function FinanceOverviewScreen({
         <div
           style={{
             padding: '12px 16px',
-            borderBottom: `1px solid ${TOKENS.colors.borderSubtle}`,
-            backgroundColor: TOKENS.colors.surfaceSubtle,
+            borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
+            backgroundColor: THEME_COLORS.surfaceSubtle,
             borderTopLeftRadius: TOKENS.radii.md,
             borderTopRightRadius: TOKENS.radii.md,
             display: 'flex',
@@ -87,7 +87,7 @@ export function FinanceOverviewScreen({
             style={{
               fontSize: TOKENS.typography.fontSize.md,
               fontWeight: TOKENS.typography.fontWeight.semibold,
-              color: TOKENS.colors.text,
+              color: THEME_COLORS.text,
             }}
           >
             {title} ({rows.length})
@@ -101,7 +101,7 @@ export function FinanceOverviewScreen({
             style={{
               padding: '20px 16px',
               textAlign: 'center',
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               fontSize: TOKENS.typography.fontSize.sm,
             }}
           >
@@ -121,7 +121,7 @@ export function FinanceOverviewScreen({
                   borderBottom:
                     index === rows.length - 1
                       ? 'none'
-                      : `1px solid ${TOKENS.colors.borderSubtle}`,
+                      : `1px solid ${THEME_COLORS.borderSubtle}`,
                   display: 'grid',
                   gap: 4,
                 }}
@@ -136,7 +136,7 @@ export function FinanceOverviewScreen({
                 >
                   <span
                     style={{
-                      color: TOKENS.colors.text,
+                      color: THEME_COLORS.text,
                       fontSize: TOKENS.typography.fontSize.md,
                       overflowWrap: 'anywhere',
                     }}
@@ -148,7 +148,7 @@ export function FinanceOverviewScreen({
                     <span
                       style={{
                         marginLeft: 8,
-                        color: TOKENS.colors.muted,
+                        color: THEME_COLORS.muted,
                         fontSize: TOKENS.typography.fontSize.xs,
                       }}
                     >
@@ -161,7 +161,7 @@ export function FinanceOverviewScreen({
                   style={{
                     height: 3,
                     borderRadius: 2,
-                    backgroundColor: TOKENS.colors.borderSubtle,
+                    backgroundColor: THEME_COLORS.borderSubtle,
                   }}
                 >
                   <div
@@ -235,8 +235,8 @@ export function FinanceOverviewScreen({
           gap: 12,
           padding: '10px 12px',
           borderRadius: TOKENS.radii.md,
-          border: `1px solid ${TOKENS.colors.borderSubtle}`,
-          backgroundColor: TOKENS.colors.surface,
+          border: `1px solid ${THEME_COLORS.borderSubtle}`,
+          backgroundColor: THEME_COLORS.surface,
         }}
       >
         <div
@@ -246,9 +246,9 @@ export function FinanceOverviewScreen({
             display: 'inline-flex',
             gap: 4,
             padding: 3,
-            backgroundColor: TOKENS.colors.surfaceSubtle,
+            backgroundColor: THEME_COLORS.surfaceSubtle,
             borderRadius: TOKENS.radii.sm,
-            border: `1px solid ${TOKENS.colors.borderSubtle}`,
+            border: `1px solid ${THEME_COLORS.borderSubtle}`,
           }}
         >
           {[
@@ -274,7 +274,7 @@ export function FinanceOverviewScreen({
             alignItems: 'center',
             gap: 8,
             fontSize: TOKENS.typography.fontSize.sm,
-            color: TOKENS.colors.textSecondary,
+            color: THEME_COLORS.textSecondary,
           }}
         >
           Ngày trong {periodLabel[period]}
@@ -296,7 +296,7 @@ export function FinanceOverviewScreen({
             style={{
               marginLeft: 'auto',
               fontSize: TOKENS.typography.fontSize.sm,
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
             }}
           >
             Kỳ: {r.data.from} — {r.data.to}
@@ -320,13 +320,13 @@ export function FinanceOverviewScreen({
               testId="stat-income"
               label="Tổng thu"
               value={formatVnd(r.data.total_income_vnd)}
-              color={TOKENS.colors.success}
+              color={THEME_COLORS.success}
             />
             <FinanceStat
               testId="stat-expense"
               label="Tổng chi"
               value={formatVnd(r.data.total_expense_vnd)}
-              color={TOKENS.colors.error}
+              color={THEME_COLORS.error}
             />
             <FinanceStat
               testId="stat-net"
@@ -334,8 +334,8 @@ export function FinanceOverviewScreen({
               value={formatVnd(r.data.net_vnd)}
               color={
                 BigInt(r.data.net_vnd) >= 0n
-                  ? TOKENS.colors.primary
-                  : TOKENS.colors.error
+                  ? THEME_COLORS.primary
+                  : THEME_COLORS.error
               }
             />
           </div>
@@ -352,14 +352,14 @@ export function FinanceOverviewScreen({
             {group(
               'Nguồn thu',
               income,
-              TOKENS.colors.success,
+              THEME_COLORS.success,
               'Chưa có khoản thu trong kỳ này.',
               'overview-income-list',
             )}
             {group(
               'Khoản chi',
               expense,
-              TOKENS.colors.error,
+              THEME_COLORS.error,
               'Chưa có khoản chi trong kỳ này.',
               'overview-expense-list',
             )}

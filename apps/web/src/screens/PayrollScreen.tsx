@@ -2468,7 +2468,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
         padding: '0',
         maxWidth: '1200px',
         margin: '0 auto',
-        color: '#F8FAFC',
+        color: 'var(--text-color)',
       }}
     >
       {/* 1. Page Header */}
@@ -2500,7 +2500,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             backgroundColor: 'rgba(16, 185, 129, 0.15)',
             border: '1px solid #10B981',
             borderRadius: '8px',
-            color: '#34D399',
+            color: 'var(--success-text)',
             fontSize: '14px',
             display: 'flex',
             alignItems: 'center',
@@ -2517,7 +2517,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#34D399',
+              color: 'var(--success-text)',
               cursor: 'pointer',
             }}
           >
@@ -2534,7 +2534,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             backgroundColor: 'rgba(239, 68, 68, 0.15)',
             border: '1px solid #EF4444',
             borderRadius: '8px',
-            color: '#F87171',
+            color: 'var(--danger-text)',
             fontSize: '14px',
             display: 'flex',
             alignItems: 'center',
@@ -2551,7 +2551,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#F87171',
+              color: 'var(--danger-text)',
               cursor: 'pointer',
             }}
           >
@@ -2588,10 +2588,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 boxSizing: 'border-box',
                 minHeight: '36px',
                 padding: '6px 12px',
-                backgroundColor: '#1E293B',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--surface-hover)',
+                border: '1px solid var(--border-color)',
                 borderRadius: '6px',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontWeight: 500,
@@ -2601,7 +2601,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CalendarIcon size={18} style={{ color: '#14B8A6' }} />
+              <CalendarIcon size={18} style={{ color: 'var(--accent-text)' }} />
               <input
                 type="month"
                 value={selectedMonth}
@@ -2612,10 +2612,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   boxSizing: 'border-box',
                   minHeight: '36px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   padding: '6px 12px',
                   fontSize: '14px',
                   fontWeight: 600,
@@ -2632,10 +2632,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 boxSizing: 'border-box',
                 minHeight: '36px',
                 padding: '6px 12px',
-                backgroundColor: '#1E293B',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--surface-hover)',
+                border: '1px solid var(--border-color)',
                 borderRadius: '6px',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontWeight: 500,
@@ -2653,9 +2653,9 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 minHeight: '36px',
                 padding: '6px 12px',
                 backgroundColor: 'transparent',
-                border: '1px solid #334155',
+                border: '1px solid var(--border-color)',
                 borderRadius: '6px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -2682,7 +2682,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 <div
                   style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                  <span style={{ fontSize: '13px', color: '#94A3B8' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
                     Trạng thái kỳ lương:
                   </span>
                   {period.status === 'finalized' ? (
@@ -2713,7 +2713,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   <div
                     style={{
                       fontSize: '12px',
-                      color: '#10B981',
+                      color: 'var(--success-text)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
@@ -2735,7 +2735,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               <div
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <span style={{ fontSize: '13px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
                   Trạng thái:
                 </span>
                 {myPayslip.status === 'finalized' ? (
@@ -2788,7 +2788,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             <div
               style={{
                 padding: '16px',
-                borderBottom: '1px solid #334155',
+                borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
@@ -2809,7 +2809,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     flexWrap: 'wrap',
                     gap: '8px',
                     padding: '14px 16px',
-                    borderBottom: '1px solid #1E293B',
+                    borderBottom: '1px solid var(--border-subtle)',
                   }}
                 >
                   <div
@@ -2858,7 +2858,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
           >
             <AppCard style={{ padding: '16px' }}>
               <div
-                style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
               >
                 LƯƠNG CƠ BẢN ĐÃ DUYỆT
               </div>
@@ -2866,14 +2866,14 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   fontSize: '20px',
                   fontWeight: 700,
-                  color: '#38BDF8',
+                  color: 'var(--info-text)',
                   marginTop: '6px',
                 }}
               >
                 {formatVnd(aggregateMetrics.totalBasePay)}
               </div>
               <div
-                style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}
+                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 Tính từ các ca hoàn tất đã duyệt
               </div>
@@ -2881,7 +2881,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
             <AppCard style={{ padding: '16px' }}>
               <div
-                style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
               >
                 NGHỈ CÓ LƯƠNG
               </div>
@@ -2896,7 +2896,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 {formatVnd(aggregateMetrics.totalPaidLeave)}
               </div>
               <div
-                style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}
+                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 Trợ cấp nghỉ phép có lý do
               </div>
@@ -2904,7 +2904,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
             <AppCard style={{ padding: '16px', border: '1px solid #14B8A6' }}>
               <div
-                style={{ fontSize: '12px', color: '#14B8A6', fontWeight: 700 }}
+                style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 700 }}
               >
                 TỔNG THỰC NHẬN (NET)
               </div>
@@ -2912,14 +2912,14 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   fontSize: '22px',
                   fontWeight: 800,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   marginTop: '6px',
                 }}
               >
                 {formatVnd(aggregateMetrics.totalNetPay)}
               </div>
               <div
-                style={{ fontSize: '11px', color: '#14B8A6', marginTop: '4px' }}
+                style={{ fontSize: '11px', color: 'var(--accent-text)', marginTop: '4px' }}
               >
                 Lương cơ bản + Nghỉ có lương
               </div>
@@ -2927,7 +2927,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
             <AppCard style={{ padding: '16px' }}>
               <div
-                style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
               >
                 ĐÃ CHI TRẢ
               </div>
@@ -2935,14 +2935,14 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   fontSize: '20px',
                   fontWeight: 700,
-                  color: '#10B981',
+                  color: 'var(--success-text)',
                   marginTop: '6px',
                 }}
               >
                 {formatVnd(aggregateMetrics.totalPaid)}
               </div>
               <div
-                style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}
+                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 Thanh toán qua chuyển khoản / tiền mặt
               </div>
@@ -2950,7 +2950,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
             <AppCard style={{ padding: '16px' }}>
               <div
-                style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
               >
                 CÒN LẠI CẦN CHI
               </div>
@@ -2959,14 +2959,14 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   fontSize: '20px',
                   fontWeight: 700,
                   color:
-                    aggregateMetrics.remainingToPay > 0 ? '#F59E0B' : '#10B981',
+                    aggregateMetrics.remainingToPay > 0 ? 'var(--warning-text)' : 'var(--success-text)',
                   marginTop: '6px',
                 }}
               >
                 {formatVnd(aggregateMetrics.remainingToPay)}
               </div>
               <div
-                style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}
+                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 {aggregateMetrics.remainingToPay > 0
                   ? 'Chưa chi đủ 100%'
@@ -2979,8 +2979,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
           <div
             style={{
               padding: '14px 18px',
-              backgroundColor: '#1E293B',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-hover)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
               marginBottom: '24px',
               display: 'flex',
@@ -3011,8 +3011,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     display: 'inline-block',
                   }}
                 />
-                <span style={{ color: '#94A3B8' }}>Chờ duyệt (Pending):</span>
-                <span style={{ fontWeight: 600, color: '#FCD34D' }}>
+                <span style={{ color: 'var(--muted-color)' }}>Chờ duyệt (Pending):</span>
+                <span style={{ fontWeight: 600, color: 'var(--warning-text)' }}>
                   {formatMinutes(aggregateMetrics.totalPendingMinutes)} (~{' '}
                   {formatVnd(aggregateMetrics.totalPendingPay)})
                 </span>
@@ -3030,15 +3030,15 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     display: 'inline-block',
                   }}
                 />
-                <span style={{ color: '#94A3B8' }}>Ca đang chạy (Live):</span>
-                <span style={{ fontWeight: 600, color: '#7DD3FC' }}>
+                <span style={{ color: 'var(--muted-color)' }}>Ca đang chạy (Live):</span>
+                <span style={{ fontWeight: 600, color: 'var(--info-text)' }}>
                   {aggregateMetrics.workingEmployeesCount} nhân viên (~{' '}
                   {formatVnd(aggregateMetrics.totalLivePay)})
                 </span>
               </div>
             </div>
 
-            <div style={{ color: '#64748B', fontSize: '12px' }}>
+            <div style={{ color: 'var(--muted-color)', fontSize: '12px' }}>
               Chính sách POLICY-01: Làm tròn ROUND_HALF_UP đến 1 VNĐ cấp ngày
             </div>
           </div>
@@ -3071,10 +3071,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   width: '100%',
                   boxSizing: 'border-box',
                   minHeight: '38px',
-                  backgroundColor: '#151F30',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-color)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   padding: '6px 12px',
                   fontSize: '13px',
                 }}
@@ -3090,7 +3090,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     transform: 'translateY(-50%)',
                     background: 'none',
                     border: 'none',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     cursor: 'pointer',
                   }}
                 >
@@ -3099,7 +3099,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               )}
             </div>
 
-            <div style={{ fontSize: '13px', color: '#94A3B8' }}>
+            <div style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
               Hiển thị <strong>{filteredItems.length}</strong> / {items.length}{' '}
               nhân viên (Owner không tính lương)
             </div>
@@ -3130,8 +3130,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     key={item.employee_id || item.id || item.employee_code}
                     style={{
                       padding: '18px 20px',
-                      backgroundColor: '#151F30',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-color)',
+                      border: '1px solid var(--border-color)',
                     }}
                   >
                     {/* Header line: Emp Info + Quick Actions */}
@@ -3142,7 +3142,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         gap: '12px',
-                        borderBottom: '1px solid #1E293B',
+                        borderBottom: '1px solid var(--border-subtle)',
                         paddingBottom: '14px',
                       }}
                     >
@@ -3158,12 +3158,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                             width: '38px',
                             height: '38px',
                             borderRadius: '50%',
-                            backgroundColor: '#1E293B',
-                            border: '1px solid #334155',
+                            backgroundColor: 'var(--surface-hover)',
+                            border: '1px solid var(--border-color)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: '#14B8A6',
+                            color: 'var(--accent-text)',
                           }}
                         >
                           <UserIcon size={20} />
@@ -3180,7 +3180,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                               style={{
                                 fontWeight: 700,
                                 fontSize: '16px',
-                                color: '#F8FAFC',
+                                color: 'var(--text-color)',
                               }}
                             >
                               {item.full_name}
@@ -3189,10 +3189,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                               style={{
                                 fontSize: '11px',
                                 padding: '2px 6px',
-                                backgroundColor: '#1E293B',
-                                border: '1px solid #334155',
+                                backgroundColor: 'var(--surface-hover)',
+                                border: '1px solid var(--border-color)',
                                 borderRadius: '4px',
-                                color: '#94A3B8',
+                                color: 'var(--muted-color)',
                                 fontWeight: 600,
                               }}
                             >
@@ -3202,19 +3202,19 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           <div
                             style={{
                               fontSize: '13px',
-                              color: '#94A3B8',
+                              color: 'var(--muted-color)',
                               marginTop: '2px',
                             }}
                           >
                             Đơn giá:{' '}
                             {item.hourly_rate_vnd != null &&
                             item.hourly_rate_vnd > 0 ? (
-                              <strong style={{ color: '#F8FAFC' }}>
+                              <strong style={{ color: 'var(--text-color)' }}>
                                 {formatVnd(item.hourly_rate_vnd)}/giờ
                               </strong>
                             ) : (
                               <span
-                                style={{ color: '#F87171', fontWeight: 600 }}
+                                style={{ color: 'var(--danger-text)', fontWeight: 600 }}
                               >
                                 Chưa thiết lập
                               </span>
@@ -3251,8 +3251,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                               boxSizing: 'border-box',
                               minHeight: '34px',
                               padding: '6px 12px',
-                              backgroundColor: '#1E293B',
-                              border: '1px solid #334155',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: '#A78BFA',
                               cursor: 'pointer',
@@ -3313,7 +3313,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                   ? '#FFFFFF'
                                   : canDisburse
                                     ? '#0B1220'
-                                    : '#94A3B8',
+                                    : 'var(--muted-color)',
                                 cursor: canDisburse ? 'pointer' : 'not-allowed',
                                 fontSize: '12px',
                                 fontWeight: 700,
@@ -3361,8 +3361,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       {/* Tier 1: Confirmed */}
                       <div
                         style={{
-                          backgroundColor: '#0F172A',
-                          border: '1px solid #1E293B',
+                          backgroundColor: 'var(--surface-subtle)',
+                          border: '1px solid var(--border-subtle)',
                           borderRadius: '6px',
                           padding: '10px 12px',
                         }}
@@ -3370,7 +3370,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         <div
                           style={{
                             fontSize: '11px',
-                            color: '#14B8A6',
+                            color: 'var(--accent-text)',
                             fontWeight: 700,
                           }}
                         >
@@ -3380,7 +3380,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           style={{
                             fontSize: '14px',
                             fontWeight: 600,
-                            color: '#F8FAFC',
+                            color: 'var(--text-color)',
                             marginTop: '4px',
                           }}
                         >
@@ -3400,17 +3400,17 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                             + Phép:{' '}
                             {formatVnd(item.confirmed.paid_leave_pay_vnd)}
                             {(item.confirmed.bonus_vnd ?? 0) > 0 && (
-                              <div style={{ color: '#10B981', marginTop: '2px' }}>
+                              <div style={{ color: 'var(--success-text)', marginTop: '2px' }}>
                                 🎁 Thưởng: +{formatVnd(item.confirmed.bonus_vnd ?? 0)}
                               </div>
                             )}
                             {(item.confirmed.allowance_vnd ?? 0) > 0 && (
-                              <div style={{ color: '#38BDF8', marginTop: '2px' }}>
+                              <div style={{ color: 'var(--info-text)', marginTop: '2px' }}>
                                 🍱 Phụ cấp: +{formatVnd(item.confirmed.allowance_vnd ?? 0)}
                               </div>
                             )}
                             {(item.confirmed.deduction_vnd ?? 0) > 0 && (
-                              <div style={{ color: '#F87171', marginTop: '2px' }}>
+                              <div style={{ color: 'var(--danger-text)', marginTop: '2px' }}>
                                 ➖ Khấu trừ: -{formatVnd(item.confirmed.deduction_vnd ?? 0)}
                               </div>
                             )}
@@ -3420,7 +3420,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           style={{
                             fontSize: '13px',
                             fontWeight: 700,
-                            color: '#38BDF8',
+                            color: 'var(--info-text)',
                             marginTop: '4px',
                           }}
                         >
@@ -3431,8 +3431,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       {/* Tier 2: Pending-Review */}
                       <div
                         style={{
-                          backgroundColor: '#0F172A',
-                          border: '1px solid #1E293B',
+                          backgroundColor: 'var(--surface-subtle)',
+                          border: '1px solid var(--border-subtle)',
                           borderRadius: '6px',
                           padding: '10px 12px',
                         }}
@@ -3440,7 +3440,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         <div
                           style={{
                             fontSize: '11px',
-                            color: '#F59E0B',
+                            color: 'var(--warning-text)',
                             fontWeight: 700,
                           }}
                         >
@@ -3450,7 +3450,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           style={{
                             fontSize: '14px',
                             fontWeight: 600,
-                            color: '#FCD34D',
+                            color: 'var(--warning-text)',
                             marginTop: '4px',
                           }}
                         >
@@ -3463,7 +3463,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         <div
                           style={{
                             fontSize: '12px',
-                            color: '#94A3B8',
+                            color: 'var(--muted-color)',
                             marginTop: '2px',
                           }}
                         >
@@ -3477,8 +3477,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       {/* Tier 3: Live Provisional */}
                       <div
                         style={{
-                          backgroundColor: '#0F172A',
-                          border: '1px solid #1E293B',
+                          backgroundColor: 'var(--surface-subtle)',
+                          border: '1px solid var(--border-subtle)',
                           borderRadius: '6px',
                           padding: '10px 12px',
                         }}
@@ -3486,7 +3486,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         <div
                           style={{
                             fontSize: '11px',
-                            color: '#38BDF8',
+                            color: 'var(--info-text)',
                             fontWeight: 700,
                           }}
                         >
@@ -3498,7 +3498,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                               style={{
                                 fontSize: '14px',
                                 fontWeight: 600,
-                                color: '#7DD3FC',
+                                color: 'var(--info-text)',
                                 marginTop: '4px',
                               }}
                             >
@@ -3513,7 +3513,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                             <div
                               style={{
                                 fontSize: '12px',
-                                color: '#94A3B8',
+                                color: 'var(--muted-color)',
                                 marginTop: '2px',
                               }}
                             >
@@ -3525,7 +3525,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           <div
                             style={{
                               fontSize: '13px',
-                              color: '#64748B',
+                              color: 'var(--muted-color)',
                               marginTop: '6px',
                             }}
                           >
@@ -3537,8 +3537,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       {/* Disbursement Status */}
                       <div
                         style={{
-                          backgroundColor: '#0F172A',
-                          border: '1px solid #1E293B',
+                          backgroundColor: 'var(--surface-subtle)',
+                          border: '1px solid var(--border-subtle)',
                           borderRadius: '6px',
                           padding: '10px 12px',
                         }}
@@ -3546,7 +3546,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         <div
                           style={{
                             fontSize: '11px',
-                            color: '#94A3B8',
+                            color: 'var(--muted-color)',
                             fontWeight: 700,
                           }}
                         >
@@ -3568,7 +3568,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         <div
                           style={{
                             fontSize: '12px',
-                            color: '#94A3B8',
+                            color: 'var(--muted-color)',
                             marginTop: '4px',
                           }}
                         >
@@ -3584,7 +3584,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         style={{
                           marginTop: '16px',
                           paddingTop: '16px',
-                          borderTop: '1px solid #334155',
+                          borderTop: '1px solid var(--border-color)',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '16px',
@@ -3596,7 +3596,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                             style={{
                               fontSize: '13px',
                               fontWeight: 700,
-                              color: '#38BDF8',
+                              color: 'var(--info-text)',
                               marginBottom: '8px',
                             }}
                           >
@@ -3616,14 +3616,14 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                 <thead>
                                   <tr
                                     style={{
-                                      backgroundColor: '#0F172A',
-                                      color: '#94A3B8',
+                                      backgroundColor: 'var(--surface-subtle)',
+                                      color: 'var(--muted-color)',
                                     }}
                                   >
                                     <th
                                       style={{
                                         padding: '6px 10px',
-                                        borderBottom: '1px solid #334155',
+                                        borderBottom: '1px solid var(--border-color)',
                                       }}
                                     >
                                       Ngày làm
@@ -3631,7 +3631,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                     <th
                                       style={{
                                         padding: '6px 10px',
-                                        borderBottom: '1px solid #334155',
+                                        borderBottom: '1px solid var(--border-color)',
                                       }}
                                     >
                                       Số ca
@@ -3639,7 +3639,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                     <th
                                       style={{
                                         padding: '6px 10px',
-                                        borderBottom: '1px solid #334155',
+                                        borderBottom: '1px solid var(--border-color)',
                                       }}
                                     >
                                       Thời gian
@@ -3647,7 +3647,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                     <th
                                       style={{
                                         padding: '6px 10px',
-                                        borderBottom: '1px solid #334155',
+                                        borderBottom: '1px solid var(--border-color)',
                                       }}
                                     >
                                       Đơn giá
@@ -3655,7 +3655,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                     <th
                                       style={{
                                         padding: '6px 10px',
-                                        borderBottom: '1px solid #334155',
+                                        borderBottom: '1px solid var(--border-color)',
                                         textAlign: 'right',
                                       }}
                                     >
@@ -3664,7 +3664,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                     <th
                                       style={{
                                         padding: '6px 10px',
-                                        borderBottom: '1px solid #334155',
+                                        borderBottom: '1px solid var(--border-color)',
                                         textAlign: 'right',
                                       }}
                                     >
@@ -3677,7 +3677,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                     <tr
                                       key={bd.work_date}
                                       style={{
-                                        borderBottom: '1px solid #1E293B',
+                                        borderBottom: '1px solid var(--border-subtle)',
                                       }}
                                     >
                                       <td
@@ -3702,7 +3702,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                         style={{
                                           padding: '6px 10px',
                                           textAlign: 'right',
-                                          color: '#94A3B8',
+                                          color: 'var(--muted-color)',
                                         }}
                                       >
                                         {bd.raw_wage_vnd.toFixed(2)} đ
@@ -3712,7 +3712,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                           padding: '6px 10px',
                                           textAlign: 'right',
                                           fontWeight: 700,
-                                          color: '#34D399',
+                                          color: 'var(--success-text)',
                                         }}
                                       >
                                         {formatVnd(bd.rounded_wage_vnd)}
@@ -3723,7 +3723,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                               </table>
                             </div>
                           ) : (
-                            <div style={{ fontSize: '12px', color: '#64748B' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                               Chưa có ca làm việc nào được duyệt trong tháng.
                             </div>
                           )}
@@ -3759,8 +3759,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                       `${pl.attributable_date}-${pl.reason}`
                                     }
                                     style={{
-                                      backgroundColor: '#0F172A',
-                                      border: '1px solid #1E293B',
+                                      backgroundColor: 'var(--surface-subtle)',
+                                      border: '1px solid var(--border-subtle)',
                                       borderRadius: '4px',
                                       padding: '8px 12px',
                                       display: 'flex',
@@ -3774,7 +3774,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                         <span
                                           style={{
                                             fontWeight: 600,
-                                            color: '#F8FAFC',
+                                            color: 'var(--text-color)',
                                           }}
                                         >
                                           {formatDateDisplay(
@@ -3784,7 +3784,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                       )}
                                       <span
                                         style={{
-                                          color: '#94A3B8',
+                                          color: 'var(--muted-color)',
                                           marginLeft: pl.attributable_date
                                             ? '12px'
                                             : '0',
@@ -3800,7 +3800,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                       }}
                                     >
                                       {/^\[?\s*(KHẤU TRỪ|KHAU TRU|PHẠT|PHAT|TẠM ỨNG|TAM UNG)/i.test(pl.reason || '') ? (
-                                        <span style={{ color: '#F87171' }}>-{formatVnd(pl.amount_vnd)}</span>
+                                        <span style={{ color: 'var(--danger-text)' }}>-{formatVnd(pl.amount_vnd)}</span>
                                       ) : (
                                         <>+{formatVnd(pl.amount_vnd)}</>
                                       )}
@@ -3820,7 +3820,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                 style={{
                                   fontSize: '13px',
                                   fontWeight: 700,
-                                  color: '#10B981',
+                                  color: 'var(--success-text)',
                                   marginBottom: '8px',
                                 }}
                               >
@@ -3837,8 +3837,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                   <div
                                     key={d.id || d.disbursement_order}
                                     style={{
-                                      backgroundColor: '#0F172A',
-                                      border: '1px solid #1E293B',
+                                      backgroundColor: 'var(--surface-subtle)',
+                                      border: '1px solid var(--border-subtle)',
                                       borderRadius: '4px',
                                       padding: '8px 12px',
                                       display: 'flex',
@@ -3851,14 +3851,14 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                       <span
                                         style={{
                                           fontWeight: 700,
-                                          color: '#F8FAFC',
+                                          color: 'var(--text-color)',
                                         }}
                                       >
                                         Đợt {d.disbursement_order}
                                       </span>
                                       <span
                                         style={{
-                                          color: '#94A3B8',
+                                          color: 'var(--muted-color)',
                                           marginLeft: '10px',
                                         }}
                                       >
@@ -3872,7 +3872,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                       {d.reference_note && (
                                         <span
                                           style={{
-                                            color: '#64748B',
+                                            color: 'var(--muted-color)',
                                             marginLeft: '10px',
                                             fontStyle: 'italic',
                                           }}
@@ -3884,7 +3884,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                     <div
                                       style={{
                                         fontWeight: 700,
-                                        color: '#10B981',
+                                        color: 'var(--success-text)',
                                       }}
                                     >
                                       {formatVnd(d.amount_vnd)}
@@ -3927,7 +3927,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
             >
               {/* Staff Profile Card */}
-              <AppCard style={{ padding: '20px', backgroundColor: '#151F30' }}>
+              <AppCard style={{ padding: '20px', backgroundColor: 'var(--surface-color)' }}>
                 <div
                   style={{
                     display: 'flex',
@@ -3949,12 +3949,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         width: '46px',
                         height: '46px',
                         borderRadius: '50%',
-                        backgroundColor: '#1E293B',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--surface-hover)',
+                        border: '1px solid var(--border-color)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#38BDF8',
+                        color: 'var(--info-text)',
                       }}
                     >
                       <UserIcon size={24} />
@@ -3964,7 +3964,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         style={{
                           fontSize: '18px',
                           fontWeight: 700,
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                         }}
                       >
                         {myPayslip.employee?.full_name || 'Nhân viên'}
@@ -3972,7 +3972,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       <div
                         style={{
                           fontSize: '13px',
-                          color: '#94A3B8',
+                          color: 'var(--muted-color)',
                           marginTop: '2px',
                         }}
                       >
@@ -3987,7 +3987,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                             {formatVnd(myPayslip.hourly_rate_vnd)}/giờ
                           </strong>
                         ) : (
-                          <span style={{ color: '#F87171', fontWeight: 600 }}>
+                          <span style={{ color: 'var(--danger-text)', fontWeight: 600 }}>
                             Chưa thiết lập
                           </span>
                         )}
@@ -3996,7 +3996,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                       TỔNG THỰC NHẬN (NET)
                     </div>
                     <div
@@ -4004,7 +4004,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       style={{
                         fontSize: '24px',
                         fontWeight: 800,
-                        color: '#34D399',
+                        color: 'var(--success-text)',
                         marginTop: '4px',
                       }}
                     >
@@ -4016,7 +4016,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     >
                       {myPayslip.employee?.bank_name &&
                       myPayslip.employee?.bank_account_number ? (
-                        <span style={{ color: '#10B981' }}>
+                        <span style={{ color: 'var(--success-text)' }}>
                           🏦 Nhận lương: {myPayslip.employee.bank_name} •{' '}
                           <strong>{myPayslip.employee.bank_account_number}</strong>
                           {myPayslip.employee.bank_account_holder
@@ -4024,7 +4024,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                             : ''}
                         </span>
                       ) : (
-                        <span style={{ color: '#F59E0B' }}>
+                        <span style={{ color: 'var(--warning-text)' }}>
                           ⚠️ Chưa cập nhật TK ngân hàng nhận lương
                         </span>
                       )}
@@ -4037,7 +4037,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     marginTop: '20px',
                     paddingTop: '16px',
-                    borderTop: '1px solid #1E293B',
+                    borderTop: '1px solid var(--border-subtle)',
                   }}
                 >
                   <div
@@ -4045,7 +4045,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       display: 'flex',
                       justifyContent: 'space-between',
                       fontSize: '12px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -4058,12 +4058,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     </span>
                     <span>
                       {myPayslip.confirmed.payment_status === 'paid' ? (
-                        <span style={{ color: '#10B981', fontWeight: 700 }}>
+                        <span style={{ color: 'var(--success-text)', fontWeight: 700 }}>
                           Đã nhận đủ 100%
                         </span>
                       ) : myPayslip.confirmed.payment_status ===
                         'partially_paid' ? (
-                        <span style={{ color: '#F59E0B', fontWeight: 600 }}>
+                        <span style={{ color: 'var(--warning-text)', fontWeight: 600 }}>
                           Còn lại:{' '}
                           {formatVnd(
                             myPayslip.confirmed.net_pay_vnd -
@@ -4071,7 +4071,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           )}
                         </span>
                       ) : (
-                        <span style={{ color: '#94A3B8' }}>
+                        <span style={{ color: 'var(--muted-color)' }}>
                           Chưa thanh toán
                         </span>
                       )}
@@ -4081,7 +4081,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     style={{
                       width: '100%',
                       height: '8px',
-                      backgroundColor: '#0F172A',
+                      backgroundColor: 'var(--surface-subtle)',
                       borderRadius: '9999px',
                       overflow: 'hidden',
                     }}
@@ -4123,7 +4123,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   <div
                     style={{
                       fontSize: '12px',
-                      color: '#14B8A6',
+                      color: 'var(--accent-text)',
                       fontWeight: 700,
                     }}
                   >
@@ -4133,7 +4133,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     style={{
                       fontSize: '18px',
                       fontWeight: 700,
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       marginTop: '6px',
                     }}
                   >
@@ -4142,7 +4142,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   <div
                     style={{
                       fontSize: '12px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginTop: '4px',
                     }}
                   >
@@ -4166,17 +4166,17 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       Nghỉ có lương: +
                       {formatVnd(myPayslip.confirmed.paid_leave_pay_vnd)}
                       {(myPayslip.confirmed.bonus_vnd ?? 0) > 0 && (
-                        <div style={{ color: '#10B981', marginTop: '2px' }}>
+                        <div style={{ color: 'var(--success-text)', marginTop: '2px' }}>
                           🎁 Thưởng: +{formatVnd(myPayslip.confirmed.bonus_vnd ?? 0)}
                         </div>
                       )}
                       {(myPayslip.confirmed.allowance_vnd ?? 0) > 0 && (
-                        <div style={{ color: '#38BDF8', marginTop: '2px' }}>
+                        <div style={{ color: 'var(--info-text)', marginTop: '2px' }}>
                           🍱 Phụ cấp: +{formatVnd(myPayslip.confirmed.allowance_vnd ?? 0)}
                         </div>
                       )}
                       {(myPayslip.confirmed.deduction_vnd ?? 0) > 0 && (
-                        <div style={{ color: '#F87171', marginTop: '2px' }}>
+                        <div style={{ color: 'var(--danger-text)', marginTop: '2px' }}>
                           ➖ Khấu trừ: -{formatVnd(myPayslip.confirmed.deduction_vnd ?? 0)}
                         </div>
                       )}
@@ -4189,7 +4189,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   <div
                     style={{
                       fontSize: '12px',
-                      color: '#F59E0B',
+                      color: 'var(--warning-text)',
                       fontWeight: 700,
                     }}
                   >
@@ -4199,7 +4199,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     style={{
                       fontSize: '18px',
                       fontWeight: 700,
-                      color: '#FCD34D',
+                      color: 'var(--warning-text)',
                       marginTop: '6px',
                     }}
                   >
@@ -4211,7 +4211,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   <div
                     style={{
                       fontSize: '12px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginTop: '4px',
                     }}
                   >
@@ -4224,7 +4224,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   <div
                     style={{
                       fontSize: '11px',
-                      color: '#64748B',
+                      color: 'var(--muted-color)',
                       marginTop: '2px',
                     }}
                   >
@@ -4237,7 +4237,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   <div
                     style={{
                       fontSize: '12px',
-                      color: '#38BDF8',
+                      color: 'var(--info-text)',
                       fontWeight: 700,
                     }}
                   >
@@ -4249,7 +4249,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         style={{
                           fontSize: '18px',
                           fontWeight: 700,
-                          color: '#7DD3FC',
+                          color: 'var(--info-text)',
                           marginTop: '6px',
                         }}
                       >
@@ -4258,7 +4258,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       <div
                         style={{
                           fontSize: '12px',
-                          color: '#94A3B8',
+                          color: 'var(--muted-color)',
                           marginTop: '4px',
                         }}
                       >
@@ -4271,7 +4271,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       <div
                         style={{
                           fontSize: '11px',
-                          color: '#64748B',
+                          color: 'var(--muted-color)',
                           marginTop: '2px',
                         }}
                       >
@@ -4282,7 +4282,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     <div
                       style={{
                         fontSize: '13px',
-                        color: '#64748B',
+                        color: 'var(--muted-color)',
                         marginTop: '12px',
                       }}
                     >
@@ -4298,7 +4298,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     fontSize: '14px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginBottom: '12px',
                   }}
                 >
@@ -4317,14 +4317,14 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       <thead>
                         <tr
                           style={{
-                            backgroundColor: '#0F172A',
-                            color: '#94A3B8',
+                            backgroundColor: 'var(--surface-subtle)',
+                            color: 'var(--muted-color)',
                           }}
                         >
                           <th
                             style={{
                               padding: '8px 12px',
-                              borderBottom: '1px solid #334155',
+                              borderBottom: '1px solid var(--border-color)',
                             }}
                           >
                             Ngày làm việc
@@ -4332,7 +4332,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           <th
                             style={{
                               padding: '8px 12px',
-                              borderBottom: '1px solid #334155',
+                              borderBottom: '1px solid var(--border-color)',
                             }}
                           >
                             Số ca
@@ -4340,7 +4340,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           <th
                             style={{
                               padding: '8px 12px',
-                              borderBottom: '1px solid #334155',
+                              borderBottom: '1px solid var(--border-color)',
                             }}
                           >
                             Thời gian
@@ -4348,7 +4348,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           <th
                             style={{
                               padding: '8px 12px',
-                              borderBottom: '1px solid #334155',
+                              borderBottom: '1px solid var(--border-color)',
                             }}
                           >
                             Đơn giá
@@ -4356,7 +4356,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           <th
                             style={{
                               padding: '8px 12px',
-                              borderBottom: '1px solid #334155',
+                              borderBottom: '1px solid var(--border-color)',
                               textAlign: 'right',
                             }}
                           >
@@ -4368,7 +4368,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         {myPayslip.daily_breakdowns.map((bd) => (
                           <tr
                             key={bd.work_date}
-                            style={{ borderBottom: '1px solid #1E293B' }}
+                            style={{ borderBottom: '1px solid var(--border-subtle)' }}
                           >
                             <td
                               style={{ padding: '8px 12px', fontWeight: 600 }}
@@ -4389,7 +4389,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                 padding: '8px 12px',
                                 textAlign: 'right',
                                 fontWeight: 700,
-                                color: '#34D399',
+                                color: 'var(--success-text)',
                               }}
                             >
                               {formatVnd(bd.rounded_wage_vnd)}
@@ -4400,7 +4400,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     </table>
                   </div>
                 ) : (
-                  <div style={{ fontSize: '13px', color: '#64748B' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
                     Chưa có ca làm việc nào được duyệt trong kỳ này.
                   </div>
                 )}
@@ -4433,8 +4433,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         <div
                           key={pl.id || `${pl.attributable_date}-${pl.reason}`}
                           style={{
-                            backgroundColor: '#0F172A',
-                            border: '1px solid #1E293B',
+                            backgroundColor: 'var(--surface-subtle)',
+                            border: '1px solid var(--border-subtle)',
                             borderRadius: '6px',
                             padding: '10px 14px',
                             display: 'flex',
@@ -4448,7 +4448,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                               <span
                                 style={{
                                   fontWeight: 600,
-                                  color: '#F8FAFC',
+                                  color: 'var(--text-color)',
                                 }}
                               >
                                 {formatDateDisplay(pl.attributable_date)}
@@ -4456,7 +4456,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                             )}
                             <span
                               style={{
-                                color: '#94A3B8',
+                                color: 'var(--muted-color)',
                                 marginLeft: pl.attributable_date ? '12px' : '0',
                               }}
                             >
@@ -4471,7 +4471,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                             }}
                           >
                             {/^\[?\s*(KHẤU TRỪ|KHAU TRU|PHẠT|PHAT|TẠM ỨNG|TAM UNG)/i.test(pl.reason || '') ? (
-                              <span style={{ color: '#F87171' }}>-{formatVnd(pl.amount_vnd)}</span>
+                              <span style={{ color: 'var(--danger-text)' }}>-{formatVnd(pl.amount_vnd)}</span>
                             ) : (
                               <>+{formatVnd(pl.amount_vnd)}</>
                             )}
@@ -4490,7 +4490,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     style={{
                       fontSize: '14px',
                       fontWeight: 700,
-                      color: '#10B981',
+                      color: 'var(--success-text)',
                       marginBottom: '12px',
                     }}
                   >
@@ -4507,8 +4507,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       <div
                         key={d.id || d.disbursement_order}
                         style={{
-                          backgroundColor: '#0F172A',
-                          border: '1px solid #1E293B',
+                          backgroundColor: 'var(--surface-subtle)',
+                          border: '1px solid var(--border-subtle)',
                           borderRadius: '6px',
                           padding: '10px 14px',
                           display: 'flex',
@@ -4518,11 +4518,11 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         }}
                       >
                         <div>
-                          <span style={{ fontWeight: 700, color: '#F8FAFC' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text-color)' }}>
                             Đợt {d.disbursement_order}
                           </span>
                           <span
-                            style={{ color: '#94A3B8', marginLeft: '12px' }}
+                            style={{ color: 'var(--muted-color)', marginLeft: '12px' }}
                           >
                             {formatDateDisplay(d.payment_date)} •{' '}
                             {d.payment_method === 'bank_transfer'
@@ -4533,7 +4533,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           </span>
                           {d.reference_note && (
                             <span
-                              style={{ color: '#64748B', marginLeft: '10px' }}
+                              style={{ color: 'var(--muted-color)', marginLeft: '10px' }}
                             >
                               ({d.reference_note})
                             </span>
@@ -4542,7 +4542,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         <div
                           style={{
                             fontWeight: 700,
-                            color: '#10B981',
+                            color: 'var(--success-text)',
                             fontSize: '14px',
                           }}
                         >
@@ -4580,7 +4580,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               overflowY: 'auto',
               boxSizing: 'border-box',
               padding: '20px',
-              backgroundColor: '#151F30',
+              backgroundColor: 'var(--surface-color)',
             }}
           >
             <div
@@ -4592,7 +4592,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               }}
             >
               <div
-                style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC' }}
+                style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-color)' }}
               >
                 Thiết lập đơn giá theo giờ
               </div>
@@ -4602,7 +4602,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                 }}
               >
@@ -4613,7 +4613,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             <div
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '16px',
               }}
             >
@@ -4629,7 +4629,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4645,10 +4645,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     minHeight: '38px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     padding: '8px 12px',
                     fontSize: '14px',
                     fontWeight: 600,
@@ -4656,7 +4656,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 />
               </div>
 
-              <p style={{ fontSize: '13px', color: '#94A3B8', margin: 0 }}>
+              <p style={{ fontSize: '13px', color: 'var(--muted-color)', margin: 0 }}>
                 Đơn giá mới có hiệu lực từ thời điểm máy chủ lưu. Không áp dụng
                 hồi tố cho tiền công trước thời điểm này.
               </p>
@@ -4678,10 +4678,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   boxSizing: 'border-box',
                   minHeight: '36px',
                   padding: '6px 14px',
-                  backgroundColor: '#1E293B',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-hover)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   fontSize: '13px',
                 }}
@@ -4723,7 +4723,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               overflowY: 'auto',
               boxSizing: 'border-box',
               padding: '20px',
-              backgroundColor: '#151F30',
+              backgroundColor: 'var(--surface-color)',
             }}
           >
             <div
@@ -4735,7 +4735,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               }}
             >
               <div
-                style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC' }}
+                style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-color)' }}
               >
                 Ghi nhận nghỉ có lương / Thưởng / Phụ cấp / Khấu trừ
               </div>
@@ -4745,7 +4745,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                 }}
               >
@@ -4756,7 +4756,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             <div
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '16px',
               }}
             >
@@ -4772,7 +4772,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4787,10 +4787,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     minHeight: '38px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     padding: '8px 12px',
                     fontSize: '14px',
                   }}
@@ -4802,7 +4802,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4819,10 +4819,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     minHeight: '38px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     padding: '8px 12px',
                     fontSize: '14px',
                     fontWeight: 600,
@@ -4835,7 +4835,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4885,11 +4885,11 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           textAlign: 'left',
                           border: isActive
                             ? '1px solid #14B8A6'
-                            : '1px solid #334155',
+                            : '1px solid var(--border-color)',
                           backgroundColor: isActive
                             ? 'rgba(20, 184, 166, 0.15)'
-                            : '#0F172A',
-                          color: isActive ? '#2DD4BF' : '#CBD5E1',
+                            : 'var(--surface-subtle)',
+                          color: isActive ? 'var(--accent-text)' : 'var(--text-secondary)',
                         }}
                       >
                         {opt.label}
@@ -4901,7 +4901,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4916,10 +4916,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     width: '100%',
                     boxSizing: 'border-box',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     padding: '8px 12px',
                     fontSize: '13px',
                     resize: 'vertical',
@@ -4945,10 +4945,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   boxSizing: 'border-box',
                   minHeight: '36px',
                   padding: '6px 14px',
-                  backgroundColor: '#1E293B',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-hover)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   fontSize: '13px',
                 }}
@@ -4995,7 +4995,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               overflowY: 'auto',
               boxSizing: 'border-box',
               padding: '20px',
-              backgroundColor: '#151F30',
+              backgroundColor: 'var(--surface-color)',
             }}
           >
             <div
@@ -5007,7 +5007,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               }}
             >
               <div
-                style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC' }}
+                style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-color)' }}
               >
                 Ghi nhận chi trả tiền lương
               </div>
@@ -5017,7 +5017,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                 }}
               >
@@ -5028,7 +5028,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             <div
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '16px',
               }}
             >
@@ -5046,7 +5046,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   padding: '12px',
                   marginBottom: '16px',
                   fontSize: '12px',
-                  color: '#FCD34D',
+                  color: 'var(--warning-text)',
                   lineHeight: '1.5',
                 }}
               >
@@ -5054,7 +5054,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     fontWeight: 700,
                     marginBottom: '4px',
-                    color: '#FBBF24',
+                    color: 'var(--warning-text)',
                   }}
                 >
                   ⚠️ Giao dịch chưa xác nhận kết quả: GIAO DỊCH CHƯA RÕ KẾT QUẢ
@@ -5077,8 +5077,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
             <div
               style={{
-                backgroundColor: '#0F172A',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '6px',
                 padding: '12px',
                 marginBottom: '16px',
@@ -5089,11 +5089,11 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                 }}
               >
                 <span>Tổng thực nhận (Net):</span>
-                <strong style={{ color: '#F8FAFC' }}>
+                <strong style={{ color: 'var(--text-color)' }}>
                   {formatVnd(disburseEmployee.confirmed.net_pay_vnd)}
                 </strong>
               </div>
@@ -5101,12 +5101,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginTop: '4px',
                 }}
               >
                 <span>Đã chi trước đó:</span>
-                <strong style={{ color: '#10B981' }}>
+                <strong style={{ color: 'var(--success-text)' }}>
                   {formatVnd(disburseEmployee.confirmed.paid_amount_vnd)}
                 </strong>
               </div>
@@ -5114,11 +5114,11 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  color: '#F59E0B',
+                  color: 'var(--warning-text)',
                   fontWeight: 700,
                   marginTop: '6px',
                   paddingTop: '6px',
-                  borderTop: '1px solid #1E293B',
+                  borderTop: '1px solid var(--border-subtle)',
                 }}
               >
                 <span>Còn lại được phép chi:</span>
@@ -5135,7 +5135,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             <div
               data-testid="disburse-bank-qr-card"
               style={{
-                backgroundColor: '#0F172A',
+                backgroundColor: 'var(--surface-subtle)',
                 border: '1px solid rgba(56, 189, 248, 0.3)',
                 borderRadius: '8px',
                 padding: '12px',
@@ -5151,7 +5151,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   marginBottom: '8px',
                 }}
               >
-                <span style={{ fontWeight: 700, color: '#38BDF8', fontSize: '13px' }}>
+                <span style={{ fontWeight: 700, color: 'var(--info-text)', fontSize: '13px' }}>
                   🏦 Tài khoản ngân hàng nhận lương (VietQR)
                 </span>
                 {disburseEmployee.bank_account_number && (
@@ -5167,9 +5167,9 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     style={{
                       padding: '3px 8px',
                       borderRadius: '4px',
-                      border: '1px solid #334155',
-                      backgroundColor: '#1E293B',
-                      color: '#38BDF8',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--info-text)',
                       fontSize: '11px',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -5188,10 +5188,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     flexWrap: 'wrap',
                   }}
                 >
-                  <div style={{ flex: '1 1 180px', lineHeight: 1.6, color: '#CBD5E1' }}>
+                  <div style={{ flex: '1 1 180px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
                     <div>
                       Ngân hàng:{' '}
-                      <strong style={{ color: '#F8FAFC' }}>
+                      <strong style={{ color: 'var(--text-color)' }}>
                         {disburseEmployee.bank_name}
                       </strong>
                     </div>
@@ -5199,7 +5199,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       Số TK:{' '}
                       <strong
                         style={{
-                          color: '#34D399',
+                          color: 'var(--success-text)',
                           fontFamily: 'monospace',
                           fontSize: '14px',
                         }}
@@ -5209,7 +5209,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     </div>
                     <div>
                       Chủ TK:{' '}
-                      <strong style={{ color: '#F8FAFC' }}>
+                      <strong style={{ color: 'var(--text-color)' }}>
                         {disburseEmployee.bank_account_holder ||
                           disburseEmployee.full_name}
                       </strong>
@@ -5261,7 +5261,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     gap: '8px',
-                    color: '#FBBF24',
+                    color: 'var(--warning-text)',
                   }}
                 >
                   <span>
@@ -5279,7 +5279,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                         borderRadius: '6px',
                         border: '1px solid #F59E0B',
                         backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                        color: '#FCD34D',
+                        color: 'var(--warning-text)',
                         fontSize: '11px',
                         fontWeight: 600,
                         cursor: 'pointer',
@@ -5295,8 +5295,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   marginTop: '8px',
                   paddingTop: '8px',
-                  borderTop: '1px solid #1E293B',
-                  color: '#34D399',
+                  borderTop: '1px solid var(--border-subtle)',
+                  color: 'var(--success-text)',
                   fontSize: '11px',
                 }}
               >
@@ -5316,7 +5316,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                     Số tiền chi đợt này (VNĐ):
                   </label>
                   {!isUnresolvedRetry && (
@@ -5331,7 +5331,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       style={{
                         background: 'none',
                         border: 'none',
-                        color: '#14B8A6',
+                        color: 'var(--accent-text)',
                         fontSize: '11px',
                         cursor: 'pointer',
                         fontWeight: 600,
@@ -5353,10 +5353,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     minHeight: '38px',
-                    backgroundColor: isUnresolvedRetry ? '#1E293B' : '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: isUnresolvedRetry ? 'var(--surface-hover)' : 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: isUnresolvedRetry ? '#94A3B8' : '#F8FAFC',
+                    color: isUnresolvedRetry ? 'var(--muted-color)' : 'var(--text-color)',
                     padding: '8px 12px',
                     fontSize: '14px',
                     fontWeight: 700,
@@ -5371,7 +5371,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -5389,10 +5389,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     minHeight: '38px',
-                    backgroundColor: isUnresolvedRetry ? '#1E293B' : '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: isUnresolvedRetry ? 'var(--surface-hover)' : 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: isUnresolvedRetry ? '#94A3B8' : '#F8FAFC',
+                    color: isUnresolvedRetry ? 'var(--muted-color)' : 'var(--text-color)',
                     padding: '8px 12px',
                     fontSize: '13px',
                     cursor: isUnresolvedRetry ? 'not-allowed' : 'pointer',
@@ -5410,7 +5410,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -5425,10 +5425,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     minHeight: '38px',
-                    backgroundColor: isUnresolvedRetry ? '#1E293B' : '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: isUnresolvedRetry ? 'var(--surface-hover)' : 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: isUnresolvedRetry ? '#94A3B8' : '#F8FAFC',
+                    color: isUnresolvedRetry ? 'var(--muted-color)' : 'var(--text-color)',
                     padding: '8px 12px',
                     fontSize: '14px',
                     cursor: isUnresolvedRetry ? 'not-allowed' : 'pointer',
@@ -5442,7 +5442,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -5458,10 +5458,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     minHeight: '38px',
-                    backgroundColor: isUnresolvedRetry ? '#1E293B' : '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: isUnresolvedRetry ? 'var(--surface-hover)' : 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: isUnresolvedRetry ? '#94A3B8' : '#F8FAFC',
+                    color: isUnresolvedRetry ? 'var(--muted-color)' : 'var(--text-color)',
                     padding: '8px 12px',
                     fontSize: '13px',
                     cursor: isUnresolvedRetry ? 'not-allowed' : 'text',
@@ -5487,10 +5487,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   boxSizing: 'border-box',
                   minHeight: '36px',
                   padding: '6px 14px',
-                  backgroundColor: '#1E293B',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-hover)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   fontSize: '13px',
                 }}
@@ -5534,7 +5534,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               width: '100%',
               maxWidth: '480px',
               padding: '24px',
-              backgroundColor: '#151F30',
+              backgroundColor: 'var(--surface-color)',
             }}
           >
             <div
@@ -5546,7 +5546,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               }}
             >
               <div
-                style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC' }}
+                style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-color)' }}
               >
                 Xác nhận chốt bảng lương tháng {selectedMonth}
               </div>
@@ -5556,7 +5556,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                 }}
               >
@@ -5570,7 +5570,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 backgroundColor: 'rgba(245, 158, 11, 0.1)',
                 border: '1px solid rgba(245, 158, 11, 0.3)',
                 borderRadius: '6px',
-                color: '#FCD34D',
+                color: 'var(--warning-text)',
                 fontSize: '13px',
                 marginBottom: '16px',
                 lineHeight: '1.5',
@@ -5584,8 +5584,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
             <div
               style={{
-                backgroundColor: '#0F172A',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '6px',
                 padding: '12px 16px',
                 marginBottom: '20px',
@@ -5596,12 +5596,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '6px',
                 }}
               >
                 <span>Tổng số nhân sự tính lương:</span>
-                <strong style={{ color: '#F8FAFC' }}>
+                <strong style={{ color: 'var(--text-color)' }}>
                   {items.length} nhân viên
                 </strong>
               </div>
@@ -5609,12 +5609,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '6px',
                 }}
               >
                 <span>Tổng lương cơ bản đã duyệt:</span>
-                <strong style={{ color: '#38BDF8' }}>
+                <strong style={{ color: 'var(--info-text)' }}>
                   {formatVnd(aggregateMetrics.totalBasePay)}
                 </strong>
               </div>
@@ -5622,7 +5622,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '6px',
                 }}
               >
@@ -5635,15 +5635,15 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontWeight: 700,
                   fontSize: '14px',
                   paddingTop: '8px',
-                  borderTop: '1px solid #1E293B',
+                  borderTop: '1px solid var(--border-subtle)',
                 }}
               >
                 <span>Tổng thực nhận (Net):</span>
-                <span style={{ color: '#34D399' }}>
+                <span style={{ color: 'var(--success-text)' }}>
                   {formatVnd(aggregateMetrics.totalNetPay)}
                 </span>
               </div>
@@ -5665,10 +5665,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   boxSizing: 'border-box',
                   minHeight: '36px',
                   padding: '6px 14px',
-                  backgroundColor: '#1E293B',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-hover)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   fontSize: '13px',
                 }}

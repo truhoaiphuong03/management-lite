@@ -18,7 +18,7 @@ import {
   AppCard,
   AppDialog,
   AppInput,
-  TOKENS,
+  TOKENS, THEME_COLORS,
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,
@@ -51,7 +51,7 @@ const grouped = (digits: string): string =>
 
 const labelStyle = {
   fontSize: TOKENS.typography.fontSize.xs,
-  color: TOKENS.colors.muted,
+  color: THEME_COLORS.muted,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   fontWeight: TOKENS.typography.fontWeight.semibold,
@@ -221,8 +221,8 @@ export function FinancePlanScreen({
         <div
           style={{
             padding: '14px 18px',
-            borderBottom: `1px solid ${TOKENS.colors.borderSubtle}`,
-            backgroundColor: TOKENS.colors.surfaceSubtle,
+            borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
+            backgroundColor: THEME_COLORS.surfaceSubtle,
             borderTopLeftRadius: TOKENS.radii.md,
             borderTopRightRadius: TOKENS.radii.md,
             display: 'flex',
@@ -236,7 +236,7 @@ export function FinancePlanScreen({
             style={{
               fontSize: TOKENS.typography.fontSize.sm,
               fontWeight: TOKENS.typography.fontWeight.semibold,
-              color: TOKENS.colors.textSecondary,
+              color: THEME_COLORS.textSecondary,
             }}
           >
             {title} ({all.length})
@@ -244,7 +244,7 @@ export function FinancePlanScreen({
           <strong
             style={{
               fontSize: TOKENS.typography.fontSize.base,
-              color: isIncome ? TOKENS.colors.success : TOKENS.colors.text,
+              color: isIncome ? THEME_COLORS.success : THEME_COLORS.text,
             }}
           >
             {formatVnd(total)}/tháng
@@ -255,7 +255,7 @@ export function FinancePlanScreen({
             style={{
               padding: '28px 16px',
               textAlign: 'center',
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               fontSize: TOKENS.typography.fontSize.sm,
             }}
           >
@@ -267,7 +267,7 @@ export function FinancePlanScreen({
             style={{
               padding: '28px 16px',
               textAlign: 'center',
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               fontSize: TOKENS.typography.fontSize.sm,
               display: 'flex',
               flexDirection: 'column',
@@ -303,7 +303,7 @@ export function FinancePlanScreen({
                 borderBottom:
                   idx === rows.length - 1
                     ? 'none'
-                    : `1px solid ${TOKENS.colors.borderSubtle}`,
+                    : `1px solid ${THEME_COLORS.borderSubtle}`,
                 backgroundColor: i.is_active
                   ? 'transparent'
                   : 'rgba(15, 23, 42, 0.35)',
@@ -323,8 +323,8 @@ export function FinancePlanScreen({
                   style={{
                     fontWeight: TOKENS.typography.fontWeight.semibold,
                     color: i.is_active
-                      ? TOKENS.colors.text
-                      : TOKENS.colors.muted,
+                      ? THEME_COLORS.text
+                      : THEME_COLORS.muted,
                     overflowWrap: 'anywhere',
                   }}
                 >
@@ -341,7 +341,7 @@ export function FinancePlanScreen({
               </div>
               <strong
                 style={{
-                  color: i.is_active ? TOKENS.colors.text : TOKENS.colors.muted,
+                  color: i.is_active ? THEME_COLORS.text : THEME_COLORS.muted,
                 }}
               >
                 {formatVnd(i.amount_vnd)}/tháng
@@ -383,7 +383,7 @@ export function FinancePlanScreen({
           <div
             style={{
               padding: '10px 18px',
-              borderTop: `1px solid ${TOKENS.colors.borderSubtle}`,
+              borderTop: `1px solid ${THEME_COLORS.borderSubtle}`,
             }}
           >
             <FinancePager
@@ -431,8 +431,8 @@ export function FinancePlanScreen({
           gap: 12,
           padding: '10px 12px',
           borderRadius: TOKENS.radii.md,
-          border: `1px solid ${TOKENS.colors.borderSubtle}`,
-          backgroundColor: TOKENS.colors.surface,
+          border: `1px solid ${THEME_COLORS.borderSubtle}`,
+          backgroundColor: THEME_COLORS.surface,
         }}
       >
         <label
@@ -441,7 +441,7 @@ export function FinancePlanScreen({
             alignItems: 'center',
             gap: 8,
             fontSize: TOKENS.typography.fontSize.sm,
-            color: TOKENS.colors.textSecondary,
+            color: THEME_COLORS.textSecondary,
           }}
         >
           Tháng quy đổi theo ngày/tuần
@@ -468,7 +468,7 @@ export function FinancePlanScreen({
           style={{
             marginLeft: 'auto',
             fontSize: TOKENS.typography.fontSize.sm,
-            color: TOKENS.colors.muted,
+            color: THEME_COLORS.muted,
           }}
         >
           Tháng này có {monthDays} ngày.
@@ -488,26 +488,26 @@ export function FinancePlanScreen({
           testId="plan-total-income"
           label="Tổng thu dự kiến/tháng"
           value={formatVnd(summary.total_income_vnd)}
-          color={TOKENS.colors.success}
+          color={THEME_COLORS.success}
         />
         <FinanceStat
           testId="plan-total-expense"
           label="Tổng chi dự kiến/tháng"
           value={formatVnd(summary.total_expense_vnd)}
-          color={TOKENS.colors.error}
+          color={THEME_COLORS.error}
         />
         <FinanceStat
           testId="plan-net"
           label="Chênh lệch thu − chi"
           value={formatVnd(summary.net_vnd)}
-          color={deficit ? TOKENS.colors.error : TOKENS.colors.primary}
+          color={deficit ? THEME_COLORS.error : THEME_COLORS.primary}
           hint={<div data-testid="plan-status">{statusBadge}</div>}
         />
         <FinanceStat
           testId="plan-shortfall"
           label="Số tiền cần kiếm thêm"
           value={formatVnd(summary.shortfall_vnd)}
-          color={deficit ? TOKENS.colors.warning : TOKENS.colors.success}
+          color={deficit ? THEME_COLORS.warning : THEME_COLORS.success}
           hint={deficit ? 'mỗi tháng' : 'Thu nhập dự kiến đã đủ chi phí'}
         />
       </div>
@@ -535,14 +535,14 @@ export function FinancePlanScreen({
               style={{
                 padding: '10px 12px',
                 borderRadius: TOKENS.radii.sm,
-                border: `1px solid ${TOKENS.colors.borderSubtle}`,
-                backgroundColor: TOKENS.colors.surfaceSubtle,
+                border: `1px solid ${THEME_COLORS.borderSubtle}`,
+                backgroundColor: THEME_COLORS.surfaceSubtle,
               }}
             >
               <div
                 style={{
                   fontSize: TOKENS.typography.fontSize.xs,
-                  color: TOKENS.colors.muted,
+                  color: THEME_COLORS.muted,
                 }}
               >
                 {label}
@@ -553,7 +553,7 @@ export function FinancePlanScreen({
                   marginTop: 4,
                   fontWeight: TOKENS.typography.fontWeight.bold,
                   fontSize: TOKENS.typography.fontSize.lg,
-                  color: deficit ? TOKENS.colors.warning : TOKENS.colors.text,
+                  color: deficit ? THEME_COLORS.warning : THEME_COLORS.text,
                 }}
               >
                 {formatVnd(value)}
@@ -565,7 +565,7 @@ export function FinancePlanScreen({
           style={{
             margin: '10px 0 0',
             fontSize: TOKENS.typography.fontSize.xs,
-            color: TOKENS.colors.muted,
+            color: THEME_COLORS.muted,
           }}
         >
           Số tiền theo ngày và tuần là mức bình quân quy đổi (làm tròn lên đến
@@ -580,7 +580,7 @@ export function FinancePlanScreen({
             margin: '0 0 10px',
             fontSize: TOKENS.typography.fontSize.md,
             fontWeight: TOKENS.typography.fontWeight.semibold,
-            color: TOKENS.colors.text,
+            color: THEME_COLORS.text,
           }}
         >
           Thêm khoản dự tính
@@ -604,9 +604,9 @@ export function FinancePlanScreen({
               display: 'inline-flex',
               gap: 4,
               padding: 3,
-              backgroundColor: TOKENS.colors.surfaceSubtle,
+              backgroundColor: THEME_COLORS.surfaceSubtle,
               borderRadius: TOKENS.radii.sm,
-              border: `1px solid ${TOKENS.colors.borderSubtle}`,
+              border: `1px solid ${THEME_COLORS.borderSubtle}`,
             }}
           >
             {(
@@ -640,7 +640,7 @@ export function FinancePlanScreen({
               display: 'grid',
               gap: 4,
               fontSize: TOKENS.typography.fontSize.sm,
-              color: TOKENS.colors.textSecondary,
+              color: THEME_COLORS.textSecondary,
             }}
           >
             Danh mục {isIncomeForm ? 'thu' : 'chi'}
@@ -694,7 +694,7 @@ export function FinancePlanScreen({
           <div
             style={{
               marginTop: 8,
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               fontSize: TOKENS.typography.fontSize.sm,
             }}
           >
@@ -711,7 +711,7 @@ export function FinancePlanScreen({
         {validation && (
           <p
             role="alert"
-            style={{ margin: '8px 0 0', color: TOKENS.colors.error }}
+            style={{ margin: '8px 0 0', color: THEME_COLORS.error }}
           >
             {validation}
           </p>
@@ -734,10 +734,10 @@ export function FinancePlanScreen({
           style={{
             width: '100%',
             padding: '8px 12px',
-            backgroundColor: TOKENS.colors.surface,
-            border: `1px solid ${TOKENS.colors.borderSubtle}`,
+            backgroundColor: THEME_COLORS.surface,
+            border: `1px solid ${THEME_COLORS.borderSubtle}`,
             borderRadius: TOKENS.radii.sm,
-            color: TOKENS.colors.text,
+            color: THEME_COLORS.text,
             fontSize: TOKENS.typography.fontSize.sm,
             outline: 'none',
             boxSizing: 'border-box',
@@ -782,9 +782,9 @@ export function FinancePlanScreen({
           if (deactivate) void setActive(deactivate, false);
         }}
       >
-        <p style={{ margin: 0, color: TOKENS.colors.textSecondary }}>
+        <p style={{ margin: 0, color: THEME_COLORS.textSecondary }}>
           Ngừng dùng{' '}
-          <strong style={{ color: TOKENS.colors.text }}>
+          <strong style={{ color: THEME_COLORS.text }}>
             {deactivate?.category_name}
           </strong>{' '}
           ({deactivate ? formatVnd(deactivate.amount_vnd) : ''}/tháng)? Khoản

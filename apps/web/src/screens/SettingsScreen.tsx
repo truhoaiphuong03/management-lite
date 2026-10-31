@@ -647,21 +647,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               marginBottom: '8px',
             }}
           >
             Hồ sơ nhân sự của tôi
           </h3>
           <p
-            style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
+            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
           >
             Thông tin nhân sự gắn liền với tài khoản của bạn trong không gian
             làm việc hiện tại.
           </p>
 
           {loading ? (
-            <div style={{ color: '#94A3B8', fontSize: '14px' }}>
+            <div style={{ color: 'var(--muted-color)', fontSize: '14px' }}>
               Đang tải thông tin cá nhân...
             </div>
           ) : profile ? (
@@ -671,21 +671,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 gridTemplateColumns:
                   'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                 gap: '12px',
-                backgroundColor: '#0B1220',
+                backgroundColor: 'var(--bg-color)',
                 padding: '16px',
                 borderRadius: '8px',
-                border: '1px solid #334155',
+                border: '1px solid var(--border-color)',
               }}
             >
               <div>
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Mã nhân viên
                 </div>
                 <div
                   style={{
                     fontSize: '15px',
                     fontWeight: 600,
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     marginTop: '2px',
                   }}
                 >
@@ -693,14 +693,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Họ và tên
                 </div>
                 <div
                   style={{
                     fontSize: '15px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -708,13 +708,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Email tài khoản
                 </div>
                 <div
                   style={{
                     fontSize: '14px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -722,13 +722,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Trạng thái hồ sơ
                 </div>
                 <div
                   style={{
                     fontSize: '14px',
-                    color: '#10B981',
+                    color: 'var(--success-text)',
                     fontWeight: 600,
                     marginTop: '2px',
                   }}
@@ -740,7 +740,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
             </div>
           ) : (
-            <div style={{ color: '#94A3B8', fontSize: '13px' }}>
+            <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
               Tài khoản đang đăng nhập với vai trò Quản trị viên (Chủ sở hữu).
             </div>
           )}
@@ -752,14 +752,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               marginBottom: '8px',
             }}
           >
             Không gian làm việc (Workspace Context — C06)
           </h3>
           <p
-            style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
+            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
           >
             Quy tắc C06: Hệ thống ràng buộc ngữ cảnh không gian làm việc duy
             nhất trong phiên; không có bộ chuyển đổi workspace tự động.
@@ -770,21 +770,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               gridTemplateColumns:
                 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
               gap: '12px',
-              backgroundColor: '#0B1220',
+              backgroundColor: 'var(--bg-color)',
               padding: '16px',
               borderRadius: '8px',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
             }}
           >
             <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Múi giờ chuẩn (IANA)
               </div>
               <div
                 style={{
                   fontSize: '14px',
                   fontWeight: 600,
-                  color: '#14B8A6',
+                  color: 'var(--accent-text)',
                   marginTop: '2px',
                 }}
               >
@@ -792,14 +792,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Tiêu chuẩn bảo mật
               </div>
               <div
                 style={{
                   fontSize: '14px',
                   fontWeight: 600,
-                  color: '#10B981',
+                  color: 'var(--success-text)',
                   marginTop: '2px',
                 }}
               >
@@ -815,14 +815,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               margin: '0 0 8px',
             }}
           >
             Chỉnh sửa thông tin cá nhân
           </h3>
           <p
-            style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
+            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
           >
             Cập nhật họ tên, số điện thoại và email đăng nhập. Đổi mật khẩu ở
             mục bên dưới.
@@ -833,7 +833,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               data-testid="edit-profile-form"
               style={{ maxWidth: '480px' }}
             >
-              <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Họ và tên
                 <input
                   data-testid="edit-profile-name"
@@ -847,14 +847,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     padding: '10px 12px',
                     fontSize: '16px',
                     borderRadius: '8px',
-                    border: '1px solid #475569',
-                    backgroundColor: '#1E293B',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-hover)',
+                    backgroundColor: 'var(--surface-hover)',
+                    color: 'var(--text-color)',
                   }}
                 />
               </label>
               <div style={{ height: '12px' }} />
-              <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Số điện thoại
                 <input
                   data-testid="edit-profile-phone"
@@ -870,9 +870,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     padding: '10px 12px',
                     fontSize: '16px',
                     borderRadius: '8px',
-                    border: '1px solid #475569',
-                    backgroundColor: '#1E293B',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-hover)',
+                    backgroundColor: 'var(--surface-hover)',
+                    color: 'var(--text-color)',
                   }}
                 />
               </label>
@@ -885,7 +885,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   gap: '12px',
                 }}
               >
-                <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Ngày sinh (Ngày/Tháng/Năm — Không bắt buộc)
                   <VnDateOfBirthSelect
                     testId="edit-profile-dob"
@@ -893,7 +893,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     onChange={setEditDateOfBirth}
                   />
                 </label>
-                <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Giới tính
                   <select
                     data-testid="edit-profile-gender"
@@ -906,9 +906,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       padding: '10px 12px',
                       fontSize: '15px',
                       borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
                     }}
                   >
                     <option value="">-- Chọn --</option>
@@ -917,7 +917,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     <option value="Khác">Khác</option>
                   </select>
                 </label>
-                <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Số CCCD / CMND (Không bắt buộc)
                   <input
                     data-testid="edit-profile-national-id"
@@ -932,13 +932,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       padding: '10px 12px',
                       fontSize: '15px',
                       borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
                     }}
                   />
                 </label>
-                <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Chức danh / Vị trí
                   <input
                     data-testid="edit-profile-position"
@@ -953,16 +953,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       padding: '10px 12px',
                       fontSize: '15px',
                       borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
                     }}
                   />
                 </label>
               </div>
               <div style={{ height: '12px' }} />
               <label
-                style={{ fontSize: '12px', color: '#94A3B8', display: 'block' }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', display: 'block' }}
               >
                 Địa chỉ nơi ở hiện tại (Không bắt buộc)
                 <input
@@ -978,15 +978,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     padding: '10px 12px',
                     fontSize: '15px',
                     borderRadius: '8px',
-                    border: '1px solid #475569',
-                    backgroundColor: '#1E293B',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-hover)',
+                    backgroundColor: 'var(--surface-hover)',
+                    color: 'var(--text-color)',
                   }}
                 />
               </label>
               <div style={{ height: '12px' }} />
               <label
-                style={{ fontSize: '12px', color: '#94A3B8', display: 'block' }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', display: 'block' }}
               >
                 Liên hệ khẩn cấp (Họ tên & SĐT người thân)
                 <input
@@ -1002,9 +1002,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     padding: '10px 12px',
                     fontSize: '15px',
                     borderRadius: '8px',
-                    border: '1px solid #475569',
-                    backgroundColor: '#1E293B',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-hover)',
+                    backgroundColor: 'var(--surface-hover)',
+                    color: 'var(--text-color)',
                   }}
                 />
               </label>
@@ -1013,15 +1013,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   marginTop: '14px',
                   padding: '14px',
                   borderRadius: '8px',
-                  backgroundColor: '#0B1220',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--bg-color)',
+                  border: '1px solid var(--border-color)',
                 }}
               >
                 <div
                   style={{
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     marginBottom: '10px',
                   }}
                 >
@@ -1035,7 +1035,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     gap: '10px',
                   }}
                 >
-                  <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                     Ngân hàng (Không bắt buộc)
                     <div style={{ marginTop: '4px' }}>
                       <VnBankAutocompleteInput
@@ -1046,7 +1046,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       />
                     </div>
                   </label>
-                  <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                     Số tài khoản
                     <input
                       data-testid="edit-profile-bank-number"
@@ -1061,13 +1061,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         padding: '9px 10px',
                         fontSize: '14px',
                         borderRadius: '6px',
-                        border: '1px solid #475569',
-                        backgroundColor: '#1E293B',
-                        color: '#F8FAFC',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
                       }}
                     />
                   </label>
-                  <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                     Chủ tài khoản (in hoa)
                     <input
                       data-testid="edit-profile-bank-holder"
@@ -1084,16 +1084,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         padding: '9px 10px',
                         fontSize: '14px',
                         borderRadius: '6px',
-                        border: '1px solid #475569',
-                        backgroundColor: '#1E293B',
-                        color: '#F8FAFC',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
                       }}
                     />
                   </label>
                 </div>
               </div>
               <div style={{ height: '12px' }} />
-              <label style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Email tài khoản
                 <input
                   data-testid="edit-profile-email"
@@ -1107,9 +1107,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     padding: '10px 12px',
                     fontSize: '16px',
                     borderRadius: '8px',
-                    border: '1px solid #475569',
-                    backgroundColor: '#1E293B',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-hover)',
+                    backgroundColor: 'var(--surface-hover)',
+                    color: 'var(--text-color)',
                   }}
                 />
               </label>
@@ -1117,7 +1117,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 (profile.user?.email || '').toLowerCase() && (
                 <>
                   <div style={{ height: '12px' }} />
-                  <label style={{ fontSize: '12px', color: '#FBBF24' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--warning-text)' }}>
                     Mật khẩu hiện tại (bắt buộc khi đổi email — email mới sẽ cần
                     xác minh lại)
                     <input
@@ -1133,9 +1133,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         padding: '10px 12px',
                         fontSize: '16px',
                         borderRadius: '8px',
-                        border: '1px solid #475569',
-                        backgroundColor: '#1E293B',
-                        color: '#F8FAFC',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
                       }}
                     />
                   </label>
@@ -1147,7 +1147,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   style={{
                     marginTop: '12px',
                     fontSize: '13px',
-                    color: profileMsg.type === 'error' ? '#FCA5A5' : '#6EE7B7',
+                    color: profileMsg.type === 'error' ? 'var(--danger-text)' : 'var(--success-text)',
                   }}
                 >
                   {profileMsg.text}
@@ -1165,7 +1165,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
             </form>
           ) : (
-            <div style={{ color: '#94A3B8', fontSize: '14px' }}>
+            <div style={{ color: 'var(--muted-color)', fontSize: '14px' }}>
               Không có hồ sơ nhân sự để chỉnh sửa.
             </div>
           )}
@@ -1181,12 +1181,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               marginBottom: '8px',
             }}
           >
-            <LockIcon size={18} style={{ color: '#14B8A6' }} />
+            <LockIcon size={18} style={{ color: 'var(--accent-text)' }} />
             <h3
               style={{
                 fontSize: '16px',
                 fontWeight: 600,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 margin: 0,
               }}
             >
@@ -1196,7 +1196,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <p
             style={{
               fontSize: '13px',
-              color: '#94A3B8',
+              color: 'var(--muted-color)',
               marginBottom: '16px',
               lineHeight: 1.5,
             }}
@@ -1216,7 +1216,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 border: '1px solid rgba(16, 185, 129, 0.3)',
                 marginBottom: '16px',
                 fontSize: '13px',
-                color: '#10B981',
+                color: 'var(--success-text)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
@@ -1237,7 +1237,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 marginBottom: '16px',
                 fontSize: '13px',
-                color: '#EF4444',
+                color: 'var(--danger-text)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
@@ -1256,10 +1256,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   display: 'block',
                   fontSize: '13px',
                   marginBottom: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                 }}
               >
-                Mật khẩu hiện tại <span style={{ color: '#EF4444' }}>*</span>
+                Mật khẩu hiện tại <span style={{ color: 'var(--danger-text)' }}>*</span>
               </label>
               <input
                 id="currentPassword"
@@ -1275,9 +1275,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   minHeight: '40px',
                   padding: '0 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -1292,11 +1292,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   display: 'block',
                   fontSize: '13px',
                   marginBottom: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                 }}
               >
                 Mật khẩu mới (tối thiểu 8 ký tự){' '}
-                <span style={{ color: '#EF4444' }}>*</span>
+                <span style={{ color: 'var(--danger-text)' }}>*</span>
               </label>
               <input
                 id="newPassword"
@@ -1312,9 +1312,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   minHeight: '40px',
                   padding: '0 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -1329,11 +1329,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   display: 'block',
                   fontSize: '13px',
                   marginBottom: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                 }}
               >
                 Xác nhận mật khẩu mới{' '}
-                <span style={{ color: '#EF4444' }}>*</span>
+                <span style={{ color: 'var(--danger-text)' }}>*</span>
               </label>
               <input
                 id="confirmPassword"
@@ -1349,9 +1349,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   minHeight: '40px',
                   padding: '0 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -1383,12 +1383,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               marginBottom: '8px',
             }}
           >
-            <SettingsIcon size={18} style={{ color: '#14B8A6' }} />
+            <SettingsIcon size={18} style={{ color: 'var(--accent-text)' }} />
             <h3
               style={{
                 fontSize: '16px',
                 fontWeight: 600,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 margin: 0,
               }}
             >
@@ -1398,7 +1398,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <p
             style={{
               fontSize: '13px',
-              color: '#94A3B8',
+              color: 'var(--muted-color)',
               marginBottom: '16px',
               lineHeight: 1.5,
             }}
@@ -1417,7 +1417,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 border: '1px solid rgba(16, 185, 129, 0.3)',
                 marginBottom: '16px',
                 fontSize: '13px',
-                color: '#10B981',
+                color: 'var(--success-text)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
@@ -1445,7 +1445,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   display: 'block',
                   fontSize: '13px',
                   marginBottom: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                 }}
               >
                 Chủ đề giao diện (SET-002)
@@ -1462,9 +1462,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   minHeight: '40px',
                   padding: '0 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -1486,7 +1486,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   display: 'block',
                   fontSize: '13px',
                   marginBottom: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                 }}
               >
                 Múi giờ chuẩn (SET-003)
@@ -1503,9 +1503,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   minHeight: '40px',
                   padding: '0 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -1526,7 +1526,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   display: 'block',
                   fontSize: '13px',
                   marginBottom: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                 }}
               >
                 Đơn vị tiền tệ (SET-003)
@@ -1543,9 +1543,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   minHeight: '40px',
                   padding: '0 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -1574,7 +1574,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               style={{
                 fontSize: '16px',
                 fontWeight: 600,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 margin: 0,
               }}
             >
@@ -1586,7 +1586,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             />
           </div>
           <p
-            style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
+            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
           >
             Thông tin phát hành và môi trường hoạt động thực tế của hệ thống
             Management Lite (tự động cập nhật từ bản dựng đang chạy).
@@ -1597,14 +1597,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               gridTemplateColumns:
                 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
               gap: '12px',
-              backgroundColor: '#0B1220',
+              backgroundColor: 'var(--bg-color)',
               padding: '16px',
               borderRadius: '8px',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
             }}
           >
             <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Phiên bản ứng dụng (Version)
               </div>
               <div
@@ -1612,7 +1612,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 style={{
                   fontSize: '14px',
                   fontWeight: 600,
-                  color: '#14B8A6',
+                  color: 'var(--accent-text)',
                   marginTop: '2px',
                 }}
               >
@@ -1620,7 +1620,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Commit đang chạy (Git commit)
               </div>
               <div
@@ -1628,7 +1628,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 style={{
                   fontSize: '14px',
                   fontWeight: 600,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontFamily: 'monospace',
                   marginTop: '2px',
                 }}
@@ -1637,7 +1637,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Thời gian phát hành (Ngày giờ phát hành)
               </div>
               <div
@@ -1645,7 +1645,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 style={{
                   fontSize: '14px',
                   fontWeight: 600,
-                  color: '#E2E8F0',
+                  color: 'var(--text-color)',
                   marginTop: '2px',
                 }}
               >
@@ -1669,7 +1669,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Trạng thái Production (Môi trường Production)
               </div>
               <div
@@ -1677,7 +1677,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 style={{
                   fontSize: '14px',
                   fontWeight: 600,
-                  color: '#38BDF8',
+                  color: 'var(--info-text)',
                   marginTop: '2px',
                 }}
               >
@@ -1692,7 +1692,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               style={{
                 marginTop: '20px',
                 paddingTop: '18px',
-                borderTop: '1px solid #334155',
+                borderTop: '1px solid var(--border-color)',
               }}
             >
               <div
@@ -1710,7 +1710,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     style={{
                       fontSize: '15px',
                       fontWeight: 600,
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       margin: 0,
                     }}
                   >
@@ -1719,7 +1719,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <p
                     style={{
                       fontSize: '12px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       margin: '4px 0 0 0',
                     }}
                   >
@@ -1731,7 +1731,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
 
               {releaseHistoryLoading && releaseHistory.length === 0 ? (
-                <div style={{ fontSize: '13px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
                   Đang tải lịch sử cập nhật...
                 </div>
               ) : (
@@ -1763,10 +1763,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         key={`${item.version}-${item.commit}`}
                         data-testid={`release-history-item-${item.commit.slice(0, 7)}`}
                         style={{
-                          backgroundColor: '#0B1220',
+                          backgroundColor: 'var(--bg-color)',
                           border: item.is_current
                             ? '1px solid rgba(20, 184, 166, 0.55)'
-                            : '1px solid #334155',
+                            : '1px solid var(--border-color)',
                           borderRadius: '8px',
                           padding: '14px 16px',
                         }}
@@ -1793,7 +1793,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               style={{
                                 fontSize: '14px',
                                 fontWeight: 700,
-                                color: '#14B8A6',
+                                color: 'var(--accent-text)',
                               }}
                             >
                               v{String(item.version).replace(/^v/i, '')}
@@ -1802,11 +1802,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               style={{
                                 fontSize: '12px',
                                 fontFamily: 'monospace',
-                                color: '#E2E8F0',
-                                backgroundColor: '#1E293B',
+                                color: 'var(--text-color)',
+                                backgroundColor: 'var(--surface-hover)',
                                 padding: '2px 8px',
                                 borderRadius: '4px',
-                                border: '1px solid #334155',
+                                border: '1px solid var(--border-color)',
                               }}
                             >
                               Commit: {String(item.commit).slice(0, 7)}
@@ -1818,9 +1818,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               />
                             )}
                           </div>
-                          <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                             Ngày giờ triển khai:{' '}
-                            <strong style={{ color: '#E2E8F0' }}>
+                            <strong style={{ color: 'var(--text-color)' }}>
                               {formattedDate}
                             </strong>
                           </div>
@@ -1829,7 +1829,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         <div
                           style={{
                             fontSize: '13px',
-                            color: '#F8FAFC',
+                            color: 'var(--text-color)',
                             lineHeight: 1.5,
                             marginBottom: '10px',
                           }}
@@ -1858,7 +1858,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               <div
                                 style={{
                                   fontWeight: 600,
-                                  color: '#10B981',
+                                  color: 'var(--success-text)',
                                   marginBottom: '6px',
                                 }}
                               >
@@ -1868,7 +1868,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                                 style={{
                                   margin: 0,
                                   paddingLeft: '16px',
-                                  color: '#CBD5E1',
+                                  color: 'var(--text-secondary)',
                                   lineHeight: 1.5,
                                 }}
                               >
@@ -1891,7 +1891,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               <div
                                 style={{
                                   fontWeight: 600,
-                                  color: '#38BDF8',
+                                  color: 'var(--info-text)',
                                   marginBottom: '6px',
                                 }}
                               >
@@ -1901,7 +1901,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                                 style={{
                                   margin: 0,
                                   paddingLeft: '16px',
-                                  color: '#CBD5E1',
+                                  color: 'var(--text-secondary)',
                                   lineHeight: 1.5,
                                 }}
                               >
@@ -1924,7 +1924,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               <div
                                 style={{
                                   fontWeight: 600,
-                                  color: '#F59E0B',
+                                  color: 'var(--warning-text)',
                                   marginBottom: '6px',
                                 }}
                               >
@@ -1934,7 +1934,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                                 style={{
                                   margin: 0,
                                   paddingLeft: '16px',
-                                  color: '#CBD5E1',
+                                  color: 'var(--text-secondary)',
                                   lineHeight: 1.5,
                                 }}
                               >
@@ -1961,7 +1961,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               style={{
                 fontSize: '16px',
                 fontWeight: 600,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 marginBottom: '8px',
               }}
             >
@@ -1970,12 +1970,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <p
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '14px',
               }}
             >
               Vai trò hiện tại của tài khoản:{' '}
-              <strong style={{ color: '#38BDF8', textTransform: 'uppercase' }}>
+              <strong style={{ color: 'var(--info-text)', textTransform: 'uppercase' }}>
                 {role}
               </strong>{' '}
               — Ma trận quyền hạn theo chuẩn bảo mật Workspace:
@@ -1998,10 +1998,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   border: '1px solid rgba(16, 185, 129, 0.25)',
                 }}
               >
-                <strong style={{ color: '#10B981' }}>
+                <strong style={{ color: 'var(--success-text)' }}>
                   👑 OWNER (Chủ sở hữu)
                 </strong>
-                <div style={{ color: '#CBD5E1', marginTop: '4px' }}>
+                <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
                   Toàn quyền hệ thống, Kho bí mật ACC, Thu chi, Lương, Nhật ký
                   kiểm toán & Bảo vệ Owner cuối cùng.
                 </div>
@@ -2014,10 +2014,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   border: '1px solid rgba(56, 189, 248, 0.25)',
                 }}
               >
-                <strong style={{ color: '#38BDF8' }}>
+                <strong style={{ color: 'var(--info-text)' }}>
                   🛡️ ADMIN (Quản lý vận hành)
                 </strong>
-                <div style={{ color: '#CBD5E1', marginTop: '4px' }}>
+                <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
                   Đề xuất chưa bật trong hệ thống hiện tại. Quyền quản lý vận
                   hành đang chờ hoàn thiện và nghiệm thu; không tự cấp quyền từ
                   chức vụ.
@@ -2031,10 +2031,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   border: '1px solid rgba(148, 163, 184, 0.25)',
                 }}
               >
-                <strong style={{ color: '#E2E8F0' }}>
+                <strong style={{ color: 'var(--text-color)' }}>
                   👤 STAFF (Nhân viên)
                 </strong>
-                <div style={{ color: '#CBD5E1', marginTop: '4px' }}>
+                <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
                   Chấm công cá nhân, đăng ký lịch ca, nhận & nộp báo cáo công
                   việc được giao.
                 </div>
@@ -2046,8 +2046,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               style={{
                 padding: '12px 14px',
                 borderRadius: '8px',
-                backgroundColor: '#0F172A',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
                 display: 'flex',
                 flexWrap: 'wrap',
                 alignItems: 'center',
@@ -2060,7 +2060,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   style={{
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   🔐 Xác thực 2 lớp (MFA / TOTP Authenticator)
@@ -2068,7 +2068,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <div
                   style={{
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -2087,14 +2087,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               marginBottom: '8px',
             }}
           >
             Phiên làm việc & Đăng xuất
           </h3>
           <p
-            style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '16px' }}
+            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
           >
             Đăng xuất sẽ hủy phiên làm việc hiện tại trên máy chủ và xóa cookie
             phiên bảo mật.

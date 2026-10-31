@@ -143,7 +143,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#0B1220',
+        backgroundColor: 'var(--bg-color, #0B1220)',
         padding: '16px',
         boxSizing: 'border-box',
       }}
@@ -152,8 +152,8 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
         <AppCard
           padding="large"
           style={{
-            backgroundColor: '#0F172A',
-            border: '1px solid #1E293B',
+            backgroundColor: 'var(--surface-subtle)',
+            border: '1px solid var(--border-subtle)',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
           }}
         >
@@ -168,7 +168,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                 height: '48px',
                 borderRadius: '12px',
                 backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                color: '#14B8A6',
+                color: 'var(--accent-text)',
                 marginBottom: '16px',
               }}
             >
@@ -178,7 +178,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
               style={{
                 fontSize: '22px',
                 fontWeight: 700,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 margin: '0 0 8px 0',
               }}
             >
@@ -187,7 +187,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
             <p
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 margin: 0,
                 lineHeight: '1.5',
               }}
@@ -213,7 +213,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: '10px',
-                  color: '#10B981',
+                  color: 'var(--success-text)',
                   marginBottom: '16px',
                 }}
               >
@@ -253,7 +253,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
-                color: '#EF4444',
+                color: 'var(--danger-text)',
                 fontSize: '13px',
               }}
             >
@@ -273,7 +273,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#CBD5E1',
+                    color: 'var(--text-secondary)',
                     marginBottom: '8px',
                   }}
                 >
@@ -290,10 +290,10 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 14px',
-                    backgroundColor: '#1E293B',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-hover)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     fontFamily: 'monospace',
                     boxSizing: 'border-box',
@@ -313,7 +313,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#CBD5E1',
+                    color: 'var(--text-secondary)',
                     marginBottom: '8px',
                   }}
                 >
@@ -331,10 +331,10 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px 40px 10px 14px',
-                      backgroundColor: '#1E293B',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-hover)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '8px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                       outline: 'none',
@@ -353,7 +353,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                       transform: 'translateY(-50%)',
                       background: 'none',
                       border: 'none',
-                      color: '#64748B',
+                      color: 'var(--muted-color)',
                       cursor: 'pointer',
                       padding: '4px',
                       display: 'flex',
@@ -379,7 +379,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#CBD5E1',
+                    color: 'var(--text-secondary)',
                     marginBottom: '8px',
                   }}
                 >
@@ -396,10 +396,10 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 14px',
-                    backgroundColor: '#1E293B',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-hover)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                     outline: 'none',
@@ -444,7 +444,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 fontSize: '13px',
                 cursor: 'pointer',
                 padding: '4px 0',
@@ -461,7 +461,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#14B8A6',
+                color: 'var(--accent-text)',
                 fontSize: '13px',
                 cursor: 'pointer',
                 display: 'inline-flex',

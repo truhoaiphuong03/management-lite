@@ -96,7 +96,7 @@ function getSeverityBadge(severity?: IssueSeverity): {
     case 'P0':
       return {
         bg: 'rgba(239, 68, 68, 0.2)',
-        color: '#EF4444',
+        color: 'var(--danger-text)',
         border: '#EF4444',
         label: 'P0 - Khẩn cấp',
       };
@@ -117,7 +117,7 @@ function getSeverityBadge(severity?: IssueSeverity): {
     case 'P3':
       return {
         bg: 'rgba(100, 116, 139, 0.2)',
-        color: '#94A3B8',
+        color: 'var(--muted-color)',
         border: '#64748B',
         label: 'P3 - Thấp',
       };
@@ -133,13 +133,13 @@ function getTestResultBadge(testResult?: IssueTestResult | null): {
   if (!testResult) return null;
   switch (testResult) {
     case 'passed':
-      return { color: '#10B981', label: 'Test: PASS' };
+      return { color: 'var(--success-text)', label: 'Test: PASS' };
     case 'failed':
-      return { color: '#EF4444', label: 'Test: FAIL' };
+      return { color: 'var(--danger-text)', label: 'Test: FAIL' };
     case 'manual':
       return { color: '#A855F7', label: 'Test: Thủ công' };
     case 'pending':
-      return { color: '#F59E0B', label: 'Test: Chờ chạy' };
+      return { color: 'var(--warning-text)', label: 'Test: Chờ chạy' };
     default:
       return null;
   }
@@ -789,7 +789,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                color: '#38BDF8',
+                color: 'var(--info-text)',
                 borderColor: '#38BDF8',
                 backgroundColor: 'rgba(56, 189, 248, 0.08)',
               }}
@@ -842,7 +842,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                color: '#F59E0B',
+                color: 'var(--warning-text)',
                 borderColor: '#F59E0B',
               }}
             >
@@ -861,7 +861,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              color: copied ? '#10B981' : undefined,
+              color: copied ? 'var(--success-text)' : undefined,
               borderColor: copied ? '#10B981' : undefined,
             }}
           >
@@ -913,7 +913,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   padding: '4px 10px',
                   borderRadius: '4px',
                   backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                  color: '#14B8A6',
+                  color: 'var(--accent-text)',
                   border: '1px solid rgba(20, 184, 166, 0.4)',
                   fontFamily: 'monospace',
                   fontSize: '13px',
@@ -964,7 +964,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     padding: '4px 8px',
                     borderRadius: '4px',
                     backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                    color: '#EF4444',
+                    color: 'var(--danger-text)',
                     border: '1px solid rgba(239, 68, 68, 0.3)',
                     fontSize: '12px',
                     fontWeight: 600,
@@ -987,7 +987,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             borderRadius: '8px',
             padding: '12px 16px',
             marginBottom: '16px',
-            color: '#38BDF8',
+            color: 'var(--info-text)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -1005,7 +1005,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#38BDF8',
+              color: 'var(--info-text)',
               cursor: 'pointer',
               padding: '4px',
               display: 'inline-flex',
@@ -1026,7 +1026,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             borderRadius: '8px',
             padding: '12px 16px',
             marginBottom: '16px',
-            color: '#F87171',
+            color: 'var(--danger-text)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -1044,7 +1044,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#F87171',
+              color: 'var(--danger-text)',
               cursor: 'pointer',
               padding: '4px',
               display: 'inline-flex',
@@ -1066,7 +1066,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             borderRadius: '8px',
             padding: '12px 16px',
             marginBottom: '16px',
-            color: '#34D399',
+            color: 'var(--success-text)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -1084,7 +1084,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#34D399',
+              color: 'var(--success-text)',
               cursor: 'pointer',
               padding: '4px',
               display: 'inline-flex',
@@ -1105,7 +1105,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             borderRadius: '8px',
             padding: '12px 16px',
             marginBottom: '16px',
-            color: '#F87171',
+            color: 'var(--danger-text)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -1123,7 +1123,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#F87171',
+              color: 'var(--danger-text)',
               cursor: 'pointer',
               padding: '4px',
               display: 'inline-flex',
@@ -1144,7 +1144,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             borderRadius: '8px',
             padding: '12px 16px',
             marginBottom: '16px',
-            color: '#F87171',
+            color: 'var(--danger-text)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -1162,7 +1162,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#F87171',
+              color: 'var(--danger-text)',
               cursor: 'pointer',
               padding: '4px',
               display: 'inline-flex',
@@ -1204,7 +1204,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   fontSize: '16px',
                   fontWeight: 700,
-                  color: '#38BDF8',
+                  color: 'var(--info-text)',
                   margin: 0,
                 }}
               >
@@ -1216,7 +1216,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 <span
                   style={{
                     fontSize: '11px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     fontFamily: 'monospace',
                     padding: '2px 8px',
                     borderRadius: '4px',
@@ -1227,7 +1227,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 </span>
               )}
               {issue.gemini_analysis.analyzed_at && (
-                <span style={{ fontSize: '12px', color: '#64748B' }}>
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   {formatTimestamp(issue.gemini_analysis.analyzed_at)}
                 </span>
               )}
@@ -1245,7 +1245,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     display: 'block',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '4px',
                   }}
                 >
@@ -1255,7 +1255,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   style={{
                     margin: 0,
                     fontSize: '14px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     lineHeight: 1.5,
                   }}
                 >
@@ -1271,7 +1271,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   padding: '14px 16px',
                   borderRadius: '6px',
                   backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                  border: '1px solid #334155',
+                  border: '1px solid var(--border-color)',
                 }}
               >
                 <span
@@ -1279,7 +1279,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     display: 'block',
                     fontSize: '12px',
                     fontWeight: 700,
-                    color: '#F59E0B',
+                    color: 'var(--warning-text)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1289,7 +1289,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   style={{
                     margin: 0,
                     fontSize: '13px',
-                    color: '#E2E8F0',
+                    color: 'var(--text-color)',
                     lineHeight: 1.6,
                     whiteSpace: 'pre-wrap',
                   }}
@@ -1306,7 +1306,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   padding: '14px 16px',
                   borderRadius: '6px',
                   backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                  border: '1px solid #334155',
+                  border: '1px solid var(--border-color)',
                 }}
               >
                 <span
@@ -1314,7 +1314,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     display: 'block',
                     fontSize: '12px',
                     fontWeight: 700,
-                    color: '#10B981',
+                    color: 'var(--success-text)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1324,7 +1324,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   style={{
                     margin: 0,
                     fontSize: '13px',
-                    color: '#E2E8F0',
+                    color: 'var(--text-color)',
                     lineHeight: 1.6,
                     whiteSpace: 'pre-wrap',
                   }}
@@ -1351,7 +1351,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                         display: 'block',
                         fontSize: '12px',
                         fontWeight: 600,
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         marginBottom: '6px',
                       }}
                     >
@@ -1366,11 +1366,11 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                           style={{
                             padding: '3px 8px',
                             borderRadius: '4px',
-                            backgroundColor: '#0F172A',
-                            border: '1px solid #334155',
+                            backgroundColor: 'var(--surface-subtle)',
+                            border: '1px solid var(--border-color)',
                             fontFamily: 'monospace',
                             fontSize: '12px',
-                            color: '#38BDF8',
+                            color: 'var(--info-text)',
                           }}
                         >
                           {file}
@@ -1388,7 +1388,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                         display: 'block',
                         fontSize: '12px',
                         fontWeight: 600,
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         marginBottom: '6px',
                       }}
                     >
@@ -1398,7 +1398,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                       style={{
                         margin: 0,
                         paddingLeft: '18px',
-                        color: '#CBD5E1',
+                        color: 'var(--text-secondary)',
                         fontSize: '13px',
                         lineHeight: 1.5,
                       }}
@@ -1423,7 +1423,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 borderTop: '1px solid rgba(56, 189, 248, 0.15)',
               }}
             >
-              <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Khả năng tự động kiểm thử:
               </span>
               {issue.gemini_analysis.can_auto_verify ? (
@@ -1432,7 +1432,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     padding: '3px 10px',
                     borderRadius: '12px',
                     backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                    color: '#34D399',
+                    color: 'var(--success-text)',
                     border: '1px solid #10B981',
                     fontSize: '12px',
                     fontWeight: 600,
@@ -1446,7 +1446,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     padding: '3px 10px',
                     borderRadius: '12px',
                     backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                    color: '#FBBF24',
+                    color: 'var(--warning-text)',
                     border: '1px solid #F59E0B',
                     fontSize: '12px',
                     fontWeight: 600,
@@ -1473,9 +1473,9 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             style={{
               fontSize: '16px',
               fontWeight: 700,
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               marginBottom: '16px',
-              borderBottom: '1px solid #334155',
+              borderBottom: '1px solid var(--border-color)',
               paddingBottom: '8px',
             }}
           >
@@ -1496,7 +1496,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '4px',
                   }}
                 >
@@ -1507,7 +1507,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
-                    color: '#38BDF8',
+                    color: 'var(--info-text)',
                     fontSize: '13px',
                     fontWeight: 600,
                     textDecoration: 'none',
@@ -1527,7 +1527,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '4px',
                   }}
                 >
@@ -1535,7 +1535,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 </span>
                 <span
                   style={{
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                     fontWeight: 600,
                   }}
@@ -1551,7 +1551,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '4px',
                   }}
                 >
@@ -1561,8 +1561,8 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   style={{
                     padding: '3px 8px',
                     borderRadius: '4px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     color: '#A5B4FC',
                     fontFamily: 'monospace',
                     fontSize: '12px',
@@ -1579,7 +1579,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '4px',
                   }}
                 >
@@ -1597,10 +1597,10 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                           : 'rgba(245, 158, 11, 0.15)',
                     color:
                       issue.test_result === 'passed'
-                        ? '#34D399'
+                        ? 'var(--success-text)'
                         : issue.test_result === 'failed'
-                          ? '#F87171'
-                          : '#FBBF24',
+                          ? 'var(--danger-text)'
+                          : 'var(--warning-text)',
                     border: `1px solid ${issue.test_result === 'passed' ? '#10B981' : issue.test_result === 'failed' ? '#EF4444' : '#F59E0B'}`,
                     fontSize: '12px',
                     fontWeight: 700,
@@ -1620,9 +1620,9 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
           style={{
             fontSize: '16px',
             fontWeight: 700,
-            color: '#F8FAFC',
+            color: 'var(--text-color)',
             marginBottom: '16px',
-            borderBottom: '1px solid #334155',
+            borderBottom: '1px solid var(--border-color)',
             paddingBottom: '8px',
           }}
         >
@@ -1644,7 +1644,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               style={{
                 display: 'block',
                 fontSize: '12px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '4px',
               }}
             >
@@ -1655,7 +1655,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 padding: '4px 10px',
                 borderRadius: '6px',
                 backgroundColor: 'rgba(51, 65, 85, 0.4)',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 fontFamily: 'monospace',
                 fontSize: '13px',
                 display: 'inline-block',
@@ -1670,14 +1670,14 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               style={{
                 display: 'block',
                 fontSize: '12px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '4px',
               }}
             >
               Người báo cáo
             </span>
             <span
-              style={{ fontSize: '14px', color: '#F8FAFC', fontWeight: 500 }}
+              style={{ fontSize: '14px', color: 'var(--text-color)', fontWeight: 500 }}
             >
               {issue.reporter_name || 'Chủ sở hữu (Owner)'}
             </span>
@@ -1688,13 +1688,13 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               style={{
                 display: 'block',
                 fontSize: '12px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '4px',
               }}
             >
               Thời điểm tạo
             </span>
-            <span style={{ fontSize: '13px', color: '#F8FAFC' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-color)' }}>
               {formatTimestamp(issue.created_at)}
             </span>
           </div>
@@ -1704,13 +1704,13 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               style={{
                 display: 'block',
                 fontSize: '12px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '4px',
               }}
             >
               Cập nhật gần nhất
             </span>
-            <span style={{ fontSize: '13px', color: '#F8FAFC' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-color)' }}>
               {formatTimestamp(issue.updated_at)}
             </span>
           </div>
@@ -1721,13 +1721,13 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '12px',
-                  color: '#10B981',
+                  color: 'var(--success-text)',
                   marginBottom: '4px',
                 }}
               >
                 Thời điểm đóng
               </span>
-              <span style={{ fontSize: '13px', color: '#10B981' }}>
+              <span style={{ fontSize: '13px', color: 'var(--success-text)' }}>
                 {formatTimestamp(issue.closed_at)}
               </span>
             </div>
@@ -1741,7 +1741,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               display: 'block',
               fontSize: '13px',
               fontWeight: 600,
-              color: '#94A3B8',
+              color: 'var(--muted-color)',
               marginBottom: '8px',
             }}
           >
@@ -1750,11 +1750,11 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
           <div
             data-testid="issue-description"
             style={{
-              backgroundColor: '#0B1220',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--bg-color)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
               padding: '16px',
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               fontSize: '14px',
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
@@ -1775,7 +1775,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 padding: '14px 16px',
                 borderRadius: '8px',
                 backgroundColor: 'rgba(15, 23, 42, 0.7)',
-                border: '1px solid #1E293B',
+                border: '1px solid var(--border-subtle)',
               }}
             >
               <span
@@ -1783,7 +1783,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   display: 'block',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '8px',
                 }}
               >
@@ -1800,15 +1800,15 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               >
                 {Boolean(issue.metadata_context.url) && (
                   <div>
-                    <span style={{ color: '#64748B' }}>URL: </span>
-                    <span style={{ color: '#CBD5E1', wordBreak: 'break-all' }}>
+                    <span style={{ color: 'var(--muted-color)' }}>URL: </span>
+                    <span style={{ color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
                       {String(issue.metadata_context.url)}
                     </span>
                   </div>
                 )}
                 {Boolean(issue.metadata_context.release_sha) && (
                   <div>
-                    <span style={{ color: '#64748B' }}>Release SHA: </span>
+                    <span style={{ color: 'var(--muted-color)' }}>Release SHA: </span>
                     <code style={{ color: '#A5B4FC', fontFamily: 'monospace' }}>
                       {String(issue.metadata_context.release_sha).slice(0, 12)}
                     </code>
@@ -1816,24 +1816,24 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 )}
                 {Boolean(issue.metadata_context.error_id) && (
                   <div>
-                    <span style={{ color: '#64748B' }}>Error ID: </span>
-                    <code style={{ color: '#F87171', fontFamily: 'monospace' }}>
+                    <span style={{ color: 'var(--muted-color)' }}>Error ID: </span>
+                    <code style={{ color: 'var(--danger-text)', fontFamily: 'monospace' }}>
                       {String(issue.metadata_context.error_id)}
                     </code>
                   </div>
                 )}
                 {Boolean(issue.metadata_context.request_id) && (
                   <div>
-                    <span style={{ color: '#64748B' }}>Request ID: </span>
-                    <code style={{ color: '#94A3B8', fontFamily: 'monospace' }}>
+                    <span style={{ color: 'var(--muted-color)' }}>Request ID: </span>
+                    <code style={{ color: 'var(--muted-color)', fontFamily: 'monospace' }}>
                       {String(issue.metadata_context.request_id)}
                     </code>
                   </div>
                 )}
                 {Boolean(issue.metadata_context.user_agent) && (
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <span style={{ color: '#64748B' }}>Trình duyệt: </span>
-                    <span style={{ color: '#94A3B8', wordBreak: 'break-all' }}>
+                    <span style={{ color: 'var(--muted-color)' }}>Trình duyệt: </span>
+                    <span style={{ color: 'var(--muted-color)', wordBreak: 'break-all' }}>
                       {String(issue.metadata_context.user_agent)}
                     </span>
                   </div>
@@ -1850,7 +1850,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 display: 'block',
                 fontSize: '12px',
                 fontWeight: 600,
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '8px',
               }}
             >
@@ -1861,10 +1861,10 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 display: 'inline-block',
                 borderRadius: '8px',
                 overflow: 'hidden',
-                border: '1px solid #334155',
+                border: '1px solid var(--border-color)',
                 cursor: 'pointer',
                 maxHeight: '260px',
-                backgroundColor: '#0F172A',
+                backgroundColor: 'var(--surface-subtle)',
               }}
               onClick={() => setSelectedImage(issue.screenshot_url || null)}
             >
@@ -1883,7 +1883,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               style={{
                 display: 'block',
                 fontSize: '11px',
-                color: '#64748B',
+                color: 'var(--muted-color)',
                 marginTop: '4px',
               }}
             >
@@ -1901,7 +1901,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: '20px',
-            borderBottom: '1px solid #334155',
+            borderBottom: '1px solid var(--border-color)',
             paddingBottom: '8px',
             flexWrap: 'wrap',
             gap: '8px',
@@ -1911,13 +1911,13 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             style={{
               fontSize: '16px',
               fontWeight: 700,
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               margin: 0,
             }}
           >
             Lịch sử hoạt động (Activity Timeline)
           </h3>
-          <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
             {activities.length} sự kiện được ghi nhận (Append-only)
           </span>
         </div>
@@ -1951,7 +1951,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     gap: '6px',
                     padding: '14px 16px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
+                    border: '1px solid var(--border-color)',
                     backgroundColor: 'rgba(11, 18, 32, 0.6)',
                   }}
                 >
@@ -1978,7 +1978,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                       <span
                         style={{
                           fontSize: '13px',
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                           fontWeight: 500,
                         }}
                       >
@@ -1986,7 +1986,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                       </span>
                     </div>
 
-                    <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                       {formatTimestamp(act.created_at)}
                     </span>
                   </div>
@@ -1998,28 +1998,28 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                         marginTop: '6px',
                         padding: '8px 12px',
                         borderRadius: '6px',
-                        backgroundColor: '#0B1220',
+                        backgroundColor: 'var(--bg-color)',
                         fontSize: '12px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         lineHeight: 1.5,
                       }}
                     >
                       {Boolean(meta.previous_status && meta.to_status) && (
-                        <div style={{ color: '#F8FAFC', marginBottom: '2px' }}>
+                        <div style={{ color: 'var(--text-color)', marginBottom: '2px' }}>
                           Trạng thái:{' '}
-                          <span style={{ color: '#94A3B8' }}>
+                          <span style={{ color: 'var(--muted-color)' }}>
                             {String(meta.previous_status)}
                           </span>{' '}
                           ➔{' '}
-                          <span style={{ color: '#14B8A6', fontWeight: 600 }}>
+                          <span style={{ color: 'var(--accent-text)', fontWeight: 600 }}>
                             {String(meta.to_status)}
                           </span>
                         </div>
                       )}
 
                       {Boolean(meta.reason) && (
-                        <div style={{ color: '#F8FAFC', marginTop: '4px' }}>
-                          <span style={{ color: '#F59E0B', fontWeight: 600 }}>
+                        <div style={{ color: 'var(--text-color)', marginTop: '4px' }}>
+                          <span style={{ color: 'var(--warning-text)', fontWeight: 600 }}>
                             Lý do:{' '}
                           </span>
                           <span>{String(meta.reason)}</span>
@@ -2027,8 +2027,8 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                       )}
 
                       {Boolean(meta.comment) && (
-                        <div style={{ color: '#F8FAFC', marginTop: '4px' }}>
-                          <span style={{ color: '#10B981', fontWeight: 600 }}>
+                        <div style={{ color: 'var(--text-color)', marginTop: '4px' }}>
+                          <span style={{ color: 'var(--success-text)', fontWeight: 600 }}>
                             Ghi chú:{' '}
                           </span>
                           <span>{String(meta.comment)}</span>
@@ -2036,7 +2036,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                       )}
 
                       {Boolean(meta.fields_changed) && (
-                        <div style={{ color: '#94A3B8', marginTop: '2px' }}>
+                        <div style={{ color: 'var(--muted-color)', marginTop: '2px' }}>
                           Các trường thay đổi:{' '}
                           {Array.isArray(meta.fields_changed)
                             ? meta.fields_changed.join(', ')
@@ -2078,9 +2078,9 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#151F30',
+              backgroundColor: 'var(--surface-color)',
               borderRadius: '12px',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
               width: '100%',
               maxWidth: '520px',
               boxShadow:
@@ -2094,7 +2094,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '16px 20px',
-                borderBottom: '1px solid #334155',
+                borderBottom: '1px solid var(--border-color)',
               }}
             >
               <div
@@ -2109,7 +2109,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#10B981',
+                    color: 'var(--success-text)',
                   }}
                 >
                   <CheckIcon size={18} />
@@ -2119,7 +2119,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Xác nhận đã khắc phục sự cố
@@ -2132,7 +2132,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: actionLoading ? 'not-allowed' : 'pointer',
                   padding: '4px',
                   display: 'flex',
@@ -2150,14 +2150,14 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   margin: '0 0 16px 0',
                   fontSize: '14px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   lineHeight: 1.5,
                 }}
               >
                 Bạn đang thực hiện xác nhận đã khắc phục cho vấn đề:{' '}
-                <strong style={{ color: '#14B8A6' }}>{issue.title}</strong> (ID:{' '}
+                <strong style={{ color: 'var(--accent-text)' }}>{issue.title}</strong> (ID:{' '}
                 {issue.id}). Trạng thái sẽ được chuyển sang{' '}
-                <strong style={{ color: '#10B981' }}>Đã đóng (closed)</strong>.
+                <strong style={{ color: 'var(--success-text)' }}>Đã đóng (closed)</strong>.
               </p>
 
               <div style={{ marginBottom: '16px' }}>
@@ -2167,7 +2167,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 500,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -2183,11 +2183,11 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   disabled={actionLoading}
                   style={{
                     width: '100%',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     padding: '10px 12px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                     outline: 'none',
@@ -2259,9 +2259,9 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#151F30',
+              backgroundColor: 'var(--surface-color)',
               borderRadius: '12px',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
               width: '100%',
               maxWidth: '520px',
               boxShadow:
@@ -2275,7 +2275,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '16px 20px',
-                borderBottom: '1px solid #334155',
+                borderBottom: '1px solid var(--border-color)',
               }}
             >
               <div
@@ -2290,7 +2290,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#F59E0B',
+                    color: 'var(--warning-text)',
                   }}
                 >
                   <RotateCcwIcon size={18} />
@@ -2300,7 +2300,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Mở lại vấn đề
@@ -2313,7 +2313,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: actionLoading ? 'not-allowed' : 'pointer',
                   padding: '4px',
                   display: 'flex',
@@ -2331,13 +2331,13 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   margin: '0 0 16px 0',
                   fontSize: '14px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   lineHeight: 1.5,
                 }}
               >
                 Vui lòng nhập lý do mở lại vấn đề để đội ngũ kỹ thuật tiếp tục
                 khắc phục. Trạng thái sẽ được chuyển sang{' '}
-                <strong style={{ color: '#F59E0B' }}>Mở (open)</strong>.
+                <strong style={{ color: 'var(--warning-text)' }}>Mở (open)</strong>.
               </p>
 
               <div style={{ marginBottom: '16px' }}>
@@ -2347,11 +2347,11 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 500,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginBottom: '6px',
                   }}
                 >
-                  Lý do mở lại <span style={{ color: '#EF4444' }}>*</span>
+                  Lý do mở lại <span style={{ color: 'var(--danger-text)' }}>*</span>
                 </label>
                 <textarea
                   id="reopen-reason"
@@ -2363,11 +2363,11 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   disabled={actionLoading}
                   style={{
                     width: '100%',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     padding: '10px 12px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                     outline: 'none',
@@ -2384,7 +2384,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 500,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -2400,11 +2400,11 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   disabled={actionLoading}
                   style={{
                     width: '100%',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     padding: '10px 12px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                     outline: 'none',

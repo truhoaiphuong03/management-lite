@@ -463,8 +463,8 @@ export const App: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#0B1220',
-          color: '#14B8A6',
+          backgroundColor: 'var(--bg-color)',
+          color: 'var(--accent-text)',
           fontSize: '15px',
           fontWeight: 600,
         }}
@@ -827,7 +827,7 @@ export const App: React.FC = () => {
             style={{
               backgroundColor: 'rgba(245, 158, 11, 0.12)',
               border: '1px solid #F59E0B',
-              color: '#FBBF24',
+              color: 'var(--warning-text)',
               padding: '10px 16px',
               fontSize: '13px',
               fontWeight: 500,
@@ -929,8 +929,8 @@ export const App: React.FC = () => {
                 }
                 style={{
                   backgroundColor: 'transparent',
-                  color: '#F8FAFC',
-                  border: '1px solid #475569',
+                  color: 'var(--text-color)',
+                  border: '1px solid var(--border-hover)',
                   borderRadius: '6px',
                   padding: '6px 12px',
                   fontSize: '12px',
@@ -964,11 +964,11 @@ export const App: React.FC = () => {
               style={{
                 width: '100%',
                 maxWidth: '440px',
-                backgroundColor: '#0F172A',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
                 borderRadius: '12px',
                 padding: '20px',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
               }}
             >
               <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>
@@ -980,7 +980,7 @@ export const App: React.FC = () => {
                   style={{
                     background: 'rgba(16,185,129,0.12)',
                     border: '1px solid #10B981',
-                    color: '#6EE7B7',
+                    color: 'var(--success-text)',
                     borderRadius: '8px',
                     padding: '10px 12px',
                     fontSize: '13px',
@@ -1001,7 +1001,7 @@ export const App: React.FC = () => {
                   style={{
                     background: 'rgba(239,68,68,0.12)',
                     border: '1px solid #EF4444',
-                    color: '#FCA5A5',
+                    color: 'var(--danger-text)',
                     borderRadius: '8px',
                     padding: '10px 12px',
                     fontSize: '13px',
@@ -1035,7 +1035,7 @@ export const App: React.FC = () => {
                 <div
                   style={{
                     fontSize: '13px',
-                    color: '#CBD5E1',
+                    color: 'var(--text-secondary)',
                     marginBottom: '12px',
                   }}
                 >
@@ -1047,7 +1047,7 @@ export const App: React.FC = () => {
                 <div
                   style={{
                     fontSize: '12px',
-                    color: '#FBBF24',
+                    color: 'var(--warning-text)',
                     marginBottom: '12px',
                   }}
                 >
@@ -1058,7 +1058,7 @@ export const App: React.FC = () => {
               )}
               <label
                 htmlFor="verify-code-input"
-                style={{ fontSize: '12px', color: '#94A3B8' }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)' }}
               >
                 Mã xác minh
               </label>
@@ -1077,16 +1077,16 @@ export const App: React.FC = () => {
                   padding: '10px 12px',
                   fontSize: '16px',
                   borderRadius: '8px',
-                  border: '1px solid #475569',
-                  backgroundColor: '#1E293B',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-hover)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: 'var(--text-color)',
                 }}
               />
               {verifyCodeError && (
                 <div
                   role="alert"
                   style={{
-                    color: '#FCA5A5',
+                    color: 'var(--danger-text)',
                     fontSize: '12px',
                     marginBottom: '8px',
                   }}
@@ -1097,7 +1097,7 @@ export const App: React.FC = () => {
               {verifyCodeState === 'success' && (
                 <div
                   style={{
-                    color: '#6EE7B7',
+                    color: 'var(--success-text)',
                     fontSize: '13px',
                     marginBottom: '8px',
                   }}
@@ -1117,8 +1117,8 @@ export const App: React.FC = () => {
                   onClick={() => setVerifyInfo(null)}
                   style={{
                     background: 'transparent',
-                    color: '#F8FAFC',
-                    border: '1px solid #475569',
+                    color: 'var(--text-color)',
+                    border: '1px solid var(--border-hover)',
                     borderRadius: '6px',
                     padding: '8px 14px',
                     cursor: 'pointer',
@@ -1211,11 +1211,11 @@ export const App: React.FC = () => {
                 maxHeight: 'calc(100dvh - 24px)',
                 overflowY: 'auto',
                 margin: 'auto',
-                backgroundColor: '#0F172A',
+                backgroundColor: 'var(--surface-subtle)',
                 border: '1px solid #14B8A6',
                 borderRadius: '14px',
                 padding: '18px',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)',
                 boxSizing: 'border-box',
               }}
@@ -1234,7 +1234,7 @@ export const App: React.FC = () => {
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                   }}
                 >
                   📱 Bổ sung thông tin hồ sơ nhân viên
@@ -1257,9 +1257,9 @@ export const App: React.FC = () => {
                   }}
                   style={{
                     background: 'transparent',
-                    border: '1px solid #334155',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     width: '28px',
                     height: '28px',
                     cursor: 'pointer',
@@ -1277,12 +1277,12 @@ export const App: React.FC = () => {
                 style={{
                   margin: '0 0 14px',
                   fontSize: '13px',
-                  color: '#CBD5E1',
+                  color: 'var(--text-secondary)',
                   lineHeight: 1.5,
                 }}
               >
                 Chỉ bắt buộc điền{' '}
-                <strong style={{ color: '#F8FAFC' }}>
+                <strong style={{ color: 'var(--text-color)' }}>
                   Số điện thoại liên hệ (*)
                 </strong>
                 . Các thông tin khác (Ngày sinh, Giới tính, Số CCCD/CMND, Địa chỉ,
@@ -1311,14 +1311,14 @@ export const App: React.FC = () => {
                     htmlFor="missing-phone-input"
                     style={{
                       fontSize: '12px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                     }}
                   >
                     Số điện thoại liên hệ{' '}
-                    <span style={{ color: '#EF4444', fontWeight: 700 }}>
+                    <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}>
                       * (Bắt buộc)
                     </span>
                   </label>
@@ -1340,8 +1340,8 @@ export const App: React.FC = () => {
                       fontSize: '14px',
                       borderRadius: '8px',
                       border: '1px solid #14B8A6',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
                     }}
                   />
                 </div>
@@ -1357,14 +1357,14 @@ export const App: React.FC = () => {
                     htmlFor="missing-dob-input"
                     style={{
                       fontSize: '12px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                     }}
                   >
                     Ngày sinh{' '}
-                    <span style={{ color: '#64748B' }}>(Không bắt buộc)</span>
+                    <span style={{ color: 'var(--muted-color)' }}>(Không bắt buộc)</span>
                   </label>
                   <VnDateOfBirthSelect
                     id="missing-dob-input"
@@ -1383,10 +1383,10 @@ export const App: React.FC = () => {
                 >
                   <label
                     htmlFor="missing-gender-input"
-                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
                   >
                     Giới tính{' '}
-                    <span style={{ color: '#64748B' }}>(Không bắt buộc)</span>
+                    <span style={{ color: 'var(--muted-color)' }}>(Không bắt buộc)</span>
                   </label>
                   <select
                     id="missing-gender-input"
@@ -1400,9 +1400,9 @@ export const App: React.FC = () => {
                       padding: '0 12px',
                       fontSize: '14px',
                       borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
                     }}
                   >
                     <option value="">-- Chọn --</option>
@@ -1421,10 +1421,10 @@ export const App: React.FC = () => {
                 >
                   <label
                     htmlFor="missing-cccd-input"
-                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
                   >
                     Số CCCD / CMND{' '}
-                    <span style={{ color: '#64748B' }}>(Không bắt buộc)</span>
+                    <span style={{ color: 'var(--muted-color)' }}>(Không bắt buộc)</span>
                   </label>
                   <input
                     id="missing-cccd-input"
@@ -1440,9 +1440,9 @@ export const App: React.FC = () => {
                       padding: '0 12px',
                       fontSize: '14px',
                       borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
                     }}
                   />
                 </div>
@@ -1450,10 +1450,10 @@ export const App: React.FC = () => {
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label
                     htmlFor="missing-address-input"
-                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
                   >
                     Địa chỉ nơi ở hiện tại{' '}
-                    <span style={{ color: '#64748B' }}>(Không bắt buộc)</span>
+                    <span style={{ color: 'var(--muted-color)' }}>(Không bắt buộc)</span>
                   </label>
                   <input
                     id="missing-address-input"
@@ -1469,9 +1469,9 @@ export const App: React.FC = () => {
                       padding: '0 12px',
                       fontSize: '14px',
                       borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
                     }}
                   />
                 </div>
@@ -1481,8 +1481,8 @@ export const App: React.FC = () => {
                 style={{
                   padding: '12px',
                   borderRadius: '10px',
-                  backgroundColor: '#0B1220',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--bg-color)',
+                  border: '1px solid var(--border-color)',
                   marginBottom: '14px',
                 }}
               >
@@ -1490,7 +1490,7 @@ export const App: React.FC = () => {
                   style={{
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     marginBottom: '8px',
                   }}
                 >
@@ -1524,9 +1524,9 @@ export const App: React.FC = () => {
                       padding: '0 12px',
                       fontSize: '13.5px',
                       borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
                     }}
                   />
                   <input
@@ -1543,9 +1543,9 @@ export const App: React.FC = () => {
                       padding: '0 12px',
                       fontSize: '13.5px',
                       borderRadius: '8px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#1E293B',
-                      color: '#F8FAFC',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
                     }}
                   />
                 </div>
@@ -1555,7 +1555,7 @@ export const App: React.FC = () => {
                 <div
                   role="alert"
                   style={{
-                    color: '#FCA5A5',
+                    color: 'var(--danger-text)',
                     fontSize: '12px',
                     marginBottom: '10px',
                   }}
@@ -1588,8 +1588,8 @@ export const App: React.FC = () => {
                   }}
                   style={{
                     background: 'transparent',
-                    color: '#94A3B8',
-                    border: '1px solid #475569',
+                    color: 'var(--muted-color)',
+                    border: '1px solid var(--border-hover)',
                     borderRadius: '8px',
                     padding: '9px 14px',
                     fontSize: '13px',

@@ -75,13 +75,13 @@ const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   },
   ai: {
     label: 'AI / LLM',
-    color: '#10B981',
+    color: 'var(--success-text)',
     bg: 'rgba(16, 185, 129, 0.1)',
     border: 'rgba(16, 185, 129, 0.3)',
   },
   pm: {
     label: 'PM / Dự án',
-    color: '#38BDF8',
+    color: 'var(--info-text)',
     bg: 'rgba(56, 189, 248, 0.1)',
     border: 'rgba(56, 189, 248, 0.3)',
   },
@@ -1096,7 +1096,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           maxWidth: '900px',
           margin: '0 auto',
           padding: '24px 16px',
-          color: '#F8FAFC',
+          color: 'var(--text-color)',
         }}
       >
         <div style={{ marginBottom: '16px' }}>
@@ -1106,7 +1106,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#94A3B8',
+              color: 'var(--muted-color)',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -1133,7 +1133,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
               borderRadius: '8px',
-              color: '#F87171',
+              color: 'var(--danger-text)',
               marginBottom: '20px',
               fontSize: '13px',
             }}
@@ -1149,7 +1149,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               backgroundColor: 'rgba(16, 185, 129, 0.1)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
               borderRadius: '8px',
-              color: '#34D399',
+              color: 'var(--success-text)',
               marginBottom: '20px',
               fontSize: '13px',
             }}
@@ -1194,7 +1194,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     margin: 0,
                     fontSize: '20px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   {selectedAccount.username || '(Chưa đặt Username)'}
@@ -1217,21 +1217,21 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                 gap: '16px',
                 padding: '16px',
-                backgroundColor: '#0F172A',
+                backgroundColor: 'var(--surface-subtle)',
                 borderRadius: '8px',
-                border: '1px solid #1E293B',
+                border: '1px solid var(--border-subtle)',
                 marginBottom: '20px',
                 fontSize: '13px',
               }}
             >
               <div>
-                <span style={{ color: '#94A3B8' }}>
+                <span style={{ color: 'var(--muted-color)' }}>
                   Platform Account ID / UID:
                 </span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -1239,13 +1239,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </div>
               </div>
               <div>
-                <span style={{ color: '#94A3B8' }}>
+                <span style={{ color: 'var(--muted-color)' }}>
                   Email khôi phục (Recovery Email):
                 </span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -1253,11 +1253,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </div>
               </div>
               <div>
-                <span style={{ color: '#94A3B8' }}>Nhóm phân loại:</span>
+                <span style={{ color: 'var(--muted-color)' }}>Nhóm phân loại:</span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     marginTop: '2px',
                   }}
                 >
@@ -1265,11 +1265,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </div>
               </div>
               <div>
-                <span style={{ color: '#94A3B8' }}>Người phụ trách:</span>
+                <span style={{ color: 'var(--muted-color)' }}>Người phụ trách:</span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -1279,11 +1279,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </div>
               </div>
               <div>
-                <span style={{ color: '#94A3B8' }}>Phiên bản (Version):</span>
+                <span style={{ color: 'var(--muted-color)' }}>Phiên bản (Version):</span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -1291,11 +1291,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </div>
               </div>
               <div>
-                <span style={{ color: '#94A3B8' }}>Ngày tạo:</span>
+                <span style={{ color: 'var(--muted-color)' }}>Ngày tạo:</span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -1308,14 +1308,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
             {selectedAccount.notes && (
               <div style={{ marginBottom: '20px' }}>
-                <span style={{ fontSize: '13px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
                   Ghi chú:
                 </span>
                 <div
                   style={{
                     marginTop: '4px',
                     fontSize: '14px',
-                    color: '#E2E8F0',
+                    color: 'var(--text-color)',
                     lineHeight: '1.5',
                   }}
                 >
@@ -1378,7 +1378,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 marginBottom: '8px',
               }}
             >
-              <div style={{ color: '#14B8A6' }}>
+              <div style={{ color: 'var(--accent-text)' }}>
                 <ShieldAlertIcon size={20} />
               </div>
               <h3
@@ -1386,7 +1386,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   margin: 0,
                   fontSize: '16px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 Quản lý Mật khẩu & Bí mật (C05 Secret Vault)
@@ -1396,7 +1396,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               style={{
                 margin: '0 0 20px 0',
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 lineHeight: '1.5',
               }}
             >
@@ -1409,8 +1409,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             <div
               style={{
                 padding: '16px',
-                backgroundColor: '#0F172A',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 marginBottom: '12px',
                 display: 'flex',
@@ -1425,7 +1425,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Mật khẩu đăng nhập (Login Password)
@@ -1433,7 +1433,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 <div
                   style={{
                     fontSize: '12px',
-                    color: '#64748B',
+                    color: 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -1474,8 +1474,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             <div
               style={{
                 padding: '16px',
-                backgroundColor: '#0F172A',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 marginBottom: '12px',
                 display: 'flex',
@@ -1490,7 +1490,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Mã xác thực 2 lớp (Two-Factor / 2FA Secret)
@@ -1498,7 +1498,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 <div
                   style={{
                     fontSize: '12px',
-                    color: '#64748B',
+                    color: 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -1544,8 +1544,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             <div
               style={{
                 padding: '16px',
-                backgroundColor: '#0F172A',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
@@ -1559,7 +1559,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Mật khẩu Email khôi phục (Email Password)
@@ -1567,7 +1567,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 <div
                   style={{
                     fontSize: '12px',
-                    color: '#64748B',
+                    color: 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -1617,7 +1617,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         maxWidth: accountId ? '900px' : '1200px',
         margin: '0 auto',
         padding: '24px 16px',
-        color: '#F8FAFC',
+        color: 'var(--text-color)',
       }}
     >
       {accountId ? (
@@ -1648,7 +1648,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 borderRadius: '8px',
-                color: '#F87171',
+                color: 'var(--danger-text)',
                 marginBottom: '20px',
                 fontSize: '13px',
               }}
@@ -1664,7 +1664,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
                 borderRadius: '8px',
-                color: '#34D399',
+                color: 'var(--success-text)',
                 marginBottom: '20px',
                 fontSize: '13px',
               }}
@@ -1699,7 +1699,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#14B8A6',
+                  color: 'var(--accent-text)',
                   flexShrink: 0,
                 }}
               >
@@ -1710,7 +1710,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Bảo mật tài khoản đăng nhập của bạn
@@ -1718,7 +1718,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 <div
                   style={{
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -1749,7 +1749,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           >
             <AppCard style={{ padding: '16px' }}>
               <div
-                style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
               >
                 TỔNG SỐ TÀI KHOẢN
               </div>
@@ -1757,14 +1757,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 style={{
                   fontSize: '24px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   marginTop: '6px',
                 }}
               >
                 {metrics.total}
               </div>
               <div
-                style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}
+                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 Tất cả dịch vụ được kết nối
               </div>
@@ -1772,7 +1772,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
             <AppCard style={{ padding: '16px' }}>
               <div
-                style={{ fontSize: '12px', color: '#10B981', fontWeight: 600 }}
+                style={{ fontSize: '12px', color: 'var(--success-text)', fontWeight: 600 }}
               >
                 ĐANG HOẠT ĐỘNG
               </div>
@@ -1780,14 +1780,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 style={{
                   fontSize: '24px',
                   fontWeight: 700,
-                  color: '#34D399',
+                  color: 'var(--success-text)',
                   marginTop: '6px',
                 }}
               >
                 {metrics.active}
               </div>
               <div
-                style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}
+                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 Khả dụng cho vận hành
               </div>
@@ -1795,7 +1795,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
             <AppCard style={{ padding: '16px' }}>
               <div
-                style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
               >
                 ĐÃ LƯU TRỮ (ARCHIVED)
               </div>
@@ -1803,14 +1803,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 style={{
                   fontSize: '24px',
                   fontWeight: 700,
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginTop: '6px',
                 }}
               >
                 {metrics.archived}
               </div>
               <div
-                style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}
+                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 Bảo toàn lịch sử kiểm toán
               </div>
@@ -1854,10 +1854,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px 8px 36px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -1867,7 +1867,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       left: '10px',
                       top: '50%',
                       transform: 'translateY(-50%)',
-                      color: '#64748B',
+                      color: 'var(--muted-color)',
                       pointerEvents: 'none',
                       display: 'flex',
                       alignItems: 'center',
@@ -1884,10 +1884,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     boxSizing: 'border-box',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                   }}
                 >
@@ -1907,10 +1907,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     boxSizing: 'border-box',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                   }}
                 >
@@ -1929,10 +1929,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     boxSizing: 'border-box',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                   }}
                 >
@@ -1951,10 +1951,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     boxSizing: 'border-box',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                   }}
                 >
@@ -1974,9 +1974,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   minHeight: '36px',
                   padding: '6px 12px',
                   backgroundColor: 'transparent',
-                  border: '1px solid #334155',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -2022,35 +2022,35 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   width: '100%',
                   borderCollapse: 'collapse',
                   fontSize: '13px',
-                  backgroundColor: '#1E293B',
+                  backgroundColor: 'var(--surface-hover)',
                   borderRadius: '8px',
                   overflow: 'hidden',
                 }}
               >
                 <thead>
-                  <tr style={{ backgroundColor: '#0F172A', textAlign: 'left' }}>
-                    <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                  <tr style={{ backgroundColor: 'var(--surface-subtle)', textAlign: 'left' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                       Nền tảng
                     </th>
-                    <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                       Username / UID
                     </th>
-                    <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                       Email khôi phục
                     </th>
-                    <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                       Nhóm & Phụ trách
                     </th>
-                    <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                       Trạng thái
                     </th>
-                    <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                       Ghi chú
                     </th>
                     <th
                       style={{
                         padding: '12px 16px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         textAlign: 'right',
                       }}
                     >
@@ -2066,7 +2066,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       <tr
                         key={account.id}
                         style={{
-                          borderBottom: '1px solid #334155',
+                          borderBottom: '1px solid var(--border-color)',
                           transition: 'background-color 0.15s ease',
                         }}
                       >
@@ -2087,16 +2087,16 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           </span>
                         </td>
                         <td style={{ padding: '12px 16px' }}>
-                          <div style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-color)' }}>
                             {account.username || (
-                              <span style={{ color: '#64748B' }}>Chưa đặt</span>
+                              <span style={{ color: 'var(--muted-color)' }}>Chưa đặt</span>
                             )}
                           </div>
                           {account.platform_account_id && (
                             <div
                               style={{
                                 fontSize: '11px',
-                                color: '#94A3B8',
+                                color: 'var(--muted-color)',
                                 marginTop: '2px',
                               }}
                             >
@@ -2104,7 +2104,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             </div>
                           )}
                         </td>
-                        <td style={{ padding: '12px 16px', color: '#CBD5E1' }}>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>
                           {account.recovery_email || '-'}
                         </td>
                         <td style={{ padding: '12px 16px' }}>
@@ -2117,14 +2117,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 fontSize: '11px',
                                 fontWeight: 600,
                                 backgroundColor: 'rgba(20, 184, 166, 0.12)',
-                                color: '#14B8A6',
+                                color: 'var(--accent-text)',
                                 marginBottom: '2px',
                               }}
                             >
                               {account.account_group}
                             </span>
                           ) : null}
-                          <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                             {account.assigned_employee_name || 'Chưa gán'}
                           </div>
                         </td>
@@ -2141,7 +2141,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         <td
                           style={{
                             padding: '12px 16px',
-                            color: '#94A3B8',
+                            color: 'var(--muted-color)',
                             maxWidth: '180px',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -2185,7 +2185,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 backgroundColor: 'rgba(20, 184, 166, 0.1)',
                                 border: '1px solid rgba(20, 184, 166, 0.3)',
                                 borderRadius: '4px',
-                                color: '#14B8A6',
+                                color: 'var(--accent-text)',
                                 fontSize: '12px',
                                 cursor: 'pointer',
                                 display: 'inline-flex',
@@ -2267,8 +2267,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#1E293B',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-hover)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
               width: '100%',
               maxWidth: '540px',
@@ -2291,7 +2291,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   margin: 0,
                   fontSize: '16px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 Thêm tài khoản quản lý mới
@@ -2302,7 +2302,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                 }}
               >
@@ -2325,7 +2325,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2340,10 +2340,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   >
@@ -2363,7 +2363,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2378,10 +2378,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -2402,7 +2402,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2417,10 +2417,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -2432,7 +2432,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2447,10 +2447,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -2471,7 +2471,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2486,10 +2486,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -2501,7 +2501,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2514,10 +2514,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   >
@@ -2545,7 +2545,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     fontSize: '12px',
                     fontWeight: 700,
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     marginBottom: '8px',
                   }}
                 >
@@ -2563,7 +2563,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       style={{
                         display: 'block',
                         fontSize: '11px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         marginBottom: '4px',
                       }}
                     >
@@ -2578,10 +2578,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         width: '100%',
                         boxSizing: 'border-box',
                         padding: '7px 10px',
-                        backgroundColor: '#0F172A',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '6px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '12px',
                       }}
                     />
@@ -2591,7 +2591,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       style={{
                         display: 'block',
                         fontSize: '11px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         marginBottom: '4px',
                       }}
                     >
@@ -2606,10 +2606,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         width: '100%',
                         boxSizing: 'border-box',
                         padding: '7px 10px',
-                        backgroundColor: '#0F172A',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '6px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '12px',
                       }}
                     />
@@ -2619,7 +2619,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       style={{
                         display: 'block',
                         fontSize: '11px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         marginBottom: '4px',
                       }}
                     >
@@ -2634,10 +2634,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         width: '100%',
                         boxSizing: 'border-box',
                         padding: '7px 10px',
-                        backgroundColor: '#0F172A',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '6px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '12px',
                       }}
                     />
@@ -2651,7 +2651,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     display: 'block',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -2666,10 +2666,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                     resize: 'vertical',
                   }}
@@ -2689,10 +2689,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   disabled={actionLoading}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     cursor: 'pointer',
                     fontSize: '13px',
                   }}
@@ -2731,8 +2731,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#1E293B',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-hover)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
               width: '100%',
               maxWidth: '520px',
@@ -2755,7 +2755,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   margin: 0,
                   fontSize: '16px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 Sửa thông tin tài khoản
@@ -2766,7 +2766,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                 }}
               >
@@ -2789,7 +2789,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2803,10 +2803,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -2818,7 +2818,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2832,10 +2832,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -2856,7 +2856,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2870,10 +2870,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -2885,7 +2885,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2899,10 +2899,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -2923,7 +2923,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2936,10 +2936,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   >
@@ -2958,7 +2958,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2973,10 +2973,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   >
@@ -2993,7 +2993,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     display: 'block',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -3007,10 +3007,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                     resize: 'vertical',
                   }}
@@ -3030,10 +3030,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   disabled={actionLoading}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     cursor: 'pointer',
                     fontSize: '13px',
                   }}
@@ -3071,8 +3071,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#1E293B',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-hover)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
               width: '100%',
               maxWidth: '460px',
@@ -3088,7 +3088,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 marginBottom: '16px',
               }}
             >
-              <div style={{ color: '#F59E0B' }}>
+              <div style={{ color: 'var(--warning-text)' }}>
                 <AlertTriangleIcon size={24} />
               </div>
               <h3
@@ -3096,7 +3096,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   margin: 0,
                   fontSize: '16px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 Xác nhận lưu trữ tài khoản
@@ -3106,13 +3106,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             <p
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 lineHeight: '1.5',
                 marginBottom: '16px',
               }}
             >
               Tài khoản{' '}
-              <strong style={{ color: '#F8FAFC' }}>
+              <strong style={{ color: 'var(--text-color)' }}>
                 {archiveTargetAccount.username || archiveTargetAccount.platform}
               </strong>{' '}
               sẽ được chuyển sang trạng thái lưu trữ. Dữ liệu và mật khẩu được
@@ -3125,7 +3125,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   display: 'block',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '6px',
                 }}
               >
@@ -3140,10 +3140,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   width: '100%',
                   boxSizing: 'border-box',
                   padding: '8px 12px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '13px',
                 }}
               />
@@ -3162,10 +3162,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 disabled={actionLoading}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   fontSize: '13px',
                 }}
@@ -3202,7 +3202,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#1E293B',
+              backgroundColor: 'var(--surface-hover)',
               border: '1px solid #14B8A6',
               borderRadius: '8px',
               width: '100%',
@@ -3222,7 +3222,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               <div
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <div style={{ color: '#14B8A6' }}>
+                <div style={{ color: 'var(--accent-text)' }}>
                   <LockIcon size={20} />
                 </div>
                 <h3
@@ -3230,7 +3230,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Xác thực lại để xem mật khẩu
@@ -3242,7 +3242,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                 }}
               >
@@ -3262,7 +3262,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     borderRadius: '6px',
                     marginBottom: '16px',
                     fontSize: '13px',
-                    color: '#34D399',
+                    color: 'var(--success-text)',
                   }}
                 >
                   Mật khẩu được giải mã an toàn. Tự động ẩn sau{' '}
@@ -3272,8 +3272,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 <div
                   style={{
                     padding: '14px 16px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     marginBottom: '16px',
                     display: 'flex',
@@ -3287,7 +3287,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       fontFamily: 'monospace',
                       fontSize: '16px',
                       fontWeight: 700,
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       letterSpacing: '1px',
                     }}
                   >
@@ -3299,10 +3299,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     onClick={handleCopySecret}
                     style={{
                       padding: '6px 12px',
-                      backgroundColor: copiedSecret ? '#10B981' : '#1E293B',
-                      border: '1px solid #334155',
+                      backgroundColor: copiedSecret ? '#10B981' : 'var(--surface-hover)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: copiedSecret ? '#0B1220' : '#38BDF8',
+                      color: copiedSecret ? '#0B1220' : 'var(--info-text)',
                       cursor: 'pointer',
                       fontSize: '12px',
                       fontWeight: 600,
@@ -3333,14 +3333,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   style={{
                     margin: '0 0 16px 0',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     lineHeight: '1.5',
                   }}
                 >
                   Theo tiêu chuẩn bảo mật <strong>SEC-02</strong>, bạn cần nhập
                   lại mật khẩu đăng nhập của tài khoản Chủ shop để xem bí mật
                   của{' '}
-                  <strong style={{ color: '#F8FAFC' }}>
+                  <strong style={{ color: 'var(--text-color)' }}>
                     {revealTargetAccount.username ||
                       revealTargetAccount.platform}
                   </strong>
@@ -3353,7 +3353,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -3369,10 +3369,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   >
@@ -3401,7 +3401,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -3417,10 +3417,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       width: '100%',
                       boxSizing: 'border-box',
                       padding: '8px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                     }}
                   />
@@ -3439,10 +3439,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     disabled={actionLoading}
                     style={{
                       padding: '8px 16px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       cursor: 'pointer',
                       fontSize: '13px',
                     }}
@@ -3481,8 +3481,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#1E293B',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-hover)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
               width: '100%',
               maxWidth: '480px',
@@ -3503,7 +3503,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   margin: 0,
                   fontSize: '16px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 Cập nhật Mật khẩu / Secret mới
@@ -3514,7 +3514,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                 }}
               >
@@ -3529,7 +3529,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     display: 'block',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -3544,10 +3544,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                   }}
                 >
@@ -3576,7 +3576,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     display: 'block',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -3591,10 +3591,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                   }}
                 />
@@ -3606,7 +3606,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     display: 'block',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#F59E0B',
+                    color: 'var(--warning-text)',
                     marginBottom: '6px',
                   }}
                 >
@@ -3623,10 +3623,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     width: '100%',
                     boxSizing: 'border-box',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
+                    backgroundColor: 'var(--surface-subtle)',
                     border: '1px solid #F59E0B',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                   }}
                 />
@@ -3645,10 +3645,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   disabled={actionLoading}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     cursor: 'pointer',
                     fontSize: '13px',
                   }}

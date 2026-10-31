@@ -562,12 +562,12 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               border:
                 activeTab === 'my_schedule'
                   ? '1px solid #14B8A6'
-                  : '1px solid #334155',
+                  : '1px solid var(--border-color)',
               backgroundColor:
                 activeTab === 'my_schedule'
                   ? 'rgba(20, 184, 166, 0.15)'
-                  : '#1E293B',
-              color: activeTab === 'my_schedule' ? '#14B8A6' : '#94A3B8',
+                  : 'var(--surface-hover)',
+              color: activeTab === 'my_schedule' ? 'var(--accent-text)' : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               cursor: 'pointer',
@@ -588,12 +588,12 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               border:
                 activeTab === 'staff_schedules'
                   ? '1px solid #14B8A6'
-                  : '1px solid #334155',
+                  : '1px solid var(--border-color)',
               backgroundColor:
                 activeTab === 'staff_schedules'
                   ? 'rgba(20, 184, 166, 0.15)'
-                  : '#1E293B',
-              color: activeTab === 'staff_schedules' ? '#14B8A6' : '#94A3B8',
+                  : 'var(--surface-hover)',
+              color: activeTab === 'staff_schedules' ? 'var(--accent-text)' : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               cursor: 'pointer',
@@ -618,7 +618,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             borderRadius: '8px',
             padding: '12px 16px',
             marginBottom: '16px',
-            color: '#10B981',
+            color: 'var(--success-text)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -635,7 +635,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#10B981',
+              color: 'var(--success-text)',
               cursor: 'pointer',
               padding: '4px',
               minHeight: '44px',
@@ -660,7 +660,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             borderRadius: '8px',
             padding: '12px 16px',
             marginBottom: '16px',
-            color: '#EF4444',
+            color: 'var(--danger-text)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -677,7 +677,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#EF4444',
+              color: 'var(--danger-text)',
               cursor: 'pointer',
               padding: '4px',
               minHeight: '44px',
@@ -722,17 +722,17 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
           >
             <CalendarIcon
               size={20}
-              style={{ color: '#14B8A6', flexShrink: 0 }}
+              style={{ color: 'var(--accent-text)', flexShrink: 0 }}
             />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Tuần làm việc
               </div>
               <div
                 style={{
                   fontSize: '16px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   overflowWrap: 'anywhere',
                 }}
               >
@@ -807,7 +807,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '12px',
-                    borderBottom: '1px solid #334155',
+                    borderBottom: '1px solid var(--border-color)',
                     paddingBottom: '16px',
                     marginBottom: '16px',
                   }}
@@ -825,7 +825,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                         style={{
                           fontSize: '18px',
                           fontWeight: 700,
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                         }}
                       >
                         Lịch đã đăng ký
@@ -845,7 +845,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       <span
                         style={{
                           fontSize: '12px',
-                          color: '#14B8A6',
+                          color: 'var(--accent-text)',
                           backgroundColor: 'rgba(20, 184, 166, 0.1)',
                           border: '1px solid rgba(20, 184, 166, 0.3)',
                           borderRadius: '4px',
@@ -860,7 +860,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     <div
                       style={{
                         fontSize: '13px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         marginTop: '4px',
                       }}
                     >
@@ -926,8 +926,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               alignItems: 'center',
                               justifyContent: 'space-between',
                               gap: '12px',
-                              backgroundColor: '#1E293B',
-                              border: '1px solid #334155',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
                               borderRadius: '10px',
                               padding: '12px 14px',
                               boxSizing: 'border-box',
@@ -945,7 +945,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               <div
                                 style={{
                                   backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                                  color: '#14B8A6',
+                                  color: 'var(--accent-text)',
                                   width: '40px',
                                   height: '40px',
                                   borderRadius: '8px',
@@ -966,19 +966,19 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   style={{
                                     fontSize: '15px',
                                     fontWeight: 600,
-                                    color: '#F8FAFC',
+                                    color: 'var(--text-color)',
                                   }}
                                 >
                                   {dayName}
                                 </div>
                                 <div
-                                  style={{ fontSize: '13px', color: '#94A3B8' }}
+                                  style={{ fontSize: '13px', color: 'var(--muted-color)' }}
                                 >
                                   {formatDateDisplay(entry.work_date)}
                                   <a
                                     style={{
                                       display: 'block',
-                                      color: '#14B8A6',
+                                      color: 'var(--accent-text)',
                                       marginTop: '6px',
                                     }}
                                     href={`/work?schedule_id=${mySchedule?.id}&work_date=${entry.work_date}`}
@@ -990,7 +990,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   <div
                                     style={{
                                       fontSize: '12px',
-                                      color: '#CBD5E1',
+                                      color: 'var(--text-secondary)',
                                       marginTop: '4px',
                                       fontStyle: 'italic',
                                       overflowWrap: 'anywhere',
@@ -1012,7 +1012,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 border: '1px solid rgba(16, 185, 129, 0.3)',
                                 borderRadius: '6px',
                                 padding: '6px 12px',
-                                color: '#10B981',
+                                color: 'var(--success-text)',
                                 fontWeight: 700,
                                 fontSize: '14px',
                                 flexShrink: 0,
@@ -1049,7 +1049,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   style={{
                     fontSize: '18px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   {isEditing
@@ -1059,7 +1059,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 <div
                   style={{
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginTop: '4px',
                   }}
                 >
@@ -1131,7 +1131,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           borderRadius: '10px',
                           backgroundColor: dayItem.isWorking
                             ? 'rgba(20, 184, 166, 0.08)'
-                            : '#1E293B',
+                            : 'var(--surface-hover)',
                           border: `1px solid ${dayItem.isWorking ? 'rgba(20, 184, 166, 0.45)' : '#334155'}`,
                           width: '100%',
                           minWidth: 0,
@@ -1197,8 +1197,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   ? 'rgba(20, 184, 166, 0.18)'
                                   : 'rgba(148, 163, 184, 0.12)',
                                 color: dayItem.isWorking
-                                  ? '#14B8A6'
-                                  : '#94A3B8',
+                                  ? 'var(--accent-text)'
+                                  : 'var(--muted-color)',
                                 border: `1px solid ${
                                   dayItem.isWorking
                                     ? 'rgba(20, 184, 166, 0.35)'
@@ -1213,7 +1213,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 style={{
                                   fontSize: '15px',
                                   fontWeight: 700,
-                                  color: '#F8FAFC',
+                                  color: 'var(--text-color)',
                                   lineHeight: 1.25,
                                 }}
                               >
@@ -1222,7 +1222,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               <div
                                 style={{
                                   fontSize: '12px',
-                                  color: '#94A3B8',
+                                  color: 'var(--muted-color)',
                                   marginTop: '2px',
                                 }}
                               >
@@ -1241,7 +1241,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               backgroundColor: dayItem.isWorking
                                 ? 'rgba(16, 185, 129, 0.15)'
                                 : 'rgba(100, 116, 139, 0.18)',
-                              color: dayItem.isWorking ? '#10B981' : '#94A3B8',
+                              color: dayItem.isWorking ? 'var(--success-text)' : 'var(--muted-color)',
                               border: `1px solid ${
                                 dayItem.isWorking
                                   ? 'rgba(16, 185, 129, 0.35)'
@@ -1279,8 +1279,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 fontSize: '13px',
                                 fontWeight: 500,
                                 color: dayItem.isWorking
-                                  ? '#CBD5E1'
-                                  : '#64748B',
+                                  ? 'var(--text-secondary)'
+                                  : 'var(--muted-color)',
                                 whiteSpace: 'nowrap',
                               }}
                             >
@@ -1303,11 +1303,11 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               }}
                               style={{
                                 backgroundColor: dayItem.isWorking
-                                  ? '#0F172A'
-                                  : '#1E293B',
+                                  ? 'var(--surface-subtle)'
+                                  : 'var(--surface-hover)',
                                 color: dayItem.isWorking
-                                  ? '#F8FAFC'
-                                  : '#64748B',
+                                  ? 'var(--text-color)'
+                                  : 'var(--muted-color)',
                                 border: `1px solid ${dayItem.isWorking ? '#14B8A6' : '#334155'}`,
                                 borderRadius: '8px',
                                 padding: '6px 10px',
@@ -1349,9 +1349,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   );
                                 }}
                                 style={{
-                                  backgroundColor: '#0F172A',
-                                  color: '#F8FAFC',
-                                  border: '1px solid #334155',
+                                  backgroundColor: 'var(--surface-subtle)',
+                                  color: 'var(--text-color)',
+                                  border: '1px solid var(--border-color)',
                                   borderRadius: '8px',
                                   padding: '8px 12px',
                                   fontSize: '14px',
@@ -1378,7 +1378,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                         display: 'block',
                         fontSize: '13px',
                         fontWeight: 600,
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         marginBottom: '6px',
                       }}
                     >
@@ -1392,10 +1392,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       placeholder="Nhập lý do đổi lịch nếu có (tùy chọn)..."
                       style={{
                         width: '100%',
-                        backgroundColor: '#1E293B',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--surface-hover)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '6px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         padding: '10px 12px',
                         fontSize: '14px',
                         minHeight: '44px',
@@ -1459,7 +1459,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               borderRadius: '8px',
               padding: '12px 16px',
               marginBottom: '16px',
-              color: '#38BDF8',
+              color: 'var(--info-text)',
               fontSize: '13px',
               display: 'flex',
               alignItems: 'center',
@@ -1495,8 +1495,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               <div
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <UserIcon size={16} style={{ color: '#94A3B8' }} />
-                <span style={{ fontSize: '13px', color: '#CBD5E1' }}>
+                <UserIcon size={16} style={{ color: 'var(--muted-color)' }} />
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                   Lọc theo nhân sự:
                 </span>
               </div>
@@ -1504,10 +1504,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 value={filterEmployeeId}
                 onChange={(e) => setFilterEmployeeId(e.target.value)}
                 style={{
-                  backgroundColor: '#1E293B',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-hover)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   padding: '8px 12px',
                   fontSize: '13px',
                   minHeight: '44px',
@@ -1572,7 +1572,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             gap: '12px',
-                            borderBottom: '1px solid #334155',
+                            borderBottom: '1px solid var(--border-color)',
                             paddingBottom: '12px',
                             marginBottom: '12px',
                           }}
@@ -1588,7 +1588,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                             <div
                               style={{
                                 backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                                color: '#38BDF8',
+                                color: 'var(--info-text)',
                                 padding: '8px',
                                 borderRadius: '8px',
                                 display: 'flex',
@@ -1604,14 +1604,14 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 style={{
                                   fontSize: '15px',
                                   fontWeight: 700,
-                                  color: '#F8FAFC',
+                                  color: 'var(--text-color)',
                                   overflowWrap: 'anywhere',
                                 }}
                               >
                                 {schedule.employee_name || 'Nhân viên'}
                               </div>
                               <div
-                                style={{ fontSize: '12px', color: '#94A3B8' }}
+                                style={{ fontSize: '12px', color: 'var(--muted-color)' }}
                               >
                                 Mã NV: {schedule.employee_code || '--'} • Bản
                                 ghi v{schedule.version} (Lần #
@@ -1659,7 +1659,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           <div
                             style={{
                               fontSize: '13px',
-                              color: '#94A3B8',
+                              color: 'var(--muted-color)',
                               fontStyle: 'italic',
                             }}
                           >
@@ -1682,8 +1682,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 <div
                                   key={e.id || e.work_date}
                                   style={{
-                                    backgroundColor: '#1E293B',
-                                    border: '1px solid #334155',
+                                    backgroundColor: 'var(--surface-hover)',
+                                    border: '1px solid var(--border-color)',
                                     borderRadius: '8px',
                                     padding: '8px 12px',
                                     fontSize: '13px',
@@ -1699,7 +1699,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   <span
                                     style={{
                                       fontWeight: 600,
-                                      color: '#14B8A6',
+                                      color: 'var(--accent-text)',
                                     }}
                                   >
                                     {dayName} ({formatDateDisplay(e.work_date)}
@@ -1707,7 +1707,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                     <a
                                       style={{
                                         display: 'block',
-                                        color: '#14B8A6',
+                                        color: 'var(--accent-text)',
                                       }}
                                       href={`/work?schedule_id=${schedule.id}&work_date=${e.work_date}`}
                                     >
@@ -1716,7 +1716,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   </span>
                                   <span
                                     style={{
-                                      color: '#F8FAFC',
+                                      color: 'var(--text-color)',
                                       fontWeight: 700,
                                     }}
                                   >
@@ -1727,7 +1727,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   {e.notes && (
                                     <span
                                       style={{
-                                        color: '#94A3B8',
+                                        color: 'var(--muted-color)',
                                         fontSize: '11px',
                                         fontStyle: 'italic',
                                         overflowWrap: 'anywhere',
@@ -1774,8 +1774,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#151F30',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
               borderRadius: '12px',
               maxWidth: '640px',
               width: '100%',
@@ -1791,7 +1791,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                borderBottom: '1px solid #334155',
+                borderBottom: '1px solid var(--border-color)',
                 paddingBottom: '12px',
                 marginBottom: '16px',
               }}
@@ -1799,12 +1799,12 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               <div
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <RotateCcwIcon size={20} style={{ color: '#14B8A6' }} />
+                <RotateCcwIcon size={20} style={{ color: 'var(--accent-text)' }} />
                 <span
                   style={{
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Lịch sử điều chỉnh lịch làm việc
@@ -1816,7 +1816,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   padding: '4px',
                   minHeight: '44px',
@@ -1836,7 +1836,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 style={{
                   textAlign: 'center',
                   padding: '24px 0',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   fontSize: '14px',
                 }}
               >
@@ -1854,8 +1854,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   <div
                     key={rev.id}
                     style={{
-                      backgroundColor: '#1E293B',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-hover)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '8px',
                       padding: '12px 14px',
                       boxSizing: 'border-box',
@@ -1874,7 +1874,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       <span
                         style={{
                           fontSize: '12px',
-                          color: '#14B8A6',
+                          color: 'var(--accent-text)',
                           backgroundColor: 'rgba(20, 184, 166, 0.1)',
                           border: '1px solid rgba(20, 184, 166, 0.3)',
                           padding: '2px 8px',
@@ -1884,22 +1884,22 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       >
                         Bản sửa đổi #{rev.revision_number}
                       </span>
-                      <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                      <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                         {new Date(rev.edited_at).toLocaleString('vi-VN')}
                       </span>
                     </div>
                     <div
                       style={{
                         fontSize: '14px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         marginBottom: '4px',
                       }}
                     >
-                      <strong style={{ color: '#F59E0B' }}>Lý do: </strong>
+                      <strong style={{ color: 'var(--warning-text)' }}>Lý do: </strong>
                       {rev.reason || '(Không có lý do)'}
                     </div>
                     {rev.edited_by_name && (
-                      <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                         Người sửa: {rev.edited_by_name}
                       </div>
                     )}
@@ -1950,8 +1950,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#151F30',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
               borderRadius: '12px',
               maxWidth: '680px',
               width: '100%',
@@ -1967,7 +1967,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                borderBottom: '1px solid #334155',
+                borderBottom: '1px solid var(--border-color)',
                 paddingBottom: '12px',
                 marginBottom: '16px',
               }}
@@ -1977,13 +1977,13 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   style={{
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     overflowWrap: 'anywhere',
                   }}
                 >
                   Lịch làm việc: {ownerDetailSchedule.employee_name}
                 </div>
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Mã NV: {ownerDetailSchedule.employee_code} • Tuần:{' '}
                   {weekRangeLabel}
                 </div>
@@ -1994,7 +1994,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   padding: '4px',
                   minHeight: '44px',
@@ -2016,7 +2016,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 style={{
                   fontSize: '13px',
                   fontWeight: 600,
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '8px',
                 }}
               >
@@ -2029,7 +2029,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     <div
                       style={{
                         fontSize: '13px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         fontStyle: 'italic',
                       }}
                     >
@@ -2058,22 +2058,22 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             gap: '8px',
-                            backgroundColor: '#1E293B',
-                            border: '1px solid #334155',
+                            backgroundColor: 'var(--surface-hover)',
+                            border: '1px solid var(--border-color)',
                             borderRadius: '6px',
                             padding: '10px 14px',
                             boxSizing: 'border-box',
                           }}
                         >
                           <div style={{ minWidth: 0 }}>
-                            <span style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-color)' }}>
                               {dayName} ({formatDateDisplay(e.work_date)})
                             </span>
                             {e.notes && (
                               <div
                                 style={{
                                   fontSize: '12px',
-                                  color: '#94A3B8',
+                                  color: 'var(--muted-color)',
                                   marginTop: '2px',
                                   fontStyle: 'italic',
                                   overflowWrap: 'anywhere',
@@ -2083,7 +2083,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               </div>
                             )}
                           </div>
-                          <span style={{ color: '#10B981', fontWeight: 700 }}>
+                          <span style={{ color: 'var(--success-text)', fontWeight: 700 }}>
                             Bắt đầu:{' '}
                             {e.start_time ? e.start_time.slice(0, 5) : '--:--'}
                           </span>
@@ -2101,7 +2101,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 style={{
                   fontSize: '13px',
                   fontWeight: 600,
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '8px',
                 }}
               >
@@ -2111,7 +2111,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 <div
                   style={{
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     fontStyle: 'italic',
                   }}
                 >
@@ -2129,8 +2129,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     <div
                       key={rev.id}
                       style={{
-                        backgroundColor: '#0F172A',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '6px',
                         padding: '10px 12px',
                         fontSize: '13px',
@@ -2142,7 +2142,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           flexWrap: 'wrap',
                           justifyContent: 'space-between',
                           gap: '6px',
-                          color: '#94A3B8',
+                          color: 'var(--muted-color)',
                           marginBottom: '4px',
                         }}
                       >
@@ -2154,7 +2154,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           {new Date(rev.edited_at).toLocaleString('vi-VN')}
                         </span>
                       </div>
-                      <div style={{ color: '#F59E0B' }}>
+                      <div style={{ color: 'var(--warning-text)' }}>
                         <strong>Lý do: </strong>
                         {rev.reason || '(Không có lý do)'}
                       </div>

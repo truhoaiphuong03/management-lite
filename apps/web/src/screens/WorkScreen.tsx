@@ -938,7 +938,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   fontSize: '18px',
                   fontWeight: 700,
                   marginTop: '12px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 Không có quyền truy cập
@@ -946,7 +946,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               <p
                 style={{
                   fontSize: '14px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginTop: '8px',
                   marginBottom: '20px',
                 }}
@@ -976,7 +976,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
               borderRadius: '8px',
-              color: '#EF4444',
+              color: 'var(--danger-text)',
               fontSize: '14px',
               marginBottom: '16px',
               display: 'flex',
@@ -996,7 +996,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               backgroundColor: 'rgba(16, 185, 129, 0.1)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
               borderRadius: '8px',
-              color: '#10B981',
+              color: 'var(--success-text)',
               fontSize: '14px',
               marginBottom: '16px',
               display: 'flex',
@@ -1019,10 +1019,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   fontSize: '14px',
                   fontWeight: 600,
                   marginBottom: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
-                Tiêu đề công việc <span style={{ color: '#EF4444' }}>*</span>
+                Tiêu đề công việc <span style={{ color: 'var(--danger-text)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -1034,10 +1034,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 14px',
-                  backgroundColor: '#0B1220',
-                  border: '1px solid #1E293B',
+                  backgroundColor: 'var(--bg-color)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                 }}
@@ -1060,7 +1060,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Chi tiết yêu cầu & Mô tả (Chuẩn Task Packet ML-03)
@@ -1101,7 +1101,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         borderRadius: '4px',
                         backgroundColor: 'rgba(20, 184, 166, 0.14)',
                         border: '1px solid rgba(20, 184, 166, 0.35)',
-                        color: '#2DD4BF',
+                        color: 'var(--accent-text)',
                         cursor: 'pointer',
                       }}
                     >
@@ -1118,10 +1118,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 14px',
-                  backgroundColor: '#0B1220',
-                  border: '1px solid #1E293B',
+                  backgroundColor: 'var(--bg-color)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                   resize: 'vertical',
@@ -1146,7 +1146,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     fontSize: '14px',
                     fontWeight: 600,
                     marginBottom: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Phân loại
@@ -1157,10 +1157,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 14px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #1E293B',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-subtle)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     outline: 'none',
                   }}
@@ -1180,7 +1180,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     fontSize: '14px',
                     fontWeight: 600,
                     marginBottom: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Mức độ ưu tiên
@@ -1193,10 +1193,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 14px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #1E293B',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-subtle)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     outline: 'none',
                   }}
@@ -1217,7 +1217,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   fontSize: '14px',
                   fontWeight: 600,
                   marginBottom: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 Hạn chót hoàn thành (Asia/Ho_Chi_Minh)
@@ -1229,10 +1229,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 14px',
-                  backgroundColor: '#0B1220',
-                  border: '1px solid #1E293B',
+                  backgroundColor: 'var(--bg-color)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                 }}
@@ -1247,7 +1247,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   fontSize: '14px',
                   fontWeight: 600,
                   marginBottom: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 Giao cho nhân viên (có thể chọn nhiều người)
@@ -1256,11 +1256,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 <div
                   style={{
                     padding: '12px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #1E293B',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-subtle)',
                     borderRadius: '6px',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Chưa có danh sách nhân sự hoặc đang tải...
@@ -1275,8 +1275,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     maxHeight: '180px',
                     overflowY: 'auto',
                     padding: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #1E293B',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-subtle)',
                     borderRadius: '6px',
                   }}
                 >
@@ -1293,10 +1293,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           borderRadius: '4px',
                           backgroundColor: isChecked
                             ? 'rgba(20, 184, 166, 0.15)'
-                            : '#0F172A',
+                            : 'var(--surface-subtle)',
                           border: isChecked
                             ? '1px solid #14B8A6'
-                            : '1px solid #1E293B',
+                            : '1px solid var(--border-subtle)',
                           cursor: 'pointer',
                           fontSize: '13px',
                         }}
@@ -1319,10 +1319,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                             }
                           }}
                         />
-                        <span style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-color)' }}>
                           {emp.employee_code}
                         </span>
-                        <span style={{ color: '#94A3B8' }}>
+                        <span style={{ color: 'var(--muted-color)' }}>
                           {emp.full_name}
                         </span>
                       </label>
@@ -1374,7 +1374,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   fontSize: '18px',
                   fontWeight: 700,
                   marginTop: '12px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 Chi tiết công việc chưa sẵn sàng
@@ -1382,7 +1382,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               <p
                 style={{
                   fontSize: '14px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginTop: '8px',
                   marginBottom: '20px',
                 }}
@@ -1418,7 +1418,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
               borderRadius: '8px',
-              color: '#EF4444',
+              color: 'var(--danger-text)',
               fontSize: '14px',
               marginBottom: '16px',
               display: 'flex',
@@ -1438,7 +1438,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               backgroundColor: 'rgba(16, 185, 129, 0.1)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
               borderRadius: '8px',
-              color: '#10B981',
+              color: 'var(--success-text)',
               fontSize: '14px',
               marginBottom: '16px',
               display: 'flex',
@@ -1480,7 +1480,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     padding: '2px 8px',
                     borderRadius: '4px',
                     backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                    color: '#38BDF8',
+                    color: 'var(--info-text)',
                   }}
                 >
                   {getWorkTypeLabel(item.work_type)}
@@ -1497,7 +1497,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 >
                   Ưu tiên: {getPriorityLabel(item.priority)}
                 </span>
-                <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Hạn chót: {formatDateTimeDisplay(item.due_at)}
                 </span>
               </div>
@@ -1505,7 +1505,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 style={{
                   fontSize: '20px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   margin: 0,
                 }}
               >
@@ -1530,11 +1530,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             <div
               style={{
                 fontSize: '14px',
-                color: '#CBD5E1',
+                color: 'var(--text-secondary)',
                 lineHeight: 1.6,
                 padding: '12px 14px',
-                backgroundColor: '#0F172A',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '6px',
                 marginTop: '12px',
                 whiteSpace: 'pre-wrap',
@@ -1550,7 +1550,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           style={{
             fontSize: '16px',
             fontWeight: 700,
-            color: '#F8FAFC',
+            color: 'var(--text-color)',
             marginBottom: '12px',
           }}
         >
@@ -1559,7 +1559,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
         {(!item.assignments || item.assignments.length === 0) && (
           <AppCard style={{ padding: '24px', textAlign: 'center' }}>
-            <p style={{ color: '#94A3B8', fontSize: '14px', margin: 0 }}>
+            <p style={{ color: 'var(--muted-color)', fontSize: '14px', margin: 0 }}>
               Công việc này chưa được phân công cho nhân viên nào.
             </p>
           </AppCard>
@@ -1604,11 +1604,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         width: '36px',
                         height: '36px',
                         borderRadius: '50%',
-                        backgroundColor: '#1E293B',
+                        backgroundColor: 'var(--surface-hover)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#14B8A6',
+                        color: 'var(--accent-text)',
                       }}
                     >
                       <UserIcon size={20} />
@@ -1618,13 +1618,13 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         style={{
                           fontSize: '15px',
                           fontWeight: 700,
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                         }}
                       >
                         {assignment.full_name || 'Nhân viên'} (
                         {assignment.employee_code || 'NV'})
                       </div>
-                      <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                         Giao lúc:{' '}
                         {formatDateTimeDisplay(assignment.assigned_at)}
                       </div>
@@ -1633,7 +1633,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   <div>{getAssignmentStatusBadge(assignment.status)}</div>
                 </div>
 
-                <div style={{ marginBottom: '16px', color: '#CBD5E1' }}>
+                <div style={{ marginBottom: '16px', color: 'var(--text-secondary)' }}>
                   <strong>Lịch thực hiện</strong>
                   {(assignment.schedule_links || []).map((link) => (
                     <div
@@ -1645,7 +1645,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         marginTop: '8px',
                       }}
                     >
-                      <a href="/schedule" style={{ color: '#14B8A6' }}>
+                      <a href="/schedule" style={{ color: 'var(--accent-text)' }}>
                         {link.work_date} · {link.start_time} ·{' '}
                         {link.status === 'registered'
                           ? 'Ca đã đăng ký'
@@ -1707,7 +1707,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         backgroundColor: 'rgba(245, 158, 11, 0.1)',
                         border: '1px solid rgba(245, 158, 11, 0.3)',
                         borderRadius: '6px',
-                        color: '#F59E0B',
+                        color: 'var(--warning-text)',
                         fontSize: '13px',
                         marginBottom: '14px',
                       }}
@@ -1723,7 +1723,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         <RotateCcwIcon size={16} />
                         <span>Owner yêu cầu làm lại:</span>
                       </div>
-                      <div style={{ marginTop: '4px', color: '#F8FAFC' }}>
+                      <div style={{ marginTop: '4px', color: 'var(--text-color)' }}>
                         {assignment.latest_review.feedback}
                       </div>
                     </div>
@@ -1737,7 +1737,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         style={{
                           fontSize: '13px',
                           fontWeight: 600,
-                          color: '#94A3B8',
+                          color: 'var(--muted-color)',
                           marginBottom: '8px',
                         }}
                       >
@@ -1756,8 +1756,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                             key={sub.id}
                             style={{
                               padding: '10px 12px',
-                              backgroundColor: '#0F172A',
-                              border: '1px solid #1E293B',
+                              backgroundColor: 'var(--surface-subtle)',
+                              border: '1px solid var(--border-subtle)',
                               borderRadius: '6px',
                               fontSize: '13px',
                             }}
@@ -1766,7 +1766,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                               style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
-                                color: '#94A3B8',
+                                color: 'var(--muted-color)',
                                 marginBottom: '4px',
                               }}
                             >
@@ -1775,7 +1775,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                                 {formatDateTimeDisplay(sub.submitted_at)}
                               </span>
                             </div>
-                            <div style={{ color: '#F8FAFC' }}>
+                            <div style={{ color: 'var(--text-color)' }}>
                               {sub.submission_note}
                             </div>
                             {sub.attachments && sub.attachments.length > 0 && (
@@ -1794,7 +1794,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                                     target="_blank"
                                     rel="noreferrer"
                                     style={{
-                                      color: '#14B8A6',
+                                      color: 'var(--accent-text)',
                                       textDecoration: 'underline',
                                       fontSize: '12px',
                                     }}
@@ -1817,7 +1817,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     gap: '10px',
                     flexWrap: 'wrap',
                     paddingTop: '10px',
-                    borderTop: '1px solid #1E293B',
+                    borderTop: '1px solid var(--border-subtle)',
                   }}
                 >
                   {canStart && (
@@ -1924,8 +1924,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               style={{
                 maxWidth: '500px',
                 width: '100%',
-                backgroundColor: '#0F172A',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '8px',
                 padding: '24px',
               }}
@@ -1934,7 +1934,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 style={{
                   fontSize: '18px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   marginBottom: '12px',
                 }}
               >
@@ -1946,12 +1946,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
                     Ghi chú kết quả thực hiện{' '}
-                    <span style={{ color: '#EF4444' }}>*</span>
+                    <span style={{ color: 'var(--danger-text)' }}>*</span>
                   </label>
                   <textarea
                     value={submissionNote}
@@ -1962,10 +1962,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #1E293B',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       outline: 'none',
                     }}
@@ -1977,7 +1977,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -1991,10 +1991,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '8px 10px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #1E293B',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                       marginBottom: '8px',
                       outline: 'none',
@@ -2008,10 +2008,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '8px 10px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #1E293B',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '13px',
                       outline: 'none',
                     }}
@@ -2066,8 +2066,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               style={{
                 maxWidth: '500px',
                 width: '100%',
-                backgroundColor: '#0F172A',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '8px',
                 padding: '24px',
               }}
@@ -2076,7 +2076,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 style={{
                   fontSize: '18px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   marginBottom: '12px',
                 }}
               >
@@ -2090,7 +2090,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2104,10 +2104,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #1E293B',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       outline: 'none',
                     }}
@@ -2126,13 +2126,13 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
                     Nhận xét / Phản hồi cho nhân viên{' '}
                     {reviewDecision === 'request_changes' && (
-                      <span style={{ color: '#EF4444' }}>*</span>
+                      <span style={{ color: 'var(--danger-text)' }}>*</span>
                     )}
                   </label>
                   <textarea
@@ -2148,10 +2148,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #1E293B',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       outline: 'none',
                     }}
@@ -2206,8 +2206,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               style={{
                 maxWidth: '480px',
                 width: '100%',
-                backgroundColor: '#0F172A',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '8px',
                 padding: '24px',
               }}
@@ -2216,7 +2216,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 style={{
                   fontSize: '18px',
                   fontWeight: 700,
-                  color: '#EF4444',
+                  color: 'var(--danger-text)',
                   marginBottom: '12px',
                 }}
               >
@@ -2225,7 +2225,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               <p
                 style={{
                   fontSize: '14px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '16px',
                   lineHeight: 1.5,
                 }}
@@ -2240,7 +2240,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -2254,10 +2254,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #1E293B',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       outline: 'none',
                     }}
@@ -2315,13 +2315,13 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             style={{
               fontSize: '22px',
               fontWeight: 700,
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               margin: '0 0 4px 0',
             }}
           >
             Quản lý công việc
           </h1>
-          <p style={{ fontSize: '14px', color: '#94A3B8', margin: 0 }}>
+          <p style={{ fontSize: '14px', color: 'var(--muted-color)', margin: 0 }}>
             {role === 'owner'
               ? 'Giao việc, theo dõi tiến độ và nghiệm thu kết quả cửa hàng'
               : 'Danh sách nhiệm vụ & công việc được phân công cho bạn'}
@@ -2348,7 +2348,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             backgroundColor: 'rgba(56, 189, 248, 0.1)',
             border: '1px solid rgba(56, 189, 248, 0.3)',
             borderRadius: '8px',
-            color: '#38BDF8',
+            color: 'var(--info-text)',
             fontSize: '13px',
             marginBottom: '20px',
             display: 'flex',
@@ -2383,14 +2383,14 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         }}
       >
         <AppCard style={{ padding: '16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}>
+          <div style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}>
             CẦN LÀM
           </div>
           <div
             style={{
               fontSize: '24px',
               fontWeight: 700,
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               marginTop: '4px',
             }}
           >
@@ -2399,14 +2399,14 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         </AppCard>
 
         <AppCard style={{ padding: '16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: '#38BDF8', fontWeight: 600 }}>
+          <div style={{ fontSize: '12px', color: 'var(--info-text)', fontWeight: 600 }}>
             ĐANG LÀM
           </div>
           <div
             style={{
               fontSize: '24px',
               fontWeight: 700,
-              color: '#38BDF8',
+              color: 'var(--info-text)',
               marginTop: '4px',
             }}
           >
@@ -2415,14 +2415,14 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         </AppCard>
 
         <AppCard style={{ padding: '16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: '#F59E0B', fontWeight: 600 }}>
+          <div style={{ fontSize: '12px', color: 'var(--warning-text)', fontWeight: 600 }}>
             CHỜ DUYỆT
           </div>
           <div
             style={{
               fontSize: '24px',
               fontWeight: 700,
-              color: '#F59E0B',
+              color: 'var(--warning-text)',
               marginTop: '4px',
             }}
           >
@@ -2431,14 +2431,14 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         </AppCard>
 
         <AppCard style={{ padding: '16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: '#10B981', fontWeight: 600 }}>
+          <div style={{ fontSize: '12px', color: 'var(--success-text)', fontWeight: 600 }}>
             HOÀN THÀNH
           </div>
           <div
             style={{
               fontSize: '24px',
               fontWeight: 700,
-              color: '#10B981',
+              color: 'var(--success-text)',
               marginTop: '4px',
             }}
           >
@@ -2505,12 +2505,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 cursor: 'pointer',
                 backgroundColor: isActive
                   ? `${chip.activeColor}22`
-                  : '#0F172A',
+                  : 'var(--surface-subtle)',
                 border: isActive
                   ? `1px solid ${chip.activeColor}`
-                  : '1px solid #1E293B',
-                color: isActive ? chip.activeColor : '#94A3B8',
-                transition: 'all 0.15s ease',
+                  : '1px solid var(--border-subtle)',
+                color: isActive ? chip.activeColor : 'var(--muted-color)',
+                transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease',
               }}
             >
               {chip.label}
@@ -2524,8 +2524,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         style={{
           padding: '14px 18px',
           marginBottom: '20px',
-          backgroundColor: '#0B1220',
-          border: '1px solid #1E293B',
+          backgroundColor: 'var(--bg-color)',
+          border: '1px solid var(--border-subtle)',
         }}
       >
         <div
@@ -2544,7 +2544,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
               }}
             >
               Lịch trực tuần này (Chỉ đọc)
@@ -2554,8 +2554,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 fontSize: '11px',
                 padding: '2px 6px',
                 borderRadius: '4px',
-                backgroundColor: '#1E293B',
-                color: '#94A3B8',
+                backgroundColor: 'var(--surface-hover)',
+                color: 'var(--muted-color)',
               }}
             >
               Đồng bộ lịch cá nhân
@@ -2603,11 +2603,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     borderRadius: '6px',
                     backgroundColor: todayShift
                       ? 'rgba(56, 189, 248, 0.15)'
-                      : '#1E293B',
+                      : 'var(--surface-hover)',
                     border: todayShift
                       ? '1px solid #38BDF8'
                       : '1px solid transparent',
-                    color: todayShift ? '#38BDF8' : '#94A3B8',
+                    color: todayShift ? 'var(--info-text)' : 'var(--muted-color)',
                   }}
                 >
                   <strong>Ca trực hôm nay:</strong>{' '}
@@ -2621,7 +2621,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   )}
                 </div>
 
-                <div style={{ color: '#64748B', fontSize: '12px' }}>
+                <div style={{ color: 'var(--muted-color)', fontSize: '12px' }}>
                   {scheduleEntries.length > 0
                     ? `Tuần này bạn có ${scheduleEntries.length} ca trực được xếp lịch.`
                     : 'Chưa có lịch trực trong tuần này.'}
@@ -2655,10 +2655,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                backgroundColor: '#0B1220',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--bg-color)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '6px',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 fontSize: '13px',
                 outline: 'none',
               }}
@@ -2675,10 +2675,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                backgroundColor: '#0B1220',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--bg-color)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '6px',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 fontSize: '13px',
                 outline: 'none',
               }}
@@ -2702,10 +2702,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                backgroundColor: '#0B1220',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--bg-color)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '6px',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 fontSize: '13px',
                 outline: 'none',
               }}
@@ -2729,10 +2729,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  backgroundColor: '#0B1220',
-                  border: '1px solid #1E293B',
+                  backgroundColor: 'var(--bg-color)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '13px',
                   outline: 'none',
                 }}
@@ -2777,8 +2777,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               key={item.id}
               onClick={() => onNavigate?.(`/work/${item.id}`)}
               style={{
-                backgroundColor: '#0F172A',
-                border: '1px solid #1E293B',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '8px',
                 padding: '16px',
                 cursor: 'pointer',
@@ -2813,7 +2813,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         padding: '2px 6px',
                         borderRadius: '4px',
                         backgroundColor: 'rgba(56, 189, 248, 0.12)',
-                        color: '#38BDF8',
+                        color: 'var(--info-text)',
                       }}
                     >
                       {getWorkTypeLabel(item.work_type)}
@@ -2834,7 +2834,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                       <span
                         style={{
                           fontSize: '12px',
-                          color: isItemOverdue(item) ? '#EF4444' : '#94A3B8',
+                          color: isItemOverdue(item) ? 'var(--danger-text)' : 'var(--muted-color)',
                           fontWeight: isItemOverdue(item) ? 700 : 400,
                           display: 'flex',
                           alignItems: 'center',
@@ -2869,7 +2869,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                             padding: '2px 6px',
                             borderRadius: '4px',
                             backgroundColor: 'rgba(20, 184, 166, 0.14)',
-                            color: '#2DD4BF',
+                            color: 'var(--accent-text)',
                           }}
                         >
                           🤖{' '}
@@ -2885,7 +2885,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     style={{
                       fontSize: '16px',
                       fontWeight: 700,
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       margin: '0 0 4px 0',
                     }}
                   >
@@ -2910,7 +2910,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 <p
                   style={{
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     margin: '0 0 10px 0',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -2941,7 +2941,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                       gap: '8px',
                       flexWrap: 'wrap',
                       paddingTop: '8px',
-                      borderTop: '1px solid #1E293B',
+                      borderTop: '1px solid var(--border-subtle)',
                     }}
                   >
                     <div
@@ -2952,7 +2952,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         flexWrap: 'wrap',
                       }}
                     >
-                      <span style={{ fontSize: '12px', color: '#64748B' }}>
+                      <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                         Phân công:
                       </span>
                       {hasAssignees ? (
@@ -2961,10 +2961,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                             key={a.id}
                             style={{
                               fontSize: '12px',
-                              backgroundColor: '#1E293B',
+                              backgroundColor: 'var(--surface-hover)',
                               padding: '2px 8px',
                               borderRadius: '4px',
-                              color: '#E2E8F0',
+                              color: 'var(--text-color)',
                               display: 'flex',
                               alignItems: 'center',
                               gap: '4px',
@@ -2975,7 +2975,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           </span>
                         ))
                       ) : (
-                        <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                           Chưa gán nhân viên
                         </span>
                       )}
@@ -3000,7 +3000,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                             borderRadius: '4px',
                             backgroundColor: 'rgba(16, 185, 129, 0.14)',
                             border: '1px solid rgba(16, 185, 129, 0.35)',
-                            color: '#34D399',
+                            color: 'var(--success-text)',
                             cursor: 'pointer',
                           }}
                         >
@@ -3018,7 +3018,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                               padding: '2px 8px',
                               borderRadius: '4px',
                               backgroundColor: 'rgba(56, 189, 248, 0.14)',
-                              color: '#38BDF8',
+                              color: 'var(--info-text)',
                               textDecoration: 'none',
                             }}
                           >

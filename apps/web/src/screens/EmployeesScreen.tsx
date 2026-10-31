@@ -18,7 +18,7 @@ import {
   AppSkeleton,
   type ToastVariant,
 } from '../../../../packages/ui/src/components/index.js';
-import { TOKENS } from '../../../../packages/ui/src/tokens.js';
+import { TOKENS, THEME_COLORS } from '../../../../packages/ui/src/tokens.js';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 
 export interface EmployeesScreenProps {
@@ -375,7 +375,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             border: '1px solid rgba(16, 185, 129, 0.3)',
             marginBottom: '16px',
-            color: '#10B981',
+            color: 'var(--success-text)',
             fontSize: '14px',
             display: 'flex',
             justifyContent: 'space-between',
@@ -393,7 +393,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#10B981',
+              color: 'var(--success-text)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -416,7 +416,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
         >
           <div
             style={{
-              color: '#14B8A6',
+              color: 'var(--accent-text)',
               fontWeight: 600,
               marginBottom: '8px',
               display: 'flex',
@@ -430,12 +430,12 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           <div
             style={{
               padding: '10px',
-              backgroundColor: '#0B1220',
+              backgroundColor: 'var(--bg-color)',
               borderRadius: '6px',
               fontSize: '13px',
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               wordBreak: 'break-all',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
               marginBottom: '12px',
             }}
           >
@@ -571,12 +571,12 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                 padding: '8px 14px',
                 borderRadius: '6px',
                 border: '1px solid',
-                borderColor: statusFilter === tab.key ? '#14B8A6' : '#334155',
+                borderColor: statusFilter === tab.key ? '#14B8A6' : 'var(--border-color)',
                 backgroundColor:
                   statusFilter === tab.key
                     ? 'rgba(20, 184, 166, 0.15)'
-                    : '#1E293B',
-                color: statusFilter === tab.key ? '#14B8A6' : '#94A3B8',
+                    : 'var(--surface-hover)',
+                color: statusFilter === tab.key ? 'var(--accent-text)' : 'var(--muted-color)',
                 fontSize: '13px',
                 fontWeight: 600,
                 lineHeight: 1.2,
@@ -611,9 +611,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               boxSizing: 'border-box',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #334155',
-              backgroundColor: '#1E293B',
-              color: '#F8FAFC',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--surface-hover)',
+              color: 'var(--text-color)',
               fontSize: '13px',
               outline: 'none',
             }}
@@ -747,20 +747,20 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                         padding: '2px 8px',
                         borderRadius: '4px',
                         backgroundColor: '#334155',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontWeight: 600,
                       }}
                     >
                       {emp.employee_code}
                     </span>
-                    <strong style={{ fontSize: '15px', color: '#F8FAFC' }}>
+                    <strong style={{ fontSize: '15px', color: 'var(--text-color)' }}>
                       {emp.full_name}
                     </strong>
                   </div>
                   <div
                     style={{
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginTop: '4px',
                     }}
                   >
@@ -783,20 +783,20 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                       )}
                       <span data-testid={`emp-phone-${emp.id}`}>
                         {emp.phone ? (
-                          <span style={{ color: '#E2E8F0' }}>📞 {emp.phone}</span>
+                          <span style={{ color: 'var(--text-color)' }}>📞 {emp.phone}</span>
                         ) : (
-                          <span style={{ color: '#F59E0B', fontSize: '12px' }}>
+                          <span style={{ color: 'var(--warning-text)', fontSize: '12px' }}>
                             ⚠️ Chưa có SĐT
                           </span>
                         )}
                       </span>
                       <span data-testid={`emp-bank-${emp.id}`}>
                         {emp.bank_name && emp.bank_account_number ? (
-                          <span style={{ color: '#10B981', fontSize: '12px' }}>
+                          <span style={{ color: 'var(--success-text)', fontSize: '12px' }}>
                             🏦 {emp.bank_name} • {emp.bank_account_number}
                           </span>
                         ) : (
-                          <span style={{ color: '#64748B', fontSize: '12px' }}>
+                          <span style={{ color: 'var(--muted-color)', fontSize: '12px' }}>
                             Chưa có TK ngân hàng
                           </span>
                         )}
@@ -812,13 +812,13 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  borderTop: '1px solid #1E293B',
+                  borderTop: '1px solid var(--border-subtle)',
                   paddingTop: '12px',
                   flexWrap: 'wrap',
                   gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   {emp.is_payroll_eligible
                     ? 'Tính lương tự động'
                     : 'Không tính lương (Owner)'}
@@ -881,9 +881,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                 marginTop: TOKENS.spacing[4],
                 padding: `${TOKENS.spacing[3]} ${TOKENS.spacing[4]}`,
                 borderRadius: TOKENS.radii.sm,
-                backgroundColor: TOKENS.colors.dangerSubtle,
-                border: `1px solid ${TOKENS.colors.danger}`,
-                color: TOKENS.colors.danger,
+                backgroundColor: THEME_COLORS.dangerSubtle,
+                border: `1px solid ${THEME_COLORS.danger}`,
+                color: THEME_COLORS.danger,
                 fontSize: TOKENS.typography.fontSize.base,
                 textAlign: 'center',
               }}
@@ -941,7 +941,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           >
             <label
               htmlFor="employee-action-reason"
-              style={{ fontSize: '13px', color: TOKENS.colors.muted }}
+              style={{ fontSize: '13px', color: THEME_COLORS.muted }}
             >
               Nhập lý do thực hiện thao tác:
             </label>
@@ -960,9 +960,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                 width: '100%',
                 padding: '10px 12px',
                 borderRadius: TOKENS.radii.md,
-                border: `1px solid ${TOKENS.colors.border}`,
-                backgroundColor: TOKENS.colors.background,
-                color: TOKENS.colors.text,
+                border: `1px solid ${THEME_COLORS.border}`,
+                backgroundColor: THEME_COLORS.background,
+                color: THEME_COLORS.text,
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',

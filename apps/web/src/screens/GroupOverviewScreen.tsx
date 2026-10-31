@@ -89,8 +89,8 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
         />
         <div
           style={{
-            backgroundColor: '#151F30',
-            border: '1px solid #334155',
+            backgroundColor: 'var(--surface-color)',
+            border: '1px solid var(--border-color)',
             borderRadius: '12px',
             padding: '32px 24px',
             textAlign: 'center',
@@ -98,7 +98,7 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
           }}
         >
           <p
-            style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '20px' }}
+            style={{ color: 'var(--muted-color)', fontSize: '14px', marginBottom: '20px' }}
           >
             Vui lòng chọn một nhóm chức năng hợp lệ từ thanh điều hướng.
           </p>
@@ -108,9 +108,9 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
             style={{
               padding: '10px 20px',
               borderRadius: '8px',
-              backgroundColor: '#1E293B',
-              color: '#F8FAFC',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-hover)',
+              color: 'var(--text-color)',
+              border: '1px solid var(--border-color)',
               fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',
@@ -193,8 +193,8 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                   gap: '14px',
                   padding: '16px 18px',
                   borderRadius: '10px',
-                  backgroundColor: '#151F30',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-color)',
+                  border: '1px solid var(--border-color)',
                   opacity: 0.65,
                   cursor: 'not-allowed',
                 }}
@@ -208,7 +208,7 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#64748B',
+                    color: 'var(--muted-color)',
                     flexShrink: 0,
                   }}
                 >
@@ -227,7 +227,7 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                       style={{
                         fontSize: '15px',
                         fontWeight: 600,
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                       }}
                     >
                       {item.label}
@@ -238,7 +238,7 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                     style={{
                       margin: 0,
                       fontSize: '12px',
-                      color: '#64748B',
+                      color: 'var(--muted-color)',
                       lineHeight: 1.4,
                     }}
                   >
@@ -261,8 +261,8 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                 gap: '14px',
                 padding: '16px 18px',
                 borderRadius: '10px',
-                backgroundColor: '#151F30',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--surface-color)',
+                border: '1px solid var(--border-color)',
                 color: 'inherit',
                 textAlign: 'left',
                 cursor: 'pointer',
@@ -299,7 +299,7 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#14B8A6',
+                  color: 'var(--accent-text)',
                   flexShrink: 0,
                 }}
               >
@@ -311,7 +311,7 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                   style={{
                     fontSize: '15px',
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginBottom: '4px',
                     lineHeight: 1.2,
                   }}
@@ -322,7 +322,7 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                   style={{
                     margin: 0,
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     lineHeight: 1.4,
                   }}
                 >
@@ -332,7 +332,7 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
 
               <div
                 style={{
-                  color: '#64748B',
+                  color: 'var(--muted-color)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

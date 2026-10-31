@@ -1,5 +1,5 @@
 import React from 'react';
-import { TOKENS } from '../tokens.js';
+import { TOKENS, THEME_COLORS } from '../tokens.js';
 
 export interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg' | number;
@@ -35,7 +35,7 @@ export const Spinner: React.FC<SpinnerProps> = ({
   };
 
   const getColor = () => {
-    if (color === 'primary') return TOKENS.colors.primary;
+    if (color === 'primary') return THEME_COLORS.primary;
     if (color === 'current') return 'currentColor';
     return color;
   };
@@ -54,7 +54,7 @@ export const Spinner: React.FC<SpinnerProps> = ({
         width: dimension,
         height: dimension,
         border: `${borderWidth} solid ${
-          color === 'current' ? 'currentColor' : TOKENS.colors.border
+          color === 'current' ? 'currentColor' : THEME_COLORS.border
         }`,
         borderTopColor: spinnerColor,
         borderRadius: TOKENS.radii.full,

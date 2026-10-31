@@ -1417,9 +1417,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#1E293B',
+              backgroundColor: 'var(--surface-hover)',
               borderRadius: '12px',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
               width: '100%',
               maxWidth: '520px',
               padding: '24px',
@@ -1430,7 +1430,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 margin: '0 0 8px 0',
                 fontSize: '18px',
                 fontWeight: 700,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
               }}
             >
               Kết nối Google Drive (OAuth 2.0)
@@ -1439,7 +1439,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               style={{
                 margin: '0 0 16px 0',
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 lineHeight: '1.5',
               }}
             >
@@ -1479,7 +1479,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         backgroundColor: 'rgba(56, 189, 248, 0.15)',
                         border: '1px solid rgba(56, 189, 248, 0.4)',
                         borderRadius: '6px',
-                        color: '#38BDF8',
+                        color: 'var(--info-text)',
                         fontSize: '12px',
                         fontWeight: 600,
                         textDecoration: 'none',
@@ -1494,11 +1494,11 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       marginTop: '8px',
                       padding: '8px 10px',
-                      backgroundColor: '#0F172A',
+                      backgroundColor: 'var(--surface-subtle)',
                       borderRadius: '6px',
-                      border: '1px solid #334155',
+                      border: '1px solid var(--border-color)',
                       fontSize: '11px',
-                      color: '#38BDF8',
+                      color: 'var(--info-text)',
                       wordBreak: 'break-all',
                     }}
                   >
@@ -1512,7 +1512,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1526,10 +1526,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -1541,7 +1541,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1555,10 +1555,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -1570,7 +1570,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1583,10 +1583,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -1653,9 +1653,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#1E293B',
+              backgroundColor: 'var(--surface-hover)',
               borderRadius: '12px',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
               width: '100%',
               maxWidth: '500px',
               padding: '24px',
@@ -1666,7 +1666,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 margin: '0 0 12px 0',
                 fontSize: '18px',
                 fontWeight: 700,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
               }}
             >
               Tải video lên Google Drive (Resumable Upload)
@@ -1679,7 +1679,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -1692,10 +1692,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                     }}
@@ -1719,7 +1719,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1743,7 +1743,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     width: '100%',
                     marginBottom: '8px',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 />
                 <input
@@ -1755,10 +1755,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -1778,7 +1778,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -1792,10 +1792,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                     }}
@@ -1806,7 +1806,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -1822,10 +1822,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                     }}
@@ -1842,7 +1842,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -1856,10 +1856,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                     }}
@@ -1881,7 +1881,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       display: 'flex',
                       justifyContent: 'space-between',
                       fontSize: '12px',
-                      color: '#38BDF8',
+                      color: 'var(--info-text)',
                       marginBottom: '4px',
                     }}
                   >
@@ -1892,7 +1892,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       width: '100%',
                       height: '8px',
-                      backgroundColor: '#0F172A',
+                      backgroundColor: 'var(--surface-subtle)',
                       borderRadius: '4px',
                       overflow: 'hidden',
                     }}
@@ -1987,7 +1987,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           maxWidth: '900px',
           margin: '0 auto',
           padding: '24px 16px',
-          color: '#F8FAFC',
+          color: 'var(--text-color)',
         }}
       >
         <div style={{ marginBottom: '16px' }}>
@@ -1999,9 +1999,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               alignItems: 'center',
               gap: '6px',
               padding: '6px 12px',
-              backgroundColor: '#1E293B',
-              color: '#94A3B8',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-hover)',
+              color: 'var(--muted-color)',
+              border: '1px solid var(--border-color)',
               borderRadius: '6px',
               cursor: 'pointer',
               fontSize: '13px',
@@ -2074,7 +2074,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
               borderRadius: '8px',
-              color: '#F87171',
+              color: 'var(--danger-text)',
               marginBottom: '20px',
               fontSize: '13px',
               whiteSpace: 'pre-line',
@@ -2091,7 +2091,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               backgroundColor: 'rgba(16, 185, 129, 0.1)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
               borderRadius: '8px',
-              color: '#34D399',
+              color: 'var(--success-text)',
               marginBottom: '20px',
               fontSize: '13px',
             }}
@@ -2110,7 +2110,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 margin: '0 0 16px 0',
                 fontSize: '16px',
                 fontWeight: 700,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
               }}
             >
               Thông tin thư mục Google Drive
@@ -2123,21 +2123,21 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                 gap: '16px',
                 padding: '16px',
-                backgroundColor: '#0F172A',
+                backgroundColor: 'var(--surface-subtle)',
                 borderRadius: '8px',
-                border: '1px solid #1E293B',
+                border: '1px solid var(--border-subtle)',
                 marginBottom: '16px',
                 fontSize: '13px',
               }}
             >
               <div>
-                <span style={{ color: '#94A3B8' }}>
+                <span style={{ color: 'var(--muted-color)' }}>
                   Google Drive Folder ID:
                 </span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#38BDF8',
+                    color: 'var(--info-text)',
                     marginTop: '2px',
                     wordBreak: 'break-all',
                   }}
@@ -2147,13 +2147,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               </div>
 
               <div>
-                <span style={{ color: '#94A3B8' }}>
+                <span style={{ color: 'var(--muted-color)' }}>
                   Parent Folder ID (Drive):
                 </span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -2162,11 +2162,11 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               </div>
 
               <div>
-                <span style={{ color: '#94A3B8' }}>Chủ sở hữu Drive:</span>
+                <span style={{ color: 'var(--muted-color)' }}>Chủ sở hữu Drive:</span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -2177,20 +2177,20 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               </div>
 
               <div>
-                <span style={{ color: '#94A3B8' }}>
+                <span style={{ color: 'var(--muted-color)' }}>
                   Tổng nhân sự được giao:
                 </span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
                   }}
                 >
-                  <UserIcon size={14} style={{ color: '#38BDF8' }} />
+                  <UserIcon size={14} style={{ color: 'var(--info-text)' }} />
                   <span>
                     {selectedFolder.assignments?.length ||
                       selectedFolder.assigned_employee_ids?.length ||
@@ -2201,11 +2201,11 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               </div>
 
               <div>
-                <span style={{ color: '#94A3B8' }}>Số lượng thành phẩm:</span>
+                <span style={{ color: 'var(--muted-color)' }}>Số lượng thành phẩm:</span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -2217,11 +2217,11 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               </div>
 
               <div>
-                <span style={{ color: '#94A3B8' }}>Ngày tạo trên Drive:</span>
+                <span style={{ color: 'var(--muted-color)' }}>Ngày tạo trên Drive:</span>
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -2235,14 +2235,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
             {selectedFolder.notes && (
               <div style={{ marginBottom: '16px' }}>
-                <span style={{ fontSize: '13px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
                   Ghi chú:
                 </span>
                 <p
                   style={{
                     margin: '4px 0 0 0',
                     fontSize: '14px',
-                    color: '#CBD5E1',
+                    color: 'var(--text-secondary)',
                     lineHeight: '1.5',
                   }}
                 >
@@ -2273,7 +2273,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Quyền chia sẻ Google Drive theo Email nhân viên (
@@ -2283,7 +2283,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     margin: '4px 0 0 0',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Cấp hoặc thu hồi quyền <code>reader</code> /{' '}
@@ -2302,9 +2302,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   flexWrap: 'wrap',
                   marginBottom: '16px',
                   padding: '12px',
-                  backgroundColor: '#0F172A',
+                  backgroundColor: 'var(--surface-subtle)',
                   borderRadius: '8px',
-                  border: '1px solid #1E293B',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
                 <select
@@ -2314,10 +2314,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     flex: '1',
                     minWidth: '200px',
                     padding: '8px 12px',
-                    backgroundColor: '#1E293B',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-hover)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                   }}
                 >
@@ -2336,10 +2336,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   }
                   style={{
                     padding: '8px 12px',
-                    backgroundColor: '#1E293B',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-hover)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                   }}
                 >
@@ -2361,9 +2361,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               <div
                 style={{
                   padding: '14px',
-                  backgroundColor: '#0F172A',
+                  backgroundColor: 'var(--surface-subtle)',
                   borderRadius: '8px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   fontSize: '13px',
                   textAlign: 'center',
                 }}
@@ -2384,8 +2384,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     key={grant.id}
                     style={{
                       padding: '12px 14px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #1E293B',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '8px',
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -2396,14 +2396,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-color)' }}>
                         {grant.employee_name || grant.employee_id}{' '}
                         {grant.google_email ? `(${grant.google_email})` : ''}
                       </div>
                       <div
                         style={{
                           fontSize: '11px',
-                          color: '#94A3B8',
+                          color: 'var(--muted-color)',
                           marginTop: '2px',
                         }}
                       >
@@ -2464,7 +2464,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Danh sách Video & Tệp trên Google Drive ({folderFiles.length})
@@ -2473,7 +2473,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     margin: '4px 0 0 0',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Theo dõi trạng thái Resumable Upload, nhân viên phụ trách và
@@ -2508,10 +2508,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               <div
                 style={{
                   padding: '20px',
-                  backgroundColor: '#0F172A',
+                  backgroundColor: 'var(--surface-subtle)',
                   borderRadius: '8px',
                   textAlign: 'center',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   fontSize: '13px',
                 }}
               >
@@ -2543,8 +2543,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       key={file.id}
                       style={{
                         padding: '14px 16px',
-                        backgroundColor: '#0F172A',
-                        border: '1px solid #1E293B',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-subtle)',
                         borderRadius: '8px',
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -2555,13 +2555,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       }}
                     >
                       <div>
-                        <div style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-color)' }}>
                           {file.name}
                         </div>
                         <div
                           style={{
                             fontSize: '12px',
-                            color: '#94A3B8',
+                            color: 'var(--muted-color)',
                             marginTop: '2px',
                           }}
                         >
@@ -2573,7 +2573,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           <div
                             style={{
                               fontSize: '11px',
-                              color: '#F87171',
+                              color: 'var(--danger-text)',
                               marginTop: '4px',
                             }}
                           >
@@ -2626,9 +2626,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                             rel="noopener noreferrer"
                             style={{
                               padding: '5px 10px',
-                              backgroundColor: '#1E293B',
-                              color: '#38BDF8',
-                              border: '1px solid #334155',
+                              backgroundColor: 'var(--surface-hover)',
+                              color: 'var(--info-text)',
+                              border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               textDecoration: 'none',
                               fontSize: '12px',
@@ -2685,7 +2685,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 margin: '0 0 16px 0',
                 fontSize: '16px',
                 fontWeight: 700,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
               }}
             >
               Phân công & Tải nguồn theo từng nhân sự (
@@ -2697,10 +2697,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               <div
                 style={{
                   padding: '16px',
-                  backgroundColor: '#0F172A',
+                  backgroundColor: 'var(--surface-subtle)',
                   borderRadius: '8px',
                   textAlign: 'center',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   fontSize: '13px',
                 }}
               >
@@ -2719,8 +2719,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     key={assignment.id}
                     style={{
                       padding: '12px 16px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #1E293B',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '8px',
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -2731,19 +2731,19 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-color)' }}>
                         {assignment.employee_name}
                       </div>
                       <div
                         style={{
                           fontSize: '12px',
-                          color: '#94A3B8',
+                          color: 'var(--muted-color)',
                           marginTop: '2px',
                         }}
                       >
                         Trạng thái tải nguồn:{' '}
                         {assignment.source_download_confirmed ? (
-                          <span style={{ color: '#34D399' }}>
+                          <span style={{ color: 'var(--success-text)' }}>
                             Đã tải (
                             {assignment.source_downloaded_at
                               ? new Date(
@@ -2753,7 +2753,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                             )
                           </span>
                         ) : (
-                          <span style={{ color: '#FBBF24' }}>
+                          <span style={{ color: 'var(--warning-text)' }}>
                             Chưa tải nguồn
                           </span>
                         )}
@@ -2816,7 +2816,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Danh sách thư mục thành phẩm (
@@ -2826,7 +2826,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     margin: '4px 0 0 0',
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Mỗi thành phẩm bắt buộc có biên nhận Owner receipt đúng
@@ -2850,10 +2850,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               <div
                 style={{
                   padding: '24px',
-                  backgroundColor: '#0F172A',
+                  backgroundColor: 'var(--surface-subtle)',
                   borderRadius: '8px',
                   textAlign: 'center',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   fontSize: '13px',
                 }}
               >
@@ -2879,12 +2879,12 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       key={output.id}
                       style={{
                         padding: '14px 16px',
-                        backgroundColor: '#0F172A',
+                        backgroundColor: 'var(--surface-subtle)',
                         border: isStale
                           ? '1px solid #EAB308'
                           : isApproved
                             ? '1px solid rgba(16, 185, 129, 0.3)'
-                            : '1px solid #1E293B',
+                            : '1px solid var(--border-subtle)',
                         borderRadius: '8px',
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -2898,7 +2898,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           style={{
                             fontWeight: 600,
                             fontSize: '14px',
-                            color: '#F8FAFC',
+                            color: 'var(--text-color)',
                           }}
                         >
                           {output.name} (v{output.current_revision})
@@ -2906,7 +2906,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         <div
                           style={{
                             fontSize: '12px',
-                            color: '#94A3B8',
+                            color: 'var(--muted-color)',
                             marginTop: '2px',
                           }}
                         >
@@ -2922,7 +2922,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                             style={{
                               marginTop: '6px',
                               fontSize: '11px',
-                              color: '#FBBF24',
+                              color: 'var(--warning-text)',
                               fontWeight: 600,
                             }}
                           >
@@ -2964,9 +2964,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                             alignItems: 'center',
                             gap: '4px',
                             padding: '6px 10px',
-                            backgroundColor: '#1E293B',
-                            color: '#38BDF8',
-                            border: '1px solid #334155',
+                            backgroundColor: 'var(--surface-hover)',
+                            color: 'var(--info-text)',
+                            border: '1px solid var(--border-color)',
                             borderRadius: '6px',
                             textDecoration: 'none',
                             fontSize: '12px',
@@ -3024,7 +3024,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   marginBottom: '12px',
                 }}
               >
-                <div style={{ color: isReady ? '#EF4444' : '#EAB308' }}>
+                <div style={{ color: isReady ? 'var(--danger-text)' : '#EAB308' }}>
                   <ShieldAlertIcon size={20} />
                 </div>
                 <h3
@@ -3032,7 +3032,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                   }}
                 >
                   Chuyển nhóm thư mục vào thùng rác Google Drive (Google Drive
@@ -3044,7 +3044,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 style={{
                   margin: '0 0 16px 0',
                   fontSize: '13px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   lineHeight: '1.5',
                 }}
               >
@@ -3058,7 +3058,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     padding: '16px',
                     backgroundColor: 'rgba(100, 116, 139, 0.1)',
-                    border: '1px solid #475569',
+                    border: '1px solid var(--border-hover)',
                     borderRadius: '8px',
                     marginBottom: '16px',
                     fontSize: '13px',
@@ -3069,7 +3069,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       fontWeight: 700,
                       marginBottom: '6px',
                     }}
@@ -3080,7 +3080,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   <p
                     style={{
                       margin: 0,
-                      color: '#CBD5E1',
+                      color: 'var(--text-secondary)',
                       lineHeight: '1.5',
                     }}
                   >
@@ -3094,9 +3094,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 <div
                   style={{
                     padding: '16px',
-                    backgroundColor: '#0F172A',
+                    backgroundColor: 'var(--surface-subtle)',
                     borderRadius: '8px',
-                    border: '1px solid #1E293B',
+                    border: '1px solid var(--border-subtle)',
                     marginBottom: '16px',
                     fontSize: '13px',
                   }}
@@ -3104,7 +3104,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   <div
                     style={{
                       fontWeight: 600,
-                      color: '#FBBF24',
+                      color: 'var(--warning-text)',
                       marginBottom: '10px',
                     }}
                   >
@@ -3115,7 +3115,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       margin: 0,
                       paddingLeft: '20px',
-                      color: '#F87171',
+                      color: 'var(--danger-text)',
                       lineHeight: '1.6',
                     }}
                   >
@@ -3133,13 +3133,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     borderRadius: '8px',
                     marginBottom: '16px',
                     fontSize: '13px',
-                    color: '#34D399',
+                    color: 'var(--success-text)',
                   }}
                 >
                   <div style={{ fontWeight: 700, marginBottom: '4px' }}>
                     ✓ Đủ điều kiện chuyển vào thùng rác Google Drive
                   </div>
-                  <div style={{ color: '#94A3B8', fontSize: '12px' }}>
+                  <div style={{ color: 'var(--muted-color)', fontSize: '12px' }}>
                     Tất cả nhân sự ({readiness?.total_assignments}) đã bàn giao
                     output. Tất cả thành phẩm ({readiness?.total_outputs}) đã
                     được Owner nghiệm thu đúng revision hiện hành.
@@ -3194,9 +3194,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           >
             <div
               style={{
-                backgroundColor: '#1E293B',
+                backgroundColor: 'var(--surface-hover)',
                 borderRadius: '12px',
-                border: '1px solid #334155',
+                border: '1px solid var(--border-color)',
                 width: '100%',
                 maxWidth: '480px',
                 padding: '24px',
@@ -3220,7 +3220,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         style={{
                           display: 'block',
                           fontSize: '13px',
-                          color: '#94A3B8',
+                          color: 'var(--muted-color)',
                           marginBottom: '6px',
                         }}
                       >
@@ -3234,10 +3234,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         style={{
                           width: '100%',
                           padding: '10px 12px',
-                          backgroundColor: '#0F172A',
-                          border: '1px solid #334155',
+                          backgroundColor: 'var(--surface-subtle)',
+                          border: '1px solid var(--border-color)',
                           borderRadius: '6px',
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                           fontSize: '14px',
                           boxSizing: 'border-box',
                         }}
@@ -3257,7 +3257,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -3272,10 +3272,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                     }}
@@ -3288,7 +3288,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     alignItems: 'center',
                     gap: '8px',
                     fontSize: '13px',
-                    color: '#38BDF8',
+                    color: 'var(--info-text)',
                     marginBottom: '12px',
                     cursor: 'pointer',
                   }}
@@ -3311,7 +3311,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       style={{
                         display: 'block',
                         fontSize: '13px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         marginBottom: '6px',
                       }}
                     >
@@ -3326,10 +3326,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        backgroundColor: '#0F172A',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '6px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '14px',
                         boxSizing: 'border-box',
                       }}
@@ -3342,7 +3342,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -3356,10 +3356,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                     }}
@@ -3412,7 +3412,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           >
             <div
               style={{
-                backgroundColor: '#1E293B',
+                backgroundColor: 'var(--surface-hover)',
                 borderRadius: '12px',
                 border: '1px solid #EF4444',
                 width: '100%',
@@ -3428,7 +3428,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   marginBottom: '16px',
                 }}
               >
-                <div style={{ color: '#EF4444' }}>
+                <div style={{ color: 'var(--danger-text)' }}>
                   <AlertTriangleIcon size={24} />
                 </div>
                 <h3
@@ -3436,7 +3436,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     margin: 0,
                     fontSize: '18px',
                     fontWeight: 700,
-                    color: '#EF4444',
+                    color: 'var(--danger-text)',
                   }}
                 >
                   Chuyển nhóm thư mục vào thùng rác Google Drive (Bước 2/2)
@@ -3451,7 +3451,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   border: '1px solid rgba(239, 68, 68, 0.3)',
                   marginBottom: '16px',
                   fontSize: '13px',
-                  color: '#FCA5A5',
+                  color: 'var(--danger-text)',
                   lineHeight: '1.5',
                 }}
               >
@@ -3464,7 +3464,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               <p
                 style={{
                   fontSize: '13px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '16px',
                 }}
               >
@@ -3490,7 +3490,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   cursor: 'pointer',
                   marginBottom: '24px',
                   fontSize: '13px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 <input
@@ -3540,7 +3540,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     <div
       style={{
         width: '100%',
-        color: '#F8FAFC',
+        color: 'var(--text-color)',
       }}
     >
       {/* 1. Page Header */}
@@ -3629,7 +3629,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   : 'Chưa kết nối Google Drive'
               }
             />
-            <span style={{ color: '#CBD5E1' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>
               {driveConnection?.connected
                 ? `Tài khoản Google Drive: ${driveConnection.google_email}`
                 : 'Kết nối tài khoản Google quản trị để tự động tạo thư mục, tải video và phân quyền nhân viên.'}
@@ -3664,14 +3664,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         }}
       >
         <AppCard style={{ padding: '16px' }}>
-          <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
             Tổng nhóm thư mục
           </span>
           <div
             style={{
               fontSize: '24px',
               fontWeight: 700,
-              color: '#38BDF8',
+              color: 'var(--info-text)',
               marginTop: '4px',
             }}
           >
@@ -3680,14 +3680,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         </AppCard>
 
         <AppCard style={{ padding: '16px' }}>
-          <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
             Chờ tải gốc
           </span>
           <div
             style={{
               fontSize: '24px',
               fontWeight: 700,
-              color: '#FBBF24',
+              color: 'var(--warning-text)',
               marginTop: '4px',
             }}
           >
@@ -3696,7 +3696,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         </AppCard>
 
         <AppCard style={{ padding: '16px' }}>
-          <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
             Chờ duyệt thành phẩm
           </span>
           <div
@@ -3712,14 +3712,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         </AppCard>
 
         <AppCard style={{ padding: '16px' }}>
-          <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
             Đủ điều kiện dọn dẹp
           </span>
           <div
             style={{
               fontSize: '24px',
               fontWeight: 700,
-              color: '#34D399',
+              color: 'var(--success-text)',
               marginTop: '4px',
             }}
           >
@@ -3736,7 +3736,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             border: '1px solid rgba(239, 68, 68, 0.3)',
             borderRadius: '8px',
-            color: '#F87171',
+            color: 'var(--danger-text)',
             marginBottom: '20px',
             fontSize: '13px',
             whiteSpace: 'pre-line',
@@ -3753,7 +3753,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             border: '1px solid rgba(16, 185, 129, 0.3)',
             borderRadius: '8px',
-            color: '#34D399',
+            color: 'var(--success-text)',
             marginBottom: '20px',
             fontSize: '13px',
           }}
@@ -3787,8 +3787,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 fontWeight: 600,
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: typeFilter === 'all' ? '#14B8A6' : '#1E293B',
-                color: typeFilter === 'all' ? '#0F172A' : '#94A3B8',
+                backgroundColor: typeFilter === 'all' ? '#14B8A6' : 'var(--surface-hover)',
+                color: typeFilter === 'all' ? '#0F172A' : 'var(--muted-color)',
               }}
             >
               Tất cả
@@ -3807,8 +3807,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 border: 'none',
                 cursor: 'pointer',
                 backgroundColor:
-                  typeFilter === 'source' ? '#14B8A6' : '#1E293B',
-                color: typeFilter === 'source' ? '#0F172A' : '#94A3B8',
+                  typeFilter === 'source' ? '#14B8A6' : 'var(--surface-hover)',
+                color: typeFilter === 'source' ? '#0F172A' : 'var(--muted-color)',
               }}
             >
               Thư mục gốc
@@ -3827,8 +3827,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 border: 'none',
                 cursor: 'pointer',
                 backgroundColor:
-                  typeFilter === 'deliverable' ? '#14B8A6' : '#1E293B',
-                color: typeFilter === 'deliverable' ? '#0F172A' : '#94A3B8',
+                  typeFilter === 'deliverable' ? '#14B8A6' : 'var(--surface-hover)',
+                color: typeFilter === 'deliverable' ? '#0F172A' : 'var(--muted-color)',
               }}
             >
               Thành phẩm
@@ -3855,10 +3855,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px 8px 34px',
-                backgroundColor: '#0F172A',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
                 borderRadius: '6px',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 fontSize: '13px',
                 boxSizing: 'border-box',
               }}
@@ -3869,7 +3869,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 left: '10px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: '#64748B',
+                color: 'var(--muted-color)',
               }}
             >
               <SearchIcon size={14} />
@@ -3930,8 +3930,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     padding: '12px',
                     borderRadius: '10px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '8px',
@@ -3951,7 +3951,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         style={{
                           fontWeight: 700,
                           fontSize: '14px',
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                           wordBreak: 'break-word',
                         }}
                       >
@@ -3960,7 +3960,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       <div
                         style={{
                           fontSize: '11px',
-                          color: '#64748B',
+                          color: 'var(--muted-color)',
                           marginTop: '2px',
                         }}
                       >
@@ -3981,7 +3981,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                             : 'rgba(168, 85, 247, 0.1)',
                         color:
                           folder.folder_type === 'source'
-                            ? '#38BDF8'
+                            ? 'var(--info-text)'
                             : '#A855F7',
                         border: `1px solid ${
                           folder.folder_type === 'source'
@@ -4003,7 +4003,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       gap: '8px',
                       alignItems: 'center',
                       fontSize: '12px',
-                      color: '#CBD5E1',
+                      color: 'var(--text-secondary)',
                     }}
                   >
                     <span>
@@ -4013,7 +4013,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         : ''}
                     </span>
                     <span>•</span>
-                    <span style={{ color: '#38BDF8', fontWeight: 600 }}>
+                    <span style={{ color: 'var(--info-text)', fontWeight: 600 }}>
                       📁{' '}
                       {folder.deliverable_count ??
                         folder.deliverables?.length ??
@@ -4030,7 +4030,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       flexWrap: 'wrap',
                       gap: '8px',
                       paddingTop: '6px',
-                      borderTop: '1px solid #1E293B',
+                      borderTop: '1px solid var(--border-subtle)',
                     }}
                   >
                     <div
@@ -4068,9 +4068,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         rel="noopener noreferrer"
                         style={{
                           padding: '5px 10px',
-                          backgroundColor: '#1E293B',
-                          color: '#38BDF8',
-                          border: '1px solid #334155',
+                          backgroundColor: 'var(--surface-hover)',
+                          color: 'var(--info-text)',
+                          border: '1px solid var(--border-color)',
                           borderRadius: '6px',
                           textDecoration: 'none',
                           fontSize: '12px',
@@ -4109,30 +4109,30 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             <thead>
               <tr
                 style={{
-                  borderBottom: '1px solid #334155',
-                  backgroundColor: '#0F172A',
+                  borderBottom: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-subtle)',
                 }}
               >
-                <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                   Tên thư mục
                 </th>
-                <th style={{ padding: '12px 16px', color: '#94A3B8' }}>Loại</th>
-                <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>Loại</th>
+                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                   Nhân sự & Quyền Drive
                 </th>
-                <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                   Tải gốc
                 </th>
-                <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                   Thành phẩm
                 </th>
-                <th style={{ padding: '12px 16px', color: '#94A3B8' }}>
+                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
                   Duyệt
                 </th>
                 <th
                   style={{
                     padding: '12px 16px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     textAlign: 'right',
                   }}
                 >
@@ -4149,16 +4149,16 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   <tr
                     key={folder.id}
                     style={{
-                      borderBottom: '1px solid #334155',
+                      borderBottom: '1px solid var(--border-color)',
                       transition: 'background-color 0.15s ease',
                     }}
                   >
                     <td style={{ padding: '12px 16px', fontWeight: 600 }}>
-                      <div style={{ color: '#F8FAFC' }}>{folder.name}</div>
+                      <div style={{ color: 'var(--text-color)' }}>{folder.name}</div>
                       <div
                         style={{
                           fontSize: '11px',
-                          color: '#64748B',
+                          color: 'var(--muted-color)',
                           marginTop: '2px',
                         }}
                       >
@@ -4186,7 +4186,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                               : 'rgba(168, 85, 247, 0.1)',
                           color:
                             folder.folder_type === 'source'
-                              ? '#38BDF8'
+                              ? 'var(--info-text)'
                               : '#A855F7',
                           border: `1px solid ${
                             folder.folder_type === 'source'
@@ -4201,13 +4201,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       </span>
                     </td>
 
-                    <td style={{ padding: '12px 16px', color: '#E2E8F0' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-color)' }}>
                       <div>{folder.assigned_employee_name || '-'}</div>
                       {activeGrants.length > 0 && (
                         <div
                           style={{
                             fontSize: '11px',
-                            color: '#38BDF8',
+                            color: 'var(--info-text)',
                             marginTop: '2px',
                           }}
                         >
@@ -4226,7 +4226,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     </td>
 
                     <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontWeight: 600, color: '#38BDF8' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--info-text)' }}>
                         {folder.deliverable_count ??
                           folder.deliverables?.length ??
                           0}{' '}
@@ -4257,9 +4257,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           rel="noopener noreferrer"
                           style={{
                             padding: '4px 8px',
-                            backgroundColor: '#1E293B',
-                            color: '#38BDF8',
-                            border: '1px solid #334155',
+                            backgroundColor: 'var(--surface-hover)',
+                            color: 'var(--info-text)',
+                            border: '1px solid var(--border-color)',
                             borderRadius: '4px',
                             textDecoration: 'none',
                             fontSize: '12px',
@@ -4319,9 +4319,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#1E293B',
+              backgroundColor: 'var(--surface-hover)',
               borderRadius: '12px',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
               width: '100%',
               maxWidth: '500px',
               padding: '24px',
@@ -4343,7 +4343,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4358,10 +4358,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -4374,7 +4374,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   alignItems: 'center',
                   gap: '8px',
                   fontSize: '13px',
-                  color: '#38BDF8',
+                  color: 'var(--info-text)',
                   marginBottom: '14px',
                   cursor: 'pointer',
                 }}
@@ -4395,7 +4395,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -4410,10 +4410,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                     }}
@@ -4426,7 +4426,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4443,7 +4443,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       backgroundColor: '#451A1A',
                       border: '1px solid #7F1D1D',
                       borderRadius: '6px',
-                      color: '#FCA5A5',
+                      color: 'var(--danger-text)',
                       fontSize: '12px',
                       gap: '8px',
                     }}
@@ -4484,10 +4484,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     width: '100%',
                     height: '90px',
                     padding: '8px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                     boxSizing: 'border-box',
                   }}
@@ -4501,7 +4501,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 <div
                   style={{
                     fontSize: '11px',
-                    color: '#64748B',
+                    color: 'var(--muted-color)',
                     marginTop: '4px',
                   }}
                 >
@@ -4514,7 +4514,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4530,10 +4530,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '13px',
                     boxSizing: 'border-box',
                   }}
@@ -4552,7 +4552,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4566,10 +4566,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -4622,9 +4622,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#1E293B',
+              backgroundColor: 'var(--surface-hover)',
               borderRadius: '12px',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
               width: '100%',
               maxWidth: '480px',
               padding: '24px',
@@ -4646,7 +4646,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4659,10 +4659,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -4683,7 +4683,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4698,10 +4698,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -4714,7 +4714,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   alignItems: 'center',
                   gap: '8px',
                   fontSize: '13px',
-                  color: '#38BDF8',
+                  color: 'var(--info-text)',
                   marginBottom: '12px',
                   cursor: 'pointer',
                 }}
@@ -4737,7 +4737,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       display: 'block',
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -4752,10 +4752,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                     }}
@@ -4768,7 +4768,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     display: 'block',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -4782,10 +4782,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}

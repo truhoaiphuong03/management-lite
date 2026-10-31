@@ -825,7 +825,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             display: 'flex',
             gap: '8px',
             marginBottom: '20px',
-            borderBottom: '1px solid #1E293B',
+            borderBottom: '1px solid var(--border-subtle)',
             paddingBottom: '8px',
           }}
         >
@@ -837,7 +837,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               borderRadius: '6px',
               backgroundColor:
                 activeTab === 'all_reports' ? '#14B8A6' : 'transparent',
-              color: activeTab === 'all_reports' ? '#0B1220' : '#94A3B8',
+              color: activeTab === 'all_reports' ? '#0B1220' : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               border: 'none',
@@ -860,7 +860,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               borderRadius: '6px',
               backgroundColor:
                 activeTab === 'my_reports' ? '#14B8A6' : 'transparent',
-              color: activeTab === 'my_reports' ? '#0B1220' : '#94A3B8',
+              color: activeTab === 'my_reports' ? '#0B1220' : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               border: 'none',
@@ -886,15 +886,15 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
           border: '1px solid rgba(20, 184, 166, 0.25)',
           marginBottom: '20px',
           fontSize: '13px',
-          color: '#F8FAFC',
+          color: 'var(--text-color)',
           display: 'flex',
           alignItems: 'flex-start',
           gap: '10px',
         }}
       >
-        <InfoIcon size={20} style={{ color: '#14B8A6', marginTop: '2px' }} />
+        <InfoIcon size={20} style={{ color: 'var(--accent-text)', marginTop: '2px' }} />
         <div style={{ lineHeight: 1.5 }}>
-          <strong style={{ color: '#14B8A6' }}>QUY TẮC C02 BÁO CÁO:</strong>{' '}
+          <strong style={{ color: 'var(--accent-text)' }}>QUY TẮC C02 BÁO CÁO:</strong>{' '}
           Nhân viên lưu nháp (draft) và có thể chỉnh sửa tự do. Sau khi nộp
           (submitted), nếu cần chỉnh sửa, hệ thống sẽ tạo phiên bản mới (v2, v3)
           kèm lý do điều chỉnh. Toàn bộ các phiên bản trước được bảo toàn bất
@@ -946,7 +946,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 backgroundColor: '#451A1A',
                 border: '1px solid #7F1D1D',
                 borderRadius: '6px',
-                color: '#FCA5A5',
+                color: 'var(--danger-text)',
                 fontSize: '12px',
                 gap: '8px',
               }}
@@ -986,7 +986,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '12px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '4px',
                 }}
               >
@@ -998,10 +998,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   minHeight: '44px',
                 }}
@@ -1020,7 +1020,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '12px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '4px',
                 }}
               >
@@ -1032,10 +1032,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   minHeight: '44px',
                 }}
@@ -1051,7 +1051,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '12px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '4px',
                 }}
               >
@@ -1064,10 +1064,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   minHeight: '44px',
                   boxSizing: 'border-box',
@@ -1083,10 +1083,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   style={{
                     padding: '4px 8px',
                     fontSize: '12px',
-                    backgroundColor: '#1E293B',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-hover)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     cursor: 'pointer',
                   }}
                 >
@@ -1101,10 +1101,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   style={{
                     padding: '4px 8px',
                     fontSize: '12px',
-                    backgroundColor: '#1E293B',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-hover)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     cursor: 'pointer',
                   }}
                 >
@@ -1145,14 +1145,14 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             style={{
               textAlign: 'center',
               padding: '40px 20px',
-              backgroundColor: '#1E293B',
+              backgroundColor: 'var(--surface-hover)',
               borderRadius: '8px',
-              border: '1px dashed #334155',
+              border: '1px dashed var(--border-color)',
             }}
           >
             <p
               style={{
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 fontSize: '14px',
                 marginBottom: '16px',
               }}
@@ -1225,13 +1225,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         style={{
                           fontWeight: 700,
                           fontSize: '16px',
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
                         }}
                       >
-                        <CalendarIcon size={16} style={{ color: '#14B8A6' }} />
+                        <CalendarIcon size={16} style={{ color: 'var(--accent-text)' }} />
                         <span>Ngày {report.report_date}</span>
                       </span>
 
@@ -1246,9 +1246,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                           fontWeight: 600,
                           padding: '2px 8px',
                           borderRadius: '4px',
-                          backgroundColor: '#1E293B',
-                          color: '#14B8A6',
-                          border: '1px solid #334155',
+                          backgroundColor: 'var(--surface-hover)',
+                          color: 'var(--accent-text)',
+                          border: '1px solid var(--border-color)',
                         }}
                       >
                         v{report.current_revision}
@@ -1258,14 +1258,14 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                     <div
                       style={{
                         fontSize: '13px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         marginTop: '4px',
                       }}
                     >
                       {report.employee_name && (
                         <span>
                           Nhân viên:{' '}
-                          <strong style={{ color: '#F8FAFC' }}>
+                          <strong style={{ color: 'var(--text-color)' }}>
                             {report.employee_name}
                           </strong>{' '}
                           |{' '}
@@ -1273,7 +1273,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       )}
                       <span>
                         Tổng sản lượng:{' '}
-                        <strong style={{ color: '#14B8A6' }}>
+                        <strong style={{ color: 'var(--accent-text)' }}>
                           {report.total_reported_count}
                         </strong>{' '}
                         ({report.entries_count} đầu mục)
@@ -1350,7 +1350,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
-                          color: '#F59E0B',
+                          color: 'var(--warning-text)',
                           borderColor: 'rgba(245, 158, 11, 0.4)',
                         }}
                       >
@@ -1365,10 +1365,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   <p
                     style={{
                       fontSize: '13px',
-                      color: '#CBD5E1',
+                      color: 'var(--text-secondary)',
                       margin: '8px 0 0 0',
                       lineHeight: 1.5,
-                      backgroundColor: '#0F172A',
+                      backgroundColor: 'var(--surface-subtle)',
                       padding: '8px 12px',
                       borderRadius: '6px',
                       borderLeft: '3px solid #14B8A6',
@@ -1444,8 +1444,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#0B1220',
-              border: '1px solid #1E293B',
+              backgroundColor: 'var(--bg-color)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: '12px',
               width: '100%',
               maxWidth: '600px',
@@ -1462,11 +1462,11 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                borderBottom: '1px solid #1E293B',
+                borderBottom: '1px solid var(--border-subtle)',
                 paddingBottom: '12px',
               }}
             >
-              <h3 style={{ margin: 0, fontSize: '18px', color: '#F8FAFC' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-color)' }}>
                 Tạo báo cáo công việc ngày
               </h3>
               <button
@@ -1475,7 +1475,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   padding: '4px',
                 }}
@@ -1489,7 +1489,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '13px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '6px',
                 }}
               >
@@ -1502,10 +1502,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 12px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   minHeight: '44px',
                   boxSizing: 'border-box',
@@ -1523,7 +1523,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   marginBottom: '8px',
                 }}
               >
-                <label style={{ fontSize: '13px', color: '#94A3B8' }}>
+                <label style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
                   Đầu mục công việc *
                 </label>
                 <button
@@ -1532,7 +1532,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -1556,10 +1556,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       display: 'flex',
                       gap: '8px',
                       alignItems: 'center',
-                      backgroundColor: '#0F172A',
+                      backgroundColor: 'var(--surface-subtle)',
                       padding: '8px 10px',
                       borderRadius: '6px',
-                      border: '1px solid #1E293B',
+                      border: '1px solid var(--border-subtle)',
                     }}
                   >
                     <input
@@ -1577,10 +1577,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         flex: '2 1 140px',
                         padding: '8px 10px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '13px',
                       }}
                     />
@@ -1600,10 +1600,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         width: '70px',
                         padding: '8px 10px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '13px',
                         textAlign: 'right',
                       }}
@@ -1623,10 +1623,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         flex: '3 1 160px',
                         padding: '8px 10px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '13px',
                       }}
                     />
@@ -1646,10 +1646,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                           flex: '2 1 150px',
                           minWidth: 0,
                           padding: '8px 10px',
-                          backgroundColor: '#0B1220',
-                          border: '1px solid #334155',
+                          backgroundColor: 'var(--bg-color)',
+                          border: '1px solid var(--border-color)',
                           borderRadius: '4px',
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                           fontSize: '13px',
                         }}
                       >
@@ -1670,7 +1670,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         style={{
                           background: 'none',
                           border: 'none',
-                          color: '#EF4444',
+                          color: 'var(--danger-text)',
                           cursor: 'pointer',
                           padding: '4px',
                         }}
@@ -1688,7 +1688,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '13px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '6px',
                 }}
               >
@@ -1702,10 +1702,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 12px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '13px',
                   boxSizing: 'border-box',
                 }}
@@ -1759,8 +1759,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#0B1220',
-              border: '1px solid #1E293B',
+              backgroundColor: 'var(--bg-color)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: '12px',
               width: '100%',
               maxWidth: '600px',
@@ -1777,11 +1777,11 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                borderBottom: '1px solid #1E293B',
+                borderBottom: '1px solid var(--border-subtle)',
                 paddingBottom: '12px',
               }}
             >
-              <h3 style={{ margin: 0, fontSize: '18px', color: '#F8FAFC' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-color)' }}>
                 Chỉnh sửa bản nháp ngày {editingReport.report_date}
               </h3>
               <button
@@ -1790,7 +1790,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   padding: '4px',
                 }}
@@ -1809,7 +1809,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   marginBottom: '8px',
                 }}
               >
-                <label style={{ fontSize: '13px', color: '#94A3B8' }}>
+                <label style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
                   Đầu mục công việc *
                 </label>
                 <button
@@ -1818,7 +1818,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -1842,10 +1842,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       display: 'flex',
                       gap: '8px',
                       alignItems: 'center',
-                      backgroundColor: '#0F172A',
+                      backgroundColor: 'var(--surface-subtle)',
                       padding: '8px 10px',
                       borderRadius: '6px',
-                      border: '1px solid #1E293B',
+                      border: '1px solid var(--border-subtle)',
                     }}
                   >
                     <input
@@ -1863,10 +1863,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         flex: '2 1 140px',
                         padding: '8px 10px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '13px',
                       }}
                     />
@@ -1886,10 +1886,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         width: '70px',
                         padding: '8px 10px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '13px',
                         textAlign: 'right',
                       }}
@@ -1909,10 +1909,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         flex: '3 1 160px',
                         padding: '8px 10px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '13px',
                       }}
                     />
@@ -1932,10 +1932,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                           flex: '2 1 150px',
                           minWidth: 0,
                           padding: '8px 10px',
-                          backgroundColor: '#0B1220',
-                          border: '1px solid #334155',
+                          backgroundColor: 'var(--bg-color)',
+                          border: '1px solid var(--border-color)',
                           borderRadius: '4px',
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                           fontSize: '13px',
                         }}
                       >
@@ -1956,7 +1956,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         style={{
                           background: 'none',
                           border: 'none',
-                          color: '#EF4444',
+                          color: 'var(--danger-text)',
                           cursor: 'pointer',
                           padding: '4px',
                         }}
@@ -1974,7 +1974,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '13px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '6px',
                 }}
               >
@@ -1987,10 +1987,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 12px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '13px',
                   boxSizing: 'border-box',
                 }}
@@ -2045,8 +2045,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#0B1220',
-              border: '1px solid #1E293B',
+              backgroundColor: 'var(--bg-color)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: '12px',
               width: '100%',
               maxWidth: '620px',
@@ -2063,23 +2063,23 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                borderBottom: '1px solid #1E293B',
+                borderBottom: '1px solid var(--border-subtle)',
                 paddingBottom: '12px',
               }}
             >
               <div>
-                <h3 style={{ margin: 0, fontSize: '18px', color: '#F8FAFC' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-color)' }}>
                   Chỉnh sửa báo cáo đã nộp (Quy tắc C02)
                 </h3>
                 <div
                   style={{
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
                   Ngày {revisingReport.report_date} — Phiên bản mới:{' '}
-                  <strong style={{ color: '#14B8A6' }}>
+                  <strong style={{ color: 'var(--accent-text)' }}>
                     v{revisingReport.current_revision + 1}
                   </strong>
                 </div>
@@ -2090,7 +2090,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   padding: '4px',
                 }}
@@ -2121,7 +2121,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '13px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontWeight: 600,
                   marginBottom: '6px',
                 }}
@@ -2137,10 +2137,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 12px',
-                  backgroundColor: '#0F172A',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid #F59E0B',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   minHeight: '44px',
                   boxSizing: 'border-box',
@@ -2158,7 +2158,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   marginBottom: '8px',
                 }}
               >
-                <label style={{ fontSize: '13px', color: '#94A3B8' }}>
+                <label style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
                   Đầu mục công việc *
                 </label>
                 <button
@@ -2167,7 +2167,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -2191,10 +2191,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       display: 'flex',
                       gap: '8px',
                       alignItems: 'center',
-                      backgroundColor: '#0F172A',
+                      backgroundColor: 'var(--surface-subtle)',
                       padding: '8px 10px',
                       borderRadius: '6px',
-                      border: '1px solid #1E293B',
+                      border: '1px solid var(--border-subtle)',
                     }}
                   >
                     <input
@@ -2212,10 +2212,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         flex: '2 1 140px',
                         padding: '8px 10px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '13px',
                       }}
                     />
@@ -2235,10 +2235,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         width: '70px',
                         padding: '8px 10px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '13px',
                         textAlign: 'right',
                       }}
@@ -2258,10 +2258,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         flex: '3 1 160px',
                         padding: '8px 10px',
-                        backgroundColor: '#0B1220',
-                        border: '1px solid #334155',
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#F8FAFC',
+                        color: 'var(--text-color)',
                         fontSize: '13px',
                       }}
                     />
@@ -2281,10 +2281,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                           flex: '2 1 150px',
                           minWidth: 0,
                           padding: '8px 10px',
-                          backgroundColor: '#0B1220',
-                          border: '1px solid #334155',
+                          backgroundColor: 'var(--bg-color)',
+                          border: '1px solid var(--border-color)',
                           borderRadius: '4px',
-                          color: '#F8FAFC',
+                          color: 'var(--text-color)',
                           fontSize: '13px',
                         }}
                       >
@@ -2305,7 +2305,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         style={{
                           background: 'none',
                           border: 'none',
-                          color: '#EF4444',
+                          color: 'var(--danger-text)',
                           cursor: 'pointer',
                           padding: '4px',
                         }}
@@ -2323,7 +2323,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '13px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '6px',
                 }}
               >
@@ -2336,10 +2336,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 12px',
-                  backgroundColor: '#0F172A',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   fontSize: '13px',
                   boxSizing: 'border-box',
                 }}
@@ -2397,8 +2397,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#0B1220',
-              border: '1px solid #1E293B',
+              backgroundColor: 'var(--bg-color)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: '12px',
               width: '100%',
               maxWidth: '650px',
@@ -2415,19 +2415,19 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                borderBottom: '1px solid #1E293B',
+                borderBottom: '1px solid var(--border-subtle)',
                 paddingBottom: '12px',
               }}
             >
               <div>
-                <h3 style={{ margin: 0, fontSize: '18px', color: '#F8FAFC' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-color)' }}>
                   Chi tiết báo cáo công việc
                 </h3>
                 {reportDetail && (
                   <div
                     style={{
                       fontSize: '13px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginTop: '4px',
                     }}
                   >
@@ -2443,7 +2443,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   padding: '4px',
                 }}
@@ -2481,15 +2481,15 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       fontWeight: 600,
                       padding: '3px 10px',
                       borderRadius: '4px',
-                      backgroundColor: '#1E293B',
-                      color: '#14B8A6',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--accent-text)',
+                      border: '1px solid var(--border-color)',
                     }}
                   >
                     Phiên bản hiện tại: v{reportDetail.current_revision}
                   </span>
                   {reportDetail.submitted_at && (
-                    <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                       Nộp lúc:{' '}
                       {new Date(reportDetail.submitted_at).toLocaleString(
                         'vi-VN',
@@ -2504,16 +2504,16 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                     style={{
                       margin: '0 0 8px 0',
                       fontSize: '14px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                     }}
                   >
                     Nội dung công việc hiện hành
                   </h4>
                   <div
                     style={{
-                      backgroundColor: '#0F172A',
+                      backgroundColor: 'var(--surface-subtle)',
                       borderRadius: '8px',
-                      border: '1px solid #1E293B',
+                      border: '1px solid var(--border-subtle)',
                       overflowX: 'auto',
                     }}
                   >
@@ -2527,8 +2527,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       <thead>
                         <tr
                           style={{
-                            borderBottom: '1px solid #1E293B',
-                            color: '#94A3B8',
+                            borderBottom: '1px solid var(--border-subtle)',
+                            color: 'var(--muted-color)',
                             textAlign: 'left',
                           }}
                         >
@@ -2548,9 +2548,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                             style={{
                               borderBottom:
                                 idx < reportDetail.entries.length - 1
-                                  ? '1px solid #1E293B'
+                                  ? '1px solid var(--border-subtle)'
                                   : 'none',
-                              color: '#F8FAFC',
+                              color: 'var(--text-color)',
                             }}
                           >
                             <td
@@ -2566,13 +2566,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                 padding: '10px 12px',
                                 textAlign: 'right',
                                 fontWeight: 700,
-                                color: '#14B8A6',
+                                color: 'var(--accent-text)',
                               }}
                             >
                               {entry.reported_count}
                             </td>
                             <td
-                              style={{ padding: '10px 12px', color: '#94A3B8' }}
+                              style={{ padding: '10px 12px', color: 'var(--muted-color)' }}
                             >
                               {entry.work_item_title && entry.work_item_id && (
                                 <a
@@ -2581,7 +2581,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                     ev.preventDefault();
                                     onNavigate?.(`/work/${entry.work_item_id}`);
                                   }}
-                                  style={{ color: '#14B8A6', marginRight: 8 }}
+                                  style={{ color: 'var(--accent-text)', marginRight: 8 }}
                                 >
                                   🔗 {entry.work_item_title}
                                 </a>
@@ -2601,7 +2601,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         margin: '0 0 6px 0',
                         fontSize: '13px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                       }}
                     >
                       Ghi chú báo cáo
@@ -2610,9 +2610,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       style={{
                         padding: '10px 12px',
                         borderRadius: '6px',
-                        backgroundColor: '#0F172A',
-                        border: '1px solid #1E293B',
-                        color: '#CBD5E1',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-secondary)',
                         fontSize: '13px',
                         lineHeight: 1.5,
                       }}
@@ -2628,13 +2628,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                     style={{
                       margin: '12px 0 8px 0',
                       fontSize: '14px',
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
                     }}
                   >
-                    <RotateCcwIcon size={15} style={{ color: '#14B8A6' }} />
+                    <RotateCcwIcon size={15} style={{ color: 'var(--accent-text)' }} />
                     <span>Lịch sử các phiên bản (C02 Revisions)</span>
                   </h4>
 
@@ -2642,7 +2642,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                     <div
                       style={{
                         fontSize: '13px',
-                        color: '#94A3B8',
+                        color: 'var(--muted-color)',
                         fontStyle: 'italic',
                         padding: '8px 0',
                       }}
@@ -2663,8 +2663,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                           style={{
                             padding: '12px 14px',
                             borderRadius: '8px',
-                            backgroundColor: '#0F172A',
-                            border: '1px solid #1E293B',
+                            backgroundColor: 'var(--surface-subtle)',
+                            border: '1px solid var(--border-subtle)',
                           }}
                         >
                           <div
@@ -2686,7 +2686,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                 style={{
                                   fontWeight: 700,
                                   fontSize: '13px',
-                                  color: '#14B8A6',
+                                  color: 'var(--accent-text)',
                                 }}
                               >
                                 v{rev.revision_number}{' '}
@@ -2695,13 +2695,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                   : '(Chỉnh sửa)'}
                               </span>
                               <span
-                                style={{ fontSize: '12px', color: '#94A3B8' }}
+                                style={{ fontSize: '12px', color: 'var(--muted-color)' }}
                               >
                                 Bởi {rev.edited_by_name || 'Nhân viên'}
                               </span>
                             </div>
                             <span
-                              style={{ fontSize: '12px', color: '#94A3B8' }}
+                              style={{ fontSize: '12px', color: 'var(--muted-color)' }}
                             >
                               {new Date(rev.edited_at).toLocaleString('vi-VN')}
                             </span>
@@ -2726,7 +2726,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                             <div
                               style={{
                                 fontSize: '12px',
-                                color: '#94A3B8',
+                                color: 'var(--muted-color)',
                                 display: 'flex',
                                 flexWrap: 'wrap',
                                 gap: '8px',
@@ -2736,14 +2736,14 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                 <span
                                   key={idx}
                                   style={{
-                                    backgroundColor: '#0B1220',
+                                    backgroundColor: 'var(--bg-color)',
                                     padding: '2px 8px',
                                     borderRadius: '4px',
-                                    border: '1px solid #334155',
+                                    border: '1px solid var(--border-color)',
                                   }}
                                 >
                                   {item.work_type}:{' '}
-                                  <strong style={{ color: '#F8FAFC' }}>
+                                  <strong style={{ color: 'var(--text-color)' }}>
                                     {item.reported_count}
                                   </strong>
                                 </span>

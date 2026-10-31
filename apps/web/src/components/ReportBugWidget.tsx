@@ -4,7 +4,7 @@ import {
   CloseIcon,
   AppButton,
 } from '../../../../packages/ui/src/components/index.js';
-import { TOKENS } from '../../../../packages/ui/src/tokens.js';
+import { TOKENS, THEME_COLORS } from '../../../../packages/ui/src/tokens.js';
 
 export interface ReportBugWidgetProps {
   currentPath: string;
@@ -886,9 +886,9 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
           gap: TOKENS.spacing[2],
           padding: `${TOKENS.spacing[2]} ${TOKENS.spacing[4]}`,
           borderRadius: TOKENS.radii.full,
-          backgroundColor: TOKENS.colors.surfaceHover,
-          color: TOKENS.colors.text,
-          border: `1px solid ${TOKENS.colors.border}`,
+          backgroundColor: THEME_COLORS.surfaceHover,
+          color: THEME_COLORS.text,
+          border: `1px solid ${THEME_COLORS.border}`,
           boxShadow: TOKENS.shadows.sm,
           fontSize: TOKENS.typography.fontSize.base,
           fontWeight: TOKENS.typography.fontWeight.semibold,
@@ -899,7 +899,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
           transition: TOKENS.motion.transitionBase,
         }}
       >
-        <AlertTriangleIcon size={16} style={{ color: TOKENS.colors.danger }} />
+        <AlertTriangleIcon size={16} style={{ color: THEME_COLORS.danger }} />
         <span>Báo lỗi</span>
       </button>
 
@@ -932,13 +932,13 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
               maxHeight: 'calc(100dvh - 32px)',
               overflowY: 'auto',
               overscrollBehavior: 'contain',
-              backgroundColor: '#151F30',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
               borderRadius: '12px',
               padding: '20px',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
               boxSizing: 'border-box',
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
             }}
           >
             {/* Header */}
@@ -954,14 +954,14 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                 <div
                   style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                  <AlertTriangleIcon size={20} style={{ color: '#EF4444' }} />
+                  <AlertTriangleIcon size={20} style={{ color: 'var(--danger-text)' }} />
                   <h3
                     id="report-modal-title"
                     style={{
                       margin: 0,
                       fontSize: '17px',
                       fontWeight: 700,
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                     }}
                   >
                     Báo lỗi hệ thống
@@ -971,7 +971,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                   style={{
                     margin: '4px 0 0 0',
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Phản hồi sự cố kỹ thuật hoặc lỗi hiển thị trên màn hình hiện
@@ -987,7 +987,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   padding: '4px',
                   display: 'flex',
@@ -1005,30 +1005,30 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
               data-testid="report-metadata-box"
               style={{
                 backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid #1E293B',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '8px',
                 padding: '10px 14px',
                 marginBottom: '18px',
                 fontSize: '12px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 lineHeight: '1.6',
               }}
             >
               <div>
-                <strong style={{ color: '#CBD5E1' }}>Hệ thống Web:</strong>{' '}
-                <span style={{ color: '#14B8A6', fontWeight: 600 }}>
+                <strong style={{ color: 'var(--text-secondary)' }}>Hệ thống Web:</strong>{' '}
+                <span style={{ color: 'var(--accent-text)', fontWeight: 600 }}>
                   ql.hoaiphuong.click
                 </span>
               </div>
               <div>
-                <strong style={{ color: '#CBD5E1' }}>Vị trí phát sinh:</strong>{' '}
-                <span style={{ color: '#38BDF8' }}>{currentDisplayModule}</span>
+                <strong style={{ color: 'var(--text-secondary)' }}>Vị trí phát sinh:</strong>{' '}
+                <span style={{ color: 'var(--info-text)' }}>{currentDisplayModule}</span>
                 {isUnknownOutcome &&
                   currentDisplayModule !==
                     getModuleNameFromPath(currentPath) && (
                     <span
                       style={{
-                        color: '#F59E0B',
+                        color: 'var(--warning-text)',
                         marginLeft: '6px',
                         fontSize: '11px',
                       }}
@@ -1038,13 +1038,13 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                   )}
               </div>
               <div>
-                <strong style={{ color: '#CBD5E1' }}>Đường dẫn:</strong>{' '}
-                <code style={{ color: '#F1F5F9' }}>{currentDisplayRoute}</code>
+                <strong style={{ color: 'var(--text-secondary)' }}>Đường dẫn:</strong>{' '}
+                <code style={{ color: 'var(--text-color)' }}>{currentDisplayRoute}</code>
                 {isUnknownOutcome &&
                   currentDisplayRoute !== (currentPath || '/') && (
                     <span
                       style={{
-                        color: '#F59E0B',
+                        color: 'var(--warning-text)',
                         marginLeft: '6px',
                         fontSize: '11px',
                       }}
@@ -1066,7 +1066,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                   borderRadius: '8px',
                   padding: '10px 14px',
                   marginBottom: '16px',
-                  color: '#FCA5A5',
+                  color: 'var(--danger-text)',
                   fontSize: '13px',
                   display: 'flex',
                   alignItems: 'center',
@@ -1075,7 +1075,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
               >
                 <AlertTriangleIcon
                   size={16}
-                  style={{ color: '#EF4444', flexShrink: 0 }}
+                  style={{ color: 'var(--danger-text)', flexShrink: 0 }}
                 />
                 <span>{errorMessage}</span>
               </div>
@@ -1111,7 +1111,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#E2E8F0',
+                    color: 'var(--text-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1131,9 +1131,9 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     minHeight: '40px',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: isFormLocked ? '#1E293B' : '#0B1220',
-                    color: isFormLocked ? '#94A3B8' : '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: isFormLocked ? 'var(--surface-hover)' : 'var(--bg-color)',
+                    color: isFormLocked ? 'var(--muted-color)' : 'var(--text-color)',
                     cursor: isFormLocked ? 'not-allowed' : 'text',
                     fontSize: '14px',
                     outline: 'none',
@@ -1156,13 +1156,13 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     style={{
                       fontSize: '13px',
                       fontWeight: 600,
-                      color: '#E2E8F0',
+                      color: 'var(--text-color)',
                     }}
                   >
                     Mô tả chi tiết lỗi{' '}
-                    <span style={{ color: '#EF4444' }}>*</span>
+                    <span style={{ color: 'var(--danger-text)' }}>*</span>
                   </label>
-                  <span style={{ fontSize: '11px', color: '#64748B' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--muted-color)' }}>
                     {description.length}/2000
                   </span>
                 </div>
@@ -1180,9 +1180,9 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: isFormLocked ? '#1E293B' : '#0B1220',
-                    color: isFormLocked ? '#94A3B8' : '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: isFormLocked ? 'var(--surface-hover)' : 'var(--bg-color)',
+                    color: isFormLocked ? 'var(--muted-color)' : 'var(--text-color)',
                     cursor: isFormLocked ? 'not-allowed' : 'text',
                     fontSize: '14px',
                     outline: 'none',
@@ -1200,7 +1200,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#E2E8F0',
+                    color: 'var(--text-color)',
                     marginBottom: '8px',
                   }}
                 >
@@ -1208,10 +1208,10 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                 </label>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {[
-                    { id: 'P0', label: 'P0 - Khẩn cấp', color: '#EF4444' },
+                    { id: 'P0', label: 'P0 - Khẩn cấp', color: 'var(--danger-text)' },
                     { id: 'P1', label: 'P1 - Cao', color: '#F97316' },
-                    { id: 'P2', label: 'P2 - Bình thường', color: '#38BDF8' },
-                    { id: 'P3', label: 'P3 - Thấp', color: '#94A3B8' },
+                    { id: 'P2', label: 'P2 - Bình thường', color: 'var(--info-text)' },
+                    { id: 'P3', label: 'P3 - Thấp', color: 'var(--muted-color)' },
                   ].map((item) => {
                     const isSelected = severity === item.id;
                     return (
@@ -1227,11 +1227,11 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                           borderRadius: '6px',
                           border: isSelected
                             ? `2px solid ${item.color}`
-                            : '1px solid #334155',
+                            : '1px solid var(--border-color)',
                           backgroundColor: isSelected
                             ? 'rgba(56, 189, 248, 0.15)'
-                            : '#1E293B',
-                          color: isSelected ? '#FFFFFF' : '#94A3B8',
+                            : 'var(--surface-hover)',
+                          color: isSelected ? '#FFFFFF' : 'var(--muted-color)',
                           fontSize: '12px',
                           fontWeight: isSelected ? 700 : 500,
                           cursor: isFormLocked ? 'not-allowed' : 'pointer',
@@ -1261,7 +1261,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#E2E8F0',
+                    color: 'var(--text-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1274,7 +1274,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                       display: 'inline-block',
                       borderRadius: '8px',
                       overflow: 'hidden',
-                      border: '1px solid #334155',
+                      border: '1px solid var(--border-color)',
                       maxWidth: '100%',
                     }}
                   >
@@ -1297,7 +1297,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                         right: '4px',
                         backgroundColor: 'rgba(0, 0, 0, 0.7)',
                         border: 'none',
-                        color: '#EF4444',
+                        color: 'var(--danger-text)',
                         borderRadius: '50%',
                         width: '24px',
                         height: '24px',
@@ -1319,9 +1319,9 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     style={{
                       padding: '8px 14px',
                       borderRadius: '6px',
-                      border: '1px dashed #475569',
+                      border: '1px dashed var(--border-hover)',
                       backgroundColor: 'rgba(15, 23, 42, 0.4)',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       fontSize: '13px',
                       cursor: isFormLocked ? 'not-allowed' : 'pointer',
                       display: 'inline-flex',
@@ -1353,7 +1353,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       fontSize: '13px',
                       textDecoration: 'underline',
                       cursor: isSubmitting ? 'not-allowed' : 'pointer',

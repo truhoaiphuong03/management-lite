@@ -14,7 +14,7 @@ import {
   AppInput,
   AppCard,
   AppDialog,
-  TOKENS,
+  TOKENS, THEME_COLORS,
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,
@@ -145,9 +145,9 @@ export function FinanceCategoriesScreen({
               display: 'inline-flex',
               gap: 4,
               padding: 3,
-              backgroundColor: TOKENS.colors.surfaceSubtle,
+              backgroundColor: THEME_COLORS.surfaceSubtle,
               borderRadius: TOKENS.radii.sm,
-              border: `1px solid ${TOKENS.colors.borderSubtle}`,
+              border: `1px solid ${THEME_COLORS.borderSubtle}`,
             }}
           >
             <AppButton
@@ -217,7 +217,7 @@ export function FinanceCategoriesScreen({
           <p
             role="alert"
             style={{
-              color: TOKENS.colors.error,
+              color: THEME_COLORS.error,
               fontSize: TOKENS.typography.fontSize.sm,
               margin: '8px 0 0',
             }}
@@ -235,11 +235,11 @@ export function FinanceCategoriesScreen({
         <div
           style={{
             padding: '14px 18px',
-            borderBottom: `1px solid ${TOKENS.colors.borderSubtle}`,
+            borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            backgroundColor: TOKENS.colors.surfaceSubtle,
+            backgroundColor: THEME_COLORS.surfaceSubtle,
             borderTopLeftRadius: TOKENS.radii.md,
             borderTopRightRadius: TOKENS.radii.md,
           }}
@@ -248,7 +248,7 @@ export function FinanceCategoriesScreen({
             style={{
               fontSize: TOKENS.typography.fontSize.sm,
               fontWeight: TOKENS.typography.fontWeight.semibold,
-              color: TOKENS.colors.textSecondary,
+              color: THEME_COLORS.textSecondary,
             }}
           >
             Danh sách danh mục {isExpense ? 'khoản chi' : 'nguồn thu'} ({total})
@@ -256,7 +256,7 @@ export function FinanceCategoriesScreen({
           <span
             style={{
               fontSize: TOKENS.typography.fontSize.xs,
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
             }}
           >
             Trang này: {activeCount} đang dùng · {rows.length - activeCount}{' '}
@@ -268,8 +268,8 @@ export function FinanceCategoriesScreen({
         <div
           style={{
             padding: '10px 18px',
-            borderBottom: `1px solid ${TOKENS.colors.borderSubtle}`,
-            backgroundColor: TOKENS.colors.surface,
+            borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
+            backgroundColor: THEME_COLORS.surface,
           }}
         >
           <input
@@ -281,10 +281,10 @@ export function FinanceCategoriesScreen({
             style={{
               width: '100%',
               padding: '8px 12px',
-              backgroundColor: TOKENS.colors.surfaceSubtle,
-              border: `1px solid ${TOKENS.colors.borderSubtle}`,
+              backgroundColor: THEME_COLORS.surfaceSubtle,
+              border: `1px solid ${THEME_COLORS.borderSubtle}`,
               borderRadius: TOKENS.radii.sm,
-              color: TOKENS.colors.text,
+              color: THEME_COLORS.text,
               fontSize: TOKENS.typography.fontSize.sm,
               outline: 'none',
               boxSizing: 'border-box',
@@ -297,7 +297,7 @@ export function FinanceCategoriesScreen({
             style={{
               padding: '36px 20px',
               textAlign: 'center',
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               fontSize: TOKENS.typography.fontSize.sm,
             }}
           >
@@ -309,7 +309,7 @@ export function FinanceCategoriesScreen({
             style={{
               padding: '36px 20px',
               textAlign: 'center',
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               fontSize: TOKENS.typography.fontSize.sm,
               display: 'flex',
               flexDirection: 'column',
@@ -335,7 +335,7 @@ export function FinanceCategoriesScreen({
                 ? '1fr'
                 : 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
               gap: 1,
-              backgroundColor: TOKENS.colors.borderSubtle,
+              backgroundColor: THEME_COLORS.borderSubtle,
               borderBottomLeftRadius: TOKENS.radii.md,
               borderBottomRightRadius: TOKENS.radii.md,
               overflow: 'hidden',
@@ -354,8 +354,8 @@ export function FinanceCategoriesScreen({
                     flexWrap: 'wrap',
                     minWidth: 0,
                     backgroundColor: c.is_active
-                      ? TOKENS.colors.surface
-                      : TOKENS.colors.surfaceSubtle,
+                      ? THEME_COLORS.surface
+                      : THEME_COLORS.surfaceSubtle,
                   }}
                 >
                   {/* Category Name & Status Badge */}
@@ -373,8 +373,8 @@ export function FinanceCategoriesScreen({
                         fontSize: TOKENS.typography.fontSize.base,
                         fontWeight: TOKENS.typography.fontWeight.semibold,
                         color: c.is_active
-                          ? TOKENS.colors.text
-                          : TOKENS.colors.muted,
+                          ? THEME_COLORS.text
+                          : THEME_COLORS.muted,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -496,13 +496,13 @@ export function FinanceCategoriesScreen({
         <p
           style={{
             margin: 0,
-            color: TOKENS.colors.textSecondary,
+            color: THEME_COLORS.textSecondary,
             fontSize: TOKENS.typography.fontSize.base,
             lineHeight: TOKENS.typography.lineHeight.relaxed,
           }}
         >
           Bạn có chắc chắn muốn ngừng sử dụng danh mục{' '}
-          <strong style={{ color: TOKENS.colors.text }}>
+          <strong style={{ color: THEME_COLORS.text }}>
             {deactivateTarget?.name}
           </strong>
           ?
@@ -510,7 +510,7 @@ export function FinanceCategoriesScreen({
         <p
           style={{
             margin: '8px 0 0 0',
-            color: TOKENS.colors.muted,
+            color: THEME_COLORS.muted,
             fontSize: TOKENS.typography.fontSize.sm,
             lineHeight: TOKENS.typography.lineHeight.relaxed,
           }}

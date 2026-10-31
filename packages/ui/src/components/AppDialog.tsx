@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback, useId } from 'react';
-import { TOKENS } from '../tokens.js';
+import { TOKENS, THEME_COLORS } from '../tokens.js';
 import { AppButton } from './AppButton.js';
 import { CloseIcon } from './Icons.js';
 
@@ -176,7 +176,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: TOKENS.colors.overlay, // rgba(11, 18, 32, 0.85)
+        backgroundColor: THEME_COLORS.overlay, // rgba(11, 18, 32, 0.85)
         backdropFilter: 'blur(4px)',
         WebkitBackdropFilter: 'blur(4px)',
         display: 'flex',
@@ -197,8 +197,8 @@ export const AppDialog: React.FC<AppDialogProps> = ({
         tabIndex={-1}
         style={{
           outline: 'none',
-          backgroundColor: TOKENS.colors.surface, // #151F30
-          border: `1px solid ${TOKENS.colors.border}`,
+          backgroundColor: THEME_COLORS.surface, // #151F30
+          border: `1px solid ${THEME_COLORS.border}`,
           borderRadius: TOKENS.radii.lg, // 16px
           boxShadow: TOKENS.shadows.xl,
           maxWidth,
@@ -218,7 +218,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '18px 24px',
-            borderBottom: `1px solid ${TOKENS.colors.borderSubtle}`,
+            borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
           }}
         >
           <h3
@@ -226,7 +226,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
             style={{
               fontSize: TOKENS.typography.fontSize.lg,
               fontWeight: TOKENS.typography.fontWeight.bold,
-              color: TOKENS.colors.text,
+              color: THEME_COLORS.text,
               margin: 0,
               lineHeight: TOKENS.typography.lineHeight.tight,
             }}
@@ -241,7 +241,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               cursor: isLoading ? 'not-allowed' : 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -255,12 +255,12 @@ export const AppDialog: React.FC<AppDialogProps> = ({
               transition: 'color 0.15s ease, background-color 0.15s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = TOKENS.colors.text;
+              e.currentTarget.style.color = THEME_COLORS.text;
               e.currentTarget.style.backgroundColor =
                 'rgba(255, 255, 255, 0.08)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = TOKENS.colors.muted;
+              e.currentTarget.style.color = THEME_COLORS.muted;
               e.currentTarget.style.backgroundColor = 'transparent';
             }}
           >
@@ -275,7 +275,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
             overflowY: 'auto',
             overscrollBehavior: 'contain',
             flex: 1,
-            color: TOKENS.colors.textSecondary,
+            color: THEME_COLORS.textSecondary,
             fontSize: TOKENS.typography.fontSize.md,
             lineHeight: TOKENS.typography.lineHeight.relaxed,
           }}
@@ -286,7 +286,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
               style={{
                 marginTop: 0,
                 marginBottom: children ? '16px' : 0,
-                color: TOKENS.colors.muted,
+                color: THEME_COLORS.muted,
                 fontSize: TOKENS.typography.fontSize.md,
               }}
             >
@@ -305,8 +305,8 @@ export const AppDialog: React.FC<AppDialogProps> = ({
               justifyContent: 'flex-end',
               gap: '12px',
               padding: '16px 24px',
-              borderTop: `1px solid ${TOKENS.colors.borderSubtle}`,
-              backgroundColor: TOKENS.colors.surfaceSubtle,
+              borderTop: `1px solid ${THEME_COLORS.borderSubtle}`,
+              backgroundColor: THEME_COLORS.surfaceSubtle,
             }}
           >
             {cancelLabel && (

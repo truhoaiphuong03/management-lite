@@ -11,7 +11,7 @@ import {
   NavIcon,
   ErrorState,
 } from '../../../../packages/ui/src/components/index.js';
-import { TOKENS } from '../../../../packages/ui/src/tokens.js';
+import { THEME_COLORS } from '../../../../packages/ui/src/tokens.js';
 import type { UserRole } from '../types.js';
 import type { AttendanceMeResponseData } from '../../../../packages/contracts/src/attendance.js';
 import type { DailyReportListItem } from '../../../../packages/contracts/src/reports.js';
@@ -742,7 +742,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               alignItems: 'flex-start',
             }}
           >
-            <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
+            <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
               Trạng thái ca làm
             </span>
             <StatusBadge
@@ -756,12 +756,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               fontWeight: 700,
               fontVariantNumeric: 'tabular-nums',
               margin: '8px 0 4px 0',
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
             }}
           >
             {shiftMetric.value}
           </div>
-          <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
             {shiftMetric.subtext}
           </div>
         </AppCard>
@@ -779,7 +779,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               alignItems: 'flex-start',
             }}
           >
-            <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
+            <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
               Báo cáo hàng ngày
             </span>
             <StatusBadge
@@ -793,12 +793,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               fontWeight: 700,
               fontVariantNumeric: 'tabular-nums',
               margin: '8px 0 4px 0',
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
             }}
           >
             {reportMetric.value}
           </div>
-          <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
             {reportMetric.subtext}
           </div>
         </AppCard>
@@ -818,7 +818,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   alignItems: 'flex-start',
                 }}
               >
-                <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
+                <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
                   Nhân sự trực tiếp
                 </span>
                 <StatusBadge
@@ -831,12 +831,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   fontSize: '22px',
                   fontWeight: 700,
                   margin: '8px 0 4px 0',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 {employeesMetric.value}
               </div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 {employeesMetric.subtext}
               </div>
             </AppCard>
@@ -854,7 +854,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   alignItems: 'flex-start',
                 }}
               >
-                <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
+                <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
                   Kỳ lương
                 </span>
                 <StatusBadge
@@ -867,12 +867,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   fontSize: '22px',
                   fontWeight: 700,
                   margin: '8px 0 4px 0',
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                 }}
               >
                 {payrollMetric.value}
               </div>
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 {payrollMetric.subtext}
               </div>
             </AppCard>
@@ -891,7 +891,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 alignItems: 'flex-start',
               }}
             >
-              <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
+              <span style={{ fontSize: '13px', color: 'var(--muted-color)', fontWeight: 500 }}>
                 Công tháng hiện tại
               </span>
               <StatusBadge
@@ -904,12 +904,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 fontSize: '22px',
                 fontWeight: 700,
                 margin: '8px 0 4px 0',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
               }}
             >
               {staffAttendanceMetric.value}
             </div>
-            <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+            <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
               {staffAttendanceMetric.subtext}
             </div>
           </AppCard>
@@ -923,8 +923,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           marginBottom: '20px',
           padding: '14px 16px',
           borderRadius: '12px',
-          backgroundColor: '#0F172A',
-          border: '1px solid #1E293B',
+          backgroundColor: 'var(--surface-subtle)',
+          border: '1px solid var(--border-subtle)',
         }}
       >
         <div
@@ -941,13 +941,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             style={{
               fontSize: '14px',
               fontWeight: 700,
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               margin: 0,
             }}
           >
             ⚡ Trung tâm Việc cần xử lý hôm nay
           </h3>
-          <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
             {role === 'owner'
               ? 'Nhấp vào từng mục để xử lý ngay'
               : 'Nhắc việc ca làm & báo cáo trong ngày'}
@@ -973,22 +973,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   textAlign: 'left',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#1E293B',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: 'var(--text-color)',
                   cursor: 'pointer',
                   gap: '8px',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     ⏱️ Duyệt ca làm việc
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {shiftMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
                   Mở →
                 </span>
               </button>
@@ -1004,22 +1004,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   textAlign: 'left',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#1E293B',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: 'var(--text-color)',
                   cursor: 'pointer',
                   gap: '8px',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     📋 Báo cáo ngày
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {reportMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
                   Xem →
                 </span>
               </button>
@@ -1035,22 +1035,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   textAlign: 'left',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#1E293B',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: 'var(--text-color)',
                   cursor: 'pointer',
                   gap: '8px',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     👥 Hồ sơ & Ngân hàng
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {employeesMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
                   Mở →
                 </span>
               </button>
@@ -1066,22 +1066,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   textAlign: 'left',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#1E293B',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: 'var(--text-color)',
                   cursor: 'pointer',
                   gap: '8px',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     💰 Chi trả lương VietQR
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {payrollMetric.value} ({payrollMetric.badgeLabel})
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
                   Mở →
                 </span>
               </button>
@@ -1099,22 +1099,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   textAlign: 'left',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#1E293B',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: 'var(--text-color)',
                   cursor: 'pointer',
                   gap: '8px',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     ⏱️ Trạng thái ca làm
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {shiftMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
                   Vào/ra ca →
                 </span>
               </button>
@@ -1130,22 +1130,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   textAlign: 'left',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#1E293B',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: 'var(--text-color)',
                   cursor: 'pointer',
                   gap: '8px',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     📝 Báo cáo hôm nay
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {reportMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
                   Nộp →
                 </span>
               </button>
@@ -1161,22 +1161,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   textAlign: 'left',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#1E293B',
-                  color: '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: 'var(--text-color)',
                   cursor: 'pointer',
                   gap: '8px',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     📌 Công việc được giao
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {staffAttendanceMetric.value}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: '#2DD4BF', fontWeight: 600 }}>
+                <span style={{ fontSize: '12px', color: 'var(--accent-text)', fontWeight: 600 }}>
                   Xem →
                 </span>
               </button>
@@ -1191,7 +1191,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           fontSize: '15px',
           fontWeight: 700,
           marginBottom: '12px',
-          color: '#F8FAFC',
+          color: 'var(--text-color)',
         }}
       >
         Lối tắt thao tác nhanh
@@ -1307,7 +1307,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   borderRadius: '10px',
                   backgroundColor: 'rgba(20, 184, 166, 0.12)',
                   border: '1px solid rgba(45, 212, 191, 0.25)',
-                  color: '#2DD4BF',
+                  color: 'var(--accent-text)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1321,7 +1321,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   style={{
                     fontWeight: 600,
                     fontSize: '14px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginBottom: '2px',
                   }}
                 >
@@ -1330,7 +1330,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <div
                   style={{
                     fontSize: '12px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -1370,7 +1370,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     style={{
                       fontSize: '16px',
                       fontWeight: 600,
-                      color: '#F8FAFC',
+                      color: 'var(--text-color)',
                       margin: 0,
                     }}
                   >
@@ -1388,7 +1388,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <div
                   style={{
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginTop: '4px',
                   }}
                 >
@@ -1429,7 +1429,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {bridgeReadError && !bridgeFeedback && (
               <p
                 role="status"
-                style={{ color: TOKENS.colors.warning, marginBottom: '12px' }}
+                style={{ color: THEME_COLORS.warning, marginBottom: '12px' }}
               >
                 {bridgeReadError}
               </p>
@@ -1444,9 +1444,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 style={{
                   padding: '10px 14px',
                   borderRadius: '8px',
-                  backgroundColor: TOKENS.colors.warningSubtle,
-                  border: `1px solid ${TOKENS.colors.warning}`,
-                  color: TOKENS.colors.text,
+                  backgroundColor: THEME_COLORS.warningSubtle,
+                  border: `1px solid ${THEME_COLORS.warning}`,
+                  color: THEME_COLORS.text,
                   fontSize: '13px',
                   marginBottom: '16px',
                 }}
@@ -1472,14 +1472,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   border: '1px solid rgba(148, 163, 184, 0.15)',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Nhân sự &amp; Member đồng bộ
                 </div>
                 <div
                   style={{
                     fontSize: '20px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '4px',
                   }}
                 >
@@ -1495,14 +1495,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   border: '1px solid rgba(148, 163, 184, 0.15)',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Sản phẩm &amp; Kênh TikTok
                 </div>
                 <div
                   style={{
                     fontSize: '20px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '4px',
                   }}
                 >
@@ -1520,14 +1520,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   border: '1px solid rgba(148, 163, 184, 0.15)',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Kịch bản &amp; Prompt AI
                 </div>
                 <div
                   style={{
                     fontSize: '20px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '4px',
                   }}
                 >
@@ -1545,14 +1545,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   border: '1px solid rgba(148, 163, 184, 0.15)',
                 }}
               >
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Thành phẩm Video / Audio Drive
                 </div>
                 <div
                   style={{
                     fontSize: '20px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     marginTop: '4px',
                   }}
                 >
@@ -1584,10 +1584,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   marginBottom: '8px',
                 }}
               >
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#E2E8F0' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-color)' }}>
                   🔗 Bảng xác nhận ánh xạ nhân sự cố định (Management Lite ↔ TikTok AI Factory V4)
                 </span>
-                <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '11px', color: 'var(--muted-color)' }}>
                   Khóa định danh: Mã NV cố định + Email tài khoản xác thực
                 </span>
               </div>
@@ -1603,21 +1603,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         gap: '6px',
                         padding: '6px 10px',
                         borderRadius: '6px',
-                        backgroundColor: '#1E293B',
+                        backgroundColor: 'var(--surface-hover)',
                         border: `1px solid ${emp.v4_linked ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
                         fontSize: '12px',
                       }}
                     >
-                      <strong style={{ color: '#38BDF8' }}>{emp.employee_code}</strong>
-                      <span style={{ color: '#F8FAFC' }}>{emp.full_name}</span>
-                      <span style={{ color: '#94A3B8' }}>
+                      <strong style={{ color: 'var(--info-text)' }}>{emp.employee_code}</strong>
+                      <span style={{ color: 'var(--text-color)' }}>{emp.full_name}</span>
+                      <span style={{ color: 'var(--muted-color)' }}>
                         ({emp.email || 'Chưa có email'})
                       </span>
                       <span
                         style={{
                           fontSize: '11px',
                           fontWeight: 600,
-                          color: emp.v4_linked ? '#10B981' : '#F59E0B',
+                          color: emp.v4_linked ? 'var(--success-text)' : 'var(--warning-text)',
                         }}
                       >
                         {emp.v4_linked ? '✓ Đã ánh xạ V4' : '⚠️ Thiếu email'}
@@ -1626,7 +1626,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Đang tải danh sách ánh xạ mã nhân viên cố định (NV001, NV002...) với tài khoản V4...
                 </div>
               )}

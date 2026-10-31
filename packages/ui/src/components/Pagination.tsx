@@ -1,5 +1,5 @@
 import React from 'react';
-import { TOKENS } from '../tokens.js';
+import { TOKENS, THEME_COLORS } from '../tokens.js';
 import { AppButton } from './AppButton.js';
 
 /** Management Lite pagination standard: default 20 rows/page, choices 10/20/50/100. */
@@ -85,7 +85,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 12,
-        color: TOKENS.colors.textSecondary,
+        color: THEME_COLORS.textSecondary,
         fontSize: TOKENS.typography.fontSize.sm,
       }}
     >
@@ -116,9 +116,9 @@ export const Pagination: React.FC<PaginationProps> = ({
                 minHeight: 36,
                 padding: '4px 8px',
                 boxSizing: 'border-box',
-                background: TOKENS.colors.background,
-                color: TOKENS.colors.text,
-                border: `1px solid ${TOKENS.colors.border}`,
+                background: THEME_COLORS.background,
+                color: THEME_COLORS.text,
+                border: `1px solid ${THEME_COLORS.border}`,
                 borderRadius: 8,
               }}
             >

@@ -98,3 +98,14 @@ Test chọn lọc phân hệ + `npm run build` + `npm run build:web` → nâng v
 ### Ưu tiên đề xuất
 **Phase 0 → 1 → 2** trước (sửa lỗi truy cập + nền theme), sau đó 3 → 4A…4E → 5. Nếu Owner chỉ dùng giao diện Tối, có thể hạ ưu tiên U1/U2 và đẩy Phase 4 xuống làm gọn/di động trước.
 </Content>
+
+
+---
+
+## C. Trạng thái thực hiện (31/10/2026)
+
+- **Phase 0 [DONE]:** `scripts/ui-audit/run.mjs` (`npm run audit:ui`) — Vite DEV cổng 5199 + mock API + Chrome hệ thống, 3 cỡ màn × Dark/Light × 24 route, đo tràn ngang + axe-core. Ảnh/JSON ở `scripts/ui-audit/out-before|out-after`. Test tĩnh: `tests/web/ui-audit-phase0-2.test.mjs`.
+- **Phase 1 [DONE]:** token `--font-sans`, `--brand-color`, `--surface-subtle-color`, `--accent-text/--info-text/--danger-text/--success-text/--warning-text` (có bản Light đạt AA); `DesktopSidebar`, header/drawer `AppShell`, `NotFoundScreen` dùng token.
+- **Phase 2 [DONE]:** thanh đáy điện thoại có `aria-label`, nhãn 11px, cao 52px; icon riêng cho Thu chi/Nhật ký hệ thống; skip-link + `main#main-content`; `NotFoundScreen` dùng `<h1>`; bỏ 2 `transition: all`.
+- **Hiệu chỉnh khi kiểm thật:** U9 sai một phần — 5 màn Finance đã có `<h1>` qua `FinanceHeader`; chỉ NotFound dùng `<h2>`. Chưa đổi tên menu (U8) vì test hiện hành khóa nhãn `Sổ tay Issues`/`Tài khoản ACC` — cần Owner xác nhận.
+- **Chưa phải làm ở Phase 0–2:** ~1.500 màu cứng trong các màn hình (Phase 4) nên vùng nội dung ở giao diện Sáng vẫn tối.

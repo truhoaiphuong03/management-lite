@@ -80,7 +80,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#0B1220',
+        backgroundColor: 'var(--bg-color, #0B1220)',
         padding: '16px',
         boxSizing: 'border-box',
       }}
@@ -89,8 +89,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         <AppCard
           padding="large"
           style={{
-            backgroundColor: '#0F172A',
-            border: '1px solid #1E293B',
+            backgroundColor: 'var(--surface-subtle)',
+            border: '1px solid var(--border-subtle)',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
           }}
         >
@@ -105,7 +105,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 height: '48px',
                 borderRadius: '12px',
                 backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                color: '#14B8A6',
+                color: 'var(--accent-text)',
                 marginBottom: '16px',
               }}
             >
@@ -115,7 +115,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
               style={{
                 fontSize: '22px',
                 fontWeight: 700,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 margin: '0 0 8px 0',
               }}
             >
@@ -124,7 +124,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
             <p
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 margin: 0,
                 lineHeight: '1.5',
               }}
@@ -159,8 +159,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   gap: '10px',
                   color:
                     successData.deliveryStatus === 'EMAIL_DELIVERY_BLOCKED'
-                      ? '#F59E0B'
-                      : '#10B981',
+                      ? 'var(--warning-text)'
+                      : 'var(--success-text)',
                   marginBottom: '10px',
                 }}
               >
@@ -193,7 +193,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 <div
                   style={{
                     fontSize: '12px',
-                    color: '#F59E0B',
+                    color: 'var(--warning-text)',
                     backgroundColor: 'rgba(239, 68, 68, 0.08)',
                     padding: '10px 12px',
                     borderRadius: '6px',
@@ -203,10 +203,10 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   }}
                 >
                   <strong>Trạng thái gửi thư:</strong>{' '}
-                  <span style={{ color: '#EF4444', fontWeight: 600 }}>
+                  <span style={{ color: 'var(--danger-text)', fontWeight: 600 }}>
                     {successData.deliveryStatus}
                   </span>
-                  <p style={{ margin: '6px 0 0 0', color: '#CBD5E1' }}>
+                  <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)' }}>
                     Dịch vụ email chưa được cấu hình hoặc người gửi chưa xác
                     minh. Chưa có email nào được gửi đi. Vui lòng liên hệ quản
                     trị viên hoặc sử dụng công cụ khôi phục cục bộ trên máy chủ.
@@ -215,14 +215,14 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                     style={{
                       margin: '6px 0 0 0',
                       fontSize: '11px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                     }}
                   >
                     {successData.message}
                   </p>
                 </div>
               ) : (
-                <p style={{ fontSize: '13px', color: '#CBD5E1' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                   Nếu tài khoản đủ điều kiện, bạn sẽ nhận được email chứa liên
                   kết và mã xác minh dùng một lần, có hiệu lực 15 phút. Kiểm tra
                   cả thư rác. Bạn cũng có thể nhập mã tại trang đặt lại mật
@@ -247,7 +247,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
-                color: '#EF4444',
+                color: 'var(--danger-text)',
                 fontSize: '13px',
               }}
             >
@@ -266,7 +266,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#CBD5E1',
+                    color: 'var(--text-secondary)',
                     marginBottom: '8px',
                   }}
                 >
@@ -286,10 +286,10 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 14px',
-                    backgroundColor: '#1E293B',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--surface-hover)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                     outline: 'none',
@@ -327,7 +327,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#14B8A6',
+                color: 'var(--accent-text)',
                 fontSize: '13px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -346,7 +346,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 fontSize: '13px',
                 cursor: 'pointer',
                 display: 'inline-flex',

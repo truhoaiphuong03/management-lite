@@ -27,6 +27,7 @@
     "bootstrap:owner": "npm run build && node scripts/bootstrap-owner.mjs",
     "admin:create": "npm run build && node scripts/add-admin.mjs",
     "test:web": "node --test tests/web/*.test.mjs",
+    "audit:ui": "node scripts/ui-audit/run.mjs",
     "test:backend": "node --test tests/backend/*.test.mjs",
     "test:db": "node --test tests/database/*.test.mjs",
     "test:security": "node --test tests/security/*.test.mjs",
@@ -35,7 +36,9 @@
     "canonical:verify": "node scripts/verify-canonical.mjs"
   },
   "devDependencies": {
+    "axe-core": "4.14.0",
     "eslint": "10.12.0",
+    "playwright-core": "1.64.1",
     "prettier": "3.9.9",
     "typescript": "5.9.3",
     "typescript-eslint": "8.71.1"

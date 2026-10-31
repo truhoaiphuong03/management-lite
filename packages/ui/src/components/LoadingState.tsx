@@ -1,7 +1,7 @@
 import React from 'react';
 import { AppCard } from './AppCard.js';
 import { Spinner } from './Spinner.js';
-import { TOKENS } from '../tokens.js';
+import { TOKENS, THEME_COLORS } from '../tokens.js';
 
 export interface LoadingStateProps {
   message?: string;
@@ -28,11 +28,11 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       aria-live="polite"
       aria-busy="true"
     >
-      <Spinner size="lg" color={TOKENS.colors.primary} />
+      <Spinner size="lg" color={THEME_COLORS.primary} />
       <p
         style={{
           fontSize: TOKENS.typography.fontSize.md,
-          color: TOKENS.colors.muted,
+          color: THEME_COLORS.muted,
           margin: 0,
         }}
       >

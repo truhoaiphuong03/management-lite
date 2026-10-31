@@ -50,17 +50,17 @@ test('MOBILE-P0-02: MobileBottomNav enforces iPhone safe-area padding, >=44px to
     'MobileBottomNav must include iPhone safe-area-inset-bottom support',
   );
   assert.ok(
-    html.includes('min-height:50px'),
-    'MobileBottomNav buttons must have >= 44px touch target height (min-height:50px)',
+    html.includes('min-height:52px'),
+    'MobileBottomNav buttons must have >= 44px touch target height (min-height:52px)',
   );
   assert.ok(
     html.includes('z-index:920'),
     'MobileBottomNav must maintain z-index:920 above scrolling content',
   );
   assert.ok(
-    html.includes('overflow-wrap:break-word') &&
-      html.includes('white-space:normal'),
-    'MobileBottomNav labels must wrap cleanly without cutting words',
+    html.includes('text-overflow:ellipsis') &&
+      html.includes('aria-label='),
+    'MobileBottomNav labels must be single-line with an accessible aria-label per button',
   );
   assert.ok(
     html.includes('aria-current="page"'),

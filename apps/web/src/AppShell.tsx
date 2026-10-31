@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   DesktopSidebar,
   MobileBottomNav,
@@ -16,6 +16,7 @@ import {
 import type { UserRole } from './types.js';
 import { ReportBugWidget } from './components/ReportBugWidget.js';
 import { SYSTEM_VERSION } from '../../../packages/contracts/src/version.js';
+import { enableResponsiveTables } from './responsive-tables.js';
 
 export interface AppShellProps {
   currentPath: string;
@@ -41,6 +42,11 @@ export const AppShell: React.FC<AppShellProps> = ({
   children,
 }) => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+
+  useEffect(
+    () => enableResponsiveTables(document.getElementById('main-content')),
+    [],
+  );
 
   const handleMobileNav = (path: string) => {
     setIsMoreOpen(false);
@@ -111,6 +117,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         color: 'var(--text-color, #F8FAFC)',
       }}
     >
+      <a href="#main-content" className="skip-link">
+        Bỏ qua tới nội dung chính
+      </a>
       {/* Real Session Top Header */}
       <header
         className="app-shell-header"
@@ -144,11 +153,11 @@ export const AppShell: React.FC<AppShellProps> = ({
             flexShrink: 1,
           }}
         >
-          <BuildingIcon size={18} style={{ color: '#14B8A6', flexShrink: 0 }} />
+          <BuildingIcon size={18} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
           <span
             className="app-shell-brand-title"
             style={{
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
               fontWeight: 700,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -166,7 +175,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                 role === 'owner'
                   ? 'rgba(20, 184, 166, 0.15)'
                   : 'rgba(56, 189, 248, 0.15)',
-              color: role === 'owner' ? '#14B8A6' : '#38BDF8',
+              color:
+                role === 'owner' ? 'var(--accent-text)' : 'var(--info-text)',
               border: `1px solid ${
                 role === 'owner'
                   ? 'rgba(20, 184, 166, 0.3)'
@@ -217,7 +227,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 currentPath === '/settings'
                   ? 'rgba(20, 184, 166, 0.2)'
                   : 'rgba(20, 184, 166, 0.08)',
-              color: '#14B8A6',
+              color: 'var(--accent-text)',
               fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
@@ -248,7 +258,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 borderRadius: '6px',
                 border: '1px solid rgba(239, 68, 68, 0.4)',
                 backgroundColor: 'rgba(239, 68, 68, 0.05)',
-                color: '#EF4444',
+                color: 'var(--danger-text)',
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -279,6 +289,8 @@ export const AppShell: React.FC<AppShellProps> = ({
 
       {/* Main Content Area */}
       <main
+        id="main-content"
+        tabIndex={-1}
         style={{
           flex: 1,
           minWidth: 0,
@@ -455,7 +467,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     fontWeight: 700,
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    color: '#64748B',
+                    color: 'var(--muted-color)',
                     marginBottom: '8px',
                     userSelect: 'none',
                   }}
@@ -493,7 +505,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                             : 'var(--bg-color, #0B1220)',
                         color:
                           currentPath === item.path
-                            ? '#14B8A6'
+                            ? 'var(--accent-text)'
                             : 'var(--text-color, #F8FAFC)',
                         fontSize: '13px',
                         fontWeight: 600,
@@ -518,7 +530,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 borderTop: '1px solid var(--border-color, #334155)',
                 textAlign: 'center',
                 fontSize: '11px',
-                color: '#64748B',
+                color: 'var(--muted-color)',
               }}
             >
               Management Lite v{SYSTEM_VERSION}
@@ -541,6 +553,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             display: none !important;
           }
           main {
+            outline: none;
             margin-bottom: 24px !important;
             padding: 32px !important;
           }

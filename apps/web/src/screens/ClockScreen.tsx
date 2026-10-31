@@ -25,7 +25,7 @@ import {
   clampPage,
   type ToastVariant,
 } from '../../../../packages/ui/src/components/index.js';
-import { TOKENS } from '../../../../packages/ui/src/tokens.js';
+import { TOKENS, THEME_COLORS } from '../../../../packages/ui/src/tokens.js';
 import type { UserRole } from '../types.js';
 import type {
   ShiftData,
@@ -945,7 +945,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             flexWrap: 'wrap',
             gap: '8px',
             marginBottom: '20px',
-            borderBottom: '1px solid #334155',
+            borderBottom: '1px solid var(--border-color)',
             paddingBottom: '8px',
           }}
         >
@@ -985,7 +985,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             padding: '12px 16px',
             borderRadius: '8px',
             backgroundColor: '#064E3B',
-            color: '#6EE7B7',
+            color: 'var(--success-text)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
@@ -1021,7 +1021,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#93C5FD' }}>
                   📝 Bạn vừa kết thúc ca làm việc — Đừng quên nộp báo cáo ngày!
                 </div>
-                <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
                   Ghi nhận ngay tiến độ và kết quả công việc trong ca hôm nay để Owner đối chiếu.
                 </div>
               </div>
@@ -1082,9 +1082,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 <div
                   style={{
                     fontSize: '13px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '20px',
-                    backgroundColor: '#1E293B',
+                    backgroundColor: 'var(--surface-hover)',
                     padding: '6px 14px',
                     borderRadius: '20px',
                   }}
@@ -1174,7 +1174,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#14B8A6',
+                      color: 'var(--accent-text)',
                       fontSize: '13px',
                       cursor: 'pointer',
                       textDecoration: 'underline',
@@ -1204,7 +1204,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 style={{
                   fontSize: '18px',
                   fontWeight: 700,
-                  color: '#F8FAFC',
+                  color: 'var(--text-color)',
                   margin: 0,
                   display: 'flex',
                   alignItems: 'center',
@@ -1271,7 +1271,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   marginBottom: '10px',
                 }}
               >
-                <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Chọn nhanh:
                 </span>
                 {[
@@ -1287,9 +1287,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     style={{
                       padding: '4px 10px',
                       borderRadius: '999px',
-                      border: '1px solid #334155',
-                      backgroundColor: '#0B1220',
-                      color: '#CBD5E1',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-color)',
+                      color: 'var(--text-secondary)',
                       fontSize: '11px',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -1315,12 +1315,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       alignItems: 'center',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
                     <span>Từ ngày (Ngày/Tháng/Năm)</span>
-                    <span style={{ color: '#2DD4BF', fontWeight: 500 }}>
+                    <span style={{ color: 'var(--accent-text)', fontWeight: 500 }}>
                       {formatIsoToVnLabel(myFromDate)}
                     </span>
                   </label>
@@ -1343,9 +1343,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '8px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #334155',
-                      color: '#F8FAFC',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       minHeight: '44px',
                       boxSizing: 'border-box',
@@ -1361,12 +1361,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       alignItems: 'center',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
                     <span>Đến ngày (Ngày/Tháng/Năm)</span>
-                    <span style={{ color: '#2DD4BF', fontWeight: 500 }}>
+                    <span style={{ color: 'var(--accent-text)', fontWeight: 500 }}>
                       {formatIsoToVnLabel(myToDate)}
                     </span>
                   </label>
@@ -1389,9 +1389,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '8px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #334155',
-                      color: '#F8FAFC',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       minHeight: '44px',
                       boxSizing: 'border-box',
@@ -1405,7 +1405,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       display: 'block',
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       marginBottom: '6px',
                     }}
                   >
@@ -1422,9 +1422,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '8px',
-                      backgroundColor: '#0B1220',
-                      border: '1px solid #334155',
-                      color: '#F8FAFC',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-color)',
                       fontSize: '14px',
                       minHeight: '44px',
                       boxSizing: 'border-box',
@@ -1484,7 +1484,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                           style={{
                             fontWeight: 700,
                             fontSize: '15px',
-                            color: '#F8FAFC',
+                            color: 'var(--text-color)',
                           }}
                         >
                           {formatVnDate(shift.clock_in_at, {
@@ -1497,7 +1497,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         <div
                           style={{
                             fontSize: '13px',
-                            color: '#94A3B8',
+                            color: 'var(--muted-color)',
                             marginTop: '2px',
                           }}
                         >
@@ -1568,8 +1568,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       <div
                         style={{
                           fontSize: '12px',
-                          color: '#CBD5E1',
-                          backgroundColor: '#0B1220',
+                          color: 'var(--text-secondary)',
+                          backgroundColor: 'var(--bg-color)',
                           padding: '8px 12px',
                           borderRadius: '6px',
                           marginTop: '8px',
@@ -1591,15 +1591,15 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         fontSize: '13px',
-                        color: '#94A3B8',
-                        borderTop: '1px solid #334155',
+                        color: 'var(--muted-color)',
+                        borderTop: '1px solid var(--border-color)',
                         paddingTop: '10px',
                         marginTop: '10px',
                       }}
                     >
                       <div>
                         Tổng làm việc:{' '}
-                        <strong style={{ color: '#14B8A6' }}>
+                        <strong style={{ color: 'var(--accent-text)' }}>
                           {formatHoursMinutes(shift.worked_seconds)}
                         </strong>
                         {shift.breaks.length > 0 &&
@@ -1618,7 +1618,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                             style={{
                               background: 'none',
                               border: 'none',
-                              color: '#14B8A6',
+                              color: 'var(--accent-text)',
                               fontSize: '12px',
                               cursor: 'pointer',
                               textDecoration: 'underline',
@@ -1704,13 +1704,13 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   border:
                     selectedReviewState === pill.id
                       ? '1px solid #14B8A6'
-                      : '1px solid #334155',
+                      : '1px solid var(--border-color)',
                   backgroundColor:
                     selectedReviewState === pill.id
                       ? 'rgba(20, 184, 166, 0.16)'
-                      : '#151F30',
+                      : 'var(--surface-color)',
                   color:
-                    selectedReviewState === pill.id ? '#14B8A6' : '#94A3B8',
+                    selectedReviewState === pill.id ? 'var(--accent-text)' : 'var(--muted-color)',
                 }}
               >
                 {pill.label}
@@ -1734,7 +1734,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   backgroundColor: '#451A1A',
                   border: '1px solid #7F1D1D',
                   borderRadius: '6px',
-                  color: '#FCA5A5',
+                  color: 'var(--danger-text)',
                   fontSize: '12px',
                   gap: '8px',
                 }}
@@ -1771,7 +1771,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 marginBottom: '12px',
               }}
             >
-              <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+              <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                 Chọn nhanh khoảng ngày:
               </span>
               {[
@@ -1787,9 +1787,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   style={{
                     padding: '4px 10px',
                     borderRadius: '999px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#CBD5E1',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-secondary)',
                     fontSize: '11px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -1813,7 +1813,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1827,9 +1827,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     minHeight: '44px',
                     boxSizing: 'border-box',
@@ -1852,12 +1852,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     alignItems: 'center',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
                   <span>Từ ngày (Ngày/Tháng/Năm)</span>
-                  <span style={{ color: '#2DD4BF', fontWeight: 500, fontSize: '12px' }}>
+                  <span style={{ color: 'var(--accent-text)', fontWeight: 500, fontSize: '12px' }}>
                     {formatIsoToVnLabel(selectedDate)}
                   </span>
                 </label>
@@ -1877,9 +1877,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     minHeight: '44px',
                     boxSizing: 'border-box',
@@ -1896,12 +1896,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     alignItems: 'center',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
                   <span>Đến ngày (Ngày/Tháng/Năm)</span>
-                  <span style={{ color: '#2DD4BF', fontWeight: 500, fontSize: '12px' }}>
+                  <span style={{ color: 'var(--accent-text)', fontWeight: 500, fontSize: '12px' }}>
                     {formatIsoToVnLabel(selectedToDate)}
                   </span>
                 </label>
@@ -1921,9 +1921,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     minHeight: '44px',
                     boxSizing: 'border-box',
@@ -1938,7 +1938,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1952,9 +1952,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     minHeight: '44px',
                     boxSizing: 'border-box',
@@ -1975,7 +1975,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                     marginBottom: '6px',
                   }}
                 >
@@ -1989,9 +1989,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     minHeight: '44px',
                     boxSizing: 'border-box',
@@ -2059,7 +2059,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                           style={{
                             fontWeight: 700,
                             fontSize: '16px',
-                            color: '#F8FAFC',
+                            color: 'var(--text-color)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
@@ -2070,8 +2070,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                             style={{
                               fontSize: '12px',
                               fontWeight: 400,
-                              color: '#94A3B8',
-                              backgroundColor: '#1E293B',
+                              color: 'var(--muted-color)',
+                              backgroundColor: 'var(--surface-hover)',
                               padding: '2px 8px',
                               borderRadius: '4px',
                             }}
@@ -2082,7 +2082,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         <div
                           style={{
                             fontSize: '13px',
-                            color: '#94A3B8',
+                            color: 'var(--muted-color)',
                             marginTop: '4px',
                           }}
                         >
@@ -2180,15 +2180,15 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     <div
                       style={{
                         fontSize: '13px',
-                        color: '#CBD5E1',
-                        backgroundColor: '#0B1220',
+                        color: 'var(--text-secondary)',
+                        backgroundColor: 'var(--bg-color)',
                         padding: '10px 14px',
                         borderRadius: '8px',
                         marginBottom: '12px',
                       }}
                     >
                       Thời gian làm việc tính công:{' '}
-                      <strong style={{ color: '#14B8A6' }}>
+                      <strong style={{ color: 'var(--accent-text)' }}>
                         {formatHoursMinutes(shift.worked_seconds)}
                       </strong>
                       {shift.breaks.length > 0 &&
@@ -2200,8 +2200,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         data-testid="shift-review-reason"
                         style={{
                           fontSize: '13px',
-                          color: '#CBD5E1',
-                          backgroundColor: '#0B1220',
+                          color: 'var(--text-secondary)',
+                          backgroundColor: 'var(--bg-color)',
                           padding: '10px 14px',
                           borderRadius: '8px',
                           marginBottom: '12px',
@@ -2218,7 +2218,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                           <div
                             style={{
                               fontSize: '12px',
-                              color: '#94A3B8',
+                              color: 'var(--muted-color)',
                               marginTop: '4px',
                             }}
                           >
@@ -2244,7 +2244,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         <div
                           style={{
                             fontWeight: 600,
-                            color: '#F59E0B',
+                            color: 'var(--warning-text)',
                             marginBottom: '4px',
                             display: 'flex',
                             alignItems: 'center',
@@ -2254,11 +2254,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                           <AlertTriangleIcon size={16} /> Đơn giải trình chấm
                           công từ nhân viên
                         </div>
-                        <div style={{ color: '#F8FAFC', marginBottom: '4px' }}>
+                        <div style={{ color: 'var(--text-color)', marginBottom: '4px' }}>
                           Lý do: <em>"{shift.pending_correction.reason}"</em>
                         </div>
                         {shift.pending_correction.claimed_clock_out_at && (
-                          <div style={{ color: '#94A3B8' }}>
+                          <div style={{ color: 'var(--muted-color)' }}>
                             Giờ nhân viên báo kết thúc:{' '}
                             {new Date(
                               shift.pending_correction.claimed_clock_out_at,
@@ -2266,7 +2266,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                           </div>
                         )}
                         {shift.pending_correction.evidence_note && (
-                          <div style={{ color: '#94A3B8' }}>
+                          <div style={{ color: 'var(--muted-color)' }}>
                             Minh chứng: {shift.pending_correction.evidence_note}
                           </div>
                         )}
@@ -2319,11 +2319,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             flexWrap: 'wrap',
-                            borderTop: '1px solid #334155',
+                            borderTop: '1px solid var(--border-color)',
                             paddingTop: '12px',
                           }}
                         >
-                          <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                             {shift.worked_seconds > 12 * 3600
                               ? '⚠️ Nhân viên quên bấm kết thúc ca — Chủ sở hữu có thể đóng và xác nhận ca ngay:'
                               : '💡 Nhân viên đang trong ca làm việc:'}
@@ -2350,7 +2350,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                             display: 'flex',
                             gap: '8px',
                             justifyContent: 'flex-end',
-                            borderTop: '1px solid #334155',
+                            borderTop: '1px solid var(--border-color)',
                             paddingTop: '12px',
                           }}
                         >
@@ -2412,13 +2412,13 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#151F30',
+              backgroundColor: 'var(--surface-color)',
               borderRadius: '12px',
-              border: '1px solid #334155',
+              border: '1px solid var(--border-color)',
               padding: '24px',
               maxWidth: '480px',
               width: '100%',
-              color: '#F8FAFC',
+              color: 'var(--text-color)',
             }}
           >
             <h3
@@ -2436,7 +2436,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             <p
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '16px',
               }}
             >
@@ -2467,9 +2467,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     fontFamily: 'inherit',
                   }}
@@ -2496,9 +2496,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     minHeight: '44px',
                   }}
@@ -2526,9 +2526,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    backgroundColor: '#0B1220',
-                    border: '1px solid #334155',
-                    color: '#F8FAFC',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     minHeight: '44px',
                   }}
@@ -2605,7 +2605,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           >
             <label
               htmlFor="clock-review-approve-reason"
-              style={{ fontSize: '13px', color: TOKENS.colors.muted }}
+              style={{ fontSize: '13px', color: THEME_COLORS.muted }}
             >
               Ghi chú / lý do duyệt (tùy chọn):
             </label>
@@ -2626,9 +2626,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 width: '100%',
                 padding: '10px 12px',
                 borderRadius: TOKENS.radii.md,
-                border: `1px solid ${TOKENS.colors.border}`,
-                backgroundColor: TOKENS.colors.background,
-                color: TOKENS.colors.text,
+                border: `1px solid ${THEME_COLORS.border}`,
+                backgroundColor: THEME_COLORS.background,
+                color: THEME_COLORS.text,
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -2664,7 +2664,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           >
             <label
               htmlFor="clock-review-reject-reason"
-              style={{ fontSize: '13px', color: TOKENS.colors.muted }}
+              style={{ fontSize: '13px', color: THEME_COLORS.muted }}
             >
               Nhập lý do từ chối ca làm của{' '}
               {clockActionDialog.shift.employee_name ||
@@ -2688,9 +2688,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 width: '100%',
                 padding: '10px 12px',
                 borderRadius: TOKENS.radii.md,
-                border: `1px solid ${TOKENS.colors.border}`,
-                backgroundColor: TOKENS.colors.background,
-                color: TOKENS.colors.text,
+                border: `1px solid ${THEME_COLORS.border}`,
+                backgroundColor: THEME_COLORS.background,
+                color: THEME_COLORS.text,
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -2727,7 +2727,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           >
             <label
               htmlFor="clock-correction-reject-reason"
-              style={{ fontSize: '13px', color: TOKENS.colors.muted }}
+              style={{ fontSize: '13px', color: THEME_COLORS.muted }}
             >
               Nhập lý do từ chối đơn giải trình:
             </label>
@@ -2747,9 +2747,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 width: '100%',
                 padding: '10px 12px',
                 borderRadius: TOKENS.radii.md,
-                border: `1px solid ${TOKENS.colors.border}`,
-                backgroundColor: TOKENS.colors.background,
-                color: TOKENS.colors.text,
+                border: `1px solid ${THEME_COLORS.border}`,
+                backgroundColor: THEME_COLORS.background,
+                color: THEME_COLORS.text,
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -2790,7 +2790,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 htmlFor="clock-correction-accept-time"
                 style={{
                   fontSize: '13px',
-                  color: TOKENS.colors.muted,
+                  color: THEME_COLORS.muted,
                   display: 'block',
                   marginBottom: '6px',
                 }}
@@ -2812,9 +2812,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   width: '100%',
                   padding: '10px 12px',
                   borderRadius: TOKENS.radii.md,
-                  border: `1px solid ${TOKENS.colors.border}`,
-                  backgroundColor: TOKENS.colors.background,
-                  color: TOKENS.colors.text,
+                  border: `1px solid ${THEME_COLORS.border}`,
+                  backgroundColor: THEME_COLORS.background,
+                  color: THEME_COLORS.text,
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -2826,7 +2826,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 htmlFor="clock-correction-accept-reason"
                 style={{
                   fontSize: '13px',
-                  color: TOKENS.colors.muted,
+                  color: THEME_COLORS.muted,
                   display: 'block',
                   marginBottom: '6px',
                 }}
@@ -2849,9 +2849,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   width: '100%',
                   padding: '10px 12px',
                   borderRadius: TOKENS.radii.md,
-                  border: `1px solid ${TOKENS.colors.border}`,
-                  backgroundColor: TOKENS.colors.background,
-                  color: TOKENS.colors.text,
+                  border: `1px solid ${THEME_COLORS.border}`,
+                  backgroundColor: THEME_COLORS.background,
+                  color: THEME_COLORS.text,
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',

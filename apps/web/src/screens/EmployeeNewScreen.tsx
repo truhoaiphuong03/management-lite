@@ -191,7 +191,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               backgroundColor: 'rgba(16, 185, 129, 0.1)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
               marginBottom: '20px',
-              color: '#10B981',
+              color: 'var(--success-text)',
               fontSize: '14px',
               lineHeight: 1.5,
             }}
@@ -209,7 +209,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 Hồ sơ nhân viên đã sẵn sàng!
               </strong>
             </div>
-            <div style={{ color: '#F8FAFC' }}>
+            <div style={{ color: 'var(--text-color)' }}>
               Hãy gửi liên kết bảo mật bên dưới cho nhân viên để họ tự thiết lập
               mật khẩu và đăng nhập. Mật khẩu không bao giờ được gửi qua tin
               nhắn dạng rõ.
@@ -221,7 +221,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               style={{
                 display: 'block',
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 marginBottom: '6px',
               }}
             >
@@ -231,9 +231,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               style={{
                 padding: '12px',
                 borderRadius: '8px',
-                backgroundColor: '#0B1220',
-                border: '1px solid #334155',
-                color: '#14B8A6',
+                backgroundColor: 'var(--bg-color)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--accent-text)',
                 fontSize: '13px',
                 wordBreak: 'break-all',
                 fontFamily: 'monospace',
@@ -293,7 +293,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               border: '1px solid rgba(239, 68, 68, 0.3)',
               marginBottom: '20px',
               fontSize: '13px',
-              color: '#EF4444',
+              color: 'var(--danger-text)',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
@@ -321,7 +321,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 style={{
                   display: 'block',
                   fontSize: '14px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                 }}
               >
                 Mã nhân viên (hệ thống tự động cấp — khóa chỉnh sửa):
@@ -336,7 +336,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     fontSize: '12px',
                     cursor: 'pointer',
                     padding: 0,
@@ -351,7 +351,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     padding: '2px 8px',
                     borderRadius: '999px',
                     backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     fontWeight: 600,
                   }}
                 >
@@ -378,9 +378,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 minHeight: '44px',
                 padding: '0 12px',
                 borderRadius: '8px',
-                border: '1px solid #334155',
-                backgroundColor: '#0B1220',
-                color: '#F8FAFC',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-color)',
+                color: 'var(--text-color)',
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -395,10 +395,10 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 display: 'block',
                 fontSize: '14px',
                 marginBottom: '6px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
               }}
             >
-              Chức vụ / Phân quyền: <span style={{ color: '#EF4444' }}>*</span>
+              Chức vụ / Phân quyền: <span style={{ color: 'var(--danger-text)' }}>*</span>
             </label>
             <select
               id="empRole"
@@ -410,9 +410,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 minHeight: '44px',
                 padding: '0 12px',
                 borderRadius: '8px',
-                border: '1px solid #334155',
-                backgroundColor: '#0B1220',
-                color: '#F8FAFC',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-color)',
+                color: 'var(--text-color)',
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -433,10 +433,10 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 display: 'block',
                 fontSize: '14px',
                 marginBottom: '6px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
               }}
             >
-              Họ và tên nhân viên: <span style={{ color: '#EF4444' }}>*</span>
+              Họ và tên nhân viên: <span style={{ color: 'var(--danger-text)' }}>*</span>
             </label>
             <input
               id="fullName"
@@ -451,9 +451,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 minHeight: '44px',
                 padding: '0 12px',
                 borderRadius: '8px',
-                border: '1px solid #334155',
-                backgroundColor: '#0B1220',
-                color: '#F8FAFC',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-color)',
+                color: 'var(--text-color)',
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -468,10 +468,10 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 display: 'block',
                 fontSize: '14px',
                 marginBottom: '6px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
               }}
             >
-              Email đăng nhập: <span style={{ color: '#EF4444' }}>*</span>
+              Email đăng nhập: <span style={{ color: 'var(--danger-text)' }}>*</span>
             </label>
             <input
               id="email"
@@ -486,9 +486,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 minHeight: '44px',
                 padding: '0 12px',
                 borderRadius: '8px',
-                border: '1px solid #334155',
-                backgroundColor: '#0B1220',
-                color: '#F8FAFC',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-color)',
+                color: 'var(--text-color)',
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -503,7 +503,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 display: 'block',
                 fontSize: '14px',
                 marginBottom: '6px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
               }}
             >
               Tên tài khoản (tùy chọn):
@@ -521,9 +521,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 minHeight: '44px',
                 padding: '0 12px',
                 borderRadius: '8px',
-                border: '1px solid #334155',
-                backgroundColor: '#0B1220',
-                color: '#F8FAFC',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-color)',
+                color: 'var(--text-color)',
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -536,7 +536,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               padding: '16px',
               borderRadius: '10px',
               backgroundColor: 'rgba(15, 23, 42, 0.6)',
-              border: '1px solid #1E293B',
+              border: '1px solid var(--border-subtle)',
               marginBottom: '16px',
             }}
           >
@@ -544,7 +544,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: '#14B8A6',
+                color: 'var(--accent-text)',
                 marginBottom: '12px',
               }}
             >
@@ -565,7 +565,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Số điện thoại:
@@ -582,9 +582,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -597,7 +597,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Chức danh / Vị trí:
@@ -614,9 +614,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -629,7 +629,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Ngày sinh:
@@ -645,9 +645,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -660,7 +660,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Giới tính:
@@ -675,9 +675,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -695,7 +695,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Số CCCD / CMND:
@@ -712,9 +712,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -727,7 +727,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Liên hệ khẩn cấp:
@@ -744,9 +744,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -759,7 +759,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Địa chỉ nơi ở:
@@ -776,9 +776,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -792,7 +792,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               padding: '16px',
               borderRadius: '10px',
               backgroundColor: 'rgba(15, 23, 42, 0.6)',
-              border: '1px solid #1E293B',
+              border: '1px solid var(--border-subtle)',
               marginBottom: '20px',
             }}
           >
@@ -800,7 +800,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: '#14B8A6',
+                color: 'var(--accent-text)',
                 marginBottom: '12px',
               }}
             >
@@ -821,7 +821,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Ngân hàng:
@@ -838,9 +838,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -853,7 +853,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Số tài khoản:
@@ -870,9 +870,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}
@@ -885,7 +885,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     display: 'block',
                     fontSize: '13px',
                     marginBottom: '4px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Chủ tài khoản:
@@ -904,9 +904,9 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     minHeight: '42px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     boxSizing: 'border-box',
                   }}

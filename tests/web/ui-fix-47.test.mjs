@@ -16,9 +16,9 @@ test('UI-FIX-47 — Finding 1: EmployeesScreen pagination error uses canonical d
   // 1. Must import TOKENS from canonical package tokens
   assert.ok(
     source.includes(
-      "import { TOKENS } from '../../../../packages/ui/src/tokens.js';",
+      "import { TOKENS, THEME_COLORS } from '../../../../packages/ui/src/tokens.js';",
     ),
-    'Must import TOKENS from canonical UI tokens',
+    'Must import TOKENS and THEME_COLORS from canonical UI tokens',
   );
 
   // 2. Pagination error alert markup uses canonical tokens
@@ -33,19 +33,19 @@ test('UI-FIX-47 — Finding 1: EmployeesScreen pagination error uses canonical d
   );
   assert.ok(
     paginationErrorBlock.includes(
-      'backgroundColor: TOKENS.colors.dangerSubtle',
+      'backgroundColor: THEME_COLORS.dangerSubtle',
     ),
-    'Pagination error alert must use canonical TOKENS.colors.dangerSubtle',
+    'Pagination error alert must use canonical THEME_COLORS.dangerSubtle',
   );
   assert.ok(
     paginationErrorBlock.includes(
-      'border: `1px solid ${TOKENS.colors.danger}`',
+      'border: `1px solid ${THEME_COLORS.danger}`',
     ),
-    'Pagination error alert must use canonical TOKENS.colors.danger',
+    'Pagination error alert must use canonical THEME_COLORS.danger',
   );
   assert.ok(
-    paginationErrorBlock.includes('color: TOKENS.colors.danger'),
-    'Pagination error text color must use canonical TOKENS.colors.danger',
+    paginationErrorBlock.includes('color: THEME_COLORS.danger'),
+    'Pagination error text color must use canonical THEME_COLORS.danger',
   );
   assert.ok(
     paginationErrorBlock.includes('marginTop: TOKENS.spacing[4]'),

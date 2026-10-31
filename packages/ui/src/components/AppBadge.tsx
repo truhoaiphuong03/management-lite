@@ -1,5 +1,5 @@
 import React from 'react';
-import { TOKENS } from '../tokens.js';
+import { TOKENS, THEME_COLORS } from '../tokens.js';
 
 export type BadgeVariant =
   | 'primary'
@@ -33,52 +33,52 @@ export const AppBadge: React.FC<AppBadgeProps> = ({
     switch (variant) {
       case 'success':
         return {
-          bg: TOKENS.colors.successSubtle,
-          text: TOKENS.colors.success,
+          bg: THEME_COLORS.successSubtle,
+          text: THEME_COLORS.success,
           border: 'rgba(16, 185, 129, 0.3)',
         };
       case 'warning':
         return {
-          bg: TOKENS.colors.warningSubtle,
-          text: TOKENS.colors.warning,
+          bg: THEME_COLORS.warningSubtle,
+          text: THEME_COLORS.warning,
           border: 'rgba(245, 158, 11, 0.3)',
         };
       case 'danger':
       case 'error':
         return {
-          bg: TOKENS.colors.dangerSubtle,
-          text: TOKENS.colors.error,
+          bg: THEME_COLORS.dangerSubtle,
+          text: THEME_COLORS.error,
           border: 'rgba(239, 68, 68, 0.3)',
         };
       case 'primary':
         return {
-          bg: TOKENS.colors.primarySubtle,
-          text: TOKENS.colors.primary,
+          bg: THEME_COLORS.primarySubtle,
+          text: THEME_COLORS.primary,
           border: 'rgba(20, 184, 166, 0.35)',
         };
       case 'info':
         return {
-          bg: TOKENS.colors.infoSubtle,
-          text: TOKENS.colors.info,
+          bg: THEME_COLORS.infoSubtle,
+          text: THEME_COLORS.info,
           border: 'rgba(56, 189, 248, 0.3)',
         };
       case 'muted':
         return {
           bg: 'rgba(148, 163, 184, 0.15)',
-          text: TOKENS.colors.muted,
+          text: THEME_COLORS.muted,
           border: 'rgba(148, 163, 184, 0.3)',
         };
       case 'secondary':
         return {
-          bg: TOKENS.colors.surfaceSubtle,
-          text: TOKENS.colors.textSecondary,
-          border: TOKENS.colors.border,
+          bg: THEME_COLORS.surfaceSubtle,
+          text: THEME_COLORS.textSecondary,
+          border: THEME_COLORS.border,
         };
       case 'neutral':
       default:
         return {
-          bg: TOKENS.colors.primarySubtle,
-          text: TOKENS.colors.primary,
+          bg: THEME_COLORS.primarySubtle,
+          text: THEME_COLORS.primary,
           border: 'rgba(20, 184, 166, 0.3)',
         };
     }

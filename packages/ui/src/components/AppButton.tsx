@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TOKENS } from '../tokens.js';
+import { TOKENS, THEME_COLORS } from '../tokens.js';
 import { Spinner } from './Spinner.js';
 
 export interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -42,31 +42,31 @@ export const AppButton: React.FC<AppButtonProps> = ({
       case 'primary':
         return {
           bg: isActive
-            ? TOKENS.colors.primaryActive
+            ? THEME_COLORS.primaryActive
             : isHovered && !isDisabled
-              ? TOKENS.colors.primaryHover
-              : TOKENS.colors.primary,
-          text: TOKENS.colors.inverse,
+              ? THEME_COLORS.primaryHover
+              : THEME_COLORS.primary,
+          text: THEME_COLORS.inverse,
           border: isActive
-            ? TOKENS.colors.primaryActive
+            ? THEME_COLORS.primaryActive
             : isHovered && !isDisabled
-              ? TOKENS.colors.primaryHover
-              : TOKENS.colors.primary,
+              ? THEME_COLORS.primaryHover
+              : THEME_COLORS.primary,
           spinnerColor: 'current',
         };
       case 'destructive':
         return {
           bg: isActive
-            ? TOKENS.colors.dangerActive
+            ? THEME_COLORS.dangerActive
             : isHovered && !isDisabled
-              ? TOKENS.colors.dangerHover
-              : TOKENS.colors.danger,
-          text: TOKENS.colors.text,
+              ? THEME_COLORS.dangerHover
+              : THEME_COLORS.danger,
+          text: THEME_COLORS.text,
           border: isActive
-            ? TOKENS.colors.dangerActive
+            ? THEME_COLORS.dangerActive
             : isHovered && !isDisabled
-              ? TOKENS.colors.dangerHover
-              : TOKENS.colors.danger,
+              ? THEME_COLORS.dangerHover
+              : THEME_COLORS.danger,
           spinnerColor: 'current',
         };
       case 'quiet':
@@ -78,25 +78,25 @@ export const AppButton: React.FC<AppButtonProps> = ({
               : 'transparent',
           text:
             isHovered && !isDisabled
-              ? TOKENS.colors.primary
-              : TOKENS.colors.text,
+              ? THEME_COLORS.primary
+              : THEME_COLORS.text,
           border: 'transparent',
-          spinnerColor: TOKENS.colors.primary,
+          spinnerColor: THEME_COLORS.primary,
         };
       case 'secondary':
       default:
         return {
           bg: isActive
-            ? TOKENS.colors.surfaceActive
+            ? THEME_COLORS.surfaceActive
             : isHovered && !isDisabled
-              ? TOKENS.colors.surfaceHover
-              : TOKENS.colors.surface,
-          text: TOKENS.colors.text,
+              ? THEME_COLORS.surfaceHover
+              : THEME_COLORS.surface,
+          text: THEME_COLORS.text,
           border:
             isHovered && !isDisabled
-              ? TOKENS.colors.borderHover
-              : TOKENS.colors.border,
-          spinnerColor: TOKENS.colors.primary,
+              ? THEME_COLORS.borderHover
+              : THEME_COLORS.border,
+          spinnerColor: THEME_COLORS.primary,
         };
     }
   };

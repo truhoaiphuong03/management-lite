@@ -9,7 +9,7 @@ import {
   AppCard,
   AppBadge,
   AppSkeleton,
-  TOKENS,
+  TOKENS, THEME_COLORS,
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,
@@ -122,8 +122,8 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
           gap: '10px 12px',
           padding: '10px 12px',
           borderRadius: TOKENS.radii.md,
-          border: `1px solid ${TOKENS.colors.borderSubtle}`,
-          backgroundColor: TOKENS.colors.surface,
+          border: `1px solid ${THEME_COLORS.borderSubtle}`,
+          backgroundColor: THEME_COLORS.surface,
         }}
       >
         <label style={{ ...filterLabel, flex: '0 1 120px', minWidth: 100 }}>
@@ -228,14 +228,14 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
               gridTemplateColumns: COLS,
               gap: 12,
               padding: '8px 16px',
-              backgroundColor: TOKENS.colors.surfaceSubtle,
-              borderBottom: `1px solid ${TOKENS.colors.borderSubtle}`,
+              backgroundColor: THEME_COLORS.surfaceSubtle,
+              borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
               borderTopLeftRadius: TOKENS.radii.md,
               borderTopRightRadius: TOKENS.radii.md,
               fontSize: TOKENS.typography.fontSize.xs,
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
-              color: TOKENS.colors.muted,
+              color: THEME_COLORS.muted,
               fontWeight: TOKENS.typography.fontWeight.semibold,
             }}
           >
@@ -252,7 +252,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
         >
           {displayedRows.map((i, index) => {
             const income = i.direction === 'income';
-            const color = income ? TOKENS.colors.success : TOKENS.colors.error;
+            const color = income ? THEME_COLORS.success : THEME_COLORS.error;
             const amount = (
               <strong
                 style={{
@@ -301,7 +301,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
             const border =
               index === displayedRows.length - 1
                 ? 'none'
-                : `1px solid ${TOKENS.colors.borderSubtle}`;
+                : `1px solid ${THEME_COLORS.borderSubtle}`;
             return narrow ? (
               <div
                 key={i.id}
@@ -338,7 +338,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
                     style={{
                       minWidth: 0,
                       fontSize: TOKENS.typography.fontSize.sm,
-                      color: TOKENS.colors.muted,
+                      color: THEME_COLORS.muted,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -366,7 +366,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
                 <span
                   style={{
                     fontSize: TOKENS.typography.fontSize.sm,
-                    color: TOKENS.colors.textSecondary,
+                    color: THEME_COLORS.textSecondary,
                   }}
                 >
                   {i.occurred_on}
@@ -376,7 +376,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
                   title={i.note ?? ''}
                   style={{
                     minWidth: 0,
-                    color: TOKENS.colors.muted,
+                    color: THEME_COLORS.muted,
                     fontSize: TOKENS.typography.fontSize.sm,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -406,7 +406,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
                           display: 'grid',
                           gap: 8,
                           padding: '12px 14px',
-                          borderBottom: `1px solid ${TOKENS.colors.borderSubtle}`,
+                          borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
                         }
                       : {
                           display: 'grid',
@@ -414,7 +414,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
                           gap: 12,
                           alignItems: 'center',
                           padding: '12px 16px',
-                          borderBottom: `1px solid ${TOKENS.colors.borderSubtle}`,
+                          borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
                         }
                   }
                 >
@@ -443,7 +443,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
                 margin: 0,
                 padding: '28px 16px',
                 textAlign: 'center',
-                color: TOKENS.colors.muted,
+                color: THEME_COLORS.muted,
               }}
             >
               Chưa có giao dịch.
@@ -456,7 +456,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
                 margin: 0,
                 padding: '28px 16px',
                 textAlign: 'center',
-                color: TOKENS.colors.muted,
+                color: THEME_COLORS.muted,
               }}
             >
               Không tìm thấy giao dịch nào khớp với từ khóa "{searchQuery}".
@@ -484,7 +484,7 @@ const filterLabel: React.CSSProperties = {
   display: 'grid',
   gap: 4,
   fontSize: TOKENS.typography.fontSize.sm,
-  color: TOKENS.colors.textSecondary,
+  color: THEME_COLORS.textSecondary,
 };
 const filterField: React.CSSProperties = {
   ...fieldStyle,

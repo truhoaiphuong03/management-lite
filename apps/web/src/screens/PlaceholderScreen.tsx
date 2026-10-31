@@ -38,7 +38,7 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
             display: 'flex',
             justifyContent: 'center',
             marginBottom: '16px',
-            color: '#F59E0B',
+            color: 'var(--warning-text)',
           }}
         >
           <ConstructionIcon size={44} />
@@ -47,7 +47,7 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
           style={{
             fontSize: '20px',
             fontWeight: 700,
-            color: '#F8FAFC',
+            color: 'var(--text-color)',
             marginBottom: '8px',
           }}
         >
@@ -56,7 +56,7 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
         <p
           style={{
             fontSize: '14px',
-            color: '#F59E0B',
+            color: 'var(--warning-text)',
             fontWeight: 600,
             marginBottom: '12px',
           }}
@@ -74,7 +74,7 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
               border: '1px solid rgba(20, 184, 166, 0.3)',
               marginBottom: '16px',
               fontSize: '13px',
-              color: '#14B8A6',
+              color: 'var(--accent-text)',
             }}
           >
             {paramEntries.map(([key, val]) => (
@@ -87,7 +87,7 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
         <p
           style={{
             fontSize: '14px',
-            color: '#94A3B8',
+            color: 'var(--muted-color)',
             maxWidth: '560px',
             margin: '0 auto 24px auto',
             lineHeight: 1.6,

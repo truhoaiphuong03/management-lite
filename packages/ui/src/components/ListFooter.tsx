@@ -122,7 +122,7 @@ export const ListFooter: React.FC<ListFooterProps> = ({
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             border: '1px solid rgba(239, 68, 68, 0.3)',
             borderRadius: '8px',
-            color: '#FCA5A5',
+            color: 'var(--danger-text)',
             fontSize: '13px',
           }}
         >
@@ -134,7 +134,7 @@ export const ListFooter: React.FC<ListFooterProps> = ({
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#14B8A6',
+                color: 'var(--accent-text)',
                 fontWeight: 600,
                 fontSize: '13px',
                 cursor: 'pointer',
@@ -171,7 +171,7 @@ export const ListFooter: React.FC<ListFooterProps> = ({
           className="list-footer-info"
           style={{
             fontSize: '13px',
-            color: '#94A3B8',
+            color: 'var(--muted-color)',
             fontWeight: 500,
             userSelect: 'none',
           }}
@@ -207,9 +207,9 @@ export const ListFooter: React.FC<ListFooterProps> = ({
                   minWidth: '44px',
                   padding: '8px 14px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#1E293B',
-                  color: !hasPrevPage || loading ? '#64748B' : '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: !hasPrevPage || loading ? 'var(--muted-color)' : 'var(--text-color)',
                   fontSize: '13px',
                   fontWeight: 600,
                   cursor: !hasPrevPage || loading ? 'not-allowed' : 'pointer',
@@ -237,9 +237,9 @@ export const ListFooter: React.FC<ListFooterProps> = ({
                   minWidth: '44px',
                   padding: '8px 14px',
                   borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#1E293B',
-                  color: !hasNextPage || loading ? '#64748B' : '#F8FAFC',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: !hasNextPage || loading ? 'var(--muted-color)' : 'var(--text-color)',
                   fontSize: '13px',
                   fontWeight: 600,
                   cursor: !hasNextPage || loading ? 'not-allowed' : 'pointer',

@@ -123,4 +123,54 @@ export const TOKENS = {
   },
 } as const;
 
+/**
+ * Theme-aware color references (CSS custom properties from tokens.css with the
+ * dark-theme hex as fallback). Components must use these instead of TOKENS.colors
+ * so that Light / Dark / System themes all render correctly.
+ */
+const CSS_VAR_BY_COLOR: Record<string, string> = {
+  background: '--bg-color',
+  surface: '--surface-color',
+  surfaceSubtle: '--surface-subtle',
+  surfaceHover: '--surface-hover',
+  surfaceActive: '--surface-active',
+  overlay: '--overlay-bg',
+  primary: '--primary-color',
+  primaryHover: '--primary-hover',
+  primaryActive: '--primary-active',
+  primarySubtle: '--primary-subtle',
+  text: '--text-color',
+  textSecondary: '--text-secondary',
+  muted: '--muted-color',
+  disabled: '--disabled-color',
+  inverse: '--inverse-text',
+  border: '--border-color',
+  borderSubtle: '--border-subtle',
+  borderHover: '--border-hover',
+  focusRing: '--focus-ring',
+  error: '--error-color',
+  danger: '--danger-color',
+  dangerHover: '--danger-hover',
+  dangerActive: '--danger-active',
+  dangerSubtle: '--danger-subtle',
+  warning: '--warning-color',
+  warningHover: '--warning-hover',
+  warningActive: '--warning-active',
+  warningSubtle: '--warning-subtle',
+  success: '--success-color',
+  successHover: '--success-hover',
+  successActive: '--success-active',
+  successSubtle: '--success-subtle',
+  info: '--info-color',
+  infoHover: '--info-hover',
+  infoSubtle: '--info-subtle',
+};
+
+export const THEME_COLORS = Object.fromEntries(
+  Object.entries(TOKENS.colors).map(([key, hex]) => [
+    key,
+    CSS_VAR_BY_COLOR[key] ? `var(${CSS_VAR_BY_COLOR[key]}, ${hex})` : hex,
+  ]),
+) as Record<keyof typeof TOKENS.colors, string>;
+
 export type ThemeTokens = typeof TOKENS;

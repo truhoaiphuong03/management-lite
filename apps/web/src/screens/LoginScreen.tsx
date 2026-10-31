@@ -242,7 +242,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         justifyContent: 'center',
         minHeight: '100vh',
         padding: '24px 16px',
-        backgroundColor: '#0B1220',
+        backgroundColor: 'var(--bg-color, #0B1220)',
         boxSizing: 'border-box',
       }}
     >
@@ -261,7 +261,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 borderRadius: '14px',
                 backgroundColor: 'rgba(20, 184, 166, 0.1)',
                 border: '1px solid rgba(20, 184, 166, 0.25)',
-                color: '#14B8A6',
+                color: 'var(--accent-text)',
                 marginBottom: '18px',
               }}
             >
@@ -271,7 +271,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               style={{
                 fontSize: '24px',
                 fontWeight: 800,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 margin: '0 0 8px 0',
                 letterSpacing: '-0.02em',
               }}
@@ -281,7 +281,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <p
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 margin: '0 0 24px 0',
                 lineHeight: 1.5,
               }}
@@ -307,7 +307,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   padding: '12px 14px',
                   borderRadius: '10px',
                   backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                  border: '1px solid #1E293B',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
                 <div
@@ -316,7 +316,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     height: '28px',
                     borderRadius: '6px',
                     backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -331,7 +331,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     style={{
                       fontSize: '13px',
                       fontWeight: 600,
-                      color: '#F1F5F9',
+                      color: 'var(--text-color)',
                       marginBottom: '2px',
                     }}
                   >
@@ -340,7 +340,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <div
                     style={{
                       fontSize: '12px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       lineHeight: 1.4,
                     }}
                   >
@@ -357,7 +357,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   padding: '12px 14px',
                   borderRadius: '10px',
                   backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                  border: '1px solid #1E293B',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
                 <div
@@ -366,7 +366,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     height: '28px',
                     borderRadius: '6px',
                     backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -381,7 +381,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     style={{
                       fontSize: '13px',
                       fontWeight: 600,
-                      color: '#F1F5F9',
+                      color: 'var(--text-color)',
                       marginBottom: '2px',
                     }}
                   >
@@ -390,7 +390,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <div
                     style={{
                       fontSize: '12px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       lineHeight: 1.4,
                     }}
                   >
@@ -407,7 +407,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   padding: '12px 14px',
                   borderRadius: '10px',
                   backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                  border: '1px solid #1E293B',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
                 <div
@@ -416,7 +416,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     height: '28px',
                     borderRadius: '6px',
                     backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -431,7 +431,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     style={{
                       fontSize: '13px',
                       fontWeight: 600,
-                      color: '#F1F5F9',
+                      color: 'var(--text-color)',
                       marginBottom: '2px',
                     }}
                   >
@@ -440,7 +440,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <div
                     style={{
                       fontSize: '12px',
-                      color: '#94A3B8',
+                      color: 'var(--muted-color)',
                       lineHeight: 1.4,
                     }}
                   >
@@ -455,17 +455,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <div
             style={{
               paddingTop: '20px',
-              borderTop: '1px solid #1E293B',
+              borderTop: '1px solid var(--border-subtle)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: '12px',
             }}
           >
-            <span style={{ fontSize: '12px', color: '#64748B' }}>
+            <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
               Hệ thống quản lý nội bộ
             </span>
-            <span style={{ fontSize: '11px', color: '#64748B' }}>
+            <span style={{ fontSize: '11px', color: 'var(--muted-color)' }}>
               v{SYSTEM_VERSION}
             </span>
           </div>
@@ -485,7 +485,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 borderRadius: '14px',
                 backgroundColor: 'rgba(20, 184, 166, 0.1)',
                 border: '1px solid rgba(20, 184, 166, 0.25)',
-                color: '#14B8A6',
+                color: 'var(--accent-text)',
                 marginBottom: '12px',
               }}
             >
@@ -495,7 +495,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               style={{
                 fontSize: '20px',
                 fontWeight: 700,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 marginBottom: '4px',
                 letterSpacing: '-0.02em',
               }}
@@ -505,7 +505,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <p
               style={{
                 fontSize: '12px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 margin: '0 0 10px 0',
               }}
             >
@@ -519,7 +519,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               style={{
                 fontSize: '22px',
                 fontWeight: 700,
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 marginBottom: '6px',
                 letterSpacing: '-0.02em',
               }}
@@ -529,7 +529,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <p
               style={{
                 fontSize: '13px',
-                color: '#94A3B8',
+                color: 'var(--muted-color)',
                 margin: 0,
                 lineHeight: 1.4,
               }}
@@ -550,7 +550,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 marginBottom: '20px',
                 fontSize: '13px',
-                color: '#EF4444',
+                color: 'var(--danger-text)',
                 lineHeight: 1.4,
                 display: 'flex',
                 alignItems: 'flex-start',
@@ -576,7 +576,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   fontSize: '13px',
                   fontWeight: 600,
                   marginBottom: '6px',
-                  color: '#CBD5E1',
+                  color: 'var(--text-secondary)',
                 }}
               >
                 Tên đăng nhập hoặc Email:
@@ -621,8 +621,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   padding: '0 14px',
                   borderRadius: '8px',
                   border: `1px solid ${invalidField === 'identifier' || invalidField === 'both' ? '#EF4444' : '#334155'}`,
-                  backgroundColor: '#0B1220',
-                  color: '#F8FAFC',
+                  backgroundColor: 'var(--bg-color, #0B1220)',
+                  color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -653,7 +653,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   style={{
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#CBD5E1',
+                    color: 'var(--text-secondary)',
                   }}
                 >
                   Mật khẩu:
@@ -698,8 +698,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     padding: '0 46px 0 14px',
                     borderRadius: '8px',
                     border: `1px solid ${invalidField === 'password' || invalidField === 'both' ? '#EF4444' : '#334155'}`,
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    backgroundColor: 'var(--bg-color, #0B1220)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     outline: 'none',
                     boxSizing: 'border-box',
@@ -726,7 +726,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     transform: 'translateY(-50%)',
                     background: 'transparent',
                     border: 'none',
-                    color: showPassword ? '#14B8A6' : '#94A3B8',
+                    color: showPassword ? 'var(--accent-text)' : 'var(--muted-color)',
                     cursor: 'pointer',
                     minWidth: '40px',
                     minHeight: '40px',
@@ -765,7 +765,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   alignItems: 'center',
                   gap: '8px',
                   fontSize: '13px',
-                  color: '#CBD5E1',
+                  color: 'var(--text-secondary)',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
                   userSelect: 'none',
                 }}
@@ -805,7 +805,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#14B8A6',
+                  color: 'var(--accent-text)',
                   fontSize: '13px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -846,10 +846,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             style={{
               marginTop: '24px',
               paddingTop: '16px',
-              borderTop: '1px solid #1E293B',
+              borderTop: '1px solid var(--border-subtle)',
               textAlign: 'center',
               fontSize: '12px',
-              color: '#64748B',
+              color: 'var(--muted-color)',
               lineHeight: 1.5,
             }}
           >
@@ -881,8 +881,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <div
             ref={modalContainerRef}
             style={{
-              backgroundColor: '#151F30',
-              border: '1px solid #334155',
+              backgroundColor: 'var(--surface-color, #151F30)',
+              border: '1px solid var(--border-color)',
               borderRadius: '16px',
               padding: '24px',
               maxWidth: '480px',
@@ -900,7 +900,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 alignItems: 'center',
                 marginBottom: '16px',
                 paddingBottom: '12px',
-                borderBottom: '1px solid #334155',
+                borderBottom: '1px solid var(--border-color)',
               }}
             >
               <div
@@ -915,7 +915,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     height: '32px',
                     borderRadius: '8px',
                     backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                   }}
                 >
                   <LockIcon size={18} />
@@ -925,7 +925,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   style={{
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-color)',
                     margin: 0,
                   }}
                 >
@@ -940,7 +940,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   cursor: 'pointer',
                   minWidth: '36px',
                   minHeight: '36px',
@@ -957,7 +957,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {/* Modal Body */}
             <div
               id="forgot-password-modal-desc"
-              style={{ fontSize: '13px', color: '#CBD5E1', lineHeight: 1.6 }}
+              style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}
             >
               <p style={{ marginTop: 0, marginBottom: '14px' }}>
                 Vì lý do an toàn dữ liệu và tuân thủ chính sách bảo mật nội bộ,
@@ -967,8 +967,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
               <div
                 style={{
-                  backgroundColor: '#0B1220',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--bg-color, #0B1220)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   padding: '12px 14px',
                   marginBottom: '16px',
@@ -977,7 +977,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <div
                   style={{
                     fontWeight: 600,
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     marginBottom: '8px',
                     fontSize: '13px',
                   }}
@@ -1012,13 +1012,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   alignItems: 'center',
                   gap: '8px',
                   fontSize: '12px',
-                  color: '#94A3B8',
+                  color: 'var(--muted-color)',
                   marginBottom: '20px',
                 }}
               >
                 <ShieldAlertIcon
                   size={16}
-                  style={{ color: '#F59E0B', flexShrink: 0 }}
+                  style={{ color: 'var(--warning-text)', flexShrink: 0 }}
                 />
                 <span>
                   Không cung cấp mật khẩu hoặc mã phiên cho bất kỳ đối tượng nào
@@ -1048,7 +1048,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           width: 100%;
           max-width: 920px;
           background-color: #151F30;
-          border: 1px solid #334155;
+          border: 1px solid var(--border-color);
           border-radius: 20px;
           overflow: hidden;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
@@ -1061,7 +1061,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           justify-content: space-between;
           padding: 40px 32px;
           background: linear-gradient(145deg, #0F172A 0%, #0B1322 100%);
-          border-right: 1px solid #1E293B;
+          border-right: 1px solid var(--border-subtle);
           box-sizing: border-box;
         }
         .login-form-panel {

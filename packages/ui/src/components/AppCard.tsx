@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TOKENS } from '../tokens.js';
+import { TOKENS, THEME_COLORS } from '../tokens.js';
 
 export interface AppCardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -28,19 +28,19 @@ export const AppCard: React.FC<AppCardProps> = ({
     switch (variant) {
       case 'subtle':
         return {
-          bg: TOKENS.colors.surfaceSubtle, // #0F172A
-          border: TOKENS.colors.borderSubtle, // #1E293B
+          bg: THEME_COLORS.surfaceSubtle, // #0F172A
+          border: THEME_COLORS.borderSubtle, // #1E293B
         };
       case 'bordered':
         return {
           bg: 'transparent',
-          border: TOKENS.colors.border, // #334155
+          border: THEME_COLORS.border, // #334155
         };
       case 'default':
       default:
         return {
-          bg: TOKENS.colors.surface, // #151F30
-          border: TOKENS.colors.border, // #334155
+          bg: THEME_COLORS.surface, // #151F30
+          border: THEME_COLORS.border, // #334155
         };
     }
   };
@@ -65,7 +65,7 @@ export const AppCard: React.FC<AppCardProps> = ({
         }`,
         borderRadius: TOKENS.radii.md, // 12px
         padding,
-        color: TOKENS.colors.text,
+        color: THEME_COLORS.text,
         boxShadow:
           interactive && isHovered ? TOKENS.shadows.md : TOKENS.shadows.sm,
         transform: interactive && isHovered ? 'translateY(-1px)' : 'none',
@@ -82,7 +82,7 @@ export const AppCard: React.FC<AppCardProps> = ({
           style={{
             marginBottom: '16px',
             paddingBottom: '12px',
-            borderBottom: `1px solid ${TOKENS.colors.borderSubtle}`,
+            borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
           }}
         >
           {header}
@@ -94,7 +94,7 @@ export const AppCard: React.FC<AppCardProps> = ({
           style={{
             marginTop: '16px',
             paddingTop: '12px',
-            borderTop: `1px solid ${TOKENS.colors.borderSubtle}`,
+            borderTop: `1px solid ${THEME_COLORS.borderSubtle}`,
           }}
         >
           {footer}

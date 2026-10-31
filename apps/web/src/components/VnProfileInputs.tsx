@@ -97,9 +97,9 @@ export const VnDateOfBirthSelect: React.FC<VnDateOfBirthSelectProps> = ({
     padding: '0 8px',
     fontSize: '13.5px',
     borderRadius: '8px',
-    border: '1px solid #475569',
-    backgroundColor: '#1E293B',
-    color: '#F8FAFC',
+    border: '1px solid var(--border-hover)',
+    backgroundColor: 'var(--surface-hover)',
+    color: 'var(--text-color)',
     cursor: 'pointer',
   };
 
@@ -224,9 +224,9 @@ export const VnBankAutocompleteInput: React.FC<VnBankAutocompleteInputProps> = (
           padding: '0 12px',
           fontSize: '13.5px',
           borderRadius: '8px',
-          border: '1px solid #475569',
-          backgroundColor: '#1E293B',
-          color: '#F8FAFC',
+          border: '1px solid var(--border-hover)',
+          backgroundColor: 'var(--surface-hover)',
+          color: 'var(--text-color)',
         }}
       />
       {open && filteredBanks.length > 0 && (
@@ -241,7 +241,7 @@ export const VnBankAutocompleteInput: React.FC<VnBankAutocompleteInputProps> = (
             maxWidth: 'calc(100vw - 40px)',
             maxHeight: '210px',
             overflowY: 'auto',
-            backgroundColor: '#0F172A',
+            backgroundColor: 'var(--surface-subtle)',
             border: '1px solid #14B8A6',
             borderRadius: '8px',
             boxShadow: '0 12px 28px rgba(0, 0, 0, 0.65)',
@@ -262,25 +262,25 @@ export const VnBankAutocompleteInput: React.FC<VnBankAutocompleteInputProps> = (
                 textAlign: 'left',
                 padding: '8px 10px',
                 border: 'none',
-                borderBottom: '1px solid #1E293B',
+                borderBottom: '1px solid var(--border-subtle)',
                 backgroundColor:
                   value === bank.shortName
                     ? 'rgba(20, 184, 166, 0.18)'
                     : 'transparent',
-                color: '#F8FAFC',
+                color: 'var(--text-color)',
                 cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '2px',
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#38BDF8' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--info-text)' }}>
                 {bank.shortName}{' '}
-                <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>
+                <span style={{ fontSize: '11px', color: 'var(--muted-color)', fontWeight: 500 }}>
                   ({bank.code})
                 </span>
               </div>
-              <div style={{ fontSize: '11px', color: '#CBD5E1' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                 {bank.fullName}
               </div>
             </button>

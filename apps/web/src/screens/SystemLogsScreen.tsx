@@ -757,8 +757,8 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                 style={{
                   ...mono,
                   overflowX: 'auto',
-                  background: '#0f172a',
-                  color: '#e2e8f0',
+                  background: 'var(--surface-subtle)',
+                  color: 'var(--text-color)',
                   padding: 12,
                   borderRadius: 8,
                 }}

@@ -37,7 +37,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     >
       <div
         style={{
-          color: '#64748B',
+          color: 'var(--muted-color)',
           marginBottom: '16px',
           display: 'flex',
           justifyContent: 'center',
@@ -50,7 +50,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         style={{
           fontSize: '18px',
           fontWeight: 600,
-          color: '#F8FAFC',
+          color: 'var(--text-color)',
           marginBottom: '8px',
         }}
       >
@@ -59,7 +59,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       <p
         style={{
           fontSize: '14px',
-          color: '#94A3B8',
+          color: 'var(--muted-color)',
           maxWidth: '400px',
           marginBottom: action ? '20px' : '0',
           lineHeight: 1.5,

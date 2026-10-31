@@ -16,7 +16,7 @@ import {
   DEFAULT_PAGE_SIZE,
   ActionIconButton,
 } from '../../../../packages/ui/src/components/index.js';
-import { TOKENS } from '../../../../packages/ui/src/tokens.js';
+import { TOKENS, THEME_COLORS } from '../../../../packages/ui/src/tokens.js';
 import type {
   AuditEventData,
   ListAuditEventsResponseData,
@@ -35,28 +35,28 @@ interface ActionBadgeMeta {
 }
 
 const ACTION_MAP: Record<string, ActionBadgeMeta> = {
-  'auth.login': { label: 'Đăng nhập', variant: 'success', color: '#10B981' },
-  'auth.logout': { label: 'Đăng xuất', variant: 'default', color: '#94A3B8' },
+  'auth.login': { label: 'Đăng nhập', variant: 'success', color: 'var(--success-text)' },
+  'auth.logout': { label: 'Đăng xuất', variant: 'default', color: 'var(--muted-color)' },
   'auth.password_change': {
     label: 'Đổi mật khẩu',
     variant: 'info',
-    color: '#38BDF8',
+    color: 'var(--info-text)',
   },
   'auth.session_revocation': {
     label: 'Thu hồi phiên',
     variant: 'error',
-    color: '#EF4444',
+    color: 'var(--danger-text)',
   },
-  'work.create': { label: 'Tạo công việc', variant: 'info', color: '#38BDF8' },
+  'work.create': { label: 'Tạo công việc', variant: 'info', color: 'var(--info-text)' },
   'work.submit': {
     label: 'Nộp báo cáo việc',
     variant: 'warning',
-    color: '#F59E0B',
+    color: 'var(--warning-text)',
   },
   'work.approve': {
     label: 'Duyệt công việc',
     variant: 'success',
-    color: '#10B981',
+    color: 'var(--success-text)',
   },
   'storage.folder_create': {
     label: 'Tạo thư mục',
@@ -71,12 +71,12 @@ const ACTION_MAP: Record<string, ActionBadgeMeta> = {
   'storage.trash_create': {
     label: 'Yêu cầu thùng rác',
     variant: 'warning',
-    color: '#F59E0B',
+    color: 'var(--warning-text)',
   },
   'storage.trash_confirm': {
     label: 'Xác nhận thùng rác',
     variant: 'error',
-    color: '#EF4444',
+    color: 'var(--danger-text)',
   },
   'account.create': {
     label: 'Tạo tài khoản ACC',
@@ -86,7 +86,7 @@ const ACTION_MAP: Record<string, ActionBadgeMeta> = {
   'account.secret_put': {
     label: 'Lưu mật khẩu ACC',
     variant: 'warning',
-    color: '#F59E0B',
+    color: 'var(--warning-text)',
   },
   'account.secret_reveal': {
     label: 'Xem secret ACC (C05)',
@@ -320,7 +320,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
           <div style={{ textAlign: 'center', padding: TOKENS.spacing[6] }}>
             <div
               style={{
-                color: TOKENS.colors.error,
+                color: THEME_COLORS.error,
                 marginBottom: TOKENS.spacing[4],
               }}
             >
@@ -328,7 +328,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
             </div>
             <h2
               style={{
-                color: TOKENS.colors.text,
+                color: THEME_COLORS.text,
                 fontSize: '20px',
                 fontWeight: 600,
                 margin: '0 0 8px 0',
@@ -338,7 +338,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
             </h2>
             <p
               style={{
-                color: TOKENS.colors.muted,
+                color: THEME_COLORS.muted,
                 fontSize: '14px',
                 marginBottom: TOKENS.spacing[6],
               }}
@@ -388,16 +388,16 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
           border: '1px solid rgba(20, 184, 166, 0.25)',
           borderRadius: TOKENS.radii.md,
           marginBottom: TOKENS.spacing[6],
-          color: TOKENS.colors.text,
+          color: THEME_COLORS.text,
           fontSize: '13px',
         }}
       >
         <LockIcon
           size={18}
-          style={{ color: TOKENS.colors.primary, flexShrink: 0 }}
+          style={{ color: THEME_COLORS.primary, flexShrink: 0 }}
         />
         <div style={{ flex: 1 }}>
-          <strong style={{ color: TOKENS.colors.primary }}>
+          <strong style={{ color: THEME_COLORS.primary }}>
             Nguyên tắc an toàn bảo mật:{' '}
           </strong>
           Nhật ký tuân thủ chuẩn <code>Q3-OPS-003</code> và{' '}
@@ -443,7 +443,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                 htmlFor="audit-action-filter"
                 style={{
                   fontSize: '13px',
-                  color: TOKENS.colors.muted,
+                  color: THEME_COLORS.muted,
                   fontWeight: 500,
                 }}
               >
@@ -455,9 +455,9 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                 value={actionFilter}
                 onChange={(e) => setActionFilter(e.target.value)}
                 style={{
-                  backgroundColor: TOKENS.colors.background,
-                  color: TOKENS.colors.text,
-                  border: `1px solid ${TOKENS.colors.border}`,
+                  backgroundColor: THEME_COLORS.background,
+                  color: THEME_COLORS.text,
+                  border: `1px solid ${THEME_COLORS.border}`,
                   borderRadius: TOKENS.radii.sm,
                   padding: '6px 12px',
                   fontSize: '13px',
@@ -523,7 +523,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                 htmlFor="audit-entity-filter"
                 style={{
                   fontSize: '13px',
-                  color: TOKENS.colors.muted,
+                  color: THEME_COLORS.muted,
                   fontWeight: 500,
                 }}
               >
@@ -535,9 +535,9 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                 value={entityFilter}
                 onChange={(e) => setEntityFilter(e.target.value)}
                 style={{
-                  backgroundColor: TOKENS.colors.background,
-                  color: TOKENS.colors.text,
-                  border: `1px solid ${TOKENS.colors.border}`,
+                  backgroundColor: THEME_COLORS.background,
+                  color: THEME_COLORS.text,
+                  border: `1px solid ${THEME_COLORS.border}`,
                   borderRadius: TOKENS.radii.sm,
                   padding: '6px 12px',
                   fontSize: '13px',
@@ -597,9 +597,9 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
               gap: TOKENS.spacing[3],
             }}
           >
-            <span style={{ fontSize: '13px', color: TOKENS.colors.muted }}>
+            <span style={{ fontSize: '13px', color: THEME_COLORS.muted }}>
               Tổng cộng:{' '}
-              <strong style={{ color: TOKENS.colors.text }}>
+              <strong style={{ color: THEME_COLORS.text }}>
                 {totalCount}
               </strong>{' '}
               sự kiện
@@ -689,7 +689,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
             const actionMeta = ACTION_MAP[evt.action] || {
               label: evt.action,
               variant: 'default',
-              color: '#94A3B8',
+              color: 'var(--muted-color)',
             };
             const isExpanded = expandedIds.has(evt.id);
 
@@ -725,11 +725,11 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                       style={{
                         fontSize: '12px',
                         fontFamily: 'monospace',
-                        color: TOKENS.colors.muted,
-                        backgroundColor: TOKENS.colors.background,
+                        color: THEME_COLORS.muted,
+                        backgroundColor: THEME_COLORS.background,
                         padding: '3px 8px',
                         borderRadius: TOKENS.radii.sm,
-                        border: `1px solid ${TOKENS.colors.border}`,
+                        border: `1px solid ${THEME_COLORS.border}`,
                       }}
                     >
                       {formatEventTime(evt.created_at)}
@@ -753,7 +753,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                     <span
                       style={{
                         fontSize: '12px',
-                        color: TOKENS.colors.muted,
+                        color: THEME_COLORS.muted,
                         fontFamily: 'monospace',
                       }}
                     >
@@ -770,7 +770,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                     }}
                   >
                     <span
-                      style={{ fontSize: '13px', color: TOKENS.colors.muted }}
+                      style={{ fontSize: '13px', color: THEME_COLORS.muted }}
                     >
                       Thực hiện bởi:
                     </span>
@@ -779,8 +779,8 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                         fontSize: '13px',
                         fontWeight: 600,
                         color: evt.actor_username
-                          ? TOKENS.colors.primary
-                          : TOKENS.colors.text,
+                          ? THEME_COLORS.primary
+                          : THEME_COLORS.text,
                         backgroundColor: 'rgba(255, 255, 255, 0.05)',
                         padding: '2px 8px',
                         borderRadius: TOKENS.radii.sm,
@@ -799,16 +799,16 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                     alignItems: 'center',
                     gap: TOKENS.spacing[4],
                     fontSize: '13px',
-                    color: TOKENS.colors.muted,
+                    color: THEME_COLORS.muted,
                     paddingTop: TOKENS.spacing[2],
                     borderTop: `1px solid rgba(51, 65, 85, 0.5)`,
                   }}
                 >
                   <div>
-                    <span style={{ color: TOKENS.colors.muted }}>
+                    <span style={{ color: THEME_COLORS.muted }}>
                       Thực thể:{' '}
                     </span>
-                    <strong style={{ color: TOKENS.colors.text }}>
+                    <strong style={{ color: THEME_COLORS.text }}>
                       {evt.entity_type || 'N/A'}
                     </strong>
                     {evt.entity_id && (
@@ -832,16 +832,16 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                       gap: '6px',
                     }}
                   >
-                    <span style={{ color: TOKENS.colors.muted }}>Req ID: </span>
+                    <span style={{ color: THEME_COLORS.muted }}>Req ID: </span>
                     {evt.request_id ? (
                       <>
                         <code
                           style={{
                             fontSize: '11px',
-                            backgroundColor: TOKENS.colors.background,
+                            backgroundColor: THEME_COLORS.background,
                             padding: '2px 6px',
                             borderRadius: TOKENS.radii.sm,
-                            color: TOKENS.colors.muted,
+                            color: THEME_COLORS.muted,
                           }}
                           title={evt.request_id}
                         >
@@ -870,7 +870,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                       style={{
                         background: 'transparent',
                         border: 'none',
-                        color: TOKENS.colors.primary,
+                        color: THEME_COLORS.primary,
                         fontSize: '12px',
                         cursor: 'pointer',
                         padding: '4px 8px',
@@ -895,7 +895,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                       padding: TOKENS.spacing[3],
                       backgroundColor: '#070D18',
                       borderRadius: TOKENS.radii.sm,
-                      border: `1px solid ${TOKENS.colors.border}`,
+                      border: `1px solid ${THEME_COLORS.border}`,
                     }}
                   >
                     <div
@@ -910,7 +910,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                         style={{
                           fontSize: '11px',
                           fontWeight: 600,
-                          color: TOKENS.colors.muted,
+                          color: THEME_COLORS.muted,
                           letterSpacing: '0.5px',
                         }}
                       >
@@ -919,7 +919,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                       <span
                         style={{
                           fontSize: '11px',
-                          color: TOKENS.colors.success,
+                          color: THEME_COLORS.success,
                         }}
                       >
                         ✓ Không chứa mã băm, token hay secret

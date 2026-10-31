@@ -93,7 +93,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#0B1220',
+        backgroundColor: 'var(--bg-color, #0B1220)',
         padding: '16px',
         boxSizing: 'border-box',
       }}
@@ -114,7 +114,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                   backgroundColor: 'rgba(16, 185, 129, 0.1)',
                   border: '1px solid rgba(16, 185, 129, 0.3)',
                   marginBottom: '20px',
-                  color: '#10B981',
+                  color: 'var(--success-text)',
                   fontSize: '14px',
                   lineHeight: 1.5,
                   display: 'flex',
@@ -144,7 +144,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     border: '1px solid rgba(239, 68, 68, 0.3)',
                     marginBottom: '20px',
                     fontSize: '13px',
-                    color: '#EF4444',
+                    color: 'var(--danger-text)',
                     lineHeight: 1.4,
                     display: 'flex',
                     alignItems: 'center',
@@ -163,7 +163,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     display: 'block',
                     fontSize: '14px',
                     marginBottom: '6px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Mã kích hoạt (Token):
@@ -181,9 +181,9 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     minHeight: '44px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color, #0B1220)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     outline: 'none',
                     boxSizing: 'border-box',
@@ -199,7 +199,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     display: 'block',
                     fontSize: '14px',
                     marginBottom: '6px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Mật khẩu mới (tối thiểu 8 ký tự):
@@ -218,9 +218,9 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     minHeight: '44px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color, #0B1220)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     outline: 'none',
                     boxSizing: 'border-box',
@@ -235,7 +235,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     display: 'block',
                     fontSize: '14px',
                     marginBottom: '6px',
-                    color: '#94A3B8',
+                    color: 'var(--muted-color)',
                   }}
                 >
                   Xác nhận mật khẩu:
@@ -254,9 +254,9 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     minHeight: '44px',
                     padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1px solid #334155',
-                    backgroundColor: '#0B1220',
-                    color: '#F8FAFC',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color, #0B1220)',
+                    color: 'var(--text-color)',
                     fontSize: '14px',
                     outline: 'none',
                     boxSizing: 'border-box',
@@ -281,7 +281,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#14B8A6',
+                    color: 'var(--accent-text)',
                     fontSize: '13px',
                     cursor: 'pointer',
                     display: 'inline-flex',

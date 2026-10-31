@@ -40,7 +40,7 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
             display: 'flex',
             justifyContent: 'center',
             marginBottom: '16px',
-            color: isForbidden ? '#EF4444' : '#64748B',
+            color: isForbidden ? 'var(--danger-text)' : 'var(--muted-color)',
           }}
         >
           {isForbidden ? (
@@ -49,22 +49,22 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
             <SearchIcon size={48} />
           )}
         </div>
-        <h2
+        <h1
           style={{
             fontSize: '22px',
             fontWeight: 700,
-            color: isForbidden ? '#EF4444' : '#F8FAFC',
+            color: isForbidden ? 'var(--danger-text)' : 'var(--text-color)',
             marginBottom: '8px',
           }}
         >
           {isForbidden
             ? '403 — Quyền truy cập bị từ chối'
             : '404 — Không tìm thấy trang'}
-        </h2>
+        </h1>
         <p
           style={{
             fontSize: '14px',
-            color: '#94A3B8',
+            color: 'var(--muted-color)',
             lineHeight: 1.5,
             marginBottom: '24px',
           }}

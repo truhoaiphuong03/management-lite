@@ -16,7 +16,7 @@ export const NAV_ITEMS: NavItem[] = [
     id: 'finance',
     label: 'Thu chi cá nhân',
     path: '/finance',
-    icon: 'accounts',
+    icon: 'finance',
     ownerOnly: true,
   },
   { id: 'dashboard', label: 'Tổng quan', path: '/', icon: 'dashboard' },
@@ -82,7 +82,7 @@ export const NAV_ITEMS: NavItem[] = [
     id: 'system-logs',
     label: 'Nhật ký hệ thống',
     path: '/system-logs',
-    icon: 'audit',
+    icon: 'system-logs',
     ownerOnly: true,
   },
   {
@@ -136,7 +136,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'finance',
     title: 'Thu chi cá nhân',
     path: '/finance',
-    icon: 'accounts',
+    icon: 'finance',
     itemIds: ['finance'],
   },
   {
@@ -214,8 +214,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     <aside
       style={{
         width: '240px',
-        backgroundColor: '#151F30',
-        borderRight: '1px solid #334155',
+        backgroundColor: 'var(--surface-color)',
+        borderRight: '1px solid var(--border-color)',
         display: 'flex',
         flexDirection: 'column',
         height: 'calc(100vh - 44px)',
@@ -228,7 +228,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       <div
         style={{
           padding: '14px 16px',
-          borderBottom: '1px solid #334155',
+          borderBottom: '1px solid var(--border-color)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -241,7 +241,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             textTransform: 'uppercase',
             letterSpacing: '0.06em',
             fontWeight: 700,
-            color: '#64748B',
+            color: 'var(--muted-color)',
           }}
         >
           Hệ thống
@@ -250,11 +250,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           style={{
             fontSize: '11px',
             fontWeight: 600,
-            color: '#94A3B8',
-            backgroundColor: 'rgba(30, 41, 59, 0.8)',
+            color: 'var(--muted-color)',
+            backgroundColor: 'var(--surface-subtle)',
             padding: '2px 7px',
             borderRadius: '4px',
-            border: '1px solid #334155',
+            border: '1px solid var(--border-color)',
           }}
         >
           v{version}
@@ -298,7 +298,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 backgroundColor: isGroupActive
                   ? 'rgba(20, 184, 166, 0.15)'
                   : 'transparent',
-                color: isGroupActive ? '#14B8A6' : '#94A3B8',
+                color: isGroupActive ? 'var(--accent-text)' : 'var(--muted-color)',
                 fontWeight: isGroupActive ? 600 : 500,
                 textAlign: 'left',
                 cursor: 'pointer',
@@ -313,7 +313,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 style={{
                   fontSize: '14px',
                   lineHeight: 1.2,
-                  color: isGroupActive ? '#14B8A6' : '#F8FAFC',
+                  color: isGroupActive ? 'var(--accent-text)' : 'var(--text-color)',
                   fontWeight: isGroupActive ? 600 : 500,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -330,14 +330,14 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       <div
         style={{
           padding: '16px',
-          borderTop: '1px solid #334155',
+          borderTop: '1px solid var(--border-color)',
           fontSize: '12px',
-          color: '#94A3B8',
+          color: 'var(--muted-color)',
         }}
       >
         <div>
           Vai trò:{' '}
-          <strong style={{ color: '#F8FAFC' }}>
+          <strong style={{ color: 'var(--text-color)' }}>
             {role === 'owner'
               ? 'Chủ sở hữu'
               : role === 'admin'
@@ -345,7 +345,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 : 'Nhân viên'}
           </strong>
         </div>
-        <div style={{ marginTop: '2px', color: '#10B981' }}>
+        <div style={{ marginTop: '2px', color: 'var(--success-text)' }}>
           ● Phiên trực tuyến
         </div>
       </div>
@@ -437,6 +437,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             type="button"
             onClick={() => onNavigate(group.path)}
             aria-current={isGroupActive ? 'page' : undefined}
+            aria-label={group.title}
             className="mobile-bottom-nav-btn"
             style={{
               flex: '1 1 0%',
@@ -445,13 +446,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              minHeight: '50px',
+              minHeight: '52px',
               border: 'none',
               borderRadius: '8px',
               backgroundColor: isGroupActive
                 ? 'rgba(20, 184, 166, 0.12)'
                 : 'transparent',
-              color: isGroupActive ? '#14B8A6' : 'var(--muted-color, #94A3B8)',
+              color: isGroupActive
+                ? 'var(--accent-text, #14B8A6)'
+                : 'var(--muted-color, #94A3B8)',
               cursor: 'pointer',
               gap: '3px',
               boxSizing: 'border-box',
@@ -474,27 +477,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               <NavIcon id={group.icon} size={18} />
             </span>
             <span
-              className="mobile-nav-label-full"
+              className="mobile-nav-label"
               style={{
-                fontSize: '10px',
-                lineHeight: 1.15,
-                letterSpacing: '-0.02em',
-                fontWeight: isGroupActive ? 700 : 500,
-                maxWidth: '100%',
-                textAlign: 'center',
-                whiteSpace: 'normal',
-                overflowWrap: 'break-word',
-                wordBreak: 'normal',
-              }}
-            >
-              {group.title}
-            </span>
-            <span
-              className="mobile-nav-label-short"
-              aria-hidden="true"
-              style={{
-                fontSize: '10.5px',
-                lineHeight: 1.15,
+                fontSize: '11px',
+                lineHeight: 1.2,
                 letterSpacing: '-0.01em',
                 fontWeight: isGroupActive ? 700 : 500,
                 maxWidth: '100%',

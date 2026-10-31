@@ -27,14 +27,14 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       }}
       role="alert"
     >
-      <div style={{ color: '#EF4444', marginBottom: '12px' }}>
+      <div style={{ color: 'var(--danger-text)', marginBottom: '12px' }}>
         <AlertTriangleIcon size={36} />
       </div>
       <h3
         style={{
           fontSize: '18px',
           fontWeight: 600,
-          color: '#EF4444',
+          color: 'var(--danger-text)',
           marginBottom: '8px',
         }}
       >
@@ -43,7 +43,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       <p
         style={{
           fontSize: '14px',
-          color: '#F8FAFC',
+          color: 'var(--text-color)',
           maxWidth: '440px',
           marginBottom: onRetry ? '20px' : '0',
           lineHeight: 1.5,

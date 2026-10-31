@@ -15,3 +15,6 @@ secrets/
 # Private receipt images
 data/receipts/
 
+
+# UI audit outputs (screenshots/reports)
+scripts/ui-audit/out*/

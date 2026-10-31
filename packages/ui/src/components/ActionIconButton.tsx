@@ -1,5 +1,5 @@
 import React from 'react';
-import { TOKENS } from '../tokens.js';
+import { THEME_COLORS } from '../tokens.js';
 import { AppButton } from './AppButton.js';
 import {
   CopyIcon,
@@ -30,7 +30,7 @@ const KINDS: Record<
     icon: <PowerIcon size={18} />,
     label: 'Ngừng dùng',
     style: {
-      color: TOKENS.colors.warning,
+      color: THEME_COLORS.warning,
       borderColor: 'rgba(245, 158, 11, 0.45)',
       backgroundColor: 'transparent',
     },
@@ -39,7 +39,7 @@ const KINDS: Record<
     icon: <RotateCcwIcon size={18} />,
     label: 'Kích hoạt lại',
     style: {
-      color: TOKENS.colors.success,
+      color: THEME_COLORS.success,
       borderColor: 'rgba(16, 185, 129, 0.45)',
       backgroundColor: 'transparent',
     },
@@ -48,7 +48,7 @@ const KINDS: Record<
     icon: <Trash2Icon size={18} />,
     label: 'Xóa',
     style: {
-      color: TOKENS.colors.error,
+      color: THEME_COLORS.error,
       borderColor: 'rgba(239, 68, 68, 0.45)',
       backgroundColor: 'transparent',
     },
