@@ -126,11 +126,15 @@ function etagMatches(header, etag) {
   return header.split(',').some((v) => strip(v) === strip(etag));
 }
 
+function resolveDefaultWebRoot() {
+  const repoDist = path.resolve(__dirname, '../../apps/web/dist');
+  if (fs.existsSync(repoDist)) return repoDist;
+  return 'C:/HoaiPhuong-Server/apps/management-lite/apps/web/dist';
+}
+
 function createWebServer(options = {}) {
   const root = path.resolve(
-    options.root ||
-      process.env.WEB_ROOT ||
-      path.resolve(__dirname, '../../apps/web/dist'),
+    options.root || process.env.WEB_ROOT || resolveDefaultWebRoot(),
   );
   const apiHost = options.apiHost || process.env.API_HOST || '127.0.0.1';
   const apiPort = Number(options.apiPort || process.env.API_PORT || 3002);
