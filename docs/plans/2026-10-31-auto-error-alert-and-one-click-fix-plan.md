@@ -45,7 +45,7 @@
 - Modify: `apps/api/src/app.ts:984-1092`
 - Test: `tests/backend/system-logs-escalation.test.mjs`
 
-- [ ] **Step 1: Bổ sung các phương thức xử lý trong `SystemLogService` (`apps/api/src/system-log/service.ts:424-481`)**
+- [x] **Step 1: Bổ sung các phương thức xử lý trong `SystemLogService` (`apps/api/src/system-log/service.ts:424-481`)**
   1. Cập nhật truy vấn `top` trong `summary()` (`lines 375-386`) để trả thêm `last_id: (array_agg(id ORDER BY occurred_at DESC))[1]` và `last_release: (array_agg(release ORDER BY occurred_at DESC))[1]` giúp giao diện biết nhóm lỗi thuộc phiên bản nào và mở ngay bản ghi mới nhất.
   2. Thêm phương thức `dismiss(auth: AuthenticatedContext, opts: { fingerprint?: string; beforeIso?: string }): Promise<{ deleted_count: number }>`:
      - Kiểm tra `requireRole(['owner'], auth)`.
@@ -72,13 +72,13 @@
      - Nếu chưa có: chèn phiếu mới vào `issues` (`type = 'bug'`, `severity = row.status && row.status >= 500 ? 'P1' : 'P2'`, `status = 'open'`, `route_template = normalizeSafeRoute(row.route)`, `metadata_context = { log_fingerprint: row.fingerprint, request_id: row.request_id, status: row.status }`).
      - Trả về `{ issue_id, bug_code, ai_fix_prompt, deduplicated }`.
 
-- [ ] **Step 2: Gắn 3 endpoint vào `apps/api/src/app.ts` (`lines 984-1091`)**
+- [x] **Step 2: Gắn 3 endpoint vào `apps/api/src/app.ts` (`lines 984-1091`)**
   1. Tại dòng `985`: Mở rộng điều kiện `if (method === 'GET' && (pathname === '/api/v1/health' || pathname === '/api/v1/system/version'))` để trả về thông tin phiên bản chuẩn HTTP `200`, triệt tiêu lỗi `404 NOT_FOUND` trên `/api/v1/system/version`.
   2. Bên trong khối `if (pathname.startsWith('/api/v1/system/logs') ...)` (`lines 1005-1091`):
      - `DELETE /api/v1/system/logs`: gọi `requireCsrf(req, logAuth, csrfSecret, allowedOrigins)` ➔ gọi `systemLogService.dismiss(logAuth, { fingerprint: sp.get('fingerprint') ?? undefined, beforeIso: sp.get('before') ?? undefined })`.
      - `POST /api/v1/system/logs/escalate`: gọi `requireCsrf(req, logAuth, csrfSecret, allowedOrigins)` ➔ đọc body `{ fingerprint, log_id }` ➔ gọi `systemLogService.escalate(logAuth, body)`.
 
-- [ ] **Step 3: Viết và chạy kiểm thử `tests/backend/system-logs-escalation.test.mjs`**
+- [x] **Step 3: Viết và chạy kiểm thử `tests/backend/system-logs-escalation.test.mjs`**
   - Kiểm tra `GET /api/v1/system/version` trả về `200 OK` và đúng `version`.
   - Kiểm tra `POST /api/v1/system/logs/escalate` tạo phiếu `issues`, chống trùng lặp khi gọi lần 2 cùng `fingerprint`, và trả về `ai_fix_prompt`.
   - Kiểm tra `DELETE /api/v1/system/logs?fingerprint=...` xóa đúng nhóm lỗi.
@@ -91,13 +91,13 @@
 - Modify: `apps/web/src/screens/SystemLogsScreen.tsx:35-65, 292-340, 416-490, 636-680`
 - Test: `tests/web/system-logs-screen.test.mjs`
 
-- [ ] **Step 1: Bổ sung thao tác 1 chạm trên bảng `Lỗi lặp lại nhiều nhất` (`SystemLogsScreen.tsx:416-490`)**
+- [x] **Step 1: Bổ sung thao tác 1 chạm trên bảng `Lỗi lặp lại nhiều nhất` (`SystemLogsScreen.tsx:416-490`)**
   - Thêm cột **`Thao tác xử lý`** vào bảng `Lỗi lặp lại nhiều nhất` với 2 nút trên mỗi dòng lỗi:
     1. **`🔧 Yêu cầu AI sửa`**: Gọi `POST /api/v1/system/logs/escalate` với `{ fingerprint: t.fingerprint }`, tự động sao chép `ai_fix_prompt` vào Clipboard và hiện thông báo xanh: *"Đã tạo phiếu Sổ tay lỗi & sao chép lệnh sửa lỗi! Hãy dán (Ctrl+V) vào khung chat cho AI."*
     2. **`✓ Đã sửa / Ẩn`**: Gọi `DELETE /api/v1/system/logs?fingerprint=${t.fingerprint}` và làm mới danh sách ngay lập tức.
   - Trên thanh công cụ đầu trang (`lines 304-335`), thêm nút **`🧹 Dọn sạch log cũ`** để xóa toàn bộ nhật ký lỗi lịch sử đã xử lý xong.
 
-- [ ] **Step 2: Chuẩn hóa màu sắc theo Theme (`THEME_COLORS`) trong `SystemLogsScreen.tsx`**
+- [x] **Step 2: Chuẩn hóa màu sắc theo Theme (`THEME_COLORS`) trong `SystemLogsScreen.tsx`**
   - Thay các màu cứng (`#cbd5e1`, `#e2e8f0`, `#f1f5f9`) ở `lines 110-130` sang biến theme (`var(--border-color)`, `var(--surface-subtle)`, `var(--text-color)`) để hiển thị sắc nét trên cả chế độ Sáng và Tối.
 
 ---
@@ -108,7 +108,7 @@
 - Modify: `apps/web/src/screens/DashboardScreen.tsx:100-130, 550-620, 960-1120`
 - Test: `tests/web/dashboard-error-alert.test.mjs`
 
-- [ ] **Step 1: Nạp tóm tắt lỗi hệ thống cho Chủ sở hữu (`DashboardScreen.tsx`)**
+- [x] **Step 1: Nạp tóm tắt lỗi hệ thống cho Chủ sở hữu (`DashboardScreen.tsx`)**
   - Trong `useEffect` của `DashboardScreen.tsx` (chỉ chạy khi `role === 'owner'`), gọi nhẹ `/api/v1/system/logs/summary?hours=24`.
   - Nếu `totals.error > 0` hoặc có nhóm lỗi `top_errors` mới, hiển thị thẻ cảnh báo nổi bật trong **Trung tâm Việc cần xử lý (`Action Center`)**:
     - Tiêu đề: **`⚠️ Phát hiện X lỗi hệ thống trong 24 giờ qua`** (kèm tên lỗi mới nhất).
@@ -125,7 +125,7 @@
 - Modify: `apps/web/src/screens/IssuesScreen.tsx:220-360, 750-920`
 - Test: `tests/web/issues-bulk-confirm.test.mjs`
 
-- [ ] **Step 1: Bổ sung endpoint `POST /api/v1/issues/bulk-confirm` (`issues-routes.ts` & `issues/service.ts`)**
+- [x] **Step 1: Bổ sung endpoint `POST /api/v1/issues/bulk-confirm` (`issues-routes.ts` & `issues/service.ts`)**
   - Cho phép Owner xác nhận hoàn tất toàn bộ (hoặc danh sách `issue_ids` được chọn) các phiếu đang ở trạng thái `awaiting_owner` / `waiting_for_owner` / `fixed` sang `closed` trong 1 giao dịch SQL (`UPDATE issues SET status = 'closed', closed_at = NOW(), version = version + 1 WHERE workspace_id = $1 AND status IN ('awaiting_owner', 'waiting_for_owner', 'fixed')`).
-- [ ] **Step 2: Thêm nút `"✓ Xác nhận & Đóng tất cả phiếu chờ duyệt (N)"` trên `IssuesScreen.tsx`**
+- [x] **Step 2: Thêm nút `"✓ Xác nhận & Đóng tất cả phiếu chờ duyệt (N)"` trên `IssuesScreen.tsx`**
   - Khi số lượng phiếu ở trạng thái `Chờ Owner duyệt` (`awaiting_owner` / `waiting_for_owner`) `> 0`, hiển thị nút **`✓ Duyệt & Đóng tất cả (N phiếu)`** ngay trên thanh bộ lọc của `/issues` để Owner nghiệm thu chỉ với 1 cú nhấp chuột.

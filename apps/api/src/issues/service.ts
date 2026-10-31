@@ -1953,4 +1953,86 @@ export class IssuesService {
       client.release();
     }
   }
+
+  async bulkConfirmFixes(
+    context: AuthenticatedContext,
+    input: { note?: string | undefined; issue_ids?: string[] | undefined },
+    requestId: string,
+  ): Promise<{ closed_count: number; closed_ids: string[] }> {
+    this.assertOwner(context);
+    const cleanNote =
+      typeof input.note === 'string' && input.note.trim()
+        ? input.note.trim().slice(0, 500)
+        : 'Owner xác nhận đã sửa và đóng hàng loạt trên Sổ tay lỗi.';
+    const filterIds = Array.isArray(input.issue_ids)
+      ? input.issue_ids
+          .map((x) => String(x).trim().toLowerCase())
+          .filter((x) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(x))
+      : [];
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const res =
+        filterIds.length > 0
+          ? await client.query<{ id: string; version: number }>(
+              `UPDATE issues
+                  SET status = 'closed',
+                      closed_at = clock_timestamp(),
+                      updated_at = clock_timestamp(),
+                      version = version + 1
+                WHERE workspace_id = $1
+                  AND status IN ('awaiting_owner', 'waiting_for_owner', 'fixed')
+                  AND id = ANY($2::uuid[])
+                RETURNING id, version`,
+              [context.workspace.id, filterIds],
+            )
+          : await client.query<{ id: string; version: number }>(
+              `UPDATE issues
+                  SET status = 'closed',
+                      closed_at = clock_timestamp(),
+                      updated_at = clock_timestamp(),
+                      version = version + 1
+                WHERE workspace_id = $1
+                  AND status IN ('awaiting_owner', 'waiting_for_owner', 'fixed')
+                RETURNING id, version`,
+              [context.workspace.id],
+            );
+
+      const closedIds = res.rows.map((r) => r.id);
+      for (const row of res.rows) {
+        await client.query(
+          `INSERT INTO issue_activity (
+             workspace_id, issue_id, actor_user_id, action, metadata_sanitized, created_at
+           ) VALUES ($1, $2, $3, 'fix_confirmed', $4, clock_timestamp())`,
+          [
+            context.workspace.id,
+            row.id,
+            context.user.id,
+            JSON.stringify({ note: cleanNote, version: row.version, bulk: true }),
+          ],
+        );
+      }
+
+      if (closedIds.length > 0) {
+        await recordAuditEvent(client, {
+          workspaceId: context.workspace.id,
+          actorUserId: context.user.id,
+          action: 'issue.bulk_fix_confirmed',
+          entityType: 'issue',
+          entityId: closedIds[0]!,
+          requestId,
+          metadata: { closed_count: closedIds.length, note: cleanNote },
+        });
+      }
+
+      await client.query('COMMIT');
+      return { closed_count: closedIds.length, closed_ids: closedIds };
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 }

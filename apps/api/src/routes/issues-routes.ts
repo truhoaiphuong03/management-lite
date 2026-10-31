@@ -154,6 +154,26 @@ export async function handleAuditAndIssuesRoutes(
   const issueId = issuesRouteMatch[1];
   const subAction = issuesRouteMatch[2];
 
+  // 1B. POST /api/v1/issues/bulk-confirm - Bulk confirm and close awaiting_owner issues
+  if (issueId === 'bulk-confirm' && !subAction && method === 'POST') {
+    requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+    const rawBody = await parseJsonBody<Record<string, unknown>>(req).catch(
+      () => ({}),
+    );
+    const note =
+      typeof rawBody?.['note'] === 'string' ? rawBody['note'] : undefined;
+    const issueIds = Array.isArray(rawBody?.['issue_ids'])
+      ? rawBody['issue_ids'].filter((x): x is string => typeof x === 'string')
+      : undefined;
+    const result = await issuesService.bulkConfirmFixes(
+      sessionContext,
+      { note, issue_ids: issueIds },
+      requestId,
+    );
+    sendJson(res, 200, createSuccessEnvelope(result, requestId));
+    return true;
+  }
+
   // 1. POST /api/v1/issues - Create Issue
   if (!issueId && method === 'POST') {
     requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);

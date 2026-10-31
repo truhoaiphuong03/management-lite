@@ -232,6 +232,8 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
   const [copying, setCopying] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [bulkConfirming, setBulkConfirming] = useState<boolean>(false);
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
 
   const requestSeqRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -691,6 +693,54 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
     }
   };
 
+  const handleBulkConfirm = async () => {
+    setBulkConfirming(true);
+    setBulkNotice(null);
+    try {
+      let csrf = '';
+      const meRes = await fetch('/api/v1/auth/me', { credentials: 'include' });
+      if (meRes.ok) {
+        const meJson = (await meRes.json().catch(() => null)) as {
+          data?: { csrf_token?: string };
+        } | null;
+        csrf = meJson?.data?.csrf_token ?? '';
+      }
+      const selectedIds = Array.from(selectedIssuesMap.keys());
+      const res = await fetch('/api/v1/issues/bulk-confirm', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf ? { 'x-csrf-token': csrf } : {}),
+        },
+        body: JSON.stringify({
+          issue_ids: selectedIds.length > 0 ? selectedIds : undefined,
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { closed_count?: number };
+        error?: { message?: string };
+      } | null;
+      if (!res.ok || !json?.success) {
+        throw new Error(
+          json?.error?.message || 'Không thể xác nhận đóng hàng loạt.',
+        );
+      }
+      setSelectedIssuesMap(new Map());
+      setBulkNotice(
+        `Đã xác nhận và đóng thành công ${json.data?.closed_count ?? 0} phiếu chờ duyệt.`,
+      );
+      void fetchIssues(undefined, false);
+    } catch (err) {
+      setCopyError(
+        err instanceof Error ? err.message : 'Lỗi xác nhận đóng hàng loạt.',
+      );
+    } finally {
+      setBulkConfirming(false);
+    }
+  };
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
       {/* Header */}
@@ -698,7 +748,28 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
         title="Sổ tay Vấn đề & Lỗi (Issues)"
         subtitle="Danh sách ghi nhận lỗi và đề xuất cải tiến hệ thống (Owner-only, Read-only)"
         actions={
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {(counts?.awaiting_owner ?? 0) > 0 && (
+              <AppButton
+                variant="primary"
+                onClick={() => void handleBulkConfirm()}
+                disabled={bulkConfirming || loading}
+                data-testid="btn-bulk-confirm-issues"
+                style={{
+                  minHeight: '44px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <CheckIcon size={16} />
+                <span>
+                  {bulkConfirming
+                    ? 'Đang đóng…'
+                    : `Duyệt & Đóng tất cả (${counts?.awaiting_owner ?? 0})`}
+                </span>
+              </AppButton>
+            )}
             <AppButton
               variant="secondary"
               onClick={handleRefresh}
@@ -719,6 +790,27 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
         }
       />
 
+      {bulkNotice && (
+        <AppCard
+          style={{
+            marginBottom: '12px',
+            padding: '12px 16px',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+          }}
+        >
+          <div
+            role="status"
+            style={{
+              color: 'var(--success-text, #10b981)',
+              fontSize: '13px',
+              fontWeight: 600,
+            }}
+          >
+            ✓ {bulkNotice}
+          </div>
+        </AppCard>
+      )}
       {/* 4 Group Quick Filter Tabs */}
       <div
         style={{

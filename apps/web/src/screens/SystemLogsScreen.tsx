@@ -83,9 +83,9 @@ const RANGES: { hours: number; label: string }[] = [
   { hours: 720, label: '30 ngày' },
 ];
 const LEVEL_COLOR: Record<Level, string> = {
-  error: '#dc2626',
-  warn: '#d97706',
-  info: '#2563eb',
+  error: 'var(--danger-text, #dc2626)',
+  warn: 'var(--warning-text, #d97706)',
+  info: 'var(--info-text, #2563eb)',
 };
 const LEVEL_LABEL: Record<Level, string> = {
   error: 'Lỗi',
@@ -110,21 +110,23 @@ const field: React.CSSProperties = {
 const input: React.CSSProperties = {
   padding: '8px 10px',
   borderRadius: 8,
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-color, #334155)',
+  backgroundColor: 'var(--bg-color, #0B1220)',
+  color: 'var(--text-color, #F8FAFC)',
   font: 'inherit',
   minWidth: 0,
 };
 const th: React.CSSProperties = {
   textAlign: 'left',
   padding: '8px 10px',
-  borderBottom: '1px solid #e2e8f0',
+  borderBottom: '1px solid var(--border-color, #334155)',
   fontSize: 12,
-  opacity: 0.75,
+  opacity: 0.85,
   whiteSpace: 'nowrap',
 };
 const td: React.CSSProperties = {
   padding: '8px 10px',
-  borderBottom: '1px solid #f1f5f9',
+  borderBottom: '1px solid var(--border-color, #334155)',
   fontSize: 13,
   verticalAlign: 'top',
 };
@@ -133,14 +135,27 @@ const mono: React.CSSProperties = {
   fontSize: 12,
 };
 
-async function api<T>(url: string): Promise<T> {
-  const res = await fetch(url, { credentials: 'include' });
+async function api<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, { credentials: 'include', ...init });
   const body = await res.json().catch(() => null);
   if (!res.ok || !body?.success)
     throw new Error(
       body?.error?.message ?? `Lỗi tải dữ liệu (HTTP ${res.status}).`,
     );
   return body.data as T;
+}
+
+async function fetchCsrfToken(): Promise<string> {
+  try {
+    const res = await fetch('/api/v1/auth/me', { credentials: 'include' });
+    if (!res.ok) return '';
+    const body = (await res.json().catch(() => null)) as {
+      data?: { csrf_token?: string };
+    } | null;
+    return body?.data?.csrf_token ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
@@ -163,6 +178,8 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -251,6 +268,103 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
     }
   };
 
+  const handleDismissGroup = async (fp: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setBusyKey(`dismiss:${fp}`);
+    setError(null);
+    setActionNotice(null);
+    try {
+      const csrf = await fetchCsrfToken();
+      const res = await api<{ deleted_count: number }>(
+        `/api/v1/system/logs?fingerprint=${encodeURIComponent(fp)}`,
+        {
+          method: 'DELETE',
+          headers: csrf ? { 'x-csrf-token': csrf } : {},
+        },
+      );
+      if (fingerprint === fp) setFingerprint('');
+      if (detail?.log.fingerprint === fp) setDetail(null);
+      setActionNotice(
+        `Đã đánh dấu xử lý và ẩn nhóm lỗi (${res.deleted_count} bản ghi).`,
+      );
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Không xóa được nhóm lỗi này.',
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleClearResolvedLogs = async () => {
+    setBusyKey('clear:all');
+    setError(null);
+    setActionNotice(null);
+    try {
+      const csrf = await fetchCsrfToken();
+      const res = await api<{ deleted_count: number }>(`/api/v1/system/logs`, {
+        method: 'DELETE',
+        headers: csrf ? { 'x-csrf-token': csrf } : {},
+      });
+      setFingerprint('');
+      setDetail(null);
+      setActionNotice(
+        `Đã dọn sạch ${res.deleted_count} nhật ký lỗi cũ đã xử lý.`,
+      );
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Không dọn được nhật ký lỗi cũ.',
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleEscalateError = async (
+    payload: { fingerprint?: string; log_id?: string },
+    e?: React.MouseEvent,
+  ) => {
+    e?.stopPropagation();
+    const key = `escalate:${payload.fingerprint || payload.log_id || ''}`;
+    setBusyKey(key);
+    setError(null);
+    setActionNotice(null);
+    try {
+      const csrf = await fetchCsrfToken();
+      const res = await api<{
+        issue_id: string | null;
+        bug_code: string | null;
+        ai_fix_prompt: string;
+        deduplicated: boolean;
+      }>('/api/v1/system/logs/escalate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf ? { 'x-csrf-token': csrf } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      try {
+        await navigator.clipboard.writeText(res.ai_fix_prompt);
+      } catch {
+        // Ignore clipboard errors in non-secure test contexts
+      }
+      setActionNotice(
+        `${res.deduplicated ? 'Đã liên kết phiếu sẵn có' : 'Đã tạo phiếu mới'} ${res.bug_code ?? ''} trong Sổ tay lỗi & sao chép sẵn lệnh Yêu cầu AI sửa vào Clipboard! Anh chỉ cần dán (Ctrl+V) vào khung chat cho AI.`,
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Không thể tạo yêu cầu sửa lỗi lúc này.',
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const reportText = (d: Detail): string => {
     const l = d.log;
     return [
@@ -293,11 +407,22 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
     <div>
       <PageHeader
         title="Nhật ký hệ thống"
-        subtitle="Lỗi máy chủ, lỗi trình duyệt, yêu cầu chậm — gom nhóm để tìm và sửa lỗi nhanh hơn"
+        subtitle="Lỗi máy chủ, lỗi trình duyệt, yêu cầu chậm — gom nhóm để tìm và yêu cầu AI sửa lỗi 1 chạm"
         actions={
-          <AppButton variant="secondary" onClick={() => onNavigate?.('/audit')}>
-            Nhật ký kiểm toán
-          </AppButton>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <AppButton
+              variant="secondary"
+              onClick={() => onNavigate?.('/issues')}
+            >
+              Mở Sổ tay lỗi
+            </AppButton>
+            <AppButton
+              variant="secondary"
+              onClick={() => onNavigate?.('/audit')}
+            >
+              Nhật ký kiểm toán
+            </AppButton>
+          </div>
         }
       />
 
@@ -308,31 +433,96 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
             gap: 8,
             flexWrap: 'wrap',
             alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          {RANGES.map((r) => (
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+            }}
+          >
+            {RANGES.map((r) => (
+              <AppButton
+                key={r.hours}
+                size="sm"
+                variant={hours === r.hours ? 'primary' : 'secondary'}
+                onClick={() => setHours(r.hours)}
+              >
+                {r.label}
+              </AppButton>
+            ))}
+            <label style={{ fontSize: 13, marginLeft: 8 }}>
+              <input
+                type="checkbox"
+                checked={auto}
+                onChange={(e) => setAuto(e.target.checked)}
+              />{' '}
+              Tự làm mới (15 giây)
+            </label>
             <AppButton
-              key={r.hours}
               size="sm"
-              variant={hours === r.hours ? 'primary' : 'secondary'}
-              onClick={() => setHours(r.hours)}
+              variant="secondary"
+              onClick={() => void load()}
             >
-              {r.label}
+              Làm mới
             </AppButton>
-          ))}
-          <label style={{ fontSize: 13, marginLeft: 8 }}>
-            <input
-              type="checkbox"
-              checked={auto}
-              onChange={(e) => setAuto(e.target.checked)}
-            />{' '}
-            Tự làm mới (15 giây)
-          </label>
-          <AppButton size="sm" variant="secondary" onClick={() => void load()}>
-            Làm mới
+          </div>
+
+          <AppButton
+            size="sm"
+            variant="secondary"
+            data-testid="btn-clear-resolved-logs"
+            disabled={busyKey === 'clear:all'}
+            onClick={() => void handleClearResolvedLogs()}
+          >
+            {busyKey === 'clear:all'
+              ? 'Đang dọn log…'
+              : '🧹 Dọn sạch log cũ'}
           </AppButton>
         </div>
       </AppCard>
+
+      {actionNotice && (
+        <AppCard
+          style={{
+            marginBottom: 16,
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <p
+              role="status"
+              style={{
+                color: 'var(--success-text, #10b981)',
+                margin: 0,
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              ✓ {actionNotice}
+            </p>
+            <AppButton
+              size="sm"
+              variant="secondary"
+              onClick={() => onNavigate?.('/issues')}
+            >
+              Xem trong Sổ tay lỗi
+            </AppButton>
+          </div>
+        </AppCard>
+      )}
 
       {loading ? (
         <LoadingState />
@@ -340,7 +530,10 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
         <>
           {error && (
             <AppCard style={{ marginBottom: 16 }}>
-              <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>
+              <p
+                role="alert"
+                style={{ color: 'var(--danger-text, #dc2626)', margin: 0 }}
+              >
                 {error}
               </p>
             </AppCard>
@@ -416,7 +609,7 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
               <AppCard style={{ marginBottom: 16, overflowX: 'auto' }}>
                 <h3 style={{ marginTop: 0 }}>Lỗi lặp lại nhiều nhất</h3>
                 {summary.top_errors.length === 0 ? (
-                  <p style={{ color: '#16a34a' }}>
+                  <p style={{ color: 'var(--success-text, #16a34a)' }}>
                     Không có lỗi hay cảnh báo trong khoảng này.
                   </p>
                 ) : (
@@ -429,6 +622,7 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                           Người dùng
                         </th>
                         <th style={th}>Lần cuối</th>
+                        <th style={th}>Xử lý nhanh</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -472,6 +666,47 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                           </td>
                           <td style={{ ...td, whiteSpace: 'nowrap' }}>
                             {fmtTime(t.last_seen)}
+                          </td>
+                          <td style={td} onClick={(e) => e.stopPropagation()}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                gap: 6,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <AppButton
+                                size="sm"
+                                variant="primary"
+                                data-testid="btn-escalate-error"
+                                disabled={
+                                  busyKey === `escalate:${t.fingerprint}`
+                                }
+                                onClick={(e) =>
+                                  void handleEscalateError(
+                                    { fingerprint: t.fingerprint },
+                                    e,
+                                  )
+                                }
+                              >
+                                {busyKey === `escalate:${t.fingerprint}`
+                                  ? 'Đang tạo…'
+                                  : '🔧 Yêu cầu AI sửa'}
+                              </AppButton>
+                              <AppButton
+                                size="sm"
+                                variant="secondary"
+                                data-testid="btn-dismiss-error"
+                                disabled={
+                                  busyKey === `dismiss:${t.fingerprint}`
+                                }
+                                onClick={(e) =>
+                                  void handleDismissGroup(t.fingerprint, e)
+                                }
+                              >
+                                ✓ Đã xử lý
+                              </AppButton>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -652,6 +887,15 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <AppButton
                 size="sm"
+                variant="primary"
+                onClick={(e) =>
+                  void handleEscalateError({ log_id: detail.log.id }, e)
+                }
+              >
+                🔧 Yêu cầu AI sửa & Copy lệnh
+              </AppButton>
+              <AppButton
+                size="sm"
                 variant="secondary"
                 onClick={() => void copy(detail)}
               >
@@ -660,9 +904,11 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
               <AppButton
                 size="sm"
                 variant="secondary"
-                onClick={() => onNavigate?.('/issues')}
+                onClick={(e) =>
+                  void handleDismissGroup(detail.log.fingerprint, e)
+                }
               >
-                Mở Sổ tay lỗi
+                ✓ Đã xử lý / Ẩn nhóm lỗi
               </AppButton>
               <AppButton
                 size="sm"

@@ -981,8 +981,11 @@ export function createRequestHandler(
       const resolveRuntimeReleaseState = () =>
         resolveReleaseState(isProduction);
 
-      // 2. Health / Liveness endpoint: GET /api/v1/health
-      if (method === 'GET' && pathname === '/api/v1/health') {
+      // 2. Health / Liveness & Version endpoint: GET /api/v1/health | GET /api/v1/system/version
+      if (
+        method === 'GET' &&
+        (pathname === '/api/v1/health' || pathname === '/api/v1/system/version')
+      ) {
         const runtime = resolveRuntimeReleaseState();
         const body = createSuccessEnvelope(
           {
@@ -1040,6 +1043,38 @@ export function createRequestHandler(
             logAuth,
             sp.get('hours') ?? undefined,
           );
+          return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+        }
+        if (method === 'DELETE' && pathname === '/api/v1/system/logs') {
+          requireCsrf(req, logAuth, csrfSecret, allowedOrigins);
+          const data = await systemLogService.dismiss(logAuth, {
+            fingerprint: sp.get('fingerprint') ?? undefined,
+            beforeIso: sp.get('before') ?? undefined,
+          });
+          return sendJson(res, 200, createSuccessEnvelope(data, requestId));
+        }
+        if (method === 'POST' && pathname === '/api/v1/system/logs/escalate') {
+          requireCsrf(req, logAuth, csrfSecret, allowedOrigins);
+          const body = await parseJsonBody<Record<string, unknown>>(
+            req,
+            16 * 1024,
+          );
+          if (!body || typeof body !== 'object' || Array.isArray(body)) {
+            throw new AuthError(
+              'VALIDATION_ERROR',
+              'Object body required',
+              400,
+            );
+          }
+          assertAllowedFields(body, ['fingerprint', 'log_id']);
+          const data = await systemLogService.escalate(logAuth, {
+            fingerprint:
+              typeof body['fingerprint'] === 'string'
+                ? body['fingerprint']
+                : undefined,
+            log_id:
+              typeof body['log_id'] === 'string' ? body['log_id'] : undefined,
+          });
           return sendJson(res, 200, createSuccessEnvelope(data, requestId));
         }
         const logId = /^\/api\/v1\/system\/logs\/([0-9a-f-]{36})$/i.exec(

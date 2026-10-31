@@ -478,4 +478,223 @@ export class SystemLogService {
         : null,
     };
   }
+
+  buildAiFixPrompt(row: SystemLogRow, occurrencesCount = 1): string {
+    const cleanMsg = sanitizeLogText(row.message, MAX_MESSAGE) || 'Lỗi hệ thống';
+    const cleanStack = row.stack ? sanitizeLogText(row.stack, MAX_STACK) : '';
+    const cleanRoute = row.route || '/';
+    return [
+      '🛠️ [YÊU CẦU AI SỬA LỖI HỆ THỐNG — MANAGEMENT LITE]',
+      `- Mã lỗi / HTTP: ${row.error_code ?? 'ERROR'} (HTTP ${row.status ?? '—'})`,
+      `- Thông điệp lỗi: ${cleanMsg}`,
+      `- Đường dẫn (Route): ${row.method ?? 'GET'} ${cleanRoute}`,
+      `- Nguồn: ${row.source === 'web' ? 'Trình duyệt (Web)' : 'Máy chủ (API)'} | Phiên bản: ${row.release ?? 'latest'}`,
+      `- Số lần lặp lại: ${occurrencesCount} lần | Fingerprint: ${row.fingerprint}`,
+      `- Request ID mẫu: ${row.request_id ?? '—'}`,
+      cleanStack ? `- Stack trace:\n\`\`\`\n${cleanStack}\n\`\`\`` : '',
+      '👉 Yêu cầu: Tìm nguyên nhân gốc rễ theo đúng file trong MODULE_FILE_MAP (AGENTS.md), sửa triệt để, chạy kiểm thử và cập nhật lên web.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  async dismiss(
+    auth: AuthenticatedContext,
+    opts: { fingerprint?: string | undefined; beforeIso?: string | undefined },
+  ): Promise<{ deleted_count: number }> {
+    requireRole(['owner'], auth);
+    const ws = this.scope(auth);
+    const fp = opts.fingerprint?.trim();
+    if (fp) {
+      if (!/^[0-9a-f]{8,32}$/i.test(fp)) {
+        throw new AuthError('VALIDATION_ERROR', 'fingerprint không hợp lệ.', 400);
+      }
+      this.queue = this.queue.filter(
+        (e) =>
+          logFingerprint({
+            level: e.level,
+            source: e.source,
+            route: e.route ? normalizeRoute(e.route) : null,
+            errorCode: e.errorCode,
+            message: sanitizeLogText(e.message, MAX_MESSAGE) || '(no message)',
+            stack: sanitizeLogText(e.stack, MAX_STACK) || null,
+          }) !== fp,
+      );
+      const res = await this.pool.query(
+        `DELETE FROM system_logs
+          WHERE (workspace_id = $1 OR workspace_id IS NULL)
+            AND fingerprint = $2`,
+        [ws, fp],
+      );
+      return { deleted_count: res.rowCount ?? 0 };
+    }
+
+    if (opts.beforeIso && !isIso(opts.beforeIso)) {
+      throw new AuthError('VALIDATION_ERROR', 'before không hợp lệ.', 400);
+    }
+    const cutoff = opts.beforeIso ? new Date(opts.beforeIso) : new Date();
+    this.queue = [];
+    const res = await this.pool.query(
+      `DELETE FROM system_logs
+        WHERE (workspace_id = $1 OR workspace_id IS NULL)
+          AND occurred_at <= $2`,
+      [ws, cutoff],
+    );
+    return { deleted_count: res.rowCount ?? 0 };
+  }
+
+  async escalate(
+    auth: AuthenticatedContext,
+    input: { fingerprint?: string | undefined; log_id?: string | undefined },
+  ): Promise<{
+    issue_id: string | null;
+    bug_code: string | null;
+    ai_fix_prompt: string;
+    deduplicated: boolean;
+  }> {
+    requireRole(['owner'], auth);
+    await this.flush();
+    const ws = this.scope(auth);
+    const fp = input.fingerprint?.trim();
+    const logId = input.log_id?.trim();
+
+    if (!fp && !logId) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Cần cung cấp fingerprint hoặc log_id để tạo yêu cầu sửa lỗi.',
+        400,
+      );
+    }
+    if (logId && !/^[0-9a-f-]{36}$/i.test(logId)) {
+      throw new AuthError('VALIDATION_ERROR', 'log_id không hợp lệ.', 400);
+    }
+    if (fp && !/^[0-9a-f]{8,32}$/i.test(fp)) {
+      throw new AuthError('VALIDATION_ERROR', 'fingerprint không hợp lệ.', 400);
+    }
+
+    const logRes = await this.pool.query<
+      Omit<SystemLogRow, 'occurred_at'> & { occurred_at: Date }
+    >(
+      logId
+        ? `SELECT * FROM system_logs
+            WHERE id = $1 AND (workspace_id = $2 OR workspace_id IS NULL)
+            LIMIT 1`
+        : `SELECT * FROM system_logs
+            WHERE fingerprint = $1 AND (workspace_id = $2 OR workspace_id IS NULL)
+            ORDER BY occurred_at DESC
+            LIMIT 1`,
+      [logId || fp, ws],
+    );
+
+    const row = logRes.rows[0];
+    if (!row) {
+      throw new AuthError(
+        'NOT_FOUND',
+        'Không tìm thấy bản ghi nhật ký lỗi tương ứng.',
+        404,
+      );
+    }
+
+    const occRes = await this.pool.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM system_logs
+        WHERE fingerprint = $1 AND (workspace_id = $2 OR workspace_id IS NULL)`,
+      [row.fingerprint, ws],
+    );
+    const occurrencesCount = occRes.rows[0]?.n ?? 1;
+    const normalizedRow: SystemLogRow = {
+      ...row,
+      occurred_at: row.occurred_at.toISOString(),
+    };
+    const aiFixPrompt = this.buildAiFixPrompt(normalizedRow, occurrencesCount);
+
+    const existingRes = await this.pool.query<{
+      id: string;
+      bug_code: string | null;
+    }>(
+      `SELECT id, bug_code
+         FROM issues
+        WHERE workspace_id = $1
+          AND status <> 'closed'
+          AND metadata_context->>'log_fingerprint' = $2
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [ws, row.fingerprint],
+    );
+    if (existingRes.rows[0]) {
+      return {
+        issue_id: existingRes.rows[0].id,
+        bug_code: existingRes.rows[0].bug_code,
+        ai_fix_prompt: aiFixPrompt,
+        deduplicated: true,
+      };
+    }
+
+    const seqRes = await this.pool.query<{ max_num: number | null }>(
+      `SELECT MAX(CAST(SUBSTRING(bug_code FROM 5) AS INTEGER)) AS max_num
+         FROM issues
+        WHERE workspace_id = $1 AND bug_code ~ '^BUG-[0-9]+`,
+      [ws],
+    );
+    const nextNum = (seqRes.rows[0]?.max_num ?? 0) + 1;
+    const bugCode = `BUG-${String(nextNum).padStart(4, '0')}`;
+
+    const rawRoute = (row.route || '/system-logs').split('?')[0]!.split('#')[0]!;
+    const safeRoute = /^\/[a-zA-Z0-9_\-\/:]*$/.test(rawRoute)
+      ? rawRoute.slice(0, 128)
+      : '/system-logs';
+    const severity =
+      (row.status && row.status >= 500) || row.level === 'error' ? 'P1' : 'P2';
+    const title = `[${row.error_code || `HTTP ${row.status || 'ERR'}`}] ${sanitizeLogText(row.message, 120)}`.slice(
+      0,
+      250,
+    );
+    const analysis = {
+      analyzed_at: new Date().toISOString(),
+      model: 'system-log-escalator',
+      summary: `Tự động chuyển từ Nhật ký hệ thống (${occurrencesCount} lần lặp lại tại ${safeRoute})`,
+      root_cause: sanitizeLogText(row.message, 400),
+      affected_files: [safeRoute],
+      suggested_fix:
+        'Đối chiếu bảng MODULE_FILE_MAP trong AGENTS.md và kế hoạch Phase 21 để xử lý tại gốc.',
+      severity,
+      can_auto_verify: true,
+      suggested_tests: [`Kiểm tra ${row.method || 'GET'} ${safeRoute}`],
+    };
+
+    const insertRes = await this.pool.query<{ id: string; bug_code: string }>(
+      `INSERT INTO issues (
+         workspace_id, reporter_user_id, type, title, description,
+         route_template, status, version, bug_code, severity,
+         gemini_analysis, metadata_context
+       ) VALUES (
+         $1, $2, 'bug', $3, $4,
+         $5, 'open', 1, $6, $7,
+         $8::jsonb, $9::jsonb
+       ) RETURNING id, bug_code`,
+      [
+        ws,
+        auth.user.id,
+        title,
+        aiFixPrompt,
+        safeRoute,
+        bugCode,
+        severity,
+        JSON.stringify(analysis),
+        JSON.stringify({
+          log_fingerprint: row.fingerprint,
+          log_id: row.id,
+          request_id: row.request_id,
+          status: row.status,
+          source: row.source,
+        }),
+      ],
+    );
+
+    return {
+      issue_id: insertRes.rows[0]?.id ?? null,
+      bug_code: insertRes.rows[0]?.bug_code ?? bugCode,
+      ai_fix_prompt: aiFixPrompt,
+      deduplicated: false,
+    };
+  }
 }

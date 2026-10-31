@@ -132,6 +132,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [bridgeSyncing, setBridgeSyncing] = useState(false);
   const [bridgeFeedbackError, setBridgeFeedbackError] = useState(false);
   const [bridgeFeedback, setBridgeFeedback] = useState<string | null>(null);
+  const [systemErrorAlert, setSystemErrorAlert] = useState<{
+    errorCount: number;
+    warnCount: number;
+    topMessage: string | null;
+    topRoute: string | null;
+    topFingerprint: string | null;
+  } | null>(null);
 
   const handleSyncTikTokV4 = async () => {
     if (typeof fetch !== 'function' || bridgeSyncing) return;
@@ -678,8 +685,47 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       }
     };
 
+    const loadSystemLogAlert = async () => {
+      if (role !== 'owner') return;
+      try {
+        const res = await fetch('/api/v1/system/logs/summary?hours=24', {
+          method: 'GET',
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!res.ok || !active) return;
+        const json = (await res.json().catch(() => null)) as {
+          data?: {
+            totals?: { error?: number; warn?: number };
+            top_errors?: Array<{
+              fingerprint?: string;
+              message?: string;
+              route?: string | null;
+            }>;
+          };
+        } | null;
+        const errCnt = json?.data?.totals?.error ?? 0;
+        const warnCnt = json?.data?.totals?.warn ?? 0;
+        const top = json?.data?.top_errors?.[0];
+        if (active && (errCnt > 0 || (top && warnCnt > 0))) {
+          setSystemErrorAlert({
+            errorCount: errCnt,
+            warnCount: warnCnt,
+            topMessage: top?.message ?? null,
+            topRoute: top?.route ?? null,
+            topFingerprint: top?.fingerprint ?? null,
+          });
+        } else if (active) {
+          setSystemErrorAlert(null);
+        }
+      } catch {
+        // Ignore system log poll failure
+      }
+    };
+
     void loadSummary();
     void loadBridgeData();
+    void loadSystemLogAlert();
 
     return () => {
       active = false;
@@ -962,6 +1008,63 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         >
           {role === 'owner' ? (
             <>
+              {systemErrorAlert && (
+                <button
+                  type="button"
+                  data-testid="action-center-system-errors"
+                  onClick={() => onNavigate('/system-logs')}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(239, 68, 68, 0.45)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    color: 'var(--text-color)',
+                    cursor: 'pointer',
+                    gap: '8px',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: 'var(--danger-text)',
+                      }}
+                    >
+                      🚨 {systemErrorAlert.errorCount} lỗi ·{' '}
+                      {systemErrorAlert.warnCount} cảnh báo (24h)
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--muted-color)',
+                        marginTop: '2px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {systemErrorAlert.topRoute ||
+                        systemErrorAlert.topMessage ||
+                        'Bấm để xem & yêu cầu AI sửa'}
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--danger-text)',
+                      fontWeight: 700,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Xử lý →
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
                 data-testid="action-center-attendance"
