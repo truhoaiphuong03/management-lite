@@ -214,7 +214,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   <p
                     style={{
                       margin: '6px 0 0 0',
-                      fontSize: '11px',
+                      fontSize: '12px',
                       color: 'var(--muted-color)',
                     }}
                   >
@@ -312,7 +312,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                     fontWeight: 600,
                   }}
                 >
-                  {isLoading ? 'Đang xử lý...' : 'Gửi yêu cầu khôi phục'}
+                  {isLoading ? 'Đang xử lý…' : 'Gửi yêu cầu khôi phục'}
                 </AppButton>
               </div>
             </form>

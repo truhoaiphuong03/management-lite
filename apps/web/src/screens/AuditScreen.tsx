@@ -651,7 +651,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
 
       {/* Main Content Area */}
       {loading ? (
-        <LoadingState message="Đang tải nhật ký kiểm toán hệ thống..." />
+        <LoadingState message="Đang tải nhật ký kiểm toán hệ thống…" />
       ) : error ? (
         <ErrorState message={error} onRetry={() => fetchAuditEvents()} />
       ) : (events || []).length === 0 ? (
@@ -837,7 +837,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                       <>
                         <code
                           style={{
-                            fontSize: '11px',
+                            fontSize: '12px',
                             backgroundColor: THEME_COLORS.background,
                             padding: '2px 6px',
                             borderRadius: TOKENS.radii.sm,
@@ -908,7 +908,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                     >
                       <span
                         style={{
-                          fontSize: '11px',
+                          fontSize: '12px',
                           fontWeight: 600,
                           color: THEME_COLORS.muted,
                           letterSpacing: '0.5px',
@@ -918,7 +918,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                       </span>
                       <span
                         style={{
-                          fontSize: '11px',
+                          fontSize: '12px',
                           color: THEME_COLORS.success,
                         }}
                       >

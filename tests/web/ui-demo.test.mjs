@@ -371,5 +371,5 @@ test('production bundle builds successfully into apps/web/dist', () => {
   const indexHtmlPath = resolve(root, 'apps/web/dist/index.html');
   assert.equal(existsSync(indexHtmlPath), true);
   const content = readFileSync(indexHtmlPath, 'utf8');
-  assert.match(content, /Management Lite V0\.1/);
+  assert.match(content, /<title>Management Lite<\/title>/);
 });

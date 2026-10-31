@@ -895,7 +895,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
   };
 
   if (loading) {
-    return <LoadingState message="Đang nạp dữ liệu chấm công..." />;
+    return <LoadingState message="Đang nạp dữ liệu chấm công…" />;
   }
 
   const headerTitle =
@@ -1290,7 +1290,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       border: '1px solid var(--border-color)',
                       backgroundColor: 'var(--bg-color)',
                       color: 'var(--text-secondary)',
-                      fontSize: '11px',
+                      fontSize: '12px',
                       fontWeight: 600,
                       cursor: 'pointer',
                     }}
@@ -1512,7 +1512,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                               data-testid="overnight-badge"
                               style={{
                                 marginLeft: '8px',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 padding: '2px 8px',
                                 borderRadius: '4px',
                                 backgroundColor: 'rgba(139, 92, 246, 0.2)',
@@ -1750,14 +1750,14 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     border: 'none',
                     borderRadius: '4px',
                     padding: '4px 10px',
-                    fontSize: '11px',
+                    fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
                     minHeight: '36px',
                     minWidth: '44px',
                   }}
                 >
-                  {employeesLoading ? 'Đang tải...' : 'Thử lại'}
+                  {employeesLoading ? 'Đang tải…' : 'Thử lại'}
                 </button>
               </div>
             )}
@@ -1790,7 +1790,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     border: '1px solid var(--border-color)',
                     backgroundColor: 'var(--bg-color)',
                     color: 'var(--text-secondary)',
-                    fontSize: '11px',
+                    fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
                   }}
@@ -2027,7 +2027,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           </AppCard>
 
           {ownerLoading ? (
-            <LoadingState message="Đang tải danh sách ca làm việc..." />
+            <LoadingState message="Đang tải danh sách ca làm việc…" />
           ) : filteredOwnerShifts.length === 0 ? (
             <EmptyState
               title="Không tìm thấy ca làm"
@@ -2098,7 +2098,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                               data-testid="owner-overnight-badge"
                               style={{
                                 marginLeft: '8px',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 padding: '2px 8px',
                                 borderRadius: '4px',
                                 backgroundColor: 'rgba(139, 92, 246, 0.2)',
@@ -2462,7 +2462,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   rows={3}
                   value={correctionReason}
                   onChange={(e) => setCorrectionReason(e.target.value)}
-                  placeholder="Ví dụ: Quên bấm kết thúc ca lúc 18:00 do hỗ trợ khách hàng..."
+                  placeholder="Ví dụ: Quên bấm kết thúc ca lúc 18:00 do hỗ trợ khách hàng…"
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -2521,7 +2521,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   type="text"
                   value={evidenceNote}
                   onChange={(e) => setEvidenceNote(e.target.value)}
-                  placeholder="Ví dụ: Đã báo trực tiếp với Quản trị viên..."
+                  placeholder="Ví dụ: Đã báo trực tiếp với Quản trị viên…"
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -2620,7 +2620,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   reason: e.target.value,
                 })
               }
-              placeholder="Ví dụ: Đúng giờ quy định..."
+              placeholder="Ví dụ: Đúng giờ quy định…"
               disabled={dialogLoading}
               style={{
                 width: '100%',
@@ -2682,7 +2682,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   reason: e.target.value,
                 })
               }
-              placeholder="Nhập lý do từ chối..."
+              placeholder="Nhập lý do từ chối…"
               disabled={dialogLoading}
               style={{
                 width: '100%',
@@ -2741,7 +2741,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   reason: e.target.value,
                 })
               }
-              placeholder="Nhập lý do từ chối..."
+              placeholder="Nhập lý do từ chối…"
               disabled={dialogLoading}
               style={{
                 width: '100%',
@@ -2843,7 +2843,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     reason: e.target.value,
                   })
                 }
-                placeholder="Nhập ghi chú..."
+                placeholder="Nhập ghi chú…"
                 disabled={dialogLoading}
                 style={{
                   width: '100%',

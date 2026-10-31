@@ -175,7 +175,7 @@ export const VnBankAutocompleteInput: React.FC<VnBankAutocompleteInputProps> = (
   testId,
   value,
   onChange,
-  placeholder = '🔍 Tìm tên ngân hàng (VD: MB, VCB, Techcombank...)',
+  placeholder = '🔍 Tìm tên ngân hàng (VD: MB, VCB, Techcombank…)',
 }) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -276,11 +276,11 @@ export const VnBankAutocompleteInput: React.FC<VnBankAutocompleteInputProps> = (
             >
               <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--info-text)' }}>
                 {bank.shortName}{' '}
-                <span style={{ fontSize: '11px', color: 'var(--muted-color)', fontWeight: 500 }}>
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 500 }}>
                   ({bank.code})
                 </span>
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                 {bank.fullName}
               </div>
             </button>

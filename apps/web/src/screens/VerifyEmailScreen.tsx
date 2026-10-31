@@ -311,7 +311,7 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
                 fontSize: '13px',
               }}
             >
-              Đang kiểm tra và xác minh mã xác nhận email...
+              Đang kiểm tra và xác minh mã xác nhận email…
             </div>
           )}
 
@@ -434,7 +434,7 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
                   style={{ width: '100%', padding: '12px', fontWeight: 600 }}
                 >
                   {confirmState === 'submitting'
-                    ? 'Đang xác minh...'
+                    ? 'Đang xác minh…'
                     : 'Xác nhận mã email'}
                 </AppButton>
               </form>
@@ -530,7 +530,7 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
                   style={{ width: '100%', padding: '11px', fontWeight: 600 }}
                 >
                   {resendState === 'submitting'
-                    ? 'Đang gửi email xác minh...'
+                    ? 'Đang gửi email xác minh…'
                     : 'Gửi lại email xác minh'}
                 </AppButton>
               </form>

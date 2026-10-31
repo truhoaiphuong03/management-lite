@@ -1199,7 +1199,7 @@ test('V0.2 ISSUES-12: Behavioral - Static markup rendering and accessibility of 
       onNavigate: () => {},
     })
   );
-  assert.ok(detailHtml.includes('Đang tải chi tiết vấn đề...'), 'Initial render must show loading indicator');
+  assert.ok(detailHtml.includes('Đang tải chi tiết vấn đề…'), 'Initial render must show loading indicator');
 });
 
 test('V0.2 ISSUES-13: Behavioral - Production App component runtime static rendering (T13)', async () => {
@@ -1220,7 +1220,7 @@ test('V0.2 ISSUES-13: Behavioral - Production App component runtime static rende
 
   const html = renderToStaticMarkup(React.createElement(App));
   assert.ok(
-    html.includes('Đang khởi động phiên làm việc...'),
+    html.includes('Đang khởi động phiên làm việc…'),
     'App initial render must display session initialization placeholder',
   );
 });
@@ -1242,7 +1242,7 @@ test('V0.2 ISSUES-14: Behavioral - IssueDetailScreen Owner Confirm Fix & Reopen 
     }),
   );
   assert.ok(
-    ownerMarkup.includes('Đang tải chi tiết vấn đề...'),
+    ownerMarkup.includes('Đang tải chi tiết vấn đề…'),
     'Must show initial loading for Owner',
   );
 
@@ -1254,7 +1254,7 @@ test('V0.2 ISSUES-14: Behavioral - IssueDetailScreen Owner Confirm Fix & Reopen 
     }),
   );
   assert.ok(
-    staffMarkup.includes('Đang tải chi tiết vấn đề...'),
+    staffMarkup.includes('Đang tải chi tiết vấn đề…'),
     'Must show initial loading for Staff',
   );
 

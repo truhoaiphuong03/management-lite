@@ -607,7 +607,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                   type="text"
                   value={positionTitle}
                   onChange={(e) => setPositionTitle(e.target.value)}
-                  placeholder="VD: Editor, Kịch bản..."
+                  placeholder="VD: Editor, Kịch bản…"
                   disabled={isLoading}
                   style={{
                     width: '100%',
@@ -831,7 +831,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                   type="text"
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
-                  placeholder="VD: Vietcombank, MB Bank..."
+                  placeholder="VD: Vietcombank, MB Bank…"
                   disabled={isLoading}
                   style={{
                     width: '100%',
@@ -923,7 +923,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               disabled={isLoading}
             >
               {isLoading
-                ? 'Đang tạo hồ sơ...'
+                ? 'Đang tạo hồ sơ…'
                 : 'Tạo nhân sự & Tạo liên kết mời'}
             </AppButton>
             <AppButton

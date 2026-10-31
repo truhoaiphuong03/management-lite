@@ -766,7 +766,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     borderRadius: '10px',
                     backgroundColor: isActive ? 'var(--primary-color)' : 'var(--surface-hover)',
                     color: isActive ? '#0F172A' : 'var(--text-secondary)',
-                    fontSize: '11px',
+                    fontSize: '12px',
                     fontWeight: 700,
                   }}
                 >
@@ -902,7 +902,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                 id="filter-search"
                 type="text"
                 data-testid="issue-search-input"
-                placeholder="Tìm theo tiêu đề, mô tả, module..."
+                placeholder="Tìm theo tiêu đề, mô tả, module…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -1045,7 +1045,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                 <CopyIcon size={16} />
                 <span>
                   {copying
-                    ? 'Đang lấy dữ liệu...'
+                    ? 'Đang lấy dữ liệu…'
                     : `Sao chép ${selectedIssuesMap.size > 0 ? `(${selectedIssuesMap.size})` : ''} lỗi đã chọn`}
                 </span>
               </>
@@ -1091,7 +1091,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
 
       {/* Main Content Area */}
       {loading ? (
-        <LoadingState message="Đang tải danh sách vấn đề..." />
+        <LoadingState message="Đang tải danh sách vấn đề…" />
       ) : error ? (
         <ErrorState
           title={error.title || 'Có lỗi xảy ra'}
@@ -1229,7 +1229,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                           backgroundColor: severityMeta.bg,
                           color: severityMeta.color,
                           border: `1px solid ${severityMeta.border}`,
-                          fontSize: '11px',
+                          fontSize: '12px',
                           fontWeight: 700,
                         }}
                       >
@@ -1247,7 +1247,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                           backgroundColor: 'rgba(15, 23, 42, 0.8)',
                           color: testResultMeta.color,
                           border: `1px solid ${testResultMeta.color}`,
-                          fontSize: '11px',
+                          fontSize: '12px',
                           fontWeight: 700,
                         }}
                       >
@@ -1265,7 +1265,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                             backgroundColor: 'rgba(239, 68, 68, 0.15)',
                             color: 'var(--danger-text)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
-                            fontSize: '11px',
+                            fontSize: '12px',
                             fontWeight: 600,
                           }}
                         >

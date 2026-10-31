@@ -333,7 +333,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     productionStatus:
       SYSTEM_ENV.toLowerCase() === 'production'
         ? 'Production — Đang hoạt động'
-        : 'Đang kiểm tra trạng thái...',
+        : 'Đang kiểm tra trạng thái…',
   });
   const [releaseHistory, setReleaseHistory] = useState<ReleaseHistoryEntry[]>(
     [],
@@ -662,7 +662,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           {loading ? (
             <div style={{ color: 'var(--muted-color)', fontSize: '14px' }}>
-              Đang tải thông tin cá nhân...
+              Đang tải thông tin cá nhân…
             </div>
           ) : profile ? (
             <div
@@ -945,7 +945,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     type="text"
                     value={editPositionTitle}
                     onChange={(e) => setEditPositionTitle(e.target.value)}
-                    placeholder="VD: Editor, Kịch bản..."
+                    placeholder="VD: Editor, Kịch bản…"
                     style={{
                       width: '100%',
                       boxSizing: 'border-box',
@@ -1042,7 +1042,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         testId="edit-profile-bank-name"
                         value={editBankName}
                         onChange={setEditBankName}
-                        placeholder="🔍 Tìm tên ngân hàng (MB, VCB...)"
+                        placeholder="🔍 Tìm tên ngân hàng (MB, VCB…)"
                       />
                     </div>
                   </label>
@@ -1160,7 +1160,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   disabled={profileSaving}
                   data-testid="btn-save-profile"
                 >
-                  {profileSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  {profileSaving ? 'Đang lưu…' : 'Lưu thay đổi'}
                 </AppButton>
               </div>
             </form>
@@ -1367,7 +1367,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 disabled={passwordLoading}
                 data-testid="btn-change-password"
               >
-                {passwordLoading ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
+                {passwordLoading ? 'Đang cập nhật…' : 'Đổi mật khẩu'}
               </AppButton>
             </div>
           </form>
@@ -1732,7 +1732,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
               {releaseHistoryLoading && releaseHistory.length === 0 ? (
                 <div style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
-                  Đang tải lịch sử cập nhật...
+                  Đang tải lịch sử cập nhật…
                 </div>
               ) : (
                 <div

@@ -20,22 +20,22 @@ test('MGL-UI-CLEANUP-VERSION-24: Canonical global version contract and single so
   } = await import(
     `file://${resolve(root, 'dist/packages/contracts/src/version.js')}`
   );
+  const pkgVersion = JSON.parse(
+    readFileSync(resolve(root, 'package.json'), 'utf8'),
+  ).version;
 
   // 1. Single source of truth values
   assert.equal(SYSTEM_NAME, 'Management Lite');
-  assert.equal(
-    SYSTEM_VERSION,
-    JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version,
-  );
-  assert.equal(SYSTEM_COMMIT, 'ab7500c');
+  assert.equal(SYSTEM_VERSION, pkgVersion);
+  assert.match(SYSTEM_COMMIT, /^[0-9a-f]{7}$/i);
   assert.equal(SYSTEM_ENV, 'staging');
 
   // 2. Helper contract
   const info = getSystemInfo();
   assert.deepEqual(info, {
     name: 'Management Lite',
-    version: '0.1.3',
-    commit: 'ab7500c',
+    version: pkgVersion,
+    commit: SYSTEM_COMMIT,
     environment: 'staging',
   });
 
@@ -43,13 +43,16 @@ test('MGL-UI-CLEANUP-VERSION-24: Canonical global version contract and single so
   const contractsIndex = await import(
     `file://${resolve(root, 'dist/packages/contracts/src/index.js')}`
   );
-  assert.equal(contractsIndex.SYSTEM_VERSION, '0.1.3');
-  assert.equal(contractsIndex.SYSTEM_COMMIT, 'ab7500c');
+  assert.equal(contractsIndex.SYSTEM_VERSION, pkgVersion);
+  assert.equal(contractsIndex.SYSTEM_COMMIT, SYSTEM_COMMIT);
 });
 
 test('MGL-UI-CLEANUP-VERSION-24: Shared Navigation displays canonical subtle version and no Demo tags', async () => {
   const { DesktopSidebar } = await import(
     `file://${resolve(root, 'dist/packages/ui/src/components/Navigation.js')}`
+  );
+  const { SYSTEM_VERSION } = await import(
+    `file://${resolve(root, 'dist/packages/contracts/src/version.js')}`
   );
 
   const markup = renderToStaticMarkup(
@@ -63,8 +66,8 @@ test('MGL-UI-CLEANUP-VERSION-24: Shared Navigation displays canonical subtle ver
 
   // 1. Displays canonical version
   assert.ok(
-    markup.includes('v0.1.3'),
-    'DesktopSidebar must display canonical version v0.1.3',
+    markup.includes(`v${SYSTEM_VERSION}`),
+    `DesktopSidebar must display canonical version v${SYSTEM_VERSION}`,
   );
 
   // 2. No hardcoded Demo tag

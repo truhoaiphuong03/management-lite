@@ -939,7 +939,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     setActionLoading(true);
     setErrorMessage(null);
     setUploadProgressPct(10);
-    setUploadStatusText('Đang khởi tạo phiên Resumable Upload với Google Drive...');
+    setUploadStatusText('Đang khởi tạo phiên Resumable Upload với Google Drive…');
 
     try {
       const initRes = await fetch(
@@ -974,7 +974,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       const fileRecord: StorageFileData = initBody.data;
       const halfChunk = Math.ceil(sizeBytes / 2);
       setUploadProgressPct(50);
-      setUploadStatusText('Đang tải chunk 1/2 lên Google Drive...');
+      setUploadStatusText('Đang tải chunk 1/2 lên Google Drive…');
 
       const chunk1Base64 =
         uploadSelectedFile && uploadSelectedFile.size <= 10 * 1024 * 1024
@@ -996,7 +996,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       });
 
       setUploadProgressPct(90);
-      setUploadStatusText('Đang hoàn tất chunk 2/2 và đồng bộ liên kết Drive...');
+      setUploadStatusText('Đang hoàn tất chunk 2/2 và đồng bộ liên kết Drive…');
 
       const chunk2Base64 =
         uploadSelectedFile && uploadSelectedFile.size <= 10 * 1024 * 1024
@@ -1497,7 +1497,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       backgroundColor: 'var(--surface-subtle)',
                       borderRadius: '6px',
                       border: '1px solid var(--border-color)',
-                      fontSize: '11px',
+                      fontSize: '12px',
                       color: 'var(--info-text)',
                       wordBreak: 'break-all',
                     }}
@@ -1947,7 +1947,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         <div
           style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 16px' }}
         >
-          <LoadingState message="Đang tải chi tiết nhóm thư mục..." />
+          <LoadingState message="Đang tải chi tiết nhóm thư mục…" />
         </div>
       );
     }
@@ -2402,7 +2402,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       </div>
                       <div
                         style={{
-                          fontSize: '11px',
+                          fontSize: '12px',
                           color: 'var(--muted-color)',
                           marginTop: '2px',
                         }}
@@ -2572,7 +2572,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         {file.last_error && (
                           <div
                             style={{
-                              fontSize: '11px',
+                              fontSize: '12px',
                               color: 'var(--danger-text)',
                               marginTop: '4px',
                             }}
@@ -2921,7 +2921,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           <div
                             style={{
                               marginTop: '6px',
-                              fontSize: '11px',
+                              fontSize: '12px',
                               color: 'var(--warning-text)',
                               fontWeight: 600,
                             }}
@@ -3846,7 +3846,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             <input
               type="text"
               data-testid="storage-search-input"
-              placeholder="Tìm theo tên thư mục..."
+              placeholder="Tìm theo tên thư mục…"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -3880,7 +3880,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
       {/* 5. Folders Table / List View */}
       {loading ? (
-        <LoadingState message="Đang tải danh sách thư mục Drive..." />
+        <LoadingState message="Đang tải danh sách thư mục Drive…" />
       ) : folders.length === 0 ? (
         <EmptyState
           title="Chưa có thư mục nào"
@@ -3959,7 +3959,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       </div>
                       <div
                         style={{
-                          fontSize: '11px',
+                          fontSize: '12px',
                           color: 'var(--muted-color)',
                           marginTop: '2px',
                         }}
@@ -3973,7 +3973,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         display: 'inline-block',
                         padding: '3px 8px',
                         borderRadius: '4px',
-                        fontSize: '11px',
+                        fontSize: '12px',
                         fontWeight: 700,
                         backgroundColor:
                           folder.folder_type === 'source'
@@ -4157,7 +4157,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       <div style={{ color: 'var(--text-color)' }}>{folder.name}</div>
                       <div
                         style={{
-                          fontSize: '11px',
+                          fontSize: '12px',
                           color: 'var(--muted-color)',
                           marginTop: '2px',
                         }}
@@ -4178,7 +4178,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           display: 'inline-block',
                           padding: '3px 8px',
                           borderRadius: '4px',
-                          fontSize: '11px',
+                          fontSize: '12px',
                           fontWeight: 700,
                           backgroundColor:
                             folder.folder_type === 'source'
@@ -4206,7 +4206,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       {activeGrants.length > 0 && (
                         <div
                           style={{
-                            fontSize: '11px',
+                            fontSize: '12px',
                             color: 'var(--info-text)',
                             marginTop: '2px',
                           }}
@@ -4459,14 +4459,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         border: 'none',
                         borderRadius: '4px',
                         padding: '4px 10px',
-                        fontSize: '11px',
+                        fontSize: '12px',
                         fontWeight: 600,
                         cursor: 'pointer',
                         minHeight: '36px',
                         minWidth: '44px',
                       }}
                     >
-                      {employeesLoading ? 'Đang tải...' : 'Thử lại'}
+                      {employeesLoading ? 'Đang tải…' : 'Thử lại'}
                     </button>
                   </div>
                 )}
@@ -4500,7 +4500,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 </select>
                 <div
                   style={{
-                    fontSize: '11px',
+                    fontSize: '12px',
                     color: 'var(--muted-color)',
                     marginTop: '4px',
                   }}
@@ -4560,7 +4560,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Ghi chú yêu cầu tải, định dạng video..."
+                  placeholder="Ghi chú yêu cầu tải, định dạng video…"
                   value={newSourceNotes}
                   onChange={(e) => setNewSourceNotes(e.target.value)}
                   style={{
@@ -4776,7 +4776,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Ghi chú về file render..."
+                  placeholder="Ghi chú về file render…"
                   value={deliverableNotes}
                   onChange={(e) => setDeliverableNotes(e.target.value)}
                   style={{

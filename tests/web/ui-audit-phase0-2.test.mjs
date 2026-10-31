@@ -101,3 +101,20 @@ test('UI-AUDIT-P4: web screens use THEME_COLORS (no TOKENS.colors) so Light them
     assert.doesNotMatch(src, /TOKENS\.colors\./, `${f} must use THEME_COLORS`);
   }
 });
+
+test('UI-AUDIT-P5: form controls get accessible names at runtime and screens avoid sub-12px text', () => {
+  const forms = read('apps/web/src/a11y-forms.ts');
+  assert.match(forms, /export function enableFormLabelling/);
+  assert.match(forms, /htmlFor/);
+  assert.match(shell, /enableFormLabelling\(document\.getElementById\('main-content'\)\)/);
+  for (const f of ['ClockScreen', 'PayrollScreen', 'StorageScreen', 'WorkScreen', 'AccountsScreen']) {
+    const src = read(`apps/web/src/screens/${f}.tsx`);
+    assert.doesNotMatch(src, /fontSize:\s*'(9|10|10\.5|11|11\.5)(px)?'/, `${f} must not use text below 12px`);
+  }
+});
+
+test('UI-AUDIT-P5: loading copy uses a real ellipsis character', () => {
+  const spinner = read('packages/ui/src/components/Spinner.tsx');
+  assert.match(spinner, /Đang tải…/);
+  assert.doesNotMatch(spinner, /Đang tải\.\.\./);
+});

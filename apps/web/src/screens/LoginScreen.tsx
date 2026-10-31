@@ -465,7 +465,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
               Hệ thống quản lý nội bộ
             </span>
-            <span style={{ fontSize: '11px', color: 'var(--muted-color)' }}>
+            <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
               v{SYSTEM_VERSION}
             </span>
           </div>
@@ -613,7 +613,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     );
                   }
                 }}
-                placeholder="admin, staff hoặc email..."
+                placeholder="admin, staff hoặc email…"
                 disabled={isLoading}
                 style={{
                   width: '100%',
@@ -690,7 +690,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       );
                     }
                   }}
-                  placeholder="Nhập mật khẩu..."
+                  placeholder="Nhập mật khẩu…"
                   disabled={isLoading}
                   style={{
                     width: '100%',
@@ -837,7 +837,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 fontWeight: 600,
               }}
             >
-              {isLoading ? 'Đang xác thực...' : 'Đăng nhập'}
+              {isLoading ? 'Đang xác thực…' : 'Đăng nhập'}
             </AppButton>
           </form>
 

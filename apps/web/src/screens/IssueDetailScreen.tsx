@@ -693,7 +693,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             <span>Quay lại danh sách</span>
           </AppButton>
         </div>
-        <LoadingState message="Đang tải chi tiết vấn đề..." />
+        <LoadingState message="Đang tải chi tiết vấn đề…" />
       </div>
     );
   }
@@ -796,7 +796,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             >
               <span>
                 {analyzing
-                  ? 'AI đang phân tích...'
+                  ? 'AI đang phân tích…'
                   : '🤖 Phân tích bằng Gemini AI'}
               </span>
             </AppButton>
@@ -1215,7 +1215,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               {issue.gemini_analysis.model && (
                 <span
                   style={{
-                    fontSize: '11px',
+                    fontSize: '12px',
                     color: 'var(--muted-color)',
                     fontFamily: 'monospace',
                     padding: '2px 8px',
@@ -1882,7 +1882,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
             <span
               style={{
                 display: 'block',
-                fontSize: '11px',
+                fontSize: '12px',
                 color: 'var(--muted-color)',
                 marginTop: '4px',
               }}
@@ -2225,7 +2225,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     color: '#FFFFFF',
                   }}
                 >
-                  {actionLoading ? 'Đang xác nhận...' : 'Xác nhận đóng sự cố'}
+                  {actionLoading ? 'Đang xác nhận…' : 'Xác nhận đóng sự cố'}
                 </AppButton>
               </div>
             </div>
@@ -2357,7 +2357,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   id="reopen-reason"
                   data-testid="input-reopen-reason"
                   rows={3}
-                  placeholder="Ví dụ: Vẫn còn lỗi khi thao tác trên màn hình..."
+                  placeholder="Ví dụ: Vẫn còn lỗi khi thao tác trên màn hình…"
                   value={reopenReason}
                   onChange={(e) => setReopenReason(e.target.value)}
                   disabled={actionLoading}
@@ -2394,7 +2394,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   id="reopen-comment"
                   data-testid="input-reopen-comment"
                   type="text"
-                  placeholder="Ghi chú thêm..."
+                  placeholder="Ghi chú thêm…"
                   value={reopenComment}
                   onChange={(e) => setReopenComment(e.target.value)}
                   disabled={actionLoading}
@@ -2442,7 +2442,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     fontWeight: 600,
                   }}
                 >
-                  {actionLoading ? 'Đang mở lại...' : 'Mở lại vấn đề'}
+                  {actionLoading ? 'Đang mở lại…' : 'Mở lại vấn đề'}
                 </AppButton>
               </div>
             </div>

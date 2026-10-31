@@ -182,7 +182,7 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
           <input
             type="text"
             data-testid="history-search-input"
-            placeholder="Tìm theo ghi chú, danh mục..."
+            placeholder="Tìm theo ghi chú, danh mục…"
             style={filterField}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

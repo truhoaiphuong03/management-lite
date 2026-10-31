@@ -724,7 +724,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 230px), 1fr))',
+            'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
           gap: '14px',
           marginBottom: '20px',
         }}
@@ -956,7 +956,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
             gap: '10px',
           }}
         >
@@ -984,7 +984,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     ⏱️ Duyệt ca làm việc
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {shiftMetric.value}
                   </div>
                 </div>
@@ -1015,7 +1015,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     📋 Báo cáo ngày
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {reportMetric.value}
                   </div>
                 </div>
@@ -1046,7 +1046,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     👥 Hồ sơ & Ngân hàng
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {employeesMetric.value}
                   </div>
                 </div>
@@ -1077,7 +1077,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     💰 Chi trả lương VietQR
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {payrollMetric.value} ({payrollMetric.badgeLabel})
                   </div>
                 </div>
@@ -1110,7 +1110,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     ⏱️ Trạng thái ca làm
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {shiftMetric.value}
                   </div>
                 </div>
@@ -1141,7 +1141,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     📝 Báo cáo hôm nay
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {reportMetric.value}
                   </div>
                 </div>
@@ -1172,7 +1172,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-color)' }}>
                     📌 Công việc được giao
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
                     {staffAttendanceMetric.value}
                   </div>
                 </div>
@@ -1201,7 +1201,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns:
-            'repeat(auto-fill, minmax(min(100%, 230px), 1fr))',
+            'repeat(auto-fill, minmax(min(100%, 240px), 1fr))',
           gap: '10px',
         }}
       >
@@ -1268,6 +1268,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               icon: <NavIcon id="accounts" size={20} />,
               title: 'Tài khoản ACC',
               desc: 'Quản lý tài khoản dùng chung',
+              show: role === 'owner',
+            },
+            {
+              path: '/issues',
+              icon: <NavIcon id="issues" size={20} />,
+              title: 'Vấn đề & Issues',
+              desc: 'Ghi nhận lỗi & đề xuất cải tiến',
               show: role === 'owner',
             },
             {
@@ -1405,7 +1412,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     disabled={bridgeSyncing}
                   >
                     {bridgeSyncing
-                      ? 'Đang đồng bộ...'
+                      ? 'Đang đồng bộ…'
                       : 'Đồng bộ nhân sự & công việc'}
                   </AppButton>
                 )}
@@ -1587,7 +1594,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-color)' }}>
                   🔗 Bảng xác nhận ánh xạ nhân sự cố định (Management Lite ↔ TikTok AI Factory V4)
                 </span>
-                <span style={{ fontSize: '11px', color: 'var(--muted-color)' }}>
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                   Khóa định danh: Mã NV cố định + Email tài khoản xác thực
                 </span>
               </div>
@@ -1615,7 +1622,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       </span>
                       <span
                         style={{
-                          fontSize: '11px',
+                          fontSize: '12px',
                           fontWeight: 600,
                           color: emp.v4_linked ? 'var(--success-text)' : 'var(--warning-text)',
                         }}
@@ -1627,7 +1634,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </div>
               ) : (
                 <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Đang tải danh sách ánh xạ mã nhân viên cố định (NV001, NV002...) với tài khoản V4...
+                  Đang tải danh sách ánh xạ mã nhân viên cố định (NV001, NV002…) với tài khoản V4…
                 </div>
               )}
             </div>

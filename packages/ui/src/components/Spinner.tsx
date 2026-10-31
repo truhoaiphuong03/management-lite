@@ -14,7 +14,7 @@ export const Spinner: React.FC<SpinnerProps> = ({
   color = 'primary',
   style,
   className,
-  ariaLabel = 'Đang tải...',
+  ariaLabel = 'Đang tải…',
 }) => {
   const getDimension = () => {
     if (typeof size === 'number') return `${size}px`;

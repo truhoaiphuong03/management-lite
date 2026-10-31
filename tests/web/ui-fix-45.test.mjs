@@ -11,7 +11,7 @@ const root = resolve(__dirname, '../..');
 
 test('UI-FIX-45 — Finding 1: ReportsScreen stale JSON guard after await res.json() & sequence check in catch/finally', () => {
   const sourcePath = resolve(root, 'apps/web/src/screens/ReportsScreen.tsx');
-  const source = readFileSync(sourcePath, 'utf8');
+  const source = readFileSync(sourcePath, 'utf8').replace(/\r\n/g, '\n');
 
   // 1. fetchMyReports sequence guard after await res.json()
   const fetchMyReportsBlock = source.slice(
@@ -64,7 +64,7 @@ test('UI-FIX-45 — Finding 1: ReportsScreen stale JSON guard after await res.js
 
 test('UI-FIX-45 — Finding 2: LoginScreen timing-safe focusTarget mechanism on authentication and network errors', () => {
   const sourcePath = resolve(root, 'apps/web/src/screens/LoginScreen.tsx');
-  const source = readFileSync(sourcePath, 'utf8');
+  const source = readFileSync(sourcePath, 'utf8').replace(/\r\n/g, '\n');
 
   // 1. focusTarget state and useEffect
   assert.ok(
@@ -113,7 +113,7 @@ test('UI-FIX-45 — Finding 2: LoginScreen timing-safe focusTarget mechanism on 
 
 test('UI-FIX-45 — Finding 3: EmployeesScreen pagination error boundary retains existing page items on failure', () => {
   const sourcePath = resolve(root, 'apps/web/src/screens/EmployeesScreen.tsx');
-  const source = readFileSync(sourcePath, 'utf8');
+  const source = readFileSync(sourcePath, 'utf8').replace(/\r\n/g, '\n');
 
   // 1. paginationError state declared
   assert.ok(

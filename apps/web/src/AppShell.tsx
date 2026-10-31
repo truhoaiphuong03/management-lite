@@ -17,6 +17,7 @@ import type { UserRole } from './types.js';
 import { ReportBugWidget } from './components/ReportBugWidget.js';
 import { SYSTEM_VERSION } from '../../../packages/contracts/src/version.js';
 import { enableResponsiveTables } from './responsive-tables.js';
+import { enableFormLabelling } from './a11y-forms.js';
 
 export interface AppShellProps {
   currentPath: string;
@@ -45,6 +46,11 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   useEffect(
     () => enableResponsiveTables(document.getElementById('main-content')),
+    [],
+  );
+
+  useEffect(
+    () => enableFormLabelling(document.getElementById('main-content')),
     [],
   );
 

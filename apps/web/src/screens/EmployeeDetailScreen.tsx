@@ -447,7 +447,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
   };
 
   if (loading) {
-    return <LoadingState message="Đang tải hồ sơ nhân sự..." />;
+    return <LoadingState message="Đang tải hồ sơ nhân sự…" />;
   }
 
   if (error || !employee) {
@@ -878,7 +878,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                           border: '1px solid rgba(20, 184, 166, 0.3)',
                           borderRadius: '6px',
                           color: 'var(--accent-text)',
-                          fontSize: '11px',
+                          fontSize: '12px',
                           padding: '2px 8px',
                           cursor: 'pointer',
                         }}
@@ -979,7 +979,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                   type="text"
                   value={positionTitle}
                   onChange={(e) => setPositionTitle(e.target.value)}
-                  placeholder="VD: Editor, Kịch bản, Vận hành..."
+                  placeholder="VD: Editor, Kịch bản, Vận hành…"
                   style={{
                     width: '100%',
                     minHeight: '44px',
@@ -1221,7 +1221,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                   testId="editBankName"
                   value={bankName}
                   onChange={setBankName}
-                  placeholder="🔍 Tìm tên ngân hàng (MB, VCB, Techcombank...)"
+                  placeholder="🔍 Tìm tên ngân hàng (MB, VCB, Techcombank…)"
                 />
               </div>
 
@@ -1323,7 +1323,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
 
             <div style={{ display: 'flex', gap: '10px' }}>
               <AppButton variant="primary" type="submit" disabled={isSaving}>
-                {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                {isSaving ? 'Đang lưu…' : 'Lưu thay đổi'}
               </AppButton>
               <AppButton
                 variant="secondary"
@@ -1586,7 +1586,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                   prev ? { ...prev, reason: e.target.value } : null,
                 )
               }
-              placeholder="Nhập lý do..."
+              placeholder="Nhập lý do…"
               disabled={confirmDialog.loading}
               style={{
                 width: '100%',

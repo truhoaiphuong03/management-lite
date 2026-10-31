@@ -75,7 +75,7 @@ export {
 
 /** Shows a lightweight placeholder while a lazily loaded screen chunk is downloading. */
 const withSuspense = (node: React.ReactNode): React.ReactElement => (
-  <React.Suspense fallback={<LoadingState message="Äang táº£i mÃ n hÃ¬nh..." />}>
+  <React.Suspense fallback={<LoadingState message="Äang táº£i mÃ n hÃ¬nh…" />}>
     {node}
   </React.Suspense>
 );
@@ -178,7 +178,7 @@ export const App: React.FC = () => {
     installAuthInterceptor();
     const unsubscribe = addSessionExpiredListener(() => {
       setSessionExpiredNotice(
-        'Phiên làm việc đã hết hạn hoặc không hợp lệ. Đang chuyển về trang đăng nhập...',
+        'Phiên làm việc đã hết hạn hoặc không hợp lệ. Đang chuyển về trang đăng nhập…',
       );
 
       if (expiryRedirectTimerRef.current !== null) {
@@ -481,7 +481,7 @@ export const App: React.FC = () => {
           fontWeight: 600,
         }}
       >
-        Đang khởi động phiên làm việc...
+        Đang khởi động phiên làm việc…
       </div>
     );
   }
@@ -922,7 +922,7 @@ export const App: React.FC = () => {
                 }}
               >
                 {resendBannerState === 'sending'
-                  ? 'Đang gửi...'
+                  ? 'Đang gửi…'
                   : 'Gửi lại email xác minh'}
               </button>
               <button
@@ -1191,7 +1191,7 @@ export const App: React.FC = () => {
                   }}
                 >
                   {verifyCodeState === 'submitting'
-                    ? 'Đang xác nhận...'
+                    ? 'Đang xác nhận…'
                     : 'Xác nhận'}
                 </button>
               </div>
@@ -1521,7 +1521,7 @@ export const App: React.FC = () => {
                       testId="missing-bank-name-input"
                       value={promptBankName}
                       onChange={setPromptBankName}
-                      placeholder="🔍 Tìm tên ngân hàng (VD: MB, Vietcombank, Techcombank...)"
+                      placeholder="🔍 Tìm tên ngân hàng (VD: MB, Vietcombank, Techcombank…)"
                     />
                   </div>
                   <input
@@ -1682,7 +1682,7 @@ export const App: React.FC = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  {promptSaving ? 'Đang lưu...' : 'Lưu thông tin'}
+                  {promptSaving ? 'Đang lưu…' : 'Lưu thông tin'}
                 </button>
               </div>
             </div>

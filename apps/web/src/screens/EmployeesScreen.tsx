@@ -603,7 +603,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
             data-testid="employee-search-input"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm theo tên, mã NV, SĐT, chức danh, ngân hàng..."
+            placeholder="Tìm theo tên, mã NV, SĐT, chức danh, ngân hàng…"
             aria-label="Tìm kiếm nhân sự"
             style={{
               width: '100%',
@@ -770,7 +770,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                         <span
                           data-testid={`emp-position-${emp.id}`}
                           style={{
-                            fontSize: '11px',
+                            fontSize: '12px',
                             padding: '2px 8px',
                             borderRadius: '999px',
                             backgroundColor: 'rgba(59, 130, 246, 0.15)',
@@ -954,7 +954,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                   prev ? { ...prev, reason: e.target.value } : null,
                 )
               }
-              placeholder="Nhập lý do..."
+              placeholder="Nhập lý do…"
               disabled={confirmDialog.loading}
               style={{
                 width: '100%',

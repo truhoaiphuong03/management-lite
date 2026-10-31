@@ -1062,7 +1062,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         <div
           style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 16px' }}
         >
-          <LoadingState message="Đang tải chi tiết tài khoản..." />
+          <LoadingState message="Đang tải chi tiết tài khoản…" />
         </div>
       );
     }
@@ -1764,7 +1764,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 {metrics.total}
               </div>
               <div
-                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 Tất cả dịch vụ được kết nối
               </div>
@@ -1787,7 +1787,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 {metrics.active}
               </div>
               <div
-                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 Khả dụng cho vận hành
               </div>
@@ -1810,7 +1810,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 {metrics.archived}
               </div>
               <div
-                style={{ fontSize: '11px', color: 'var(--muted-color)', marginTop: '4px' }}
+                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
                 Bảo toàn lịch sử kiểm toán
               </div>
@@ -1847,7 +1847,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 >
                   <input
                     type="text"
-                    placeholder="Tìm theo Username, UID, Email khôi phục, Nhóm..."
+                    placeholder="Tìm theo Username, UID, Email khôi phục, Nhóm…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{
@@ -1992,7 +1992,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
           {/* 4. Accounts List Table */}
           {loading ? (
-            <LoadingState message="Đang tải danh sách tài khoản..." />
+            <LoadingState message="Đang tải danh sách tài khoản…" />
           ) : filteredAccounts.length === 0 ? (
             <EmptyState
               title="Chưa có tài khoản nào"
@@ -2076,7 +2076,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               display: 'inline-block',
                               padding: '3px 8px',
                               borderRadius: '4px',
-                              fontSize: '11px',
+                              fontSize: '12px',
                               fontWeight: 700,
                               color: pInfo.color,
                               backgroundColor: pInfo.bg,
@@ -2095,7 +2095,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           {account.platform_account_id && (
                             <div
                               style={{
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 color: 'var(--muted-color)',
                                 marginTop: '2px',
                               }}
@@ -2114,7 +2114,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 display: 'inline-block',
                                 padding: '2px 7px',
                                 borderRadius: '4px',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 fontWeight: 600,
                                 backgroundColor: 'rgba(20, 184, 166, 0.12)',
                                 color: 'var(--accent-text)',
@@ -2349,9 +2349,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   >
                     <option value="tiktok">TikTok</option>
                     <option value="gmail">Gmail / Google</option>
-                    <option value="ai">AI / LLM (OpenAI, Claude...)</option>
+                    <option value="ai">AI / LLM (OpenAI, Claude…)</option>
                     <option value="pm">
-                      PM / Quản lý dự án (Trello, Jira...)
+                      PM / Quản lý dự án (Trello, Jira…)
                     </option>
                     <option value="other">Khác</option>
                   </select>
@@ -2371,7 +2371,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   </label>
                   <input
                     type="text"
-                    placeholder="VD: Marketing, Production..."
+                    placeholder="VD: Marketing, Production…"
                     value={newAccountGroup}
                     onChange={(e) => setNewAccountGroup(e.target.value)}
                     style={{
@@ -2562,7 +2562,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     <label
                       style={{
                         display: 'block',
-                        fontSize: '11px',
+                        fontSize: '12px',
                         color: 'var(--muted-color)',
                         marginBottom: '4px',
                       }}
@@ -2571,7 +2571,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     </label>
                     <input
                       type="password"
-                      placeholder="Password..."
+                      placeholder="Password…"
                       value={newInitPassword}
                       onChange={(e) => setNewInitPassword(e.target.value)}
                       style={{
@@ -2590,7 +2590,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     <label
                       style={{
                         display: 'block',
-                        fontSize: '11px',
+                        fontSize: '12px',
                         color: 'var(--muted-color)',
                         marginBottom: '4px',
                       }}
@@ -2599,7 +2599,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     </label>
                     <input
                       type="password"
-                      placeholder="2FA Secret..."
+                      placeholder="2FA Secret…"
                       value={newInitTwoFa}
                       onChange={(e) => setNewInitTwoFa(e.target.value)}
                       style={{
@@ -2618,7 +2618,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     <label
                       style={{
                         display: 'block',
-                        fontSize: '11px',
+                        fontSize: '12px',
                         color: 'var(--muted-color)',
                         marginBottom: '4px',
                       }}
@@ -2627,7 +2627,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     </label>
                     <input
                       type="password"
-                      placeholder="Email Password..."
+                      placeholder="Email Password…"
                       value={newInitEmailPassword}
                       onChange={(e) => setNewInitEmailPassword(e.target.value)}
                       style={{
@@ -2659,7 +2659,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Mục đích sử dụng, lưu ý đặc biệt..."
+                  placeholder="Mục đích sử dụng, lưu ý đặc biệt…"
                   value={newNotes}
                   onChange={(e) => setNewNotes(e.target.value)}
                   style={{
@@ -2704,7 +2704,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   type="submit"
                   disabled={actionLoading}
                 >
-                  {actionLoading ? 'Đang tạo...' : 'Tạo tài khoản'}
+                  {actionLoading ? 'Đang tạo…' : 'Tạo tài khoản'}
                 </AppButton>
               </div>
             </form>
@@ -3045,7 +3045,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   type="submit"
                   disabled={actionLoading}
                 >
-                  {actionLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  {actionLoading ? 'Đang lưu…' : 'Lưu thay đổi'}
                 </AppButton>
               </div>
             </form>
@@ -3133,7 +3133,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               </label>
               <input
                 type="text"
-                placeholder="Ví dụ: Tạm ngưng chiến dịch, đổi kênh mới..."
+                placeholder="Ví dụ: Tạm ngưng chiến dịch, đổi kênh mới…"
                 value={archiveReason}
                 onChange={(e) => setArchiveReason(e.target.value)}
                 style={{
@@ -3177,7 +3177,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 onClick={handleArchiveAccount}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'Đang lưu trữ...' : 'Xác nhận lưu trữ'}
+                {actionLoading ? 'Đang lưu trữ…' : 'Xác nhận lưu trữ'}
               </AppButton>
             </div>
           </div>
@@ -3410,7 +3410,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   <input
                     type="password"
                     autoFocus
-                    placeholder="Nhập mật khẩu Chủ shop..."
+                    placeholder="Nhập mật khẩu Chủ shop…"
                     value={revealReauthPassword}
                     onChange={(e) => setRevealReauthPassword(e.target.value)}
                     style={{
@@ -3454,7 +3454,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     type="submit"
                     disabled={actionLoading || !revealReauthPassword}
                   >
-                    {actionLoading ? 'Đang xác thực...' : 'Xác thực & Xem'}
+                    {actionLoading ? 'Đang xác thực…' : 'Xác thực & Xem'}
                   </AppButton>
                 </div>
               </form>
@@ -3584,7 +3584,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </label>
                 <input
                   type="password"
-                  placeholder="Nhập giá trị bí mật mới..."
+                  placeholder="Nhập giá trị bí mật mới…"
                   value={newSecretValue}
                   onChange={(e) => setNewSecretValue(e.target.value)}
                   style={{
@@ -3614,7 +3614,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </label>
                 <input
                   type="password"
-                  placeholder="Xác thực lại danh tính Chủ shop..."
+                  placeholder="Xác thực lại danh tính Chủ shop…"
                   value={updateSecretReauthPassword}
                   onChange={(e) =>
                     setUpdateSecretReauthPassword(e.target.value)
@@ -3664,7 +3664,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     !updateSecretReauthPassword
                   }
                 >
-                  {actionLoading ? 'Đang lưu...' : 'Lưu bí mật'}
+                  {actionLoading ? 'Đang lưu…' : 'Lưu bí mật'}
                 </AppButton>
               </div>
             </form>

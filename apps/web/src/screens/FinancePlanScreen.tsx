@@ -730,7 +730,7 @@ export function FinancePlanScreen({
             setSearchQuery(e.target.value);
             setPages({ income: 0, expense: 0 });
           }}
-          placeholder="Tìm kiếm khoản dự tính theo tên danh mục..."
+          placeholder="Tìm kiếm khoản dự tính theo tên danh mục…"
           style={{
             width: '100%',
             padding: '8px 12px',

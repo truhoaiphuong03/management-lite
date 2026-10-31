@@ -3,7 +3,7 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.5.2';
+export const SYSTEM_VERSION = '0.5.3';
 export const SYSTEM_COMMIT = 'a0122fb';
 export const SYSTEM_ENV = 'staging';
 
@@ -41,13 +41,30 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.5.2',
+    version: '0.5.3',
     commit: 'latest',
+    released_at: '2026-10-31T06:50:00.000Z',
+    summary:
+      'Đánh bóng giao diện (Phase UI-5): ô nhập/chọn có tên truy cập cho trình đọc màn hình, dấu chấm lửng chuẩn "…" và chữ không còn nhỏ hơn 12px.',
+    added: [
+      'Tự động gắn tên truy cập cho các ô lọc ngày và ô chọn chưa có nhãn liên kết (Chấm công, Báo cáo, Tài khoản…), giúp trình đọc màn hình đọc đúng tên từng ô.',
+    ],
+    improved: [
+      'Dấu chấm lửng chuẩn "…" thay cho "..." ở các thông báo đang tải và gợi ý nhập liệu.',
+      'Chữ nhỏ hơn 12px trên các màn hình và thành phần dùng chung được nâng lên 12px để dễ đọc trên điện thoại.',
+    ],
+    fixed: [
+      'Ô chọn tháng ở Bảng lương nay có nhãn truy cập.',
+    ],
+  },
+  {
+    version: '0.5.2',
+    commit: 'deeaf16',
     released_at: '2026-10-31T06:00:00.000Z',
     summary:
       'Hoàn tất Phase 15 (Tốc độ tải trang): chỉ tải phần cần thiết khi mở ứng dụng — mã JavaScript tải lần đầu giảm từ khoảng 1,08 MB xuống 0,42 MB (đã nén: từ khoảng 260 KB xuống 119 KB), và các lần mở sau gần như không phải tải lại.',
     added: [
-      'Mỗi màn hình được tải theo yêu cầu (chỉ khi bạn mở màn hình đó) thay vì tải toàn bộ ngay từ đầu; có khung chờ "Đang tải màn hình..." trong lúc tải.',
+      'Mỗi màn hình được tải theo yêu cầu (chỉ khi bạn mở màn hình đó) thay vì tải toàn bộ ngay từ đầu; có khung chờ "Đang tải màn hình…" trong lúc tải.',
       'Công cụ kiểm tra dung lượng gói tải lần đầu (npm run check:bundle) với ngưỡng cảnh báo khi vượt ngân sách.',
     ],
     improved: [
@@ -64,20 +81,20 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     commit: 'a0122fb',
     released_at: '2026-10-31T05:45:00.000Z',
     summary:
-      'Chu?n h�a giao di?n to�n h? th?ng (Phase UI-0 ? UI-4): giao di?n S�ng d�ng du?c tr�n m?i m�n h�nh, thanh di?u hu?ng d�y di?n tho?i c� t�n truy c?p, b?ng t? chuy?n th�nh th? tr�n di?n tho?i v� c� c�ng c? ki?m tra giao di?n t? d?ng.',
+      'Chuẩn hóa giao diện toàn hệ thống (Phase UI-0 → UI-4): giao diện Sáng dùng được trên mọi màn hình, thanh điều hướng đáy điện thoại có tên truy cập, bảng tự chuyển thành thẻ trên điện thoại và có công cụ kiểm tra giao diện tự động.',
     added: [
-      'C�ng c? ki?m tra giao di?n t? d?ng (npm run audit:ui): ch?p ?nh 3 c? m�n h�nh � 2 giao di?n, ph�t hi?n tr�n ngang v� l?i truy c?p.',
-      'B?ng d? li?u t? hi?n th? d?ng th? tr�n di?n tho?i (nh�n c?t gi? nguy�n), kh�ng c�n ph?i cu?n ngang.',
-      'Li�n k?t "B? qua t?i n?i dung ch�nh" cho ngu?i d�ng b�n ph�m.',
+      'Công cụ kiểm tra giao diện tự động (npm run audit:ui): chụp ảnh 3 cỡ màn hình × 2 giao diện, phát hiện tràn ngang và lỗi truy cập.',
+      'Bảng dữ liệu tự hiển thị dạng thẻ trên điện thoại (nhãn cột giữ nguyên), không còn phải cuộn ngang.',
+      'Liên kết "Bỏ qua tới nội dung chính" cho người dùng bàn phím.',
     ],
     improved: [
-      'Giao di?n S�ng: thanh b�n, th?, n�t, � nh?p, bi?u m?u dang nh?p v� ch? d?u d?i theo ch? d? S�ng / T?i / H? th?ng; m�u n�t v� huy hi?u d?t chu?n tuong ph?n.',
-      'Thanh di?u hu?ng d�y di?n tho?i: nh�n 11px, n�t cao 52px, m?i n�t c� t�n truy c?p duy nh?t.',
-      'Bi?u tu?ng ri�ng cho Thu chi v� Nh?t k� h? th?ng; trang 404/403 c� ti�u d? chu?n.',
+      'Giao diện Sáng: thanh bên, thẻ, nút, ô nhập, biểu mẫu đăng nhập và chữ đều đổi theo chế độ Sáng / Tối / Hệ thống; màu nút và huy hiệu đạt chuẩn tương phản.',
+      'Thanh điều hướng đáy điện thoại: nhãn 11px, nút cao 52px, mỗi nút có tên truy cập duy nhất.',
+      'Biểu tượng riêng cho Thu chi và Nhật ký hệ thống; trang 404/403 có tiêu đề chuẩn.',
     ],
     fixed: [
-      'S?a c�c bi?n m�u b? thi?u (font, m�u thuong hi?u, n?n ph?) khi?n � ch?n ng�y v� thanh ph�n h? sai m�u ? giao di?n S�ng.',
-      'B? hi?u ?ng chuy?n d?ng "all" g�y gi?t tr�n thanh ph�n h? v� b? l?c C�ng vi?c.',
+      'Sửa các biến màu bị thiếu (font, màu thương hiệu, nền phụ) khiến ô chọn ngày và thanh phân hệ sai màu ở giao diện Sáng.',
+      'Bỏ hiệu ứng chuyển động "all" gây giật trên thanh phân hệ và bộ lọc Công việc.',
     ],
   },
   {
@@ -170,7 +187,9 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     improved: [
       'Sẵn sàng API đồng bộ đa thiết bị (ML-05) với kiểm soát phiên bản If-Match, chống tạo trùng Idempotency-Key và nhật ký kiểm toán Audit.',
     ],
-    fixed: [],
+    fixed: [
+      'Đồng bộ định dạng Ngày/Tháng/Năm (dd/mm/yyyy) kèm mở lịch 1 chạm trên mọi ô chọn ngày.',
+    ],
   },
   {
     version: '0.2.5',
@@ -185,7 +204,9 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     improved: [
       'Hiển thị chuẩn Ngày / Tháng / Năm (dd/mm/yyyy) tiếng Việt trực tiếp trên các ô lọc Từ ngày / Đến ngày, thay thế hoàn toàn chữ mm/dd/yyyy tiếng Anh.',
     ],
-    fixed: [],
+    fixed: [
+      'Khắc phục việc phải bấm xác nhận thủ công lần 2 sau khi Google OAuth chuyển hướng về trang Lưu trữ.',
+    ],
   },
   {
     version: '0.2.4',
@@ -233,7 +254,9 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     improved: [
       'Ghi chú rõ ràng "(Bắt buộc)" tại ô Số điện thoại liên hệ (*) và "(Không bắt buộc)" tại tất cả các mục Ngày sinh, Giới tính, Số CCCD/CMND, Địa chỉ nơi ở hiện tại và Ngân hàng nhận lương.',
     ],
-    fixed: [],
+    fixed: [
+      'Bỏ yêu cầu bắt buộc nhập CCCD và Địa chỉ khi cập nhật nhanh Số điện thoại liên hệ.',
+    ],
   },
   {
     version: '0.2.1',
@@ -266,7 +289,9 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     improved: [
       'Chia nhỏ gói JavaScript (Code-splitting / manualChunks trong vite.config.ts) thành 5 phân vùng độc lập (vendor-react, screen-payroll-finance, screen-attendance-schedule, screen-storage-work-reports, screen-employees-admin), xóa bỏ hoàn toàn cảnh báo chunk > 500 kB và tăng tốc tải trang trên 4G/Mobile.',
     ],
-    fixed: [],
+    fixed: [
+      'Xóa bỏ cảnh báo gói JavaScript đơn lẻ vượt quá 500 kB khi đóng gói giao diện Web.',
+    ],
   },
   {
     version: '0.1.6',
@@ -283,7 +308,9 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
       'Hiển thị trực tiếp huy hiệu Chức danh, Số điện thoại (hoặc cảnh báo Chưa có SĐT) và Tài khoản ngân hàng ngay trên từng thẻ nhân viên ở danh sách /employees.',
       'Mở rộng ô tìm kiếm nhân sự hỗ trợ tìm nhanh theo Số điện thoại, Chức danh và Tên ngân hàng.',
     ],
-    fixed: [],
+    fixed: [
+      'Khắc phục thiếu cột thông tin Số điện thoại và Ngân hàng trên danh sách nhân sự tổng hợp.',
+    ],
   },
   {
     version: '0.1.5',
@@ -397,6 +424,22 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     fixed: [
       'Khắc phục lỗi tải danh sách nhân sự nhiều trang tại màn hình Lịch làm việc và Công việc.',
       'Tăng cường kiểm soát phân quyền truy cập trực tiếp đường dẫn phân hệ Vấn đề (/issues) đối với tài khoản nhân viên.',
+    ],
+  },
+  {
+    version: '0.0.9',
+    commit: '3743e99',
+    released_at: '2026-10-14T18:00:00.000Z',
+    summary:
+      'Phiên bản nền tảng trước khi bổ sung ghi nhớ đăng nhập mở rộng, phục vụ đối chiếu và khôi phục an toàn.',
+    added: [
+      'Hệ thống chấm công, lịch làm việc, báo cáo ngày, công việc, bảng lương, sổ thu chi và kho tài khoản dùng chung.',
+    ],
+    improved: [
+      'Chuẩn hóa xác thực phiên làm việc và bảo vệ CSRF trên toàn bộ đường dẫn biến đổi dữ liệu.',
+    ],
+    fixed: [
+      'Ổn định kết nối cơ sở dữ liệu và kiểm tra sức khỏe dịch vụ khi chuyển đổi phiên bản.',
     ],
   },
 ];

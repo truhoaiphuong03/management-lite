@@ -33,7 +33,7 @@ export interface ScheduleScreenProps {
 
 interface DayFormItem {
   dateStr: string; // YYYY-MM-DD
-  dayLabel: string; // Thứ Hai, Thứ Ba...
+  dayLabel: string; // Thứ Hai, Thứ Ba…
   dayIndex: number; // 1 = Monday, ..., 7 = Sunday
   isWorking: boolean;
   startTime: string; // HH:mm
@@ -788,7 +788,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       {(!isAdminOrOwner || activeTab === 'my_schedule') && (
         <div>
           {scheduleLoading ? (
-            <LoadingState message="Đang tải lịch làm việc..." />
+            <LoadingState message="Đang tải lịch làm việc…" />
           ) : mySchedule && !isEditing ? (
             /* VIEW REGISTERED SCHEDULE (Only show selected days + start time) */
             <div>
@@ -1233,7 +1233,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
                           <span
                             style={{
-                              fontSize: '11px',
+                              fontSize: '12px',
                               fontWeight: 700,
                               padding: '3px 8px',
                               borderRadius: '999px',
@@ -1434,7 +1434,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     style={{ minHeight: '48px' }}
                   >
                     {submitting
-                      ? 'Đang lưu...'
+                      ? 'Đang lưu…'
                       : isEditing
                         ? 'Lưu điều chỉnh lịch'
                         : 'Đăng ký lịch tuần'}
@@ -1531,7 +1531,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
           {/* Schedules List */}
           {scheduleLoading ? (
-            <LoadingState message="Đang tải danh sách lịch nhân viên..." />
+            <LoadingState message="Đang tải danh sách lịch nhân viên…" />
           ) : (
             (() => {
               const filtered =
@@ -1728,7 +1728,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                     <span
                                       style={{
                                         color: 'var(--muted-color)',
-                                        fontSize: '11px',
+                                        fontSize: '12px',
                                         fontStyle: 'italic',
                                         overflowWrap: 'anywhere',
                                       }}

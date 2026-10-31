@@ -1028,7 +1028,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 type="text"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="VD: Kiểm kê kho cuối tuần, Dựng video món mới..."
+                placeholder="VD: Kiểm kê kho cuối tuần, Dựng video món mới…"
                 maxLength={200}
                 required
                 style={{
@@ -1095,7 +1095,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         )
                       }
                       style={{
-                        fontSize: '11px',
+                        fontSize: '12px',
                         fontWeight: 600,
                         padding: '3px 8px',
                         borderRadius: '4px',
@@ -1113,7 +1113,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               <textarea
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="Nêu rõ các bước cần làm, yêu cầu đầu ra..."
+                placeholder="Nêu rõ các bước cần làm, yêu cầu đầu ra…"
                 rows={4}
                 style={{
                   width: '100%',
@@ -1263,7 +1263,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     color: 'var(--muted-color)',
                   }}
                 >
-                  Chưa có danh sách nhân sự hoặc đang tải...
+                  Chưa có danh sách nhân sự hoặc đang tải…
                 </div>
               ) : (
                 <div
@@ -1335,7 +1335,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: '12px' }}>
               <AppButton type="submit" variant="primary" disabled={submitting}>
-                {submitting ? 'Đang tạo...' : 'Tạo & Giao việc'}
+                {submitting ? 'Đang tạo…' : 'Tạo & Giao việc'}
               </AppButton>
               <AppButton
                 type="button"
@@ -1358,7 +1358,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     if (loading) {
       return (
         <div style={{ maxWidth: '800px', margin: '0 auto', padding: '32px' }}>
-          <LoadingState message="Đang tải chi tiết công việc..." />
+          <LoadingState message="Đang tải chi tiết công việc…" />
         </div>
       );
     }
@@ -1957,7 +1957,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     value={submissionNote}
                     onChange={(e) => setSubmissionNote(e.target.value)}
                     rows={4}
-                    placeholder="Mô tả kết quả đã làm, số lượng hoàn thành, các vấn đề gặp phải..."
+                    placeholder="Mô tả kết quả đã làm, số lượng hoàn thành, các vấn đề gặp phải…"
                     required
                     style={{
                       width: '100%',
@@ -2037,7 +2037,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     variant="primary"
                     disabled={submitting}
                   >
-                    {submitting ? 'Đang gửi...' : 'Gửi báo cáo'}
+                    {submitting ? 'Đang gửi…' : 'Gửi báo cáo'}
                   </AppButton>
                 </div>
               </form>
@@ -2142,7 +2142,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     placeholder={
                       reviewDecision === 'approved'
                         ? 'Nhận xét khen ngợi (tùy chọn)...'
-                        : 'Nêu rõ điểm chưa đạt, yêu cầu sửa đổi cụ thể...'
+                        : 'Nêu rõ điểm chưa đạt, yêu cầu sửa đổi cụ thể…'
                     }
                     required={reviewDecision === 'request_changes'}
                     style={{
@@ -2177,7 +2177,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     variant="primary"
                     disabled={submitting}
                   >
-                    {submitting ? 'Đang xử lý...' : 'Xác nhận'}
+                    {submitting ? 'Đang xử lý…' : 'Xác nhận'}
                   </AppButton>
                 </div>
               </form>
@@ -2250,7 +2250,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     type="text"
                     value={cancelReason}
                     onChange={(e) => setCancelReason(e.target.value)}
-                    placeholder="Nhập lý do hủy công việc..."
+                    placeholder="Nhập lý do hủy công việc…"
                     style={{
                       width: '100%',
                       padding: '10px',
@@ -2283,7 +2283,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     variant="destructive"
                     disabled={submitting}
                   >
-                    {submitting ? 'Đang hủy...' : 'Xác nhận hủy'}
+                    {submitting ? 'Đang hủy…' : 'Xác nhận hủy'}
                   </AppButton>
                 </div>
               </form>
@@ -2551,7 +2551,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             </span>
             <span
               style={{
-                fontSize: '11px',
+                fontSize: '12px',
                 padding: '2px 6px',
                 borderRadius: '4px',
                 backgroundColor: 'var(--surface-hover)',
@@ -2651,7 +2651,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               aria-label="Tìm kiếm công việc"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm công việc..."
+              placeholder="Tìm kiếm công việc…"
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -2751,7 +2751,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
       {/* Work Items List */}
       {loading ? (
-        <LoadingState message="Đang tải danh sách công việc..." />
+        <LoadingState message="Đang tải danh sách công việc…" />
       ) : workItems.length === 0 ? (
         <AppCard style={{ padding: '32px' }}>
           <EmptyState
@@ -2808,7 +2808,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   >
                     <span
                       style={{
-                        fontSize: '11px',
+                        fontSize: '12px',
                         fontWeight: 700,
                         padding: '2px 6px',
                         borderRadius: '4px',
@@ -2820,7 +2820,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     </span>
                     <span
                       style={{
-                        fontSize: '11px',
+                        fontSize: '12px',
                         fontWeight: 700,
                         padding: '2px 6px',
                         borderRadius: '4px',
@@ -2849,7 +2849,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     {isItemBlocked(item) && (
                       <span
                         style={{
-                          fontSize: '11px',
+                          fontSize: '12px',
                           fontWeight: 700,
                           padding: '2px 6px',
                           borderRadius: '4px',
@@ -2864,7 +2864,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                       /\[EXECUTOR:\s*([^\]]+)\]/i.test(item.description) && (
                         <span
                           style={{
-                            fontSize: '11px',
+                            fontSize: '12px',
                             fontWeight: 700,
                             padding: '2px 6px',
                             borderRadius: '4px',
@@ -2994,7 +2994,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         <span
                           onClick={() => onNavigate?.(`/work/${item.id}`)}
                           style={{
-                            fontSize: '11px',
+                            fontSize: '12px',
                             fontWeight: 600,
                             padding: '2px 8px',
                             borderRadius: '4px',
@@ -3013,7 +3013,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
-                              fontSize: '11px',
+                              fontSize: '12px',
                               fontWeight: 600,
                               padding: '2px 8px',
                               borderRadius: '4px',

@@ -485,6 +485,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     display: none !important;
   }
   .app-subnav-bar {
+    flex-wrap: wrap;
     margin-bottom: 12px;
     padding: 4px;
     gap: 4px;

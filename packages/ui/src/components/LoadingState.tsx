@@ -10,7 +10,7 @@ export interface LoadingStateProps {
 }
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
-  message = 'Đang tải dữ liệu...',
+  message = 'Đang tải dữ liệu…',
   minHeight = '200px',
   cardVariant = 'default',
 }) => {

@@ -423,7 +423,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     fontWeight: 600,
                   }}
                 >
-                  {isLoading ? 'Đang cập nhật mật khẩu...' : 'Lưu mật khẩu mới'}
+                  {isLoading ? 'Đang cập nhật mật khẩu…' : 'Lưu mật khẩu mới'}
                 </AppButton>
               </div>
             </form>

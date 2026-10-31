@@ -194,8 +194,8 @@ export function FinanceCategoriesScreen({
                 label={`Thêm danh mục ${isExpense ? 'khoản chi' : 'nguồn thu'} mới`}
                 placeholder={
                   isExpense
-                    ? 'VD: Tiền nhà, Ăn uống, Đi lại...'
-                    : 'VD: Lương, Bán hàng, Thưởng...'
+                    ? 'VD: Tiền nhà, Ăn uống, Đi lại…'
+                    : 'VD: Lương, Bán hàng, Thưởng…'
                 }
                 maxLength={100}
                 value={name}

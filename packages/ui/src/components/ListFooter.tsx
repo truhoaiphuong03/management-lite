@@ -268,7 +268,7 @@ export const ListFooter: React.FC<ListFooterProps> = ({
                 fontWeight: 600,
               }}
             >
-              {isLoadingMore ? 'Đang tải thêm...' : loadMoreLabel}
+              {isLoadingMore ? 'Đang tải thêm…' : loadMoreLabel}
             </AppButton>
           )}
         </div>

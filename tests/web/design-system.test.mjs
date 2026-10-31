@@ -110,9 +110,9 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppButton variants, sizes, icon-only and zero-jit
 
   // 6. Explicit loadingText option
   const textLoadingMarkup = renderToStaticMarkup(
-    React.createElement(AppButton, { isLoading: true, loadingText: 'Đang gửi...' }, 'Gửi'),
+    React.createElement(AppButton, { isLoading: true, loadingText: 'Đang gửi…' }, 'Gửi'),
   );
-  assert.ok(textLoadingMarkup.includes('Đang gửi...'));
+  assert.ok(textLoadingMarkup.includes('Đang gửi…'));
 });
 
 test('MGL-UI-DESIGN-SYSTEM-31: AppCard variants, slots, and interactive states', async () => {
@@ -191,7 +191,7 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppInput and form controls accessibility and touc
   const textareaMarkup = renderToStaticMarkup(
     React.createElement(AppTextarea, {
       label: 'Ghi chú công việc',
-      placeholder: 'Nhập ghi chú...',
+      placeholder: 'Nhập ghi chú…',
     }),
   );
   assert.ok(textareaMarkup.includes('Ghi chú công việc'));
@@ -240,9 +240,9 @@ test('MGL-UI-DESIGN-SYSTEM-31: Spinner and LoadingState render properly', async 
   assert.ok(spinnerMarkup.includes('24px'));
 
   const loadingMarkup = renderToStaticMarkup(
-    React.createElement(LoadingState, { message: 'Đang tải dữ liệu...' }),
+    React.createElement(LoadingState, { message: 'Đang tải dữ liệu…' }),
   );
-  assert.ok(loadingMarkup.includes('Đang tải dữ liệu...'));
+  assert.ok(loadingMarkup.includes('Đang tải dữ liệu…'));
 });
 
 test('MGL-UI-DS-FIX-33: FIX 1 — AppInput and AppTextarea unique ID generation and explicit id preservation', async () => {
@@ -350,10 +350,10 @@ test('MGL-UI-DS-FIX-33: FIX 2 — AppDialog focus isolation, container fallback,
         isOpen: true,
         isLoading: true,
         onClose: () => {},
-        title: 'Đang xử lý...',
+        title: 'Đang xử lý…',
         confirmLabel: 'Lưu',
       },
-      React.createElement('div', null, 'Đang ghi dữ liệu vào hệ thống...'),
+      React.createElement('div', null, 'Đang ghi dữ liệu vào hệ thống…'),
     ),
   );
 
@@ -446,7 +446,7 @@ test('MGL-UI-DS-TOUCH-FIX-37: Adjacent AppButton size="sm" with gap=0 zero overl
 
   // 7. AppInput with size="sm" preserves compact visual input (36px) with 44px touch target wrapper
   const smInputMarkup = renderToStaticMarkup(
-    React.createElement(AppInput, { size: 'sm', placeholder: 'Tìm kiếm...' }),
+    React.createElement(AppInput, { size: 'sm', placeholder: 'Tìm kiếm…' }),
   );
 
   assert.ok(smInputMarkup.includes('min-height:36px'), 'Small input element must preserve compact visual height (36px)');
@@ -460,7 +460,7 @@ test('MGL-UI-DS-LOADING-FIX-39: AppButton explicit loadingText width stability, 
   );
 
   // 1. Small button with short original label ("Lưu") and long loadingText
-  const longText = 'Đang gửi thông tin xác thực lên máy chủ bảo mật và hoàn tất phiên giao dịch...';
+  const longText = 'Đang gửi thông tin xác thực lên máy chủ bảo mật và hoàn tất phiên giao dịch…';
   const loadingMarkup = renderToStaticMarkup(
     React.createElement(
       AppButton,
@@ -553,9 +553,9 @@ test('MGL-UI-DS-A11Y-FIX-41: AppButton loading accessibility - exactly one acces
     // When loadingText is absent:
     // - Spinner is NOT inside <span aria-hidden="true"> (direct child of overlay)
     // - There is no loadingText element
-    const spinnerHasAriaHidden = /<span aria-hidden="true"[^>]*>\s*<span role="status" aria-label="Đang tải\.\.\."/.test(markup);
+    const spinnerHasAriaHidden = /<span aria-hidden="true"[^>]*>\s*<span role="status" aria-label="Đang tải…"/.test(markup);
     const hasLoadingTextStatus = /<span role="status" aria-live="polite"[^>]*>/.test(markup);
-    const hasDirectSpinnerStatus = /<span[^>]*style="position:absolute;[^"]*"[^>]*>\s*<span role="status" aria-label="Đang tải\.\.\."/.test(markup);
+    const hasDirectSpinnerStatus = /<span[^>]*style="position:absolute;[^"]*"[^>]*>\s*<span role="status" aria-label="Đang tải…"/.test(markup);
 
     let accessibleStatusCount = 0;
     if (hasLoadingTextStatus) accessibleStatusCount++;
@@ -577,7 +577,7 @@ test('MGL-UI-DS-A11Y-FIX-41: AppButton loading accessibility - exactly one acces
       {
         size: 'sm',
         isLoading: true,
-        loadingText: 'Đang lưu thay đổi...',
+        loadingText: 'Đang lưu thay đổi…',
       },
       'Lưu',
     ),

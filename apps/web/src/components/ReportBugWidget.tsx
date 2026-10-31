@@ -630,7 +630,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
 
         setIsSubmitting(false);
         setErrorMessage(
-          'Phiên làm việc đã hết hạn hoặc không hợp lệ. Đang chuyển về trang đăng nhập...',
+          'Phiên làm việc đã hết hạn hoặc không hợp lệ. Đang chuyển về trang đăng nhập…',
         );
         return;
       }
@@ -1030,7 +1030,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                       style={{
                         color: 'var(--warning-text)',
                         marginLeft: '6px',
-                        fontSize: '11px',
+                        fontSize: '12px',
                       }}
                     >
                       (Gốc khi gửi)
@@ -1046,7 +1046,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                       style={{
                         color: 'var(--warning-text)',
                         marginLeft: '6px',
-                        fontSize: '11px',
+                        fontSize: '12px',
                       }}
                     >
                       (Gốc khi gửi)
@@ -1122,7 +1122,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Đường dẫn màn hình hoặc tiêu đề ngắn gọn..."
+                  placeholder="Đường dẫn màn hình hoặc tiêu đề ngắn gọn…"
                   maxLength={200}
                   disabled={isFormLocked}
                   data-testid="input-report-title"
@@ -1162,7 +1162,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     Mô tả chi tiết lỗi{' '}
                     <span style={{ color: 'var(--danger-text)' }}>*</span>
                   </label>
-                  <span style={{ fontSize: '11px', color: 'var(--muted-color)' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
                     {description.length}/2000
                   </span>
                 </div>
@@ -1172,7 +1172,7 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                   rows={4}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Vui lòng mô tả cụ thể thao tác của bạn và hiện tượng bất thường xuất hiện..."
+                  placeholder="Vui lòng mô tả cụ thể thao tác của bạn và hiện tượng bất thường xuất hiện…"
                   maxLength={2000}
                   disabled={isFormLocked}
                   data-testid="input-report-description"
@@ -1398,8 +1398,8 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                 >
                   {isSubmitting
                     ? isUnknownOutcome
-                      ? 'Đang gửi lại...'
-                      : 'Đang gửi...'
+                      ? 'Đang gửi lại…'
+                      : 'Đang gửi…'
                     : isUnknownOutcome
                       ? 'Gửi lại'
                       : 'Gửi báo lỗi'}

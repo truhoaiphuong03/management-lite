@@ -779,7 +779,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   };
 
   if (loading) {
-    return <LoadingState message="Đang tải dữ liệu báo cáo..." />;
+    return <LoadingState message="Đang tải dữ liệu báo cáo…" />;
   }
 
   return (
@@ -962,14 +962,14 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   border: 'none',
                   borderRadius: '4px',
                   padding: '4px 10px',
-                  fontSize: '11px',
+                  fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   minHeight: '36px',
                   minWidth: '44px',
                 }}
               >
-                {employeesLoading ? 'Đang tải...' : 'Thử lại'}
+                {employeesLoading ? 'Đang tải…' : 'Thử lại'}
               </button>
             </div>
           )}
@@ -1696,7 +1696,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               </label>
               <textarea
                 rows={2}
-                placeholder="Tóm tắt tình hình hoàn thành công việc hôm nay..."
+                placeholder="Tóm tắt tình hình hoàn thành công việc hôm nay…"
                 value={newReportNotes}
                 onChange={(e) => setNewReportNotes(e.target.value)}
                 style={{
@@ -1734,7 +1734,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 disabled={actionLoading}
                 style={{ minHeight: '44px' }}
               >
-                {actionLoading ? 'Đang lưu...' : 'Lưu bản nháp'}
+                {actionLoading ? 'Đang lưu…' : 'Lưu bản nháp'}
               </AppButton>
             </div>
           </div>
@@ -2019,7 +2019,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 disabled={actionLoading}
                 style={{ minHeight: '44px' }}
               >
-                {actionLoading ? 'Đang lưu...' : 'Cập nhật bản nháp'}
+                {actionLoading ? 'Đang lưu…' : 'Cập nhật bản nháp'}
               </AppButton>
             </div>
           </div>
@@ -2371,7 +2371,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{ minHeight: '44px' }}
               >
                 {actionLoading
-                  ? 'Đang nộp...'
+                  ? 'Đang nộp…'
                   : `Nộp phiên bản v${revisingReport.current_revision + 1}`}
               </AppButton>
             </div>
@@ -2453,7 +2453,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             </div>
 
             {detailLoading || !reportDetail ? (
-              <LoadingState message="Đang tải dữ liệu chi tiết..." />
+              <LoadingState message="Đang tải dữ liệu chi tiết…" />
             ) : (
               <>
                 {/* Status Badges */}

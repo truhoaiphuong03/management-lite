@@ -174,7 +174,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                   type="text"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
-                  placeholder="Dán mã kích hoạt tại đây..."
+                  placeholder="Dán mã kích hoạt tại đây…"
                   disabled={isLoading}
                   style={{
                     width: '100%',
@@ -271,7 +271,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                 type="submit"
                 disabled={isLoading}
               >
-                {isLoading ? 'Đang kích hoạt...' : 'Kích hoạt tài khoản'}
+                {isLoading ? 'Đang kích hoạt…' : 'Kích hoạt tài khoản'}
               </AppButton>
 
               <div style={{ marginTop: '16px', textAlign: 'center' }}>
