@@ -3,7 +3,7 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.6.3';
+export const SYSTEM_VERSION = '0.6.4';
 export const SYSTEM_COMMIT = '6e1ee4f';
 export const SYSTEM_ENV = 'staging';
 
@@ -41,8 +41,23 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.6.3',
+    version: '0.6.4',
     commit: 'latest',
+    released_at: '2026-10-31',
+    summary:
+      'Tối ưu hóa điều hướng 1-chạm (bấm phân hệ vào thẳng tab chức năng đầu tiên, bỏ qua màn hình thẻ trung gian) và loại bỏ dòng Breadcrumb trùng lặp phía trên thanh Sub-Navigation ngang.',
+    added: [],
+    improved: [
+      'Thanh bên DesktopSidebar và thanh đáy MobileBottomNav mở thẳng màn hình chức năng đầu tiên của phân hệ chỉ với 1 cú nhấp chuột.',
+      'Ẩn dòng Breadcrumb cấp 2 trùng lặp trên các màn hình danh sách chính khi đã có thanh điều hướng ngang (Sub-Navigation Bar), giữ lại Breadcrumb & nút Quay lại trên các trang chi tiết cấp 3.',
+    ],
+    fixed: [
+      'Chuyển hướng tự động các đường dẫn nhóm (/groups/*) về màn hình chức năng đầu tiên tương ứng theo vai trò.',
+    ],
+  },
+  {
+    version: '0.6.3',
+    commit: '6b031dd',
     released_at: '2026-10-31',
     summary:
       'Kiểm tra toàn diện hệ thống, chuẩn hóa tương phản giao diện Sáng/Tối & khung nhìn 320px trên /accounts, hợp nhất helper dùng chung (/issues, /schedules) và loại bỏ code thừa không sử dụng.',
