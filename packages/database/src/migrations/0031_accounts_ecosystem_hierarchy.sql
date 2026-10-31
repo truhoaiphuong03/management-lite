@@ -1,7 +1,6 @@
 -- Migration: 0031_accounts_ecosystem_hierarchy
 -- Scope: ACC-ECOSYSTEM v0.6.0 — 4-Tier Account Hierarchy (Phone/SIM -> Root Gmail -> TikTok/FB/YTB + Google Authenticator + Recovery Account), Health Status, and Encrypted Secret History.
 
--- 1. Expand platform check constraint on managed_accounts
 ALTER TABLE managed_accounts
   DROP CONSTRAINT IF EXISTS managed_accounts_platform_check;
 
@@ -9,7 +8,6 @@ ALTER TABLE managed_accounts
   ADD CONSTRAINT managed_accounts_platform_check
   CHECK (platform IN ('tiktok', 'gmail', 'facebook', 'youtube', 'authenticator', 'recovery', 'ai', 'pm', 'other'));
 
--- 2. Add hierarchy, SIM/phone, and health status columns to managed_accounts
 ALTER TABLE managed_accounts
   ADD COLUMN IF NOT EXISTS health_status text NOT NULL DEFAULT 'healthy',
   ADD COLUMN IF NOT EXISTS phone_number text NULL,
@@ -25,7 +23,6 @@ ALTER TABLE managed_accounts
   ADD CONSTRAINT managed_accounts_health_status_check
   CHECK (health_status IN ('healthy', 'verify_required', 'locked'));
 
--- 3. Self-link prevention constraints
 ALTER TABLE managed_accounts
   DROP CONSTRAINT IF EXISTS ck_managed_accounts_no_self_parent,
   DROP CONSTRAINT IF EXISTS ck_managed_accounts_no_self_recovery,
@@ -36,7 +33,6 @@ ALTER TABLE managed_accounts
   ADD CONSTRAINT ck_managed_accounts_no_self_recovery CHECK (recovery_account_id IS DISTINCT FROM id),
   ADD CONSTRAINT ck_managed_accounts_no_self_authenticator CHECK (authenticator_account_id IS DISTINCT FROM id);
 
--- 4. Workspace-scoped foreign keys for parent, recovery, and authenticator accounts
 ALTER TABLE managed_accounts
   DROP CONSTRAINT IF EXISTS fk_managed_accounts_parent_account,
   DROP CONSTRAINT IF EXISTS fk_managed_accounts_recovery_account,
@@ -72,7 +68,6 @@ CREATE INDEX IF NOT EXISTS idx_managed_accounts_workspace_authenticator
   ON managed_accounts (workspace_id, authenticator_account_id)
   WHERE authenticator_account_id IS NOT NULL;
 
--- 5. Encrypted Secret History Table (Append-on-rotation for password/2FA recovery)
 CREATE TABLE IF NOT EXISTS account_secret_history (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
@@ -94,13 +89,12 @@ CREATE TABLE IF NOT EXISTS account_secret_history (
 CREATE INDEX IF NOT EXISTS idx_account_secret_history_lookup
   ON account_secret_history (workspace_id, account_id, archived_at DESC);
 
--- 6. Grant runtime permissions safely if least-privilege roles exist
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hp_app_runtime') THEN
-    GRANT SELECT, INSERT, UPDATE, DELETE ON account_secret_history, contact_points, account_contact_links, account_relationships TO hp_app_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON account_secret_history TO hp_app_runtime;
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hp_app_test') THEN
-    GRANT SELECT, INSERT, UPDATE, DELETE ON account_secret_history, contact_points, account_contact_links, account_relationships TO hp_app_test;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON account_secret_history TO hp_app_test;
   END IF;
 END $$;

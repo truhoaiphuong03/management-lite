@@ -773,7 +773,58 @@ export class AccountsService {
       ORDER BY ma.created_at DESC;
     `;
 
-    const res = await this.pool.query(sql, params);
+    let res;
+    try {
+      res = await this.pool.query(sql, params);
+    } catch (err: unknown) {
+      const pgCode = (err as { code?: string })?.code;
+      const msg = err instanceof Error ? err.message : '';
+      if (
+        pgCode === '42703' ||
+        msg.includes('health_status') ||
+        msg.includes('phone_number') ||
+        msg.includes('parent_account_id')
+      ) {
+        try {
+          await this.pool.query(`
+            ALTER TABLE managed_accounts
+              ADD COLUMN IF NOT EXISTS health_status text NOT NULL DEFAULT 'healthy',
+              ADD COLUMN IF NOT EXISTS phone_number text NULL,
+              ADD COLUMN IF NOT EXISTS phone_note text NULL,
+              ADD COLUMN IF NOT EXISTS parent_account_id uuid NULL,
+              ADD COLUMN IF NOT EXISTS recovery_account_id uuid NULL,
+              ADD COLUMN IF NOT EXISTS authenticator_account_id uuid NULL;
+          `);
+          res = await this.pool.query(sql, params);
+        } catch {
+          const fbParams: unknown[] = [context.workspace.id];
+          const fbConds: string[] = ['ma.workspace_id = $1'];
+          if (status !== 'all') {
+            fbParams.push(status);
+            fbConds.push(`ma.status = $${fbParams.length}`);
+          }
+          if (platform) {
+            fbParams.push(platform);
+            fbConds.push(`ma.platform = $${fbParams.length}`);
+          }
+          const fallbackSql = `
+            SELECT
+              ma.id, ma.workspace_id, ma.platform, ma.platform_account_id, ma.username,
+              ma.recovery_email, ma.account_group, ma.assigned_employee_id,
+              e.full_name AS assigned_employee_name, e.employee_code AS assigned_employee_code,
+              ma.status, ma.notes, ma.version, ma.created_at, ma.updated_at
+            FROM managed_accounts ma
+            LEFT JOIN employees e
+              ON e.workspace_id = ma.workspace_id AND e.id = ma.assigned_employee_id
+            WHERE ${fbConds.join(' AND ')}
+            ORDER BY ma.created_at DESC;
+          `;
+          res = await this.pool.query(fallbackSql, fbParams);
+        }
+      } else {
+        throw err;
+      }
+    }
     const rawItems: ManagedAccountData[] = res.rows.map((r) =>
       this.mapAccountRow(r),
     );
@@ -1264,28 +1315,55 @@ export class AccountsService {
     requireRole(['owner'], context);
     const cleanId = this.assertUuid(id);
 
-    const res = await this.pool.query(
-      `SELECT
-        ma.id, ma.workspace_id, ma.platform, ma.platform_account_id, ma.username,
-        ma.recovery_email, ma.account_group, ma.assigned_employee_id,
-        e.full_name AS assigned_employee_name, e.employee_code AS assigned_employee_code,
-        ma.status, ma.health_status, ma.phone_number, ma.phone_note,
-        ma.parent_account_id, pa.username AS parent_account_username, pa.platform AS parent_account_platform,
-        ma.recovery_account_id, ra.username AS recovery_account_username,
-        ma.authenticator_account_id, aa.username AS authenticator_account_username,
-        ma.notes, ma.version, ma.created_at, ma.updated_at
-      FROM managed_accounts ma
-      LEFT JOIN employees e
-        ON e.workspace_id = ma.workspace_id AND e.id = ma.assigned_employee_id
-      LEFT JOIN managed_accounts pa
-        ON pa.workspace_id = ma.workspace_id AND pa.id = ma.parent_account_id
-      LEFT JOIN managed_accounts ra
-        ON ra.workspace_id = ma.workspace_id AND ra.id = ma.recovery_account_id
-      LEFT JOIN managed_accounts aa
-        ON aa.workspace_id = ma.workspace_id AND aa.id = ma.authenticator_account_id
-      WHERE ma.id = $1 AND ma.workspace_id = $2;`,
-      [cleanId, context.workspace.id],
-    );
+    let res;
+    try {
+      res = await this.pool.query(
+        `SELECT
+          ma.id, ma.workspace_id, ma.platform, ma.platform_account_id, ma.username,
+          ma.recovery_email, ma.account_group, ma.assigned_employee_id,
+          e.full_name AS assigned_employee_name, e.employee_code AS assigned_employee_code,
+          ma.status, ma.health_status, ma.phone_number, ma.phone_note,
+          ma.parent_account_id, pa.username AS parent_account_username, pa.platform AS parent_account_platform,
+          ma.recovery_account_id, ra.username AS recovery_account_username,
+          ma.authenticator_account_id, aa.username AS authenticator_account_username,
+          ma.notes, ma.version, ma.created_at, ma.updated_at
+        FROM managed_accounts ma
+        LEFT JOIN employees e
+          ON e.workspace_id = ma.workspace_id AND e.id = ma.assigned_employee_id
+        LEFT JOIN managed_accounts pa
+          ON pa.workspace_id = ma.workspace_id AND pa.id = ma.parent_account_id
+        LEFT JOIN managed_accounts ra
+          ON ra.workspace_id = ma.workspace_id AND ra.id = ma.recovery_account_id
+        LEFT JOIN managed_accounts aa
+          ON aa.workspace_id = ma.workspace_id AND aa.id = ma.authenticator_account_id
+        WHERE ma.id = $1 AND ma.workspace_id = $2;`,
+        [cleanId, context.workspace.id],
+      );
+    } catch (err: unknown) {
+      const pgCode = (err as { code?: string })?.code;
+      const msg = err instanceof Error ? err.message : '';
+      if (
+        pgCode === '42703' ||
+        msg.includes('health_status') ||
+        msg.includes('phone_number') ||
+        msg.includes('parent_account_id')
+      ) {
+        res = await this.pool.query(
+          `SELECT
+            ma.id, ma.workspace_id, ma.platform, ma.platform_account_id, ma.username,
+            ma.recovery_email, ma.account_group, ma.assigned_employee_id,
+            e.full_name AS assigned_employee_name, e.employee_code AS assigned_employee_code,
+            ma.status, ma.notes, ma.version, ma.created_at, ma.updated_at
+          FROM managed_accounts ma
+          LEFT JOIN employees e
+            ON e.workspace_id = ma.workspace_id AND e.id = ma.assigned_employee_id
+          WHERE ma.id = $1 AND ma.workspace_id = $2;`,
+          [cleanId, context.workspace.id],
+        );
+      } else {
+        throw err;
+      }
+    }
 
     if (res.rows.length === 0) {
       throw new AuthError('NOT_FOUND', 'Managed account not found', 404);

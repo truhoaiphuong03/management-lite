@@ -179,6 +179,7 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [lastAiPrompt, setLastAiPrompt] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [copied, setCopied] = useState(false);
@@ -322,6 +323,31 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
     }
   };
 
+  const copyTextSafe = async (value: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch {
+      // Fallback below
+    }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   const handleEscalateError = async (
     payload: { fingerprint?: string; log_id?: string },
     e?: React.MouseEvent,
@@ -331,6 +357,7 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
     setBusyKey(key);
     setError(null);
     setActionNotice(null);
+    setLastAiPrompt(null);
     try {
       const csrf = await fetchCsrfToken();
       const res = await api<{
@@ -346,11 +373,8 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
         },
         body: JSON.stringify(payload),
       });
-      try {
-        await navigator.clipboard.writeText(res.ai_fix_prompt);
-      } catch {
-        // Ignore clipboard errors in non-secure test contexts
-      }
+      setLastAiPrompt(res.ai_fix_prompt);
+      await copyTextSafe(res.ai_fix_prompt);
       setActionNotice(
         `${res.deduplicated ? 'Đã liên kết phiếu sẵn có' : 'Đã tạo phiếu mới'} ${res.bug_code ?? ''} trong Sổ tay lỗi & sao chép sẵn lệnh Yêu cầu AI sửa vào Clipboard! Anh chỉ cần dán (Ctrl+V) vào khung chat cho AI.`,
       );
@@ -513,14 +537,45 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
             >
               ✓ {actionNotice}
             </p>
-            <AppButton
-              size="sm"
-              variant="secondary"
-              onClick={() => onNavigate?.('/issues')}
-            >
-              Xem trong Sổ tay lỗi
-            </AppButton>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {lastAiPrompt && (
+                <AppButton
+                  size="sm"
+                  variant="primary"
+                  onClick={() => void copyTextSafe(lastAiPrompt)}
+                >
+                  📋 Sao chép lại lệnh AI
+                </AppButton>
+              )}
+              <AppButton
+                size="sm"
+                variant="secondary"
+                onClick={() => onNavigate?.('/issues')}
+              >
+                Xem trong Sổ tay lỗi
+              </AppButton>
+            </div>
           </div>
+          {lastAiPrompt && (
+            <pre
+              style={{
+                marginTop: 10,
+                marginBottom: 0,
+                padding: 10,
+                borderRadius: 8,
+                backgroundColor: 'rgba(15, 23, 42, 0.45)',
+                color: 'var(--text-primary, #f8fafc)',
+                fontSize: 12,
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                maxHeight: 180,
+                overflowY: 'auto',
+              }}
+            >
+              {lastAiPrompt}
+            </pre>
+          )}
         </AppCard>
       )}
 

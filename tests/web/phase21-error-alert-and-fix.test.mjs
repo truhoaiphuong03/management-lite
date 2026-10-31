@@ -74,3 +74,30 @@ test('PHASE21-T4: IssuesScreen and IssuesService support 1-click Bulk Confirm fo
     'IssuesScreen must expose bulk confirm button for awaiting_owner issues',
   );
 });
+
+test('PHASE21-T5: SystemLogService.escalate has valid SQL quotes & migration 0031 matches catalog parity', () => {
+  const sysLogSrc = read('apps/api/src/system-log/service.ts');
+  assert.ok(
+    !sysLogSrc.includes("bug_code ~ '^BUG-[0-9]+`"),
+    'SystemLogService.escalate must never contain unterminated SQL string literal',
+  );
+  assert.ok(
+    sysLogSrc.includes('RETURNING id, bug_code') &&
+      sysLogSrc.includes("bug_code: 'BUG-LOG'"),
+    'SystemLogService.escalate must rely on DB default bug_code with safe fallback',
+  );
+
+  const sql0031 = read(
+    'packages/database/src/migrations/0031_accounts_ecosystem_hierarchy.sql',
+  )
+    .replace(/\r\n/g, '\n')
+    .trim();
+  const catalogSrc = read('packages/database/src/migrations/catalog.ts').replace(
+    /\r\n/g,
+    '\n',
+  );
+  assert.ok(
+    catalogSrc.includes(sql0031),
+    '0031_accounts_ecosystem_hierarchy.sql must match catalog.ts byte-for-byte',
+  );
+});

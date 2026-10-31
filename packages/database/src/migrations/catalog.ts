@@ -1907,10 +1907,10 @@ CREATE INDEX IF NOT EXISTS idx_account_secret_history_lookup
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hp_app_runtime') THEN
-    GRANT SELECT, INSERT, UPDATE, DELETE ON account_secret_history, contact_points, account_contact_links, account_relationships TO hp_app_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON account_secret_history TO hp_app_runtime;
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hp_app_test') THEN
-    GRANT SELECT, INSERT, UPDATE, DELETE ON account_secret_history, contact_points, account_contact_links, account_relationships TO hp_app_test;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON account_secret_history TO hp_app_test;
   END IF;
 END $$;
 `;

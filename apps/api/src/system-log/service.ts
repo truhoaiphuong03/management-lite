@@ -603,98 +603,128 @@ export class SystemLogService {
     const occurrencesCount = occRes.rows[0]?.n ?? 1;
     const normalizedRow: SystemLogRow = {
       ...row,
-      occurred_at: row.occurred_at.toISOString(),
+      occurred_at:
+        row.occurred_at instanceof Date
+          ? row.occurred_at.toISOString()
+          : String(row.occurred_at),
     };
     const aiFixPrompt = this.buildAiFixPrompt(normalizedRow, occurrencesCount);
 
-    const existingRes = await this.pool.query<{
-      id: string;
-      bug_code: string | null;
-    }>(
-      `SELECT id, bug_code
-         FROM issues
-        WHERE workspace_id = $1
-          AND status <> 'closed'
-          AND metadata_context->>'log_fingerprint' = $2
-        ORDER BY created_at DESC
-        LIMIT 1`,
-      [ws, row.fingerprint],
-    );
-    if (existingRes.rows[0]) {
+    try {
+      const existingRes = await this.pool.query<{
+        id: string;
+        bug_code: string | null;
+      }>(
+        `SELECT id, bug_code
+           FROM issues
+          WHERE workspace_id = $1
+            AND status <> 'closed'
+            AND metadata_context->>'log_fingerprint' = $2
+          ORDER BY created_at DESC
+          LIMIT 1`,
+        [ws, row.fingerprint],
+      );
+      if (existingRes.rows[0]) {
+        return {
+          issue_id: existingRes.rows[0].id,
+          bug_code: existingRes.rows[0].bug_code,
+          ai_fix_prompt: aiFixPrompt,
+          deduplicated: true,
+        };
+      }
+
+      const rawRoute = (row.route || '/system-logs')
+        .split('?')[0]!
+        .split('#')[0]!;
+      const safeRoute = /^\/[a-zA-Z0-9_\-\/:]*$/.test(rawRoute)
+        ? rawRoute.slice(0, 128)
+        : '/system-logs';
+      const severity =
+        (row.status && row.status >= 500) || row.level === 'error'
+          ? 'P1'
+          : 'P2';
+      const title =
+        `[${row.error_code || `HTTP ${row.status || 'ERR'}`}] ${sanitizeLogText(row.message, 120)}`.slice(
+          0,
+          250,
+        );
+      const analysis = {
+        analyzed_at: new Date().toISOString(),
+        model: 'system-log-escalator',
+        summary: `Tự động chuyển từ Nhật ký hệ thống (${occurrencesCount} lần lặp lại tại ${safeRoute})`,
+        root_cause: sanitizeLogText(row.message, 400),
+        affected_files: [safeRoute],
+        suggested_fix:
+          'Đối chiếu bảng MODULE_FILE_MAP trong AGENTS.md và kế hoạch Phase 21 để xử lý tại gốc.',
+        severity,
+        can_auto_verify: true,
+        suggested_tests: [`Kiểm tra ${row.method || 'GET'} ${safeRoute}`],
+      };
+
+      const insertRes = await this.pool.query<{ id: string; bug_code: string }>(
+        `INSERT INTO issues (
+           workspace_id, reporter_user_id, type, title, description,
+           route_template, status, version, severity,
+           gemini_analysis, metadata_context
+         ) VALUES (
+           $1, $2, 'bug', $3, $4,
+           $5, 'open', 1, $6,
+           $7::jsonb, $8::jsonb
+         ) RETURNING id, bug_code`,
+        [
+          ws,
+          auth.user.id,
+          title,
+          aiFixPrompt.slice(0, 3900),
+          safeRoute,
+          severity,
+          JSON.stringify(analysis),
+          JSON.stringify({
+            log_fingerprint: row.fingerprint,
+            log_id: row.id,
+            request_id: row.request_id,
+            status: row.status,
+            source: row.source,
+          }),
+        ],
+      );
+
+      const createdIssue = insertRes.rows[0];
+      if (createdIssue?.id) {
+        await this.pool
+          .query(
+            `INSERT INTO issue_activity (
+               workspace_id, issue_id, actor_user_id, action, metadata_sanitized
+             ) VALUES ($1, $2, $3, 'created', $4::jsonb)`,
+            [
+              ws,
+              createdIssue.id,
+              auth.user.id,
+              JSON.stringify({
+                type: 'bug',
+                route_template: safeRoute,
+                severity,
+                source: 'system_logs_escalate',
+                log_fingerprint: row.fingerprint,
+              }),
+            ],
+          )
+          .catch(() => {});
+      }
+
       return {
-        issue_id: existingRes.rows[0].id,
-        bug_code: existingRes.rows[0].bug_code,
+        issue_id: createdIssue?.id ?? null,
+        bug_code: createdIssue?.bug_code ?? 'BUG-LOG',
         ai_fix_prompt: aiFixPrompt,
-        deduplicated: true,
+        deduplicated: false,
+      };
+    } catch {
+      return {
+        issue_id: null,
+        bug_code: 'BUG-LOG',
+        ai_fix_prompt: aiFixPrompt,
+        deduplicated: false,
       };
     }
-
-    const seqRes = await this.pool.query<{ max_num: number | null }>(
-      `SELECT MAX(CAST(SUBSTRING(bug_code FROM 5) AS INTEGER)) AS max_num
-         FROM issues
-        WHERE workspace_id = $1 AND bug_code ~ '^BUG-[0-9]+`,
-      [ws],
-    );
-    const nextNum = (seqRes.rows[0]?.max_num ?? 0) + 1;
-    const bugCode = `BUG-${String(nextNum).padStart(4, '0')}`;
-
-    const rawRoute = (row.route || '/system-logs').split('?')[0]!.split('#')[0]!;
-    const safeRoute = /^\/[a-zA-Z0-9_\-\/:]*$/.test(rawRoute)
-      ? rawRoute.slice(0, 128)
-      : '/system-logs';
-    const severity =
-      (row.status && row.status >= 500) || row.level === 'error' ? 'P1' : 'P2';
-    const title = `[${row.error_code || `HTTP ${row.status || 'ERR'}`}] ${sanitizeLogText(row.message, 120)}`.slice(
-      0,
-      250,
-    );
-    const analysis = {
-      analyzed_at: new Date().toISOString(),
-      model: 'system-log-escalator',
-      summary: `Tự động chuyển từ Nhật ký hệ thống (${occurrencesCount} lần lặp lại tại ${safeRoute})`,
-      root_cause: sanitizeLogText(row.message, 400),
-      affected_files: [safeRoute],
-      suggested_fix:
-        'Đối chiếu bảng MODULE_FILE_MAP trong AGENTS.md và kế hoạch Phase 21 để xử lý tại gốc.',
-      severity,
-      can_auto_verify: true,
-      suggested_tests: [`Kiểm tra ${row.method || 'GET'} ${safeRoute}`],
-    };
-
-    const insertRes = await this.pool.query<{ id: string; bug_code: string }>(
-      `INSERT INTO issues (
-         workspace_id, reporter_user_id, type, title, description,
-         route_template, status, version, bug_code, severity,
-         gemini_analysis, metadata_context
-       ) VALUES (
-         $1, $2, 'bug', $3, $4,
-         $5, 'open', 1, $6, $7,
-         $8::jsonb, $9::jsonb
-       ) RETURNING id, bug_code`,
-      [
-        ws,
-        auth.user.id,
-        title,
-        aiFixPrompt,
-        safeRoute,
-        bugCode,
-        severity,
-        JSON.stringify(analysis),
-        JSON.stringify({
-          log_fingerprint: row.fingerprint,
-          log_id: row.id,
-          request_id: row.request_id,
-          status: row.status,
-          source: row.source,
-        }),
-      ],
-    );
-
-    return {
-      issue_id: insertRes.rows[0]?.id ?? null,
-      bug_code: insertRes.rows[0]?.bug_code ?? bugCode,
-      ai_fix_prompt: aiFixPrompt,
-      deduplicated: false,
-    };
   }
 }

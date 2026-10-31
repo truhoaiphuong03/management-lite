@@ -4,7 +4,7 @@
 
 ## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
 
-- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.6.0`
+- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.6.1`
 - **Tiến độ lũy kế:** Hoàn tất **Phase 20 (`v0.6.0` — Hệ sinh thái Tài khoản 4 Tầng `SĐT ➔ Gmail ➔ TikTok/FB/YTB` + `GG Authenticator` + `TK Khôi phục`)** & **Phase 13/13 (`100%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`, Master Plan `ML-03..05` & Đợt chuẩn hóa UI/UX Desktop + Mobile `v0.3.0`–`v0.3.2`):
   - ✅ **Phase 1 (`v0.1.4`):** Hồ sơ Nhân sự mở rộng + Ngân hàng + Nhắc SĐT (`migration 0030`) + Kích hoạt `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY`, `FIN_RECEIPT_DIR` (`96d3d1e`).
   - ✅ **Phase 2 (`v0.1.5`):** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel + Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương + Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** (`c4896f0`).

@@ -126,6 +126,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   // Create Modal
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [createMode, setCreateMode] = useState<'single' | 'bulk'>('single');
+  const [showCreateAdvanced, setShowCreateAdvanced] = useState<boolean>(false);
   const [newPlatform, setNewPlatform] = useState<AccountPlatform>('gmail');
   const [newUsername, setNewUsername] = useState<string>('');
   const [newPlatformAccountId, setNewPlatformAccountId] = useState<string>('');
@@ -521,10 +522,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   );
 
   const filteredAccounts = useMemo(() => {
-    const baseList = searchQuery.trim()
+    const normalizedSearch = searchQuery.toLowerCase().trim();
+    const baseList = normalizedSearch
       ? lookup360Result.visibleAccounts
       : accounts;
     return baseList.filter((acc) => {
+      const normalizedUser = (acc.username || '').toLowerCase();
+      void normalizedUser;
       if (platformFilter !== 'all' && acc.platform !== platformFilter)
         return false;
       if (statusFilter !== 'all' && acc.status !== statusFilter) return false;
@@ -2271,12 +2275,23 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         renderDetailView()
       ) : (
         <>
-          {/* 1. Page Header */}
+          {/* 1. Page Header — Gọn gàng, thân thiện với người dùng */}
           <PageHeader
-            title="Hệ sinh thái Tài khoản (ACC)"
-            subtitle="Quản lý tập trung SĐT ➔ Gmail gốc ➔ TikTok / FB / YTB, Google Authenticator, TK Khôi phục & Kho bí mật (C05 / SEC-02)"
+            title="Quản lý Tài khoản"
+            subtitle="Lưu trữ tập trung tài khoản Gmail, TikTok, Facebook, YouTube, SĐT và mật khẩu bảo mật"
             actions={
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div
+                data-testid="banner-personal-password-change"
+                style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}
+              >
+                <AppButton
+                  variant="secondary"
+                  data-testid="btn-nav-change-password"
+                  onClick={() => onNavigate?.('/settings')}
+                >
+                  <LockIcon size={14} />
+                  <span>Đổi mật khẩu cá nhân</span>
+                </AppButton>
                 <AppButton
                   variant="secondary"
                   onClick={() => {
@@ -2286,12 +2301,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   disabled={loading}
                 >
                   <PlusIcon size={16} />
-                  <span>Dán hàng loạt</span>
+                  <span>Nhập nhanh danh sách</span>
                 </AppButton>
                 <AppButton
                   variant="primary"
                   onClick={() => {
                     setCreateMode('single');
+                    setShowCreateAdvanced(false);
                     setShowCreateModal(true);
                   }}
                   disabled={loading}
@@ -2312,7 +2328,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 borderRadius: '8px',
                 color: 'var(--danger-text)',
-                marginBottom: '20px',
+                marginBottom: '16px',
                 fontSize: '13px',
               }}
             >
@@ -2328,7 +2344,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 border: '1px solid rgba(16, 185, 129, 0.3)',
                 borderRadius: '8px',
                 color: 'var(--success-text)',
-                marginBottom: '20px',
+                marginBottom: '16px',
                 fontSize: '13px',
               }}
             >
@@ -2336,409 +2352,220 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             </div>
           )}
 
-          {/* Shortcut: Personal Account Password Change (UI20) */}
-          <div
-            data-testid="banner-personal-password-change"
-            style={{
-              padding: '14px 18px',
-              backgroundColor: 'var(--surface-subtle)',
-              border: '1px solid rgba(51, 65, 85, 0.8)',
-              borderRadius: '8px',
-              marginBottom: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--accent-text)',
-                  flexShrink: 0,
-                }}
-              >
-                <LockIcon size={18} />
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--text-color)',
-                  }}
-                >
-                  Bảo mật tài khoản đăng nhập của bạn
-                </div>
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--muted-color)',
-                    marginTop: '2px',
-                  }}
-                >
-                  Đổi mật khẩu tài khoản đăng nhập hệ thống trong Cài đặt & Hồ
-                  sơ.
-                </div>
-              </div>
-            </div>
-            <AppButton
-              variant="secondary"
-              data-testid="btn-nav-change-password"
-              onClick={() => onNavigate?.('/settings')}
-            >
-              <LockIcon size={14} />
-              <span>Đổi mật khẩu tài khoản</span>
-            </AppButton>
-          </div>
-
-          {/* 2. KPI Cards */}
+          {/* 2. Compact Summary Strip */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-              gap: '14px',
-              marginBottom: '20px',
-            }}
-          >
-            <AppCard style={{ padding: '14px 16px' }}>
-              <div
-                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
-              >
-                TỔNG TÀI KHOẢN
-              </div>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 700,
-                  color: 'var(--text-color)',
-                  marginTop: '4px',
-                }}
-              >
-                {metrics.total}
-              </div>
-              <div
-                style={{ fontSize: '12px', color: 'var(--success-text)', marginTop: '4px' }}
-              >
-                {metrics.active} đang hoạt động
-              </div>
-            </AppCard>
-
-            <AppCard style={{ padding: '14px 16px' }}>
-              <div
-                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
-              >
-                📧 GMAIL GỐC & KÊNH CON
-              </div>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 700,
-                  color: 'var(--accent-text)',
-                  marginTop: '4px',
-                }}
-              >
-                {metrics.gmailCount} <span style={{ fontSize: '14px', color: 'var(--muted-color)' }}>Gmail</span>
-              </div>
-              <div
-                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
-              >
-                Nuôi {metrics.socialCount} kênh TikTok / FB / YTB
-              </div>
-            </AppCard>
-
-            <AppCard style={{ padding: '14px 16px' }}>
-              <div
-                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
-              >
-                📱 SỐ ĐIỆN THOẠI / SIM
-              </div>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 700,
-                  color: 'var(--info-text, #60A5FA)',
-                  marginTop: '4px',
-                }}
-              >
-                {metrics.phoneCount} <span style={{ fontSize: '14px', color: 'var(--muted-color)' }}>SĐT</span>
-              </div>
-              <div
-                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
-              >
-                Quản lý định mức Gmail / SĐT
-              </div>
-            </AppCard>
-
-            <AppCard style={{ padding: '14px 16px' }}>
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: metrics.attentionCount > 0 ? 'var(--warning-text)' : 'var(--muted-color)',
-                  fontWeight: 600,
-                }}
-              >
-                ⚠️ CẦN XÁC MINH / KHÓA
-              </div>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 700,
-                  color: metrics.attentionCount > 0 ? 'var(--warning-text)' : 'var(--text-color)',
-                  marginTop: '4px',
-                }}
-              >
-                {metrics.attentionCount}
-              </div>
-              <div
-                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
-              >
-                {metrics.archived} đã lưu trữ
-              </div>
-            </AppCard>
-          </div>
-
-          {/* 2b. 4 Ecosystem View Mode Tabs */}
-          <div
-            data-testid="accounts-view-tabs"
-            style={{
-              display: 'flex',
-              gap: '8px',
-              flexWrap: 'wrap',
+                'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+              gap: '12px',
               marginBottom: '16px',
             }}
           >
-            {(
-              [
-                {
-                  id: 'all',
-                  label: `📋 Tất cả & Tra cứu 360° (${filteredAccounts.length})`,
-                },
-                {
-                  id: 'clusters',
-                  label: `🌳 Theo Cụm Gmail gốc (${gmailClustersData.clusters.length})`,
-                },
-                {
-                  id: 'phones',
-                  label: `📱 Theo Số điện thoại (${phoneClustersData.phones.length})`,
-                },
-                {
-                  id: 'protection',
-                  label: `🔐 Theo GG Authenticator & TK Khôi phục (${protectionClustersData.authenticators.length + protectionClustersData.recoveries.length})`,
-                },
-              ] as const
-            ).map((tab) => {
-              const active = viewMode === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  data-testid={`tab-view-${tab.id}`}
-                  onClick={() => setViewMode(tab.id)}
-                  style={{
-                    padding: '9px 14px',
-                    borderRadius: '8px',
-                    border: active
-                      ? '1px solid #14B8A6'
-                      : '1px solid var(--border-color)',
-                    backgroundColor: active
-                      ? 'rgba(20, 184, 166, 0.14)'
-                      : 'var(--surface-subtle)',
-                    color: active ? 'var(--accent-text)' : 'var(--text-color)',
-                    fontSize: '13px',
-                    fontWeight: active ? 700 : 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 3. Filter Bar & 360° Lookup Box */}
-          <AppCard style={{ padding: '16px', marginBottom: '20px' }}>
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '12px',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
+            <AppCard style={{ padding: '12px 16px' }}>
+              <div
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
+              >
+                Tổng tài khoản
+              </div>
               <div
                 style={{
                   display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                  alignItems: 'center',
-                  flex: 1,
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  marginTop: '4px',
                 }}
               >
-                {/* 360° Search Box */}
-                <div
+                <span
                   style={{
-                    position: 'relative',
-                    minWidth: '240px',
-                    flex: 1,
-                  }}
-                >
-                  <input
-                    type="text"
-                    data-testid="accounts-360-search-input"
-                    placeholder="🔍 Tra cứu 2 chiều 360°: Gõ ID TikTok, Gmail, SĐT, UID FB/YTB, Authenticator…"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      padding: '8px 12px 8px 36px',
-                      backgroundColor: 'var(--surface-subtle)',
-                      border: searchQuery.trim()
-                        ? '1px solid #14B8A6'
-                        : '1px solid var(--border-color)',
-                      borderRadius: '6px',
-                      color: 'var(--text-color)',
-                      fontSize: '13px',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: 'var(--muted-color)',
-                      pointerEvents: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <SearchIcon size={16} />
-                  </div>
-                </div>
-
-                {/* Platform Filter */}
-                <select
-                  value={platformFilter}
-                  onChange={(e) => setPlatformFilter(e.target.value)}
-                  style={{
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
+                    fontSize: '22px',
+                    fontWeight: 700,
                     color: 'var(--text-color)',
-                    fontSize: '13px',
                   }}
                 >
-                  <option value="all">Tất cả nền tảng</option>
-                  <option value="gmail">📧 Gmail / Google</option>
-                  <option value="tiktok">🎵 TikTok</option>
-                  <option value="facebook">📘 Facebook (FB)</option>
-                  <option value="youtube">▶️ YouTube (YTB)</option>
-                  <option value="authenticator">🔐 Google Authenticator</option>
-                  <option value="recovery">🛡️ Tài khoản Khôi phục</option>
-                  <option value="ai">🤖 AI / LLM</option>
-                  <option value="pm">📋 PM / Quản lý dự án</option>
-                  <option value="other">🌐 Khác</option>
-                </select>
+                  {metrics.total}
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--success-text)' }}>
+                  {metrics.active} đang dùng
+                </span>
+              </div>
+            </AppCard>
 
-                {/* Health Filter */}
-                <select
-                  data-testid="filter-account-health"
-                  value={healthFilter}
-                  onChange={(e) => setHealthFilter(e.target.value)}
+            <AppCard style={{ padding: '12px 16px' }}>
+              <div
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
+              >
+                Gmail & Kênh MXH
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  marginTop: '4px',
+                }}
+              >
+                <span
                   style={{
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    color: 'var(--text-color)',
-                    fontSize: '13px',
+                    fontSize: '22px',
+                    fontWeight: 700,
+                    color: 'var(--accent-text)',
                   }}
                 >
-                  <option value="all">Mọi sức khỏe TK</option>
-                  <option value="healthy">🟢 Hoạt động tốt</option>
-                  <option value="verify_required">🟡 Cần xác minh / Checkpoint</option>
-                  <option value="locked">🔴 Bị khóa / Die</option>
-                </select>
+                  {metrics.gmailCount}{' '}
+                  <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--muted-color)' }}>
+                    Gmail
+                  </span>
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  {metrics.socialCount} kênh MXH
+                </span>
+              </div>
+            </AppCard>
 
-                {/* Group Filter */}
-                <select
-                  data-testid="filter-account-group"
-                  value={groupFilter}
-                  onChange={(e) => setGroupFilter(e.target.value)}
+            <AppCard style={{ padding: '12px 16px' }}>
+              <div
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
+              >
+                Số điện thoại (SIM)
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  marginTop: '4px',
+                }}
+              >
+                <span
                   style={{
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
+                    fontSize: '22px',
+                    fontWeight: 700,
                     color: 'var(--text-color)',
-                    fontSize: '13px',
                   }}
                 >
-                  <option value="all">Tất cả nhóm</option>
-                  <option value="Marketing">Marketing / Kênh</option>
-                  <option value="Production">Sản xuất / AI</option>
-                  <option value="Operations">Vận hành / Quản trị</option>
-                  <option value="Sales">Bán hàng / Shop</option>
-                </select>
+                  {metrics.phoneCount}{' '}
+                  <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--muted-color)' }}>
+                    SĐT
+                  </span>
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  Theo dõi SIM
+                </span>
+              </div>
+            </AppCard>
 
-                {/* Assignee Filter */}
-                <select
-                  data-testid="filter-account-assignee"
-                  value={assigneeFilter}
-                  onChange={(e) => setAssigneeFilter(e.target.value)}
+            <AppCard style={{ padding: '12px 16px' }}>
+              <div
+                style={{
+                  fontSize: '12px',
+                  color:
+                    metrics.attentionCount > 0
+                      ? 'var(--warning-text)'
+                      : 'var(--muted-color)',
+                  fontWeight: 600,
+                }}
+              >
+                Cần kiểm tra / Khóa
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  marginTop: '4px',
+                }}
+              >
+                <span
                   style={{
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    color: 'var(--text-color)',
-                    fontSize: '13px',
+                    fontSize: '22px',
+                    fontWeight: 700,
+                    color:
+                      metrics.attentionCount > 0
+                        ? 'var(--warning-text)'
+                        : 'var(--text-color)',
                   }}
                 >
-                  <option value="all">Tất cả người phụ trách</option>
-                  {employeesList.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.full_name}
-                    </option>
-                  ))}
-                </select>
+                  {metrics.attentionCount}
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  {metrics.archived} lưu trữ
+                </span>
+              </div>
+            </AppCard>
+          </div>
 
-                {/* Status Filter */}
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  style={{
-                    boxSizing: 'border-box',
-                    padding: '8px 12px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    color: 'var(--text-color)',
-                    fontSize: '13px',
-                  }}
-                >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="active">Đang hoạt động</option>
-                  <option value="locked">Tạm khóa</option>
-                  <option value="archived">Đã lưu trữ</option>
-                </select>
+          {/* 3. Unified View Tabs + Search & Filter Toolbar */}
+          <AppCard style={{ padding: '14px 16px', marginBottom: '16px' }}>
+            {/* Top Row: Clean Segmented View Switcher + Refresh */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px',
+                paddingBottom: '12px',
+                marginBottom: '12px',
+                borderBottom: '1px solid var(--border-subtle)',
+              }}
+            >
+              <div
+                data-testid="accounts-view-tabs"
+                style={{
+                  display: 'inline-flex',
+                  gap: '4px',
+                  flexWrap: 'wrap',
+                  padding: '3px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                {(
+                  [
+                    {
+                      id: 'all',
+                      label: `Danh sách (${filteredAccounts.length})`,
+                    },
+                    {
+                      id: 'clusters',
+                      label: `Theo Gmail (${gmailClustersData.clusters.length})`,
+                    },
+                    {
+                      id: 'phones',
+                      label: `Theo SĐT (${phoneClustersData.phones.length})`,
+                    },
+                    {
+                      id: 'protection',
+                      label: `Bảo mật & 2FA (${protectionClustersData.authenticators.length + protectionClustersData.recoveries.length})`,
+                    },
+                  ] as const
+                ).map((tab) => {
+                  const active = viewMode === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      data-testid={`tab-view-${tab.id}`}
+                      onClick={() => setViewMode(tab.id)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        backgroundColor: active
+                          ? 'rgba(20, 184, 166, 0.16)'
+                          : 'transparent',
+                        color: active ? 'var(--accent-text)' : 'var(--muted-color)',
+                        fontSize: '13px',
+                        fontWeight: active ? 700 : 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
 
               <button
@@ -2747,25 +2574,213 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 disabled={loading || actionLoading}
                 style={{
                   boxSizing: 'border-box',
-                  minHeight: '36px',
-                  padding: '6px 12px',
-                  backgroundColor: 'transparent',
+                  height: '34px',
+                  padding: '0 12px',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: 'var(--muted-color)',
+                  color: 'var(--text-color)',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  fontSize: '13px',
+                  fontSize: '12px',
+                  fontWeight: 500,
                 }}
               >
-                <RotateCcwIcon size={14} />
+                <RotateCcwIcon size={13} />
                 <span>Làm mới</span>
               </button>
             </div>
 
-            {/* Phone Quick Filter Pills */}
+            {/* Bottom Row: Single-line Search + Compact Filters */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'minmax(min(100%, 240px), 2fr) repeat(auto-fit, minmax(140px, 1fr))',
+                gap: '8px',
+                alignItems: 'center',
+              }}
+            >
+              {/* Search Box (Single Icon, Clean Placeholder) */}
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  type="text"
+                  data-testid="accounts-360-search-input"
+                  placeholder="Tìm theo email, tên kênh TikTok/FB/YTB, SĐT…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    height: '36px',
+                    boxSizing: 'border-box',
+                    padding: '0 30px 0 34px',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: searchQuery.trim()
+                      ? '1px solid #14B8A6'
+                      : '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    color: 'var(--text-color)',
+                    fontSize: '13px',
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--muted-color)',
+                    pointerEvents: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <SearchIcon size={15} />
+                </div>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    aria-label="Xóa từ khóa tìm kiếm"
+                    onClick={() => setSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '6px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--muted-color)',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <CloseIcon size={13} />
+                  </button>
+                )}
+              </div>
+
+              {/* Platform Filter */}
+              <select
+                value={platformFilter}
+                onChange={(e) => setPlatformFilter(e.target.value)}
+                style={{
+                  height: '36px',
+                  boxSizing: 'border-box',
+                  padding: '0 10px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--text-color)',
+                  fontSize: '13px',
+                }}
+              >
+                <option value="all">Tất cả nền tảng</option>
+                <option value="gmail">Gmail / Google</option>
+                <option value="tiktok">TikTok</option>
+                <option value="facebook">Facebook</option>
+                <option value="youtube">YouTube</option>
+                <option value="authenticator">Google Authenticator</option>
+                <option value="recovery">TK Khôi phục</option>
+                <option value="ai">AI / Công cụ</option>
+                <option value="pm">Quản lý dự án</option>
+                <option value="other">Khác</option>
+              </select>
+
+              {/* Health Filter */}
+              <select
+                data-testid="filter-account-health"
+                value={healthFilter}
+                onChange={(e) => setHealthFilter(e.target.value)}
+                style={{
+                  height: '36px',
+                  boxSizing: 'border-box',
+                  padding: '0 10px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--text-color)',
+                  fontSize: '13px',
+                }}
+              >
+                <option value="all">Mọi tình trạng</option>
+                <option value="healthy">Hoạt động tốt</option>
+                <option value="verify_required">Cần xác minh</option>
+                <option value="locked">Đang bị khóa</option>
+              </select>
+
+              {/* Group Filter */}
+              <select
+                data-testid="filter-account-group"
+                value={groupFilter}
+                onChange={(e) => setGroupFilter(e.target.value)}
+                style={{
+                  height: '36px',
+                  boxSizing: 'border-box',
+                  padding: '0 10px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--text-color)',
+                  fontSize: '13px',
+                }}
+              >
+                <option value="all">Tất cả nhóm</option>
+                <option value="Marketing">Marketing / Kênh</option>
+                <option value="Production">Sản xuất / AI</option>
+                <option value="Operations">Vận hành</option>
+                <option value="Sales">Bán hàng / Shop</option>
+              </select>
+
+              {/* Assignee Filter */}
+              <select
+                data-testid="filter-account-assignee"
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
+                style={{
+                  height: '36px',
+                  boxSizing: 'border-box',
+                  padding: '0 10px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--text-color)',
+                  fontSize: '13px',
+                }}
+              >
+                <option value="all">Mọi người phụ trách</option>
+                {employeesList.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.full_name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{
+                  height: '36px',
+                  boxSizing: 'border-box',
+                  padding: '0 10px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--text-color)',
+                  fontSize: '13px',
+                }}
+              >
+                <option value="all">Đang dùng & Lưu trữ</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="archived">Đã lưu trữ</option>
+              </select>
+            </div>
+
+            {/* Phone Quick Filter Pills (Only when phones exist) */}
             {phoneClustersData.phones.length > 0 && (
               <div
                 style={{
@@ -2773,13 +2788,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   gap: '6px',
                   flexWrap: 'wrap',
                   alignItems: 'center',
-                  marginTop: '12px',
+                  marginTop: '10px',
                   paddingTop: '10px',
                   borderTop: '1px solid var(--border-subtle)',
                 }}
               >
                 <span style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}>
-                  📱 Lọc theo SĐT:
+                  SĐT:
                 </span>
                 <button
                   type="button"
@@ -2803,7 +2818,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     cursor: 'pointer',
                   }}
                 >
-                  Tất cả ({phoneClustersData.phones.length} SĐT)
+                  Tất cả ({phoneClustersData.phones.length})
                 </button>
                 {phoneClustersData.phones.map((ph) => {
                   const isSelected = phoneFilter === ph.phone_number;
@@ -2848,16 +2863,16 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               </div>
             )}
 
-            {/* 360° Lookup Discovery Banner */}
-            {lookup360Result && (
+            {/* Search Result Banner — ONLY shown when user actually typed a search query! */}
+            {searchQuery.toLowerCase().trim().length > 0 && (
               <div
                 data-testid="banner-360-lookup-result"
                 style={{
-                  marginTop: '12px',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                  border: '1px solid rgba(20, 184, 166, 0.35)',
+                  marginTop: '10px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                  border: '1px solid rgba(20, 184, 166, 0.3)',
                   fontSize: '12px',
                   color: 'var(--text-color)',
                   display: 'flex',
@@ -2868,23 +2883,22 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 }}
               >
                 <div>
-                  🔍 <strong>Truy vết 2 chiều 360° cho &ldquo;{searchQuery.trim()}&rdquo;:</strong>{' '}
-                  Khớp trực tiếp{' '}
+                  Kết quả tìm kiếm cho <strong>&ldquo;{searchQuery.trim()}&rdquo;</strong>: Tìm thấy{' '}
                   <strong style={{ color: 'var(--accent-text)' }}>
                     {lookup360Result.directMatchIds.size}
                   </strong>{' '}
-                  tài khoản ➔ Tự động lôi ra toàn bộ họ hàng{' '}
+                  tài khoản khớp trực tiếp và{' '}
                   <strong style={{ color: 'var(--accent-text)' }}>
                     {lookup360Result.matchedAccounts.length}
                   </strong>{' '}
-                  tài khoản liên quan (Gmail gốc, kênh con TikTok/FB/YTB, GG Authenticator, TK Khôi phục & cùng SĐT).
+                  tài khoản liên kết (cùng Gmail hoặc SĐT).
                 </div>
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
                   style={{
-                    padding: '3px 8px',
-                    borderRadius: '6px',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
                     border: '1px solid var(--border-color)',
                     backgroundColor: 'var(--surface-hover)',
                     color: 'var(--muted-color)',
@@ -3525,16 +3539,16 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       Nền tảng
                     </th>
                     <th style={{ padding: '12px 14px', color: 'var(--muted-color)' }}>
-                      Tài khoản / UID
+                      Tài khoản
                     </th>
                     <th style={{ padding: '12px 14px', color: 'var(--muted-color)' }}>
-                      Liên kết Hệ sinh thái (Gmail gốc • SĐT • Bảo vệ)
+                      Liên kết (Gmail • SĐT)
                     </th>
                     <th style={{ padding: '12px 14px', color: 'var(--muted-color)' }}>
                       Nhóm & Phụ trách
                     </th>
                     <th style={{ padding: '12px 14px', color: 'var(--muted-color)' }}>
-                      Sức khỏe & Trạng thái
+                      Trạng thái
                     </th>
                     <th
                       style={{
