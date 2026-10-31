@@ -75,6 +75,13 @@ export async function handleAccountsRoutes(
       'account_group',
       'assigned_employee_id',
       'status',
+      'health_status',
+      'phone_number',
+      'phone_note',
+      'parent_account_id',
+      'recovery_account_id',
+      'authenticator_account_id',
+      'create_child_platforms',
       'notes',
       'initial_secrets',
     ]);
@@ -110,6 +117,12 @@ export async function handleAccountsRoutes(
       'account_group',
       'assigned_employee_id',
       'status',
+      'health_status',
+      'phone_number',
+      'phone_note',
+      'parent_account_id',
+      'recovery_account_id',
+      'authenticator_account_id',
       'notes',
     ]);
     const ifMatch =
@@ -216,7 +229,7 @@ export async function handleAccountsRoutes(
   ) {
     requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
     const body = await parseJsonBody<Record<string, unknown>>(req);
-    assertAllowedFields(body, ['secret_type', 'reauth_proof']);
+    assertAllowedFields(body, ['secret_type', 'reauth_proof', 'history_id']);
     const result = await accountsService.revealAccountSecret(
       sessionContext,
       accountId,

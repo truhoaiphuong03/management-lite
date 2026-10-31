@@ -1,14 +1,21 @@
 /**
- * @management-lite/contracts - accounts
- * Types and DTOs for Managed Accounts & Secrets (ACC-01 V0.1 / V0.2)
- * Canonical references: 02_MODULE_REGISTRY.md, 18_SEC02_SECURITY_ARCHITECTURE.md,
- * 20_DBREADY_TABLES_AND_COLUMNS.md, 25_APIREADY_ENDPOINT_MATRIX.md, 36_APISYNC_NORMATIVE_CONTRACTS.md
+ * V0.6 ACC-ECOSYSTEM — Managed Accounts & Secrets Vault Contracts (C05 / SEC-02)
  */
 
 export type AccountPlatform =
-  'tiktok' | 'gmail' | 'ai' | 'pm' | 'other' | string;
+  | 'tiktok'
+  | 'gmail'
+  | 'facebook'
+  | 'youtube'
+  | 'authenticator'
+  | 'recovery'
+  | 'ai'
+  | 'pm'
+  | 'other';
 
 export type AccountStatus = 'active' | 'archived';
+
+export type AccountHealthStatus = 'healthy' | 'verify_required' | 'locked';
 
 export type AccountSecretType =
   | 'password'
@@ -16,61 +23,128 @@ export type AccountSecretType =
   | 'recovery_code'
   | 'totp_secret'
   | 'two_fa_secret'
-  | 'email_password'
-  | string;
+  | 'email_password';
 
+export interface LinkedAccountSummary {
+  id: string;
+  platform: AccountPlatform;
+  username: string | null;
+  platform_account_id: string | null;
+  status: AccountStatus;
+  health_status?: AccountHealthStatus;
+}
+
+export interface PhoneUsageSummary {
+  phone_number: string;
+  phone_note: string | null;
+  gmail_count: number;
+  total_count: number;
+  accounts: LinkedAccountSummary[];
+}
+
+export interface SecretHistoryMetadata {
+  id: string;
+  secret_type: AccountSecretType;
+  secret_version: number;
+  archived_at: string;
+}
+
+/**
+ * Metadata-only representation of a Managed Account.
+ * NEVER includes secret values, hashes, ciphertexts, or nonces.
+ */
 export interface ManagedAccountData {
   id: string;
   workspace_id: string;
   platform: AccountPlatform;
-  username?: string | null | undefined;
-  platform_account_id?: string | null | undefined;
-  recovery_email?: string | null | undefined;
-  account_group?: string | null | undefined;
-  assigned_employee_id?: string | null | undefined;
-  assigned_employee_name?: string | null | undefined;
-  assigned_employee_code?: string | null | undefined;
+  platform_account_id: string | null;
+  username: string | null;
+  recovery_email: string | null;
+  account_group: string | null;
+  assigned_employee_id: string | null;
+  assigned_employee_name: string | null;
+  assigned_employee_code: string | null;
   status: AccountStatus;
-  notes?: string | null | undefined;
+  health_status?: AccountHealthStatus;
+  phone_number?: string | null;
+  phone_note?: string | null;
+  phone_gmail_count?: number;
+  phone_total_count?: number;
+  parent_account_id?: string | null;
+  parent_account_username?: string | null;
+  parent_account_platform?: AccountPlatform | null;
+  recovery_account_id?: string | null;
+  recovery_account_username?: string | null;
+  authenticator_account_id?: string | null;
+  authenticator_account_username?: string | null;
+  child_accounts?: LinkedAccountSummary[];
+  notes: string | null;
   version: number;
-  created_at: string; // ISO 8601 UTC
-  updated_at?: string | null | undefined;
+  created_at: string;
+  updated_at: string;
 }
 
+/**
+ * Detail representation of a Managed Account.
+ * Includes boolean indicator `has_secret` and list of `secret_types` configured,
+ * but NEVER the secret values themselves.
+ */
 export interface ManagedAccountDetailData extends ManagedAccountData {
-  has_secret?: boolean | undefined;
-  secret_types?: AccountSecretType[] | undefined;
+  has_secret: boolean;
+  secret_types: AccountSecretType[];
+  secret_history?: SecretHistoryMetadata[];
+  protected_accounts?: LinkedAccountSummary[];
+  same_phone_accounts?: LinkedAccountSummary[];
 }
 
-export interface InitialAccountSecretItem {
+export interface AccountListResponseData {
+  items: ManagedAccountData[];
+  total: number;
+  phone_summaries?: PhoneUsageSummary[];
+}
+
+export interface InitialSecretInput {
   secret_type: AccountSecretType;
   secret_value: string;
 }
 
 export interface CreateAccountRequest {
   platform: AccountPlatform;
-  username?: string | null | undefined;
-  platform_account_id?: string | null | undefined;
-  recovery_email?: string | null | undefined;
-  account_group?: string | null | undefined;
-  assigned_employee_id?: string | null | undefined;
-  status?: AccountStatus | undefined;
-  notes?: string | null | undefined;
-  initial_secrets?: InitialAccountSecretItem[] | undefined;
+  username?: string | null;
+  platform_account_id?: string | null;
+  recovery_email?: string | null;
+  account_group?: string | null;
+  assigned_employee_id?: string | null;
+  status?: AccountStatus;
+  health_status?: AccountHealthStatus;
+  phone_number?: string | null;
+  phone_note?: string | null;
+  parent_account_id?: string | null;
+  recovery_account_id?: string | null;
+  authenticator_account_id?: string | null;
+  create_child_platforms?: AccountPlatform[];
+  notes?: string | null;
+  initial_secrets?: InitialSecretInput[];
 }
 
 export interface UpdateAccountRequest {
-  username?: string | null | undefined;
-  platform_account_id?: string | null | undefined;
-  recovery_email?: string | null | undefined;
-  account_group?: string | null | undefined;
-  assigned_employee_id?: string | null | undefined;
-  status?: AccountStatus | undefined;
-  notes?: string | null | undefined;
+  username?: string | null;
+  platform_account_id?: string | null;
+  recovery_email?: string | null;
+  account_group?: string | null;
+  assigned_employee_id?: string | null;
+  status?: AccountStatus;
+  health_status?: AccountHealthStatus;
+  phone_number?: string | null;
+  phone_note?: string | null;
+  parent_account_id?: string | null;
+  recovery_account_id?: string | null;
+  authenticator_account_id?: string | null;
+  notes?: string | null;
 }
 
 export interface ArchiveAccountRequest {
-  reason?: string | null | undefined;
+  reason?: string | null;
 }
 
 export interface PutAccountSecretRequest {
@@ -87,13 +161,9 @@ export interface PutAccountSecretResponseData {
 export interface RevealAccountSecretRequest {
   secret_type: AccountSecretType;
   reauth_proof: string;
+  history_id?: string | null;
 }
 
 export interface RevealAccountSecretResponseData {
   secret_value: string;
-}
-
-export interface AccountListResponseData {
-  items: ManagedAccountData[];
-  total: number;
 }
