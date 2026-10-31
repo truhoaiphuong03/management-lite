@@ -2290,17 +2290,33 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         <>
           {/* 1. Page Header */}
           <PageHeader
-            title="Tài khoản quản lý (ACC)"
-            subtitle="Quản lý tập trung tài khoản TikTok, Gmail, AI, PM và lưu trữ bí mật an toàn (C05 / SEC-02)"
+            title="Hệ sinh thái Tài khoản (ACC)"
+            subtitle="Quản lý tập trung SĐT ➔ Gmail gốc ➔ TikTok / FB / YTB, Google Authenticator, TK Khôi phục & Kho bí mật (C05 / SEC-02)"
             actions={
-              <AppButton
-                variant="primary"
-                onClick={() => setShowCreateModal(true)}
-                disabled={loading}
-              >
-                <PlusIcon size={16} />
-                <span>Thêm tài khoản</span>
-              </AppButton>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    setCreateMode('bulk');
+                    setShowCreateModal(true);
+                  }}
+                  disabled={loading}
+                >
+                  <PlusIcon size={16} />
+                  <span>Dán hàng loạt</span>
+                </AppButton>
+                <AppButton
+                  variant="primary"
+                  onClick={() => {
+                    setCreateMode('single');
+                    setShowCreateModal(true);
+                  }}
+                  disabled={loading}
+                >
+                  <PlusIcon size={16} />
+                  <span>Thêm tài khoản</span>
+                </AppButton>
+              </div>
             }
           />
 
@@ -2406,83 +2422,168 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             style={{
               display: 'grid',
               gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
-              gap: '16px',
-              marginBottom: '24px',
+                'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+              gap: '14px',
+              marginBottom: '20px',
             }}
           >
-            <AppCard style={{ padding: '16px' }}>
+            <AppCard style={{ padding: '14px 16px' }}>
               <div
                 style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
               >
-                TỔNG SỐ TÀI KHOẢN
+                TỔNG TÀI KHOẢN
               </div>
               <div
                 style={{
                   fontSize: '24px',
                   fontWeight: 700,
                   color: 'var(--text-color)',
-                  marginTop: '6px',
+                  marginTop: '4px',
                 }}
               >
                 {metrics.total}
               </div>
               <div
-                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
+                style={{ fontSize: '12px', color: 'var(--success-text)', marginTop: '4px' }}
               >
-                Tất cả dịch vụ được kết nối
+                {metrics.active} đang hoạt động
               </div>
             </AppCard>
 
-            <AppCard style={{ padding: '16px' }}>
-              <div
-                style={{ fontSize: '12px', color: 'var(--success-text)', fontWeight: 600 }}
-              >
-                ĐANG HOẠT ĐỘNG
-              </div>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 700,
-                  color: 'var(--success-text)',
-                  marginTop: '6px',
-                }}
-              >
-                {metrics.active}
-              </div>
-              <div
-                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
-              >
-                Khả dụng cho vận hành
-              </div>
-            </AppCard>
-
-            <AppCard style={{ padding: '16px' }}>
+            <AppCard style={{ padding: '14px 16px' }}>
               <div
                 style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
               >
-                ĐÃ LƯU TRỮ (ARCHIVED)
+                📧 GMAIL GỐC & KÊNH CON
               </div>
               <div
                 style={{
                   fontSize: '24px',
                   fontWeight: 700,
-                  color: 'var(--muted-color)',
-                  marginTop: '6px',
+                  color: 'var(--accent-text)',
+                  marginTop: '4px',
                 }}
               >
-                {metrics.archived}
+                {metrics.gmailCount} <span style={{ fontSize: '14px', color: 'var(--muted-color)' }}>Gmail</span>
               </div>
               <div
                 style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
               >
-                Bảo toàn lịch sử kiểm toán
+                Nuôi {metrics.socialCount} kênh TikTok / FB / YTB
+              </div>
+            </AppCard>
+
+            <AppCard style={{ padding: '14px 16px' }}>
+              <div
+                style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}
+              >
+                📱 SỐ ĐIỆN THOẠI / SIM
+              </div>
+              <div
+                style={{
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  color: 'var(--info-text, #60A5FA)',
+                  marginTop: '4px',
+                }}
+              >
+                {metrics.phoneCount} <span style={{ fontSize: '14px', color: 'var(--muted-color)' }}>SĐT</span>
+              </div>
+              <div
+                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
+              >
+                Quản lý định mức Gmail / SĐT
+              </div>
+            </AppCard>
+
+            <AppCard style={{ padding: '14px 16px' }}>
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: metrics.attentionCount > 0 ? 'var(--warning-text)' : 'var(--muted-color)',
+                  fontWeight: 600,
+                }}
+              >
+                ⚠️ CẦN XÁC MINH / KHÓA
+              </div>
+              <div
+                style={{
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  color: metrics.attentionCount > 0 ? 'var(--warning-text)' : 'var(--text-color)',
+                  marginTop: '4px',
+                }}
+              >
+                {metrics.attentionCount}
+              </div>
+              <div
+                style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}
+              >
+                {metrics.archived} đã lưu trữ
               </div>
             </AppCard>
           </div>
 
-          {/* 3. Filter Bar */}
-          <AppCard style={{ padding: '16px', marginBottom: '24px' }}>
+          {/* 2b. 4 Ecosystem View Mode Tabs */}
+          <div
+            data-testid="accounts-view-tabs"
+            style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginBottom: '16px',
+            }}
+          >
+            {(
+              [
+                {
+                  id: 'all',
+                  label: `📋 Tất cả & Tra cứu 360° (${filteredAccounts.length})`,
+                },
+                {
+                  id: 'clusters',
+                  label: `🌳 Theo Cụm Gmail gốc (${gmailClustersData.clusters.length})`,
+                },
+                {
+                  id: 'phones',
+                  label: `📱 Theo Số điện thoại (${phoneClustersData.phones.length})`,
+                },
+                {
+                  id: 'protection',
+                  label: `🔐 Theo GG Authenticator & TK Khôi phục (${protectionClustersData.authenticators.length + protectionClustersData.recoveries.length})`,
+                },
+              ] as const
+            ).map((tab) => {
+              const active = viewMode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  data-testid={`tab-view-${tab.id}`}
+                  onClick={() => setViewMode(tab.id)}
+                  style={{
+                    padding: '9px 14px',
+                    borderRadius: '8px',
+                    border: active
+                      ? '1px solid #14B8A6'
+                      : '1px solid var(--border-color)',
+                    backgroundColor: active
+                      ? 'rgba(20, 184, 166, 0.14)'
+                      : 'var(--surface-subtle)',
+                    color: active ? 'var(--accent-text)' : 'var(--text-color)',
+                    fontSize: '13px',
+                    fontWeight: active ? 700 : 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 3. Filter Bar & 360° Lookup Box */}
+          <AppCard style={{ padding: '16px', marginBottom: '20px' }}>
             <div
               style={{
                 display: 'flex',
@@ -2496,22 +2597,23 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
-                  gap: '12px',
+                  gap: '10px',
                   alignItems: 'center',
                   flex: 1,
                 }}
               >
-                {/* Search Box */}
+                {/* 360° Search Box */}
                 <div
                   style={{
                     position: 'relative',
-                    minWidth: '220px',
+                    minWidth: '240px',
                     flex: 1,
                   }}
                 >
                   <input
                     type="text"
-                    placeholder="Tìm theo Username, UID, Email khôi phục, Nhóm…"
+                    data-testid="accounts-360-search-input"
+                    placeholder="🔍 Tra cứu 2 chiều 360°: Gõ ID TikTok, Gmail, SĐT, UID FB/YTB, Authenticator…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{
@@ -2519,7 +2621,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       boxSizing: 'border-box',
                       padding: '8px 12px 8px 36px',
                       backgroundColor: 'var(--surface-subtle)',
-                      border: '1px solid var(--border-color)',
+                      border: searchQuery.trim()
+                        ? '1px solid #14B8A6'
+                        : '1px solid var(--border-color)',
                       borderRadius: '6px',
                       color: 'var(--text-color)',
                       fontSize: '13px',
@@ -2556,11 +2660,36 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   }}
                 >
                   <option value="all">Tất cả nền tảng</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="gmail">Gmail / Google</option>
-                  <option value="ai">AI / LLM</option>
-                  <option value="pm">PM / Quản lý dự án</option>
-                  <option value="other">Khác</option>
+                  <option value="gmail">📧 Gmail / Google</option>
+                  <option value="tiktok">🎵 TikTok</option>
+                  <option value="facebook">📘 Facebook (FB)</option>
+                  <option value="youtube">▶️ YouTube (YTB)</option>
+                  <option value="authenticator">🔐 Google Authenticator</option>
+                  <option value="recovery">🛡️ Tài khoản Khôi phục</option>
+                  <option value="ai">🤖 AI / LLM</option>
+                  <option value="pm">📋 PM / Quản lý dự án</option>
+                  <option value="other">🌐 Khác</option>
+                </select>
+
+                {/* Health Filter */}
+                <select
+                  data-testid="filter-account-health"
+                  value={healthFilter}
+                  onChange={(e) => setHealthFilter(e.target.value)}
+                  style={{
+                    boxSizing: 'border-box',
+                    padding: '8px 12px',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    color: 'var(--text-color)',
+                    fontSize: '13px',
+                  }}
+                >
+                  <option value="all">Mọi sức khỏe TK</option>
+                  <option value="healthy">🟢 Hoạt động tốt</option>
+                  <option value="verify_required">🟡 Cần xác minh / Checkpoint</option>
+                  <option value="locked">🔴 Bị khóa / Die</option>
                 </select>
 
                 {/* Group Filter */}
@@ -2652,11 +2781,143 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 <span>Làm mới</span>
               </button>
             </div>
+
+            {/* Phone Quick Filter Pills */}
+            {phoneClustersData.phones.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  marginTop: '12px',
+                  paddingTop: '10px',
+                  borderTop: '1px solid var(--border-subtle)',
+                }}
+              >
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 600 }}>
+                  📱 Lọc theo SĐT:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPhoneFilter('all')}
+                  style={{
+                    padding: '3px 9px',
+                    borderRadius: '999px',
+                    border:
+                      phoneFilter === 'all'
+                        ? '1px solid #14B8A6'
+                        : '1px solid var(--border-color)',
+                    backgroundColor:
+                      phoneFilter === 'all'
+                        ? 'rgba(20, 184, 166, 0.14)'
+                        : 'var(--surface-subtle)',
+                    color:
+                      phoneFilter === 'all'
+                        ? 'var(--accent-text)'
+                        : 'var(--muted-color)',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Tất cả ({phoneClustersData.phones.length} SĐT)
+                </button>
+                {phoneClustersData.phones.map((ph) => {
+                  const isSelected = phoneFilter === ph.phone_number;
+                  return (
+                    <button
+                      key={ph.phone_number}
+                      type="button"
+                      onClick={() =>
+                        setPhoneFilter(isSelected ? 'all' : ph.phone_number)
+                      }
+                      style={{
+                        padding: '3px 9px',
+                        borderRadius: '999px',
+                        border: isSelected
+                          ? '1px solid #14B8A6'
+                          : '1px solid var(--border-color)',
+                        backgroundColor: isSelected
+                          ? 'rgba(20, 184, 166, 0.14)'
+                          : 'var(--surface-subtle)',
+                        color: isSelected
+                          ? 'var(--accent-text)'
+                          : 'var(--text-color)',
+                        fontSize: '12px',
+                        fontWeight: isSelected ? 700 : 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {ph.phone_number}{' '}
+                      <strong
+                        style={{
+                          color:
+                            ph.gmail_count >= 4
+                              ? 'var(--warning-text)'
+                              : 'var(--accent-text)',
+                        }}
+                      >
+                        ({ph.gmail_count} Gmail)
+                      </strong>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 360° Lookup Discovery Banner */}
+            {lookup360Result && (
+              <div
+                data-testid="banner-360-lookup-result"
+                style={{
+                  marginTop: '12px',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                  border: '1px solid rgba(20, 184, 166, 0.35)',
+                  fontSize: '12px',
+                  color: 'var(--text-color)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}
+              >
+                <div>
+                  🔍 <strong>Truy vết 2 chiều 360° cho &ldquo;{searchQuery.trim()}&rdquo;:</strong>{' '}
+                  Khớp trực tiếp{' '}
+                  <strong style={{ color: 'var(--accent-text)' }}>
+                    {lookup360Result.directMatchIds.size}
+                  </strong>{' '}
+                  tài khoản ➔ Tự động lôi ra toàn bộ họ hàng{' '}
+                  <strong style={{ color: 'var(--accent-text)' }}>
+                    {lookup360Result.matchedAccounts.length}
+                  </strong>{' '}
+                  tài khoản liên quan (Gmail gốc, kênh con TikTok/FB/YTB, GG Authenticator, TK Khôi phục & cùng SĐT).
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--surface-hover)',
+                    color: 'var(--muted-color)',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Xóa tìm kiếm
+                </button>
+              </div>
+            )}
           </AppCard>
 
-          {/* 4. Accounts List Table */}
+          {/* 4. Accounts Content by View Mode */}
           {loading ? (
-            <LoadingState message="Đang tải danh sách tài khoản…" />
+            <LoadingState message="Đang tải hệ sinh thái tài khoản…" />
           ) : filteredAccounts.length === 0 ? (
             <EmptyState
               title="Chưa có tài khoản nào"
@@ -2664,10 +2925,12 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 searchQuery ||
                 platformFilter !== 'all' ||
                 statusFilter !== 'all' ||
+                healthFilter !== 'all' ||
+                phoneFilter !== 'all' ||
                 groupFilter !== 'all' ||
                 assigneeFilter !== 'all'
-                  ? 'Không tìm thấy tài khoản phù hợp với bộ lọc hiện tại.'
-                  : 'Chưa có tài khoản quản lý nào được tạo trong cửa hàng. Hãy bấm "+ Thêm tài khoản" để bắt đầu.'
+                  ? 'Không tìm thấy tài khoản hoặc cụm liên kết nào phù hợp với bộ lọc hiện tại.'
+                  : 'Chưa có tài khoản quản lý nào được tạo. Hãy bấm "+ Thêm tài khoản" hoặc "Dán hàng loạt" để bắt đầu.'
               }
               action={
                 <AppButton
@@ -2679,7 +2942,593 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </AppButton>
               }
             />
+          ) : viewMode === 'clusters' ? (
+            /* ==========================================
+               VIEW MODE 2: THEO CỤM GMAIL GỐC (TREE)
+               ========================================== */
+            <div style={{ display: 'grid', gap: '16px' }}>
+              {gmailClustersData.clusters.map(({ gmail, children }) => {
+                const hCfg = getHealthStatusConfig(gmail.health_status);
+                return (
+                  <AppCard
+                    key={gmail.id}
+                    style={{
+                      padding: '18px 20px',
+                      borderLeft: '4px solid #EF4444',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span
+                            style={{
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                              color: '#F87171',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                            }}
+                          >
+                            📧 Gmail gốc
+                          </span>
+                          <strong style={{ fontSize: '16px', color: 'var(--text-color)' }}>
+                            {gmail.username || '(Chưa đặt email)'}
+                          </strong>
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              color: hCfg.color,
+                              backgroundColor: hCfg.bg,
+                              border: `1px solid ${hCfg.border}`,
+                            }}
+                          >
+                            {hCfg.label}
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: '14px',
+                            flexWrap: 'wrap',
+                            marginTop: '8px',
+                            fontSize: '12px',
+                            color: 'var(--muted-color)',
+                          }}
+                        >
+                          <span>
+                            📱 SĐT:{' '}
+                            <strong style={{ color: 'var(--text-color)' }}>
+                              {gmail.phone_number || 'Chưa gắn'}
+                            </strong>
+                            {gmail.phone_gmail_count ? ` (${gmail.phone_gmail_count} Gmail)` : ''}
+                            {gmail.phone_note ? ` • ${gmail.phone_note}` : ''}
+                          </span>
+                          <span>
+                            🔐 2FA:{' '}
+                            <strong style={{ color: 'var(--text-color)' }}>
+                              {gmail.authenticator_account_username ||
+                                (gmail.secret_types?.includes('totp_secret') ||
+                                gmail.secret_types?.includes('two_fa_secret')
+                                  ? 'Đã lưu mã 2FA'
+                                  : 'Chưa gắn')}
+                            </strong>
+                          </span>
+                          <span>
+                            🛡️ Khôi phục:{' '}
+                            <strong style={{ color: 'var(--text-color)' }}>
+                              {gmail.recovery_account_username ||
+                                gmail.recovery_email ||
+                                'Chưa gắn'}
+                            </strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => openQuickAddChildModal(gmail, 'tiktok')}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(20, 184, 166, 0.35)',
+                            backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                            color: 'var(--accent-text)',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          + Thêm kênh con
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openRevealModal(gmail, 'password')}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--surface-subtle)',
+                            color: 'var(--text-color)',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Xem pass
+                        </button>
+                        <ActionIconButton
+                          action="view"
+                          target={gmail.username || 'gmail'}
+                          onClick={() => onNavigate?.(`/accounts/${gmail.id}`)}
+                        />
+                        <ActionIconButton
+                          action="edit"
+                          target={gmail.username || 'gmail'}
+                          onClick={() => openEditModalForAccount(gmail)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Child Channels under this Gmail */}
+                    <div
+                      style={{
+                        marginTop: '14px',
+                        paddingTop: '12px',
+                        borderTop: '1px dashed var(--border-color)',
+                      }}
+                    >
+                      {children.length === 0 ? (
+                        <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                          Chưa có kênh TikTok / Facebook / YouTube nào gắn dưới Gmail này.
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns:
+                              'repeat(auto-fit, minmax(min(100%, 250px), 1fr))',
+                            gap: '10px',
+                          }}
+                        >
+                          {children.map((ch) => {
+                            const chInfo = getPlatformConfig(ch.platform);
+                            const chHealth = getHealthStatusConfig(ch.health_status);
+                            return (
+                              <div
+                                key={ch.id}
+                                style={{
+                                  padding: '10px 12px',
+                                  borderRadius: '8px',
+                                  backgroundColor: 'var(--surface-subtle)',
+                                  border: `1px solid ${chInfo.border}`,
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                }}
+                              >
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span
+                                      style={{
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        color: chInfo.color,
+                                      }}
+                                    >
+                                      {chInfo.icon} {chInfo.shortLabel}
+                                    </span>
+                                    <span
+                                      style={{
+                                        fontSize: '12px',
+                                        color: chHealth.color,
+                                      }}
+                                    >
+                                      ●
+                                    </span>
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: '13px',
+                                      color: 'var(--text-color)',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {ch.username || ch.platform_account_id || 'Chưa đặt tên'}
+                                  </div>
+                                  {ch.platform_account_id && (
+                                    <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                                      ID: {ch.platform_account_id}
+                                    </div>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => openRevealModal(ch, 'password')}
+                                    style={{
+                                      padding: '4px 7px',
+                                      borderRadius: '4px',
+                                      border: '1px solid rgba(20, 184, 166, 0.3)',
+                                      backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                                      color: 'var(--accent-text)',
+                                      fontSize: '12px',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    Pass
+                                  </button>
+                                  <ActionIconButton
+                                    action="view"
+                                    target={ch.username || ch.platform}
+                                    onClick={() => onNavigate?.(`/accounts/${ch.id}`)}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </AppCard>
+                );
+              })}
+
+              {gmailClustersData.unlinkedAccounts.length > 0 && (
+                <AppCard style={{ padding: '18px 20px' }}>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: 'var(--text-color)',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    🌐 Các tài khoản độc lập / Chưa gắn Gmail gốc (
+                    {gmailClustersData.unlinkedAccounts.length})
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {gmailClustersData.unlinkedAccounts.map((ua) => {
+                      const pCfg = getPlatformConfig(ua.platform);
+                      return (
+                        <button
+                          key={ua.id}
+                          type="button"
+                          onClick={() => openEditModalForAccount(ua)}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            border: `1px solid ${pCfg.border}`,
+                            backgroundColor: pCfg.bg,
+                            color: pCfg.color,
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {pCfg.icon} {pCfg.shortLabel}: {ua.username || ua.platform_account_id} (Bấm để gắn Gmail)
+                        </button>
+                      );
+                    })}
+                  </div>
+                </AppCard>
+              )}
+            </div>
+          ) : viewMode === 'phones' ? (
+            /* ==========================================
+               VIEW MODE 3: THEO SỐ ĐIỆN THOẠI (1 SĐT -> N GMAIL)
+               ========================================== */
+            <div style={{ display: 'grid', gap: '16px' }}>
+              {phoneClustersData.phones.length === 0 ? (
+                <AppCard style={{ padding: '24px', textAlign: 'center', color: 'var(--muted-color)' }}>
+                  Chưa có tài khoản nào được gắn Số điện thoại. Hãy bấm biểu tượng Sửa (✏️) trên tài khoản để gắn SĐT và ghi chú vị trí SIM.
+                </AppCard>
+              ) : (
+                phoneClustersData.phones.map((ph) => (
+                  <AppCard
+                    key={ph.phone_number}
+                    style={{
+                      padding: '18px 20px',
+                      borderLeft:
+                        ph.gmail_count >= 4
+                          ? '4px solid #F59E0B'
+                          : '4px solid #3B82F6',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: '17px', color: 'var(--text-color)' }}>
+                            📱 {ph.phone_number}
+                          </strong>
+                          <span
+                            style={{
+                              padding: '3px 10px',
+                              borderRadius: '999px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              backgroundColor:
+                                ph.gmail_count >= 4
+                                  ? 'rgba(245, 158, 11, 0.16)'
+                                  : 'rgba(16, 185, 129, 0.15)',
+                              color:
+                                ph.gmail_count >= 4
+                                  ? 'var(--warning-text)'
+                                  : 'var(--success-text)',
+                            }}
+                          >
+                            Đã tạo {ph.gmail_count} Gmail • Tổng {ph.total_count} TK
+                            {ph.gmail_count >= 4 ? ' (Sắp chạm ngưỡng SIM)' : ''}
+                          </span>
+                        </div>
+                        {ph.phone_note && (
+                          <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '4px' }}>
+                            📍 Ghi chú vị trí SIM / Máy giữ SIM: <strong style={{ color: 'var(--text-color)' }}>{ph.phone_note}</strong>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns:
+                          'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+                        gap: '10px',
+                      }}
+                    >
+                      {ph.accounts.map((acc) => {
+                        const pCfg = getPlatformConfig(acc.platform);
+                        return (
+                          <div
+                            key={acc.id}
+                            style={{
+                              padding: '10px 12px',
+                              borderRadius: '8px',
+                              backgroundColor: 'var(--surface-subtle)',
+                              border: '1px solid var(--border-color)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: pCfg.color }}>
+                                {pCfg.icon} {pCfg.shortLabel}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: '13px',
+                                  fontWeight: 600,
+                                  color: 'var(--text-color)',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {acc.username || acc.platform_account_id}
+                              </div>
+                            </div>
+                            <ActionIconButton
+                              action="view"
+                              target={acc.username || acc.platform}
+                              onClick={() => onNavigate?.(`/accounts/${acc.id}`)}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </AppCard>
+                ))
+              )}
+            </div>
+          ) : viewMode === 'protection' ? (
+            /* ==========================================
+               VIEW MODE 4: THEO GG AUTHENTICATOR & TK KHÔI PHỤC
+               ========================================== */
+            <div style={{ display: 'grid', gap: '16px' }}>
+              {protectionClustersData.authenticators.length === 0 &&
+              protectionClustersData.recoveries.length === 0 ? (
+                <AppCard style={{ padding: '24px', textAlign: 'center', color: 'var(--muted-color)' }}>
+                  Chưa có tài khoản Google Authenticator hoặc Tài khoản Khôi phục chuyên dụng nào. Hãy bấm &ldquo;+ Thêm tài khoản&rdquo; và chọn nền tảng <strong>Google Authenticator</strong> hoặc <strong>Tài khoản Khôi phục</strong>.
+                </AppCard>
+              ) : (
+                <>
+                  {protectionClustersData.authenticators.map(
+                    ({ account, protectedAccounts }) => (
+                      <AppCard
+                        key={account.id}
+                        style={{
+                          padding: '18px 20px',
+                          borderLeft: '4px solid #F59E0B',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                            marginBottom: '12px',
+                          }}
+                        >
+                          <div>
+                            <span
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                color: '#FBBF24',
+                                marginRight: '8px',
+                              }}
+                            >
+                              🔐 Google Authenticator
+                            </span>
+                            <strong style={{ fontSize: '16px', color: 'var(--text-color)' }}>
+                              {account.username || account.platform_account_id}
+                            </strong>
+                            <span style={{ fontSize: '12px', color: 'var(--muted-color)', marginLeft: '8px' }}>
+                              (Đang giữ 2FA cho {protectedAccounts.length} tài khoản)
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <ActionIconButton
+                              action="view"
+                              target={account.username || 'authenticator'}
+                              onClick={() => onNavigate?.(`/accounts/${account.id}`)}
+                            />
+                            <ActionIconButton
+                              action="edit"
+                              target={account.username || 'authenticator'}
+                              onClick={() => openEditModalForAccount(account)}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {protectedAccounts.map((pa) => {
+                            const pCfg = getPlatformConfig(pa.platform);
+                            return (
+                              <button
+                                key={pa.id}
+                                type="button"
+                                onClick={() => onNavigate?.(`/accounts/${pa.id}`)}
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  backgroundColor: pCfg.bg,
+                                  border: `1px solid ${pCfg.border}`,
+                                  color: pCfg.color,
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {pCfg.icon} {pa.username || pa.platform_account_id}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </AppCard>
+                    ),
+                  )}
+
+                  {protectionClustersData.recoveries.map(
+                    ({ account, protectedAccounts }) => (
+                      <AppCard
+                        key={account.id}
+                        style={{
+                          padding: '18px 20px',
+                          borderLeft: '4px solid #38BDF8',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                            marginBottom: '12px',
+                          }}
+                        >
+                          <div>
+                            <span
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                backgroundColor: 'rgba(14, 165, 233, 0.15)',
+                                color: '#38BDF8',
+                                marginRight: '8px',
+                              }}
+                            >
+                              🛡️ TK Khôi phục (Recovery)
+                            </span>
+                            <strong style={{ fontSize: '16px', color: 'var(--text-color)' }}>
+                              {account.username || account.platform_account_id}
+                            </strong>
+                            <span style={{ fontSize: '12px', color: 'var(--muted-color)', marginLeft: '8px' }}>
+                              (Đang bảo vệ khôi phục cho {protectedAccounts.length} tài khoản)
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <ActionIconButton
+                              action="view"
+                              target={account.username || 'recovery'}
+                              onClick={() => onNavigate?.(`/accounts/${account.id}`)}
+                            />
+                            <ActionIconButton
+                              action="edit"
+                              target={account.username || 'recovery'}
+                              onClick={() => openEditModalForAccount(account)}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {protectedAccounts.map((pa) => {
+                            const pCfg = getPlatformConfig(pa.platform);
+                            return (
+                              <button
+                                key={pa.id}
+                                type="button"
+                                onClick={() => onNavigate?.(`/accounts/${pa.id}`)}
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  backgroundColor: pCfg.bg,
+                                  border: `1px solid ${pCfg.border}`,
+                                  color: pCfg.color,
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {pCfg.icon} {pa.username || pa.platform_account_id}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </AppCard>
+                    ),
+                  )}
+                </>
+              )}
+            </div>
           ) : (
+            /* ==========================================
+               VIEW MODE 1: BẢNG TẤT CẢ & TRA CỨU 360°
+               ========================================== */
             <div style={{ overflowX: 'auto' }}>
               <table
                 style={{
@@ -2693,27 +3542,24 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               >
                 <thead>
                   <tr style={{ backgroundColor: 'var(--surface-subtle)', textAlign: 'left' }}>
-                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
+                    <th style={{ padding: '12px 14px', color: 'var(--muted-color)' }}>
                       Nền tảng
                     </th>
-                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
-                      Username / UID
+                    <th style={{ padding: '12px 14px', color: 'var(--muted-color)' }}>
+                      Tài khoản / UID
                     </th>
-                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
-                      Email khôi phục
+                    <th style={{ padding: '12px 14px', color: 'var(--muted-color)' }}>
+                      Liên kết Hệ sinh thái (Gmail gốc • SĐT • Bảo vệ)
                     </th>
-                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
+                    <th style={{ padding: '12px 14px', color: 'var(--muted-color)' }}>
                       Nhóm & Phụ trách
                     </th>
-                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
-                      Trạng thái
-                    </th>
-                    <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
-                      Ghi chú
+                    <th style={{ padding: '12px 14px', color: 'var(--muted-color)' }}>
+                      Sức khỏe & Trạng thái
                     </th>
                     <th
                       style={{
-                        padding: '12px 16px',
+                        padding: '12px 14px',
                         color: 'var(--muted-color)',
                         textAlign: 'right',
                       }}
@@ -2725,16 +3571,22 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 <tbody>
                   {pagedAccounts.map((account) => {
                     const pInfo = getPlatformConfig(account.platform);
+                    const hInfo = getHealthStatusConfig(account.health_status);
+                    const isDirectMatch =
+                      lookup360Result?.directMatchIds.has(account.id) ?? false;
 
                     return (
                       <tr
                         key={account.id}
                         style={{
                           borderBottom: '1px solid var(--border-color)',
+                          backgroundColor: isDirectMatch
+                            ? 'rgba(20, 184, 166, 0.08)'
+                            : undefined,
                           transition: 'background-color 0.15s ease',
                         }}
                       >
-                        <td style={{ padding: '12px 16px' }}>
+                        <td style={{ padding: '12px 14px' }}>
                           <span
                             style={{
                               display: 'inline-block',
@@ -2747,10 +3599,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               border: `1px solid ${pInfo.border}`,
                             }}
                           >
-                            {pInfo.label}
+                            {pInfo.icon} {pInfo.shortLabel}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 16px' }}>
+                        <td style={{ padding: '12px 14px' }}>
                           <div style={{ fontWeight: 600, color: 'var(--text-color)' }}>
                             {account.username || (
                               <span style={{ color: 'var(--muted-color)' }}>Chưa đặt</span>
@@ -2767,11 +3619,112 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               UID: {account.platform_account_id}
                             </div>
                           )}
+                          {account.notes && (
+                            <div
+                              style={{
+                                fontSize: '12px',
+                                color: 'var(--muted-color)',
+                                marginTop: '2px',
+                                maxWidth: '220px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={account.notes}
+                            >
+                              📝 {account.notes}
+                            </div>
+                          )}
                         </td>
-                        <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>
-                          {account.recovery_email || '-'}
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'grid', gap: '3px', fontSize: '12px' }}>
+                            {/* Parent Gmail or Child count */}
+                            {account.parent_account_username ? (
+                              <div>
+                                <span style={{ color: 'var(--muted-color)' }}>Thuộc Gmail:</span>{' '}
+                                <button
+                                  type="button"
+                                  onClick={() => setSearchQuery(account.parent_account_username || '')}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: 0,
+                                    color: 'var(--accent-text)',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                  }}
+                                >
+                                  📧 {account.parent_account_username}
+                                </button>
+                              </div>
+                            ) : account.platform === 'gmail' &&
+                              (account.child_count || 0) > 0 ? (
+                              <div style={{ color: 'var(--accent-text)', fontWeight: 600 }}>
+                                🌳 Nuôi {account.child_count} kênh con (
+                                {(account.child_platforms || []).join(', ')})
+                              </div>
+                            ) : null}
+
+                            {/* Phone number + Gmail counter */}
+                            {account.phone_number && (
+                              <div>
+                                <button
+                                  type="button"
+                                  onClick={() => setSearchQuery(account.phone_number || '')}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: 0,
+                                    color: 'var(--text-color)',
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                  }}
+                                >
+                                  📱 <strong>{account.phone_number}</strong>{' '}
+                                  <span
+                                    style={{
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                      color: 'var(--info-text, #60A5FA)',
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {account.phone_gmail_count || 0} Gmail
+                                  </span>
+                                </button>
+                                {account.phone_note && (
+                                  <span style={{ color: 'var(--muted-color)', marginLeft: '4px' }}>
+                                    ({account.phone_note})
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Authenticator & Recovery */}
+                            {(account.authenticator_account_username ||
+                              account.recovery_account_username ||
+                              account.recovery_email) && (
+                              <div style={{ color: 'var(--muted-color)' }}>
+                                {account.authenticator_account_username && (
+                                  <span style={{ marginRight: '8px' }}>
+                                    🔐 {account.authenticator_account_username}
+                                  </span>
+                                )}
+                                {(account.recovery_account_username ||
+                                  account.recovery_email) && (
+                                  <span>
+                                    🛡️{' '}
+                                    {account.recovery_account_username ||
+                                      account.recovery_email}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </td>
-                        <td style={{ padding: '12px 16px' }}>
+                        <td style={{ padding: '12px 14px' }}>
                           {account.account_group ? (
                             <span
                               style={{
@@ -2792,32 +3745,35 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             {account.assigned_employee_name || 'Chưa gán'}
                           </div>
                         </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          {account.status === 'active' ? (
-                            <StatusBadge
-                              status="success"
-                              label="Đang hoạt động"
-                            />
-                          ) : (
-                            <StatusBadge status="neutral" label="Đã lưu trữ" />
-                          )}
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '2px 8px',
+                                borderRadius: '999px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                color: hInfo.color,
+                                backgroundColor: hInfo.bg,
+                                border: `1px solid ${hInfo.border}`,
+                              }}
+                            >
+                              {hInfo.label}
+                            </span>
+                            {account.status === 'active' ? (
+                              <StatusBadge
+                                status="success"
+                                label="Đang hoạt động"
+                              />
+                            ) : (
+                              <StatusBadge status="neutral" label="Đã lưu trữ" />
+                            )}
+                          </div>
                         </td>
                         <td
                           style={{
-                            padding: '12px 16px',
-                            color: 'var(--muted-color)',
-                            maxWidth: '180px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                          title={account.notes || ''}
-                        >
-                          {account.notes || '-'}
-                        </td>
-                        <td
-                          style={{
-                            padding: '12px 16px',
+                            padding: '12px 14px',
                             textAlign: 'right',
                           }}
                         >
@@ -2826,8 +3782,32 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               display: 'inline-flex',
                               gap: '6px',
                               alignItems: 'center',
+                              flexWrap: 'wrap',
+                              justifyContent: 'flex-end',
                             }}
                           >
+                            {account.platform === 'gmail' && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openQuickAddChildModal(account, 'tiktok')
+                                }
+                                style={{
+                                  padding: '4px 7px',
+                                  backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                                  borderRadius: '4px',
+                                  color: 'var(--info-text, #60A5FA)',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                                title="Thêm kênh TikTok / FB / YTB gắn vào Gmail này"
+                              >
+                                +Kênh con
+                              </button>
+                            )}
+
                             {/* Detail / Vault */}
                             <ActionIconButton
                               action="view"
@@ -2867,25 +3847,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               action="edit"
                               target={account.username || account.platform}
                               testId={`account-edit-${account.id}`}
-                              onClick={() => {
-                                setEditAccount(account);
-                                setEditUsername(account.username || '');
-                                setEditPlatformAccountId(
-                                  account.platform_account_id || '',
-                                );
-                                setEditRecoveryEmail(
-                                  account.recovery_email || '',
-                                );
-                                setEditAccountGroup(
-                                  account.account_group || '',
-                                );
-                                setEditAssignedEmployeeId(
-                                  account.assigned_employee_id || '',
-                                );
-                                setEditStatus(account.status);
-                                setEditNotes(account.notes || '');
-                                setShowEditModal(true);
-                              }}
+                              onClick={() => openEditModalForAccount(account)}
                             />
                           </div>
                         </td>
