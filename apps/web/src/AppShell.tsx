@@ -237,11 +237,11 @@ export const AppShell: React.FC<AppShellProps> = ({
               minHeight: '36px',
               padding: '4px 10px',
               borderRadius: '6px',
-              border: '1px solid rgba(20, 184, 166, 0.4)',
+              border: '1px solid var(--border-color)',
               backgroundColor:
                 currentPath === '/settings'
                   ? 'rgba(20, 184, 166, 0.2)'
-                  : 'rgba(20, 184, 166, 0.08)',
+                  : 'transparent',
               color: 'var(--accent-text)',
               fontSize: '12px',
               fontWeight: 600,
@@ -271,8 +271,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                 minHeight: '36px',
                 padding: '4px 10px',
                 borderRadius: '6px',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
-                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'transparent',
                 color: 'var(--danger-text)',
                 fontSize: '12px',
                 fontWeight: 600,

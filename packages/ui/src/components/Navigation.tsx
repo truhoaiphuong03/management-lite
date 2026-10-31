@@ -213,7 +213,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   return (
     <aside
       style={{
-        width: '240px',
+        width: '224px',
         backgroundColor: 'var(--surface-color)',
         borderRight: '1px solid var(--border-color)',
         display: 'flex',
@@ -225,48 +225,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         boxSizing: 'border-box',
       }}
     >
-      <div
-        style={{
-          padding: '14px 16px',
-          borderBottom: '1px solid var(--border-color)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxSizing: 'border-box',
-        }}
-      >
-        <span
-          style={{
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontWeight: 700,
-            color: 'var(--muted-color)',
-          }}
-        >
-          Hệ thống
-        </span>
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: 600,
-            color: 'var(--muted-color)',
-            backgroundColor: 'var(--surface-subtle)',
-            padding: '2px 7px',
-            borderRadius: '4px',
-            border: '1px solid var(--border-color)',
-          }}
-        >
-          v{version}
-        </span>
-      </div>
-
       <nav
         style={{
-          padding: '16px 8px',
+          padding: '12px 10px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '6px',
+          gap: '4px',
           overflowY: 'auto',
           flex: 1,
         }}
@@ -288,15 +252,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 boxSizing: 'border-box',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '10px 14px',
+                gap: '10px',
+                padding: '9px 12px',
                 borderRadius: '8px',
-                border: '1px solid',
-                borderColor: isGroupActive
-                  ? 'rgba(20, 184, 166, 0.3)'
-                  : 'transparent',
+                border: 'none',
                 backgroundColor: isGroupActive
-                  ? 'rgba(20, 184, 166, 0.15)'
+                  ? 'var(--accent-soft)'
                   : 'transparent',
                 color: isGroupActive
                   ? 'var(--accent-text)'
@@ -304,16 +265,15 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 fontWeight: isGroupActive ? 600 : 500,
                 textAlign: 'left',
                 cursor: 'pointer',
-                minHeight: '44px',
+                minHeight: '40px',
                 width: '100%',
-                transition:
-                  'background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',
+                transition: 'background-color 0.15s ease, color 0.15s ease',
               }}
             >
-              <NavIcon id={group.icon} size={20} />
+              <NavIcon id={group.icon} size={18} />
               <span
                 style={{
-                  fontSize: '14px',
+                  fontSize: '13.5px',
                   lineHeight: 1.2,
                   color: isGroupActive
                     ? 'var(--accent-text)'
@@ -333,25 +293,38 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
       <div
         style={{
-          padding: '16px',
+          padding: '12px 14px',
           borderTop: '1px solid var(--border-color)',
           fontSize: '12px',
           color: 'var(--muted-color)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
         }}
       >
-        <div>
-          Vai trò:{' '}
-          <strong style={{ color: 'var(--text-color)' }}>
+        <span
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <span style={{ color: 'var(--success-text)', fontSize: '10px' }}>
+            ●
+          </span>
+          <strong style={{ color: 'var(--text-color)', fontWeight: 500 }}>
             {role === 'owner'
               ? 'Chủ sở hữu'
               : role === 'admin'
                 ? 'Quản lý'
                 : 'Nhân viên'}
           </strong>
-        </div>
-        <div style={{ marginTop: '2px', color: 'var(--success-text)' }}>
-          ● Phiên trực tuyến
-        </div>
+        </span>
+        <span
+          style={{
+            fontSize: '11px',
+            color: 'var(--muted-color)',
+          }}
+        >
+          v{version}
+        </span>
       </div>
     </aside>
   );
@@ -408,7 +381,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         bottom: 0,
         left: 0,
         right: 0,
-        minHeight: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+        minHeight: 'calc(60px + env(safe-area-inset-bottom, 0px))',
         backgroundColor: 'var(--surface-color, #151F30)',
         borderTop: '1px solid var(--border-color, #334155)',
         display: 'flex',
@@ -454,7 +427,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               border: 'none',
               borderRadius: '8px',
               backgroundColor: isGroupActive
-                ? 'rgba(20, 184, 166, 0.12)'
+                ? 'var(--accent-soft)'
                 : 'transparent',
               color: isGroupActive
                 ? 'var(--accent-text, #14B8A6)'
@@ -486,7 +459,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 fontSize: '11px',
                 lineHeight: 1.2,
                 letterSpacing: '-0.01em',
-                fontWeight: isGroupActive ? 700 : 500,
+                fontWeight: isGroupActive ? 600 : 500,
                 maxWidth: '100%',
                 textAlign: 'center',
                 whiteSpace: 'nowrap',

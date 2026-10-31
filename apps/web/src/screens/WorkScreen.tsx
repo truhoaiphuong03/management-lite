@@ -2443,11 +2443,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         data-testid="work-ml04-focus-bar"
         style={{
           display: 'flex',
-          flexWrap: 'nowrap',
-          overflowX: 'auto',
-          gap: '8px',
+          flexWrap: 'wrap',
+          gap: '6px',
           marginBottom: '12px',
-          paddingBottom: '4px',
           alignItems: 'center',
         }}
       >
@@ -2460,22 +2458,22 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             },
             {
               key: 'today',
-              label: `📅 Hôm nay (${kpiStats.todayCount})`,
+              label: `Hôm nay (${kpiStats.todayCount})`,
               activeColor: '#14B8A6',
             },
             {
               key: 'overdue',
-              label: `🚨 Quá hạn (${kpiStats.overdueCount})`,
+              label: `Quá hạn (${kpiStats.overdueCount})`,
               activeColor: '#EF4444',
             },
             {
               key: 'blocked',
-              label: `⛔ Cần sửa / Bị chặn (${kpiStats.blockedCount})`,
+              label: `Cần sửa / Bị chặn (${kpiStats.blockedCount})`,
               activeColor: '#F97316',
             },
             {
               key: 'pending_review',
-              label: `⏳ Chờ duyệt (${kpiStats.inReview})`,
+              label: `Chờ duyệt (${kpiStats.inReview})`,
               activeColor: '#F59E0B',
             },
           ] as const
@@ -3014,8 +3012,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                             cursor: 'pointer',
                           }}
                         >
-                          📋 {allSubmissions.length} báo cáo nộp → Xem bằng
-                          chứng
+                          {`${allSubmissions.length} báo cáo nộp → Xem bằng chứng`}
                         </span>
                         {allAttachments.slice(0, 2).map((att, idx) => (
                           <a

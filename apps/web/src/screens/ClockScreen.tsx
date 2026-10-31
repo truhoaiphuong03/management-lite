@@ -937,11 +937,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
         }
       />
 
-      {/* Tab Switcher for Owner */}
+      {/* Tab Switcher for Owner (hidden when AppShell subnav is active via onNavigate) */}
       {role === 'owner' && (
         <div
           style={{
-            display: 'flex',
+            display: onNavigate ? 'none' : 'flex',
             flexWrap: 'wrap',
             gap: '8px',
             marginBottom: '20px',
@@ -1018,14 +1018,29 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
               }}
             >
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#93C5FD' }}>
-                  📝 Bạn vừa kết thúc ca làm việc — Đừng quên nộp báo cáo ngày!
+                <div
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'var(--info-text)',
+                  }}
+                >
+                  Bạn vừa kết thúc ca làm việc — Đừng quên nộp báo cáo ngày!
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)', marginTop: '2px' }}>
-                  Ghi nhận ngay tiến độ và kết quả công việc trong ca hôm nay để Owner đối chiếu.
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--muted-color)',
+                    marginTop: '2px',
+                  }}
+                >
+                  Ghi nhận ngay tiến độ và kết quả công việc trong ca hôm nay để
+                  Owner đối chiếu.
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
+              >
                 <AppButton
                   variant="primary"
                   data-testid="btn-post-clockout-create-report"
@@ -1320,7 +1335,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     }}
                   >
                     <span>Từ ngày (Ngày/Tháng/Năm)</span>
-                    <span style={{ color: 'var(--accent-text)', fontWeight: 500 }}>
+                    <span
+                      style={{ color: 'var(--accent-text)', fontWeight: 500 }}
+                    >
                       {formatIsoToVnLabel(myFromDate)}
                     </span>
                   </label>
@@ -1366,7 +1383,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     }}
                   >
                     <span>Đến ngày (Ngày/Tháng/Năm)</span>
-                    <span style={{ color: 'var(--accent-text)', fontWeight: 500 }}>
+                    <span
+                      style={{ color: 'var(--accent-text)', fontWeight: 500 }}
+                    >
                       {formatIsoToVnLabel(myToDate)}
                     </span>
                   </label>
@@ -1710,7 +1729,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       ? 'rgba(20, 184, 166, 0.16)'
                       : 'var(--surface-color)',
                   color:
-                    selectedReviewState === pill.id ? 'var(--accent-text)' : 'var(--muted-color)',
+                    selectedReviewState === pill.id
+                      ? 'var(--accent-text)'
+                      : 'var(--muted-color)',
                 }}
               >
                 {pill.label}
@@ -1857,7 +1878,13 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   }}
                 >
                   <span>Từ ngày (Ngày/Tháng/Năm)</span>
-                  <span style={{ color: 'var(--accent-text)', fontWeight: 500, fontSize: '12px' }}>
+                  <span
+                    style={{
+                      color: 'var(--accent-text)',
+                      fontWeight: 500,
+                      fontSize: '12px',
+                    }}
+                  >
                     {formatIsoToVnLabel(selectedDate)}
                   </span>
                 </label>
@@ -1901,7 +1928,13 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   }}
                 >
                   <span>Đến ngày (Ngày/Tháng/Năm)</span>
-                  <span style={{ color: 'var(--accent-text)', fontWeight: 500, fontSize: '12px' }}>
+                  <span
+                    style={{
+                      color: 'var(--accent-text)',
+                      fontWeight: 500,
+                      fontSize: '12px',
+                    }}
+                  >
                     {formatIsoToVnLabel(selectedToDate)}
                   </span>
                 </label>
@@ -2254,7 +2287,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                           <AlertTriangleIcon size={16} /> Đơn giải trình chấm
                           công từ nhân viên
                         </div>
-                        <div style={{ color: 'var(--text-color)', marginBottom: '4px' }}>
+                        <div
+                          style={{
+                            color: 'var(--text-color)',
+                            marginBottom: '4px',
+                          }}
+                        >
                           Lý do: <em>"{shift.pending_correction.reason}"</em>
                         </div>
                         {shift.pending_correction.claimed_clock_out_at && (
@@ -2323,7 +2361,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                             paddingTop: '12px',
                           }}
                         >
-                          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              color: 'var(--muted-color)',
+                            }}
+                          >
                             {shift.worked_seconds > 12 * 3600
                               ? '⚠️ Nhân viên quên bấm kết thúc ca — Chủ sở hữu có thể đóng và xác nhận ca ngay:'
                               : '💡 Nhân viên đang trong ca làm việc:'}

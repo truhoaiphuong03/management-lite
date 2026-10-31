@@ -435,11 +435,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   align-items: center;
   gap: 6px;
   overflow-x: auto;
-  padding: 6px;
-  margin-bottom: 20px;
-  background: var(--surface-subtle-color);
-  border: 1px solid var(--border-color, #334155);
-  border-radius: 12px;
+  padding: 0 0 8px 0;
+  margin-bottom: 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle, #1e293b);
+  border-radius: 0;
   scrollbar-width: none;
 }
 
@@ -450,14 +451,14 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 .app-subnav-item {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: 7px;
+  padding: 6px 12px;
   border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted-color, #94a3b8);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
   transition:
@@ -474,7 +475,8 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 .app-subnav-item[data-active='true'] {
   color: var(--accent-text);
   background: var(--primary-subtle);
-  border-color: rgba(45, 212, 191, 0.35);
+  border-color: transparent;
+  font-weight: 600;
 }
 
 /* Responsive mobile optimizations */
@@ -512,19 +514,18 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     opacity: 0.88;
   }
   .app-subnav-bar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    flex-wrap: wrap;
+    overflow-x: hidden;
     margin-bottom: 10px;
-    padding: 4px;
+    padding: 0 0 6px 0;
     gap: 4px;
-    border-radius: 10px;
+    border-radius: 0;
   }
   .app-subnav-item {
-    padding: 6px 10px;
+    padding: 5px 8px;
     font-size: 12px;
-    gap: 5px;
-    flex-shrink: 0;
+    gap: 4px;
+    max-width: 100%;
   }
   .kpi-grid-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;

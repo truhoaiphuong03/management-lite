@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.6.5';
-export const SYSTEM_COMMIT = '6e1ee4f';
+export const SYSTEM_VERSION = '0.6.6';
+export const SYSTEM_COMMIT = '797a343';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,18 +41,38 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.6.5',
+    version: '0.6.6',
     commit: 'latest',
     released_at: '2026-10-31',
     summary:
-      'Tối giản hóa toàn diện giao diện Điện thoại & Máy tính: gỡ bỏ khoảng đệm thừa, gom thanh Sub-Navigation 1 dòng cuộn mượt, ẩn phụ đề dài trên di động, thu gọn bộ lọc nâng cao (/accounts, /dashboard) và tự động ẩn dòng trống trên thẻ bảng di động.',
-    added: [],
-    improved: [
-      'Giao diện Điện thoại (<=768px): loại bỏ padding kép làm hẹp màn hình, chuyển thanh Sub-Navigation thành 1 dòng ngang gọn gàng, ẩn dòng mô tả dài dưới tiêu đề trang và thu gọn nút Báo lỗi thành biểu tượng tròn.',
-      'Bảng dữ liệu trên Điện thoại (rt-cards): tự động ẩn các ô trống (— / Chưa gán) và đưa cột tên chính lên làm tiêu đề thẻ rõ ràng, dễ đọc.',
-      'Màn hình Tài khoản (/accounts) & Tổng quan (/dashboard): ẩn 4 thẻ KPI khi chưa có tài khoản, chỉ giữ 1 nút "+ Thêm tài khoản", thu gọn 4 bộ lọc phụ vào nút "▾ Lọc nâng cao" và thu gọn bảng chi tiết V4 vào nút "▾ Chi tiết V4".',
+      'Làm mới toàn bộ hệ thống biểu tượng SVG tối giản hiện đại (strokeWidth 1.75, mỗi tab điều hướng một icon riêng biệt) và loại bỏ các khối giao diện cầu kỳ, trùng lặp.',
+    added: [
+      'Bộ biểu tượng SVG hiện đại chuyên biệt cho từng phân hệ (CalendarClockIcon, UserCheckIcon, CheckSquareIcon, CreditCardIcon, ShieldCheckIcon, SlidersIcon).',
     ],
-    fixed: [],
+    improved: [
+      'Thiết kế tối giản cho Thanh bên (DesktopSidebar), Thanh đỉnh (AppShell Header) và Thanh điều hướng phụ (Sub-Navigation Bar) phẳng, sạch, không viền hộp kép.',
+      'Màn hình Tổng quan (/dashboard), Chấm công (/clock) và Công việc (/work): ẩn mặc định lưới 10 thẻ Lối tắt trùng lặp, thu gọn thanh trạng thái V4 1 dòng và gỡ bỏ các emoji rườm rà.',
+    ],
+    fixed: [
+      'Khắc phục triệt để tràn ngang các nút điều hướng phụ (.app-subnav-bar) ở khung nhìn di động 320px.',
+    ],
+  },
+  {
+    version: '0.6.5',
+    commit: '797a343',
+    released_at: '2026-10-31',
+    summary:
+      'Tối giản hóa toàn diện giao diện Điện thoại & Máy tính: gỡ bỏ khoảng đệm thừa, gom thanh Sub-Navigation gọn gàng, ẩn phụ đề dài trên di động, thu gọn bộ lọc nâng cao (/accounts, /dashboard) và tự động ẩn dòng trống trên thẻ bảng di động.',
+    added: [
+      'Chế độ thu gọn bộ lọc nâng cao ("▾ Lọc nâng cao") trên /accounts và chi tiết liên thông ("Chi tiết V4") trên /dashboard.',
+    ],
+    improved: [
+      'Giao diện Điện thoại (<=768px): loại bỏ padding kép làm hẹp màn hình, ẩn dòng mô tả dài dưới tiêu đề trang và thu gọn nút Báo lỗi thành biểu tượng tròn.',
+      'Bảng dữ liệu trên Điện thoại (rt-cards): tự động ẩn các ô trống (— / Chưa gán) và đưa cột tên chính lên làm tiêu đề thẻ rõ ràng, dễ đọc.',
+    ],
+    fixed: [
+      'Loại bỏ các nút trùng lặp trên màn hình Quản lý Tài khoản (/accounts) và ẩn 4 thẻ KPI khi chưa có dữ liệu tài khoản.',
+    ],
   },
   {
     version: '0.6.4',
@@ -60,7 +80,9 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     released_at: '2026-10-31',
     summary:
       'Tối ưu hóa điều hướng 1-chạm (bấm phân hệ vào thẳng tab chức năng đầu tiên, bỏ qua màn hình thẻ trung gian) và loại bỏ dòng Breadcrumb trùng lặp phía trên thanh Sub-Navigation ngang.',
-    added: [],
+    added: [
+      'Cơ chế điều hướng trực tiếp 1-chạm từ nhóm phân hệ vào màn hình chức năng đầu tiên tương ứng theo vai trò.',
+    ],
     improved: [
       'Thanh bên DesktopSidebar và thanh đáy MobileBottomNav mở thẳng màn hình chức năng đầu tiên của phân hệ chỉ với 1 cú nhấp chuột.',
       'Ẩn dòng Breadcrumb cấp 2 trùng lặp trên các màn hình danh sách chính khi đã có thanh điều hướng ngang (Sub-Navigation Bar), giữ lại Breadcrumb & nút Quay lại trên các trang chi tiết cấp 3.',

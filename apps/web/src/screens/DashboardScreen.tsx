@@ -131,6 +131,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [bridgeReadError, setBridgeReadError] = useState<string | null>(null);
   const [bridgeSyncing, setBridgeSyncing] = useState(false);
   const [showBridgeDetails, setShowBridgeDetails] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const [bridgeFeedbackError, setBridgeFeedbackError] = useState(false);
   const [bridgeFeedback, setBridgeFeedback] = useState<string | null>(null);
   const [systemErrorAlert, setSystemErrorAlert] = useState<{
@@ -1026,18 +1027,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <h3
             style={{
               fontSize: '14px',
-              fontWeight: 700,
+              fontWeight: 600,
               color: 'var(--text-color)',
               margin: 0,
             }}
           >
-            ⚡ Trung tâm Việc cần xử lý hôm nay
+            Việc cần xử lý hôm nay
           </h3>
-          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            {role === 'owner'
-              ? 'Nhấp vào từng mục để xử lý ngay'
-              : 'Nhắc việc ca làm & báo cáo trong ngày'}
-          </span>
         </div>
         <div
           style={{
@@ -1076,7 +1072,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         color: 'var(--danger-text)',
                       }}
                     >
-                      🚨 {systemErrorAlert.errorCount} lỗi ·{' '}
+                      {systemErrorAlert.errorCount} lỗi ·{' '}
                       {systemErrorAlert.warnCount} cảnh báo (24h)
                     </div>
                     <div
@@ -1132,7 +1128,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       color: 'var(--text-color)',
                     }}
                   >
-                    ⏱️ Duyệt ca làm việc
+                    Duyệt ca làm việc
                   </div>
                   <div
                     style={{
@@ -1181,7 +1177,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       color: 'var(--text-color)',
                     }}
                   >
-                    📋 Báo cáo ngày
+                    Báo cáo ngày
                   </div>
                   <div
                     style={{
@@ -1230,7 +1226,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       color: 'var(--text-color)',
                     }}
                   >
-                    👥 Hồ sơ & Ngân hàng
+                    Hồ sơ & Ngân hàng
                   </div>
                   <div
                     style={{
@@ -1279,7 +1275,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       color: 'var(--text-color)',
                     }}
                   >
-                    💰 Chi trả lương VietQR
+                    Chi trả lương VietQR
                   </div>
                   <div
                     style={{
@@ -1330,7 +1326,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       color: 'var(--text-color)',
                     }}
                   >
-                    ⏱️ Trạng thái ca làm
+                    Trạng thái ca làm
                   </div>
                   <div
                     style={{
@@ -1379,7 +1375,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       color: 'var(--text-color)',
                     }}
                   >
-                    📝 Báo cáo hôm nay
+                    Báo cáo hôm nay
                   </div>
                   <div
                     style={{
@@ -1428,7 +1424,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       color: 'var(--text-color)',
                     }}
                   >
-                    📌 Công việc được giao
+                    Công việc được giao
                   </div>
                   <div
                     style={{
@@ -1456,20 +1452,45 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </div>
 
       {/* Quick Action Navigation Grid */}
-      <h3
+      <div
         style={{
-          fontSize: '15px',
-          fontWeight: 700,
-          marginBottom: '12px',
-          color: 'var(--text-color)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: showQuickActions ? '12px' : '0',
         }}
       >
-        Lối tắt thao tác nhanh
-      </h3>
+        <h3
+          style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            margin: 0,
+            color: 'var(--muted-color)',
+          }}
+        >
+          Lối tắt thao tác nhanh
+        </h3>
+        <button
+          type="button"
+          onClick={() => setShowQuickActions((v) => !v)}
+          style={{
+            border: '1px solid var(--border-color)',
+            backgroundColor: 'transparent',
+            color: 'var(--muted-color)',
+            borderRadius: '6px',
+            padding: '4px 10px',
+            fontSize: '12px',
+            fontWeight: 500,
+            cursor: 'pointer',
+          }}
+        >
+          {showQuickActions ? 'Thu gọn lối tắt' : 'Mở tất cả lối tắt'}
+        </button>
+      </div>
       <div
         className="quick-actions-grid"
         style={{
-          display: 'grid',
+          display: showQuickActions ? 'grid' : 'none',
           gridTemplateColumns:
             'repeat(auto-fill, minmax(min(100%, 240px), 1fr))',
           gap: '10px',
@@ -1528,7 +1549,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             },
             {
               path: '/finance',
-              icon: <NavIcon id="accounts" size={20} />,
+              icon: <NavIcon id="finance" size={20} />,
               title: 'Tài chính',
               desc: 'Sổ thu chi & kế hoạch',
               show: role === 'owner',
@@ -1623,8 +1644,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       {/* Cross-System Data Bridge: ql.hoaiphuong.click <-> hoaiphuong.click (Owner only) */}
       {role === 'owner' && (
-        <div style={{ marginTop: '28px' }}>
-          <AppCard padding="20px">
+        <div style={{ marginTop: '20px' }}>
+          <AppCard padding="16px">
             <div
               style={{
                 display: 'flex',
@@ -1632,7 +1653,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 gap: '12px',
-                marginBottom: '16px',
+                marginBottom: showBridgeDetails ? '16px' : '0',
               }}
             >
               <div>
@@ -1646,7 +1667,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 >
                   <h2
                     style={{
-                      fontSize: '16px',
+                      fontSize: '14px',
                       fontWeight: 600,
                       color: 'var(--text-color)',
                       margin: 0,
@@ -1663,17 +1684,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     }
                   />
                 </div>
-                <div
-                  style={{
-                    fontSize: '13px',
-                    color: 'var(--muted-color)',
-                    marginTop: '4px',
-                  }}
-                >
-                  Đồng bộ nhân sự và công việc với hoaiphuong.click. Báo cáo sản
-                  lượng chỉ tự ghi khi có ánh xạ nhân viên và ngày nghiệp vụ đã
-                  xác minh.
-                </div>
+                {showBridgeDetails && (
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      color: 'var(--muted-color)',
+                      marginTop: '4px',
+                    }}
+                  >
+                    Đồng bộ nhân sự và công việc với hoaiphuong.click. Báo cáo
+                    sản lượng chỉ tự ghi khi có ánh xạ nhân viên và ngày nghiệp
+                    vụ đã xác minh.
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {role === 'owner' && (
@@ -1691,7 +1714,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   variant="secondary"
                   onClick={() => setShowBridgeDetails((v) => !v)}
                 >
-                  {showBridgeDetails ? '▲ Ẩn chi tiết V4' : '▾ Chi tiết V4'}
+                  {showBridgeDetails ? 'Ẩn chi tiết V4' : 'Chi tiết V4'}
                 </AppButton>
                 <AppButton
                   variant="secondary"
