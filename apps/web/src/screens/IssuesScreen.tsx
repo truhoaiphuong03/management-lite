@@ -764,7 +764,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   style={{
                     padding: '2px 8px',
                     borderRadius: '10px',
-                    backgroundColor: isActive ? '#14B8A6' : 'var(--surface-hover)',
+                    backgroundColor: isActive ? 'var(--primary-color)' : 'var(--surface-hover)',
                     color: isActive ? '#0F172A' : 'var(--text-secondary)',
                     fontSize: '11px',
                     fontWeight: 700,

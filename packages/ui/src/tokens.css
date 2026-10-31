@@ -115,7 +115,7 @@
 
   --text-color: #0f172a;
   --text-secondary: #334155;
-  --muted-color: #64748b;
+  --muted-color: #526177;
   --disabled-color: #94a3b8;
   --inverse-text: #ffffff;
 
@@ -128,6 +128,21 @@
   --danger-text: #b91c1c;
   --success-text: #047857;
   --warning-text: #b45309;
+
+  /* Light theme: darker brand/status colors so white-on-color buttons and tinted badges meet AA */
+  --primary-color: #0f766e;
+  --primary-hover: #115e59;
+  --primary-active: #134e4a;
+  --focus-ring: #0f766e;
+  --success-color: #047857;
+  --success-hover: #065f46;
+  --warning-color: #b45309;
+  --warning-hover: #92400e;
+  --danger-color: #b91c1c;
+  --error-color: #b91c1c;
+  --danger-hover: #991b1b;
+  --info-color: #0369a1;
+  --info-hover: #075985;
 }
 
 :root[data-theme='dark'],
@@ -164,7 +179,7 @@
 
     --text-color: #0f172a;
     --text-secondary: #334155;
-    --muted-color: #64748b;
+    --muted-color: #526177;
     --disabled-color: #94a3b8;
     --inverse-text: #ffffff;
 
@@ -177,6 +192,21 @@
     --danger-text: #b91c1c;
     --success-text: #047857;
     --warning-text: #b45309;
+
+    /* Light theme: darker brand/status colors so white-on-color buttons and tinted badges meet AA */
+    --primary-color: #0f766e;
+    --primary-hover: #115e59;
+    --primary-active: #134e4a;
+    --focus-ring: #0f766e;
+    --success-color: #047857;
+    --success-hover: #065f46;
+    --warning-color: #b45309;
+    --warning-hover: #92400e;
+    --danger-color: #b91c1c;
+    --error-color: #b91c1c;
+    --danger-hover: #991b1b;
+    --info-color: #0369a1;
+    --info-hover: #075985;
   }
 }
 

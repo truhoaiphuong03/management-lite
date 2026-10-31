@@ -3,7 +3,7 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.3.3';
+export const SYSTEM_VERSION = '0.5.0';
 export const SYSTEM_COMMIT = 'e65ae75';
 export const SYSTEM_ENV = 'staging';
 
@@ -41,8 +41,29 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.3.3',
+    version: '0.5.0',
     commit: 'latest',
+    released_at: '2026-10-31T05:45:00.000Z',
+    summary:
+      'Chu?n h�a giao di?n to�n h? th?ng (Phase UI-0 ? UI-4): giao di?n S�ng d�ng du?c tr�n m?i m�n h�nh, thanh di?u hu?ng d�y di?n tho?i c� t�n truy c?p, b?ng t? chuy?n th�nh th? tr�n di?n tho?i v� c� c�ng c? ki?m tra giao di?n t? d?ng.',
+    added: [
+      'C�ng c? ki?m tra giao di?n t? d?ng (npm run audit:ui): ch?p ?nh 3 c? m�n h�nh � 2 giao di?n, ph�t hi?n tr�n ngang v� l?i truy c?p.',
+      'B?ng d? li?u t? hi?n th? d?ng th? tr�n di?n tho?i (nh�n c?t gi? nguy�n), kh�ng c�n ph?i cu?n ngang.',
+      'Li�n k?t "B? qua t?i n?i dung ch�nh" cho ngu?i d�ng b�n ph�m.',
+    ],
+    improved: [
+      'Giao di?n S�ng: thanh b�n, th?, n�t, � nh?p, bi?u m?u dang nh?p v� ch? d?u d?i theo ch? d? S�ng / T?i / H? th?ng; m�u n�t v� huy hi?u d?t chu?n tuong ph?n.',
+      'Thanh di?u hu?ng d�y di?n tho?i: nh�n 11px, n�t cao 52px, m?i n�t c� t�n truy c?p duy nh?t.',
+      'Bi?u tu?ng ri�ng cho Thu chi v� Nh?t k� h? th?ng; trang 404/403 c� ti�u d? chu?n.',
+    ],
+    fixed: [
+      'S?a c�c bi?n m�u b? thi?u (font, m�u thuong hi?u, n?n ph?) khi?n � ch?n ng�y v� thanh ph�n h? sai m�u ? giao di?n S�ng.',
+      'B? hi?u ?ng chuy?n d?ng "all" g�y gi?t tr�n thanh ph�n h? v� b? l?c C�ng vi?c.',
+    ],
+  },
+  {
+    version: '0.3.3',
+    commit: '12f78ed',
     released_at: '2026-10-31T12:40:00.000Z',
     summary:
       'Hoàn tất Phase 14 (Bảo mật khẩn từ kiểm toán 31/10): chặn giả mạo địa chỉ IP để vượt giới hạn đăng nhập, thêm giới hạn thử sai theo từng tài khoản, bổ sung header bảo mật cho giao diện và API, dọn phiên đăng nhập cũ và đặt giới hạn thời gian truy vấn cơ sở dữ liệu.',

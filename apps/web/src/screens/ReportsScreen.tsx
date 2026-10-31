@@ -836,7 +836,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               padding: '10px 16px',
               borderRadius: '6px',
               backgroundColor:
-                activeTab === 'all_reports' ? '#14B8A6' : 'transparent',
+                activeTab === 'all_reports' ? 'var(--primary-color)' : 'transparent',
               color: activeTab === 'all_reports' ? '#0B1220' : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
@@ -859,7 +859,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               padding: '10px 16px',
               borderRadius: '6px',
               backgroundColor:
-                activeTab === 'my_reports' ? '#14B8A6' : 'transparent',
+                activeTab === 'my_reports' ? 'var(--primary-color)' : 'transparent',
               color: activeTab === 'my_reports' ? '#0B1220' : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',

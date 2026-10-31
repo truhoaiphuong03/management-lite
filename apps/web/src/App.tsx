@@ -1169,7 +1169,7 @@ export const App: React.FC = () => {
                     }
                   }}
                   style={{
-                    backgroundColor: '#14B8A6',
+                    backgroundColor: 'var(--primary-color)',
                     color: '#0F172A',
                     border: 'none',
                     borderRadius: '6px',
@@ -1660,7 +1660,7 @@ export const App: React.FC = () => {
                     }
                   }}
                   style={{
-                    backgroundColor: '#14B8A6',
+                    backgroundColor: 'var(--primary-color)',
                     color: '#0F172A',
                     border: 'none',
                     borderRadius: '8px',

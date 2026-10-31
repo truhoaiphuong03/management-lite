@@ -1901,7 +1901,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       style={{
                         width: `${uploadProgressPct}%`,
                         height: '100%',
-                        backgroundColor: '#14B8A6',
+                        backgroundColor: 'var(--primary-color)',
                         transition: 'width 0.2s ease',
                       }}
                     />
@@ -3787,7 +3787,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 fontWeight: 600,
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: typeFilter === 'all' ? '#14B8A6' : 'var(--surface-hover)',
+                backgroundColor: typeFilter === 'all' ? 'var(--primary-color)' : 'var(--surface-hover)',
                 color: typeFilter === 'all' ? '#0F172A' : 'var(--muted-color)',
               }}
             >
@@ -3807,7 +3807,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 border: 'none',
                 cursor: 'pointer',
                 backgroundColor:
-                  typeFilter === 'source' ? '#14B8A6' : 'var(--surface-hover)',
+                  typeFilter === 'source' ? 'var(--primary-color)' : 'var(--surface-hover)',
                 color: typeFilter === 'source' ? '#0F172A' : 'var(--muted-color)',
               }}
             >
@@ -3827,7 +3827,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 border: 'none',
                 cursor: 'pointer',
                 backgroundColor:
-                  typeFilter === 'deliverable' ? '#14B8A6' : 'var(--surface-hover)',
+                  typeFilter === 'deliverable' ? 'var(--primary-color)' : 'var(--surface-hover)',
                 color: typeFilter === 'deliverable' ? '#0F172A' : 'var(--muted-color)',
               }}
             >

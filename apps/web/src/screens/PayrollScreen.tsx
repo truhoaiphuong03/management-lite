@@ -3303,7 +3303,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                 backgroundColor: itemUnresolved
                                   ? '#D97706'
                                   : canDisburse
-                                    ? '#14B8A6'
+                                    ? 'var(--primary-color)'
                                     : '#334155',
                                 border: itemUnresolved
                                   ? '1px solid #F59E0B'

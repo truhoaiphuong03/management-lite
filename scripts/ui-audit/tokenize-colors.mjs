@@ -16,6 +16,7 @@ const TEXT = {
 const BG = {
   '#0F172A': 'var(--surface-subtle)', '#0B1220': 'var(--bg-color)',
   '#1E293B': 'var(--surface-hover)', '#151F30': 'var(--surface-color)',
+  '#14B8A6': 'var(--primary-color)',
 };
 const BORDER = {
   '#334155': 'var(--border-color)', '#1E293B': 'var(--border-subtle)',
