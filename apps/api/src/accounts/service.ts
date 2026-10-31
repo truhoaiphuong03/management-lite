@@ -263,7 +263,9 @@ export class AccountsService {
       notes: r.notes ?? null,
       version: r.version,
       created_at: new Date(r.created_at).toISOString(),
-      updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null,
+      updated_at: r.updated_at
+        ? new Date(r.updated_at).toISOString()
+        : new Date(r.created_at).toISOString(),
     };
   }
 

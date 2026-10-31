@@ -157,9 +157,9 @@ export async function handleAuditAndIssuesRoutes(
   // 1B. POST /api/v1/issues/bulk-confirm - Bulk confirm and close awaiting_owner issues
   if (issueId === 'bulk-confirm' && !subAction && method === 'POST') {
     requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
-    const rawBody = await parseJsonBody<Record<string, unknown>>(req).catch(
-      () => ({}),
-    );
+    const rawBody: Record<string, unknown> =
+      (await parseJsonBody<Record<string, unknown>>(req).catch(() => ({}))) ??
+      {};
     const note =
       typeof rawBody?.['note'] === 'string' ? rawBody['note'] : undefined;
     const issueIds = Array.isArray(rawBody?.['issue_ids'])
