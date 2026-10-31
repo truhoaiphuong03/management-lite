@@ -282,7 +282,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             <button
               key={group.id}
               type="button"
-              onClick={() => onNavigate(group.path)}
+              onClick={() => onNavigate(group.items[0]?.path || group.path)}
               title={group.items.map((i) => i.label).join(', ')}
               style={{
                 boxSizing: 'border-box',
@@ -298,7 +298,9 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 backgroundColor: isGroupActive
                   ? 'rgba(20, 184, 166, 0.15)'
                   : 'transparent',
-                color: isGroupActive ? 'var(--accent-text)' : 'var(--muted-color)',
+                color: isGroupActive
+                  ? 'var(--accent-text)'
+                  : 'var(--muted-color)',
                 fontWeight: isGroupActive ? 600 : 500,
                 textAlign: 'left',
                 cursor: 'pointer',
@@ -313,7 +315,9 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 style={{
                   fontSize: '14px',
                   lineHeight: 1.2,
-                  color: isGroupActive ? 'var(--accent-text)' : 'var(--text-color)',
+                  color: isGroupActive
+                    ? 'var(--accent-text)'
+                    : 'var(--text-color)',
                   fontWeight: isGroupActive ? 600 : 500,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -435,7 +439,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             key={group.id}
             type="button"
-            onClick={() => onNavigate(group.path)}
+            onClick={() => onNavigate(group.items[0]?.path || group.path)}
             aria-current={isGroupActive ? 'page' : undefined}
             aria-label={group.title}
             className="mobile-bottom-nav-btn"

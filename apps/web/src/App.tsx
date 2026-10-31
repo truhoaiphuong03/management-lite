@@ -373,7 +373,17 @@ export const App: React.FC = () => {
   }, [isLoggedIn, userId, missingPhoneDismissed]);
 
   // 4. Navigation handler synchronizes browser URL (History API)
-  const handleNavigate = (path: string) => {
+  const handleNavigate = (rawPath: string) => {
+    const groupPrimaryMap: Record<string, string> = {
+      '/groups/overview': '/',
+      '/groups/attendance': '/clock',
+      '/groups/work': '/work',
+      '/groups/hr-payroll': role === 'staff' ? '/my-pay' : '/employees',
+      '/groups/finance': '/finance',
+      '/groups/admin':
+        role === 'owner' && verifiedOwnerSession ? '/accounts' : '/settings',
+    };
+    const path = groupPrimaryMap[rawPath] || rawPath;
     if (typeof window !== 'undefined' && window.location.pathname !== path) {
       window.history.pushState(null, '', path);
     }
@@ -1297,9 +1307,9 @@ export const App: React.FC = () => {
                 <strong style={{ color: 'var(--text-color)' }}>
                   Số điện thoại liên hệ (*)
                 </strong>
-                . Các thông tin khác (Ngày sinh, Giới tính, Số CCCD/CMND, Địa chỉ,
-                Ngân hàng) đều <strong>không bắt buộc</strong> — có thể điền hoặc
-                bỏ trống.
+                . Các thông tin khác (Ngày sinh, Giới tính, Số CCCD/CMND, Địa
+                chỉ, Ngân hàng) đều <strong>không bắt buộc</strong> — có thể
+                điền hoặc bỏ trống.
               </p>
 
               <div
@@ -1330,7 +1340,9 @@ export const App: React.FC = () => {
                     }}
                   >
                     Số điện thoại liên hệ{' '}
-                    <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}>
+                    <span
+                      style={{ color: 'var(--danger-text)', fontWeight: 700 }}
+                    >
                       * (Bắt buộc)
                     </span>
                   </label>
@@ -1376,7 +1388,9 @@ export const App: React.FC = () => {
                     }}
                   >
                     Ngày sinh{' '}
-                    <span style={{ color: 'var(--muted-color)' }}>(Không bắt buộc)</span>
+                    <span style={{ color: 'var(--muted-color)' }}>
+                      (Không bắt buộc)
+                    </span>
                   </label>
                   <VnDateOfBirthSelect
                     id="missing-dob-input"
@@ -1398,7 +1412,9 @@ export const App: React.FC = () => {
                     style={{ fontSize: '12px', color: 'var(--muted-color)' }}
                   >
                     Giới tính{' '}
-                    <span style={{ color: 'var(--muted-color)' }}>(Không bắt buộc)</span>
+                    <span style={{ color: 'var(--muted-color)' }}>
+                      (Không bắt buộc)
+                    </span>
                   </label>
                   <select
                     id="missing-gender-input"
@@ -1436,7 +1452,9 @@ export const App: React.FC = () => {
                     style={{ fontSize: '12px', color: 'var(--muted-color)' }}
                   >
                     Số CCCD / CMND{' '}
-                    <span style={{ color: 'var(--muted-color)' }}>(Không bắt buộc)</span>
+                    <span style={{ color: 'var(--muted-color)' }}>
+                      (Không bắt buộc)
+                    </span>
                   </label>
                   <input
                     id="missing-cccd-input"
@@ -1465,7 +1483,9 @@ export const App: React.FC = () => {
                     style={{ fontSize: '12px', color: 'var(--muted-color)' }}
                   >
                     Địa chỉ nơi ở hiện tại{' '}
-                    <span style={{ color: 'var(--muted-color)' }}>(Không bắt buộc)</span>
+                    <span style={{ color: 'var(--muted-color)' }}>
+                      (Không bắt buộc)
+                    </span>
                   </label>
                   <input
                     id="missing-address-input"

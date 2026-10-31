@@ -85,15 +85,21 @@ export const AppShell: React.FC<AppShellProps> = ({
     });
   });
 
-  const subNavItems =
-    activeGroup && !currentPath.startsWith('/groups/')
-      ? activeGroup.itemIds
-          .map((id) => itemMap.get(id))
-          .filter(
-            (item): item is (typeof NAV_ITEMS)[number] =>
-              Boolean(item) && isItemVisibleForRole(item!),
-          )
-      : [];
+  const subNavItems = activeGroup
+    ? activeGroup.itemIds
+        .map((id) => itemMap.get(id))
+        .filter(
+          (item): item is (typeof NAV_ITEMS)[number] =>
+            Boolean(item) && isItemVisibleForRole(item!),
+        )
+    : [];
+  const isDetailSubRoute =
+    /^\/(work|employees|accounts|storage|issues|payroll|finance)\/[^/]+/.test(
+      currentPath,
+    ) &&
+    currentPath !== '/attendance/review' &&
+    currentPath !== '/attendance/corrections' &&
+    currentPath !== '/reports/new';
 
   const moreGroups = NAV_GROUPS.map((group) => {
     const items = group.itemIds
@@ -159,7 +165,10 @@ export const AppShell: React.FC<AppShellProps> = ({
             flexShrink: 1,
           }}
         >
-          <BuildingIcon size={18} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
+          <BuildingIcon
+            size={18}
+            style={{ color: 'var(--accent-text)', flexShrink: 0 }}
+          />
           <span
             className="app-shell-brand-title"
             style={{
@@ -322,11 +331,13 @@ export const AppShell: React.FC<AppShellProps> = ({
           }`}
           style={{ flex: 1, minWidth: 0, width: '100%' }}
         >
-          <Breadcrumb
-            currentPath={currentPath}
-            onNavigate={onNavigate}
-            role={role}
-          />
+          {isDetailSubRoute && (
+            <Breadcrumb
+              currentPath={currentPath}
+              onNavigate={onNavigate}
+              role={role}
+            />
+          )}
           {subNavItems.length > 1 && (
             <nav
               aria-label="Điều hướng phân hệ"

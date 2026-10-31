@@ -66,9 +66,21 @@ test('UI-AUDIT-P2: NotFoundScreen renders a single h1 heading', () => {
 });
 
 test('UI-AUDIT-P3/4: shared components use theme-aware THEME_COLORS instead of raw TOKENS.colors hex', () => {
-  for (const f of ['AppCard', 'AppButton', 'AppInput', 'AppDialog', 'AppBadge', 'AppToast', 'Pagination']) {
+  for (const f of [
+    'AppCard',
+    'AppButton',
+    'AppInput',
+    'AppDialog',
+    'AppBadge',
+    'AppToast',
+    'Pagination',
+  ]) {
     const src = read(`packages/ui/src/components/${f}.tsx`);
-    assert.doesNotMatch(src, /TOKENS\.colors\./, `${f} must not use TOKENS.colors`);
+    assert.doesNotMatch(
+      src,
+      /TOKENS\.colors\./,
+      `${f} must not use TOKENS.colors`,
+    );
     assert.match(src, /THEME_COLORS/);
   }
   const tokens = read('packages/ui/src/tokens.ts');
@@ -76,7 +88,14 @@ test('UI-AUDIT-P3/4: shared components use theme-aware THEME_COLORS instead of r
 });
 
 test('UI-AUDIT-P4: dashboard/work/payroll screens keep no hard-coded dark surface colors', () => {
-  for (const f of ['DashboardScreen', 'ClockScreen', 'WorkScreen', 'PayrollScreen', 'StorageScreen', 'SettingsScreen']) {
+  for (const f of [
+    'DashboardScreen',
+    'ClockScreen',
+    'WorkScreen',
+    'PayrollScreen',
+    'StorageScreen',
+    'SettingsScreen',
+  ]) {
     const src = read(`apps/web/src/screens/${f}.tsx`);
     assert.doesNotMatch(
       src,
@@ -90,13 +109,25 @@ test('UI-AUDIT-P4: responsive tables are enabled in AppShell and styled in token
   const rt = read('apps/web/src/responsive-tables.ts');
   assert.match(rt, /export function enableResponsiveTables/);
   assert.match(rt, /data-label/);
-  assert.match(shell, /enableResponsiveTables\(document\.getElementById\('main-content'\)\)/);
-  assert.match(css, /table\.rt-cards td\[data-label\]:not\(\[data-label=''\]\)::before/);
+  assert.match(
+    shell,
+    /enableResponsiveTables\(document\.getElementById\('main-content'\)\)/,
+  );
+  assert.match(
+    css,
+    /table\.rt-cards td\[data-label\]:not\(\[data-label=''\]\)::before/,
+  );
   assert.match(css, /table\.rt-cards thead \{\s+display: none;/);
 });
 
 test('UI-AUDIT-P4: web screens use THEME_COLORS (no TOKENS.colors) so Light theme works', () => {
-  for (const f of ['finance/ui.tsx', 'screens/AuditScreen.tsx', 'screens/ClockScreen.tsx', 'screens/FinanceOverviewScreen.tsx', 'screens/FinancePlanScreen.tsx']) {
+  for (const f of [
+    'finance/ui.tsx',
+    'screens/AuditScreen.tsx',
+    'screens/ClockScreen.tsx',
+    'screens/FinanceOverviewScreen.tsx',
+    'screens/FinancePlanScreen.tsx',
+  ]) {
     const src = read(`apps/web/src/${f}`);
     assert.doesNotMatch(src, /TOKENS\.colors\./, `${f} must use THEME_COLORS`);
   }
@@ -106,10 +137,23 @@ test('UI-AUDIT-P5: form controls get accessible names at runtime and screens avo
   const forms = read('apps/web/src/a11y-forms.ts');
   assert.match(forms, /export function enableFormLabelling/);
   assert.match(forms, /htmlFor/);
-  assert.match(shell, /enableFormLabelling\(document\.getElementById\('main-content'\)\)/);
-  for (const f of ['ClockScreen', 'PayrollScreen', 'StorageScreen', 'WorkScreen', 'AccountsScreen']) {
+  assert.match(
+    shell,
+    /enableFormLabelling\(document\.getElementById\('main-content'\)\)/,
+  );
+  for (const f of [
+    'ClockScreen',
+    'PayrollScreen',
+    'StorageScreen',
+    'WorkScreen',
+    'AccountsScreen',
+  ]) {
     const src = read(`apps/web/src/screens/${f}.tsx`);
-    assert.doesNotMatch(src, /fontSize:\s*'(9|10|10\.5|11|11\.5)(px)?'/, `${f} must not use text below 12px`);
+    assert.doesNotMatch(
+      src,
+      /fontSize:\s*'(9|10|10\.5|11|11\.5)(px)?'/,
+      `${f} must not use text below 12px`,
+    );
   }
 });
 
@@ -138,4 +182,10 @@ test('UI-AUDIT-P5: ReportBugWidget trigger button floats and supports pointer dr
   assert.match(rbw, /onPointerMove=\{handleBtnPointerMove\}/);
   assert.doesNotMatch(rbw, /position:\s*static\s*!important/);
   assert.doesNotMatch(shell, /position:\s*static\s*!important/);
+});
+
+test('UI-NAV-STREAMLINE: sidebar/bottom-nav navigate directly to first group item and AppShell hides redundant top-level breadcrumb', () => {
+  assert.match(nav, /onNavigate\(group\.items\[0\]\?\.path \|\| group\.path\)/);
+  assert.match(shell, /isDetailSubRoute/);
+  assert.match(shell, /isDetailSubRoute &&[\s\S]*<Breadcrumb/);
 });
