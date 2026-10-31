@@ -45,6 +45,11 @@ test('CROSS-SYSTEM-BRIDGE-01: management-lite API & Web expose full data bridge 
       dashSrc.includes('/api/v1/bridge/tiktok-v4/sync'),
     'DashboardScreen.tsx must connect to /api/v1/bridge/tiktok-v4 and /api/v1/bridge/tiktok-v4/sync',
   );
+  assert.ok(
+    dashSrc.includes("'https://hoaiphuong.click'") &&
+      !dashSrc.includes('/api/auth/management/start'),
+    'DashboardScreen.tsx must open https://hoaiphuong.click directly without hitting unmounted /api/auth/management/start',
+  );
 
   const ownerHtml = renderToStaticMarkup(
     React.createElement(DashboardScreen, {

@@ -1421,7 +1421,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   onClick={() => {
                     if (typeof window !== 'undefined') {
                       window.open(
-                        'https://hoaiphuong.click/api/auth/management/start',
+                        'https://hoaiphuong.click',
                         '_blank',
                         'noopener,noreferrer',
                       );
