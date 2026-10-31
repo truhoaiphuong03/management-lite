@@ -92,9 +92,10 @@ export const VnDateOfBirthSelect: React.FC<VnDateOfBirthSelectProps> = ({
 
   const selectStyle: React.CSSProperties = {
     width: '100%',
+    height: '40px',
     boxSizing: 'border-box',
-    padding: '10px 6px',
-    fontSize: '13px',
+    padding: '0 8px',
+    fontSize: '13.5px',
     borderRadius: '8px',
     border: '1px solid #475569',
     backgroundColor: '#1E293B',
@@ -218,10 +219,11 @@ export const VnBankAutocompleteInput: React.FC<VnBankAutocompleteInputProps> = (
         autoComplete="off"
         style={{
           width: '100%',
+          height: '38px',
           boxSizing: 'border-box',
-          padding: '8px 10px',
-          fontSize: '13px',
-          borderRadius: '6px',
+          padding: '0 12px',
+          fontSize: '13.5px',
+          borderRadius: '8px',
           border: '1px solid #475569',
           backgroundColor: '#1E293B',
           color: '#F8FAFC',

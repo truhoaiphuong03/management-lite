@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.3.1';
-export const SYSTEM_COMMIT = '11d2138';
+export const SYSTEM_VERSION = '0.3.2';
+export const SYSTEM_COMMIT = 'bc2f076';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.3.1',
+    version: '0.3.2',
     commit: 'latest',
+    released_at: '2026-10-31T11:36:00.000Z',
+    summary:
+      'Hoàn tất Phase 13 (Hotfix Cửa sổ Bổ sung Hồ sơ & Lưu thông tin cá nhân): Sửa lỗi lưu thông tin cá nhân (PATCH /api/v1/auth/profile), sửa nút đóng (✕) trên cửa sổ Bổ sung hồ sơ nhân viên, căn thẳng hàng tuyệt đối các trường SĐT / Ngày sinh / Ngân hàng và chuẩn hóa tên Workspace Hoài Phương Media.',
+    added: [],
+    improved: [
+      'Căn chỉnh thẳng hàng 100% các ô nhập liệu trong cửa sổ Bổ sung thông tin hồ sơ nhân viên: đồng bộ chiều cao 40px giữa Số điện thoại và Ngày/Tháng/Năm, mở rộng ô Tìm tên ngân hàng ra toàn chiều ngang để không bị cắt chữ.',
+      'Ghi nhớ trạng thái đóng cửa sổ nhắc bổ sung SĐT trong suốt phiên làm việc và cập nhật tên Workspace chuẩn "Hoài Phương Media".',
+    ],
+    fixed: [
+      'Sửa lỗi SQL placeholder ($1, $2...) trong AuthService.updateProfile khiến nút "Lưu thông tin" trong cửa sổ Bổ sung hồ sơ không lưu được SĐT và thông tin ngân hàng.',
+      'Sửa lỗi nút đóng góc phải (✕) trên cửa sổ Bổ sung hồ sơ nhân viên không đóng ngay hộp thoại khi bấm.',
+    ],
+  },
+  {
+    version: '0.3.1',
+    commit: 'bc2f076',
     released_at: '2026-10-30T21:42:00.000Z',
     summary:
       'Hoàn tất Phase 12 (Mobile UI/UX Optimization & Responsive Bugfix): Sửa triệt để các lỗi hiển thị trên màn hình điện thoại (iPhone/Android) — thanh điều hướng đáy 1 dòng gọn gàng, cửa sổ Modal tự cuộn mượt trong màn hình nhỏ, bố cục thẻ 2 cột tiết kiệm chiều dọc, danh sách Thư mục Drive dạng thẻ di động và chống tràn ngang trên mọi màn hình.',

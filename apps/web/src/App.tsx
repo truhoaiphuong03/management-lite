@@ -115,8 +115,18 @@ export const App: React.FC = () => {
   >('idle');
   const [verifyCodeError, setVerifyCodeError] = useState<string | null>(null);
   const [missingPhoneOpen, setMissingPhoneOpen] = useState<boolean>(false);
-  const [missingPhoneDismissed, setMissingPhoneDismissed] =
-    useState<boolean>(false);
+  const [missingPhoneDismissed, setMissingPhoneDismissed] = useState<boolean>(
+    () => {
+      try {
+        return (
+          typeof window !== 'undefined' &&
+          window.sessionStorage.getItem('mglite_phone_prompt_dismissed') === '1'
+        );
+      } catch {
+        return false;
+      }
+    },
+  );
   const [promptPhone, setPromptPhone] = useState<string>('');
   const [promptDob, setPromptDob] = useState<string>('');
   const [promptGender, setPromptGender] = useState<string>('');
@@ -1234,7 +1244,16 @@ export const App: React.FC = () => {
                   aria-label="Đóng cửa sổ bổ sung hồ sơ"
                   onClick={() => {
                     setMissingPhoneDismissed(true);
+                    setMissingPhoneOpen(false);
                     setPromptError(null);
+                    try {
+                      window.sessionStorage.setItem(
+                        'mglite_phone_prompt_dismissed',
+                        '1',
+                      );
+                    } catch {
+                      // Ignore storage error
+                    }
                   }}
                   style={{
                     background: 'transparent',
@@ -1256,7 +1275,7 @@ export const App: React.FC = () => {
               </div>
               <p
                 style={{
-                  margin: '0 0 16px',
+                  margin: '0 0 14px',
                   fontSize: '13px',
                   color: '#CBD5E1',
                   lineHeight: 1.5,
@@ -1275,15 +1294,28 @@ export const App: React.FC = () => {
                 style={{
                   display: 'grid',
                   gridTemplateColumns:
-                    'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+                    'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
                   gap: '12px',
                   marginBottom: '12px',
+                  alignItems: 'end',
                 }}
               >
-                <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                  }}
+                >
                   <label
                     htmlFor="missing-phone-input"
-                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                    style={{
+                      fontSize: '12px',
+                      color: '#94A3B8',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
                   >
                     Số điện thoại liên hệ{' '}
                     <span style={{ color: '#EF4444', fontWeight: 700 }}>
@@ -1301,10 +1333,11 @@ export const App: React.FC = () => {
                     placeholder="VD: 0901234567"
                     style={{
                       width: '100%',
+                      height: '40px',
                       boxSizing: 'border-box',
                       marginTop: '4px',
-                      padding: '10px 12px',
-                      fontSize: '15px',
+                      padding: '0 12px',
+                      fontSize: '14px',
                       borderRadius: '8px',
                       border: '1px solid #14B8A6',
                       backgroundColor: '#1E293B',
@@ -1313,12 +1346,25 @@ export const App: React.FC = () => {
                   />
                 </div>
 
-                <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                  }}
+                >
                   <label
                     htmlFor="missing-dob-input"
-                    style={{ fontSize: '12px', color: '#94A3B8' }}
+                    style={{
+                      fontSize: '12px',
+                      color: '#94A3B8',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
                   >
-                    Ngày sinh (Ngày / Tháng / Năm — Không bắt buộc)
+                    Ngày sinh{' '}
+                    <span style={{ color: '#64748B' }}>(Không bắt buộc)</span>
                   </label>
                   <VnDateOfBirthSelect
                     id="missing-dob-input"
@@ -1328,7 +1374,13 @@ export const App: React.FC = () => {
                   />
                 </div>
 
-                <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                  }}
+                >
                   <label
                     htmlFor="missing-gender-input"
                     style={{ fontSize: '12px', color: '#94A3B8' }}
@@ -1342,9 +1394,10 @@ export const App: React.FC = () => {
                     onChange={(e) => setPromptGender(e.target.value)}
                     style={{
                       width: '100%',
+                      height: '40px',
                       boxSizing: 'border-box',
                       marginTop: '4px',
-                      padding: '10px 12px',
+                      padding: '0 12px',
                       fontSize: '14px',
                       borderRadius: '8px',
                       border: '1px solid #475569',
@@ -1359,7 +1412,13 @@ export const App: React.FC = () => {
                   </select>
                 </div>
 
-                <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                  }}
+                >
                   <label
                     htmlFor="missing-cccd-input"
                     style={{ fontSize: '12px', color: '#94A3B8' }}
@@ -1372,12 +1431,13 @@ export const App: React.FC = () => {
                     type="text"
                     value={promptNationalId}
                     onChange={(e) => setPromptNationalId(e.target.value)}
-                    placeholder="Có thể bỏ trống (VD: 079200012345)"
+                    placeholder="VD: 079200012345 (Tùy chọn)"
                     style={{
                       width: '100%',
+                      height: '40px',
                       boxSizing: 'border-box',
                       marginTop: '4px',
-                      padding: '10px 12px',
+                      padding: '0 12px',
                       fontSize: '14px',
                       borderRadius: '8px',
                       border: '1px solid #475569',
@@ -1403,9 +1463,10 @@ export const App: React.FC = () => {
                     placeholder="Không bắt buộc — Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
                     style={{
                       width: '100%',
+                      height: '40px',
                       boxSizing: 'border-box',
                       marginTop: '4px',
-                      padding: '10px 12px',
+                      padding: '0 12px',
                       fontSize: '14px',
                       borderRadius: '8px',
                       border: '1px solid #475569',
@@ -1419,10 +1480,10 @@ export const App: React.FC = () => {
               <div
                 style={{
                   padding: '12px',
-                  borderRadius: '8px',
+                  borderRadius: '10px',
                   backgroundColor: '#0B1220',
                   border: '1px solid #334155',
-                  marginBottom: '12px',
+                  marginBottom: '14px',
                 }}
               >
                 <div
@@ -1439,27 +1500,30 @@ export const App: React.FC = () => {
                   style={{
                     display: 'grid',
                     gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
+                      'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
                     gap: '8px',
                   }}
                 >
-                  <VnBankAutocompleteInput
-                    testId="missing-bank-name-input"
-                    value={promptBankName}
-                    onChange={setPromptBankName}
-                    placeholder="🔍 Tìm tên ngân hàng (MB, VCB...)"
-                  />
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <VnBankAutocompleteInput
+                      testId="missing-bank-name-input"
+                      value={promptBankName}
+                      onChange={setPromptBankName}
+                      placeholder="🔍 Tìm tên ngân hàng (VD: MB, Vietcombank, Techcombank...)"
+                    />
+                  </div>
                   <input
                     type="text"
                     value={promptBankNumber}
                     onChange={(e) => setPromptBankNumber(e.target.value)}
-                    placeholder="Số tài khoản"
+                    placeholder="Số tài khoản ngân hàng"
                     style={{
                       width: '100%',
+                      height: '38px',
                       boxSizing: 'border-box',
-                      padding: '8px 10px',
-                      fontSize: '13px',
-                      borderRadius: '6px',
+                      padding: '0 12px',
+                      fontSize: '13.5px',
+                      borderRadius: '8px',
                       border: '1px solid #475569',
                       backgroundColor: '#1E293B',
                       color: '#F8FAFC',
@@ -1471,13 +1535,14 @@ export const App: React.FC = () => {
                     onChange={(e) =>
                       setPromptBankHolder(e.target.value.toUpperCase())
                     }
-                    placeholder="CHỦ TÀI KHOẢN"
+                    placeholder="TÊN CHỦ TÀI KHOẢN (KHÔNG DẤU)"
                     style={{
                       width: '100%',
+                      height: '38px',
                       boxSizing: 'border-box',
-                      padding: '8px 10px',
-                      fontSize: '13px',
-                      borderRadius: '6px',
+                      padding: '0 12px',
+                      fontSize: '13.5px',
+                      borderRadius: '8px',
                       border: '1px solid #475569',
                       backgroundColor: '#1E293B',
                       color: '#F8FAFC',
@@ -1512,6 +1577,14 @@ export const App: React.FC = () => {
                   onClick={() => {
                     setMissingPhoneDismissed(true);
                     setMissingPhoneOpen(false);
+                    try {
+                      window.sessionStorage.setItem(
+                        'mglite_phone_prompt_dismissed',
+                        '1',
+                      );
+                    } catch {
+                      // Ignore storage error
+                    }
                   }}
                   style={{
                     background: 'transparent',

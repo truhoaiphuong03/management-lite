@@ -982,11 +982,11 @@ export class AuthService {
       }
       if (phone !== undefined) {
         vals.push(phone);
-        sets.push(`phone = ${vals.length}`);
+        sets.push(`phone = $${vals.length}`);
       }
       for (const [col, colVal] of Object.entries(optionalTextMap)) {
         vals.push(colVal ?? null);
-        sets.push(`${col} = ${vals.length}`);
+        sets.push(`${col} = $${vals.length}`);
       }
       let resultName: string | null = fullName ?? null;
       let resultPhone: string | null = phone ?? null;
@@ -998,7 +998,7 @@ export class AuthService {
         }>(
           `UPDATE employees
            SET ${sets.join(', ')}, version = version + 1, updated_at = now()
-           WHERE workspace_id = ${vals.length - 1} AND user_id = ${vals.length}
+           WHERE workspace_id = $${vals.length - 1} AND user_id = $${vals.length}
            RETURNING full_name, phone;`,
           vals,
         );
