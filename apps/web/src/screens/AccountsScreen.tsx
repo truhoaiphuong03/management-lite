@@ -3999,14 +3999,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   marginBottom: '6px',
                 }}
               >
-                Chọn nhanh loại Tài khoản / Nền tảng *
+                Chọn loại tài khoản *
               </label>
               <div
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
                   gap: '6px',
-                  marginBottom: '8px',
                 }}
               >
                 {(
@@ -4030,7 +4029,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       type="button"
                       onClick={() => setNewPlatform(plat)}
                       style={{
-                        padding: '5px 10px',
+                        padding: '6px 12px',
                         borderRadius: '6px',
                         border: selected
                           ? `1px solid ${cfg.color}`
@@ -4047,32 +4046,6 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   );
                 })}
               </div>
-              <select
-                value={newPlatform}
-                onChange={(e) =>
-                  setNewPlatform(e.target.value as AccountPlatform)
-                }
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  color: 'var(--text-color)',
-                  fontSize: '13px',
-                }}
-              >
-                <option value="gmail">📧 Gmail / Google (Tài khoản gốc)</option>
-                <option value="tiktok">🎵 TikTok (Gắn với Gmail)</option>
-                <option value="facebook">📘 Facebook / FB (Gắn với Gmail)</option>
-                <option value="youtube">▶️ YouTube / YTB (Gắn với Gmail)</option>
-                <option value="authenticator">🔐 Google Authenticator (Giữ mã 2FA)</option>
-                <option value="recovery">🛡️ Tài khoản Khôi phục (Recovery)</option>
-                <option value="ai">🤖 AI / LLM (OpenAI, Claude…)</option>
-                <option value="pm">📋 PM / Quản lý dự án (Trello, Jira…)</option>
-                <option value="other">🌐 Khác</option>
-              </select>
             </div>
 
             <form onSubmit={handleCreateAccount}>
@@ -4165,13 +4138,15 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </div>
               ) : (
                 <>
-                  {/* Parent Gmail Link (Highlighted when creating TikTok / FB / YTB) */}
-                  {newPlatform !== 'gmail' && (
+                  {/* Parent Gmail Link (Only shown for social/child channels) */}
+                  {(newPlatform === 'tiktok' ||
+                    newPlatform === 'facebook' ||
+                    newPlatform === 'youtube') && (
                     <div
                       style={{
-                        padding: '12px',
-                        backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        padding: '10px 12px',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '8px',
                         marginBottom: '12px',
                       }}
@@ -4180,12 +4155,12 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         style={{
                           display: 'block',
                           fontSize: '12px',
-                          fontWeight: 700,
-                          color: '#F87171',
+                          fontWeight: 600,
+                          color: 'var(--text-color)',
                           marginBottom: '6px',
                         }}
                       >
-                        📧 Gắn với Tài khoản Gmail gốc (Tự động kế thừa SĐT, GG Authenticator & TK Khôi phục)
+                        Thuộc tài khoản Gmail nào? (Tự động lấy SĐT & Bảo mật từ Gmail)
                       </label>
                       <select
                         value={newParentAccountId}
@@ -4227,7 +4202,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           width: '100%',
                           boxSizing: 'border-box',
                           padding: '8px 12px',
-                          backgroundColor: 'var(--surface-subtle)',
+                          backgroundColor: 'var(--surface-hover)',
                           border: '1px solid var(--border-color)',
                           borderRadius: '6px',
                           color: 'var(--text-color)',
@@ -4237,14 +4212,15 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         <option value="">-- Không gắn / Tài khoản độc lập --</option>
                         {gmailAccountsList.map((g) => (
                           <option key={g.id} value={g.id}>
-                            📧 {g.username || g.platform_account_id}{' '}
-                            {g.phone_number ? `(📱 ${g.phone_number})` : ''}
+                            {g.username || g.platform_account_id}{' '}
+                            {g.phone_number ? `(${g.phone_number})` : ''}
                           </option>
                         ))}
                       </select>
                     </div>
                   )}
 
+                  {/* Row 1: Username/Email + Password */}
                   <div
                     style={{
                       display: 'grid',
@@ -4263,11 +4239,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           marginBottom: '6px',
                         }}
                       >
-                        Username / Email đăng nhập
+                        Tên đăng nhập / Email *
                       </label>
                       <input
                         type="text"
-                        placeholder="Ví dụ: shop_official@gmail.com"
+                        placeholder="VD: shop_official@gmail.com"
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
                         style={{
@@ -4293,13 +4269,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           marginBottom: '6px',
                         }}
                       >
-                        Platform Account ID / UID / @Handle
+                        Mật khẩu đăng nhập
                       </label>
                       <input
-                        type="text"
-                        placeholder="VD: @tiktok_id hoặc UID FB/YTB"
-                        value={newPlatformAccountId}
-                        onChange={(e) => setNewPlatformAccountId(e.target.value)}
+                        type="password"
+                        placeholder="Nhập mật khẩu (tự động mã hóa)…"
+                        value={newInitPassword}
+                        onChange={(e) => setNewInitPassword(e.target.value)}
                         style={{
                           width: '100%',
                           boxSizing: 'border-box',
@@ -4314,102 +4290,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     </div>
                   </div>
 
-                  {/* Phone Number + SIM Note + Live Gmail Counter */}
-                  <div
-                    style={{
-                      padding: '12px',
-                      backgroundColor: 'var(--surface-subtle)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      marginBottom: '12px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns:
-                          'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '10px',
-                      }}
-                    >
-                      <div>
-                        <label
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            color: 'var(--muted-color)',
-                            marginBottom: '6px',
-                          }}
-                        >
-                          <span>📱 Số điện thoại đăng ký (SĐT)</span>
-                          {normalizeVnPhone(newPhoneNumber) && (
-                            <span style={{ color: 'var(--accent-text)', fontWeight: 700 }}>
-                              Đang gắn{' '}
-                              {phoneClustersData.phones.find(
-                                (p) =>
-                                  p.phone_number ===
-                                  normalizeVnPhone(newPhoneNumber),
-                              )?.gmail_count || 0}{' '}
-                              Gmail
-                            </span>
-                          )}
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="VD: 0901234567"
-                          value={newPhoneNumber}
-                          onChange={(e) => setNewPhoneNumber(e.target.value)}
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            padding: '8px 12px',
-                            backgroundColor: 'var(--surface-hover)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '6px',
-                            color: 'var(--text-color)',
-                            fontSize: '13px',
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: 'block',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            color: 'var(--muted-color)',
-                            marginBottom: '6px',
-                          }}
-                        >
-                          📍 Vị trí SIM / Máy giữ SIM (Lấy OTP)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="VD: SIM Viettel 01 - Máy Samsung A50"
-                          value={newPhoneNote}
-                          onChange={(e) => setNewPhoneNote(e.target.value)}
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            padding: '8px 12px',
-                            backgroundColor: 'var(--surface-hover)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '6px',
-                            color: 'var(--text-color)',
-                            fontSize: '13px',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Protection Links: GG Authenticator & Recovery Account */}
+                  {/* Row 2: Phone Number + Assignee */}
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
                       gap: '12px',
                       marginBottom: '12px',
                     }}
@@ -4417,140 +4302,32 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     <div>
                       <label
                         style={{
-                          display: 'block',
+                          display: 'flex',
+                          justifyContent: 'space-between',
                           fontSize: '12px',
                           fontWeight: 600,
                           color: 'var(--muted-color)',
                           marginBottom: '6px',
                         }}
                       >
-                        🔐 TK Google Authenticator bảo vệ
-                      </label>
-                      <select
-                        value={newAuthenticatorAccountId}
-                        onChange={(e) =>
-                          setNewAuthenticatorAccountId(e.target.value)
-                        }
-                        style={{
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          padding: '8px 12px',
-                          backgroundColor: 'var(--surface-subtle)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '6px',
-                          color: 'var(--text-color)',
-                          fontSize: '13px',
-                        }}
-                      >
-                        <option value="">-- Chưa liên kết TK Authenticator --</option>
-                        {authenticatorAccountsList.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            🔐 {a.username || a.platform_account_id}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label
-                        style={{
-                          display: 'block',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: 'var(--muted-color)',
-                          marginBottom: '6px',
-                        }}
-                      >
-                        🛡️ Chọn TK Khôi phục (hoặc nhập Email dưới)
-                      </label>
-                      <select
-                        value={newRecoveryAccountId}
-                        onChange={(e) => {
-                          const rid = e.target.value;
-                          setNewRecoveryAccountId(rid);
-                          const recAcc = recoveryAccountsList.find(
-                            (r) => r.id === rid,
-                          );
-                          if (recAcc?.username && !newRecoveryEmail) {
-                            setNewRecoveryEmail(recAcc.username);
-                          }
-                        }}
-                        style={{
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          padding: '8px 12px',
-                          backgroundColor: 'var(--surface-subtle)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '6px',
-                          color: 'var(--text-color)',
-                          fontSize: '13px',
-                        }}
-                      >
-                        <option value="">-- Chọn từ danh sách TK Khôi phục --</option>
-                        {recoveryAccountsList.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            🛡️ {r.username || r.platform_account_id}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                      gap: '12px',
-                      marginBottom: '12px',
-                    }}
-                  >
-                    <div>
-                      <label
-                        style={{
-                          display: 'block',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: 'var(--muted-color)',
-                          marginBottom: '6px',
-                        }}
-                      >
-                        Email khôi phục (Recovery Email)
-                      </label>
-                      <input
-                        type="email"
-                        placeholder="recovery@domain.com"
-                        value={newRecoveryEmail}
-                        onChange={(e) => setNewRecoveryEmail(e.target.value)}
-                        style={{
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          padding: '8px 12px',
-                          backgroundColor: 'var(--surface-subtle)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '6px',
-                          color: 'var(--text-color)',
-                          fontSize: '13px',
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        style={{
-                          display: 'block',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: 'var(--muted-color)',
-                          marginBottom: '6px',
-                        }}
-                      >
-                        Nhóm phân loại
+                        <span>Số điện thoại đăng ký (SĐT)</span>
+                        {normalizeVnPhone(newPhoneNumber) && (
+                          <span style={{ color: 'var(--accent-text)', fontWeight: 700 }}>
+                            Đang gắn{' '}
+                            {phoneClustersData.phones.find(
+                              (p) =>
+                                p.phone_number ===
+                                normalizeVnPhone(newPhoneNumber),
+                            )?.gmail_count || 0}{' '}
+                            Gmail
+                          </span>
+                        )}
                       </label>
                       <input
                         type="text"
-                        placeholder="VD: Marketing, Production…"
-                        value={newAccountGroup}
-                        onChange={(e) => setNewAccountGroup(e.target.value)}
+                        placeholder="VD: 0901234567 (Không bắt buộc)"
+                        value={newPhoneNumber}
+                        onChange={(e) => setNewPhoneNumber(e.target.value)}
                         style={{
                           width: '100%',
                           boxSizing: 'border-box',
@@ -4605,8 +4382,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     <div
                       style={{
                         padding: '10px 12px',
-                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '8px',
                         marginBottom: '12px',
                       }}
@@ -4614,19 +4391,19 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       <div
                         style={{
                           fontSize: '12px',
-                          fontWeight: 700,
-                          color: 'var(--info-text, #60A5FA)',
+                          fontWeight: 600,
+                          color: 'var(--text-color)',
                           marginBottom: '6px',
                         }}
                       >
-                        ⚡ Tạo nhanh Cụm kênh con gắn với Gmail này (Tùy chọn):
+                        Tạo kèm kênh MXH cho Gmail này (Không bắt buộc):
                       </div>
                       <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
                         {(
                           [
-                            { id: 'tiktok', label: '🎵 Kênh TikTok' },
-                            { id: 'facebook', label: '📘 Tài khoản Facebook' },
-                            { id: 'youtube', label: '▶️ Kênh YouTube' },
+                            { id: 'tiktok', label: 'TikTok' },
+                            { id: 'facebook', label: 'Facebook' },
+                            { id: 'youtube', label: 'YouTube' },
                           ] as const
                         ).map((ch) => {
                           const checked = newChildPlatforms.includes(ch.id);
@@ -4666,183 +4443,306 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     </div>
                   )}
 
-                  {/* Encrypted Initial Secrets Section */}
-                  <div
-                    style={{
-                      padding: '12px',
-                      backgroundColor: 'var(--surface-subtle)',
-                      border: '1px solid rgba(20, 184, 166, 0.35)',
-                      borderRadius: '6px',
-                      marginBottom: '12px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        color: 'var(--accent-text)',
-                        marginBottom: '8px',
-                      }}
-                    >
-                      Bảo mật C05 (Tùy chọn — Tự động mã hóa AES-256-GCM & Tự sinh mã 6 số 2FA)
-                    </div>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns:
-                          'repeat(auto-fit, minmax(140px, 1fr))',
-                        gap: '10px',
-                      }}
-                    >
-                      <div>
-                        <label
-                          style={{
-                            display: 'block',
-                            fontSize: '12px',
-                            color: 'var(--muted-color)',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          Mật khẩu tài khoản
-                        </label>
-                        <input
-                          type="password"
-                          placeholder="Password…"
-                          value={newInitPassword}
-                          onChange={(e) => setNewInitPassword(e.target.value)}
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            padding: '7px 10px',
-                            backgroundColor: 'var(--surface-subtle)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '6px',
-                            color: 'var(--text-color)',
-                            fontSize: '12px',
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: 'block',
-                            fontSize: '12px',
-                            color: 'var(--muted-color)',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          Mã 2FA / TOTP Secret
-                        </label>
-                        <input
-                          type="password"
-                          placeholder="Base32 2FA Secret…"
-                          value={newInitTwoFa}
-                          onChange={(e) => setNewInitTwoFa(e.target.value)}
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            padding: '7px 10px',
-                            backgroundColor: 'var(--surface-subtle)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '6px',
-                            color: 'var(--text-color)',
-                            fontSize: '12px',
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: 'block',
-                            fontSize: '12px',
-                            color: 'var(--muted-color)',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          Mật khẩu Email
-                        </label>
-                        <input
-                          type="password"
-                          placeholder="Email Password…"
-                          value={newInitEmailPassword}
-                          onChange={(e) =>
-                            setNewInitEmailPassword(e.target.value)
-                          }
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            padding: '7px 10px',
-                            backgroundColor: 'var(--surface-subtle)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '6px',
-                            color: 'var(--text-color)',
-                            fontSize: '12px',
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: 'block',
-                            fontSize: '12px',
-                            color: 'var(--muted-color)',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          Mã dự phòng (Backup)
-                        </label>
-                        <input
-                          type="password"
-                          placeholder="Mã 8 số…"
-                          value={newInitRecoveryCode}
-                          onChange={(e) =>
-                            setNewInitRecoveryCode(e.target.value)
-                          }
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            padding: '7px 10px',
-                            backgroundColor: 'var(--surface-subtle)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '6px',
-                            color: 'var(--text-color)',
-                            fontSize: '12px',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: '20px' }}>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: 'var(--muted-color)',
-                        marginBottom: '6px',
-                      }}
-                    >
-                      Ghi chú sử dụng
-                    </label>
-                    <textarea
-                      rows={2}
-                      placeholder="Mục đích sử dụng, lưu ý đặc biệt…"
-                      value={newNotes}
-                      onChange={(e) => setNewNotes(e.target.value)}
+                  {/* Progressive Disclosure Toggle for Advanced Options */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateAdvanced((v) => !v)}
                       style={{
                         width: '100%',
-                        boxSizing: 'border-box',
                         padding: '8px 12px',
+                        borderRadius: '6px',
+                        border: '1px dashed var(--border-color)',
+                        backgroundColor: 'var(--surface-subtle)',
+                        color: 'var(--accent-text)',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span>
+                        {showCreateAdvanced
+                          ? '▾ Ẩn tùy chọn nâng cao'
+                          : '▸ Mở tùy chọn nâng cao (Mã 2FA, Vị trí SIM, TK Khôi phục, Nhóm, Ghi chú…)'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {showCreateAdvanced && (
+                    <div
+                      style={{
+                        padding: '12px',
                         backgroundColor: 'var(--surface-subtle)',
                         border: '1px solid var(--border-color)',
-                        borderRadius: '6px',
-                        color: 'var(--text-color)',
-                        fontSize: '13px',
-                        resize: 'vertical',
+                        borderRadius: '8px',
+                        marginBottom: '16px',
                       }}
-                    />
-                  </div>
+                    >
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                          gap: '10px',
+                          marginBottom: '10px',
+                        }}
+                      >
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                            ID Kênh / UID / @Handle
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="VD: @tiktok_id hoặc UID"
+                            value={newPlatformAccountId}
+                            onChange={(e) => setNewPlatformAccountId(e.target.value)}
+                            style={{
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              padding: '7px 10px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                            Vị trí SIM / Máy giữ SIM
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="VD: SIM Viettel 01 - Máy phụ"
+                            value={newPhoneNote}
+                            onChange={(e) => setNewPhoneNote(e.target.value)}
+                            style={{
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              padding: '7px 10px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                            Nhóm phân loại
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="VD: Marketing, Production…"
+                            value={newAccountGroup}
+                            onChange={(e) => setNewAccountGroup(e.target.value)}
+                            style={{
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              padding: '7px 10px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                          gap: '10px',
+                          marginBottom: '10px',
+                        }}
+                      >
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                            TK Google Authenticator bảo vệ
+                          </label>
+                          <select
+                            value={newAuthenticatorAccountId}
+                            onChange={(e) => setNewAuthenticatorAccountId(e.target.value)}
+                            style={{
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              padding: '7px 10px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                            }}
+                          >
+                            <option value="">-- Chưa chọn --</option>
+                            {authenticatorAccountsList.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.username || a.platform_account_id}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                            TK Khôi phục liên kết
+                          </label>
+                          <select
+                            value={newRecoveryAccountId}
+                            onChange={(e) => {
+                              const rid = e.target.value;
+                              setNewRecoveryAccountId(rid);
+                              const recAcc = recoveryAccountsList.find((r) => r.id === rid);
+                              if (recAcc?.username && !newRecoveryEmail) {
+                                setNewRecoveryEmail(recAcc.username);
+                              }
+                            }}
+                            style={{
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              padding: '7px 10px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                            }}
+                          >
+                            <option value="">-- Chưa chọn --</option>
+                            {recoveryAccountsList.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.username || r.platform_account_id}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                            Email khôi phục (Recovery Email)
+                          </label>
+                          <input
+                            type="email"
+                            placeholder="recovery@domain.com"
+                            value={newRecoveryEmail}
+                            onChange={(e) => setNewRecoveryEmail(e.target.value)}
+                            style={{
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              padding: '7px 10px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Additional Vault Secrets */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                          gap: '10px',
+                          marginBottom: '10px',
+                        }}
+                      >
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                            Mã 2FA / TOTP Secret
+                          </label>
+                          <input
+                            type="password"
+                            placeholder="Chuỗi Base32 2FA…"
+                            value={newInitTwoFa}
+                            onChange={(e) => setNewInitTwoFa(e.target.value)}
+                            style={{
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              padding: '7px 10px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                            Mật khẩu Email khôi phục
+                          </label>
+                          <input
+                            type="password"
+                            placeholder="Email Password…"
+                            value={newInitEmailPassword}
+                            onChange={(e) => setNewInitEmailPassword(e.target.value)}
+                            style={{
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              padding: '7px 10px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                            Mã dự phòng (Backup)
+                          </label>
+                          <input
+                            type="password"
+                            placeholder="Mã 8 số…"
+                            value={newInitRecoveryCode}
+                            onChange={(e) => setNewInitRecoveryCode(e.target.value)}
+                            style={{
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              padding: '7px 10px',
+                              backgroundColor: 'var(--surface-hover)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-color)',
+                              fontSize: '12px',
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', color: 'var(--muted-color)', marginBottom: '4px' }}>
+                          Ghi chú sử dụng
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Mục đích sử dụng, lưu ý đặc biệt…"
+                          value={newNotes}
+                          onChange={(e) => setNewNotes(e.target.value)}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '7px 10px',
+                            backgroundColor: 'var(--surface-hover)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '6px',
+                            color: 'var(--text-color)',
+                            fontSize: '12px',
+                            resize: 'vertical',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
