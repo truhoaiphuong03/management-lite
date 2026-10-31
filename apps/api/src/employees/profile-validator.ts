@@ -99,7 +99,7 @@ export function isTestWorkspaceRecord(workspace: {
   if (workspace.is_test === false) return false;
   const name = (workspace.name || '').trim();
   if (!name) return false;
-  return /^(SYNTHETIC\b|TEST[\s_-]|E2E[\s_-]|AUDIT[\s_-]|BACKUP[\s_-]RESTORE)/i.test(
+  return /^(SYNTHETIC\b|TEST(?:WS)?[\s_-]|E2E[\s_-]|AUDIT[\s_-]|BACKUP[\s_-]RESTORE)/i.test(
     name,
   );
 }

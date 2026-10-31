@@ -62,8 +62,7 @@ if (isMain) {
   );
   const pool = createDatabasePool(loadDatabaseConfig(process.env));
   try {
-    await pool.connect();
-    const res = await pool.query(`
+        const res = await pool.query(`
       SELECT
         id,
         employee_code,
@@ -75,6 +74,6 @@ if (isMain) {
     const report = auditEmployeeProfileRows(res.rows);
     console.log(JSON.stringify(report, null, 2));
   } finally {
-    await pool.close();
+    await pool.end?.();
   }
 }

@@ -45,19 +45,19 @@ export const HOT_QUERY_SPECS = [
     params: [DEMO_WS],
   },
   {
-    id: 'finance_entries_ledger',
+    id: 'fin_entries_ledger',
     description: 'Finance ledger date-ordered listing',
-    sql: `SELECT id, entry_type, amount_vnd, entry_date, status
-          FROM finance_entries
+    sql: `SELECT id, direction, amount_vnd, occurred_on, category_name_snapshot
+          FROM fin_entries
           WHERE workspace_id = $1
-          ORDER BY entry_date DESC, created_at DESC
+          ORDER BY occurred_on DESC, created_at DESC
           LIMIT 50`,
     params: [DEMO_WS],
   },
   {
     id: 'storage_files_by_folder',
     description: 'Storage files listing for a folder',
-    sql: `SELECT id, name, mime_type, size_bytes, review_status, created_at
+    sql: `SELECT id, name, mime_type, size_bytes, status, created_at
           FROM storage_files
           WHERE workspace_id = $1 AND folder_id = $2
           ORDER BY created_at DESC
@@ -105,10 +105,9 @@ if (isMain) {
   const config = loadDatabaseConfig(process.env);
   const pool = createDatabasePool(config);
   try {
-    await pool.connect();
-    const report = await runExplainBenchmark(pool, { applyIndexes });
+        const report = await runExplainBenchmark(pool, { applyIndexes });
     console.table(report);
   } finally {
-    await pool.close();
+    await pool.end?.();
   }
 }

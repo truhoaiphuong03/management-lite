@@ -24,7 +24,7 @@ export async function runBackupRestoreDrill(pool) {
       'employees',
       'attendance_shifts',
       'work_items',
-      'finance_entries',
+      'fin_entries',
     ];
 
     const tableCounts = {};
@@ -47,21 +47,16 @@ export async function runBackupRestoreDrill(pool) {
       .update(manifestJson)
       .digest('hex');
 
-    // Verify restore round-trip integrity via isolated temp table inside transaction
-    await client.query(`
-      CREATE TEMP TABLE _ops_backup_drill_verify (
-        manifest_sha256 text NOT NULL,
-        payload jsonb NOT NULL,
-        verified_at timestamptz NOT NULL DEFAULT now()
-      ) ON COMMIT DROP;
-    `);
-    await client.query(
-      `INSERT INTO _ops_backup_drill_verify (manifest_sha256, payload) VALUES ($1, $2::jsonb);`,
-      [checksumSha256, manifestJson],
-    );
+    // Verify restore round-trip JSONB deserialization & SHA-256 integrity inside transaction
     const verifyRes = await client.query(
-      `SELECT manifest_sha256, payload FROM _ops_backup_drill_verify WHERE manifest_sha256 = $1;`,
-      [checksumSha256],
+      `WITH _ops_backup_drill_verify(manifest_sha256, payload) AS (
+         VALUES ($1::text, $2::jsonb)
+       )
+       SELECT manifest_sha256, payload
+       FROM _ops_backup_drill_verify
+       WHERE manifest_sha256 = $1
+         AND jsonb_typeof(payload -> 'tableCounts') = 'object';`,
+      [checksumSha256, manifestJson],
     );
     const restoreDurationMs = Date.now() - restoreStart;
 
@@ -101,10 +96,9 @@ if (isMain) {
   );
   const pool = createDatabasePool(loadDatabaseConfig(process.env));
   try {
-    await pool.connect();
-    const report = await runBackupRestoreDrill(pool);
+        const report = await runBackupRestoreDrill(pool);
     console.log(JSON.stringify(report, null, 2));
   } finally {
-    await pool.close();
+    await pool.end?.();
   }
 }

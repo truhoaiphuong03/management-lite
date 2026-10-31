@@ -54,6 +54,10 @@ test('Phase 19.4: normalizeDateOfBirth and normalizeBankAccountNumber enforce st
     isTestWorkspaceRecord({ name: 'SYNTHETIC BACKUP RESTORE WS' }),
     true,
   );
+  assert.equal(
+    isTestWorkspaceRecord({ name: 'TestWS_1791936671841' }),
+    true,
+  );
 });
 
 test('Phase 19.4: EmployeeService.updateEmployee binds SQL placeholders ($3, $4...) and normalizes profile fields', async () => {
@@ -190,6 +194,7 @@ test('Phase 19.2 & 19.3: Secret hygiene auditor and isolated backup-restore dril
   const drillReport = await runBackupRestoreDrill(mockDrillPool);
   assert.equal(drillReport.status, 'PASS');
   assert.equal(drillReport.tableCounts.workspaces, 12);
+  assert.equal(drillReport.tableCounts.fin_entries, 12);
 
   const profileAudit = auditEmployeeProfileRows([
     {

@@ -22,8 +22,8 @@ CREATE INDEX IF NOT EXISTS idx_daily_reports_ws_date_id
   ON daily_reports (workspace_id, report_date DESC, id DESC);
 
 -- 4. Finance ledger date-ordered filtering
-CREATE INDEX IF NOT EXISTS idx_finance_entries_ws_date_created
-  ON finance_entries (workspace_id, entry_date DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_ws_date_created
+  ON fin_entries (workspace_id, occurred_on DESC, created_at DESC);
 
 -- 5. Storage folder file listings
 CREATE INDEX IF NOT EXISTS idx_storage_files_ws_folder_created

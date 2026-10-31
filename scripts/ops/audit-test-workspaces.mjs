@@ -52,14 +52,13 @@ if (isMain) {
   );
   const pool = createDatabasePool(loadDatabaseConfig(process.env));
   try {
-    await pool.connect();
-    const report = await auditWorkspaces(pool);
+        const report = await auditWorkspaces(pool);
     if (process.argv.includes('--json')) {
       console.log(JSON.stringify(report, null, 2));
     } else {
       console.table(report);
     }
   } finally {
-    await pool.close();
+    await pool.end?.();
   }
 }
