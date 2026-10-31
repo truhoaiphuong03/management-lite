@@ -136,7 +136,7 @@ test('V0.2 ISSUES-03: session-based Owner access, role-switch protection, and fa
 
   // 3. Forbidden message for non-owner attempting access
   assert.ok(
-    content.includes('Chức năng Sổ tay Issues chỉ dành riêng cho Chủ sở hữu (Owner)'),
+    content.includes('Chức năng Sổ tay lỗi chỉ dành riêng cho Chủ sở hữu (Owner)'),
     'App.tsx must provide explicit forbidden notice when non-owner accesses Issues',
   );
 
@@ -295,7 +295,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
     `file://${resolve(root, 'dist/apps/web/src/AppShell.js')}`
   );
 
-  // 1. Verified Owner: DesktopSidebar MUST render "Sổ tay Issues"
+  // 1. Verified Owner: DesktopSidebar MUST render "Sổ tay lỗi"
   const htmlOwnerSidebar = renderToStaticMarkup(
     React.createElement(DesktopSidebar, {
       currentPath: '/',
@@ -305,11 +305,11 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
     })
   );
   assert.ok(
-    htmlOwnerSidebar.includes('Sổ tay Issues'),
-    'DesktopSidebar must render "Sổ tay Issues" for verified Owner',
+    htmlOwnerSidebar.includes('Sổ tay lỗi'),
+    'DesktopSidebar must render "Sổ tay lỗi" for verified Owner',
   );
 
-  // 2. Verified Owner: AppShell MUST render "Sổ tay Issues"
+  // 2. Verified Owner: AppShell MUST render "Sổ tay lỗi"
   const htmlOwnerAppShell = renderToStaticMarkup(
     React.createElement(AppShell, {
       currentPath: '/',
@@ -320,11 +320,11 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
     })
   );
   assert.ok(
-    htmlOwnerAppShell.includes('Sổ tay Issues'),
-    'AppShell must render "Sổ tay Issues" for verified Owner',
+    htmlOwnerAppShell.includes('Sổ tay lỗi'),
+    'AppShell must render "Sổ tay lỗi" for verified Owner',
   );
 
-  // 3. Staff: DesktopSidebar MUST NEVER render "Sổ tay Issues"
+  // 3. Staff: DesktopSidebar MUST NEVER render "Sổ tay lỗi"
   const htmlStaffSidebar = renderToStaticMarkup(
     React.createElement(DesktopSidebar, {
       currentPath: '/',
@@ -334,9 +334,9 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
     })
   );
   assert.equal(
-    htmlStaffSidebar.includes('Sổ tay Issues'),
+    htmlStaffSidebar.includes('Sổ tay lỗi'),
     false,
-    'DesktopSidebar must NEVER render "Sổ tay Issues" for Staff',
+    'DesktopSidebar must NEVER render "Sổ tay lỗi" for Staff',
   );
   assert.equal(
     htmlStaffSidebar.includes('/issues'),
@@ -344,7 +344,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
     'DesktopSidebar must NEVER link to /issues for Staff',
   );
 
-  // 4. Staff: AppShell MUST NEVER render "Sổ tay Issues" in sidebar or mobile More
+  // 4. Staff: AppShell MUST NEVER render "Sổ tay lỗi" in sidebar or mobile More
   const htmlStaffAppShell = renderToStaticMarkup(
     React.createElement(AppShell, {
       currentPath: '/',
@@ -355,9 +355,9 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
     })
   );
   assert.equal(
-    htmlStaffAppShell.includes('Sổ tay Issues'),
+    htmlStaffAppShell.includes('Sổ tay lỗi'),
     false,
-    'AppShell must NEVER render "Sổ tay Issues" for Staff in sidebar or More drawer',
+    'AppShell must NEVER render "Sổ tay lỗi" for Staff in sidebar or More drawer',
   );
 
   // 5. Tampered UI Role (role claims 'owner' but isOwnerVerified is false)
@@ -370,9 +370,9 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
     })
   );
   assert.equal(
-    htmlTamperedSidebar.includes('Sổ tay Issues'),
+    htmlTamperedSidebar.includes('Sổ tay lỗi'),
     false,
-    'DesktopSidebar must block "Sổ tay Issues" if role is owner but session is NOT verified',
+    'DesktopSidebar must block "Sổ tay lỗi" if role is owner but session is NOT verified',
   );
 
   const htmlTamperedAppShell = renderToStaticMarkup(
@@ -385,9 +385,9 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
     })
   );
   assert.equal(
-    htmlTamperedAppShell.includes('Sổ tay Issues'),
+    htmlTamperedAppShell.includes('Sổ tay lỗi'),
     false,
-    'AppShell must block "Sổ tay Issues" if session is NOT verified by server',
+    'AppShell must block "Sổ tay lỗi" if session is NOT verified by server',
   );
 
   // 6. Undefined verification check (fails closed)
@@ -401,7 +401,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
     })
   );
   assert.equal(
-    htmlUndefinedAppShell.includes('Sổ tay Issues'),
+    htmlUndefinedAppShell.includes('Sổ tay lỗi'),
     false,
     'AppShell must fail closed when isOwnerVerified is undefined',
   );

@@ -1266,7 +1266,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {
               path: '/accounts',
               icon: <NavIcon id="accounts" size={20} />,
-              title: 'Tài khoản ACC',
+              title: 'Tài khoản dùng chung',
               desc: 'Quản lý tài khoản dùng chung',
               show: role === 'owner',
             },

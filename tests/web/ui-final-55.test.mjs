@@ -52,7 +52,7 @@ test('UI-FINAL-55 — Unified Breadcrumb, ListFooter, RBAC & Reports Pagination'
     assert.ok(issues);
     assert.deepEqual(issues.items, [
       { label: 'Quản trị', path: '/groups/admin' },
-      { label: 'Sổ tay Issues' },
+      { label: 'Sổ tay lỗi' },
     ]);
     assert.equal(issues.parentPath, '/groups/admin');
 
@@ -69,11 +69,11 @@ test('UI-FINAL-55 — Unified Breadcrumb, ListFooter, RBAC & Reports Pagination'
     assert.ok(issueDetail);
     assert.deepEqual(issueDetail.items, [
       { label: 'Quản trị', path: '/groups/admin' },
-      { label: 'Sổ tay Issues', path: '/issues' },
+      { label: 'Sổ tay lỗi', path: '/issues' },
       { label: 'Chi tiết ISS-001' },
     ]);
     assert.equal(issueDetail.parentPath, '/issues');
-    assert.equal(issueDetail.parentLabel, 'Sổ tay Issues');
+    assert.equal(issueDetail.parentLabel, 'Sổ tay lỗi');
 
     const employeeNew = resolveNavigationBreadcrumbs('/employees/new');
     assert.ok(employeeNew);
@@ -96,7 +96,7 @@ test('UI-FINAL-55 — Unified Breadcrumb, ListFooter, RBAC & Reports Pagination'
     );
     // Desktop trail
     assert.ok(html.includes('Quản trị'), 'Must include Group link');
-    assert.ok(html.includes('Sổ tay Issues'), 'Must include List link');
+    assert.ok(html.includes('Sổ tay lỗi'), 'Must include List link');
     assert.ok(html.includes('Chi tiết ISS-002'), 'Must include current item');
     assert.ok(html.includes('aria-current="page"'), 'Must set aria-current="page" on current item');
 
@@ -104,7 +104,7 @@ test('UI-FINAL-55 — Unified Breadcrumb, ListFooter, RBAC & Reports Pagination'
     assert.ok(html.includes('mobile-breadcrumb-back'), 'Must have mobile back wrapper');
     assert.ok(html.includes('min-height:44px'), 'Mobile back button must have >= 44px min-height');
     assert.ok(html.includes('min-width:44px'), 'Mobile back button must have >= 44px min-width');
-    assert.ok(html.includes('Quay lại Sổ tay Issues'), 'Mobile back button aria-label');
+    assert.ok(html.includes('Quay lại Sổ tay lỗi'), 'Mobile back button aria-label');
   });
 
   // 3. ListFooter Presentation (Exact total, unknown total, empty)
@@ -171,7 +171,7 @@ test('UI-FINAL-55 — Unified Breadcrumb, ListFooter, RBAC & Reports Pagination'
       }),
     );
     assert.ok(staffAdminHtml.includes('Cài đặt'), 'Staff must see Cài đặt in admin');
-    assert.equal(staffAdminHtml.includes('Sổ tay Issues'), false, 'Staff must NOT see Issues');
+    assert.equal(staffAdminHtml.includes('Sổ tay lỗi'), false, 'Staff must NOT see Issues');
     assert.equal(staffAdminHtml.includes('Nhật ký kiểm toán'), false, 'Staff must NOT see Audit');
 
     // Owner in hr-payroll

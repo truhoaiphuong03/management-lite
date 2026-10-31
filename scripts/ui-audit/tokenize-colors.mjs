@@ -35,7 +35,7 @@ for (const file of process.argv.slice(2)) {
     const props = [...back.matchAll(/\b([A-Za-z]+):\s/g)];
     const prop = props.length ? props[props.length - 1][1] : '';
     let rep;
-    if (prop === 'color') {
+    if (prop === 'color' || prop === 'text' || prop === 'textColor' || prop === 'fg') {
       if (H === '#F8FAFC' || H === '#F1F5F9' || H === '#E2E8F0') {
         const near = str.slice(Math.max(0, offset - 500), offset + 500);
         if (SOLID_BG.test(near)) return m;

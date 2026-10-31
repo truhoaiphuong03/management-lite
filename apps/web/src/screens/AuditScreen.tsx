@@ -566,7 +566,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                   storage_trash_request (Thùng rác)
                 </option>
                 <option value="managed_account">
-                  managed_account (Tài khoản ACC)
+                  managed_account (Tài khoản dùng chung)
                 </option>
                 <option value="account_secret">
                   account_secret (Secret bảo mật)

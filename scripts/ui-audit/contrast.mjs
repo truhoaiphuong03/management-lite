@@ -32,7 +32,7 @@ try {
       const r = await window.axe.run(document, { runOnly: ['color-contrast'] });
       return r.violations.flatMap((v) => v.nodes.map((n) => {
         const d = n.any[0]?.data || {};
-        return `${d.fgColor}/${d.bgColor} ratio=${d.contrastRatio}`;
+        return `${d.fgColor}/${d.bgColor} ratio=${d.contrastRatio}` + (d.contrastRatio < 1.6 ? ' @' + String(n.target).slice(0, 80) : '');
       }));
     });
     for (const f of found) tally[f] = (tally[f] || 0) + 1;

@@ -61,7 +61,7 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
     assert.ok(ownerHtml.includes('Nhân sự &amp; Lương') || ownerHtml.includes('Nhân sự & Lương'), 'Must render Nhân sự & Lương');
     assert.ok(ownerHtml.includes('Thu chi cá nhân'), 'Owner sidebar must include Thu chi cá nhân');
     assert.ok(ownerHtml.includes('Quản trị'), 'Must render Quản trị');
-    assert.ok(ownerHtml.includes('Sổ tay Issues'), 'Owner sidebar must include Sổ tay Issues in title tooltip/accessibility');
+    assert.ok(ownerHtml.includes('Sổ tay lỗi'), 'Owner sidebar must include Sổ tay lỗi in title tooltip/accessibility');
 
     // Staff view
     const staffHtml = renderToStaticMarkup(
@@ -78,9 +78,9 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
       'Staff sidebar must NEVER render Thu chi cá nhân',
     );
     assert.equal(
-      staffHtml.includes('Sổ tay Issues'),
+      staffHtml.includes('Sổ tay lỗi'),
       false,
-      'Staff sidebar must NEVER render or preview Sổ tay Issues',
+      'Staff sidebar must NEVER render or preview Sổ tay lỗi',
     );
     assert.equal(
       staffHtml.includes('Nhật ký Audit'),
@@ -88,9 +88,9 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
       'Staff sidebar must NEVER preview Nhật ký Audit',
     );
     assert.equal(
-      staffHtml.includes('Tài khoản ACC'),
+      staffHtml.includes('Tài khoản dùng chung'),
       false,
-      'Staff sidebar must NEVER preview Tài khoản ACC',
+      'Staff sidebar must NEVER preview Tài khoản dùng chung',
     );
 
     // Active path detection for detail and child routes
@@ -151,9 +151,9 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
         onNavigate: () => {},
       }),
     );
-    assert.ok(ownerAdminHtml.includes('Tài khoản ACC'));
+    assert.ok(ownerAdminHtml.includes('Tài khoản dùng chung'));
     assert.ok(ownerAdminHtml.includes('Nhật ký Audit'));
-    assert.ok(ownerAdminHtml.includes('Sổ tay Issues'));
+    assert.ok(ownerAdminHtml.includes('Sổ tay lỗi'));
     assert.ok(ownerAdminHtml.includes('Cài đặt'));
     // REFINEMENT-53: Do not attach "Khả dụng" badge on every card
     assert.equal(ownerAdminHtml.includes('Khả dụng'), false, 'Do not show Khả dụng badge on cards');
@@ -174,9 +174,9 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
       }),
     );
     assert.ok(staffAdminHtml.includes('Cài đặt'));
-    assert.equal(staffAdminHtml.includes('Tài khoản ACC'), false, 'Staff cannot see Accounts');
+    assert.equal(staffAdminHtml.includes('Tài khoản dùng chung'), false, 'Staff cannot see Accounts');
     assert.equal(staffAdminHtml.includes('Nhật ký Audit'), false, 'Staff cannot see Audit');
-    assert.equal(staffAdminHtml.includes('Sổ tay Issues'), false, 'Staff cannot see Issues');
+    assert.equal(staffAdminHtml.includes('Sổ tay lỗi'), false, 'Staff cannot see Issues');
 
     // Attendance Group: all 4 items (Chấm công, Lịch làm việc, Lịch sử công, Duyệt công) are implemented & dispatched
     const attendanceHtml = renderToStaticMarkup(

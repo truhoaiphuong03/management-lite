@@ -286,7 +286,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           setError({
             title: 'Truy cập bị từ chối (403 Forbidden)',
             message:
-              'Chỉ Chủ sở hữu (Owner) mới có quyền truy cập Sổ tay Issues.',
+              'Chỉ Chủ sở hữu (Owner) mới có quyền truy cập Sổ tay lỗi.',
           });
           return;
         }

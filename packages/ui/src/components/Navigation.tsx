@@ -66,7 +66,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: 'accounts',
-    label: 'Tài khoản ACC',
+    label: 'Tài khoản dùng chung',
     path: '/accounts',
     icon: 'accounts',
     ownerOnly: true,
@@ -87,7 +87,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: 'issues',
-    label: 'Sổ tay Issues',
+    label: 'Sổ tay lỗi',
     path: '/issues',
     icon: 'issues',
     ownerOnly: true,

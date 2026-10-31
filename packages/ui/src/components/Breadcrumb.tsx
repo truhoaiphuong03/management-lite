@@ -61,10 +61,10 @@ export function resolveNavigationBreadcrumbs(
     return {
       items: [
         { label: 'Quản trị', path: '/groups/admin' },
-        { label: 'Sổ tay Issues', path: '/issues' },
+        { label: 'Sổ tay lỗi', path: '/issues' },
         { label: currentLabel },
       ],
-      parentLabel: 'Sổ tay Issues',
+      parentLabel: 'Sổ tay lỗi',
       parentPath: '/issues',
     };
   }
@@ -125,10 +125,10 @@ export function resolveNavigationBreadcrumbs(
     return {
       items: [
         { label: 'Quản trị', path: '/groups/admin' },
-        { label: 'Tài khoản ACC', path: '/accounts' },
+        { label: 'Tài khoản dùng chung', path: '/accounts' },
         { label: currentLabel },
       ],
-      parentLabel: 'Tài khoản ACC',
+      parentLabel: 'Tài khoản dùng chung',
       parentPath: '/accounts',
     };
   }

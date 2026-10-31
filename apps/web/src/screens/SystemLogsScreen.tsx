@@ -662,7 +662,7 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                 variant="secondary"
                 onClick={() => onNavigate?.('/issues')}
               >
-                Mở Sổ tay Issues
+                Mở Sổ tay lỗi
               </AppButton>
               <AppButton
                 size="sm"
