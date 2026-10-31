@@ -126,7 +126,6 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   // Create Modal
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [createMode, setCreateMode] = useState<'single' | 'bulk'>('single');
-  const [showCreateAdvanced, setShowCreateAdvanced] = useState<boolean>(false);
   const [newPlatform, setNewPlatform] = useState<AccountPlatform>('gmail');
   const [newUsername, setNewUsername] = useState<string>('');
   const [newPlatformAccountId, setNewPlatformAccountId] = useState<string>('');
