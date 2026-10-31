@@ -130,3 +130,12 @@ test('UI-AUDIT-P5: navigation and breadcrumbs use plain Vietnamese labels and th
   assert.match(sb, /var\(--warning-text,\s*#F59E0B\)/);
   assert.match(sb, /var\(--success-text,\s*#10B981\)/);
 });
+
+test('UI-AUDIT-P5: ReportBugWidget trigger button floats and supports pointer drag repositioning', () => {
+  const rbw = read('apps/web/src/components/ReportBugWidget.tsx');
+  assert.match(rbw, /mglite_bug_btn_pos/);
+  assert.match(rbw, /onPointerDown=\{handleBtnPointerDown\}/);
+  assert.match(rbw, /onPointerMove=\{handleBtnPointerMove\}/);
+  assert.doesNotMatch(rbw, /position:\s*static\s*!important/);
+  assert.doesNotMatch(shell, /position:\s*static\s*!important/);
+});

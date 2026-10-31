@@ -349,6 +349,112 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
   const [pendingSnapshot, setPendingSnapshot] =
     useState<BugReportSnapshotPayload | null>(null);
 
+  // Draggable floating button state (mouse + touch pointer events)
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem('mglite_bug_btn_pos');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown };
+      if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+        const maxX = Math.max(8, window.innerWidth - 116);
+        const maxY = Math.max(52, window.innerHeight - (window.innerWidth <= 768 ? 112 : 56));
+        return {
+          x: Math.min(Math.max(8, parsed.x), maxX),
+          y: Math.min(Math.max(52, parsed.y), maxY),
+        };
+      }
+    } catch {}
+    return null;
+  });
+  const [isDraggingBtn, setIsDraggingBtn] = useState(false);
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    width: number;
+    height: number;
+    moved: boolean;
+  } | null>(null);
+  const justDraggedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      setDragPos((prev) => {
+        if (!prev) return null;
+        const maxX = Math.max(8, window.innerWidth - 116);
+        const maxY = Math.max(52, window.innerHeight - (window.innerWidth <= 768 ? 112 : 56));
+        return {
+          x: Math.min(Math.max(8, prev.x), maxX),
+          y: Math.min(Math.max(52, prev.y), maxY),
+        };
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleBtnPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: rect.left,
+      origY: rect.top,
+      width: rect.width || 108,
+      height: rect.height || 44,
+      moved: false,
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handleBtnPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const st = dragStateRef.current;
+    if (!st || st.pointerId !== e.pointerId) return;
+    const dx = e.clientX - st.startX;
+    const dy = e.clientY - st.startY;
+    if (!st.moved && Math.hypot(dx, dy) < 6) return;
+    st.moved = true;
+    if (!isDraggingBtn) setIsDraggingBtn(true);
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const bottomInset = vw <= 768 ? 68 : 12;
+    const nextX = Math.min(Math.max(8, Math.round(st.origX + dx)), Math.max(8, vw - st.width - 8));
+    const nextY = Math.min(Math.max(52, Math.round(st.origY + dy)), Math.max(52, vh - st.height - bottomInset));
+    setDragPos({ x: nextX, y: nextY });
+  };
+
+  const handleBtnPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const st = dragStateRef.current;
+    if (!st || st.pointerId !== e.pointerId) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    if (st.moved) {
+      justDraggedRef.current = true;
+      setTimeout(() => {
+        justDraggedRef.current = false;
+      }, 250);
+      setDragPos((latest) => {
+        if (latest) {
+          try {
+            localStorage.setItem('mglite_bug_btn_pos', JSON.stringify(latest));
+          } catch {}
+        }
+        return latest;
+      });
+    }
+    setIsDraggingBtn(false);
+    dragStateRef.current = null;
+  };
+
   const idempotencyKeyRef = useRef<string>(generateReportIdempotencyKey());
 
   // Generation counter and AbortControllers for identity isolation (FIX-01)
@@ -869,17 +975,30 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
 
   return (
     <>
-      {/* Floating Trigger Button */}
+      {/* Floating & Draggable Trigger Button */}
       <button
         type="button"
-        onClick={handleOpen}
+        onClick={() => {
+          if (justDraggedRef.current) {
+            justDraggedRef.current = false;
+            return;
+          }
+          handleOpen();
+        }}
+        onPointerDown={handleBtnPointerDown}
+        onPointerMove={handleBtnPointerMove}
+        onPointerUp={handleBtnPointerUp}
+        onPointerCancel={handleBtnPointerUp}
         data-testid="btn-open-report-bug"
-        aria-label="Báo lỗi hệ thống"
+        data-dragged={dragPos ? "true" : "false"}
+        aria-label="Báo lỗi hệ thống (có thể kéo để di chuyển)"
+        title="Bấm để báo lỗi • Giữ và kéo để di chuyển vị trí nút"
         className="btn-floating-report-bug"
         style={{
           position: 'fixed',
-          bottom: TOKENS.spacing[6],
-          right: TOKENS.spacing[6],
+          ...(dragPos
+            ? { left: `${dragPos.x}px`, top: `${dragPos.y}px`, right: 'auto', bottom: 'auto' }
+            : { bottom: TOKENS.spacing[6], right: TOKENS.spacing[6] }),
           zIndex: 900,
           display: 'flex',
           alignItems: 'center',
@@ -889,14 +1008,16 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
           backgroundColor: THEME_COLORS.surfaceHover,
           color: THEME_COLORS.text,
           border: `1px solid ${THEME_COLORS.border}`,
-          boxShadow: TOKENS.shadows.sm,
+          boxShadow: isDraggingBtn ? TOKENS.shadows.lg : TOKENS.shadows.sm,
           fontSize: TOKENS.typography.fontSize.base,
           fontWeight: TOKENS.typography.fontWeight.semibold,
-          cursor: 'pointer',
+          cursor: isDraggingBtn ? 'grabbing' : 'grab',
+          touchAction: 'none',
+          userSelect: 'none',
           outline: 'none',
           minHeight: TOKENS.touchTarget.minHeight,
           minWidth: TOKENS.touchTarget.minWidth,
-          transition: TOKENS.motion.transitionBase,
+          transition: isDraggingBtn ? 'none' : TOKENS.motion.transitionBase,
         }}
       >
         <AlertTriangleIcon size={16} style={{ color: THEME_COLORS.danger }} />
@@ -1413,16 +1534,15 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
       {/* Floating button responsive styles */}
       <style>{`
         .app-shell-report-dock .btn-floating-report-bug {
-          position: static !important;
-          bottom: auto !important;
-          right: auto !important;
-          z-index: 1 !important;
-          margin-left: auto !important;
+          position: fixed;
+          z-index: 900;
         }
         @media (max-width: 768px) {
-          .btn-floating-report-bug {
-            bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important;
+          .btn-floating-report-bug:not([data-dragged="true"]) {
+            bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
             right: 16px !important;
+          }
+          .btn-floating-report-bug {
             padding: 8px 14px !important;
             font-size: 12px !important;
             min-height: 44px !important;

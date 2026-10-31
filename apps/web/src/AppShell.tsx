@@ -548,11 +548,8 @@ export const AppShell: React.FC<AppShellProps> = ({
       {/* Responsive styles */}
       <style>{`
         .app-shell-report-dock .btn-floating-report-bug {
-          position: static !important;
-          bottom: auto !important;
-          right: auto !important;
-          z-index: 1 !important;
-          margin-left: auto !important;
+          position: fixed;
+          z-index: 900;
         }
         @media (min-width: 769px) {
           .mobile-bottom-nav-wrapper {
@@ -569,7 +566,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             display: none !important;
           }
           main {
-            padding: 12px 12px calc(80px + env(safe-area-inset-bottom, 0px)) 12px !important;
+            padding: 12px 12px calc(132px + env(safe-area-inset-bottom, 0px)) 12px !important;
           }
           .app-shell-header {
             padding: 0 max(10px, env(safe-area-inset-right, 10px)) 0 max(10px, env(safe-area-inset-left, 10px)) !important;

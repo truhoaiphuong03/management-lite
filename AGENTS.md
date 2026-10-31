@@ -4,7 +4,7 @@
 
 ## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
 
-- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.5.6`
+- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.5.7`
 - **Tiến độ lũy kế:** Hoàn tất **Phase 13/13 (`100%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`, Master Plan `ML-03..05` & Đợt chuẩn hóa UI/UX Desktop + Mobile `v0.3.0`–`v0.3.2`):
   - ✅ **Phase 1 (`v0.1.4`):** Hồ sơ Nhân sự mở rộng + Ngân hàng + Nhắc SĐT (`migration 0030`) + Kích hoạt `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY`, `FIN_RECEIPT_DIR` (`96d3d1e`).
   - ✅ **Phase 2 (`v0.1.5`):** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel + Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương + Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** (`c4896f0`).
@@ -27,7 +27,8 @@
   - ✅ **Phase 16 & Phase 17 (`v0.5.4` — Toàn vẹn phát hành, nợ kiểm thử & điện thoại 320px):** `scripts/gen-build-info.mjs` tự sinh `release-version.json` từ `package.json` + Git HEAD; `docs/deployment/OWNER-RELEASE-RUNBOOK.md` + đóng gói `scripts/runtime/serve-web.cjs` vào bundle phát hành; `.gitattributes` + `.prettierrc.json` (`endOfLine: auto`); sửa tràn ngang `.app-subnav-bar` ở `320px`, khôi phục `minmax(min(100%, 240px), 1fr)` và thẻ `Vấn đề & Issues` trên `DashboardScreen.tsx`; **436/436 test `tests/web` + `tests/security` PASS (`0 fail`)**.
   - ✅ **Phase 18 (`v0.5.5` — Hiệu năng Backend/DB & Sức khỏe Mã nguồn):** Bộ định tuyến `RouteTable` (`O(1)` exact + prefix dispatch) và tách 4 module định tuyến (`schedules-routes.ts`, `accounts-routes.ts`, `storage-routes.ts`, `issues-routes.ts`), giảm gần 1.200 dòng trong `app.ts`; gộp chèn lịch tuần bằng `UNNEST` 1 lượt trong `SchedulesService`; phân trang con trỏ (`keyset cursor`) không `OFFSET` trong `AttendanceService`; tách 4 module tiện ích màn hình Web (`apps/web/src/screens/helpers/*.ts`); bổ sung `scripts/perf/ensure-hot-indexes.sql` + `scripts/perf/explain-hot-queries.mjs` + `tests/backend/phase18-perf-architecture.test.mjs`.
   - ✅ **Phase 19 (`v0.5.6` — Vệ sinh dữ liệu, chuẩn hóa Hồ sơ & Công cụ Vận hành an toàn):** Sửa lỗi thiếu `$` SQL placeholder trong `EmployeeService.createEmployee` / `updateEmployee`, kiểm tra chặt Ngày sinh (`normalizeDateOfBirth`) và Số TK ngân hàng (`normalizeBankAccountNumber`) trong `profile-validator.ts`, bổ sung bộ 4 công cụ vận hành (`scripts/ops/{audit-test-workspaces,audit-secrets-hygiene,backup-restore-drill,verify-profile-data}.mjs`) và kiểm thử `tests/backend/phase19-ops-data-hygiene.test.mjs`.
-  - **Tiếp theo:** Toàn bộ **Phase 1 → Phase 19 (`100%`)** trên nhánh `main` đã hoàn tất. Chờ Owner ký phát hành (`Sign-Release-Owner.ps1`) theo [`docs/deployment/OWNER-RELEASE-RUNBOOK.md`](file:///c:/Projects/management-lite/docs/deployment/OWNER-RELEASE-RUNBOOK.md) để đưa `v0.5.6` lên Production.
+  - ✅ **Hotfix UI (`v0.5.7` — Nút Báo lỗi nổi & Kéo thả di chuyển tự do):** Gỡ bỏ `position: static !important` trên `.app-shell-report-dock .btn-floating-report-bug`, khôi phục chế độ nổi (`position: fixed`) kết hợp giữ-kéo di chuyển tự do bằng chuột/ngón tay (`Pointer Events` + lưu vị trí `mglite_bug_btn_pos` trong `localStorage`) trong `ReportBugWidget.tsx` và `AppShell.tsx`.
+  - **Tiếp theo:** Toàn bộ **Phase 1 → Phase 19 (`100%`)** và **Phase UI-0 → UI-5 (`100%`)** trên nhánh `main` (`v0.5.7`) đã hoàn tất và cập nhật lên `https://ql.hoaiphuong.click`.
 
 ---
 

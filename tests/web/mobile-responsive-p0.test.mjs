@@ -101,7 +101,7 @@ test('MOBILE-P0-03: AppShell docks ReportBugWidget in normal flow (.app-shell-re
   );
   assert.ok(
     html.includes('.app-shell-report-dock .btn-floating-report-bug') &&
-      html.includes('position: static !important'),
+      html.includes('position:fixed') && html.includes('touch-action:none'),
     'AppShell must dock .btn-floating-report-bug in normal document flow so it cannot overlap primary buttons',
   );
 

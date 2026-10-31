@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.5.6';
-export const SYSTEM_COMMIT = 'f1d2da2';
+export const SYSTEM_VERSION = '0.5.7';
+export const SYSTEM_COMMIT = '5b1b735';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.5.6',
+    version: '0.5.7',
     commit: 'latest',
+    released_at: '2026-10-31T07:44:00.000Z',
+    summary:
+      'Khắc phục nút Báo lỗi bị đứng yên một chỗ: khôi phục chế độ nổi theo màn hình khi cuộn trang và bổ sung tính năng giữ-kéo di chuyển nút Báo lỗi tới bất kỳ vị trí nào trên cả Máy tính và Điện thoại.',
+    added: [
+      'Cho phép giữ và kéo nút "Báo lỗi" (chuột trên máy tính hoặc ngón tay trên điện thoại) để di chuyển tới vị trí tùy ý trên màn hình, tự động ghi nhớ vị trí trong trình duyệt (mglite_bug_btn_pos).',
+    ],
+    improved: [
+      'Tự động giới hạn vùng kéo trong khung nhìn an toàn (không bị khuất mép màn hình hoặc đè lên thanh điều hướng đáy trên điện thoại) và phân biệt chính xác thao tác kéo với thao tác bấm mở cửa sổ Báo lỗi.',
+    ],
+    fixed: [
+      'Sửa lỗi quy tắc CSS position: static !important làm nút Báo lỗi bị khóa cố định một chỗ ở cuối trang thay vì nổi và di chuyển linh hoạt theo người dùng.',
+    ],
+  },
+  {
+    version: '0.5.6',
+    commit: '5b1b735',
     released_at: '2026-10-31T07:15:00.000Z',
     summary:
       'Hoàn tất Phase 19 (Vệ sinh dữ liệu, chuẩn hóa Hồ sơ nhân sự & Công cụ Vận hành an toàn): sửa lỗi SQL placeholder khi cập nhật hồ sơ nhân viên trong EmployeeService, kiểm tra chặt Ngày sinh (YYYY-MM-DD / DD/MM/YYYY) và Số tài khoản ngân hàng (chỉ chữ số), đồng thời bổ sung bộ công cụ kiểm toán & diễn tập khôi phục sao lưu (RPO/RTO).',
