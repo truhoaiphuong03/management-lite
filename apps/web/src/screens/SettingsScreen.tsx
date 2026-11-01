@@ -834,69 +834,105 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <form
               onSubmit={handleSaveProfile}
               data-testid="edit-profile-form"
-              style={{ maxWidth: '480px' }}
+              style={{ maxWidth: '680px' }}
             >
-              <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Họ và tên
-                <input
-                  data-testid="edit-profile-name"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  maxLength={120}
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    marginTop: '4px',
-                    padding: '10px 12px',
-                    fontSize: '16px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-hover)',
-                    backgroundColor: 'var(--surface-hover)',
-                    color: 'var(--text-color)',
-                  }}
-                />
-              </label>
-              <div style={{ height: '12px' }} />
-              <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Số điện thoại
-                <input
-                  data-testid="edit-profile-phone"
-                  type="tel"
-                  inputMode="tel"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  placeholder="VD: 0901234567"
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    marginTop: '4px',
-                    padding: '10px 12px',
-                    fontSize: '16px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-hover)',
-                    backgroundColor: 'var(--surface-hover)',
-                    color: 'var(--text-color)',
-                  }}
-                />
-              </label>
-              <div style={{ height: '12px' }} />
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns:
-                    'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
-                  gap: '12px',
+                    'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+                  gap: '14px',
                 }}
               >
-                <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Ngày sinh (Ngày/Tháng/Năm — Không bắt buộc)
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--muted-color)',
+                  }}
+                >
+                  Họ và tên
+                  <input
+                    data-testid="edit-profile-name"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    maxLength={120}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '0 12px',
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
+                    }}
+                  />
+                </label>
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--muted-color)',
+                  }}
+                >
+                  Số điện thoại
+                  <input
+                    data-testid="edit-profile-phone"
+                    type="tel"
+                    inputMode="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="VD: 0901234567"
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '0 12px',
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
+                    }}
+                  />
+                </label>
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--muted-color)',
+                  }}
+                >
+                  Ngày sinh (Không bắt buộc)
                   <VnDateOfBirthSelect
                     testId="edit-profile-dob"
                     value={editDateOfBirth}
                     onChange={setEditDateOfBirth}
                   />
                 </label>
-                <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--muted-color)',
+                  }}
+                >
                   Giới tính
                   <select
                     data-testid="edit-profile-gender"
@@ -904,10 +940,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     onChange={(e) => setEditGender(e.target.value)}
                     style={{
                       width: '100%',
+                      height: '42px',
                       boxSizing: 'border-box',
                       marginTop: '4px',
-                      padding: '10px 12px',
-                      fontSize: '15px',
+                      padding: '0 12px',
+                      fontSize: '14px',
                       borderRadius: '8px',
                       border: '1px solid var(--border-hover)',
                       backgroundColor: 'var(--surface-hover)',
@@ -920,7 +957,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     <option value="Khác">Khác</option>
                   </select>
                 </label>
-                <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--muted-color)',
+                  }}
+                >
                   Số CCCD / CMND (Không bắt buộc)
                   <input
                     data-testid="edit-profile-national-id"
@@ -930,10 +976,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     placeholder="VD: 079200012345"
                     style={{
                       width: '100%',
+                      height: '42px',
                       boxSizing: 'border-box',
                       marginTop: '4px',
-                      padding: '10px 12px',
-                      fontSize: '15px',
+                      padding: '0 12px',
+                      fontSize: '14px',
                       borderRadius: '8px',
                       border: '1px solid var(--border-hover)',
                       backgroundColor: 'var(--surface-hover)',
@@ -941,7 +988,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     }}
                   />
                 </label>
-                <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--muted-color)',
+                  }}
+                >
                   Chức danh / Vị trí
                   <input
                     data-testid="edit-profile-position"
@@ -951,10 +1007,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     placeholder="VD: Editor, Kịch bản…"
                     style={{
                       width: '100%',
+                      height: '42px',
                       boxSizing: 'border-box',
                       marginTop: '4px',
-                      padding: '10px 12px',
-                      fontSize: '15px',
+                      padding: '0 12px',
+                      fontSize: '14px',
                       borderRadius: '8px',
                       border: '1px solid var(--border-hover)',
                       backgroundColor: 'var(--surface-hover)',
@@ -963,54 +1020,78 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   />
                 </label>
               </div>
-              <div style={{ height: '12px' }} />
-              <label
-                style={{ fontSize: '12px', color: 'var(--muted-color)', display: 'block' }}
+              <div style={{ height: '14px' }} />
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+                  gap: '14px',
+                }}
               >
-                Địa chỉ nơi ở hiện tại (Không bắt buộc)
-                <input
-                  data-testid="edit-profile-address"
-                  type="text"
-                  value={editAddress}
-                  onChange={(e) => setEditAddress(e.target.value)}
-                  placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+                <label
                   style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    marginTop: '4px',
-                    padding: '10px 12px',
-                    fontSize: '15px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-hover)',
-                    backgroundColor: 'var(--surface-hover)',
-                    color: 'var(--text-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--muted-color)',
                   }}
-                />
-              </label>
-              <div style={{ height: '12px' }} />
-              <label
-                style={{ fontSize: '12px', color: 'var(--muted-color)', display: 'block' }}
-              >
-                Liên hệ khẩn cấp (Họ tên & SĐT người thân)
-                <input
-                  data-testid="edit-profile-emergency"
-                  type="text"
-                  value={editEmergencyContact}
-                  onChange={(e) => setEditEmergencyContact(e.target.value)}
-                  placeholder="VD: Nguyễn Thị B (Mẹ) - 0912345678"
+                >
+                  Địa chỉ nơi ở hiện tại (Không bắt buộc)
+                  <input
+                    data-testid="edit-profile-address"
+                    type="text"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '0 12px',
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
+                    }}
+                  />
+                </label>
+                <label
                   style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    marginTop: '4px',
-                    padding: '10px 12px',
-                    fontSize: '15px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-hover)',
-                    backgroundColor: 'var(--surface-hover)',
-                    color: 'var(--text-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--muted-color)',
                   }}
-                />
-              </label>
+                >
+                  Liên hệ khẩn cấp (Họ tên & SĐT người thân)
+                  <input
+                    data-testid="edit-profile-emergency"
+                    type="text"
+                    value={editEmergencyContact}
+                    onChange={(e) => setEditEmergencyContact(e.target.value)}
+                    placeholder="VD: Nguyễn Thị B (Mẹ) - 0912345678"
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '0 12px',
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
+                    }}
+                  />
+                </label>
+              </div>
               <div
                 style={{
                   marginTop: '14px',
@@ -1028,28 +1109,46 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     marginBottom: '10px',
                   }}
                 >
-                  🏦 Thông tin ngân hàng nhận lương
+                  Thông tin ngân hàng nhận lương
                 </div>
                 <div
                   style={{
                     display: 'grid',
                     gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-                    gap: '10px',
+                      'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+                    gap: '12px',
                   }}
                 >
-                  <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
                     Ngân hàng (Không bắt buộc)
                     <div style={{ marginTop: '4px' }}>
                       <VnBankAutocompleteInput
                         testId="edit-profile-bank-name"
                         value={editBankName}
                         onChange={setEditBankName}
-                        placeholder="🔍 Tìm tên ngân hàng (MB, VCB…)"
+                        placeholder="Tìm tên ngân hàng (MB, VCB…)"
                       />
                     </div>
                   </label>
-                  <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
                     Số tài khoản
                     <input
                       data-testid="edit-profile-bank-number"
@@ -1059,18 +1158,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       placeholder="VD: 1023456789"
                       style={{
                         width: '100%',
+                        height: '42px',
                         boxSizing: 'border-box',
                         marginTop: '4px',
-                        padding: '9px 10px',
+                        padding: '0 12px',
                         fontSize: '14px',
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         border: '1px solid var(--border-hover)',
                         backgroundColor: 'var(--surface-hover)',
                         color: 'var(--text-color)',
                       }}
                     />
                   </label>
-                  <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
                     Chủ tài khoản (in hoa)
                     <input
                       data-testid="edit-profile-bank-holder"
@@ -1082,11 +1191,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       placeholder="VD: NGUYEN VAN A"
                       style={{
                         width: '100%',
+                        height: '42px',
                         boxSizing: 'border-box',
                         marginTop: '4px',
-                        padding: '9px 10px',
+                        padding: '0 12px',
                         fontSize: '14px',
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         border: '1px solid var(--border-hover)',
                         backgroundColor: 'var(--surface-hover)',
                         color: 'var(--text-color)',
@@ -1095,8 +1205,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   </label>
                 </div>
               </div>
-              <div style={{ height: '12px' }} />
-              <label style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+              <div style={{ height: '14px' }} />
+              <label
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: 'var(--muted-color)',
+                }}
+              >
                 Email tài khoản
                 <input
                   data-testid="edit-profile-email"
@@ -1105,10 +1224,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   onChange={(e) => setEditEmail(e.target.value)}
                   style={{
                     width: '100%',
+                    height: '42px',
                     boxSizing: 'border-box',
                     marginTop: '4px',
-                    padding: '10px 12px',
-                    fontSize: '16px',
+                    padding: '0 12px',
+                    fontSize: '14px',
                     borderRadius: '8px',
                     border: '1px solid var(--border-hover)',
                     backgroundColor: 'var(--surface-hover)',

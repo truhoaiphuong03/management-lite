@@ -272,6 +272,14 @@ textarea {
   min-width: 0;
 }
 
+/* Ensure side-by-side form fields in CSS Grid rows always align their inputs on the same horizontal baseline even if a label wraps */
+form div[style*='grid'] > label,
+form div[style*='grid'] > div:has(> label) {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
 button,
 a,
 label {

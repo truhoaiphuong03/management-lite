@@ -1038,7 +1038,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Ngày sinh (Ngày/Tháng/Năm — Không bắt buộc):
+                  Ngày sinh (Không bắt buộc):
                 </label>
                 <VnDateOfBirthSelect
                   id="editDob"
