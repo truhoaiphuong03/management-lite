@@ -30,8 +30,11 @@ const packagerScript = path.join(
   'scripts/deployment/package-release-bundle.mjs',
 );
 
-async function runPowershell(scriptPath, args = []) {
+async function runPowershell(scriptPath, args = [], envOverrides = null) {
   try {
+    const env = envOverrides
+      ? { ...process.env, ...envOverrides }
+      : process.env;
     const { stdout } = await execFileAsync(
       'powershell.exe',
       [
@@ -46,6 +49,7 @@ async function runPowershell(scriptPath, args = []) {
         cwd: repoRoot,
         encoding: 'utf8',
         maxBuffer: 10 * 1024 * 1024,
+        env,
       },
     );
     return stdout;
@@ -99,12 +103,19 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
   const parsedBaseUrl = new URL(baseConfig.connectionString);
   parsedBaseUrl.pathname = `/${qaDbName}`;
   const qaDbUrl = parsedBaseUrl.toString();
+  const sandboxDbHost = parsedBaseUrl.hostname || '127.0.0.1';
+  const sandboxDbPort = String(parsedBaseUrl.port || '55433');
+  const sandboxDbUser = decodeURIComponent(
+    parsedBaseUrl.username || 'ml_test_admin',
+  );
+  const sandboxDbPass = decodeURIComponent(parsedBaseUrl.password || '');
 
   const sandboxRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'ml-auth-cutover-qa-'),
   );
   const sandboxTarget = path.join(sandboxRoot, 'apps/management-lite');
   const gateDir = path.join(sandboxRoot, 'config/release-gate');
+  const sandboxDbDir = path.join(sandboxRoot, 'config/sandbox-db');
   const ownerKeysDir = path.join(sandboxRoot, 'owner-offline-keys');
   const bundleDir = path.join(sandboxRoot, 'bundles');
   const reportsDir = path.join(sandboxRoot, 'reports');
@@ -114,6 +125,7 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
   for (const d of [
     path.join(sandboxRoot, 'apps'),
     gateDir,
+    sandboxDbDir,
     ownerKeysDir,
     bundleDir,
     reportsDir,
@@ -122,6 +134,13 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
   ]) {
     fs.mkdirSync(d, { recursive: true });
   }
+
+  const sandboxPgPassPath = path.join(sandboxDbDir, 'pgpass.conf');
+  fs.writeFileSync(
+    sandboxPgPassPath,
+    `${sandboxDbHost}:${sandboxDbPort}:*:${sandboxDbUser}:${sandboxDbPass}\n`,
+    'utf8',
+  );
 
   const policyPath = path.join(gateDir, 'release-gate-policy.json');
   const manifestPath = path.join(gateDir, 'approved-release.json');
@@ -383,16 +402,31 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
       force = false,
       recoverInterrupted = false,
       simulateHealthFailure = false,
+      serverRootOverride = sandboxRoot,
+      targetDirOverride = sandboxTarget,
+      dbHostOverride = sandboxDbHost,
+      dbPortOverride = sandboxDbPort,
+      dbUserOverride = sandboxDbUser,
+      pgPassOverride = sandboxPgPassPath,
+      envOverrides = null,
     }) => {
       const args = [
         '-CommitSha',
         commitSha,
         '-ServerRoot',
-        sandboxRoot,
+        serverRootOverride,
         '-TargetDir',
-        sandboxTarget,
+        targetDirOverride,
         '-DbTarget',
         qaDbName,
+        '-DbHost',
+        dbHostOverride,
+        '-DbPort',
+        String(dbPortOverride),
+        '-DbUser',
+        dbUserOverride,
+        '-PgPassFilePath',
+        pgPassOverride,
         '-HealthUrl',
         healthUrl,
         '-ReadyUrl',
@@ -424,7 +458,7 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
       }
       if (force) args.push('-Force');
       if (simulateHealthFailure) args.push('-SimulateHealthFailure');
-      return runPowershell(deployScript, args);
+      return runPowershell(deployScript, args, envOverrides);
     };
 
     // Apply migrations 0001..0022 (excluding 0023_auth_session_remember_me) to simulate pre-0023 database
@@ -479,6 +513,76 @@ test('AUTH-REMEMBER-01 Cutover, Schema Preflight, Rollback Compatibility, STOP/N
         iso(28 * day),
         iso(28 * day),
       ],
+    );
+
+    // =========================================================================
+    // SCENARIO 0 (OA-21): Sandbox Production Database Isolation Guards (Fail-Closed)
+    // =========================================================================
+    await t.test(
+      'Scenario 0 (OA-21): Sandbox mode rejects Production pgpass.conf, Production credential hp_test_admin, Production port 55432, Production ServerRoot, and unconfirmed TEST environment fail-closed without connecting to Production',
+      async () => {
+        seedSandboxBaseline(shaPre0023);
+        const { runId } = await signAndPrepareReceipt({
+          allowMigration: false,
+        });
+
+        // 0a. Production ServerRoot is rejected immediately
+        await assert.rejects(async () => {
+          await invokeDeploy({
+            runId,
+            serverRootOverride: 'C:\\HoaiPhuong-Server',
+          });
+        }, /SANDBOX_VIOLATION_PRODUCTION_PATH_FORBIDDEN/);
+
+        // 0b. Production pgpass.conf path is rejected fail-closed without reading Production secrets
+        await assert.rejects(async () => {
+          await invokeDeploy({
+            runId,
+            pgPassOverride:
+              'C:\\HoaiPhuong-Server\\config\\test-secrets\\pgpass.conf',
+          });
+        }, /SANDBOX_VIOLATION_PRODUCTION_PGPASS_FORBIDDEN/);
+        assert.equal(
+          readJson(path.join(reportsDir, 'latest-deployment.json')).status,
+          'REJECTED_SANDBOX_PRODUCTION_PGPASS_FORBIDDEN',
+        );
+
+        // 0c. Production credential (hp_test_admin) is rejected fail-closed
+        await assert.rejects(async () => {
+          await invokeDeploy({
+            runId,
+            dbUserOverride: 'hp_test_admin',
+          });
+        }, /SANDBOX_VIOLATION_PRODUCTION_CREDENTIAL_FORBIDDEN/);
+        assert.equal(
+          readJson(path.join(reportsDir, 'latest-deployment.json')).status,
+          'REJECTED_SANDBOX_PRODUCTION_CREDENTIAL_FORBIDDEN',
+        );
+
+        // 0d. Production port 55432 is rejected fail-closed without opening a TCP connection to 55432
+        await assert.rejects(async () => {
+          await invokeDeploy({
+            runId,
+            dbPortOverride: '55432',
+          });
+        }, /SANDBOX_VIOLATION_PRODUCTION_PORT_55432_FORBIDDEN/);
+        assert.equal(
+          readJson(path.join(reportsDir, 'latest-deployment.json')).status,
+          'REJECTED_SANDBOX_PRODUCTION_PORT_FORBIDDEN',
+        );
+
+        // 0e. Unconfirmed TEST environment (CONFIRM_ISOLATED_TEST_DB unset) fails closed before any DB query
+        await assert.rejects(async () => {
+          await invokeDeploy({
+            runId,
+            envOverrides: { CONFIRM_ISOLATED_TEST_DB: '' },
+          });
+        }, /SANDBOX_VIOLATION_UNCONFIRMED_TEST_DB/);
+        assert.equal(
+          readJson(path.join(reportsDir, 'latest-deployment.json')).status,
+          'REJECTED_SANDBOX_DB_UNCONFIRMED',
+        );
+      },
     );
 
     // =========================================================================

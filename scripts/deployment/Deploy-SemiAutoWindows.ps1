@@ -22,6 +22,11 @@ param(
   [string]$ServerRoot = 'C:\HoaiPhuong-Server',
   [string]$TargetDir = 'C:\HoaiPhuong-Server\apps\management-lite',
   [string]$DbTarget = 'management_lite_test',
+  [string]$DbHost = '127.0.0.1',
+  [int]$DbPort = 55432,
+  [string]$DbUser = 'hp_test_admin',
+  [string]$PgPassFilePath = '',
+  [string]$PgBinDir = '',
   [string]$HealthUrl = 'http://127.0.0.1:3002/api/v1/health',
   [string]$ReadyUrl = 'http://127.0.0.1:3002/api/v1/ready',
   [string]$WebUrl = 'http://127.0.0.1:3001/',
@@ -41,6 +46,23 @@ if ($RunMigrations) {
 $normalizedSha = $CommitSha.Trim().ToLowerInvariant()
 $normalizedArtifactSha = $ArtifactSha256.Trim().ToLowerInvariant()
 
+$realServerRoot = 'C:\HoaiPhuong-Server'
+$normRealRoot = [IO.Path]::GetFullPath($realServerRoot).TrimEnd('\', '/').ToLowerInvariant()
+if ($SandboxMode) {
+  $normServerRootCheck = [IO.Path]::GetFullPath($ServerRoot).TrimEnd('\', '/').ToLowerInvariant()
+  if ($normServerRootCheck -eq $normRealRoot -or $normServerRootCheck.StartsWith("$normRealRoot\")) {
+    throw "SANDBOX_VIOLATION_PRODUCTION_PATH_FORBIDDEN: SandboxMode cannot use Production ServerRoot '$ServerRoot'."
+  }
+  if ($PSBoundParameters.ContainsKey('TargetDir')) {
+    $normTargetDirCheck = [IO.Path]::GetFullPath($TargetDir).TrimEnd('\', '/').ToLowerInvariant()
+    if ($normTargetDirCheck -eq $normRealRoot -or $normTargetDirCheck.StartsWith("$normRealRoot\")) {
+      throw "SANDBOX_VIOLATION_PRODUCTION_PATH_FORBIDDEN: SandboxMode cannot use Production TargetDir '$TargetDir'."
+    }
+  } else {
+    $TargetDir = Join-Path $ServerRoot 'apps\management-lite'
+  }
+}
+
 $logsDir = Join-Path $ServerRoot 'logs'
 $reportsDir = Join-Path $ServerRoot 'reports'
 $backupsDir = Join-Path $ServerRoot 'backups'
@@ -59,12 +81,37 @@ $stateJournalFile = Join-Path $reportsDir 'deployment-state.json'
 $watermarkFile = Join-Path $reportsDir 'approval-watermark.json'
 $runningComponentsFile = Join-Path $reportsDir 'running-components-sha.json'
 
-$realServerRoot = 'C:\HoaiPhuong-Server'
-$node = Join-Path $realServerRoot 'config\runtime\node-v22.14.0-win-x64\node.exe'
-if (-not (Test-Path -LiteralPath $node)) { $node = 'node' }
-$psql = Join-Path $realServerRoot 'config\postgresql-18\pgsql\bin\psql.exe'
-$pgPassFile = Join-Path $realServerRoot 'config\test-secrets\pgpass.conf'
-$backupScript = Join-Path $realServerRoot 'scripts\Backup-Postgres.ps1'
+if ($SandboxMode) {
+  $nodeCandidates = @(
+    @(
+      'C:\ML-Test\runtime\node\node.exe',
+      (Get-Command node -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue)
+    ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+  )
+  $node = if ($nodeCandidates.Count -gt 0) { $nodeCandidates[0] } else { 'node' }
+
+  $pgBinCandidates = @(
+    @(
+      $PgBinDir,
+      'C:\ML-Test\pgsql\bin'
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath (Join-Path $_ 'psql.exe')) }
+  )
+  $resolvedPgBin = if ($pgBinCandidates.Count -gt 0) { $pgBinCandidates[0] } else { 'C:\ML-Test\pgsql\bin' }
+  $psql = Join-Path $resolvedPgBin 'psql.exe'
+  $pgPassFile = if (-not [string]::IsNullOrWhiteSpace($PgPassFilePath)) {
+    $PgPassFilePath
+  } else {
+    Join-Path $ServerRoot 'config\sandbox-db\pgpass.conf'
+  }
+  $backupScript = ''
+} else {
+  $node = Join-Path $realServerRoot 'config\runtime\node-v22.14.0-win-x64\node.exe'
+  if (-not (Test-Path -LiteralPath $node)) { $node = 'node' }
+  $resolvedPgBin = if (-not [string]::IsNullOrWhiteSpace($PgBinDir)) { $PgBinDir } else { Join-Path $realServerRoot 'config\postgresql-18\pgsql\bin' }
+  $psql = Join-Path $resolvedPgBin 'psql.exe'
+  $pgPassFile = if (-not [string]::IsNullOrWhiteSpace($PgPassFilePath)) { $PgPassFilePath } else { Join-Path $realServerRoot 'config\test-secrets\pgpass.conf' }
+  $backupScript = Join-Path $realServerRoot 'scripts\Backup-Postgres.ps1'
+}
 $startTime = Get-Date
 
 function Write-DeployLog {
@@ -102,6 +149,58 @@ function Record-DeployResult {
   $json = $record | ConvertTo-Json -Compress
   Add-Content -LiteralPath $deployLog -Value $json -ErrorAction SilentlyContinue
   $record | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $latestDeployJson -Encoding UTF8 -Force
+}
+
+if ($SandboxMode) {
+  if ($PSBoundParameters.ContainsKey('DbPort') -and $DbPort -eq 55432) {
+    Record-DeployResult -Status 'REJECTED_SANDBOX_PRODUCTION_PORT_FORBIDDEN' -Sha $normalizedSha -Message 'SandboxMode is strictly forbidden from targeting Production port 55432' -DurationMs 0
+    throw 'SANDBOX_VIOLATION_PRODUCTION_PORT_55432_FORBIDDEN: SandboxMode is strictly forbidden from targeting Production port 55432.'
+  }
+  if ($PSBoundParameters.ContainsKey('DbUser') -and $DbUser -ieq 'hp_test_admin') {
+    Record-DeployResult -Status 'REJECTED_SANDBOX_PRODUCTION_CREDENTIAL_FORBIDDEN' -Sha $normalizedSha -Message 'SandboxMode is strictly forbidden from using Production credential hp_test_admin' -DurationMs 0
+    throw 'SANDBOX_VIOLATION_PRODUCTION_CREDENTIAL_FORBIDDEN: SandboxMode is strictly forbidden from using Production credential hp_test_admin.'
+  }
+  if (-not [string]::IsNullOrWhiteSpace($PgPassFilePath)) {
+    $normPgPassArg = [IO.Path]::GetFullPath($PgPassFilePath).TrimEnd('\', '/').ToLowerInvariant()
+    if ($normPgPassArg -eq $normRealRoot -or $normPgPassArg.StartsWith("$normRealRoot\")) {
+      Record-DeployResult -Status 'REJECTED_SANDBOX_PRODUCTION_PGPASS_FORBIDDEN' -Sha $normalizedSha -Message "SandboxMode is strictly forbidden from reading Production pgpass.conf ('$PgPassFilePath')" -DurationMs 0
+      throw 'SANDBOX_VIOLATION_PRODUCTION_PGPASS_FORBIDDEN: SandboxMode is strictly forbidden from reading Production pgpass.conf.'
+    }
+  }
+}
+
+function Assert-SandboxDatabaseIsolation {
+  if (-not $SandboxMode) { return }
+  if ($env:CONFIRM_ISOLATED_TEST_DB -ne 'true' -and $env:CONFIRM_ISOLATED_TEST_DB -ne '1') {
+    Record-DeployResult -Status 'REJECTED_SANDBOX_DB_UNCONFIRMED' -Sha $normalizedSha -Message 'SandboxMode database operation requires CONFIRM_ISOLATED_TEST_DB=true' -DurationMs 0
+    throw 'SANDBOX_VIOLATION_UNCONFIRMED_TEST_DB: CONFIRM_ISOLATED_TEST_DB=true is required for SandboxMode database operations.'
+  }
+  if ($DbPort -eq 55432 -or ($env:TEST_DATABASE_URL -and $env:TEST_DATABASE_URL -match ':55432(/|$)') -or ($env:DATABASE_URL -and $env:DATABASE_URL -match ':55432(/|$)')) {
+    Record-DeployResult -Status 'REJECTED_SANDBOX_PRODUCTION_PORT_FORBIDDEN' -Sha $normalizedSha -Message "SandboxMode is forbidden from connecting to Production port 55432 (DbPort=$DbPort)" -DurationMs 0
+    throw 'SANDBOX_VIOLATION_PRODUCTION_PORT_55432_FORBIDDEN: SandboxMode is strictly forbidden from connecting to Production port 55432.'
+  }
+  if ([string]::IsNullOrWhiteSpace($DbUser) -or $DbUser -ieq 'hp_test_admin' -or ($env:TEST_DATABASE_URL -and $env:TEST_DATABASE_URL -match '(?i)//hp_test_admin[:@]') -or ($env:DATABASE_URL -and $env:DATABASE_URL -match '(?i)//hp_test_admin[:@]')) {
+    Record-DeployResult -Status 'REJECTED_SANDBOX_PRODUCTION_CREDENTIAL_FORBIDDEN' -Sha $normalizedSha -Message "SandboxMode is forbidden from using Production credential '$DbUser'" -DurationMs 0
+    throw 'SANDBOX_VIOLATION_PRODUCTION_CREDENTIAL_FORBIDDEN: SandboxMode is strictly forbidden from using Production credential hp_test_admin.'
+  }
+  if ([string]::IsNullOrWhiteSpace($pgPassFile)) {
+    Record-DeployResult -Status 'REJECTED_SANDBOX_PRODUCTION_PGPASS_FORBIDDEN' -Sha $normalizedSha -Message 'SandboxMode requires an isolated pgpass.conf file' -DurationMs 0
+    throw 'SANDBOX_VIOLATION_PRODUCTION_PGPASS_FORBIDDEN: SandboxMode requires an isolated pgpass.conf file.'
+  }
+  $normPgPass = [IO.Path]::GetFullPath($pgPassFile).TrimEnd('\', '/').ToLowerInvariant()
+  if ($normPgPass -eq $normRealRoot -or $normPgPass.StartsWith("$normRealRoot\")) {
+    Record-DeployResult -Status 'REJECTED_SANDBOX_PRODUCTION_PGPASS_FORBIDDEN' -Sha $normalizedSha -Message "SandboxMode is forbidden from reading Production pgpass.conf ('$pgPassFile')" -DurationMs 0
+    throw 'SANDBOX_VIOLATION_PRODUCTION_PGPASS_FORBIDDEN: SandboxMode is strictly forbidden from reading Production pgpass.conf.'
+  }
+  if (-not (Test-Path -LiteralPath $pgPassFile -PathType Leaf)) {
+    Record-DeployResult -Status 'REJECTED_SANDBOX_PRODUCTION_PGPASS_FORBIDDEN' -Sha $normalizedSha -Message "Isolated sandbox pgpass.conf not found at '$pgPassFile'" -DurationMs 0
+    throw "SANDBOX_VIOLATION_PRODUCTION_PGPASS_FORBIDDEN: Isolated sandbox pgpass.conf not found at '$pgPassFile'."
+  }
+  $pgPassContent = [IO.File]::ReadAllText($pgPassFile)
+  if ($pgPassContent -match '(?m):55432:' -or $pgPassContent -match '(?i):hp_test_admin:') {
+    Record-DeployResult -Status 'REJECTED_SANDBOX_PRODUCTION_CREDENTIAL_FORBIDDEN' -Sha $normalizedSha -Message 'Sandbox pgpass.conf contains forbidden Production port 55432 or user hp_test_admin' -DurationMs 0
+    throw 'SANDBOX_VIOLATION_PRODUCTION_CREDENTIAL_FORBIDDEN: Sandbox pgpass.conf contains forbidden Production port 55432 or user hp_test_admin.'
+  }
 }
 
 function Write-RunningComponentsProof {
@@ -277,8 +376,9 @@ function Invoke-AtomicRuntimeSwap {
 }
 
 function Get-DatabaseSchemaAndAuthState {
+  Assert-SandboxDatabaseIsolation
   $env:PGPASSFILE = $pgPassFile
-  $regLines = @(& $psql -h 127.0.0.1 -p 55432 -U hp_test_admin -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT CASE WHEN to_regclass('public.schema_migrations') IS NOT NULL THEN 'YES' ELSE 'NO' END;" 2>$null | Where-Object { $_ -and $_ -ne 'SET' })
+  $regLines = @(& $psql -h $DbHost -p $DbPort -U $DbUser -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT CASE WHEN to_regclass('public.schema_migrations') IS NOT NULL THEN 'YES' ELSE 'NO' END;" 2>$null | Where-Object { $_ -and $_ -ne 'SET' })
   if ($LASTEXITCODE -ne 0 -or $regLines.Count -eq 0) {
     throw "Failed to query schema_migrations existence from '$DbTarget'"
   }
@@ -294,12 +394,12 @@ function Get-DatabaseSchemaAndAuthState {
     }
   }
 
-  $dbMigLines = @(& $psql -h 127.0.0.1 -p 55432 -U hp_test_admin -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT id || ':' || checksum FROM schema_migrations ORDER BY id;" 2>$null | Where-Object { $_ -and $_ -ne 'SET' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+  $dbMigLines = @(& $psql -h $DbHost -p $DbPort -U $DbUser -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT id || ':' || checksum FROM schema_migrations ORDER BY id;" 2>$null | Where-Object { $_ -and $_ -ne 'SET' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
   if ($LASTEXITCODE -ne 0) {
     throw "Failed to query schema_migrations rows from '$DbTarget'"
   }
 
-  $colLines = @(& $psql -h 127.0.0.1 -p 55432 -U hp_test_admin -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'auth_sessions' AND column_name = 'remember_me') THEN 'PRESENT' ELSE 'MISSING' END;" 2>$null | Where-Object { $_ -and $_ -ne 'SET' })
+  $colLines = @(& $psql -h $DbHost -p $DbPort -U $DbUser -d $DbTarget -X -w -t -A -c "SET default_transaction_read_only = on; SELECT CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'auth_sessions' AND column_name = 'remember_me') THEN 'PRESENT' ELSE 'MISSING' END;" 2>$null | Where-Object { $_ -and $_ -ne 'SET' })
   if ($LASTEXITCODE -ne 0 -or $colLines.Count -eq 0) {
     throw "Failed to query information_schema.columns for auth_sessions.remember_me from '$DbTarget'"
   }
@@ -1461,6 +1561,9 @@ process.stdout.write('VALID');
   try {
     $dbPreflight = Get-DatabaseSchemaAndAuthState
   } catch {
+    if ($_.Exception.Message -match '^SANDBOX_VIOLATION_') {
+      throw
+    }
     Record-DeployResult -Status 'REJECTED_SCHEMA_MIGRATION_MISMATCH' -Sha $normalizedSha -Message "Failed to query schema_migrations from '$DbTarget': $($_.Exception.Message)" -DurationMs 0
     throw "GATE REJECTED: Failed to query schema_migrations from '$DbTarget'."
   }
@@ -1535,10 +1638,37 @@ process.stdout.write('VALID');
     files                     = $snapshotFiles
   } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $snapshotDir 'rollback-metadata.json') -Encoding UTF8 -Force
 
+  Assert-SandboxDatabaseIsolation
   Write-DeployLog "Running pre-deploy PostgreSQL backup for database '$DbTarget' (before any migration or cutover)..."
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $backupScript -PgBin "$realServerRoot\config\postgresql-18\pgsql\bin" -Database $DbTarget -User hp_test_admin -PasswordFile $pgPassFile -Port 55432 -BackupDir (Join-Path $ServerRoot 'backups\postgres')
-  if ($LASTEXITCODE -ne 0) {
-    throw "Pre-deploy PostgreSQL backup failed for $DbTarget."
+  $pgBackupDir = Join-Path $ServerRoot 'backups\postgres'
+  if ($SandboxMode) {
+    New-Item -ItemType Directory -Path $pgBackupDir -Force | Out-Null
+    $dumpExe = Join-Path $resolvedPgBin 'pg_dump.exe'
+    $restoreExe = Join-Path $resolvedPgBin 'pg_restore.exe'
+    $dumpSuffix = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ') + '-' + [guid]::NewGuid().ToString('N')
+    $dumpArchive = Join-Path $pgBackupDir ("postgres-$dumpSuffix.dump")
+    $dumpPartial = "$dumpArchive.partial"
+    $priorPgPass = $env:PGPASSFILE
+    try {
+      $env:PGPASSFILE = (Resolve-Path -LiteralPath $pgPassFile).Path
+      & $dumpExe "--host=$DbHost" "--port=$DbPort" "--username=$DbUser" "--dbname=$DbTarget" --no-password --format=custom "--file=$dumpPartial"
+      if ($LASTEXITCODE -ne 0) {
+        throw "Sandbox pg_dump failed for $DbTarget."
+      }
+      & $restoreExe --list $dumpPartial | Out-Null
+      if ($LASTEXITCODE -ne 0) {
+        throw "Sandbox pg_restore --list verification failed for $DbTarget."
+      }
+      Move-Item -LiteralPath $dumpPartial -Destination $dumpArchive -ErrorAction Stop
+      Get-FileHash -LiteralPath $dumpArchive -Algorithm SHA256 | Select-Object Algorithm, Hash, Path | ConvertTo-Json | Set-Content -LiteralPath "$dumpArchive.sha256.json" -Encoding UTF8
+    } finally {
+      $env:PGPASSFILE = $priorPgPass
+    }
+  } else {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $backupScript -PgBin $resolvedPgBin -Database $DbTarget -User $DbUser -PasswordFile $pgPassFile -Port $DbPort -BackupDir $pgBackupDir
+    if ($LASTEXITCODE -ne 0) {
+      throw "Pre-deploy PostgreSQL backup failed for $DbTarget."
+    }
   }
 
   # 12. ADVANCE ANTI-REPLAY WATERMARK & EXECUTE PRE-CUTOVER DATABASE MIGRATIONS (BEFORE SWITCHING API/WEB BUILD)
@@ -1552,6 +1682,7 @@ process.stdout.write('VALID');
   } | ConvertTo-Json | Set-Content -LiteralPath $watermarkFile -Encoding UTF8 -Force
 
   if (-not $SkipMigration) {
+    Assert-SandboxDatabaseIsolation
     Write-DeployLog "Executing approved database migrations on '$DbTarget' from verified staging bundle BEFORE runtime cutover..."
     @{
       status          = 'IN_PROGRESS'
@@ -1564,12 +1695,20 @@ process.stdout.write('VALID');
     } | ConvertTo-Json | Set-Content -LiteralPath $stateJournalFile -Encoding UTF8 -Force
 
     $resolvedNodeModules = ''
-    foreach ($nmCand in @(
-      (Join-Path $TargetDir 'node_modules'),
-      (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'node_modules'),
-      (Join-Path $realServerRoot 'apps\management-lite\node_modules'),
-      (Join-Path $realServerRoot 'workspace\management-lite-dev\node_modules')
-    )) {
+    $nmCandidates = if ($SandboxMode) {
+      @(
+        (Join-Path $TargetDir 'node_modules'),
+        (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'node_modules')
+      )
+    } else {
+      @(
+        (Join-Path $TargetDir 'node_modules'),
+        (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'node_modules'),
+        (Join-Path $realServerRoot 'apps\management-lite\node_modules'),
+        (Join-Path $realServerRoot 'workspace\management-lite-dev\node_modules')
+      )
+    }
+    foreach ($nmCand in $nmCandidates) {
       if ($nmCand -and (Test-Path -LiteralPath $nmCand)) {
         $resolvedNodeModules = $nmCand
         break
@@ -1578,7 +1717,7 @@ process.stdout.write('VALID');
 
     $stagingNodeModules = Join-Path $stagingExtractDir 'node_modules'
     $pass = ([IO.File]::ReadAllText($pgPassFile).Trim() -split ':')[-1]
-    $env:DATABASE_URL = "postgresql://hp_test_admin:${pass}@127.0.0.1:55432/$DbTarget"
+    $env:DATABASE_URL = "postgresql://${DbUser}:${pass}@${DbHost}:${DbPort}/$DbTarget"
     try {
       if (-not [string]::IsNullOrWhiteSpace($resolvedNodeModules) -and (-not (Test-Path -LiteralPath $stagingNodeModules))) {
         New-Item -ItemType Junction -Path $stagingNodeModules -Target $resolvedNodeModules | Out-Null

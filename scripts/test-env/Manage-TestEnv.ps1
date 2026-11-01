@@ -53,7 +53,16 @@ function Prod-SystemId {
 function Start-Cluster {
     if (Port-Listening $Port) { Write-Host "already listening on $Port"; return }
     Start-Process -FilePath "$Bin\pg_ctl.exe" -ArgumentList @('start', '-D', "`"$Data`"", '-l', "`"$Root\log\postgres.log`"", '-t', '60') -RedirectStandardOutput "$Root\log\pgctl.out" -RedirectStandardError "$Root\log\pgctl.err" -WindowStyle Hidden
-    for ($i = 0; $i -lt 60; $i++) { Start-Sleep -Seconds 1; if (Port-Listening $Port) { Write-Host "cluster up on 127.0.0.1:$Port"; return } }
+    for ($i = 0; $i -lt 60; $i++) {
+        Start-Sleep -Seconds 1
+        if (Port-Listening $Port) {
+            $null = & "$Bin\pg_isready.exe" -h 127.0.0.1 -p $Port -U ml_test_admin -d postgres 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "cluster up on 127.0.0.1:$Port"
+                return
+            }
+        }
+    }
     throw "cluster did not start within 60s (see $Root\log)"
 }
 function Stop-Cluster {
@@ -158,11 +167,8 @@ switch ($Action) {
         New-Item -ItemType Directory -Force $outDir | Out-Null
         $env:PATH = "$Root\runtime\node;$env:PATH"
         # Tests that must NOT run here (reported as BLOCKED, never executed):
-        #  - the cutover test drives Deploy-SemiAutoWindows.ps1, which (even with -SandboxMode) reads the REAL pgpass and
-        #    connects to the PRODUCTION cluster (port 55432) as hp_test_admin -> unsafe for an isolated environment.
         #  - the *endpoint / staging-session tests need a running isolated QA API+web (QA_API_BASE / QA_WEB_BASE) = staging (Wave 2B).
         $blocked = @{
-            'auth-remember-01-cutover-fallback.test.mjs' = 'BLOCKED: controller connects to production port 55432 with real pgpass'
             'audit-endpoint.test.mjs' = 'BLOCKED: needs QA_API_BASE/QA_WEB_BASE (staging)'
             'issues-endpoint.test.mjs' = 'BLOCKED: needs QA_API_BASE/QA_WEB_BASE (staging)'
             'reports-endpoint.test.mjs' = 'BLOCKED: needs QA_API_BASE/QA_WEB_BASE (staging)'
