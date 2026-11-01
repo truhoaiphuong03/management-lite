@@ -119,17 +119,20 @@ export function resolveNavigationBreadcrumbs(
     };
   }
 
-  // 2D. Accounts: /accounts/:id
-  if (currentPath.startsWith('/accounts/')) {
+  // 2D. Accounts: standalone menu item, detail pages hang under it
+  if (currentPath === '/accounts' || currentPath.startsWith('/accounts/')) {
     const currentLabel = options?.customTitle || 'Chi tiết tài khoản';
     return {
-      items: [
-        { label: 'Quản trị', path: '/groups/admin' },
-        { label: 'Tài khoản dùng chung', path: '/accounts' },
-        { label: currentLabel },
-      ],
-      parentLabel: 'Tài khoản dùng chung',
-      parentPath: '/accounts',
+      items:
+        currentPath === '/accounts'
+          ? [{ label: 'Tài khoản dùng chung' }]
+          : [
+              { label: 'Tài khoản dùng chung', path: '/accounts' },
+              { label: currentLabel },
+            ],
+      parentLabel:
+        currentPath === '/accounts' ? 'Tổng quan' : 'Tài khoản dùng chung',
+      parentPath: currentPath === '/accounts' ? '/' : '/accounts',
     };
   }
 

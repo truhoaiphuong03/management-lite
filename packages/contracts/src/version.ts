@@ -3,7 +3,7 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.7.0';
+export const SYSTEM_VERSION = '0.7.1';
 export const SYSTEM_COMMIT = 'a11d175';
 export const SYSTEM_ENV = 'staging';
 
@@ -41,8 +41,22 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.7.0',
+    version: '0.7.1',
     commit: 'latest',
+    released_at: '2026-11-01',
+    summary:
+      'Đưa mục "Tài khoản dùng chung" (/accounts) lên trực tiếp Thanh menu đứng (DesktopSidebar) để truy cập 1-chạm nhanh chóng',
+    added: [
+      'Đưa phân hệ "Tài khoản dùng chung" (/accounts) lên trực tiếp Thanh menu đứng (nằm ngay giữa "Thu chi cá nhân" và "Quản trị") kèm biểu tượng khóa riêng biệt.',
+    ],
+    improved: [
+      'Khi vào màn hình Quản lý Tài khoản (/accounts), ẩn thanh tab phụ phía trên (Quản trị) để không gian làm việc gọn gàng, rộng rãi hơn.',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.7.0',
+    commit: 'a11d175',
     released_at: '2026-11-01',
     summary:
       'Tối giản Lịch sử Chấm công theo Tháng của từng nhân viên, Tối ưu Giao diện Điện thoại & Chuẩn hóa Giao việc Nhân sự Media (/work/new)',

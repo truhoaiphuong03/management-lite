@@ -23,15 +23,15 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
     `file://${resolve(root, 'dist/apps/web/src/router.js')}`
   );
 
-  // 1. Navigation Groups Specification (including independent finance group)
-  await t.test('1. NAV_GROUPS defines the approved groups including independent finance', () => {
+  // 1. Navigation Groups Specification (including independent finance and accounts groups)
+  await t.test('1. NAV_GROUPS defines the approved groups including independent finance and accounts', () => {
     assert.ok(NAV_ITEMS.length > 0, 'NAV_ITEMS must contain items');
-    assert.equal(NAV_GROUPS.length, 6, 'Must define exactly 6 groups');
+    assert.equal(NAV_GROUPS.length, 7, 'Must define exactly 7 groups');
     const groupIds = NAV_GROUPS.map((g) => g.id);
     assert.deepEqual(
       groupIds,
-      ['overview', 'attendance', 'work', 'hr-payroll', 'finance', 'admin'],
-      'Groups must match approved design: Tổng quan, Ca & Chấm công, Công việc, Nhân sự & Lương, Thu chi cá nhân, Quản trị',
+      ['overview', 'attendance', 'work', 'hr-payroll', 'finance', 'accounts', 'admin'],
+      'Groups must match approved design: Tổng quan, Ca & Chấm công, Công việc, Nhân sự & Lương, Thu chi cá nhân, Tài khoản dùng chung, Quản trị',
     );
     const groupTitles = NAV_GROUPS.map((g) => g.title);
     assert.deepEqual(groupTitles, [
@@ -40,6 +40,7 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
       'Công việc',
       'Nhân sự & Lương',
       'Thu chi cá nhân',
+      'Tài khoản dùng chung',
       'Quản trị',
     ]);
   });
@@ -142,7 +143,7 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
 
   // 4. GroupOverviewScreen: Card-based sub-function overview
   await t.test('4. GroupOverviewScreen renders child cards with canonical status & RBAC', () => {
-    // Owner Admin Group: Accounts, Audit, Issues, Settings
+    // Owner Admin Group: Audit, System Logs, Issues, Settings (Accounts moved to top-level sidebar)
     const ownerAdminHtml = renderToStaticMarkup(
       React.createElement(GroupOverviewScreen, {
         groupId: 'admin',
@@ -151,7 +152,7 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
         onNavigate: () => {},
       }),
     );
-    assert.ok(ownerAdminHtml.includes('Tài khoản dùng chung'));
+    assert.equal(ownerAdminHtml.includes('Tài khoản dùng chung'), false, 'Accounts is now a top-level sidebar item, not inside Admin');
     assert.ok(ownerAdminHtml.includes('Nhật ký Audit'));
     assert.ok(ownerAdminHtml.includes('Sổ tay lỗi'));
     assert.ok(ownerAdminHtml.includes('Cài đặt'));

@@ -540,26 +540,25 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     transform: scale(0.88);
   }
   .app-subnav-bar {
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
+    flex-wrap: wrap !important;
+    overflow-x: hidden !important;
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
     margin-bottom: 12px !important;
     padding: 3px !important;
-    gap: 4px !important;
+    gap: 3px !important;
     background: var(--surface-subtle, rgba(15, 23, 42, 0.55)) !important;
     border: 1px solid var(--border-subtle, #1e293b) !important;
     border-radius: 10px !important;
   }
   .app-subnav-item {
-    padding: 6px 10px !important;
+    padding: 5px 8px !important;
     font-size: 12px !important;
-    gap: 5px !important;
+    gap: 4px !important;
     border-radius: 7px !important;
     flex-shrink: 0 !important;
-    max-width: none !important;
+    max-width: 100% !important;
   }
   .kpi-grid-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;

@@ -140,11 +140,18 @@ export const NAV_GROUPS: NavGroup[] = [
     itemIds: ['finance'],
   },
   {
+    id: 'accounts',
+    title: 'Tài khoản dùng chung',
+    path: '/accounts',
+    icon: 'accounts',
+    itemIds: ['accounts'],
+  },
+  {
     id: 'admin',
     title: 'Quản trị',
     path: '/groups/admin',
     icon: 'settings',
-    itemIds: ['accounts', 'audit', 'system-logs', 'issues', 'settings'],
+    itemIds: ['audit', 'system-logs', 'issues', 'settings'],
   },
 ];
 
@@ -405,6 +412,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           work: 'Công việc',
           'hr-payroll': 'Nhân sự',
           finance: 'Thu chi',
+          accounts: 'Tài khoản',
           admin: 'Quản trị',
         };
         const shortLabel = shortLabelMap[group.id] || group.title;
@@ -417,8 +425,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             aria-label={group.title}
             className="mobile-bottom-nav-btn"
             style={{
-              flex: '1 1 auto',
+              flex: '1 1 0px',
               minWidth: 0,
+              overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -463,6 +472,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 maxWidth: '100%',
                 textAlign: 'center',
                 whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
               {shortLabel}
