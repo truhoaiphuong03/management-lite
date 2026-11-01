@@ -65,6 +65,75 @@ export function getVietnamYesterdayString(date: Date = new Date()): string {
   return `${prevY}-${prevM}-${prevD}`;
 }
 
+const VN_REPORT_MOJIBAKE_PAIRS: readonly [string, string][] = [
+  ['T?p H?a', 'Tạp Hóa'],
+  ['T?p h?a', 'Tạp hóa'],
+  ['t?p h?a', 'tạp hóa'],
+  ['B? Ph?t', 'Bá Phát'],
+  ['TR?I G?', 'TRẠI GÀ'],
+  ['kh?ng c? l?i', 'không có lời'],
+  ['k?nh', 'kênh'],
+  ['cho c?c ', 'cho các '],
+  ['nh? m?y', 'nhà máy'],
+  ['Men r?c', 'Men rắc'],
+  ['men r?c', 'men rắc'],
+  ['2men r?c', '2men rắc'],
+  ['Men s?ng', 'Men sống'],
+  ['men s?ng', 'men sống'],
+  ['Th?c t?', 'Thực tế'],
+  ['th?c t?', 'thực tế'],
+  ['gi?i ??c gan', 'giải độc gan'],
+  ['1 g? gan', '1 gđ gan'],
+  ['1 ??n', '1 đơn'],
+  ['ti?u ph?n-kh? m?i', 'tiêu phân - khử mùi'],
+  ['ti?u ph?n - kh? m?i', 'tiêu phân - khử mùi'],
+  ['ti?u ph?n', 'tiêu phân'],
+  ['kh? m?i', 'khử mùi'],
+  ['th?o d??c', 'thảo dược'],
+  ['m?u m?nh', 'màu mệnh'],
+  ['m?nh g?', 'mệnh gà'],
+  ['Nu?i g? theo m?nh', 'Nuôi gà theo mệnh'],
+  ['Ch?n nh?c v?o', 'Chèn nhạc vào'],
+  ['30 ph?t( t?i nh?)', '30 phút (tại nhà)'],
+  ['n?a k?', 'nửa ký'],
+  ['k?ch l?ng', 'kích lông'],
+  ['b? gan th?n', 'bổ gan thận'],
+  ['Ph? Live', 'Phụ Live'],
+  ['Ph? live', 'Phụ live'],
+];
+
+export function repairVnReportText(raw: string | null | undefined): string {
+  if (!raw) return '';
+  let out = raw;
+  if (!out.includes('?')) return out;
+  for (const [bad, good] of VN_REPORT_MOJIBAKE_PAIRS) {
+    if (out.includes(bad)) {
+      out = out.split(bad).join(good);
+    }
+  }
+  return out;
+}
+
+export function formatVnReportDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr.trim());
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return dateStr;
+}
+
+export function formatWorkTypeLabel(workType: string | null | undefined): string {
+  if (!workType) return 'Công việc chung';
+  const map: Record<string, string> = {
+    video_editing: 'Dựng video / Clip',
+    timesheet: 'Bảng công Excel',
+    content: 'Viết kịch bản / Nội dung',
+    livestream: 'Phụ Live / Livestream',
+    support: 'Hỗ trợ vận hành',
+    general: 'Công việc chung',
+  };
+  return map[workType.trim().toLowerCase()] || workType;
+}
+
 export interface ReportsScreenProps {
   role?: UserRole;
   onNavigate?: (path: string) => void;
