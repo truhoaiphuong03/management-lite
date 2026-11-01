@@ -3091,7 +3091,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       marginTop: '4px',
                     }}
                   >
-                    Ngày {reportDetail.report_date}
+                    Ngày {formatVnReportDate(reportDetail.report_date)}
                     {reportDetail.employee_name &&
                       ` — ${reportDetail.employee_name}`}
                   </div>
@@ -3219,7 +3219,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                 fontWeight: 500,
                               }}
                             >
-                              {entry.work_type}
+                              {formatWorkTypeLabel(entry.work_type)}
                             </td>
                             <td
                               style={{
@@ -3246,7 +3246,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                   🔗 {entry.work_item_title}
                                 </a>
                               )}
-                              {entry.notes || '—'}
+                              {repairVnReportText(entry.notes) || '—'}
                             </td>
                           </tr>
                         ))}
@@ -3277,7 +3277,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         lineHeight: 1.5,
                       }}
                     >
-                      {reportDetail.notes}
+                      {repairVnReportText(reportDetail.notes)}
                     </div>
                   </div>
                 )}
@@ -3402,7 +3402,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                     border: '1px solid var(--border-color)',
                                   }}
                                 >
-                                  {item.work_type}:{' '}
+                                  {formatWorkTypeLabel(item.work_type)}:{' '}
                                   <strong style={{ color: 'var(--text-color)' }}>
                                     {item.reported_count}
                                   </strong>
