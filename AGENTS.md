@@ -1,5 +1,19 @@
 # AGENTS.md — `management-lite` (`https://ql.hoaiphuong.click`)
 
+<!-- REMEDIATION_FREEZE_START -->
+
+## ⛔ 0. QUY TẮC BẤT BIẾN VỀ PRODUCTION (ƯU TIÊN CAO NHẤT — GHI ĐÈ MỌI MỤC KHÁC, KỂ CẢ §4)
+
+- **AI/tác nhân tự động KHÔNG ĐƯỢC** triển khai, sao chép, đồng bộ hoặc ghi bất kỳ tệp nào vào `C:\HoaiPhuong-Server\` (kể cả `apps\management-lite\apps\web\dist`, `dist`, `scripts`, `config`, `database`, `backups`); không dừng/khởi động lại dịch vụ `HPManagementLite*`; không chạy `Deploy-*.ps1` ở chế độ không `-DryRun`; không ghi vào cụm PostgreSQL Production `55432` (kể cả migration); không sửa cấu hình Cloudflare.
+- Phát hành Production **chỉ** qua `Owner-Locked Release Gate` do **Owner** tự ký và chạy (`docs/deployment/OWNER-RELEASE-RUNBOOK.md`). `release-version.json`, `deploy-history.log`, `current-live-sha.txt`, `running-components-sha.json` chỉ cổng này được ghi.
+- AI chỉ được: sửa mã trong **worktree/nhánh riêng**, build/test cục bộ ở DEV/TEST, đóng gói bản phát hành vào thư mục **ngoài** Production, và **đề xuất** lệnh cho Owner chạy.
+- **Không chạy, không kích hoạt, không sửa** công cụ tự phát hành của `anty-remote-hub` (`sync-live-web.mjs`, `executeWebReleaseAndDeploy`, `autoPullAndPublishWebProjectsOnServer`) và không bật chế độ "tự deploy 24/7". Những công cụ này có thể `git reset --hard origin/main` trên `C:\Projects\management-lite`, build, ghi vào Production và khởi động lại dịch vụ → luôn làm việc trong worktree riêng và commit sớm.
+- Khi Owner công bố `REMEDIATION FREEZE`: không `git push` lên `main`, không gắn/đẩy tag, trừ khi Owner yêu cầu rõ bằng văn bản trong chính phiên đó.
+- Nếu gặp tình huống buộc phải ghi vào Production: **DỪNG và báo Owner**, không tự tìm đường vòng.
+- Kiểm tra truy vết phát hành (chỉ đọc): `powershell -File scripts/governance/Test-ProdProvenance.ps1` (có trong nhánh `remediation/audit-v1`).
+
+<!-- REMEDIATION_FREEZE_END -->
+
 <!-- LIVE_CHECKPOINT_START -->
 
 ## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
@@ -125,4 +139,4 @@
   1. Chạy kiểm thử chọn lọc của phân hệ vừa sửa + `npm run build` + `npm run build:web`.
   2. Tăng số Version trong `package.json` và `packages/contracts/src/version.ts` (`SYSTEM_VERSION` & `RELEASE_NOTES_CATALOG`).
   3. Cập nhật bảng `PHASE_TASK_TRACKER` trong `AGENTS.md`.
-  4. `git commit` + `git tag v0.1.x` + `git push` lên GitHub và đồng bộ sang `C:\HoaiPhuong-Server\apps\management-lite`.
+  4. `git commit` + `git tag v0.1.x` + `git push` lên GitHub (trừ khi đang có `REMEDIATION FREEZE` — xem §0). **KHÔNG đồng bộ/sao chép sang `C:\HoaiPhuong-Server\`**: Production chỉ nhận bản phát hành qua cổng Owner.

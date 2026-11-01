@@ -93,7 +93,7 @@ Mỗi cụm 1 phiên bản; kiểm bằng ảnh Phase 0 (Dark + Light, 3 cỡ).
 | 5.3 | Chạy lại bộ chụp + axe; Codex QA độc lập; cập nhật `AGENTS.md`, tag, push |
 
 ### Quy trình mỗi Phase (theo quy tắc Owner)
-Test chọn lọc phân hệ + `npm run build` + `npm run build:web` → nâng version (`package.json`, `version.ts`) → cập nhật `AGENTS.md` → `git commit` + `tag` + `push` + đồng bộ `C:\HoaiPhuong-Server\apps\management-lite`.
+Test chọn lọc phân hệ + `npm run build` + `npm run build:web` → nâng version (`package.json`, `version.ts`) → cập nhật `AGENTS.md` → `git commit` + `tag` + `push` (không đồng bộ/sao chép vào Production; chỉ Owner phát hành qua cổng — xem `AGENTS.md` §0).
 
 ### Ưu tiên đề xuất
 **Phase 0 → 1 → 2** trước (sửa lỗi truy cập + nền theme), sau đó 3 → 4A…4E → 5. Nếu Owner chỉ dùng giao diện Tối, có thể hạ ưu tiên U1/U2 và đẩy Phase 4 xuống làm gọn/di động trước.
