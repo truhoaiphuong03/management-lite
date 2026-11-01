@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.6.9';
-export const SYSTEM_COMMIT = '018b16a';
+export const SYSTEM_VERSION = '0.7.0';
+export const SYSTEM_COMMIT = 'a11d175';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,27 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.6.9',
+    version: '0.7.0',
     commit: 'latest',
+    released_at: '2026-11-01',
+    summary:
+      'Tối giản Lịch sử Chấm công theo Tháng của từng nhân viên, Tối ưu Giao diện Điện thoại & Chuẩn hóa Giao việc Nhân sự Media (/work/new)',
+    added: [
+      'Bổ sung ô chọn Tháng công riêng ngay trên tiêu đề mỗi nhân viên (NV001, NV002, ADM01) trên /attendance (mặc định hiển thị tháng gần nhất có ca, thu gọn còn 5 ca kèm nút "▾ Xem thêm N ca").',
+      'Thay các nút mẫu máy/AI kỹ thuật trên màn hình Giao việc mới (/work/new) bằng 4 mẫu công việc thực tế cho đội ngũ Media: "+ Dựng Video", "+ Viết Kịch bản / Nội dung", "+ Đăng bài & Chăm sóc kênh", "+ Thiết kế Ảnh / Thumbnail".',
+      'Thêm dải nút chọn nhanh hạn chót 1-chạm ("Hôm nay 18:00", "Trưa mai 12:00", "Chiều mai 18:00", "+3 ngày") và nút "Chọn tất cả NV" / "Bỏ chọn" trên biểu mẫu Giao việc (/work/new).',
+    ],
+    improved: [
+      'Rút gọn 6 tầng thanh công cụ trên /attendance thành 1 thanh điều khiển duy nhất (chuyển chế độ xem + 1 ô chọn Tháng + Xuất CSV + Bảng lương + Bộ lọc nâng cao thu gọn).',
+      'Tối ưu giao diện điện thoại trên toàn bộ các trang: ẩn các thanh thông báo phụ rườm rà, thu gọn bộ lọc nâng cao mặc định và mở rộng huy hiệu mã nhân viên (NV001, ADM01) không bị bó chữ.',
+    ],
+    fixed: [
+      'Khắc phục lỗi hiển thị trùng tài khoản quản trị (ADM01 / ADMIN) trong danh sách chọn người nhận việc (/work/new) và loại bỏ chuỗi tiếng Anh "Imported from timesheet" cùng phần giây (:ss) gây cắt chữ trên thẻ ca làm.',
+    ],
+  },
+  {
+    version: '0.6.9',
+    commit: '3e65928',
     released_at: '2026-11-01',
     summary:
       'Xuất CSV tổng hợp công theo nhân viên, Duyệt nhanh toàn bộ ca chờ theo nhân sự, Đối soát Bảng lương 1-chạm & Dọn sạch Sổ tay lỗi',
