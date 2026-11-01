@@ -417,7 +417,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             aria-label={group.title}
             className="mobile-bottom-nav-btn"
             style={{
-              flex: '1 1 0%',
+              flex: '1 1 auto',
               minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
@@ -435,7 +435,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               cursor: 'pointer',
               gap: '3px',
               boxSizing: 'border-box',
-              padding: '4px 2px',
+              padding: '4px 1px',
               touchAction: 'manipulation',
               transition: 'color 0.15s ease, background-color 0.15s ease',
             }}
@@ -458,13 +458,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               style={{
                 fontSize: '11px',
                 lineHeight: 1.2,
-                letterSpacing: '-0.01em',
+                letterSpacing: '-0.02em',
                 fontWeight: isGroupActive ? 600 : 500,
                 maxWidth: '100%',
                 textAlign: 'center',
                 whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
               }}
             >
               {shortLabel}

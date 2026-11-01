@@ -247,7 +247,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
         await fetchEmployees(signal);
         await fetchAllReports();
       }
-    } catch {
+    } catch (err: unknown) {
+      if (
+        signal?.aborted ||
+        (err instanceof Error && err.name === 'AbortError')
+      ) {
+        return;
+      }
       setErrorMessage('Không thể kết nối đến máy chủ.');
     } finally {
       if (!signal?.aborted) {

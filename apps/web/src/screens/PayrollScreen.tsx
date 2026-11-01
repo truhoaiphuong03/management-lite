@@ -1376,7 +1376,19 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
           if (body.success && body.data) {
             setPeriod(body.data.period);
-            setItems(body.data.items || []);
+            setItems(
+              (body.data.items || []).map((it) => ({
+                ...it,
+                confirmed: it.confirmed ?? {
+                  approved_worked_minutes: 0,
+                  base_pay_vnd: 0,
+                  paid_leave_pay_vnd: 0,
+                  net_pay_vnd: 0,
+                  paid_amount_vnd: 0,
+                  payment_status: 'unpaid',
+                },
+              })),
+            );
           }
         } else {
           const err = await res.json().catch(() => ({}));

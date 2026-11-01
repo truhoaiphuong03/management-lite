@@ -534,6 +534,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   .kpi-grid-4 > div {
     padding: 12px !important;
   }
+  .kpi-grid-4 > div > div:nth-child(2) {
+    font-size: 16.5px !important;
+    line-height: 1.25 !important;
+  }
   .quick-actions-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
@@ -581,52 +585,63 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     padding: 4px 12px;
   }
   table.rt-cards td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
+    display: block;
+    position: relative;
     min-width: 0;
     text-align: right;
     overflow-wrap: anywhere;
-    padding: 8px 0 !important;
+    padding: 8px 0 8px 38% !important;
+    min-height: 22px;
     border: 0 !important;
     border-bottom: 1px solid var(--border-subtle) !important;
     background: transparent !important;
+    box-sizing: border-box;
   }
   table.rt-cards td:last-child {
     border-bottom: 0 !important;
   }
   table.rt-cards td[data-label]:not([data-label=''])::before {
     content: attr(data-label);
-    flex: 0 0 38%;
-    max-width: 45%;
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 35%;
     text-align: left;
     color: var(--muted-color);
     font-size: 12px;
     font-weight: 600;
+    line-height: 1.35;
+  }
+  table.rt-cards td[data-label]:not([data-label='']) > div {
+    justify-content: flex-end;
   }
   table.rt-cards td[data-colspan] {
     display: block;
+    padding-left: 0 !important;
     text-align: center;
   }
   table.rt-cards td[data-empty='true'] {
     display: none !important;
   }
   table.rt-cards td:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     text-align: left;
     justify-content: flex-start;
     font-weight: 600;
-    padding-top: 10px !important;
-    padding-bottom: 8px !important;
+    padding: 10px 0 8px 0 !important;
   }
   table.rt-cards td:first-child::before {
     display: none !important;
   }
   table.rt-cards td:last-child {
+    display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
     flex-wrap: wrap;
-    padding-top: 8px !important;
-    padding-bottom: 6px !important;
+    padding: 8px 0 6px 0 !important;
   }
   table.rt-cards td:last-child::before {
     display: none !important;

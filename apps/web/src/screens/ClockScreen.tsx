@@ -181,7 +181,13 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
         await fetchOwnerEmployees(signal);
         await fetchOwnerShifts(signal);
       }
-    } catch {
+    } catch (err: unknown) {
+      if (
+        signal?.aborted ||
+        (err instanceof Error && err.name === 'AbortError')
+      ) {
+        return;
+      }
       setErrorMessage('Không thể kết nối đến máy chủ.');
     } finally {
       if (!signal?.aborted) {
@@ -2853,7 +2859,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                                 ) && (
                                   <span
                                     style={{
-                                      fontSize: '11.5px',
+                                      fontSize: '12px',
                                       padding: '2px 6px',
                                       borderRadius: '4px',
                                       backgroundColor:
