@@ -1,0 +1,38 @@
+#!/bin/sh
+# Management Lite - pre-commit guard (OPTIONAL; installed only when the Owner approves).
+# Always-on protections (no freeze flag needed):
+#   1. Refuse to commit runtime/personal data paths:  .data/  data/receipts/  *.env  *.pem  *.key  *.p12  *.pfx  *.dpapi  pgpass*
+#   2. Refuse to commit lines that look like real credentials (key formats), unless the line mentions synthetic/fake/dummy/test/example.
+# Optional freeze (flag file <git-common-dir>/ML_FREEZE containing the line  block_commit_main=1):
+#   refuse commits made directly on `main`.
+# NOTE: `git commit --no-verify` bypasses this hook.
+
+COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null)"
+FLAG="$COMMON_DIR/ML_FREEZE"
+BRANCH="$(git symbolic-ref --short -q HEAD)"
+
+if [ -f "$FLAG" ] && grep -q '^block_commit_main=1' "$FLAG" && [ "$BRANCH" = "main" ]; then
+  if [ -z "$ML_FREEZE_OWNER_PASSPHRASE" ]; then
+    echo "[ML_FREEZE] BLOCKED: commits on 'main' are frozen by the Owner." >&2
+    exit 1
+  fi
+fi
+
+rc=0
+STAGED="$(git diff --cached --name-only --diff-filter=ACM)"
+for f in $STAGED; do
+  case "$f" in
+    .data/*|data/receipts/*|*.env|*.env.*|*.pem|*.key|*.p12|*.pfx|*.dpapi|pgpass|pgpass.conf)
+      case "$f" in *.example|*.sample) continue ;; esac
+      echo "[GUARD] BLOCKED: '$f' looks like runtime/personal/secret data and must not be committed." >&2
+      rc=1 ;;
+  esac
+done
+
+ADDED="$(git diff --cached -U0 --no-color | grep '^+' | grep -v '^+++' )"
+HITS="$(printf '%s\n' "$ADDED" | grep -E 'AIza[0-9A-Za-z_-]{35}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|xkeysib-[a-f0-9]{20,}|GOCSPX-[A-Za-z0-9_-]{20,}' | grep -viE 'synthetic|fake|dummy|test|example' | wc -l | tr -d ' ')"
+if [ "$HITS" != "0" ]; then
+  echo "[GUARD] BLOCKED: $HITS added line(s) look like real credentials (values not shown)." >&2
+  rc=1
+fi
+exit $rc

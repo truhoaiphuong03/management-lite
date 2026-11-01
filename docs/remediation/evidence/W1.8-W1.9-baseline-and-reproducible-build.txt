@@ -1,0 +1,15 @@
+W1.8 / W1.9 baseline - runtime Node 22.14.0 (Production runtime) + npm 10.9.2, worktree remediation/audit-v1 @ d5693ef (+docs only) - 2026-11-01 19:40
+NODE_ENV: unset for build (an earlier attempt with NODE_ENV=test built a dev-mode React bundle and is discarded)
+lint            exit 0
+typecheck       exit 0
+format:check    exit 1  -> 186 files (identical to the pre-existing baseline; new files of this wave conform)
+build (tsc)     exit 0
+build:web       exit 0
+check:bundle    exit 0  -> initial JS 436.0 KB raw / 124.5 KB gzip (budget 450 / 130)
+foundation      4 tests: 4 pass, 0 fail
+security        25 tests: 25 pass, 0 fail
+web             425 tests: 418 pass, 3 fail, 4 skipped
+  fails (known): CROSS-SYSTEM-BRIDGE-01 ; MGL-RELEASE-HISTORY-ADMIN (x2)
+Reproducible build check: worktree apps/web/dist (index.html + 40 assets) vs Production apps/web/dist
+  index.html, index-B7EHulYo.js, vendor-react-DjU26bAs.js, index-C4KgIrN-.css: SHA-256 IDENTICAL
+  all 40 assets: 40 identical, 0 different, 0 missing

@@ -1,0 +1,29 @@
+prod listener pid on 55432 before: 5656
+input new: source=11-01 03:00 (384 KB) copy sha256 matches sidecar: True
+input mid: source=10-23 03:00 (355 KB) copy sha256 matches sidecar: True
+input old: source=10-12 01:14 (45 KB) copy sha256 matches sidecar: True
+initdb OK in 6.0s
+cluster started on 127.0.0.1:55433
+system_identifier differs from production cluster: True
+listening only on loopback: True
+server_version: 18.6
+pgcrypto available: 1
+=== restore [new] -> management_lite_restore_test_new
+pg_restore exit=0 in 1.6s (RTO sample); errors printed: 0
+tables: restored=64 toc=64 (toc data entries=64)
+schema_migrations: 31 / max id 0031_accounts_ecosystem_hierarchy
+integrity: 0 unvalidated constraints; 0 invalid indexes; 36 user triggers
+rows: total=825; non-empty tables=29/64; key tables: account_secrets=1, attendance_shifts=55, audit_events=235, daily_reports=50, employees=4, users=10, work_items=0, workspaces=3
+=== restore [mid] -> management_lite_restore_test_mid
+pg_restore exit=0 in 1.3s (RTO sample); errors printed: 0
+tables: restored=62 toc=62 (toc data entries=62)
+schema_migrations: 26 / max id 0026_user_profile_phone
+integrity: 0 unvalidated constraints; 0 invalid indexes; 36 user triggers
+rows: total=544; non-empty tables=14/62; key tables: account_secrets=0, attendance_shifts=1, audit_events=204, daily_reports=0, employees=2, users=8, work_items=0, workspaces=3
+=== restore [old] -> management_lite_restore_test_old
+pg_restore exit=0 in 0.4s (RTO sample); errors printed: 0
+tables: restored=13 toc=13 (toc data entries=13)
+schema_migrations: 4 / max id 0004_m02b_user_workspace_bindings
+integrity: 0 unvalidated constraints; 0 invalid indexes; 1 user triggers
+rows: total=4; non-empty tables=1/13; key tables: audit_events=0, users=0, workspaces=0
+prod listener pid on 55432 after: 5656 (unchanged: True)

@@ -1,0 +1,66 @@
+{
+  "commits_scanned": 287,
+  "gmail": {
+    "distinct_addresses_ever_added": 18,
+    "added_lines_by_category": {
+      "AGENTS.md": 4,
+      "app-source": 10,
+      "tests": 27,
+      ".data": 16,
+      "docs": 1,
+      "scripts": 1
+    },
+    "files_top": [
+      ".data/tiktok-v4-bridge-be3e58cb-9542-49ad-8ce1-b57e768789f6.json (16)",
+      "tests/backend/password-reset.test.mjs (9)",
+      "tests/web/accounts-screen.test.mjs (8)",
+      "apps/web/src/screens/AccountsScreen.tsx (7)",
+      "AGENTS.md (4)",
+      "tests/backend/accounts.test.mjs (4)",
+      "packages/contracts/src/version.ts (2)",
+      "tests/backend/bridge-sso.test.mjs (2)",
+      "tests/backend/email-verification.test.mjs (2)",
+      "apps/web/src/screens/StorageScreen.tsx (1)",
+      "docs/reports/2026-10-22-shared-admin-sso.md (1)",
+      "scripts/recover-owner-access.mjs (1)"
+    ]
+  },
+  "other_real_looking_email_domains_distinct": 19,
+  "drive_or_owner_id_keys_in_files": [
+    ".data/tiktok-v4-bridge-be3e58cb-9542-49ad-8ce1-b57e768789f6.json (4)"
+  ],
+  "credential_format_hits": [
+    {
+      "kind": "private_key_block",
+      "file": "tests/backend/windows-p0-gate.test.mjs",
+      "commit": "12bb138",
+      "looks_synthetic": true
+    },
+    {
+      "kind": "private_key_block",
+      "file": "tests/backend/cicd-policy.test.mjs",
+      "commit": "87ae74a",
+      "looks_synthetic": true
+    }
+  ],
+  "credential_format_hits_total": 2,
+  "credential_format_hits_not_synthetic": 0,
+  "assignment_like_literal_candidates_files": [
+    "tests/backend/auth.test.mjs (30)",
+    "tests/backend/change-password-complete.test.mjs (29)",
+    "apps/api/src/accounts/service.ts (17)",
+    "apps/web/src/screens/AccountsScreen.tsx (15)",
+    "tests/backend/password-reset.test.mjs (12)",
+    "scripts/full-system-qa.mjs (12)",
+    "tests/backend/unified-staging-session.test.mjs (12)",
+    "apps/api/src/auth/service.ts (10)",
+    "apps/api/src/app.ts (10)",
+    "tests/backend/emp-mvp.test.mjs (10)",
+    "packages/contracts/src/accounts.ts (9)",
+    "scripts/seed-unified-qa.mjs (8)",
+    "tests/backend/accounts.test.mjs (7)",
+    "tests/web/accounts-screen.test.mjs (7)",
+    "tests/backend/email-verification.test.mjs (6)"
+  ],
+  "sensitive_named_files_ever_added": []
+}

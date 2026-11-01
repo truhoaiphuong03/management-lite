@@ -1,0 +1,79 @@
+{
+  "checked_at_utc": "2026-11-01T12:49:24.4742708Z",
+  "release_version": {
+    "api_dist": {
+      "version": "0.7.0",
+      "sha": "8ee37a24889827d5146a6993bbf625addaed3a14",
+      "releasedAt": "2026-11-01T11:28:35.441Z",
+      "releasedBy": "WIN-1"
+    },
+    "web_dist": {
+      "version": "0.7.0",
+      "sha": "8ee37a24889827d5146a6993bbf625addaed3a14",
+      "releasedAt": "2026-11-01T11:28:35.441Z",
+      "releasedBy": "WIN-1"
+    },
+    "served": {
+      "version": "0.7.0",
+      "sha": "8ee37a24889827d5146a6993bbf625addaed3a14",
+      "releasedAt": "2026-11-01T11:28:35.441Z",
+      "releasedBy": "WIN-1"
+    },
+    "legacy_root_file": {
+      "version": "0.3.2",
+      "sha": "e65ae75bbaf395c2d47d79a14e8ce45f946a3e5d",
+      "releasedAt": "2026-10-31T04:37:41.094Z",
+      "releasedBy": null
+    }
+  },
+  "gate": {
+    "last_success_sha": "8ee37a24889827d5146a6993bbf625addaed3a14",
+    "last_success_version": "0.7.0",
+    "last_success_time": "2026-11-01T11:28:43.618Z",
+    "current_live_sha": "8ee37a24889827d5146a6993bbf625addaed3a14",
+    "running_api_sha": "8ee37a24889827d5146a6993bbf625addaed3a14",
+    "running_web_sha": "8ee37a24889827d5146a6993bbf625addaed3a14"
+  },
+  "served_assets": [
+    {
+      "asset": "/assets/index-B7EHulYo.js",
+      "served_sha256_12": "94b68f6d08df",
+      "disk_sha256_12": "94b68f6d08df",
+      "disk_mtime": "2026-11-01T19:00:59"
+    },
+    {
+      "asset": "/assets/index-C4KgIrN-.css",
+      "served_sha256_12": "35fc23e93610",
+      "disk_sha256_12": "35fc23e93610",
+      "disk_mtime": "2026-11-01T19:00:59"
+    },
+    {
+      "asset": "/assets/vendor-react-DjU26bAs.js",
+      "served_sha256_12": "5da302593897",
+      "disk_sha256_12": "5da302593897",
+      "disk_mtime": "2026-11-01T19:00:59"
+    }
+  ],
+  "dist_files_newer_than_release": {
+    "released_at_local": "2026-11-01T18:28:35",
+    "count": 219,
+    "newest": "2026-11-01T19:00:59",
+    "distinct_main_bundles_written_after_release": 6,
+    "bundle_write_times": [
+      "18:29:16",
+      "18:33:08",
+      "18:36:58",
+      "18:46:12",
+      "18:53:54",
+      "19:00:59"
+    ]
+  },
+  "repo_head": "d5693efd452621ee54e996ff29c3e9bf510711ef",
+  "repo_commits_ahead_of_release": "6",
+  "findings": [
+    "INFO: legacy root release-version.json is stale (not used by API/web)",
+    "DRIFT: 219 dist file(s) (6 main bundle(s)) modified after the recorded release time (out-of-gate writes)",
+    "INFO: repository HEAD is 6 commit(s) ahead of the recorded release"
+  ],
+  "verdict": "DRIFT"
+}

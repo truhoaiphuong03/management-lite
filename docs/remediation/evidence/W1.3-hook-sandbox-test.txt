@@ -1,0 +1,25 @@
+W1.3 hook sandbox test (isolated clone + local bare remote; shared repo untouched) - 2026-11-01 19:45
+sandbox origin is a LOCAL bare repo (not GitHub)               PASS
+installer REFUSES the shared repo without Owner flag           PASS
+dry-run changes nothing in sandbox                             PASS
+apply installs 2 hooks in sandbox                              PASS
+pre-commit blocks .data/ path                                  PASS
+pre-commit blocks *.env                                        PASS
+pre-commit blocks credential-shaped line (value not shown)     PASS
+pre-commit allows line marked synthetic                        PASS
+pre-commit allows normal file                                  PASS
+pre-commit allows *.env.example                                PASS
+no freeze flag: push main allowed                              PASS
+freeze ON: push main BLOCKED                                   PASS
+freeze ON: push tag BLOCKED                                    PASS
+freeze ON: push of a work branch allowed                       PASS
+freeze ON + WRONG passphrase: still BLOCKED                    PASS
+freeze ON + Owner passphrase: allowed                          PASS
+block_all=1: even work-branch push BLOCKED                     PASS
+LIMITATION: --no-verify bypasses the hook (documented)         PASS (expected; hook is a speed bump)
+flag removed: pushes allowed again (rollback works)            PASS
+SHARED repo: no hooks installed, core.hooksPath unchanged      PASS
+SHARED repo: no ML_FREEZE flag                                 PASS
+SHARED repo: HEAD still equals origin/main                     PASS
+TOTAL: 22 checks, 0 FAIL
+(First attempt used a shallow clone and failed 5 push checks for an environmental reason - shallow clones cannot push to an empty remote; re-run with a full clone passed 22/22.)

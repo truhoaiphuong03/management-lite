@@ -1,0 +1,41 @@
+#!/bin/sh
+# Management Lite - pre-push guard (OPTIONAL; installed only when the Owner approves).
+# Purpose: while the Owner has declared a REMEDIATION FREEZE, refuse pushes of `main` and of any tag.
+# The freeze is active only if the flag file  <git-common-dir>/ML_FREEZE  exists.
+# Owner override (not available to AI sessions): export ML_FREEZE_OWNER_PASSPHRASE=<passphrase>
+#   whose SHA-256 equals the hash stored on the first line of ML_FREEZE.
+# NOTE: `git push --no-verify` bypasses client-side hooks. This is a speed bump, not a security control.
+#       Real enforcement = GitHub branch protection (Owner) + filesystem ACL on production (OA-18).
+
+COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null)"
+FLAG="$COMMON_DIR/ML_FREEZE"
+[ -f "$FLAG" ] || exit 0
+
+HASH_EXPECTED="$(head -n 1 "$FLAG" | tr -d '\r\n ')"
+if [ -n "$ML_FREEZE_OWNER_PASSPHRASE" ]; then
+  HASH_GIVEN="$(printf '%s' "$ML_FREEZE_OWNER_PASSPHRASE" | sha256sum | cut -d' ' -f1)"
+  [ "$HASH_GIVEN" = "$HASH_EXPECTED" ] && exit 0
+fi
+
+BLOCK_ALL=0
+grep -q '^block_all=1' "$FLAG" && BLOCK_ALL=1
+
+zero="0000000000000000000000000000000000000000"
+rc=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$remote_ref" ] && continue
+  case "$remote_ref" in
+    refs/heads/main|refs/tags/*)
+      echo "[ML_FREEZE] BLOCKED: push to '$remote_ref' is frozen by the Owner (remediation freeze)." >&2
+      echo "[ML_FREEZE] CHAN: day '$remote_ref' dang bi Chu so huu dong bang (dot khac phuc)." >&2
+      rc=1
+      ;;
+    *)
+      if [ "$BLOCK_ALL" = "1" ]; then
+        echo "[ML_FREEZE] BLOCKED: all pushes are frozen (block_all=1)." >&2
+        rc=1
+      fi
+      ;;
+  esac
+done
+exit $rc
