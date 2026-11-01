@@ -235,6 +235,19 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   const [filterDate, setFilterDate] = useState<string>(
     /^\d{4}-\d{2}-\d{2}$/.test(deepDate) ? deepDate : '',
   );
+  const [filterMonth, setFilterMonth] = useState<string>('all');
+  const [ownerReportViewMode, setOwnerReportViewMode] = useState<
+    'by_employee' | 'by_report'
+  >(deepDate ? 'by_report' : 'by_employee');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(
+    Boolean(deepDate),
+  );
+  const [employeeSelectedMonths, setEmployeeSelectedMonths] = useState<
+    Record<string, string>
+  >({});
+  const [expandedEmployeeCards, setExpandedEmployeeCards] = useState<
+    Record<string, boolean>
+  >({});
 
   // Modal: Create Draft Report
   const [showCreateModal, setShowCreateModal] = useState(
@@ -270,7 +283,100 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   const [reportDetail, setReportDetail] =
     useState<ReportDetailResponseData | null>(null);
 
-  const reportsToRender = activeTab === 'all_reports' ? allReports : myReports;
+  const baseReportsList = activeTab === 'all_reports' ? allReports : myReports;
+  const availableReportMonths = useMemo(() => {
+    const map = new Map<string, { ym: string; label: string; count: number; totalOutput: number }>();
+    for (const r of baseReportsList) {
+      const ym = (r.report_date || '').slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+      const [y, m] = ym.split('-');
+      let entry = map.get(ym);
+      if (!entry) {
+        entry = {
+          ym,
+          label: `Tháng ${m}/${y}`,
+          count: 0,
+          totalOutput: 0,
+        };
+        map.set(ym, entry);
+      }
+      entry.count += 1;
+      entry.totalOutput += Number(r.total_reported_count) || 0;
+    }
+    return Array.from(map.values()).sort((a, b) => b.ym.localeCompare(a.ym));
+  }, [baseReportsList]);
+
+  const reportsToRender = useMemo(() => {
+    if (filterMonth === 'all') return baseReportsList;
+    return baseReportsList.filter((r) =>
+      (r.report_date || '').startsWith(filterMonth),
+    );
+  }, [baseReportsList, filterMonth]);
+
+  const groupedByEmployeeReports = useMemo(() => {
+    const empCodeMap = new Map<string, string>();
+    for (const e of employees) {
+      empCodeMap.set(e.id, e.employee_code || '');
+    }
+    const groups = new Map<
+      string,
+      {
+        employeeId: string;
+        employeeName: string;
+        employeeCode: string;
+        reports: DailyReportListItem[];
+        monthsBreakdown: {
+          ym: string;
+          label: string;
+          count: number;
+          totalOutput: number;
+        }[];
+      }
+    >();
+    for (const r of reportsToRender) {
+      const empId = r.employee_id || 'self';
+      let g = groups.get(empId);
+      if (!g) {
+        g = {
+          employeeId: empId,
+          employeeName: r.employee_name || 'Nhân sự',
+          employeeCode: empCodeMap.get(empId) || 'NV',
+          reports: [],
+          monthsBreakdown: [],
+        };
+        groups.set(empId, g);
+      }
+      g.reports.push(r);
+    }
+    for (const g of groups.values()) {
+      const mMap = new Map<
+        string,
+        { ym: string; label: string; count: number; totalOutput: number }
+      >();
+      for (const r of g.reports) {
+        const ym = (r.report_date || '').slice(0, 7);
+        if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+        const [y, m] = ym.split('-');
+        let item = mMap.get(ym);
+        if (!item) {
+          item = {
+            ym,
+            label: `Tháng ${m}/${y}`,
+            count: 0,
+            totalOutput: 0,
+          };
+          mMap.set(ym, item);
+        }
+        item.count += 1;
+        item.totalOutput += Number(r.total_reported_count) || 0;
+      }
+      g.monthsBreakdown = Array.from(mMap.values()).sort((a, b) =>
+        b.ym.localeCompare(a.ym),
+      );
+    }
+    return Array.from(groups.values());
+  }, [reportsToRender, employees]);
+
   const safeReportsPage = clampPage(
     reportsPage,
     reportsToRender.length,
@@ -467,6 +573,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
     }
     try {
       const params = new URLSearchParams();
+      params.append('limit', '100');
       if (filterEmployeeId !== 'all') {
         params.append('employee_id', filterEmployeeId);
       }
@@ -952,30 +1059,35 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
         </div>
       )}
 
-      {/* Information Banner (C02 Normative) */}
-      <div
-        style={{
-          padding: '12px 16px',
-          borderRadius: '8px',
-          backgroundColor: 'rgba(20, 184, 166, 0.08)',
-          border: '1px solid rgba(20, 184, 166, 0.25)',
-          marginBottom: '20px',
-          fontSize: '13px',
-          color: 'var(--text-color)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '10px',
-        }}
-      >
-        <InfoIcon size={20} style={{ color: 'var(--accent-text)', marginTop: '2px' }} />
-        <div style={{ lineHeight: 1.5 }}>
-          <strong style={{ color: 'var(--accent-text)' }}>QUY TẮC C02 BÁO CÁO:</strong>{' '}
-          Nhân viên lưu nháp (draft) và có thể chỉnh sửa tự do. Sau khi nộp
-          (submitted), nếu cần chỉnh sửa, hệ thống sẽ tạo phiên bản mới (v2, v3)
-          kèm lý do điều chỉnh. Toàn bộ các phiên bản trước được bảo toàn bất
-          biến trong hệ thống.
+      {/* Information Banner (C02 Normative) - Only shown on Staff my_reports tab */}
+      {activeTab === 'my_reports' && (
+        <div
+          style={{
+            padding: '10px 14px',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(20, 184, 166, 0.08)',
+            border: '1px solid rgba(20, 184, 166, 0.25)',
+            marginBottom: '16px',
+            fontSize: '12px',
+            color: 'var(--text-color)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+          }}
+        >
+          <InfoIcon
+            size={18}
+            style={{ color: 'var(--accent-text)', marginTop: '2px' }}
+          />
+          <div style={{ lineHeight: 1.5 }}>
+            <strong style={{ color: 'var(--accent-text)' }}>
+              QUY TẮC BÁO CÁO:
+            </strong>{' '}
+            Bản nháp có thể sửa tự do. Sau khi nộp, nếu cần điều chỉnh hệ thống
+            sẽ lưu phiên bản mới (v2, v3) kèm lý do.
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Feedback Messages */}
       {errorMessage && (
@@ -1007,9 +1119,156 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
         </div>
       )}
 
-      {/* Owner Filter Controls */}
+      {/* Owner Compact Toolbar & Filter Controls */}
       {role === 'owner' && activeTab === 'all_reports' && (
-        <AppCard padding="16px" style={{ marginBottom: '20px' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <div
+            data-testid="reports-owner-toolbar"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              flexWrap: 'wrap',
+              padding: '8px 10px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--surface-subtle)',
+              border: '1px solid var(--border-subtle)',
+              marginBottom: showAdvancedFilters ? '10px' : '0',
+            }}
+          >
+            {/* View Mode Toggle: Theo từng nhân viên vs Theo từng báo cáo */}
+            <div
+              style={{
+                display: 'inline-flex',
+                gap: '4px',
+                padding: '3px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--bg-color)',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              <button
+                type="button"
+                data-testid="reports-view-by-employee"
+                onClick={() => setOwnerReportViewMode('by_employee')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  backgroundColor:
+                    ownerReportViewMode === 'by_employee'
+                      ? 'rgba(20, 184, 166, 0.16)'
+                      : 'transparent',
+                  color:
+                    ownerReportViewMode === 'by_employee'
+                      ? 'var(--accent-text)'
+                      : 'var(--muted-color)',
+                }}
+              >
+                Theo từng nhân viên ({groupedByEmployeeReports.length})
+              </button>
+              <button
+                type="button"
+                data-testid="reports-view-by-report"
+                onClick={() => setOwnerReportViewMode('by_report')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  backgroundColor:
+                    ownerReportViewMode === 'by_report'
+                      ? 'rgba(20, 184, 166, 0.16)'
+                      : 'transparent',
+                  color:
+                    ownerReportViewMode === 'by_report'
+                      ? 'var(--accent-text)'
+                      : 'var(--muted-color)',
+                }}
+              >
+                Theo từng ngày ({reportsToRender.length})
+              </button>
+            </div>
+
+            {/* Right Controls: Month Dropdown + Filter Toggle */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <select
+                aria-label="Chọn tháng báo cáo"
+                data-testid="reports-month-select"
+                value={filterMonth}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFilterMonth(val);
+                  setReportsPage(0);
+                }}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  backgroundColor: 'var(--bg-color)',
+                  color:
+                    filterMonth !== 'all'
+                      ? 'var(--accent-text)'
+                      : 'var(--text-color)',
+                  border:
+                    filterMonth !== 'all'
+                      ? '1px solid var(--accent-text)'
+                      : '1px solid var(--border-color)',
+                  minHeight: '36px',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="all">
+                  Tất cả các tháng ({baseReportsList.length} báo cáo)
+                </option>
+                {availableReportMonths.map((m) => (
+                  <option key={m.ym} value={m.ym}>
+                    {m.label} ({m.count} báo cáo • {m.totalOutput} SL)
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                data-testid="toggle-reports-advanced-filters"
+                onClick={() => setShowAdvancedFilters((prev) => !prev)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  backgroundColor: showAdvancedFilters
+                    ? 'rgba(20, 184, 166, 0.14)'
+                    : 'var(--bg-color)',
+                  color: showAdvancedFilters
+                    ? 'var(--accent-text)'
+                    : 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)',
+                  minHeight: '36px',
+                  cursor: 'pointer',
+                }}
+              >
+                {showAdvancedFilters ? '▴ Ẩn bộ lọc' : '▾ Bộ lọc'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: showAdvancedFilters ? 'block' : 'none' }}>
+            <AppCard padding="16px" style={{ marginBottom: '12px' }}>
           {employeesError && (
             <div
               style={{
@@ -1190,6 +1449,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
 
             {(filterEmployeeId !== 'all' ||
               filterStatus !== 'all' ||
+              filterMonth !== 'all' ||
               Boolean(filterDate)) && (
               <div style={{ alignSelf: 'flex-end' }}>
                 <AppButton
@@ -1197,6 +1457,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   onClick={() => {
                     setFilterEmployeeId('all');
                     setFilterStatus('all');
+                    setFilterMonth('all');
                     setFilterDate('');
                   }}
                   style={{ minHeight: '44px' }}
@@ -1206,7 +1467,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               </div>
             )}
           </div>
-        </AppCard>
+            </AppCard>
+          </div>
+        </div>
       )}
 
       {/* Reports List */}
@@ -1271,10 +1534,331 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             }
           />
         )
+      ) : role === 'owner' &&
+        activeTab === 'all_reports' &&
+        ownerReportViewMode === 'by_employee' ? (
+        <div
+          data-testid="reports-grouped-by-employee"
+          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+        >
+          {groupedByEmployeeReports.map((group) => {
+            const defaultEmpMonth =
+              filterMonth !== 'all'
+                ? filterMonth
+                : group.monthsBreakdown.length > 0
+                  ? group.monthsBreakdown[0]?.ym || 'all'
+                  : 'all';
+            const selectedEmpMonth =
+              employeeSelectedMonths[group.employeeId] || defaultEmpMonth;
+            const activeReports =
+              selectedEmpMonth === 'all'
+                ? group.reports
+                : group.reports.filter((r) =>
+                    (r.report_date || '').startsWith(selectedEmpMonth),
+                  );
+            const activeTotalOutput = activeReports.reduce(
+              (sum, r) => sum + (Number(r.total_reported_count) || 0),
+              0,
+            );
+            const isExpandedAll = Boolean(
+              expandedEmployeeCards[group.employeeId],
+            );
+            const visibleReports = isExpandedAll
+              ? activeReports
+              : activeReports.slice(0, 5);
+            const hiddenCount = Math.max(
+              0,
+              activeReports.length - visibleReports.length,
+            );
+
+            return (
+              <AppCard key={group.employeeId} padding="16px">
+                {/* Employee Header + Per-Employee Month Selector */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    paddingBottom: '12px',
+                    marginBottom: '12px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      minWidth: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        minWidth: '54px',
+                        height: '38px',
+                        padding: '0 10px',
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                        border: '1px solid rgba(20, 184, 166, 0.35)',
+                        color: 'var(--accent-text)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        fontSize: '12px',
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {group.employeeCode}
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '16px',
+                          color: 'var(--text-color)',
+                        }}
+                      >
+                        {group.employeeName}
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '8px',
+                          flexWrap: 'wrap',
+                          fontSize: '13px',
+                          color: 'var(--muted-color)',
+                          marginTop: '2px',
+                        }}
+                      >
+                        <span>
+                          <strong style={{ color: 'var(--text-color)' }}>
+                            {activeReports.length} báo cáo
+                          </strong>
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Tổng sản lượng:{' '}
+                          <strong style={{ color: 'var(--accent-text)' }}>
+                            {activeTotalOutput}
+                          </strong>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Per-Employee Month Dropdown */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {group.monthsBreakdown.length > 0 && (
+                      <select
+                        aria-label={`Chọn tháng báo cáo của ${group.employeeName}`}
+                        data-testid={`report-employee-month-${group.employeeId}`}
+                        value={selectedEmpMonth}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEmployeeSelectedMonths((prev) => ({
+                            ...prev,
+                            [group.employeeId]: val,
+                          }));
+                        }}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          backgroundColor: 'var(--surface-subtle)',
+                          color: 'var(--accent-text)',
+                          border: '1px solid rgba(20, 184, 166, 0.45)',
+                          minHeight: '34px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {group.monthsBreakdown.map((mb) => (
+                          <option key={mb.ym} value={mb.ym}>
+                            {mb.label} ({mb.count} báo cáo • {mb.totalOutput} SL)
+                          </option>
+                        ))}
+                        <option value="all">
+                          Tất cả ({group.reports.length} báo cáo)
+                        </option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+
+                {/* Reports inside Employee Card */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  {visibleReports.map((report) => {
+                    const isDraft = report.status === 'draft';
+                    const cleanNotes = repairVnReportText(report.notes);
+                    return (
+                      <div
+                        key={report.id}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: '8px',
+                          backgroundColor: 'var(--bg-color)',
+                          border: '1px solid var(--border-subtle)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                fontSize: '14px',
+                                color: 'var(--text-color)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <CalendarIcon
+                                size={15}
+                                style={{ color: 'var(--accent-text)' }}
+                              />
+                              <span>
+                                Ngày {formatVnReportDate(report.report_date)}
+                              </span>
+                            </span>
+
+                            <StatusBadge
+                              status={isDraft ? 'warning' : 'success'}
+                              label={isDraft ? 'Bản nháp' : 'Đã nộp'}
+                            />
+
+                            <span
+                              style={{
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                                color: 'var(--accent-text)',
+                              }}
+                            >
+                              Sản lượng: {report.total_reported_count} (
+                              {report.entries_count} mục)
+                            </span>
+
+                            {report.submitted_at && (
+                              <span
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--muted-color)',
+                                }}
+                              >
+                                • Nộp{' '}
+                                {new Date(
+                                  report.submitted_at,
+                                ).toLocaleTimeString('vi-VN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            )}
+                          </div>
+
+                          <ActionIconButton
+                            action="view"
+                            target={`Báo cáo ngày ${formatVnReportDate(report.report_date)}`}
+                            label="Chi tiết & Lịch sử"
+                            onClick={() => handleOpenDetailModal(report.id)}
+                          />
+                        </div>
+
+                        {cleanNotes && (
+                          <div
+                            style={{
+                              fontSize: '13px',
+                              color: 'var(--text-secondary)',
+                              lineHeight: 1.5,
+                              backgroundColor: 'var(--surface-subtle)',
+                              padding: '7px 12px',
+                              borderRadius: '6px',
+                              borderLeft: '3px solid #14B8A6',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            {cleanNotes}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {(hiddenCount > 0 ||
+                    (isExpandedAll && activeReports.length > 5)) && (
+                    <button
+                      type="button"
+                      data-testid={`toggle-more-reports-${group.employeeId}`}
+                      onClick={() =>
+                        setExpandedEmployeeCards((prev) => ({
+                          ...prev,
+                          [group.employeeId]: !prev[group.employeeId],
+                        }))
+                      }
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px dashed var(--border-color)',
+                        backgroundColor: 'var(--surface-subtle)',
+                        color: 'var(--accent-text)',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {isExpandedAll
+                        ? '▴ Thu gọn bớt (chỉ hiện 5 báo cáo mới nhất)'
+                        : `▾ Xem thêm ${hiddenCount} báo cáo trong tháng này`}
+                    </button>
+                  )}
+                </div>
+              </AppCard>
+            );
+          })}
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {pagedReports.map((report) => {
             const isDraft = report.status === 'draft';
+            const cleanNotes = repairVnReportText(report.notes);
             return (
               <AppCard key={report.id} padding="20px">
                 <div
@@ -1307,7 +1891,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         }}
                       >
                         <CalendarIcon size={16} style={{ color: 'var(--accent-text)' }} />
-                        <span>Ngày {report.report_date}</span>
+                        <span>Ngày {formatVnReportDate(report.report_date)}</span>
                       </span>
 
                       <StatusBadge
@@ -1436,7 +2020,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   </div>
                 </div>
 
-                {report.notes && (
+                {cleanNotes && (
                   <p
                     style={{
                       fontSize: '13px',
@@ -1447,9 +2031,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       padding: '8px 12px',
                       borderRadius: '6px',
                       borderLeft: '3px solid #14B8A6',
+                      overflowWrap: 'anywhere',
                     }}
                   >
-                    {report.notes}
+                    {cleanNotes}
                   </p>
                 )}
               </AppCard>
