@@ -339,6 +339,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     [],
   );
   const [releaseHistoryLoading, setReleaseHistoryLoading] = useState(false);
+  const [selectedReleaseVersion, setSelectedReleaseVersion] =
+    useState<string>('');
+  const [showReleaseDetails, setShowReleaseDetails] = useState<boolean>(false);
 
   useEffect(() => {
     applyTheme(theme);
@@ -1714,20 +1717,79 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       margin: 0,
                     }}
                   >
-                    Lịch sử cập nhật
+                    Lịch sử cập nhật ({releaseHistory.length} phiên bản)
                   </h4>
-                  <p
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {releaseHistory.length > 0 && (
+                    <select
+                      aria-label="Chọn phiên bản xem lịch sử cập nhật"
+                      data-testid="release-version-selector"
+                      value={
+                        selectedReleaseVersion ||
+                        releaseHistory[0]?.version ||
+                        ''
+                      }
+                      onChange={(e) => {
+                        setSelectedReleaseVersion(e.target.value);
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        backgroundColor: 'var(--surface-subtle)',
+                        color: 'var(--accent-text)',
+                        border: '1px solid rgba(20, 184, 166, 0.45)',
+                        minHeight: '34px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {releaseHistory.map((rel) => (
+                        <option
+                          key={`${rel.version}-${rel.commit}`}
+                          value={rel.version}
+                        >
+                          v{String(rel.version).replace(/^v/i, '')}{' '}
+                          {rel.is_current ? '(Đang chạy)' : ''} —{' '}
+                          {String(rel.released_at).slice(0, 10)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <button
+                    type="button"
+                    data-testid="toggle-release-details"
+                    onClick={() => setShowReleaseDetails((prev) => !prev)}
                     style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
                       fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      margin: '4px 0 0 0',
+                      fontWeight: 600,
+                      backgroundColor: showReleaseDetails
+                        ? 'rgba(20, 184, 166, 0.14)'
+                        : 'var(--surface-subtle)',
+                      color: showReleaseDetails
+                        ? 'var(--accent-text)'
+                        : 'var(--text-secondary)',
+                      border: '1px solid var(--border-color)',
+                      minHeight: '34px',
+                      cursor: 'pointer',
                     }}
                   >
-                    Danh sách các phiên bản đã phát hành thành công (chỉ hiển
-                    thị đối với tài khoản Admin).
-                  </p>
+                    {showReleaseDetails
+                      ? '▴ Thu gọn chi tiết'
+                      : '▾ Xem chi tiết thay đổi'}
+                  </button>
                 </div>
-                <StatusBadge status="neutral" label="Chỉ dành cho Admin" />
               </div>
 
               {releaseHistoryLoading && releaseHistory.length === 0 ? (
@@ -1739,10 +1801,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px',
+                    gap: '10px',
                   }}
                 >
-                  {releaseHistory.map((item) => {
+                  {(selectedReleaseVersion
+                    ? releaseHistory.filter(
+                        (r) => r.version === selectedReleaseVersion,
+                      )
+                    : releaseHistory.slice(0, 1)
+                  ).map((item) => {
                     const formattedDate = (() => {
                       const d = new Date(item.released_at);
                       return Number.isNaN(d.getTime())
@@ -1754,7 +1821,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                             year: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit',
-                            second: '2-digit',
                             hour12: false,
                           });
                     })();
@@ -1768,7 +1834,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                             ? '1px solid rgba(20, 184, 166, 0.55)'
                             : '1px solid var(--border-color)',
                           borderRadius: '8px',
-                          padding: '14px 16px',
+                          padding: '12px 14px',
                         }}
                       >
                         <div
@@ -1778,7 +1844,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                             justifyContent: 'space-between',
                             flexWrap: 'wrap',
                             gap: '8px',
-                            marginBottom: '8px',
+                            marginBottom: '6px',
                           }}
                         >
                           <div
@@ -1819,7 +1885,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                             )}
                           </div>
                           <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                            Ngày giờ triển khai:{' '}
+                            Phát hành:{' '}
                             <strong style={{ color: 'var(--text-color)' }}>
                               {formattedDate}
                             </strong>
@@ -1831,120 +1897,122 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                             fontSize: '13px',
                             color: 'var(--text-color)',
                             lineHeight: 1.5,
-                            marginBottom: '10px',
+                            marginBottom: showReleaseDetails ? '10px' : '0',
                           }}
                         >
                           {item.summary}
                         </div>
 
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns:
-                              'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
-                            gap: '10px',
-                            fontSize: '12px',
-                          }}
-                        >
-                          {item.added && item.added.length > 0 && (
-                            <div
-                              style={{
-                                backgroundColor: 'rgba(16, 185, 129, 0.06)',
-                                border: '1px solid rgba(16, 185, 129, 0.2)',
-                                borderRadius: '6px',
-                                padding: '10px 12px',
-                              }}
-                            >
+                        {showReleaseDetails && (
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns:
+                                'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                              gap: '10px',
+                              fontSize: '12px',
+                            }}
+                          >
+                            {item.added && item.added.length > 0 && (
                               <div
                                 style={{
-                                  fontWeight: 600,
-                                  color: 'var(--success-text)',
-                                  marginBottom: '6px',
+                                  backgroundColor: 'rgba(16, 185, 129, 0.06)',
+                                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                                  borderRadius: '6px',
+                                  padding: '10px 12px',
                                 }}
                               >
-                                Chức năng đã thêm
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    color: 'var(--success-text)',
+                                    marginBottom: '6px',
+                                  }}
+                                >
+                                  Chức năng đã thêm
+                                </div>
+                                <ul
+                                  style={{
+                                    margin: 0,
+                                    paddingLeft: '16px',
+                                    color: 'var(--text-secondary)',
+                                    lineHeight: 1.5,
+                                  }}
+                                >
+                                  {item.added.map((line, idx) => (
+                                    <li key={idx}>{line}</li>
+                                  ))}
+                                </ul>
                               </div>
-                              <ul
-                                style={{
-                                  margin: 0,
-                                  paddingLeft: '16px',
-                                  color: 'var(--text-secondary)',
-                                  lineHeight: 1.5,
-                                }}
-                              >
-                                {item.added.map((line, idx) => (
-                                  <li key={idx}>{line}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
+                            )}
 
-                          {item.improved && item.improved.length > 0 && (
-                            <div
-                              style={{
-                                backgroundColor: 'rgba(56, 189, 248, 0.06)',
-                                border: '1px solid rgba(56, 189, 248, 0.2)',
-                                borderRadius: '6px',
-                                padding: '10px 12px',
-                              }}
-                            >
+                            {item.improved && item.improved.length > 0 && (
                               <div
                                 style={{
-                                  fontWeight: 600,
-                                  color: 'var(--info-text)',
-                                  marginBottom: '6px',
+                                  backgroundColor: 'rgba(56, 189, 248, 0.06)',
+                                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                                  borderRadius: '6px',
+                                  padding: '10px 12px',
                                 }}
                               >
-                                Chức năng đã cải tiến
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    color: 'var(--info-text)',
+                                    marginBottom: '6px',
+                                  }}
+                                >
+                                  Chức năng đã cải tiến
+                                </div>
+                                <ul
+                                  style={{
+                                    margin: 0,
+                                    paddingLeft: '16px',
+                                    color: 'var(--text-secondary)',
+                                    lineHeight: 1.5,
+                                  }}
+                                >
+                                  {item.improved.map((line, idx) => (
+                                    <li key={idx}>{line}</li>
+                                  ))}
+                                </ul>
                               </div>
-                              <ul
-                                style={{
-                                  margin: 0,
-                                  paddingLeft: '16px',
-                                  color: 'var(--text-secondary)',
-                                  lineHeight: 1.5,
-                                }}
-                              >
-                                {item.improved.map((line, idx) => (
-                                  <li key={idx}>{line}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
+                            )}
 
-                          {item.fixed && item.fixed.length > 0 && (
-                            <div
-                              style={{
-                                backgroundColor: 'rgba(245, 158, 11, 0.06)',
-                                border: '1px solid rgba(245, 158, 11, 0.2)',
-                                borderRadius: '6px',
-                                padding: '10px 12px',
-                              }}
-                            >
+                            {item.fixed && item.fixed.length > 0 && (
                               <div
                                 style={{
-                                  fontWeight: 600,
-                                  color: 'var(--warning-text)',
-                                  marginBottom: '6px',
+                                  backgroundColor: 'rgba(245, 158, 11, 0.06)',
+                                  border: '1px solid rgba(245, 158, 11, 0.2)',
+                                  borderRadius: '6px',
+                                  padding: '10px 12px',
                                 }}
                               >
-                                Lỗi đã sửa
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    color: 'var(--warning-text)',
+                                    marginBottom: '6px',
+                                  }}
+                                >
+                                  Lỗi đã sửa
+                                </div>
+                                <ul
+                                  style={{
+                                    margin: 0,
+                                    paddingLeft: '16px',
+                                    color: 'var(--text-secondary)',
+                                    lineHeight: 1.5,
+                                  }}
+                                >
+                                  {item.fixed.map((line, idx) => (
+                                    <li key={idx}>{line}</li>
+                                  ))}
+                                </ul>
                               </div>
-                              <ul
-                                style={{
-                                  margin: 0,
-                                  paddingLeft: '16px',
-                                  color: 'var(--text-secondary)',
-                                  lineHeight: 1.5,
-                                }}
-                              >
-                                {item.fixed.map((line, idx) => (
-                                  <li key={idx}>{line}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
