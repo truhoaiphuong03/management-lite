@@ -112,13 +112,6 @@ export const NAV_GROUPS: NavGroup[] = [
     itemIds: ['dashboard'],
   },
   {
-    id: 'attendance',
-    title: 'Ca & Chấm công',
-    path: '/groups/attendance',
-    icon: 'clock',
-    itemIds: ['clock', 'schedule', 'attendance', 'attendance-review'],
-  },
-  {
     id: 'work',
     title: 'Công việc',
     path: '/groups/work',
@@ -126,32 +119,39 @@ export const NAV_GROUPS: NavGroup[] = [
     itemIds: ['work', 'reports', 'storage'],
   },
   {
+    id: 'attendance',
+    title: 'Chấm công',
+    path: '/groups/attendance',
+    icon: 'clock',
+    itemIds: ['clock', 'schedule', 'attendance', 'attendance-review'],
+  },
+  {
     id: 'hr-payroll',
-    title: 'Nhân sự & Lương',
+    title: 'Nhân sự',
     path: '/groups/hr-payroll',
     icon: 'employees',
     itemIds: ['employees', 'payroll', 'my-pay'],
   },
   {
-    id: 'finance',
-    title: 'Thu chi cá nhân',
-    path: '/finance',
-    icon: 'finance',
-    itemIds: ['finance'],
-  },
-  {
     id: 'accounts',
-    title: 'Tài khoản dùng chung',
+    title: 'Tài khoản',
     path: '/accounts',
     icon: 'accounts',
     itemIds: ['accounts'],
+  },
+  {
+    id: 'finance',
+    title: 'Thu chi',
+    path: '/finance',
+    icon: 'finance',
+    itemIds: ['finance'],
   },
   {
     id: 'admin',
     title: 'Quản trị',
     path: '/groups/admin',
     icon: 'settings',
-    itemIds: ['audit', 'system-logs', 'issues', 'settings'],
+    itemIds: ['issues', 'system-logs', 'audit', 'settings'],
   },
 ];
 

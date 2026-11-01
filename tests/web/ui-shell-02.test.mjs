@@ -30,17 +30,17 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
     const groupIds = NAV_GROUPS.map((g) => g.id);
     assert.deepEqual(
       groupIds,
-      ['overview', 'attendance', 'work', 'hr-payroll', 'finance', 'accounts', 'admin'],
-      'Groups must match approved design: Tổng quan, Ca & Chấm công, Công việc, Nhân sự & Lương, Thu chi cá nhân, Tài khoản dùng chung, Quản trị',
+      ['overview', 'work', 'attendance', 'hr-payroll', 'accounts', 'finance', 'admin'],
+      'Groups must match approved order: Tổng quan, Công việc, Chấm công, Nhân sự, Tài khoản, Thu chi, Quản trị',
     );
     const groupTitles = NAV_GROUPS.map((g) => g.title);
     assert.deepEqual(groupTitles, [
       'Tổng quan',
-      'Ca & Chấm công',
       'Công việc',
-      'Nhân sự & Lương',
-      'Thu chi cá nhân',
-      'Tài khoản dùng chung',
+      'Chấm công',
+      'Nhân sự',
+      'Tài khoản',
+      'Thu chi',
       'Quản trị',
     ]);
   });
@@ -57,10 +57,11 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
       }),
     );
     assert.ok(ownerHtml.includes('Tổng quan'), 'Must render Tổng quan');
-    assert.ok(ownerHtml.includes('Ca &amp; Chấm công') || ownerHtml.includes('Ca & Chấm công'), 'Must render Ca & Chấm công');
+    assert.ok(ownerHtml.includes('Chấm công'), 'Must render Chấm công');
     assert.ok(ownerHtml.includes('Công việc'), 'Must render Công việc');
-    assert.ok(ownerHtml.includes('Nhân sự &amp; Lương') || ownerHtml.includes('Nhân sự & Lương'), 'Must render Nhân sự & Lương');
-    assert.ok(ownerHtml.includes('Thu chi cá nhân'), 'Owner sidebar must include Thu chi cá nhân');
+    assert.ok(ownerHtml.includes('Nhân sự'), 'Must render Nhân sự');
+    assert.ok(ownerHtml.includes('Tài khoản'), 'Owner sidebar must include Tài khoản');
+    assert.ok(ownerHtml.includes('Thu chi'), 'Owner sidebar must include Thu chi');
     assert.ok(ownerHtml.includes('Quản trị'), 'Must render Quản trị');
     assert.ok(ownerHtml.includes('Sổ tay lỗi'), 'Owner sidebar must include Sổ tay lỗi in title tooltip/accessibility');
 
@@ -74,9 +75,9 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
       }),
     );
     assert.equal(
-      staffHtml.includes('Thu chi cá nhân'),
+      staffHtml.includes('Thu chi'),
       false,
-      'Staff sidebar must NEVER render Thu chi cá nhân',
+      'Staff sidebar must NEVER render Thu chi',
     );
     assert.equal(
       staffHtml.includes('Sổ tay lỗi'),
@@ -89,9 +90,9 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
       'Staff sidebar must NEVER preview Nhật ký Audit',
     );
     assert.equal(
-      staffHtml.includes('Tài khoản dùng chung'),
+      staffHtml.includes('Tài khoản'),
       false,
-      'Staff sidebar must NEVER preview Tài khoản dùng chung',
+      'Staff sidebar must NEVER preview Tài khoản',
     );
 
     // Active path detection for detail and child routes
@@ -120,10 +121,11 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
       }),
     );
     assert.ok(ownerMobileHtml.includes('Tổng quan'));
-    assert.ok(ownerMobileHtml.includes('Ca &amp; Chấm công') || ownerMobileHtml.includes('Ca & Chấm công'));
+    assert.ok(ownerMobileHtml.includes('Chấm công'));
     assert.ok(ownerMobileHtml.includes('Công việc'));
-    assert.ok(ownerMobileHtml.includes('Nhân sự &amp; Lương') || ownerMobileHtml.includes('Nhân sự & Lương'));
-    assert.ok(ownerMobileHtml.includes('Thu chi cá nhân'));
+    assert.ok(ownerMobileHtml.includes('Nhân sự'));
+    assert.ok(ownerMobileHtml.includes('Tài khoản'));
+    assert.ok(ownerMobileHtml.includes('Thu chi'));
     assert.ok(ownerMobileHtml.includes('Quản trị'));
 
     const staffMobileHtml = renderToStaticMarkup(
@@ -135,9 +137,9 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
       }),
     );
     assert.equal(
-      staffMobileHtml.includes('Thu chi cá nhân'),
+      staffMobileHtml.includes('Thu chi'),
       false,
-      'Staff mobile nav must NEVER render Thu chi cá nhân',
+      'Staff mobile nav must NEVER render Thu chi',
     );
   });
 

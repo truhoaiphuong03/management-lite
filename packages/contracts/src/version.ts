@@ -45,12 +45,14 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     commit: 'latest',
     released_at: '2026-11-01',
     summary:
-      'Đưa mục "Tài khoản dùng chung" (/accounts) lên trực tiếp Thanh menu đứng (DesktopSidebar) để truy cập 1-chạm nhanh chóng',
+      'Sắp xếp lại thứ tự ưu tiên & đặt tên ngắn gọn 2 chữ cho Thanh menu đứng (Tổng quan, Công việc, Chấm công, Nhân sự, Tài khoản, Thu chi, Quản trị)',
     added: [
-      'Đưa phân hệ "Tài khoản dùng chung" (/accounts) lên trực tiếp Thanh menu đứng (nằm ngay giữa "Thu chi cá nhân" và "Quản trị") kèm biểu tượng khóa riêng biệt.',
+      'Đưa phân hệ "Tài khoản" (/accounts) lên trực tiếp Thanh menu đứng kèm biểu tượng khóa riêng biệt.',
     ],
     improved: [
-      'Khi vào màn hình Quản lý Tài khoản (/accounts), ẩn thanh tab phụ phía trên (Quản trị) để không gian làm việc gọn gàng, rộng rãi hơn.',
+      'Sắp xếp lại thứ tự 7 mục trên Thanh menu đứng theo đúng luồng vận hành hằng ngày: Tổng quan ➔ Công việc ➔ Chấm công ➔ Nhân sự ➔ Tài khoản ➔ Thu chi ➔ Quản trị.',
+      'Chuẩn hóa tên gọi 7 mục trên Thanh menu đứng đồng bộ 2 chữ ngắn gọn, dễ nhìn (bỏ các cụm từ dài dòng như "Ca & Chấm công", "Nhân sự & Lương", "Tài khoản dùng chung", "Thu chi cá nhân").',
+      'Khi bấm vào "Quản trị", mở trực tiếp tab "Sổ tay lỗi" (/issues) thay vì trang trung gian.',
     ],
     fixed: [],
   },

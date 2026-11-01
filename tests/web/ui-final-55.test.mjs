@@ -42,11 +42,11 @@ test('UI-FINAL-55 — Unified Breadcrumb, ListFooter, RBAC & Reports Pagination'
     const clock = resolveNavigationBreadcrumbs('/clock');
     assert.ok(clock);
     assert.deepEqual(clock.items, [
-      { label: 'Ca & Chấm công', path: '/groups/attendance' },
+      { label: 'Chấm công', path: '/groups/attendance' },
       { label: 'Chấm công' },
     ]);
     assert.equal(clock.parentPath, '/groups/attendance');
-    assert.equal(clock.parentLabel, 'Ca & Chấm công');
+    assert.equal(clock.parentLabel, 'Chấm công');
 
     const issues = resolveNavigationBreadcrumbs('/issues');
     assert.ok(issues);
@@ -59,7 +59,7 @@ test('UI-FINAL-55 — Unified Breadcrumb, ListFooter, RBAC & Reports Pagination'
     const employees = resolveNavigationBreadcrumbs('/employees');
     assert.ok(employees);
     assert.deepEqual(employees.items, [
-      { label: 'Nhân sự & Lương', path: '/groups/hr-payroll' },
+      { label: 'Nhân sự', path: '/groups/hr-payroll' },
       { label: 'Nhân sự' },
     ]);
     assert.equal(employees.parentPath, '/groups/hr-payroll');
