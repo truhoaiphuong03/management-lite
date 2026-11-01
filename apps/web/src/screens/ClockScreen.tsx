@@ -92,15 +92,6 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     return `Tháng ${ Number(m)}/${y}`;
   };
 
-  const stepYearMonth = (ym: string, delta: number): string => {
-    const base = /^\d{4}-\d{2}$/.test(ym) ? ym : currentVnYearMonth;
-    const [yStr, mStr] = base.split('-');
-    const date = new Date(Number(yStr), Number(mStr) - 1 + delta, 1);
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
-  };
-
   const myAvailableMonths = React.useMemo(() => {
     const map = new Map<
       string,
@@ -1728,9 +1719,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             {/* Personal History Month Selector + Filter Bar */}
             <AppCard
               data-testid="my-history-filter-bar"
-              style={{ marginBottom: '16px', padding: '14px' }}
+              style={{ marginBottom: '14px', padding: '10px 14px' }}
             >
-              {/* Month Selection Bar for Staff */}
               <div
                 data-testid="staff-month-selector-bar"
                 style={{
@@ -1739,326 +1729,96 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   justifyContent: 'space-between',
                   flexWrap: 'wrap',
                   gap: '10px',
-                  paddingBottom: '12px',
-                  marginBottom: '12px',
-                  borderBottom: '1px solid var(--border-subtle)',
                 }}
               >
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    flexWrap: 'nowrap',
-                    overflowX: 'auto',
-                    maxWidth: '100%',
-                    scrollbarWidth: 'none',
+                    gap: '10px',
+                    flexWrap: 'wrap',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: '12.5px',
-                      fontWeight: 700,
-                      color: 'var(--text-color)',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    Tháng công:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMySelectedMonth('all');
+                  <select
+                    aria-label="Chọn tháng chấm công cá nhân"
+                    value={mySelectedMonth}
+                    onChange={(e) => {
+                      setMySelectedMonth(e.target.value);
                       setMyFromDate('');
                       setMyToDate('');
                       setMyShiftPage(0);
                     }}
                     style={{
-                      padding: '5px 12px',
-                      borderRadius: '999px',
-                      border:
-                        mySelectedMonth === 'all' && !myFromDate && !myToDate
-                          ? '1px solid #14B8A6'
-                          : '1px solid var(--border-color)',
-                      backgroundColor:
-                        mySelectedMonth === 'all' && !myFromDate && !myToDate
-                          ? 'rgba(20, 184, 166, 0.16)'
-                          : 'var(--bg-color)',
-                      color:
-                        mySelectedMonth === 'all' && !myFromDate && !myToDate
-                          ? 'var(--accent-text)'
-                          : 'var(--text-secondary)',
-                      fontSize: '12.5px',
-                      fontWeight:
-                        mySelectedMonth === 'all' && !myFromDate && !myToDate
-                          ? 700
-                          : 500,
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Tất cả ({recentShifts.length} ca)
-                  </button>
-                  {myAvailableMonths.map((mItem) => {
-                    const isSelected = mySelectedMonth === mItem.ym;
-                    return (
-                      <button
-                        key={mItem.ym}
-                        type="button"
-                        onClick={() => {
-                          setMySelectedMonth(isSelected ? 'all' : mItem.ym);
-                          setMyFromDate('');
-                          setMyToDate('');
-                          setMyShiftPage(0);
-                        }}
-                        style={{
-                          padding: '5px 12px',
-                          borderRadius: '999px',
-                          border: isSelected
-                            ? '1px solid #14B8A6'
-                            : '1px solid var(--border-color)',
-                          backgroundColor: isSelected
-                            ? 'rgba(20, 184, 166, 0.16)'
-                            : 'var(--bg-color)',
-                          color: isSelected
-                            ? 'var(--accent-text)'
-                            : 'var(--text-secondary)',
-                          fontSize: '12.5px',
-                          fontWeight: isSelected ? 700 : 500,
-                          whiteSpace: 'nowrap',
-                          flexShrink: 0,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {formatYearMonthLabel(mItem.ym)} ({mItem.count} ca
-                        {mItem.totalSeconds > 0
-                          ? ` • ${formatHoursMinutes(mItem.totalSeconds)}`
-                          : ''}
-                        )
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
+                      padding: '6px 12px',
                       borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
                       backgroundColor: 'var(--bg-color)',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <button
-                      type="button"
-                      title="Tháng trước"
-                      aria-label="Tháng trước"
-                      onClick={() => {
-                        const nextYm = stepYearMonth(
-                          mySelectedMonth === 'all'
-                            ? currentVnYearMonth
-                            : mySelectedMonth,
-                          -1,
-                        );
-                        setMySelectedMonth(nextYm);
-                        setMyFromDate('');
-                        setMyToDate('');
-                        setMyShiftPage(0);
-                      }}
-                      style={{
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-secondary)',
-                        padding: '6px 10px',
-                        fontSize: '12.5px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ◀
-                    </button>
-                    <input
-                      type="month"
-                      aria-label="Chọn tháng chấm công cá nhân"
-                      value={
-                        mySelectedMonth === 'all'
-                          ? currentVnYearMonth
-                          : mySelectedMonth
-                      }
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setMySelectedMonth(val || 'all');
-                        setMyFromDate('');
-                        setMyToDate('');
-                        setMyShiftPage(0);
-                      }}
-                      style={{
-                        border: 'none',
-                        backgroundColor: 'transparent',
-                        color: 'var(--text-color)',
-                        fontSize: '12.5px',
-                        fontWeight: 600,
-                        padding: '5px 6px',
-                        cursor: 'pointer',
-                      }}
-                    />
-                    <button
-                      type="button"
-                      title="Tháng sau"
-                      aria-label="Tháng sau"
-                      onClick={() => {
-                        const nextYm = stepYearMonth(
-                          mySelectedMonth === 'all'
-                            ? currentVnYearMonth
-                            : mySelectedMonth,
-                          1,
-                        );
-                        setMySelectedMonth(nextYm);
-                        setMyFromDate('');
-                        setMyToDate('');
-                        setMyShiftPage(0);
-                      }}
-                      style={{
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-secondary)',
-                        padding: '6px 10px',
-                        fontSize: '12.5px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ▶
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowMyAdvancedFilters((v) => !v)}
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: '8px',
-                      border:
-                        showMyAdvancedFilters ||
-                        myFromDate ||
-                        myToDate ||
-                        myReviewStateFilter !== 'all'
-                          ? '1px solid #14B8A6'
-                          : '1px solid var(--border-color)',
-                      backgroundColor:
-                        showMyAdvancedFilters ||
-                        myFromDate ||
-                        myToDate ||
-                        myReviewStateFilter !== 'all'
-                          ? 'rgba(20, 184, 166, 0.14)'
-                          : 'var(--surface-subtle)',
-                      color:
-                        showMyAdvancedFilters ||
-                        myFromDate ||
-                        myToDate ||
-                        myReviewStateFilter !== 'all'
-                          ? 'var(--accent-text)'
-                          : 'var(--muted-color)',
-                      fontSize: '12px',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
                     }}
                   >
-                    {showMyAdvancedFilters ? '▴ Ẩn lọc ngày' : '▾ Lọc theo ngày'}
-                  </button>
-                </div>
-              </div>
+                    <option value="all">
+                      Tất cả các tháng ({recentShifts.length} ca)
+                    </option>
+                    {myAvailableMonths
+                      .filter((m) => m.count > 0 || m.ym === currentVnYearMonth)
+                      .map((mItem) => (
+                        <option key={mItem.ym} value={mItem.ym}>
+                          {formatYearMonthLabel(mItem.ym)} ({mItem.count} ca
+                          {mItem.totalSeconds > 0
+                            ? ` • ${formatHoursMinutes(mItem.totalSeconds)}`
+                            : ''}
+                          )
+                        </option>
+                      ))}
+                  </select>
 
-              {/* Monthly Summary Strip for Staff */}
-              <div
-                data-testid="staff-monthly-summary-strip"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
-                  gap: '8px',
-                  marginBottom: showMyAdvancedFilters ? '12px' : 0,
-                }}
-              >
-                <div
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-color)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                    Kỳ đang xem
-                  </div>
-                  <div
+                  <span
+                    data-testid="staff-monthly-summary-strip"
                     style={{
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      color: 'var(--text-color)',
-                      marginTop: '2px',
+                      fontSize: '13px',
+                      color: 'var(--muted-color)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      flexWrap: 'wrap',
                     }}
                   >
-                    {formatYearMonthLabel(mySelectedMonth)} (
-                    {myMonthlySummary.totalShifts} ca)
-                  </div>
+                    <span>
+                      Tổng giờ:{' '}
+                      <strong style={{ color: 'var(--accent-text)' }}>
+                        {formatHoursMinutes(myMonthlySummary.totalWorkedSeconds)}
+                      </strong>
+                    </span>
+                    <span>•</span>
+                    <span>
+                      Đã duyệt:{' '}
+                      <strong style={{ color: 'var(--success-text)' }}>
+                        {myMonthlySummary.approvedCount}/
+                        {myMonthlySummary.totalShifts} ca
+                      </strong>
+                    </span>
+                  </span>
                 </div>
-                <div
+
+                <button
+                  type="button"
+                  onClick={() => setShowMyAdvancedFilters((v) => !v)}
                   style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-color)',
-                    border: '1px solid var(--border-subtle)',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--surface-subtle)',
+                    color: 'var(--muted-color)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
                   }}
                 >
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                    Tổng giờ làm
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      color: 'var(--accent-text)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    {formatHoursMinutes(myMonthlySummary.totalWorkedSeconds)}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-color)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                    Đã duyệt công
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      color: 'var(--success-text)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    {myMonthlySummary.approvedCount}/
-                    {myMonthlySummary.totalShifts} ca •{' '}
-                    {formatHoursMinutes(myMonthlySummary.approvedSeconds)}
-                  </div>
-                </div>
+                  {showMyAdvancedFilters ? '▴ Ẩn bộ lọc' : '▾ Lọc nâng cao'}
+                </button>
               </div>
 
               <div
@@ -2483,8 +2243,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       ) : (
         /* Owner Review & History Tab */
         <div>
-          {/* View Mode Switcher + Quick Status Filter Pills */}
+          {/* Single Compact Top Control Bar */}
           <div
+            data-testid="owner-month-selector-bar"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -2495,62 +2256,109 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             }}
           >
             <div
-              data-testid="owner-attendance-view-switcher"
               style={{
-                display: 'inline-flex',
-                gap: '4px',
-                padding: '3px',
-                borderRadius: '8px',
-                backgroundColor: 'var(--surface-subtle)',
-                border: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
               }}
             >
-              <button
-                type="button"
-                data-testid="attendance-view-by-employee"
-                onClick={() => setOwnerViewMode('by_employee')}
+              <div
+                data-testid="owner-attendance-view-switcher"
+                style={{
+                  display: 'inline-flex',
+                  gap: '4px',
+                  padding: '3px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <button
+                  type="button"
+                  data-testid="attendance-view-by-employee"
+                  onClick={() => setOwnerViewMode('by_employee')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor:
+                      ownerViewMode === 'by_employee'
+                        ? 'rgba(20, 184, 166, 0.16)'
+                        : 'transparent',
+                    color:
+                      ownerViewMode === 'by_employee'
+                        ? 'var(--accent-text)'
+                        : 'var(--muted-color)',
+                    fontSize: '12.5px',
+                    fontWeight: ownerViewMode === 'by_employee' ? 700 : 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Theo từng nhân viên ({groupedOwnerShiftsByEmployee.length})
+                </button>
+                <button
+                  type="button"
+                  data-testid="attendance-view-by-shift"
+                  onClick={() => setOwnerViewMode('by_shift')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor:
+                      ownerViewMode === 'by_shift'
+                        ? 'rgba(20, 184, 166, 0.16)'
+                        : 'transparent',
+                    color:
+                      ownerViewMode === 'by_shift'
+                        ? 'var(--accent-text)'
+                        : 'var(--muted-color)',
+                    fontSize: '12.5px',
+                    fontWeight: ownerViewMode === 'by_shift' ? 700 : 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Theo từng ca ({filteredOwnerShifts.length})
+                </button>
+              </div>
+
+              <select
+                aria-label="Chọn tháng chấm công nhân sự"
+                value={ownerSelectedMonth}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setOwnerSelectedMonth(val || 'all');
+                  setEmployeeSelectedMonths({});
+                  setSelectedDate('');
+                  setSelectedToDate('');
+                  setShiftPage(0);
+                }}
                 style={{
                   padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor:
-                    ownerViewMode === 'by_employee'
-                      ? 'rgba(20, 184, 166, 0.16)'
-                      : 'transparent',
-                  color:
-                    ownerViewMode === 'by_employee'
-                      ? 'var(--accent-text)'
-                      : 'var(--muted-color)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-color)',
+                  color: 'var(--text-color)',
                   fontSize: '12.5px',
-                  fontWeight: ownerViewMode === 'by_employee' ? 700 : 500,
+                  fontWeight: 600,
                   cursor: 'pointer',
                 }}
               >
-                Theo từng nhân viên ({groupedOwnerShiftsByEmployee.length})
-              </button>
-              <button
-                type="button"
-                data-testid="attendance-view-by-shift"
-                onClick={() => setOwnerViewMode('by_shift')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor:
-                    ownerViewMode === 'by_shift'
-                      ? 'rgba(20, 184, 166, 0.16)'
-                      : 'transparent',
-                  color:
-                    ownerViewMode === 'by_shift'
-                      ? 'var(--accent-text)'
-                      : 'var(--muted-color)',
-                  fontSize: '12.5px',
-                  fontWeight: ownerViewMode === 'by_shift' ? 700 : 500,
-                  cursor: 'pointer',
-                }}
-              >
-                Theo từng ca ({filteredOwnerShifts.length})
-              </button>
+                <option value="all">
+                  Tất cả các tháng ({ownerShifts.length} ca)
+                </option>
+                {ownerAvailableMonths
+                  .filter((m) => m.count > 0 || m.ym === currentVnYearMonth)
+                  .map((mItem) => (
+                    <option key={mItem.ym} value={mItem.ym}>
+                      {formatYearMonthLabel(mItem.ym)} ({mItem.count} ca
+                      {mItem.totalSeconds > 0
+                        ? ` • ${formatHoursMinutes(mItem.totalSeconds)}`
+                        : ''}
+                      )
+                    </option>
+                  ))}
+              </select>
             </div>
 
             <div
@@ -2561,52 +2369,6 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 flexWrap: 'wrap',
               }}
             >
-              {ownerViewMode === 'by_employee' &&
-                groupedOwnerShiftsByEmployee.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (
-                        collapsedEmployeeIds.size >=
-                        groupedOwnerShiftsByEmployee.length
-                      ) {
-                        setCollapsedEmployeeIds(new Set());
-                      } else {
-                        setCollapsedEmployeeIds(
-                          new Set(
-                            groupedOwnerShiftsByEmployee.map(
-                              (g) => g.employeeId,
-                            ),
-                          ),
-                        );
-                      }
-                    }}
-                    style={{
-                      padding: '6px 9px',
-                      borderRadius: '6px',
-                      border: '1px solid var(--border-color)',
-                      backgroundColor: 'var(--surface-subtle)',
-                      color: 'var(--muted-color)',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {collapsedEmployeeIds.size >=
-                    groupedOwnerShiftsByEmployee.length ? (
-                      <span>
-                        ▾ Mở rộng
-                        <span className="mobile-hide-label"> tất cả NV</span>
-                      </span>
-                    ) : (
-                      <span>
-                        ▴ Thu gọn
-                        <span className="mobile-hide-label"> tất cả NV</span>
-                      </span>
-                    )}
-                  </button>
-                )}
-
               {groupedOwnerShiftsByEmployee.length > 0 && (
                 <button
                   type="button"
@@ -2675,22 +2437,28 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   borderRadius: '6px',
                   border:
                     showOwnerAdvancedFilters ||
+                    selectedEmployeeId !== 'all' ||
                     selectedDate ||
                     selectedToDate ||
+                    selectedReviewState !== 'all' ||
                     selectedRunState !== 'all'
                       ? '1px solid #14B8A6'
                       : '1px solid var(--border-color)',
                   backgroundColor:
                     showOwnerAdvancedFilters ||
+                    selectedEmployeeId !== 'all' ||
                     selectedDate ||
                     selectedToDate ||
+                    selectedReviewState !== 'all' ||
                     selectedRunState !== 'all'
                       ? 'rgba(20, 184, 166, 0.14)'
                       : 'var(--surface-subtle)',
                   color:
                     showOwnerAdvancedFilters ||
+                    selectedEmployeeId !== 'all' ||
                     selectedDate ||
                     selectedToDate ||
+                    selectedReviewState !== 'all' ||
                     selectedRunState !== 'all'
                       ? 'var(--accent-text)'
                       : 'var(--muted-color)',
@@ -2700,400 +2468,181 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 }}
               >
                 <span>
-                  {showOwnerAdvancedFilters ? '▴ Ẩn lọc' : '▾ Bộ lọc ngày'}
+                  {showOwnerAdvancedFilters ? '▴ Ẩn bộ lọc' : '▾ Bộ lọc'}
                 </span>
               </button>
             </div>
           </div>
 
-          {/* Owner Month Selection Bar */}
+          {/* Collapsible Advanced Filters (Hidden by default on both Desktop & Mobile) */}
           <div
-            data-testid="owner-month-selector-bar"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '8px',
-              padding: '10px 12px',
-              marginBottom: '10px',
-              borderRadius: '10px',
-              backgroundColor: 'var(--surface-color)',
-              border: '1px solid var(--border-color)',
+              display: showOwnerAdvancedFilters ? 'block' : 'none',
             }}
           >
+            {/* Quick Status Filter Pills */}
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                flexWrap: 'nowrap',
-                overflowX: 'auto',
-                maxWidth: '100%',
-                scrollbarWidth: 'none',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  color: 'var(--text-color)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Tháng công:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setOwnerSelectedMonth('all');
-                  setEmployeeSelectedMonths({});
-                  setSelectedDate('');
-                  setSelectedToDate('');
-                  setShiftPage(0);
-                }}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: '999px',
-                  border:
-                    ownerSelectedMonth === 'all' &&
-                    !selectedDate &&
-                    !selectedToDate
-                      ? '1px solid #14B8A6'
-                      : '1px solid var(--border-color)',
-                  backgroundColor:
-                    ownerSelectedMonth === 'all' &&
-                    !selectedDate &&
-                    !selectedToDate
-                      ? 'rgba(20, 184, 166, 0.16)'
-                      : 'var(--bg-color)',
-                  color:
-                    ownerSelectedMonth === 'all' &&
-                    !selectedDate &&
-                    !selectedToDate
-                      ? 'var(--accent-text)'
-                      : 'var(--text-secondary)',
-                  fontSize: '12.5px',
-                  fontWeight:
-                    ownerSelectedMonth === 'all' &&
-                    !selectedDate &&
-                    !selectedToDate
-                      ? 700
-                      : 500,
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  cursor: 'pointer',
-                }}
-              >
-                Tất cả ({ownerShifts.length} ca)
-              </button>
-              {ownerAvailableMonths.map((mItem) => {
-                const isSelected = ownerSelectedMonth === mItem.ym;
-                return (
-                  <button
-                    key={mItem.ym}
-                    type="button"
-                    onClick={() => {
-                      const nextVal = isSelected ? 'all' : mItem.ym;
-                      setOwnerSelectedMonth(nextVal);
-                      setEmployeeSelectedMonths({});
-                      setSelectedDate('');
-                      setSelectedToDate('');
-                      setShiftPage(0);
-                    }}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: '999px',
-                      border: isSelected
-                        ? '1px solid #14B8A6'
-                        : '1px solid var(--border-color)',
-                      backgroundColor: isSelected
-                        ? 'rgba(20, 184, 166, 0.16)'
-                        : 'var(--bg-color)',
-                      color: isSelected
-                        ? 'var(--accent-text)'
-                        : 'var(--text-secondary)',
-                      fontSize: '12.5px',
-                      fontWeight: isSelected ? 700 : 500,
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {formatYearMonthLabel(mItem.ym)} ({mItem.count} ca
-                    {mItem.totalSeconds > 0
-                      ? ` • ${formatHoursMinutes(mItem.totalSeconds)}`
-                      : ''}
-                    )
-                  </button>
-                );
-              })}
-            </div>
-
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-color)',
-                overflow: 'hidden',
-              }}
-            >
-              <button
-                type="button"
-                title="Tháng trước"
-                aria-label="Tháng trước"
-                onClick={() => {
-                  const nextYm = stepYearMonth(
-                    ownerSelectedMonth === 'all'
-                      ? currentVnYearMonth
-                      : ownerSelectedMonth,
-                    -1,
-                  );
-                  setOwnerSelectedMonth(nextYm);
-                  setEmployeeSelectedMonths({});
-                  setSelectedDate('');
-                  setSelectedToDate('');
-                  setShiftPage(0);
-                }}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--text-secondary)',
-                  padding: '5px 10px',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                ◀
-              </button>
-              <input
-                type="month"
-                aria-label="Chọn tháng chấm công nhân sự"
-                value={
-                  ownerSelectedMonth === 'all'
-                    ? currentVnYearMonth
-                    : ownerSelectedMonth
-                }
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setOwnerSelectedMonth(val || 'all');
-                  setEmployeeSelectedMonths({});
-                  setSelectedDate('');
-                  setSelectedToDate('');
-                  setShiftPage(0);
-                }}
-                style={{
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-color)',
-                  fontSize: '12.5px',
-                  fontWeight: 600,
-                  padding: '4px 6px',
-                  cursor: 'pointer',
-                }}
-              />
-              <button
-                type="button"
-                title="Tháng sau"
-                aria-label="Tháng sau"
-                onClick={() => {
-                  const nextYm = stepYearMonth(
-                    ownerSelectedMonth === 'all'
-                      ? currentVnYearMonth
-                      : ownerSelectedMonth,
-                    1,
-                  );
-                  setOwnerSelectedMonth(nextYm);
-                  setEmployeeSelectedMonths({});
-                  setSelectedDate('');
-                  setSelectedToDate('');
-                  setShiftPage(0);
-                }}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--text-secondary)',
-                  padding: '5px 10px',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                ▶
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Status Filter Pills */}
-          <div
-            data-testid="owner-review-quick-tabs"
-            style={{
-              display: 'flex',
-              gap: '6px',
-              flexWrap: 'nowrap',
-              overflowX: 'auto',
-              paddingBottom: '4px',
-              marginBottom: '10px',
-              scrollbarWidth: 'none',
-            }}
-          >
-            {[
-              { id: 'all', label: `Tất cả (${ownerShifts.length})` },
-              {
-                id: 'pending_all',
-                label: `Chờ xử lý (${ownerShifts.filter((s) => isActionablePending(s)).length})`,
-              },
-              {
-                id: 'unreviewed',
-                label: `Chờ duyệt (${ownerShifts.filter((s) => isActionableUnreviewed(s)).length})`,
-              },
-              {
-                id: 'needs_review',
-                label: `Giải trình (${ownerShifts.filter((s) => s.review_state === 'needs_review' || Boolean(s.pending_correction)).length})`,
-              },
-              {
-                id: 'approved',
-                label: `Đã duyệt (${ownerShifts.filter((s) => s.review_state === 'approved').length})`,
-              },
-              {
-                id: 'rejected',
-                label: `Đã từ chối (${ownerShifts.filter((s) => s.review_state === 'rejected').length})`,
-              },
-            ].map((pill) => (
-              <button
-                key={pill.id}
-                type="button"
-                data-testid={`review-tab-${pill.id}`}
-                onClick={() => {
-                  setSelectedReviewState(pill.id);
-                  setShiftPage(0);
-                }}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '999px',
-                  fontSize: '12.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  minHeight: '34px',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  border:
-                    selectedReviewState === pill.id
-                      ? '1px solid #14B8A6'
-                      : '1px solid var(--border-color)',
-                  backgroundColor:
-                    selectedReviewState === pill.id
-                      ? 'rgba(20, 184, 166, 0.16)'
-                      : 'var(--surface-color)',
-                  color:
-                    selectedReviewState === pill.id
-                      ? 'var(--accent-text)'
-                      : 'var(--muted-color)',
-                }}
-              >
-                {pill.label}
-              </button>
-            ))}
-          </div>
-
-          {employeeOptions.length > 0 && (
-            <div
-              data-testid="quick-employee-filter-chips"
+              data-testid="owner-review-quick-tabs"
               style={{
                 display: 'flex',
                 gap: '6px',
                 flexWrap: 'nowrap',
                 overflowX: 'auto',
-                alignItems: 'center',
                 paddingBottom: '4px',
-                marginBottom: '12px',
+                marginBottom: '10px',
                 scrollbarWidth: 'none',
               }}
             >
-              <span
-                className="mobile-hide-label"
-                style={{
-                  fontSize: '12px',
-                  color: 'var(--muted-color)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Nhân sự:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedEmployeeId('all');
-                  setShiftPage(0);
-                }}
-                style={{
-                  padding: '5px 10px',
-                  borderRadius: '999px',
-                  border:
-                    selectedEmployeeId === 'all'
-                      ? '1px solid #14B8A6'
-                      : '1px solid var(--border-color)',
-                  backgroundColor:
-                    selectedEmployeeId === 'all'
-                      ? 'rgba(20, 184, 166, 0.16)'
-                      : 'var(--surface-color)',
-                  color:
-                    selectedEmployeeId === 'all'
-                      ? 'var(--accent-text)'
-                      : 'var(--text-secondary)',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  cursor: 'pointer',
-                }}
-              >
-                Tất cả NV ({employeeOptions.length})
-              </button>
-              {employeeOptions.map((emp) => {
-                const isSelected = selectedEmployeeId === emp.id;
-                return (
-                  <button
-                    key={emp.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedEmployeeId(isSelected ? 'all' : emp.id);
-                      setShiftPage(0);
-                    }}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: '999px',
-                      border: isSelected
+              {[
+                { id: 'all', label: `Tất cả (${ownerShifts.length})` },
+                {
+                  id: 'pending_all',
+                  label: `Chờ xử lý (${ownerShifts.filter((s) => isActionablePending(s)).length})`,
+                },
+                {
+                  id: 'unreviewed',
+                  label: `Chờ duyệt (${ownerShifts.filter((s) => isActionableUnreviewed(s)).length})`,
+                },
+                {
+                  id: 'needs_review',
+                  label: `Giải trình (${ownerShifts.filter((s) => s.review_state === 'needs_review' || Boolean(s.pending_correction)).length})`,
+                },
+                {
+                  id: 'approved',
+                  label: `Đã duyệt (${ownerShifts.filter((s) => s.review_state === 'approved').length})`,
+                },
+                {
+                  id: 'rejected',
+                  label: `Đã từ chối (${ownerShifts.filter((s) => s.review_state === 'rejected').length})`,
+                },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  data-testid={`review-tab-${pill.id}`}
+                  onClick={() => {
+                    setSelectedReviewState(pill.id);
+                    setShiftPage(0);
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '999px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    minHeight: '34px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    border:
+                      selectedReviewState === pill.id
                         ? '1px solid #14B8A6'
                         : '1px solid var(--border-color)',
-                      backgroundColor: isSelected
+                    backgroundColor:
+                      selectedReviewState === pill.id
                         ? 'rgba(20, 184, 166, 0.16)'
                         : 'var(--surface-color)',
-                      color: isSelected
+                    color:
+                      selectedReviewState === pill.id
+                        ? 'var(--accent-text)'
+                        : 'var(--muted-color)',
+                  }}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+
+            {employeeOptions.length > 0 && (
+              <div
+                data-testid="quick-employee-filter-chips"
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  flexWrap: 'nowrap',
+                  overflowX: 'auto',
+                  alignItems: 'center',
+                  paddingBottom: '4px',
+                  marginBottom: '12px',
+                  scrollbarWidth: 'none',
+                }}
+              >
+                <span
+                  className="mobile-hide-label"
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--muted-color)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Nhân sự:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedEmployeeId('all');
+                    setShiftPage(0);
+                  }}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '999px',
+                    border:
+                      selectedEmployeeId === 'all'
+                        ? '1px solid #14B8A6'
+                        : '1px solid var(--border-color)',
+                    backgroundColor:
+                      selectedEmployeeId === 'all'
+                        ? 'rgba(20, 184, 166, 0.16)'
+                        : 'var(--surface-color)',
+                    color:
+                      selectedEmployeeId === 'all'
                         ? 'var(--accent-text)'
                         : 'var(--text-secondary)',
-                      fontSize: '12px',
-                      fontWeight: isSelected ? 700 : 500,
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {emp.full_name} ({emp.employee_code})
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Tất cả NV ({employeeOptions.length})
+                </button>
+                {employeeOptions.map((emp) => {
+                  const isSelected = selectedEmployeeId === emp.id;
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedEmployeeId(isSelected ? 'all' : emp.id);
+                        setShiftPage(0);
+                      }}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: '999px',
+                        border: isSelected
+                          ? '1px solid #14B8A6'
+                          : '1px solid var(--border-color)',
+                        backgroundColor: isSelected
+                          ? 'rgba(20, 184, 166, 0.16)'
+                          : 'var(--surface-color)',
+                        color: isSelected
+                          ? 'var(--accent-text)'
+                          : 'var(--text-secondary)',
+                        fontSize: '12px',
+                        fontWeight: isSelected ? 700 : 500,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {emp.full_name} ({emp.employee_code})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-          {/* Filter Bar */}
-          <div
-            className="attendance-advanced-filter-card"
-            data-collapsed={showOwnerAdvancedFilters ? 'false' : 'true'}
-          >
+            {/* Filter Bar */}
             <AppCard
               data-testid="owner-shifts-filter-bar"
               style={{ marginBottom: '16px', padding: '14px' }}
@@ -3428,8 +2977,14 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             >
               {groupedOwnerShiftsByEmployee.map((group) => {
                 const isCollapsed = collapsedEmployeeIds.has(group.employeeId);
+                const defaultEmpYm =
+                  ownerSelectedMonth !== 'all'
+                    ? 'all'
+                    : group.monthsBreakdown.length > 1
+                      ? group.monthsBreakdown[0]?.ym || 'all'
+                      : 'all';
                 const empSelectedYm =
-                  employeeSelectedMonths[group.employeeId] || 'all';
+                  employeeSelectedMonths[group.employeeId] || defaultEmpYm;
                 const empActiveShifts =
                   empSelectedYm === 'all'
                     ? group.shifts
@@ -3562,18 +3117,6 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                               alignItems: 'center',
                             }}
                           >
-                            <span
-                              style={{
-                                padding: '1px 7px',
-                                borderRadius: '999px',
-                                backgroundColor: 'var(--surface-subtle)',
-                                border: '1px solid var(--border-subtle)',
-                                color: 'var(--text-secondary)',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {activeMonthDisplayLabel}
-                            </span>
                             <span>
                               <strong style={{ color: 'var(--text-color)' }}>
                                 {empActiveShifts.length} ca
@@ -3606,6 +3149,42 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         }}
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {/* Clean Single Dropdown for Employee's Month */}
+                        <select
+                          data-testid={`employee-month-selector-${group.employeeId}`}
+                          aria-label={`Chọn tháng cho ${group.employeeName}`}
+                          value={empSelectedYm}
+                          onChange={(e) =>
+                            setEmployeeSelectedMonths((prev) => ({
+                              ...prev,
+                              [group.employeeId]: e.target.value,
+                            }))
+                          }
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-color)',
+                            color: 'var(--text-color)',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {group.monthsBreakdown.map((m) => (
+                            <option key={m.ym} value={m.ym}>
+                              {formatYearMonthLabel(m.ym)} ({m.count} ca •{' '}
+                              {formatHoursMinutes(m.totalSeconds)})
+                            </option>
+                          ))}
+                          {group.monthsBreakdown.length > 1 && (
+                            <option value="all">
+                              Tất cả các tháng ({group.shifts.length} ca •{' '}
+                              {formatHoursMinutes(group.totalWorkedSeconds)})
+                            </option>
+                          )}
+                        </select>
+
                         {group.workingCount > 0 && (
                           <StatusBadge status="success" label="Đang trong ca" />
                         )}
@@ -3698,161 +3277,6 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
 
                     {!isCollapsed && (
                       <div>
-                        {/* Per-Employee Month Selector Bar */}
-                        <div
-                          data-testid={`employee-month-selector-${group.employeeId}`}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: '8px',
-                            padding: '8px 10px',
-                            marginBottom: '10px',
-                            borderRadius: '8px',
-                            backgroundColor: 'var(--surface-subtle)',
-                            border: '1px solid var(--border-subtle)',
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              flexWrap: 'nowrap',
-                              overflowX: 'auto',
-                              maxWidth: '100%',
-                              scrollbarWidth: 'none',
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: '12px',
-                                color: 'var(--muted-color)',
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              Chọn tháng của NV:
-                            </span>
-                            {group.monthsBreakdown.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setEmployeeSelectedMonths((prev) => ({
-                                    ...prev,
-                                    [group.employeeId]: 'all',
-                                  }))
-                                }
-                                style={{
-                                  padding: '4px 10px',
-                                  borderRadius: '999px',
-                                  border:
-                                    empSelectedYm === 'all'
-                                      ? '1px solid #14B8A6'
-                                      : '1px solid var(--border-color)',
-                                  backgroundColor:
-                                    empSelectedYm === 'all'
-                                      ? 'rgba(20, 184, 166, 0.16)'
-                                      : 'var(--bg-color)',
-                                  color:
-                                    empSelectedYm === 'all'
-                                      ? 'var(--accent-text)'
-                                      : 'var(--text-secondary)',
-                                  fontSize: '12px',
-                                  fontWeight: empSelectedYm === 'all' ? 700 : 500,
-                                  whiteSpace: 'nowrap',
-                                  flexShrink: 0,
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                Tất cả ({group.shifts.length} ca)
-                              </button>
-                            )}
-                            {group.monthsBreakdown.map((m) => {
-                              const isActiveMonth =
-                                empSelectedYm === m.ym ||
-                                (empSelectedYm === 'all' &&
-                                  group.monthsBreakdown.length === 1);
-                              return (
-                                <button
-                                  key={m.ym}
-                                  type="button"
-                                  onClick={() =>
-                                    setEmployeeSelectedMonths((prev) => ({
-                                      ...prev,
-                                      [group.employeeId]:
-                                        prev[group.employeeId] === m.ym &&
-                                        group.monthsBreakdown.length > 1
-                                          ? 'all'
-                                          : m.ym,
-                                    }))
-                                  }
-                                  style={{
-                                    padding: '4px 10px',
-                                    borderRadius: '999px',
-                                    border: isActiveMonth
-                                      ? '1px solid #14B8A6'
-                                      : '1px solid var(--border-color)',
-                                    backgroundColor: isActiveMonth
-                                      ? 'rgba(20, 184, 166, 0.16)'
-                                      : 'var(--bg-color)',
-                                    color: isActiveMonth
-                                      ? 'var(--accent-text)'
-                                      : 'var(--text-secondary)',
-                                    fontSize: '12px',
-                                    fontWeight: isActiveMonth ? 700 : 500,
-                                    whiteSpace: 'nowrap',
-                                    flexShrink: 0,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  {formatYearMonthLabel(m.ym)} ({m.count} ca •{' '}
-                                  {formatHoursMinutes(m.totalSeconds)})
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          <input
-                            type="month"
-                            aria-label={`Chọn tháng cho ${group.employeeName}`}
-                            value={
-                              empSelectedYm !== 'all'
-                                ? empSelectedYm
-                                : ownerSelectedMonth !== 'all'
-                                  ? ownerSelectedMonth
-                                  : group.monthsBreakdown[0]?.ym ||
-                                    currentVnYearMonth
-                            }
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (!val) return;
-                              if (
-                                group.monthsBreakdown.some((m) => m.ym === val)
-                              ) {
-                                setEmployeeSelectedMonths((prev) => ({
-                                  ...prev,
-                                  [group.employeeId]: val,
-                                }));
-                              } else {
-                                setOwnerSelectedMonth(val);
-                                setEmployeeSelectedMonths({});
-                              }
-                            }}
-                            style={{
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: 'var(--bg-color)',
-                              color: 'var(--text-color)',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                            }}
-                          />
-                        </div>
-
                         {/* Shift Rows List */}
                         <div
                           style={{
