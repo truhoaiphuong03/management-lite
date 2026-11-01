@@ -7,7 +7,8 @@ import {
   AppButton,
   AppCard,
   AppToast,
-  TOKENS, THEME_COLORS,
+  TOKENS,
+  THEME_COLORS,
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,
@@ -54,9 +55,13 @@ export function FinanceOverviewScreen({
     year: 'năm',
   };
   const income =
-    r.data?.categories.filter((c) => c.direction === 'income') ?? [];
+    (Array.isArray(r.data?.categories) ? r.data.categories : []).filter(
+      (c) => c.direction === 'income',
+    ) ?? [];
   const expense =
-    r.data?.categories.filter((c) => c.direction !== 'income') ?? [];
+    (Array.isArray(r.data?.categories) ? r.data.categories : []).filter(
+      (c) => c.direction !== 'income',
+    ) ?? [];
   const sum = (rows: typeof income) =>
     rows.reduce((t, c) => t + BigInt(c.total_vnd), 0n);
 
@@ -291,7 +296,7 @@ export function FinanceOverviewScreen({
             }}
           />
         </label>
-        {r.data && (
+        {r.data && !Array.isArray(r.data) && (
           <span
             style={{
               marginLeft: 'auto',
@@ -306,7 +311,7 @@ export function FinanceOverviewScreen({
 
       <ReadStatus {...r} />
 
-      {r.data && (
+      {r.data && !Array.isArray(r.data) && (
         <>
           <div
             style={{

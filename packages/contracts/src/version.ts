@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.6.6';
-export const SYSTEM_COMMIT = '797a343';
+export const SYSTEM_VERSION = '0.6.7';
+export const SYSTEM_COMMIT = '012f7ea';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,25 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.6.6',
+    version: '0.6.7',
     commit: 'latest',
+    released_at: '2026-11-01',
+    summary:
+      'Kiểm toán UX/UI tự động 144 kịch bản (Playwright + axe-core đạt 0 lỗi) & Tinh chỉnh hiển thị Mobile/Desktop',
+    added: [
+      'Hoàn tất kiểm toán tự động 144 kịch bản (24 màn hình × 3 kích thước Mobile/Tablet/Desktop × 2 giao diện Sáng/Tối) với 0 lỗi tràn ngang, 0 lỗi tương phản màu và 0 lỗi runtime.',
+    ],
+    improved: [
+      'Căn chỉnh thẻ KPI trên Tổng quan (/dashboard) tự động xuống dòng nhãn trạng thái trên màn hình điện thoại hẹp, không còn bị gãy chữ thành 3 dòng dọc.',
+      'Hiển thị trọn vẹn 4 tab góc nhìn trên Quản lý Tài khoản (/accounts), ẩn nút Kết nối Google Drive trùng lặp trên Tệp & Drive (/storage), thay emoji bằng icon SVG trên Nhân sự (/employees) và thu gọn mô tả phụ trên thẻ KPI Bảng lương (/payroll) khi xem bằng điện thoại.',
+    ],
+    fixed: [
+      'Đồng bộ đường dẫn import UI trên Công việc (/work), bổ sung guard mảng/đối tượng an toàn trên Thống kê lương (/payroll/stats), Nhật ký hệ thống (/system-logs), Sổ tay lỗi (/issues), Tổng hợp thu chi (/finance) và chuẩn hóa tương phản màu WCAG AA chế độ Sáng trên /storage, /work.',
+    ],
+  },
+  {
+    version: '0.6.6',
+    commit: '012f7ea',
     released_at: '2026-10-31',
     summary:
       'Làm mới toàn bộ hệ thống biểu tượng SVG tối giản hiện đại (strokeWidth 1.75, mỗi tab điều hướng một icon riêng biệt) và loại bỏ các khối giao diện cầu kỳ, trùng lặp.',

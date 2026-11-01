@@ -41,7 +41,6 @@ export interface IssuesScreenProps {
   workspaceId?: string | undefined;
 }
 
-
 const STATUS_TABS = [
   { id: '', label: 'Tất cả', countKey: 'all' as const },
   { id: 'open', label: 'Mới', countKey: 'open' as const },
@@ -167,8 +166,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
         if (res.status === 403) {
           setError({
             title: 'Truy cập bị từ chối (403 Forbidden)',
-            message:
-              'Chỉ Chủ sở hữu (Owner) mới có quyền truy cập Sổ tay lỗi.',
+            message: 'Chỉ Chủ sở hữu (Owner) mới có quyền truy cập Sổ tay lỗi.',
           });
           return;
         }
@@ -209,9 +207,12 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
 
         if (json.success && json.data) {
           if (append) {
-            setIssues((prev) => [...prev, ...json.data.items]);
+            setIssues((prev) => [
+              ...prev,
+              ...(Array.isArray(json.data.items) ? json.data.items : []),
+            ]);
           } else {
-            setIssues(json.data.items);
+            setIssues(Array.isArray(json.data.items) ? json.data.items : []);
           }
           if (json.data.counts) {
             setCounts(json.data.counts);
@@ -628,7 +629,14 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
         title="Sổ tay Vấn đề & Lỗi (Issues)"
         subtitle="Danh sách ghi nhận lỗi và đề xuất cải tiến hệ thống (Owner-only, Read-only)"
         actions={
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: '8px',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
             {(counts?.awaiting_owner ?? 0) > 0 && (
               <AppButton
                 variant="primary"
@@ -716,7 +724,9 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                 gap: '8px',
                 padding: '8px 16px',
                 borderRadius: '20px',
-                border: isActive ? '1px solid #14B8A6' : '1px solid var(--border-color)',
+                border: isActive
+                  ? '1px solid #14B8A6'
+                  : '1px solid var(--border-color)',
                 backgroundColor: isActive
                   ? 'rgba(20, 184, 166, 0.15)'
                   : 'var(--surface-subtle)',
@@ -736,8 +746,12 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   style={{
                     padding: '2px 8px',
                     borderRadius: '10px',
-                    backgroundColor: isActive ? 'var(--primary-color)' : 'var(--surface-hover)',
-                    color: isActive ? 'var(--inverse-text, #0B1220)' : 'var(--text-secondary)',
+                    backgroundColor: isActive
+                      ? 'var(--primary-color)'
+                      : 'var(--surface-hover)',
+                    color: isActive
+                      ? 'var(--inverse-text, #0B1220)'
+                      : 'var(--text-secondary)',
                     fontSize: '12px',
                     fontWeight: 700,
                   }}
@@ -919,7 +933,9 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           gap: '12px',
           padding: '12px 16px',
           backgroundColor:
-            selectedIssuesMap.size > 0 ? 'rgba(20, 184, 166, 0.08)' : 'var(--surface-subtle)',
+            selectedIssuesMap.size > 0
+              ? 'rgba(20, 184, 166, 0.08)'
+              : 'var(--surface-subtle)',
           border:
             selectedIssuesMap.size > 0
               ? '1px solid rgba(20, 184, 166, 0.3)'
@@ -967,7 +983,11 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           {selectedIssuesMap.size > 0 && (
             <>
               <span
-                style={{ fontSize: '13px', color: 'var(--accent-text)', fontWeight: 600 }}
+                style={{
+                  fontSize: '13px',
+                  color: 'var(--accent-text)',
+                  fontWeight: 600,
+                }}
               >
                 • Đã chọn: {selectedIssuesMap.size} lỗi
               </span>
@@ -1267,7 +1287,9 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     </span>
                   </div>
 
-                  <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <span
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
                     Cập nhật: {formatTimestamp(issue.updated_at)}
                   </span>
                 </div>

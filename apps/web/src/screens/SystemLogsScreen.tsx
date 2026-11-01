@@ -212,9 +212,9 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
           `/api/v1/system/logs?${query()}`,
         ),
       ]);
-      setSummary(s);
-      setRows(l.items);
-      setCursor(l.next_cursor);
+      setSummary(s && typeof s === 'object' && 'counts' in s ? s : null);
+      setRows(Array.isArray(l?.items) ? l.items : []);
+      setCursor(l?.next_cursor ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tải được nhật ký.');
     } finally {
@@ -502,9 +502,7 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
             disabled={busyKey === 'clear:all'}
             onClick={() => void handleClearResolvedLogs()}
           >
-            {busyKey === 'clear:all'
-              ? 'Đang dọn log…'
-              : '🧹 Dọn sạch log cũ'}
+            {busyKey === 'clear:all' ? 'Đang dọn log…' : '🧹 Dọn sạch log cũ'}
           </AppButton>
         </div>
       </AppCard>

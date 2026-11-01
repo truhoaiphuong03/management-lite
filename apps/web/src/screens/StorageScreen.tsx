@@ -423,13 +423,12 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       deliverable_count:
         raw.deliverable_count ?? deliverables.length ?? outputs.length,
       staff_download_confirmed:
-        raw.staff_download_confirmed ??
-        Boolean(raw.staff_source_acknowledged),
+        raw.staff_download_confirmed ?? Boolean(raw.staff_source_acknowledged),
       owner_review_confirmed:
         raw.owner_review_confirmed ??
         Boolean(
           deliverables.length > 0 &&
-            deliverables.every((d) => d.owner_receipt_confirmed),
+          deliverables.every((d) => d.owner_receipt_confirmed),
         ),
     };
   };
@@ -563,8 +562,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         const isAck =
           Boolean(f.staff_download_confirmed) ||
           Boolean(f.staff_source_acknowledged);
-        const delivCnt =
-          f.deliverable_count ?? f.deliverables?.length ?? 0;
+        const delivCnt = f.deliverable_count ?? f.deliverables?.length ?? 0;
         const isReviewed =
           Boolean(f.owner_review_confirmed) ||
           Boolean(f.delete_readiness?.is_ready);
@@ -706,7 +704,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         ? { assigned_employee_ids: newSourceEmployeeIds }
         : {}),
       assigned_employee_id:
-        newSourceEmployeeIds.length > 0 ? (newSourceEmployeeIds[0] ?? null) : null,
+        newSourceEmployeeIds.length > 0
+          ? (newSourceEmployeeIds[0] ?? null)
+          : null,
       permission_role: newSourcePermissionRole,
       parent_folder_id: null,
       notes: newSourceNotes.trim() || null,
@@ -921,7 +921,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     e.preventDefault();
     const targetFolder = uploadTargetFolderId || folderId;
     if (!targetFolder) {
-      setErrorMessage('Vui lòng chọn thư mục đích để tải video lên Google Drive.');
+      setErrorMessage(
+        'Vui lòng chọn thư mục đích để tải video lên Google Drive.',
+      );
       return;
     }
     if (!uploadVideoName.trim()) {
@@ -939,7 +941,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     setActionLoading(true);
     setErrorMessage(null);
     setUploadProgressPct(10);
-    setUploadStatusText('Đang khởi tạo phiên Resumable Upload với Google Drive…');
+    setUploadStatusText(
+      'Đang khởi tạo phiên Resumable Upload với Google Drive…',
+    );
 
     try {
       const initRes = await fetch(
@@ -1734,7 +1738,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     if (f) {
                       setUploadVideoName(f.name);
                       setUploadVideoSizeMB(
-                        Math.max(1, Math.round(f.size / (1024 * 1024))).toString(),
+                        Math.max(
+                          1,
+                          Math.round(f.size / (1024 * 1024)),
+                        ).toString(),
                       );
                       setUploadVideoMimeType(f.type || 'video/mp4');
                     }
@@ -2162,7 +2169,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               </div>
 
               <div>
-                <span style={{ color: 'var(--muted-color)' }}>Chủ sở hữu Drive:</span>
+                <span style={{ color: 'var(--muted-color)' }}>
+                  Chủ sở hữu Drive:
+                </span>
                 <div
                   style={{
                     fontWeight: 600,
@@ -2201,7 +2210,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               </div>
 
               <div>
-                <span style={{ color: 'var(--muted-color)' }}>Số lượng thành phẩm:</span>
+                <span style={{ color: 'var(--muted-color)' }}>
+                  Số lượng thành phẩm:
+                </span>
                 <div
                   style={{
                     fontWeight: 600,
@@ -2217,7 +2228,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               </div>
 
               <div>
-                <span style={{ color: 'var(--muted-color)' }}>Ngày tạo trên Drive:</span>
+                <span style={{ color: 'var(--muted-color)' }}>
+                  Ngày tạo trên Drive:
+                </span>
                 <div
                   style={{
                     fontWeight: 600,
@@ -2396,7 +2409,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-color)' }}>
+                      <div
+                        style={{ fontWeight: 600, color: 'var(--text-color)' }}
+                      >
                         {grant.employee_name || grant.employee_id}{' '}
                         {grant.google_email ? `(${grant.google_email})` : ''}
                       </div>
@@ -2444,10 +2459,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           </AppCard>
 
           {/* 1C. Folder Video & Files List Card (Requirement 5, 8, 9) */}
-          <AppCard
-            style={{ padding: '24px' }}
-            data-testid="storage-files-card"
-          >
+          <AppCard style={{ padding: '24px' }} data-testid="storage-files-card">
             <div
               style={{
                 display: 'flex',
@@ -2555,7 +2567,12 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       }}
                     >
                       <div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-color)' }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            color: 'var(--text-color)',
+                          }}
+                        >
                           {file.name}
                         </div>
                         <div
@@ -2731,7 +2748,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-color)' }}>
+                      <div
+                        style={{ fontWeight: 600, color: 'var(--text-color)' }}
+                      >
                         {assignment.employee_name}
                       </div>
                       <div
@@ -2857,8 +2876,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   fontSize: '13px',
                 }}
               >
-                Chưa có thư mục thành phẩm nào được nộp. Bấm "Nộp thành phẩm"
-                để tạo trực tiếp hoặc thêm liên kết Drive.
+                Chưa có thư mục thành phẩm nào được nộp. Bấm "Nộp thành phẩm" để
+                tạo trực tiếp hoặc thêm liên kết Drive.
               </div>
             ) : (
               <div
@@ -3024,7 +3043,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   marginBottom: '12px',
                 }}
               >
-                <div style={{ color: isReady ? 'var(--danger-text)' : '#EAB308' }}>
+                <div
+                  style={{ color: isReady ? 'var(--danger-text)' : '#EAB308' }}
+                >
                   <ShieldAlertIcon size={20} />
                 </div>
                 <h3
@@ -3139,7 +3160,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   <div style={{ fontWeight: 700, marginBottom: '4px' }}>
                     ✓ Đủ điều kiện chuyển vào thùng rác Google Drive
                   </div>
-                  <div style={{ color: 'var(--muted-color)', fontSize: '12px' }}>
+                  <div
+                    style={{ color: 'var(--muted-color)', fontSize: '12px' }}
+                  >
                     Tất cả nhân sự ({readiness?.total_assignments}) đã bàn giao
                     output. Tất cả thành phẩm ({readiness?.total_outputs}) đã
                     được Owner nghiệm thu đúng revision hiện hành.
@@ -3555,6 +3578,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 data-testid="storage-connect-drive-btn"
                 onClick={() => setShowDriveOAuthModal(true)}
                 disabled={loading}
+                style={{
+                  display: driveConnection?.connected ? 'inline-flex' : 'none',
+                }}
               >
                 <LinkIcon size={16} />
                 <span>
@@ -3620,7 +3646,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             fontSize: '13px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flexWrap: 'wrap',
+            }}
+          >
             <StatusBadge
               status={driveConnection?.connected ? 'success' : 'warning'}
               label={
@@ -3703,7 +3736,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             style={{
               fontSize: '24px',
               fontWeight: 700,
-              color: '#A855F7',
+              color: 'var(--purple-text)',
               marginTop: '4px',
             }}
           >
@@ -3787,8 +3820,14 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 fontWeight: 600,
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: typeFilter === 'all' ? 'var(--primary-color)' : 'var(--surface-hover)',
-                color: typeFilter === 'all' ? '#0F172A' : 'var(--muted-color)',
+                backgroundColor:
+                  typeFilter === 'all'
+                    ? 'var(--primary-color)'
+                    : 'var(--surface-hover)',
+                color:
+                  typeFilter === 'all'
+                    ? 'var(--inverse-text)'
+                    : 'var(--muted-color)',
               }}
             >
               Tất cả
@@ -3807,8 +3846,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 border: 'none',
                 cursor: 'pointer',
                 backgroundColor:
-                  typeFilter === 'source' ? 'var(--primary-color)' : 'var(--surface-hover)',
-                color: typeFilter === 'source' ? '#0F172A' : 'var(--muted-color)',
+                  typeFilter === 'source'
+                    ? 'var(--primary-color)'
+                    : 'var(--surface-hover)',
+                color:
+                  typeFilter === 'source'
+                    ? 'var(--inverse-text)'
+                    : 'var(--muted-color)',
               }}
             >
               Thư mục gốc
@@ -3827,8 +3871,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 border: 'none',
                 cursor: 'pointer',
                 backgroundColor:
-                  typeFilter === 'deliverable' ? 'var(--primary-color)' : 'var(--surface-hover)',
-                color: typeFilter === 'deliverable' ? '#0F172A' : 'var(--muted-color)',
+                  typeFilter === 'deliverable'
+                    ? 'var(--primary-color)'
+                    : 'var(--surface-hover)',
+                color:
+                  typeFilter === 'deliverable'
+                    ? 'var(--inverse-text)'
+                    : 'var(--muted-color)',
               }}
             >
               Thành phẩm
@@ -3919,7 +3968,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       ) : (
         <AppCard style={{ padding: 0, overflowX: 'auto' }}>
           {/* Mobile Cards View (<= 768px) */}
-          <div className="storage-mobile-cards" data-testid="storage-mobile-cards">
+          <div
+            className="storage-mobile-cards"
+            data-testid="storage-mobile-cards"
+          >
             {pagedFolders.map((folder) => {
               const activeGrants = (folder.permission_grants ?? []).filter(
                 (g) => !g.revoked_at,
@@ -3965,7 +4017,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         }}
                       >
                         v{folder.version} • Tạo{' '}
-                        {new Date(folder.created_at).toLocaleDateString('vi-VN')}
+                        {new Date(folder.created_at).toLocaleDateString(
+                          'vi-VN',
+                        )}
                       </div>
                     </div>
                     <span
@@ -4007,13 +4061,18 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     }}
                   >
                     <span>
-                      👤 <strong>{folder.assigned_employee_name || 'Chưa gán'}</strong>
+                      👤{' '}
+                      <strong>
+                        {folder.assigned_employee_name || 'Chưa gán'}
+                      </strong>
                       {activeGrants.length > 0
                         ? ` (${activeGrants.length} quyền)`
                         : ''}
                     </span>
                     <span>•</span>
-                    <span style={{ color: 'var(--info-text)', fontWeight: 600 }}>
+                    <span
+                      style={{ color: 'var(--info-text)', fontWeight: 600 }}
+                    >
                       📁{' '}
                       {folder.deliverable_count ??
                         folder.deliverables?.length ??
@@ -4113,20 +4172,34 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   backgroundColor: 'var(--surface-subtle)',
                 }}
               >
-                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
+                <th
+                  style={{ padding: '12px 16px', color: 'var(--muted-color)' }}
+                >
                   Tên thư mục
                 </th>
-                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>Loại</th>
-                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
+                <th
+                  style={{ padding: '12px 16px', color: 'var(--muted-color)' }}
+                >
+                  Loại
+                </th>
+                <th
+                  style={{ padding: '12px 16px', color: 'var(--muted-color)' }}
+                >
                   Nhân sự & Quyền Drive
                 </th>
-                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
+                <th
+                  style={{ padding: '12px 16px', color: 'var(--muted-color)' }}
+                >
                   Tải gốc
                 </th>
-                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
+                <th
+                  style={{ padding: '12px 16px', color: 'var(--muted-color)' }}
+                >
                   Thành phẩm
                 </th>
-                <th style={{ padding: '12px 16px', color: 'var(--muted-color)' }}>
+                <th
+                  style={{ padding: '12px 16px', color: 'var(--muted-color)' }}
+                >
                   Duyệt
                 </th>
                 <th
@@ -4154,7 +4227,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     }}
                   >
                     <td style={{ padding: '12px 16px', fontWeight: 600 }}>
-                      <div style={{ color: 'var(--text-color)' }}>{folder.name}</div>
+                      <div style={{ color: 'var(--text-color)' }}>
+                        {folder.name}
+                      </div>
                       <div
                         style={{
                           fontSize: '12px',
@@ -4201,7 +4276,12 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       </span>
                     </td>
 
-                    <td style={{ padding: '12px 16px', color: 'var(--text-color)' }}>
+                    <td
+                      style={{
+                        padding: '12px 16px',
+                        color: 'var(--text-color)',
+                      }}
+                    >
                       <div>{folder.assigned_employee_name || '-'}</div>
                       {activeGrants.length > 0 && (
                         <div
@@ -4211,7 +4291,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                             marginTop: '2px',
                           }}
                         >
-                          {activeGrants.length} quyền ({activeGrants[0]?.drive_role})
+                          {activeGrants.length} quyền (
+                          {activeGrants[0]?.drive_role})
                         </div>
                       )}
                     </td>
@@ -4226,7 +4307,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                     </td>
 
                     <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--info-text)' }}>
+                      <span
+                        style={{ fontWeight: 600, color: 'var(--info-text)' }}
+                      >
                         {folder.deliverable_count ??
                           folder.deliverables?.length ??
                           0}{' '}

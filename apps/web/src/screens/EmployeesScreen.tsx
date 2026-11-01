@@ -11,6 +11,7 @@ import {
   CloseIcon,
   LinkIcon,
   CopyIcon,
+  DownloadIcon,
   ListFooter,
   AppDialog,
   AppToast,
@@ -484,7 +485,13 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       )}
 
       {/* Search Input & Filter Tabs */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginBottom: '10px',
+        }}
+      >
         <AppButton
           variant="secondary"
           disabled={filteredEmployees.length === 0}
@@ -518,8 +525,11 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               escapeCsv(emp.bank_account_holder || ''),
             ]);
             const csvContent =
-              '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              '\uFEFF' +
+              [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+            const blob = new Blob([csvContent], {
+              type: 'text/csv;charset=utf-8;',
+            });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -535,7 +545,8 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           }}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          <span>📥 Xuất CSV danh sách ({filteredEmployees.length})</span>
+          <DownloadIcon size={14} />
+          <span>Xuất CSV danh sách ({filteredEmployees.length})</span>
         </AppButton>
       </div>
       <div
@@ -567,16 +578,20 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               onClick={() => setStatusFilter(tab.key)}
               style={{
                 boxSizing: 'border-box',
-                minHeight: '40px',
-                padding: '8px 14px',
+                minHeight: '34px',
+                padding: '6px 10px',
                 borderRadius: '6px',
                 border: '1px solid',
-                borderColor: statusFilter === tab.key ? '#14B8A6' : 'var(--border-color)',
+                borderColor:
+                  statusFilter === tab.key ? '#14B8A6' : 'var(--border-color)',
                 backgroundColor:
                   statusFilter === tab.key
                     ? 'rgba(20, 184, 166, 0.15)'
                     : 'var(--surface-hover)',
-                color: statusFilter === tab.key ? 'var(--accent-text)' : 'var(--muted-color)',
+                color:
+                  statusFilter === tab.key
+                    ? 'var(--accent-text)'
+                    : 'var(--muted-color)',
                 fontSize: '13px',
                 fontWeight: 600,
                 lineHeight: 1.2,
@@ -753,7 +768,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                     >
                       {emp.employee_code}
                     </span>
-                    <strong style={{ fontSize: '15px', color: 'var(--text-color)' }}>
+                    <strong
+                      style={{ fontSize: '15px', color: 'var(--text-color)' }}
+                    >
                       {emp.full_name}
                     </strong>
                   </div>
@@ -764,7 +781,14 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                       marginTop: '4px',
                     }}
                   >
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '10px',
+                        alignItems: 'center',
+                      }}
+                    >
                       <span>Email: {emp.user?.email || 'Chưa liên kết'}</span>
                       {emp.position_title && (
                         <span
@@ -783,20 +807,37 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                       )}
                       <span data-testid={`emp-phone-${emp.id}`}>
                         {emp.phone ? (
-                          <span style={{ color: 'var(--text-color)' }}>📞 {emp.phone}</span>
+                          <span style={{ color: 'var(--text-color)' }}>
+                            📞 {emp.phone}
+                          </span>
                         ) : (
-                          <span style={{ color: 'var(--warning-text)', fontSize: '12px' }}>
+                          <span
+                            style={{
+                              color: 'var(--warning-text)',
+                              fontSize: '12px',
+                            }}
+                          >
                             ⚠️ Chưa có SĐT
                           </span>
                         )}
                       </span>
                       <span data-testid={`emp-bank-${emp.id}`}>
                         {emp.bank_name && emp.bank_account_number ? (
-                          <span style={{ color: 'var(--success-text)', fontSize: '12px' }}>
+                          <span
+                            style={{
+                              color: 'var(--success-text)',
+                              fontSize: '12px',
+                            }}
+                          >
                             🏦 {emp.bank_name} • {emp.bank_account_number}
                           </span>
                         ) : (
-                          <span style={{ color: 'var(--muted-color)', fontSize: '12px' }}>
+                          <span
+                            style={{
+                              color: 'var(--muted-color)',
+                              fontSize: '12px',
+                            }}
+                          >
                             Chưa có TK ngân hàng
                           </span>
                         )}

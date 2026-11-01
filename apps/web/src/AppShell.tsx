@@ -592,7 +592,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           }
           .app-shell-role-badge {
             padding: 2px 7px !important;
-            font-size: 10px !important;
+            font-size: 11px !important;
           }
         }
         @media (max-width: 380px) {

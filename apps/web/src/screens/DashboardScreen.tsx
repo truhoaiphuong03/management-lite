@@ -797,6 +797,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
+              flexWrap: 'wrap',
+              gap: '4px',
             }}
           >
             <span
@@ -840,6 +842,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
+              flexWrap: 'wrap',
+              gap: '4px',
             }}
           >
             <span
@@ -885,6 +889,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'flex-start',
+                  flexWrap: 'wrap',
+                  gap: '4px',
                 }}
               >
                 <span
@@ -927,6 +933,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'flex-start',
+                  flexWrap: 'wrap',
+                  gap: '4px',
                 }}
               >
                 <span

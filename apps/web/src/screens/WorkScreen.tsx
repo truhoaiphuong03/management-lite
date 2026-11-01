@@ -14,8 +14,6 @@ import {
   InfoIcon,
   CheckCircleIcon,
   RotateCcwIcon,
-} from '@management-lite/ui/components';
-import {
   ActionIconButton,
   Pagination,
   clampPage,
@@ -195,7 +193,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         if (!empRes.ok) break;
         const empBody = await empRes.json();
         if (isAborted()) return;
-        const items = empBody.data?.items || [];
+        const items = Array.isArray(empBody.data?.items)
+          ? empBody.data.items
+          : [];
         for (const e of items) {
           if (!seenIds.has(e.id)) {
             seenIds.add(e.id);
@@ -282,7 +282,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         );
         if (schedRes.ok) {
           const schedBody = await schedRes.json();
-          if (active && schedBody.success && schedBody.data?.entries) {
+          if (
+            active &&
+            schedBody.success &&
+            Array.isArray(schedBody.data?.entries)
+          ) {
             setScheduleEntries(schedBody.data.entries);
           }
         }
@@ -340,7 +344,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         });
         if (res.ok) {
           const body = await res.json();
-          if (body.success && body.data?.items) {
+          if (body.success && Array.isArray(body.data?.items)) {
             setWorkItems(body.data.items);
           }
         } else if (res.status === 404 || res.status === 503) {
@@ -2455,26 +2459,31 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               key: 'all',
               label: `Tất cả (${kpiStats.total})`,
               activeColor: '#38BDF8',
+              textColor: 'var(--info-text)',
             },
             {
               key: 'today',
               label: `Hôm nay (${kpiStats.todayCount})`,
               activeColor: '#14B8A6',
+              textColor: 'var(--accent-text)',
             },
             {
               key: 'overdue',
               label: `Quá hạn (${kpiStats.overdueCount})`,
               activeColor: '#EF4444',
+              textColor: 'var(--danger-text)',
             },
             {
               key: 'blocked',
               label: `Cần sửa / Bị chặn (${kpiStats.blockedCount})`,
               activeColor: '#F97316',
+              textColor: 'var(--warning-text)',
             },
             {
               key: 'pending_review',
               label: `Chờ duyệt (${kpiStats.inReview})`,
               activeColor: '#F59E0B',
+              textColor: 'var(--warning-text)',
             },
           ] as const
         ).map((chip) => {
@@ -2502,7 +2511,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 border: isActive
                   ? `1px solid ${chip.activeColor}`
                   : '1px solid var(--border-subtle)',
-                color: isActive ? chip.activeColor : 'var(--muted-color)',
+                color: isActive ? chip.textColor : 'var(--muted-color)',
                 transition:
                   'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease',
               }}

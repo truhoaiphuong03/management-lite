@@ -306,7 +306,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <span
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          <span style={{ color: 'var(--success-text)', fontSize: '10px' }}>
+          <span style={{ color: 'var(--success-text)', fontSize: '11px' }}>
             ●
           </span>
           <strong style={{ color: 'var(--text-color)', fontWeight: 500 }}>

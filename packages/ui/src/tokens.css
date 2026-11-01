@@ -531,6 +531,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
   }
+  .kpi-grid-4 > div {
+    padding: 12px !important;
+  }
   .quick-actions-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;

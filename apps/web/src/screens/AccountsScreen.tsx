@@ -2569,6 +2569,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
+                flexWrap: 'wrap',
                 gap: '8px',
                 paddingBottom: '10px',
                 marginBottom: '10px',
@@ -2580,8 +2581,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 style={{
                   display: 'inline-flex',
                   gap: '4px',
-                  flexWrap: 'nowrap',
-                  overflowX: 'auto',
+                  flexWrap: 'wrap',
                   maxWidth: '100%',
                   padding: '3px',
                   borderRadius: '8px',

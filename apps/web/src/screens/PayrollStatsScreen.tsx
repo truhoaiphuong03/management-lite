@@ -382,7 +382,7 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
             {error}
           </p>
         </AppCard>
-      ) : !data || data.buckets.length === 0 ? (
+      ) : !data || !Array.isArray(data.buckets) || data.buckets.length === 0 ? (
         <EmptyState
           title="Chưa có dữ liệu lương trong khoảng này"
           description="Chỉ tính ca đã hoàn tất và được duyệt. Hãy duyệt ca chấm công hoặc nhập tệp Excel bên dưới."
