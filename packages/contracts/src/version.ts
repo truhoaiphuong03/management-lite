@@ -54,7 +54,10 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
       'Chuẩn hóa tên gọi 7 mục trên Thanh menu đứng đồng bộ 2 chữ ngắn gọn, dễ nhìn (bỏ các cụm từ dài dòng như "Ca & Chấm công", "Nhân sự & Lương", "Tài khoản dùng chung", "Thu chi cá nhân").',
       'Khi bấm vào "Quản trị", mở trực tiếp tab "Sổ tay lỗi" (/issues) thay vì trang trung gian.',
     ],
-    fixed: [],
+    fixed: [
+      'Sửa đường dẫn (breadcrumb) trên màn hình Tài khoản dùng chung (/accounts): không còn hiện sai mục cha "Quản trị" sau khi mục này được đưa lên Thanh menu đứng.',
+      'Thanh điều hướng phụ trên điện thoại xuống dòng gọn trong khung thay vì cuộn ngang, thu gọn khoảng cách để không bị tràn trên màn hình nhỏ.',
+    ],
   },
   {
     version: '0.7.0',

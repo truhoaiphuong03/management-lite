@@ -1,0 +1,105 @@
+{
+  "distinct_addresses_total": 75,
+  "by_domain_class": {
+    "gmail": 18,
+    "custom-domain": 20,
+    "reserved": 37
+  },
+  "by_classification": {
+    "REAL_CONFIRMED_IN_DATA_EXPORT": 4,
+    "REAL_LIKELY_IN_SOURCE_OR_DOCS": 9,
+    "AMBIGUOUS_TEST_ONLY": 11,
+    "FIXTURE_LIKELY_TEST_ONLY": 6,
+    "FIXTURE_RESERVED_DOMAIN": 37,
+    "AMBIGUOUS_FIXTURE_NAME_IN_SOURCE_OR_DOCS": 8
+  },
+  "files_by_classification": {
+    "REAL_CONFIRMED_IN_DATA_EXPORT": [
+      ".data/tiktok-v4-bridge-be3e58cb-9542-49ad-8ce1-b57e768789f6.json",
+      "AGENTS.md",
+      "apps/web/src/screens/StorageScreen.tsx",
+      "docs/reports/2026-10-22-shared-admin-sso.md",
+      "packages/contracts/src/version.ts",
+      "tests/backend/bridge-sso.test.mjs"
+    ],
+    "REAL_LIKELY_IN_SOURCE_OR_DOCS": [
+      "apps/api/src/bridge/service.ts",
+      "apps/web/src/screens/AccountsScreen.tsx",
+      "scripts/capture-anti-implement-61.mjs",
+      "scripts/capture-anti-next-64.mjs",
+      "scripts/recover-owner-access.mjs",
+      "scripts/seed-unified-qa.mjs",
+      "tests/backend/email-verification.test.mjs",
+      "tests/backend/password-reset.test.mjs",
+      "tests/web/password-reset-browser.mjs",
+      "tests/web/session-expiry-browser.mjs"
+    ],
+    "AMBIGUOUS_TEST_ONLY": [
+      "tests/backend/accounts.test.mjs",
+      "tests/database/config.test.mjs",
+      "tests/web/accounts-screen.test.mjs"
+    ],
+    "FIXTURE_LIKELY_TEST_ONLY": [
+      "tests/backend/accounts.test.mjs",
+      "tests/backend/bug-ai-management.test.mjs",
+      "tests/backend/storage.test.mjs",
+      "tests/web/accounts-screen.test.mjs",
+      "tests/web/design-system.test.mjs",
+      "tests/web/ui-final-55.test.mjs"
+    ],
+    "FIXTURE_RESERVED_DOMAIN": [
+      ".github/workflows/deploy.yml",
+      ".github/workflows/foundation.yml",
+      "apps/web/src/screens/EmployeeNewScreen.tsx",
+      "apps/web/src/screens/LoginScreen.tsx",
+      "docs/reports/2026-10-22-shared-admin-sso.md",
+      "scripts/add-admin.mjs",
+      "scripts/bootstrap-owner.mjs",
+      "scripts/dev/preview-screens.mjs",
+      "scripts/recover-owner-access.mjs",
+      "scripts/seed-unified-qa.mjs",
+      "scripts/test-ui-fix-47-chrome.mjs",
+      "scripts/ui-audit/run.mjs",
+      "tests/backend/admin-login.test.mjs",
+      "tests/backend/auth-remember-01-cutover-fallback.test.mjs",
+      "tests/backend/brevo-recovery-flow.test.mjs",
+      "tests/backend/brevo-reset-email.test.mjs",
+      "tests/backend/bridge-postgres.test.mjs",
+      "tests/backend/bridge-safety.test.mjs",
+      "tests/backend/cicd-policy.test.mjs",
+      "tests/backend/comprehensive-business-e2e.test.mjs",
+      "tests/backend/email-verification.test.mjs",
+      "tests/backend/emp-mvp.test.mjs",
+      "tests/backend/password-reset.test.mjs",
+      "tests/backend/phase19-ops-data-hygiene.test.mjs",
+      "tests/backend/privileged-script-safety.test.mjs",
+      "tests/backend/sec-05a.test.mjs",
+      "tests/backend/windows-p0-gate.test.mjs",
+      "tests/database/integration.test.mjs",
+      "tests/security/phase14-hardening.test.mjs",
+      "tests/web/dashboard-cache-performance.test.mjs",
+      "tests/web/employee-detail-screen.test.mjs",
+      "tests/web/mobile-responsive-p0.test.mjs",
+      "tests/web/verify-email-screen.test.mjs",
+      "tests/web/version.test.mjs"
+    ],
+    "AMBIGUOUS_FIXTURE_NAME_IN_SOURCE_OR_DOCS": [
+      "apps/api/src/auth/reset-email.ts",
+      "apps/api/src/auth/service.ts",
+      "apps/api/src/storage/provider.ts",
+      "apps/api/src/storage/service.ts",
+      "apps/web/src/screens/StorageScreen.tsx",
+      "scripts/capture-anti-fix-66.mjs",
+      "scripts/capture-anti-implement-61.mjs",
+      "scripts/capture-anti-next-64.mjs",
+      "scripts/capture-ui-final-55.mjs",
+      "scripts/capture-ui-fix-57.mjs",
+      "scripts/capture-ui-refine-53.mjs",
+      "scripts/dev/Start-StorageV2Dev.ps1",
+      "scripts/dev/Verify-BrevoDomainAndSender.ps1",
+      "tests/backend/brevo-reset-email.test.mjs",
+      "tests/backend/email-verification.test.mjs"
+    ]
+  },
+  "note": "No address or domain is printed. REAL_* = treat as personal data; FIXTURE_* = test data; AMBIGUOUS_* = Owner must decide."
+}

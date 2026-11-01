@@ -12,6 +12,7 @@
  * Passphrase: environment variable ESCROW_PASSPHRASE (for automated tests) or a hidden prompt.
  * Fingerprints shown by `verify` are the first 8 hex chars of SHA-256("ml-escrow-fp:" + name + ":" + value).
  */
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -36,6 +37,65 @@ function fail(msg) {
   process.exit(1);
 }
 
+function insideGitWorkTree(target) {
+  let dir = path.dirname(path.resolve(target));
+  while (!fs.existsSync(dir) && path.dirname(dir) !== dir)
+    dir = path.dirname(dir);
+  try {
+    execFileSync('git', ['-C', dir, 'rev-parse', '--is-inside-work-tree'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function guardOutput(out, { allowInRepo }) {
+  if (insideGitWorkTree(out) && !allowInRepo) {
+    fail(
+      `refusing to write ${path.resolve(out)}: it is inside a Git work tree (secrets must never be committed). Choose a path outside any repository.`,
+    );
+  }
+  if (path.resolve(out).toUpperCase().startsWith('C:\\')) {
+    console.warn(
+      'WARNING: output is on drive C:. Keep at least one more copy OUTSIDE drive C: (the purpose of escrow is to survive loss of this disk).',
+    );
+  }
+}
+
+function parseEscrowFile(escrowPath) {
+  let file;
+  try {
+    file = JSON.parse(fs.readFileSync(escrowPath, 'utf8'));
+  } catch {
+    fail('escrow file is unreadable or not valid JSON');
+  }
+  const k = file?.kdf;
+  if (
+    file?.magic !== MAGIC ||
+    file?.v !== 1 ||
+    !k ||
+    k.alg !== 'scrypt' ||
+    !Number.isInteger(k.N) ||
+    k.N < 1 << 14 ||
+    k.N > 1 << 20 ||
+    (k.N & (k.N - 1)) !== 0 ||
+    !Number.isInteger(k.r) ||
+    k.r < 1 ||
+    k.r > 16 ||
+    !Number.isInteger(k.p) ||
+    k.p < 1 ||
+    k.p > 4 ||
+    typeof k.salt_b64 !== 'string' ||
+    typeof file.nonce_b64 !== 'string' ||
+    typeof file.tag_b64 !== 'string' ||
+    typeof file.ct_b64 !== 'string'
+  ) {
+    fail('escrow file header is invalid or has unsafe KDF parameters');
+  }
+  return file;
+}
 function parseEnv(text) {
   const out = {};
   for (const raw of text.split(/\r?\n/)) {
@@ -166,6 +226,7 @@ if (cmd === 'seal') {
   const out = arg('out');
   if (!envPath || !out) fail('--env and --out are required');
   if (fs.existsSync(out)) fail(`refusing to overwrite ${out}`);
+  guardOutput(out, { allowInRepo: process.argv.includes('--allow-in-repo') });
   const names = (arg('vars') ? arg('vars').split(',') : DEFAULT_VARS).map((s) =>
     s.trim(),
   );
@@ -192,7 +253,7 @@ if (cmd === 'seal') {
   const escrow = arg('escrow');
   if (!escrow) fail('--escrow is required');
   const pass = await readPassphrase(false);
-  const data = unseal(JSON.parse(fs.readFileSync(escrow, 'utf8')), pass);
+  const data = unseal(parseEscrowFile(escrow), pass);
   const envPath = arg('env');
   const env = envPath ? parseEnv(fs.readFileSync(envPath, 'utf8')) : null;
   console.log(`escrow OK: ${Object.keys(data).length} variable(s)`);
@@ -211,15 +272,16 @@ if (cmd === 'seal') {
   const out = arg('out');
   if (!escrow || !out) fail('--escrow and --out are required');
   if (fs.existsSync(out)) fail(`refusing to overwrite ${out}`);
+  guardOutput(out, { allowInRepo: false });
   const pass = await readPassphrase(false);
-  const data = unseal(JSON.parse(fs.readFileSync(escrow, 'utf8')), pass);
+  const data = unseal(parseEscrowFile(escrow), pass);
   const text =
     Object.entries(data)
       .map(([n, v]) => `${n}=${v}`)
       .join('\n') + '\n';
   fs.writeFileSync(out, text, { flag: 'wx', mode: 0o600 });
   console.log(
-    `restored ${Object.keys(data).length} variable(s) to ${path.resolve(out)} (plaintext - protect it!)`,
+    `restored ${Object.keys(data).length} variable(s) to ${path.resolve(out)} (plaintext - restrict its ACL, e.g. icacls <file> /inheritance:r /grant:r %USERNAME%:F, and delete it after use)`,
   );
 } else {
   console.error(

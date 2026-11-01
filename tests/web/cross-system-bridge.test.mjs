@@ -60,12 +60,25 @@ test('CROSS-SYSTEM-BRIDGE-01: management-lite API & Web expose full data bridge 
   );
 
   assert.ok(
-    ownerHtml.includes('Kết nối dữ liệu TikTok AI Factory (hoaiphuong.click)'),
+    ownerHtml.includes('Liên thông TikTok AI Factory (hoaiphuong.click)'),
     'Owner Dashboard must render the TikTok AI Factory cross-system integration card',
   );
   assert.ok(
-    ownerHtml.includes('Đồng bộ nhân sự &amp; công việc'),
-    'Owner Dashboard must describe the supported sync scope',
+    ownerHtml.includes('Chi tiết V4'),
+    'Owner Dashboard must expose the (collapsed by default) V4 details toggle',
+  );
+  assert.ok(
+    ownerHtml.includes('Đồng bộ') &&
+      ownerHtml.includes('nhân sự &amp; công việc'),
+    'Owner Dashboard must offer the sync action and label its supported scope (personnel & work items)',
+  );
+  assert.ok(
+    dashSrc.includes('Đồng bộ nhân sự và công việc với hoaiphuong.click'),
+    'DashboardScreen must describe the supported sync scope in the expandable V4 details',
+  );
+  assert.ok(
+    !ownerHtml.includes('Đồng bộ nhân sự và công việc với hoaiphuong.click'),
+    'V4 details must stay collapsed by default',
   );
 
   const staffHtml = renderToStaticMarkup(
@@ -77,7 +90,12 @@ test('CROSS-SYSTEM-BRIDGE-01: management-lite API & Web expose full data bridge 
   );
 
   assert.ok(
-    !staffHtml.includes('Kết nối dữ liệu TikTok AI Factory (hoaiphuong.click)'),
+    !staffHtml.includes('Liên thông TikTok AI Factory (hoaiphuong.click)'),
     'Staff Dashboard must not render the TikTok AI Factory cross-system integration card',
+  );
+  assert.ok(
+    !staffHtml.includes('Chi tiết V4') &&
+      !staffHtml.includes('nhân sự &amp; công việc'),
+    'Staff Dashboard must not expose V4 details or the sync action',
   );
 });
