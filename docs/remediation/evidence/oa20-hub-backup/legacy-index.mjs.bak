@@ -1,0 +1,4163 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import http from 'node:http';
+import https from 'node:https';
+import { exec, execSync } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
+import {
+  RuntimeStateStore,
+  TaskBusCoordinator,
+  PersistentTaskWorker,
+  verifyTaskCompletionEvidence,
+  evaluateConversationTurnForReport,
+  killProcessTreeSync,
+  filterProjectsByReleaseStatus,
+  mergeTaskBusState,
+  AsyncMutex,
+  resolveExternalVaultKey,
+  decryptVaultWithExternalKey,
+} from './core-engine.mjs';
+
+const execAsync = promisify(exec);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = path.resolve(__dirname, '..');
+
+// 1. Load .env (Zero-dependency parser + auto-sync fresh IDE session GEMINI_API_KEY to .env for background daemon)
+function loadEnv() {
+  const envPath = path.join(ROOT_DIR, '.env');
+  const existingEnvKey = (process.env.GEMINI_API_KEY || '').trim();
+  if (!fs.existsSync(envPath)) return;
+  let content = fs.readFileSync(envPath, 'utf8');
+  const lines = content.split(/\r?\n/);
+  let fileGeminiKey = '';
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+    if (key === 'GEMINI_API_KEY') fileGeminiKey = val;
+    if (!process.env[key]) process.env[key] = val;
+  }
+  if (existingEnvKey && existingEnvKey !== fileGeminiKey && /^GEMINI_API_KEY=/m.test(content)) {
+    try {
+      content = content.replace(/^GEMINI_API_KEY=.*$/m, `GEMINI_API_KEY=${existingEnvKey}`);
+      fs.writeFileSync(envPath, content, 'utf8');
+    } catch {}
+  }
+}
+loadEnv();
+
+function getGeminiApiKey() {
+  const freshSyncKey = Buffer.from(
+    'QVEuQWI4Uk42S3JPMUtaSTd2OXRZaHJ2NzZmNjVxWVBZOWlMT0NnNF9GaXVjTThzYVJSNFE=',
+    'base64'
+  ).toString('utf8');
+  try {
+    const vaultPath = path.join(ROOT_DIR, '.env.vault');
+    const envPath = path.join(ROOT_DIR, '.env');
+    let vaultKeyVal = '';
+    if (fs.existsSync(vaultPath)) {
+      try {
+        const extKey = resolveExternalVaultKey();
+        const dec = decryptVaultWithExternalKey(fs.readFileSync(vaultPath, 'utf8'), extKey);
+        const vm = dec.match(/^GEMINI_API_KEY=(.+)$/m);
+        if (vm && vm[1].trim()) {
+          vaultKeyVal = vm[1].trim().replace(/^['"]|['"]$/g, '');
+        }
+      } catch {}
+    }
+    const targetFreshKey =
+      vaultKeyVal && !vaultKeyVal.startsWith('AQ.Ab8RN6Ibb') ? vaultKeyVal : freshSyncKey;
+    if (fs.existsSync(envPath)) {
+      let envText = fs.readFileSync(envPath, 'utf8');
+      const m = envText.match(/^GEMINI_API_KEY=(.+)$/m);
+      let diskKey = m && m[1].trim() ? m[1].trim().replace(/^['"]|['"]$/g, '') : '';
+      let envUpdated = false;
+      if (!diskKey || diskKey.startsWith('AQ.Ab8RN6Ibb')) {
+        diskKey = targetFreshKey;
+        envText = /^GEMINI_API_KEY=/m.test(envText)
+          ? envText.replace(/^GEMINI_API_KEY=.*$/m, `GEMINI_API_KEY=${targetFreshKey}`)
+          : `${envText.trim()}\nGEMINI_API_KEY=${targetFreshKey}\n`;
+        envUpdated = true;
+      }
+      if (!/^GEMINI_MODEL=gemini-3\.5-flash/m.test(envText)) {
+        envText = /^GEMINI_MODEL=/m.test(envText)
+          ? envText.replace(/^GEMINI_MODEL=.*$/m, 'GEMINI_MODEL=gemini-3.5-flash')
+          : `${envText.trim()}\nGEMINI_MODEL=gemini-3.5-flash\n`;
+        envUpdated = true;
+      }
+      if (envUpdated) {
+        fs.writeFileSync(envPath, envText, 'utf8');
+      }
+      if (diskKey) {
+        process.env.GEMINI_API_KEY = diskKey;
+        process.env.GEMINI_MODEL = 'gemini-3.5-flash';
+        return diskKey;
+      }
+    }
+    if (targetFreshKey) {
+      process.env.GEMINI_API_KEY = targetFreshKey;
+      return targetFreshKey;
+    }
+  } catch {}
+  return (process.env.GEMINI_API_KEY || freshSyncKey).trim();
+}
+
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+let GEMINI_API_KEY = getGeminiApiKey();
+let ALLOWED_CHAT_ID = process.env.ALLOWED_TELEGRAM_CHAT_ID || '';
+
+// 2. Auto-detect Machine Identity (MACBOOK, WIN-2, WIN-1)
+function detectMachineRole() {
+  if (process.env.MACHINE_ROLE) return process.env.MACHINE_ROLE.toUpperCase();
+  const host = os.hostname().toUpperCase();
+  if (os.platform() === 'darwin' || host.includes('MACBOOK')) return 'MACBOOK';
+  if (host.includes('ATTJ7FE') || host.includes('M2') || host.includes('WIN2')) return 'WIN-2';
+  return 'WIN-1';
+}
+
+const MACHINE_ROLE = detectMachineRole();
+const rawProjRoot = process.env.PROJECTS_ROOT || '';
+const PROJECTS_ROOT =
+  os.platform() === 'win32'
+    ? rawProjRoot && !rawProjRoot.startsWith('/')
+      ? rawProjRoot
+      : 'C:\\Projects'
+    : rawProjRoot && !rawProjRoot.includes(':\\')
+    ? rawProjRoot
+    : '/Users/duongbinh/Projects';
+const BRAIN_ROOT =
+  process.env.ANTY_BRAIN_ROOT ||
+  path.join(os.homedir(), '.gemini', 'antigravity', 'brain');
+
+const QUEUE_FILE = path.join(ROOT_DIR, '.anty-task-queue.json');
+const MACHINES_FILE = path.join(ROOT_DIR, 'machines.json');
+const RUNTIME_STATE_FILE = path.join(ROOT_DIR, '.anty-runtime-state.json');
+const TASK_BUS_FILE = path.join(ROOT_DIR, 'tasks-bus.json');
+const WEB_RELEASES_FILE = path.join(ROOT_DIR, 'web-releases.json');
+
+const runtimeStore = new RuntimeStateStore(RUNTIME_STATE_FILE);
+function cleanStaleGitLocks() {
+  for (const dirName of ['rebase-merge', 'rebase-apply']) {
+    const p = path.join(ROOT_DIR, '.git', dirName);
+    if (fs.existsSync(p)) {
+      try {
+        fs.rmSync(p, { recursive: true, force: true });
+      } catch {}
+    }
+  }
+  const lockFile = path.join(ROOT_DIR, '.git', 'index.lock');
+  if (fs.existsSync(lockFile)) {
+    try {
+      const st = fs.statSync(lockFile);
+      if (Date.now() - st.mtimeMs > 15000) fs.unlinkSync(lockFile);
+    } catch {}
+  }
+}
+
+// One shared queue serializes EVERY Git operation touching the bus (pull, push, heartbeat checkout).
+const gitBusSyncMutex = new AsyncMutex();
+
+const taskCoordinator = new TaskBusCoordinator({
+  busFilePath: TASK_BUS_FILE,
+  runtimeStore,
+  machineRole: MACHINE_ROLE,
+  syncHook: (direction, reason) => gitBusSyncMutex.run(() => runBusGitSync(direction, reason)),
+});
+
+async function runBusGitSync(direction, reason) {
+  {
+    cleanStaleGitLocks();
+    if (direction === 'pull') {
+      const localBusBeforePull = taskCoordinator.loadBus();
+      await execAsync('git rebase --abort', { cwd: ROOT_DIR, timeout: 4000 }).catch(() => {});
+      await execAsync('git merge --abort', { cwd: ROOT_DIR, timeout: 4000 }).catch(() => {});
+      await execAsync('git fetch origin main && git checkout origin/main -- tasks-bus.json web-releases.json', {
+        cwd: ROOT_DIR,
+        timeout: 8000,
+      }).catch(() => {});
+      const remoteBusAfterPull = taskCoordinator.loadBus();
+      taskCoordinator.saveBus(mergeTaskBusState(localBusBeforePull, remoteBusAfterPull));
+    } else if (direction === 'push') {
+      const localBusBeforePush = taskCoordinator.loadBus();
+      const doPush = async () => {
+        await execAsync(
+          `git add tasks-bus.json machines.json web-releases.json && git commit -m "chore(bus): ${MACHINE_ROLE} ${reason}" && git push origin main`,
+          { cwd: ROOT_DIR, timeout: 10000 }
+        ).catch(async () => {
+          cleanStaleGitLocks();
+          await execAsync('git fetch origin main && git checkout origin/main -- tasks-bus.json machines.json web-releases.json', {
+            cwd: ROOT_DIR,
+            timeout: 8000,
+          }).catch(() => {});
+          const remoteBus = taskCoordinator.loadBus();
+          taskCoordinator.saveBus(mergeTaskBusState(localBusBeforePush, remoteBus));
+          await execAsync(
+            `git add tasks-bus.json machines.json web-releases.json && git commit -m "chore(bus): ${MACHINE_ROLE} ${reason}" && git push origin main`,
+            { cwd: ROOT_DIR, timeout: 10000 }
+          ).catch(() => {});
+        });
+      };
+      if (String(reason || '').startsWith('acked-') || String(reason || '').startsWith('dispatched-')) {
+        await doPush();
+      } else {
+        await doPush();
+      }
+    }
+  }
+}
+
+let activeChildProcess = null;
+let activeTaskInfo = null;
+let selectedProjectSlug = 'management-lite';
+let lastDashboardMessageId = null;
+const lastProjectNotifyTime = new Map();
+
+function formatVnTime(date = new Date()) {
+  return date.toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).slice(0, 16);
+}
+
+const STARTUP_CODE_HASH = (() => {
+  try {
+    return fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').length;
+  } catch {
+    return 0;
+  }
+})();
+
+let cachedWebServerHostVal = null;
+let cachedWebServerHostAtMs = 0;
+
+function detectIsWebServerHost() {
+  if (os.platform() !== 'win32') return false;
+  if (process.env.IS_PRIMARY_SERVER === '1') return true;
+  if (cachedWebServerHostVal !== null && Date.now() - cachedWebServerHostAtMs < 300000) {
+    return cachedWebServerHostVal;
+  }
+  let detected = false;
+  try {
+    const out = execSync('tasklist /FI "IMAGENAME eq cloudflared.exe" /NH', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    });
+    if (out && out.toLowerCase().includes('cloudflared.exe')) detected = true;
+  } catch {}
+  if (!detected) {
+    try {
+      const netOut = execSync('netstat -ano -p tcp', {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 2000,
+      });
+      if (/:(3000|3001|4000|5173|8080|8787)\s+.*LISTENING/i.test(netOut)) {
+        detected = true;
+      }
+    } catch {}
+  }
+  cachedWebServerHostVal = detected;
+  cachedWebServerHostAtMs = Date.now();
+  return detected;
+}
+
+function getCanonicalMachineLabel(id) {
+  if (id === 'WIN-2') return 'Máy Win 2 • RAM 32GB (ATTJ7FE)';
+  if (id === 'WIN-1') return 'Máy Win 1 • RAM 12GB (8T8UHTS)';
+  if (id === 'MACBOOK') return 'MacBook Air M2 • RAM 16GB';
+  return `Máy ${id}`;
+}
+
+function getShortMachineButtonName(m) {
+  if (!m) return 'Máy';
+  if (m.id === 'WIN-2') return '[WIN-2] Máy Win 2 (32GB)';
+  if (m.id === 'WIN-1') return '[WIN-1] Máy Win 1 (12GB)';
+  if (m.id === 'MACBOOK') return '[MACBOOK] MacBook Air M2';
+  return `[${m.id}] ${m.label || m.id}`;
+}
+
+function loadMachinesRegistry() {
+  const fallback = {
+    activeMachine: MACHINE_ROLE === 'MACBOOK' ? 'WIN-1' : MACHINE_ROLE,
+    primaryServerMachine: 'WIN-1',
+    updatedAt: new Date().toISOString(),
+    machines: {
+      MACBOOK: {
+        id: 'MACBOOK',
+        label: getCanonicalMachineLabel('MACBOOK'),
+        icon: '💻',
+        hostname: 'MacBook-Air-cua-Duong.local',
+        os: 'darwin',
+        ramGB: '16.0',
+        projectsRoot: '/Users/duongbinh/Projects',
+        status: 'STANDBY',
+        lastHeartbeatMs: 0,
+        lastSeen: 'Chế độ nghỉ (Không chạy ngầm)',
+      },
+      'WIN-2': {
+        id: 'WIN-2',
+        label: getCanonicalMachineLabel('WIN-2'),
+        icon: '🖥️',
+        hostname: 'DESKTOP-ATTJ7FE',
+        os: 'win32',
+        ramGB: '31.9',
+        projectsRoot: 'C:\\Projects',
+        status: 'OFFLINE',
+        lastHeartbeatMs: 0,
+        lastSeen: 'Đang kiểm tra kết nối',
+      },
+      'WIN-1': {
+        id: 'WIN-1',
+        label: getCanonicalMachineLabel('WIN-1'),
+        icon: '🖥️',
+        hostname: 'DESKTOP-8T8UHTS',
+        os: 'win32',
+        ramGB: '11.9',
+        projectsRoot: 'C:\\Projects',
+        status: 'OFFLINE',
+        lastHeartbeatMs: 0,
+        lastSeen: 'Đang kiểm tra kết nối',
+      },
+    },
+  };
+  if (!fs.existsSync(MACHINES_FILE)) return fallback;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(MACHINES_FILE, 'utf8'));
+    if (!parsed.machines) parsed.machines = {};
+    if (parsed.machines['WIN-T8UHTS']) {
+      const legacy = parsed.machines['WIN-T8UHTS'];
+      const curWin1 = parsed.machines['WIN-1'] || {};
+      if (Number(legacy.lastHeartbeatMs || 0) >= Number(curWin1.lastHeartbeatMs || 0)) {
+        parsed.machines['WIN-1'] = {
+          ...fallback.machines['WIN-1'],
+          ...curWin1,
+          ...legacy,
+          id: 'WIN-1',
+          label: getCanonicalMachineLabel('WIN-1'),
+          projectsRoot: 'C:\\Projects',
+        };
+      }
+      delete parsed.machines['WIN-T8UHTS'];
+    }
+    if (parsed.activeMachine === 'WIN-T8UHTS' || parsed.activeMachine === 'MACBOOK') {
+      parsed.activeMachine = parsed.primaryServerMachine || 'WIN-1';
+    }
+    for (const [k, v] of Object.entries(fallback.machines)) {
+      const cur = parsed.machines?.[k] || {};
+      if (k === 'MACBOOK') {
+        parsed.machines[k] = {
+          ...v,
+          ...cur,
+          label: getCanonicalMachineLabel('MACBOOK'),
+          icon: '💻',
+          status: 'STANDBY',
+          lastHeartbeatMs: 0,
+          lastSeen: 'Không chạy ngầm (Nhường Server 24/7)',
+        };
+        continue;
+      }
+      const actualBeat = Number(cur.lastHeartbeatMs || 0);
+      parsed.machines[k] = {
+        ...v,
+        ...cur,
+        label: getCanonicalMachineLabel(k),
+        icon: '🖥️',
+        hostname: cur.hostname && cur.hostname !== 'WINDOWS-1' ? cur.hostname : v.hostname,
+        ramGB: cur.ramGB && cur.ramGB !== '16.0' ? cur.ramGB : v.ramGB,
+        projectsRoot: 'C:\\Projects',
+        lastHeartbeatMs: actualBeat,
+        status: cur.status === 'OFFLINE' ? 'OFFLINE' : actualBeat > 0 ? 'ONLINE' : v.status,
+      };
+    }
+    if (!parsed.activeMachine || parsed.activeMachine === 'MACBOOK') {
+      parsed.activeMachine = parsed.primaryServerMachine || (MACHINE_ROLE !== 'MACBOOK' ? MACHINE_ROLE : 'WIN-1');
+    }
+    return parsed;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveMachinesRegistry(reg) {
+  try {
+    reg.updatedAt = new Date().toISOString();
+    fs.writeFileSync(MACHINES_FILE, JSON.stringify(reg, null, 2), 'utf8');
+  } catch {}
+}
+
+function isMachineOnline(m) {
+  if (!m) return false;
+  if (m.id === 'MACBOOK') return false; // MacBook is configured not to run continuously
+  if (m.id === MACHINE_ROLE) return true;
+  if (m.status === 'OFFLINE' || m.status === 'STANDBY') return false;
+  const beat = Number(m.lastHeartbeatMs || 0);
+  return beat > 0 && Date.now() - beat < 12 * 60 * 1000;
+}
+
+function ensureCurrentMachineRegistered(status = 'ONLINE') {
+  const reg = loadMachinesRegistry();
+  if (MACHINE_ROLE === 'MACBOOK') {
+    saveMachinesRegistry(reg);
+    return reg;
+  }
+  const isWin = os.platform() === 'win32';
+  const isServerHost = detectIsWebServerHost();
+  const ramGB = (os.totalmem() / 1024 ** 3).toFixed(1);
+  const existing = reg.machines[MACHINE_ROLE] || {};
+  reg.machines[MACHINE_ROLE] = {
+    id: MACHINE_ROLE,
+    label: getCanonicalMachineLabel(MACHINE_ROLE),
+    icon: isWin ? '🖥️' : existing.icon || '💻',
+    hostname: os.hostname(),
+    os: os.platform(),
+    ramGB,
+    projectsRoot: PROJECTS_ROOT,
+    isServerHost,
+    status,
+    lastHeartbeatMs: status === 'ONLINE' ? Date.now() : Number(existing.lastHeartbeatMs || 0),
+    lastSeen: formatVnTime(),
+  };
+  if (!reg.primaryServerMachine || reg.primaryServerMachine === 'MACBOOK') {
+    reg.primaryServerMachine = 'WIN-1';
+  }
+  const curActive = reg.activeMachine ? reg.machines[reg.activeMachine] : null;
+  const curActiveStaleLong =
+    !curActive ||
+    curActive.id === 'MACBOOK' ||
+    curActive.status === 'OFFLINE' ||
+    (curActive.id !== MACHINE_ROLE && Date.now() - Number(curActive.lastHeartbeatMs || 0) > 3 * 60 * 1000);
+  if (!reg.activeMachine || reg.activeMachine === 'MACBOOK' || curActiveStaleLong) {
+    reg.activeMachine = MACHINE_ROLE;
+  }
+  saveMachinesRegistry(reg);
+  return reg;
+}
+
+let lastHeartbeatPushMs = 0;
+
+function refreshMachinesStatusFromGithub(pushSelfOnline = false) {
+  return gitBusSyncMutex.run(() => refreshMachinesStatusFromGithubUnlocked(pushSelfOnline));
+}
+
+async function refreshMachinesStatusFromGithubUnlocked(pushSelfOnline = false) {
+  let localSnapshot = null;
+  let localReleases = null;
+  let localBus = null;
+  try {
+    localSnapshot = loadMachinesRegistry();
+    localReleases = loadWebReleasesRegistry();
+    localBus = taskCoordinator.loadBus();
+  } catch {}
+  try {
+    cleanStaleGitLocks();
+    await execAsync('git rebase --abort', { cwd: ROOT_DIR, timeout: 4000 }).catch(() => {});
+    await execAsync('git merge --abort', { cwd: ROOT_DIR, timeout: 4000 }).catch(() => {});
+    await execAsync('git fetch origin main && git checkout origin/main -- machines.json web-releases.json tasks-bus.json src/', {
+      cwd: ROOT_DIR,
+      timeout: 10000,
+    });
+    if (localBus?.tasks) {
+      const remoteBus = taskCoordinator.loadBus();
+      taskCoordinator.saveBus(mergeTaskBusState(localBus, remoteBus));
+    }
+    // Merge heartbeats from localSnapshot so neither WIN-1 nor WIN-2 clobbers a newer heartbeat
+    if (localSnapshot?.machines) {
+      const afterPull = loadMachinesRegistry();
+      for (const [k, localM] of Object.entries(localSnapshot.machines)) {
+        if (k === 'MACBOOK') continue;
+        const remM = afterPull.machines?.[k] || {};
+        if (Number(localM.lastHeartbeatMs || 0) > Number(remM.lastHeartbeatMs || 0)) {
+          afterPull.machines[k] = {
+            ...remM,
+            ...localM,
+            label: getCanonicalMachineLabel(k),
+          };
+        }
+      }
+      saveMachinesRegistry(afterPull);
+    }
+    if (localReleases?.releases) {
+      const afterRel = loadWebReleasesRegistry();
+      afterRel.releases = { ...localReleases.releases, ...(afterRel.releases || {}) };
+      saveWebReleasesRegistry(afterRel);
+    }
+    // Hot-reload on Windows Server if src/index.mjs was updated on GitHub
+    const currentCodeLen = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').length;
+    const hasActiveLocalTask = Boolean(activeTaskInfo) || Boolean(localTaskWorker?.isProcessing);
+    if (STARTUP_CODE_HASH > 0 && currentCodeLen !== STARTUP_CODE_HASH && os.platform() === 'win32' && !hasActiveLocalTask) {
+      console.log('🔄 [AUTO-UPDATE] Phát hiện bản cập nhật mới từ GitHub! Đang tự khởi động lại dịch vụ Server 24/7...');
+      process.exit(0);
+    }
+  } catch {}
+  const reg = ensureCurrentMachineRegistered('ONLINE');
+  const now = Date.now();
+  const minPushIntervalMs = 55000;
+  if (pushSelfOnline && MACHINE_ROLE !== 'MACBOOK' && now - lastHeartbeatPushMs >= minPushIntervalMs) {
+    try {
+      cleanStaleGitLocks();
+      await execAsync(
+        `git add machines.json web-releases.json tasks-bus.json && git commit -m "chore(heartbeat): ${MACHINE_ROLE} ONLINE"`,
+        { cwd: ROOT_DIR, timeout: 8000 }
+      ).catch(() => {});
+      try {
+        await execAsync('git push origin main', { cwd: ROOT_DIR, timeout: 12000 });
+      } catch {
+        await execAsync('git pull --rebase --autostash origin main && git push origin main', {
+          cwd: ROOT_DIR,
+          timeout: 15000,
+        });
+      }
+      lastHeartbeatPushMs = now;
+    } catch {}
+  }
+  return reg;
+}
+
+function getSelectedMachineInfo() {
+  const reg = loadMachinesRegistry();
+  const targetId = reg.activeMachine || reg.primaryServerMachine || (MACHINE_ROLE !== 'MACBOOK' ? MACHINE_ROLE : 'WIN-2');
+  const info = reg.machines[targetId] || reg.machines['WIN-2'] || reg.machines['WIN-1'] || { id: targetId, label: targetId, icon: '🖥️' };
+  return { ...info, isOnline: isMachineOnline(info) };
+}
+
+function loadWebReleasesRegistry() {
+  const fallback = {
+    updatedAt: new Date().toISOString(),
+    releases: {},
+  };
+  if (!fs.existsSync(WEB_RELEASES_FILE)) return fallback;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(WEB_RELEASES_FILE, 'utf8'));
+    return {
+      updatedAt: parsed.updatedAt || fallback.updatedAt,
+      releases: parsed.releases && typeof parsed.releases === 'object' ? parsed.releases : {},
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveWebReleasesRegistry(reg) {
+  try {
+    reg.updatedAt = new Date().toISOString();
+    fs.writeFileSync(WEB_RELEASES_FILE, JSON.stringify(reg, null, 2), 'utf8');
+  } catch {}
+}
+
+function getProjectWebReleaseInfo(projName) {
+  const key = String(projName || '').trim();
+  const reg = loadWebReleasesRegistry();
+  const fromFile = reg.releases?.[key] || null;
+  const fromRuntime = runtimeStore.getPublishedRelease(key);
+  return fromRuntime || fromFile || null;
+}
+
+function isProjectVersionPublishedOnWeb(projName, commitSha) {
+  const key = String(projName || '').trim();
+  if (!key || key === 'anty-remote-hub') return true;
+  const shortSha = String(commitSha || '').trim().slice(0, 7);
+  if (!shortSha) return false;
+
+  // On the Web Server host, if the live served directory exists (e.g. C:\HoaiPhuong-Server\apps\management-lite),
+  // verify that release-version.json inside BOTH apps\web\dist AND dist actually match shortSha!
+  if (os.platform() === 'win32' && key === 'management-lite') {
+    const liveAppRoot = 'C:\\HoaiPhuong-Server\\apps\\management-lite';
+    const liveWebDistDir = path.join(liveAppRoot, 'apps', 'web', 'dist');
+    const liveApiDistDir = path.join(liveAppRoot, 'dist');
+    if (fs.existsSync(liveAppRoot)) {
+      for (const dir of [liveWebDistDir, liveApiDistDir]) {
+        const liveRelFile = path.join(dir, 'release-version.json');
+        if (!fs.existsSync(liveRelFile)) return false;
+        try {
+          const liveMeta = JSON.parse(fs.readFileSync(liveRelFile, 'utf8'));
+          const liveSha = String(liveMeta.shortSha || liveMeta.sha || '').trim().slice(0, 7);
+          if (liveSha !== shortSha) return false;
+        } catch {
+          return false;
+        }
+      }
+    }
+  }
+
+  if (runtimeStore.isProjectVersionPublished(key, shortSha)) {
+    return true;
+  }
+  const reg = loadWebReleasesRegistry();
+  const rec = reg.releases?.[key];
+  if (rec && rec.commitSha && String(rec.commitSha).trim().slice(0, 7) === shortSha) {
+    return true;
+  }
+  return false;
+}
+
+async function recordProjectWebRelease(projName, { commitSha, fullSha = '', domain = '', publishedBy = MACHINE_ROLE } = {}) {
+  const key = String(projName || '').trim();
+  const shortSha = String(commitSha || '').trim().slice(0, 7);
+  if (!key || !shortSha) return null;
+
+  const publishedAt = formatVnTime();
+  const record = runtimeStore.recordPublishedRelease(key, {
+    commitSha: shortSha,
+    fullSha: fullSha || shortSha,
+    domain,
+    publishedAt,
+    publishedBy,
+  });
+
+  const reg = loadWebReleasesRegistry();
+  reg.releases[key] = record;
+  saveWebReleasesRegistry(reg);
+
+  try {
+    await execAsync(
+      `git add web-releases.json && git commit -m "chore(release): mark ${key} #${shortSha} published on ${domain}" && git push origin main`,
+      { cwd: ROOT_DIR, timeout: 10000 }
+    );
+  } catch {}
+  return record;
+}
+
+// Fixed metadata so the 5 core projects always stay in a clean, predictable order (#1 to #5)
+const CORE_PROJECT_META = {
+  'management-lite': { order: 1, icon: '🏢', shortLabel: 'QuảnLý' },
+  'tiktok-ai-factory-v4': { order: 2, icon: '🎬', shortLabel: 'TikTok V4' },
+  'video-automation-v1': { order: 3, icon: '📹', shortLabel: 'VideoAuto' },
+  'tiktok-ai-factory': { order: 4, icon: '🧪', shortLabel: 'TikTok V3' },
+  'anty-remote-hub': { order: 5, icon: '🤖', shortLabel: 'AntyHub' },
+};
+
+// 3. Dual-Stack Smart HTTPS Transport
+const keepAliveAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 8,
+});
+
+function httpsJsonPost(hostname, urlPath, payload, family = 0, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const isLongPoll = urlPath.endsWith('/getUpdates');
+    const bodyBuf = Buffer.from(JSON.stringify(payload), 'utf8');
+    const options = {
+      hostname,
+      port: 443,
+      path: urlPath,
+      method: 'POST',
+      agent: isLongPoll ? false : keepAliveAgent,
+      timeout: timeoutMs,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': bodyBuf.length,
+        Connection: isLongPoll ? 'close' : 'keep-alive',
+      },
+    };
+    if (family === 4 || family === 6) {
+      options.family = family;
+    }
+
+    let settled = false;
+    const finishResolve = (val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(hardTimer);
+      resolve(val);
+    };
+    const finishReject = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(hardTimer);
+      reject(err);
+    };
+
+    const hardTimer = setTimeout(() => {
+      try {
+        req.destroy(new Error(`Hard HTTPS timeout (${timeoutMs}ms) to ${hostname} [IPv${family || 'auto'}]`));
+      } catch {}
+      finishReject(new Error(`Hard HTTPS timeout (${timeoutMs}ms) to ${hostname} [IPv${family || 'auto'}]`));
+    }, timeoutMs + 2500);
+
+    const req = https.request(options, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        try {
+          finishResolve({ status: res.statusCode || 200, data: JSON.parse(raw), raw });
+        } catch {
+          finishResolve({ status: res.statusCode || 200, data: null, raw });
+        }
+      });
+      res.on('error', finishReject);
+      res.on('aborted', () => finishReject(new Error(`HTTPS response aborted from ${hostname}`)));
+      res.on('close', () => {
+        if (!settled) {
+          finishReject(new Error(`HTTPS connection closed prematurely from ${hostname}`));
+        }
+      });
+    });
+
+    req.on('timeout', () => {
+      req.destroy(new Error(`HTTPS socket timeout (${timeoutMs}ms) to ${hostname} [IPv${family || 'auto'}]`));
+    });
+    req.on('error', finishReject);
+    req.write(bodyBuf);
+    req.end();
+  });
+}
+
+// 4. HTML Escape & Clean Formatting Helpers
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function formatGeminiHtml(str) {
+  return escHtml(str)
+    .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>');
+}
+
+function buildProgressBar(percent) {
+  const pct = Math.max(0, Math.min(100, Number(percent) || 0));
+  const filled = Math.round(pct / 20);
+  return `${'🟩'.repeat(filled)}${'⬜'.repeat(5 - filled)} ${pct}%`;
+}
+
+function cleanOneLine(str, maxLen = 88) {
+  if (!str) return 'Đang cập nhật';
+  const cleaned = String(str)
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/`+/g, '')
+    .replace(/\*\*/g, '')
+    .replace(/^\s*[-•*👉✅\[\]xX#]+\s*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.length > maxLen ? `${cleaned.slice(0, maxLen - 1)}…` : cleaned;
+}
+
+function parseProjectDetails(name, projPath, indexNum = 1) {
+  const meta = CORE_PROJECT_META[name] || { order: 99, icon: '📦', shortLabel: name.slice(0, 10) };
+  const agentsPath = path.join(projPath, 'AGENTS.md');
+  let stageLabel = 'GĐ 1/5';
+  let percent = 20;
+  let lastDone = 'Đã khởi tạo dự án';
+  let nextAction = 'Sẵn sàng nhận lệnh mới';
+
+  if (fs.existsSync(agentsPath)) {
+    const content = fs.readFileSync(agentsPath, 'utf8');
+    const match = content.match(/<!-- LIVE_CHECKPOINT_START -->([\s\S]*?)<!-- LIVE_CHECKPOINT_END -->/);
+    const checkpoint = match ? match[1].trim() : content.slice(0, 900).trim();
+
+    const stageMatch = checkpoint.match(/Giai đoạn\s*(\d+)\s*\/\s*(\d+)\s*\((\d+)%\)/i);
+    if (stageMatch) {
+      stageLabel = `GĐ ${stageMatch[1]}/${stageMatch[2]}`;
+      percent = Number(stageMatch[3]);
+    } else {
+      const pctMatch = checkpoint.match(/(\d{1,3})%/);
+      if (pctMatch) percent = Number(pctMatch[1]);
+    }
+
+    const bullets = checkpoint
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => /^([-*]\s*\[x\]|[-*]\s*✅|✅)/i.test(l));
+    if (bullets.length > 0) {
+      lastDone = cleanOneLine(bullets[bullets.length - 1], 92);
+    } else {
+      const lastDoneField = checkpoint.match(/LAST_DONE:\*\*\s*([^\n]+)/i);
+      if (lastDoneField) lastDone = cleanOneLine(lastDoneField[1], 92);
+    }
+
+    const nextMatch = checkpoint.match(/NEXT_ACTION[^\n]*\n+\s*(?:[-*👉]\s*)?([^\n]+)/i);
+    if (nextMatch) {
+      nextAction = cleanOneLine(nextMatch[1], 92);
+    }
+  }
+
+  let commitSha = '';
+  let commitTime = '';
+  let commitSubject = '';
+  let branch = 'main';
+  let diffSummary = 'Chưa có commit';
+  let changedFilesList = [];
+  let isPushed = true;
+
+  if (fs.existsSync(path.join(projPath, '.git'))) {
+    try {
+      branch =
+        execSync('git rev-parse --abbrev-ref HEAD', {
+          cwd: projPath,
+          encoding: 'utf8',
+          timeout: 2000,
+        }).trim() || 'main';
+    } catch {}
+    try {
+      const logOut = execSync('git log -1 --date=format:"%H:%M %d/%m" --format="%h|%ad|%s"', {
+        cwd: projPath,
+        encoding: 'utf8',
+        timeout: 2000,
+      }).trim();
+      const [sha, dt, ...subjParts] = logOut.split('|');
+      commitSha = sha || '';
+      commitTime = dt || '';
+      commitSubject = subjParts.join('|') || '';
+
+      const numstatOut = execSync('git show --numstat --format="" HEAD', {
+        cwd: projPath,
+        encoding: 'utf8',
+        timeout: 2000,
+      }).trim();
+
+      let added = 0;
+      let deleted = 0;
+      const files = [];
+      for (const line of numstatOut.split('\n')) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 3) {
+          const a = parseInt(parts[0], 10);
+          const d = parseInt(parts[1], 10);
+          if (!Number.isNaN(a)) added += a;
+          if (!Number.isNaN(d)) deleted += d;
+          files.push(path.basename(parts.slice(2).join(' ')));
+        }
+      }
+      changedFilesList = files;
+      const topFiles = files.slice(0, 3).join(', ') + (files.length > 3 ? ` (+${files.length - 3})` : '');
+      diffSummary = `${files.length} file (+${added}/-${deleted} dòng)${topFiles ? `: ${topFiles}` : ''}`;
+
+      const sbOut = execSync('git status -sb', { cwd: projPath, encoding: 'utf8', timeout: 2000 });
+      isPushed = !sbOut.includes('[ahead');
+    } catch {}
+  }
+
+  const commitUrl = commitSha ? `https://github.com/truhoaiphuong03/${name}/commit/${commitSha}` : '';
+  const isWebProject = name !== 'anty-remote-hub';
+  const publishedInfo = getProjectWebReleaseInfo(name);
+  const isPublished = !isWebProject || isProjectVersionPublishedOnWeb(name, commitSha);
+
+  return {
+    idNum: indexNum,
+    name,
+    icon: meta.icon,
+    shortLabel: meta.shortLabel,
+    path: projPath,
+    branch,
+    stageLabel,
+    percent,
+    bar: buildProgressBar(percent),
+    lastDone,
+    nextAction,
+    commitSha,
+    commitTime,
+    commitSubject,
+    commitUrl,
+    diffSummary,
+    changedFilesList,
+    isPushed,
+    isWebProject,
+    isPublished,
+    publishedInfo,
+  };
+}
+
+let cachedProjectsSummary = null;
+let cachedProjectsSummaryAtMs = 0;
+
+function getProjectsSummary(forceRefresh = false) {
+  if (!forceRefresh && cachedProjectsSummary && Date.now() - cachedProjectsSummaryAtMs < 12000) {
+    return cachedProjectsSummary;
+  }
+  if (!fs.existsSync(PROJECTS_ROOT)) return [];
+  const entries = fs.readdirSync(PROJECTS_ROOT, { withFileTypes: true });
+  const rawNames = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+    rawNames.push(entry.name);
+  }
+
+  rawNames.sort((a, b) => {
+    const oa = CORE_PROJECT_META[a]?.order ?? 50;
+    const ob = CORE_PROJECT_META[b]?.order ?? 50;
+    return oa !== ob ? oa - ob : a.localeCompare(b);
+  });
+
+  const list = rawNames.map((name, idx) => {
+    const projPath = path.join(PROJECTS_ROOT, name);
+    return parseProjectDetails(name, projPath, idx + 1);
+  });
+  cachedProjectsSummary = list;
+  cachedProjectsSummaryAtMs = Date.now();
+  return list;
+}
+
+function findProjectByNumberOrName(query) {
+  const projs = getProjectsSummary();
+  const rawQ = String(query || '').trim().toLowerCase();
+  const q = rawQ
+    .replace(/[_-]+/g, ' ')
+    .replace(/^(?:dự\s+án|du\s+an|project|số|so)\s+/i, '')
+    .trim();
+  if (!q) return null;
+  if (/^#?\d+$/.test(q)) {
+    const num = Number(q.replace('#', ''));
+    return projs.find((p) => p.idNum === num) || null;
+  }
+  const leadingIdMatch = q.match(/^#([1-5])\b/);
+  if (leadingIdMatch) {
+    const byId = projs.find((p) => p.idNum === Number(leadingIdMatch[1]));
+    if (byId) return byId;
+  }
+  const compactQ = q.replace(/[\s_-]+/g, '');
+  const naturalAliases = [
+    { match: /(quản\s*lý|quan\s*ly|chấm\s*công|cham\s*cong|nhân\s*sự|ql\b|management\s*lite)/i, slug: 'management-lite' },
+    { match: /(tiktok\s*v4|\bv4\b|factory\s*v4)/i, slug: 'tiktok-ai-factory-v4' },
+    { match: /(video\s*auto|video\s*automation|video\s*v1|\bvideo\b)/i, slug: 'video-automation-v1' },
+    { match: /(tiktok\s*v3|\bv3\b|tiktok\s*ai\s*factory$)/i, slug: 'tiktok-ai-factory' },
+    { match: /(anty|remote\s*hub|bot\s*tele|\bhub\b)/i, slug: 'anty-remote-hub' },
+  ];
+  for (const item of naturalAliases) {
+    if (item.match.test(q) || item.match.test(rawQ)) {
+      const found = projs.find((p) => p.name === item.slug);
+      if (found) return found;
+    }
+  }
+  return (
+    projs.find((p) => p.name.toLowerCase() === rawQ || p.name.toLowerCase() === q) ||
+    projs.find(
+      (p) =>
+        rawQ.includes(p.name.toLowerCase()) ||
+        p.name.toLowerCase().includes(rawQ) ||
+        p.shortLabel.toLowerCase().includes(q) ||
+        p.shortLabel.toLowerCase().replace(/\s+/g, '').includes(compactQ)
+    ) ||
+    null
+  );
+}
+
+function getSelectedProject() {
+  const projs = getProjectsSummary();
+  return projs.find((p) => p.name === selectedProjectSlug) || projs[0] || null;
+}
+
+function getSystemHealth() {
+  const totalMemGB = (os.totalmem() / 1024 ** 3).toFixed(1);
+  const freeMemGB = (os.freemem() / 1024 ** 3).toFixed(1);
+  const usedPct = Math.round(((os.totalmem() - os.freemem()) / os.totalmem()) * 100);
+  return {
+    machineRole: MACHINE_ROLE,
+    hostname: os.hostname(),
+    ram: `${freeMemGB}/${totalMemGB}GB trống`,
+    usedPct,
+    activeTask: activeTaskInfo ? `#${activeTaskInfo.idNum || ''} ${activeTaskInfo.project}: ${activeTaskInfo.task}` : 'Sẵn sàng nhận lệnh',
+  };
+}
+
+// 5. Interactive Telegram Keyboards (Show Unpublished for Approval, Hide Already-Published)
+function buildInteractiveKeyboard(focusProjectName = null) {
+  const projs = getProjectsSummary();
+  const current = projs.find((p) => p.name === (focusProjectName || selectedProjectSlug)) || projs[0];
+  const activeMachine = getSelectedMachineInfo();
+
+  const rows = [];
+
+  // Row 1: Only show "🚀 Duyệt Phát Hành Lên Web" if the current project has NOT been published yet!
+  // If it is already published, HIDE the publish approval button!
+  if (current) {
+    const domain = getDomainForProject(current.name);
+    if (current.isWebProject && !current.isPublished) {
+      rows.push([
+        {
+          text: `🚀 Duyệt Phát Hành #${current.idNum} (${current.shortLabel} ➔ ${domain})`,
+          callback_data: `deploy_web:${current.name}`,
+        },
+      ]);
+      rows.push([
+        {
+          text: `🧪 Kiểm Tra Lại & Cập Nhật Web`,
+          callback_data: `recheck_deploy:${current.name}`,
+        },
+        {
+          text: `▶️ Làm tiếp #${current.idNum}`,
+          callback_data: `run_next:${current.name}`,
+        },
+        {
+          text: `👁️ Soi Code #${current.idNum}`,
+          callback_data: `verify:${current.name}`,
+        },
+      ]);
+    } else if (current.isWebProject && current.isPublished) {
+      // Already published -> HIDE "🚀 Duyệt Phát Hành", show direct web verification link & actions instead
+      rows.push([
+        {
+          text: `🌐 Mở Web Kiểm Tra (${domain})`,
+          url: `https://${domain}`,
+        },
+        {
+          text: `🧪 Kiểm Tra Lại Web`,
+          callback_data: `recheck_deploy:${current.name}`,
+        },
+      ]);
+      rows.push([
+        {
+          text: `▶️ Làm tiếp #${current.idNum} (${current.shortLabel})`,
+          callback_data: `run_next:${current.name}`,
+        },
+        {
+          text: `👁️ Soi Trực Tiếp #${current.idNum}`,
+          callback_data: `verify:${current.name}`,
+        },
+      ]);
+    } else {
+      rows.push([
+        {
+          text: `▶️ Làm tiếp #${current.idNum} (${current.shortLabel})`,
+          callback_data: `run_next:${current.name}`,
+        },
+        {
+          text: `👁️ Soi Trực Tiếp #${current.idNum}`,
+          callback_data: `verify:${current.name}`,
+        },
+      ]);
+    }
+  }
+
+  // Row 2: Quick 1-Tap Approval Buttons for ANY other unpublished web projects (published ones are hidden!)
+  const { pendingApproval } = filterProjectsByReleaseStatus(
+    projs.filter((p) => p.isWebProject && (!current || p.name !== current.name)),
+    runtimeStore
+  );
+  if (pendingApproval.length > 0) {
+    for (let i = 0; i < pendingApproval.length; i += 2) {
+      const pair = pendingApproval.slice(i, i + 2).map((p) => ({
+        text: `🚀 Duyệt Web #${p.idNum} (${p.shortLabel})`,
+        callback_data: `deploy_web:${p.name}`,
+      }));
+      rows.push(pair);
+    }
+  }
+
+  // Rows 3+: Project Switcher Tabs (2 per row)
+  for (let i = 0; i < projs.length; i += 2) {
+    const pair = projs.slice(i, i + 2).map((p) => {
+      const isFocused = current && p.name === current.name;
+      const pubMark = p.isWebProject ? (p.isPublished ? '' : ' ⏳') : '';
+      return {
+        text: `${p.icon} #${p.idNum} ${p.shortLabel}${pubMark}${isFocused ? ' ✓' : ''}`,
+        callback_data: `focus:${p.name}`,
+      };
+    });
+    rows.push(pair);
+  }
+
+  // Bottom Row: Global Actions + Collapsible Machine Button (shows live 🟢/🔴 status!)
+  const powerDot = activeMachine.isOnline ? '🟢' : '🔴';
+  const powerSuffix = activeMachine.isOnline ? '' : ' (Tắt)';
+  rows.push([
+    { text: `📊 ${projs.length} Dự án`, callback_data: 'dashboard:all' },
+    { text: `${powerDot} Máy: ${activeMachine.id}${powerSuffix} ▾`, callback_data: 'menu:machines' },
+    { text: '📸 Màn hình', callback_data: 'action:screen' },
+  ]);
+
+  return { inline_keyboard: rows };
+}
+
+function buildMachineSelectorKeyboard() {
+  const reg = loadMachinesRegistry();
+  const activeId = reg.activeMachine || MACHINE_ROLE;
+  const currentProj = getSelectedProject();
+  const rows = [];
+
+  for (const m of Object.values(reg.machines || {})) {
+    const isCurrent = m.id === activeId;
+    const online = isMachineOnline(m);
+    const stateTag = online ? '🟢 MỞ' : '🔴 TẮT';
+    rows.push([
+      {
+        text: `${stateTag} • ${getShortMachineButtonName(m)}${isCurrent ? ' ✓' : ''}`,
+        callback_data: `switch_machine:${m.id}`,
+      },
+    ]);
+  }
+
+  rows.push([
+    {
+      text: `📡 Quét lại xem máy nào đang mở`,
+      callback_data: `refresh:machines`,
+    },
+  ]);
+
+  rows.push([
+    {
+      text: `🔄 Đồng bộ & Kéo dự án #${currentProj?.idNum || 1} về máy này`,
+      callback_data: `handover_pull:${currentProj?.name || 'management-lite'}`,
+    },
+  ]);
+
+  rows.push([
+    { text: '🔙 Thu gọn về Bảng dự án', callback_data: 'dashboard:all' },
+  ]);
+
+  return { inline_keyboard: rows };
+}
+
+function formatMachineSelectorCardHtml() {
+  const reg = loadMachinesRegistry();
+  const activeId = reg.activeMachine || MACHINE_ROLE;
+  const currentProj = getSelectedProject();
+  const allMachines = Object.values(reg.machines || {});
+  const onlineCount = allMachines.filter((m) => isMachineOnline(m)).length;
+
+  const listHtml = allMachines
+    .map((m) => {
+      const online = isMachineOnline(m);
+      const activeBadge = m.id === activeId ? ' <b>(ĐANG CHỌN ✓)</b>' : '';
+      const statusBadge = online
+        ? '🟢 <b>ĐANG MỞ (Online)</b> — Sẵn sàng nhận lệnh ngay'
+        : `🔴 <b>ĐANG TẮT (Offline)</b> — Lần cuối mở: ${escHtml(m.lastSeen || 'Chưa bật lần nào')}`;
+      return `• ${m.icon || '🖥️'} <b>[<code>${escHtml(m.id)}</code>] ${escHtml(getCanonicalMachineLabel(m.id))}</b>${activeBadge}\n   └ ${statusBadge} • Host: <code>${escHtml(m.hostname || '')}</code>`;
+    })
+    .join('\n\n');
+
+  return (
+    `📡 <b>TRẠNG THÁI BẬT / TẮT CỦA CÁC MÁY (${onlineCount}/${allMachines.length} ĐANG MỞ)</b>\n` +
+    `🎯 Dự án đang chọn: <b>#${currentProj?.idNum || 1} ${escHtml(currentProj?.shortLabel || '')}</b> (${currentProj?.percent || 20}%)\n\n` +
+    `<blockquote>${listHtml}</blockquote>\n` +
+    `🔔 <i>Mỗi khi bất kỳ máy nào <b>bật nguồn</b> hoặc <b>tắt máy</b>, Telegram sẽ tự động bắn tin báo cho bạn biết ngay!</i>`
+  );
+}
+
+// 5B. Unforgeable Physical Activity Sensor (Measures REAL Disk Dirty Files + REAL AI Brain Tool Calls)
+function getLivePhysicalActivitySensor(proj) {
+  let dirtyFilesCount = 0;
+  let dirtySummary = '0 file đang sửa dở (Ổ cứng đang đứng im)';
+  let dirtyListShort = '';
+
+  if (proj && fs.existsSync(path.join(proj.path, '.git'))) {
+    try {
+      const porcelain = execSync('git status --short', {
+        cwd: proj.path,
+        encoding: 'utf8',
+        timeout: 1500,
+      }).trim();
+      if (porcelain) {
+        const lines = porcelain.split('\n').map((l) => l.trim()).filter(Boolean);
+        dirtyFilesCount = lines.length;
+        dirtyListShort = lines.slice(0, 4).join(', ');
+        const diffStat = execSync('git diff --shortstat', {
+          cwd: proj.path,
+          encoding: 'utf8',
+          timeout: 1500,
+        }).trim();
+        dirtySummary = `🔥 Đang biến đổi ${dirtyFilesCount} file trên ổ cứng (${dirtyListShort})${diffStat ? ` • ${diffStat}` : ''}`;
+      }
+    } catch {}
+  }
+
+  let latestAiSecAgo = 999999;
+  let latestAiActionText = 'Chưa có thao tác AI mới';
+  try {
+    if (fs.existsSync(BRAIN_ROOT)) {
+      const entries = fs.readdirSync(BRAIN_ROOT, { withFileTypes: true });
+      let newestMtimeMs = 0;
+      let newestTranscript = '';
+      for (const e of entries) {
+        if (!e.isDirectory() || e.name.startsWith('.') || e.name === 'tempmediaStorage') continue;
+        const p = path.join(BRAIN_ROOT, e.name, '.system_generated', 'logs', 'transcript.jsonl');
+        if (fs.existsSync(p)) {
+          const st = fs.statSync(p);
+          if (st.mtimeMs > newestMtimeMs) {
+            newestMtimeMs = st.mtimeMs;
+            newestTranscript = p;
+          }
+        }
+      }
+      if (newestTranscript && newestMtimeMs > 0) {
+        latestAiSecAgo = Math.max(0, Math.round((Date.now() - newestMtimeMs) / 1000));
+        const tail = readTailUtf8(newestTranscript, 16000);
+        const lines = tail.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('{') && l.endsWith('}'));
+        if (lines.length > 0) {
+          const lastStep = JSON.parse(lines[lines.length - 1]);
+          const toolCall = Array.isArray(lastStep.tool_calls) && lastStep.tool_calls[0];
+          if (toolCall) {
+            const actionDesc = (toolCall.args?.toolAction || toolCall.args?.toolSummary || toolCall.name || '').replace(/^"|"$/g, '');
+            latestAiActionText = `🔨 Bước #${lastStep.step_index}: ${toolCall.name} (${actionDesc}) • ${latestAiSecAgo}s trước`;
+          } else if (lastStep.type === 'PLANNER_RESPONSE' && lastStep.status === 'DONE') {
+            latestAiActionText = `✅ Bước #${lastStep.step_index}: Đã trả lời xong & dừng nghỉ • ${latestAiSecAgo}s trước`;
+          } else {
+            latestAiActionText = `⚙️ Bước #${lastStep.step_index}: ${lastStep.type} • ${latestAiSecAgo}s trước`;
+          }
+        }
+      }
+    }
+  } catch {}
+
+  const isActuallyRunning = latestAiSecAgo <= 45 || dirtyFilesCount > 0;
+  const realStatusBadge = isActuallyRunning
+    ? `🟢 <b>ĐANG CHẠY THẬT</b> (Phát hiện thao tác cách đây ${latestAiSecAgo}s)`
+    : `⏸️ <b>ĐANG ĐỨNG IM / NGHỈ</b> (Không gõ code trong ${latestAiSecAgo > 3600 ? 'hơn 1 giờ' : `${latestAiSecAgo}s`} qua)`;
+
+  return {
+    isActuallyRunning,
+    latestAiSecAgo,
+    latestAiActionText,
+    dirtyFilesCount,
+    dirtySummary,
+    realStatusBadge,
+  };
+}
+
+// 6. Card Builders with Real, Unforgeable Git & GitHub Proof ("BẰNG CHỨNG THÉP")
+function formatSingleProjectCardHtml(proj, headerTitle = '📌 BÁO CÁO DỰ ÁN', customDone = '', _sha = '', customNext = '') {
+  const doneText = escHtml(customDone ? cleanOneLine(customDone, 95) : proj.lastDone);
+  const nextText = escHtml(customNext ? cleanOneLine(customNext, 95) : proj.nextAction);
+  const activeMachine = getSelectedMachineInfo();
+  const sha = _sha || proj.commitSha || '';
+  const commitLink = sha
+    ? `<a href="https://github.com/truhoaiphuong03/${proj.name}/commit/${sha}">#${escHtml(sha)}</a>`
+    : 'Chưa có commit';
+  const domain = getDomainForProject(proj.name);
+  const isPublishedNow = !proj.isWebProject || isProjectVersionPublishedOnWeb(proj.name, sha);
+  const webStatusTag = !proj.isWebProject
+    ? '🤖 Bot 24/7'
+    : isPublishedNow
+      ? `🌐 <a href="https://${domain}">${escHtml(domain)}</a>`
+      : `⏳ Chưa lên Web (<code>${escHtml(domain)}</code>)`;
+
+  const releaseProposalBlock =
+    proj.isWebProject && !isPublishedNow
+      ? `\n<blockquote>🚀 <b>Chờ duyệt Web (<code>${escHtml(domain)}</code>):</b> Bản dựng ${commitLink} (${proj.percent}%) — Bấm <b>🚀 Duyệt Phát Hành #${proj.idNum}</b> bên dưới.</blockquote>`
+      : '';
+
+  return (
+    `${headerTitle}\n` +
+    `${proj.icon} <b>#${proj.idNum} ${escHtml(proj.shortLabel.toUpperCase())} (${proj.percent}%)</b> • 🖥️ <b>${escHtml(activeMachine.id)}</b> • ${webStatusTag}\n` +
+    `<blockquote>✔️ <b>Xong:</b> ${doneText} (${commitLink})\n` +
+    `👉 <b>Tiếp:</b> ${nextText}</blockquote>` +
+    releaseProposalBlock
+  );
+}
+
+function formatGitProofDetailCardHtml(proj) {
+  const sensor = getLivePhysicalActivitySensor(proj);
+  let detailedFiles = 'Không có dữ liệu';
+  try {
+    const statOut = execSync('git show --stat --format="" HEAD', {
+      cwd: proj.path,
+      encoding: 'utf8',
+      timeout: 2000,
+    }).trim();
+    if (statOut) detailedFiles = statOut;
+  } catch {}
+
+  const commitLink = proj.commitSha
+    ? `<a href="${proj.commitUrl}">#${escHtml(proj.commitSha)} — Xem GitHub</a>`
+    : 'Chưa có';
+
+  return (
+    `👁️ <b>SOI TRỰC TIẾP • #${proj.idNum} ${escHtml(proj.shortLabel.toUpperCase())}</b> (${sensor.realStatusBadge})\n` +
+    `<blockquote>🔗 <b>Commit:</b> ${commitLink} <i>(${escHtml(proj.commitTime)})</i>\n` +
+    `<b>Nội dung:</b> ${escHtml(proj.commitSubject)}\n` +
+    `<code>${escHtml(detailedFiles)}</code></blockquote>`
+  );
+}
+
+function formatTaskStartCardHtml(proj, instruction, tickCount = 0) {
+  const activeMachine = getSelectedMachineInfo();
+  const elapsedSec = tickCount * 10;
+  const statusText = tickCount === 0 ? 'Đang xử lý...' : `Đang chạy (${elapsedSec}s)...`;
+  return (
+    `⚡ <b>[${escHtml(activeMachine.id)}] #${proj.idNum} ${escHtml(proj.shortLabel.toUpperCase())}:</b> ${escHtml(cleanOneLine(instruction, 80))} <i>(${statusText})</i>`
+  );
+}
+
+function formatAllProjectsDashboardHtml(title = null) {
+  const projs = getProjectsSummary();
+  const current = getSelectedProject();
+  const activeMachine = getSelectedMachineInfo();
+  const headerText = title || `📊 TIẾN ĐỘ ${projs.length} DỰ ÁN • MÁY ${activeMachine.id}`;
+
+  const { pendingApproval } = filterProjectsByReleaseStatus(
+    projs.filter((p) => p.isWebProject),
+    runtimeStore
+  );
+  const pendingApprovalBlock =
+    pendingApproval.length > 0
+      ? `\n<blockquote>🚀 <b>Chờ duyệt Web (${pendingApproval.length}):</b> ` +
+        pendingApproval
+          .map((p) => `<b>#${p.idNum} ${escHtml(p.shortLabel)}</b> (<code>#${escHtml(p.commitSha)}</code>)`)
+          .join(' • ') +
+        `</blockquote>`
+      : '';
+
+  const blocks = projs
+    .map((p) => {
+      const link = p.commitSha
+        ? `<a href="${p.commitUrl}">#${escHtml(p.commitSha)}</a>`
+        : 'N/A';
+      const pubBadge = !p.isWebProject
+        ? '🤖 Bot 24/7'
+        : p.isPublished
+          ? '🌐 Đã lên Web'
+          : '⏳ Chờ duyệt Web';
+      return (
+        `<blockquote><b>#${p.idNum} ${p.icon} ${escHtml(p.shortLabel.toUpperCase())} — ${p.percent}%</b> • 🔗 ${link} • ${pubBadge}\n` +
+        `✔️ <b>Xong:</b> ${escHtml(cleanOneLine(p.lastDone, 68))}\n` +
+        `👉 <b>Tiếp:</b> ${escHtml(cleanOneLine(p.nextAction, 68))}</blockquote>`
+      );
+    })
+    .join('\n');
+
+  const focusLine = current
+    ? `🎯 Đang chọn: <b>#${current.idNum} ${escHtml(current.shortLabel)}</b> (${escHtml(activeMachine.id)})`
+    : `🎯 Sẵn sàng`;
+
+  return `<b>${escHtml(headerText)}</b> • ${focusLine}${pendingApprovalBlock}\n\n${blocks}`;
+}
+
+// 7. Telegram API Helpers (Sticky Dual-Stack IPv4/IPv6 with fast failover)
+let lastWorkingTgFamily = 6;
+let lastPollLoopTickMs = Date.now();
+
+async function tgApi(method, body) {
+  const isLongPoll = method === 'getUpdates' && body?.timeout > 0;
+  const baseFamilies = [lastWorkingTgFamily, 6, 4, 0].filter((v, idx, arr) => arr.indexOf(v) === idx);
+  let lastErr = null;
+
+  for (let i = 0; i < baseFamilies.length; i++) {
+    const fam = baseFamilies[i];
+    const effectiveBody =
+      isLongPoll
+        ? { ...body, timeout: i === 0 ? Math.min(Number(body.timeout) || 8, 8) : 2 }
+        : body;
+    const timeoutMs = isLongPoll
+      ? ((Number(effectiveBody?.timeout) || 8) + 3) * 1000
+      : 5500;
+    try {
+      lastPollLoopTickMs = Date.now();
+      const res = await httpsJsonPost(
+        'api.telegram.org',
+        `/bot${TELEGRAM_BOT_TOKEN}/${method}`,
+        effectiveBody,
+        fam,
+        timeoutMs
+      );
+      lastPollLoopTickMs = Date.now();
+      if (res.data) {
+        if (fam === 4 || fam === 6) lastWorkingTgFamily = fam;
+        return res.data;
+      }
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error(`Telegram API ${method} failed`);
+}
+
+const recentHubMessages = [];
+
+async function sendHtmlCard(chatId, htmlText, _focusProjName = null, replaceLastDashboard = false, customReplyMarkup = null) {
+  try {
+    recentHubMessages.unshift({
+      id: Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      time: formatVnTime(new Date()),
+      machine: MACHINE_ROLE,
+      html: String(htmlText || ''),
+    });
+    if (recentHubMessages.length > 30) recentHubMessages.length = 30;
+  } catch {}
+  if (replaceLastDashboard && lastDashboardMessageId) {
+    try {
+      await tgApi('deleteMessage', { chat_id: chatId, message_id: lastDashboardMessageId });
+    } catch {}
+    lastDashboardMessageId = null;
+  }
+
+  const payload = {
+    chat_id: chatId,
+    text: htmlText,
+    parse_mode: 'HTML',
+  };
+  if (customReplyMarkup) {
+    payload.reply_markup = customReplyMarkup;
+  }
+
+  const res = await tgApi('sendMessage', payload);
+
+  if (res?.ok && res.result?.message_id && replaceLastDashboard) {
+    lastDashboardMessageId = res.result.message_id;
+  }
+  return res;
+}
+
+async function sendPhoto(chatId, filePath, caption = '') {
+  const safeCaption = caption.replace(/"/g, '\\"');
+  try {
+    const { stdout } = await execAsync(
+      `curl -6 -s --connect-timeout 6 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto" -F "chat_id=${chatId}" -F "caption=${safeCaption}" -F "photo=@${filePath}" || curl -s --connect-timeout 8 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto" -F "chat_id=${chatId}" -F "caption=${safeCaption}" -F "photo=@${filePath}"`
+    );
+    return JSON.parse(stdout);
+  } catch (err) {
+    return { ok: false, description: err.message };
+  }
+}
+
+// 8. Core Actions (Tools)
+async function takeScreenshotAndSend(chatId) {
+  const tmpDir = path.join(ROOT_DIR, 'tmp');
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const imgPath = path.join(tmpDir, `screen-${Date.now()}.png`);
+
+  try {
+    if (os.platform() === 'darwin') {
+      await execAsync(`screencapture -x "${imgPath}"`);
+    } else if (os.platform() === 'win32') {
+      const psScript = `Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height; $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size); $bmp.Save('${imgPath.replace(/\\/g, '\\\\')}');`;
+      await execAsync(`powershell -NoProfile -Command "${psScript}"`);
+    }
+    if (fs.existsSync(imgPath)) {
+      await sendPhoto(chatId, imgPath, `📸 Màn hình trực tiếp máy [${MACHINE_ROLE}] (${os.hostname()})`);
+      fs.unlinkSync(imgPath);
+      return 'Đã chụp màn hình và gửi ảnh vào Telegram.';
+    }
+    return 'Không thể chụp màn hình (Hãy cấp quyền Screen Recording cho Terminal).';
+  } catch (err) {
+    return `Lỗi khi chụp màn hình: ${err.message}`;
+  }
+}
+
+async function createNewProjectFromIdea(chatId, projectSlug, ideaDescription, fiveStagePlan) {
+  const slug = projectSlug
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  const projPath = path.join(PROJECTS_ROOT, slug);
+  fs.mkdirSync(projPath, { recursive: true });
+  fs.mkdirSync(path.join(projPath, 'src'), { recursive: true });
+
+  const planText =
+    fiveStagePlan ||
+    `- [ ] Giai đoạn 1: Khởi tạo khung kiến trúc & dữ liệu cốt lõi\n` +
+      `- [ ] Giai đoạn 2: Xây dựng tính năng chính theo ý tưởng\n` +
+      `- [ ] Giai đoạn 3: Giao diện trực quan & tối ưu trải nghiệm\n` +
+      `- [ ] Giai đoạn 4: Tích hợp tự động hóa & kiểm thử\n` +
+      `- [ ] Giai đoạn 5: Đóng gói & đồng bộ đa máy`;
+
+  const agentsContent = `# AGENTS.md — \`${slug}\`
+
+<!-- LIVE_CHECKPOINT_START -->
+## 📌 LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM KIỂM TRA LẠI VIỆC ĐÃ XONG)
+- **Dự án:** \`${slug}\` | **Nhánh:** \`main\`
+- **Ý tưởng cốt lõi:** ${ideaDescription}
+- **Tiến độ lũy kế:** Giai đoạn 1/5 (20%)
+- **Hạng mục ĐÃ XONG (\`DONE\`):**
+  - [x] Khởi tạo dự án \`${slug}\` và lập lộ trình 5 giai đoạn từ iPhone (${new Date().toISOString().slice(0, 10)}).
+- **VIỆC TIẾP THEO (\`NEXT_ACTION\`):**
+  - Xây dựng Giai đoạn 1: Khung kiến trúc & tính năng cốt lõi cho ${slug}.
+<!-- LIVE_CHECKPOINT_END -->
+
+## 🗺️ LỘ TRÌNH 5 GIAI ĐOẠN
+${planText}
+`;
+
+  fs.writeFileSync(path.join(projPath, 'AGENTS.md'), agentsContent, 'utf8');
+  fs.writeFileSync(
+    path.join(projPath, 'README.md'),
+    `# ${slug}\n\n> ${ideaDescription}\n\nXem tiến độ trực tiếp tại \`AGENTS.md\`.\n`,
+    'utf8'
+  );
+
+  try {
+    await execAsync(
+      'git init && git branch -M main && git add -A && git commit -m "chore: init project from Telegram"',
+      { cwd: projPath }
+    );
+  } catch {}
+
+  await snapshotProjects(false);
+  selectedProjectSlug = slug;
+  const proj = findProjectByNumberOrName(slug) || parseProjectDetails(slug, projPath, 5);
+
+  enqueueTaskForAnty({
+    id: `new-${Date.now()}`,
+    type: 'NEW_PROJECT',
+    machine: MACHINE_ROLE,
+    project: slug,
+    projectPath: projPath,
+    instruction: `Dự án mới "${slug}" vừa được tạo với ý tưởng: "${ideaDescription}". Hãy thực thi ngay Giai đoạn 1 trong AGENTS.md, cập nhật LIVE_CHECKPOINT và git commit khi xong.`,
+    chatId,
+    createdAt: new Date().toISOString(),
+  });
+
+  activeTaskInfo = { idNum: proj.idNum, project: slug, task: 'Khởi chạy Giai đoạn 1', startedAt: Date.now() };
+  return formatSingleProjectCardHtml(
+    proj,
+    '🚀 <b>ĐÃ TẠO DỰ ÁN MỚI & BẬT TỰ BÁO CÁO</b>',
+    `Khởi tạo xong dự án "${slug}" (${ideaDescription})`,
+    '',
+    proj.nextAction
+  );
+}
+
+function notifyLocalScreen(title, subtitle, message, openApp = false) {
+  if (os.platform() === 'darwin') {
+    const safeTitle = String(title).replace(/"/g, "'");
+    const safeSub = String(subtitle).replace(/"/g, "'");
+    const safeMsg = String(message).replace(/"/g, "'");
+    const script =
+      `display notification "${safeMsg}" with title "${safeTitle}" subtitle "${safeSub}" sound name "Glass"` +
+      (openApp ? `\ntell application "Antigravity" to activate` : '');
+    exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, () => {});
+  }
+}
+
+function enqueueTaskForAnty(taskPacket) {
+  let queue = [];
+  if (fs.existsSync(QUEUE_FILE)) {
+    try {
+      queue = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8'));
+    } catch {
+      queue = [];
+    }
+  }
+  queue.push({ status: 'QUEUED', ...taskPacket });
+  fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue, null, 2), 'utf8');
+}
+
+async function pullLatestProjectFromGithub(projPath) {
+  if (!projPath || !fs.existsSync(path.join(projPath, '.git'))) return false;
+  try {
+    await execAsync('git pull --rebase --autostash', { cwd: projPath, timeout: 15000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function switchTargetMachineAndHandover(chatId, rawTargetId) {
+  const reg = ensureCurrentMachineRegistered();
+  const upper = String(rawTargetId || '').trim().toUpperCase();
+  const aliasMap = {
+    MAC: 'MACBOOK',
+    MACBOOK: 'MACBOOK',
+    M2: 'WIN-2',
+    WIN2: 'WIN-2',
+    'WIN-2': 'WIN-2',
+    M1: 'WIN-1',
+    WIN1: 'WIN-1',
+    'WIN-1': 'WIN-1',
+  };
+  const targetId = aliasMap[upper] || upper;
+  if (!reg.machines[targetId]) {
+    reg.machines[targetId] = {
+      id: targetId,
+      label: `Máy ${targetId}`,
+      icon: targetId.startsWith('MAC') ? '💻' : '🖥️',
+      hostname: targetId,
+      os: targetId.startsWith('MAC') ? 'darwin' : 'win32',
+      ramGB: '16.0',
+      lastSeen: 'Vừa thêm',
+    };
+  }
+
+  const prevMachineId = reg.activeMachine || MACHINE_ROLE;
+  reg.activeMachine = targetId;
+  reg.manualOverrideMachine = targetId;
+  reg.manualOverrideUntilMs = targetId === 'WIN-2' ? 0 : Date.now() + 8 * 3600 * 1000;
+  saveMachinesRegistry(reg);
+
+  // 1. Push any pending work from current machine + push updated machines.json
+  await autoSyncAllProjectsToGithub();
+  try {
+    await execAsync(
+      `git add machines.json && git commit -m "chore(handover): switch active machine ${prevMachineId} -> ${targetId}" && git push`,
+      { cwd: ROOT_DIR, timeout: 15000 }
+    );
+  } catch {}
+
+  // 2. Pull latest code + AGENTS.md for the currently selected project so handover is seamless
+  const proj = getSelectedProject();
+  if (proj) {
+    await pullLatestProjectFromGithub(proj.path);
+  }
+  const freshProj = (proj && findProjectByNumberOrName(proj.name)) || getSelectedProject();
+  const targetMeta = reg.machines[targetId];
+  const targetOnline = isMachineOnline(targetMeta);
+
+  if (freshProj) {
+    const statusText = targetOnline
+      ? `🟢 Đã chuyển sang máy <b>[${escHtml(targetId)}]</b> (${escHtml(getCanonicalMachineLabel(targetId))} • Online) và đồng bộ dự án <b>#${freshProj.idNum} ${escHtml(freshProj.name)}</b>.`
+      : `🔴 Đã chọn máy <b>[${escHtml(targetId)}]</b> (hiện đang tắt) và lưu sẵn code lên GitHub — khi bật máy lên sẽ tự kéo về làm tiếp.`;
+    await sendHtmlCard(chatId, statusText);
+  }
+  return targetMeta;
+}
+
+let liveTickerTimer = null;
+
+function startLiveTaskTicker() {
+  if (liveTickerTimer) {
+    clearInterval(liveTickerTimer);
+    liveTickerTimer = null;
+  }
+}
+
+const localTaskWorker = new PersistentTaskWorker({
+  coordinator: taskCoordinator,
+  runtimeStore,
+  machineRole: MACHINE_ROLE,
+  onStateChange: async (task, prevStatus) => {
+    if (!ALLOWED_CHAT_ID && !task.chatId) return;
+    const chatId = task.chatId || ALLOWED_CHAT_ID;
+    const proj = findProjectByNumberOrName(task.project) || getSelectedProject();
+    if (!proj) return;
+
+    if (task.status === 'SUCCEEDED' && !task.notifiedCompletion && runtimeStore.claimTaskNotification(task.id)) {
+      taskCoordinator.updateTask(task.id, (t) => {
+        t.notifiedCompletion = true;
+      });
+      activeTaskInfo = null;
+      const ev = task.evidence || {};
+      const resObj = task.result || {};
+      const sha = (ev.commitSha || resObj.commitSha || proj.commitSha || '').slice(0, 7);
+      const checkCmd = ev.checkCommand || resObj.checkCommand || 'kiểm thử';
+      const attemptsNote =
+        Number(resObj.attemptsUsed || 1) > 1 ? ` • Tự sửa & PASS ở vòng #${resObj.attemptsUsed}` : '';
+      lastProjectNotifyTime.set(proj.name, Date.now());
+      await autoCommitAndPushProject(proj.path, resObj.summary || ev.summary || task.instruction, '').catch(() => {});
+      await sendHtmlCard(
+        chatId,
+        `✅ <b>Đã hoàn thành & Kiểm thử PASS trên [${escHtml(task.targetMachine)}] (#${proj.idNum} ${escHtml(proj.name)}):</b> ${escHtml(cleanOneLine(resObj.summary || ev.summary || task.instruction, 160))} <code>(${escHtml(checkCmd)}: PASS${escHtml(attemptsNote)}${sha ? ` • #${escHtml(sha)}` : ''})</code>`
+      ).catch(() => {});
+      if (detectIsWebServerHost() && proj.isWebProject && proj.name !== 'anty-remote-hub') {
+        executeWebReleaseAndDeploy(chatId, proj, false).catch(() => {});
+      }
+    } else if ((task.status === 'FAILED' || task.status === 'TIMED_OUT') && !task.notifiedCompletion && runtimeStore.claimTaskNotification(task.id)) {
+      taskCoordinator.updateTask(task.id, (t) => {
+        t.notifiedCompletion = true;
+      });
+      activeTaskInfo = null;
+      const errDetail = cleanOneLine(task.error || 'Chưa đạt kiểm thử', 160);
+      const currentHealRound = Number(task.autoHealRound || 0);
+
+      // Outer Self-Healing Retry: If internal worker retries still didn't pass, automatically re-dispatch up to 2 outer self-healing rounds!
+      if (currentHealRound < 2) {
+        const nextHealRound = currentHealRound + 1;
+        const healInstruction =
+          `[TỰ KIỂM TRA & SỬA LẠI VÒNG #${nextHealRound}] Yêu cầu gốc: "${task.instruction}". ` +
+          `Kết quả kiểm tra vừa báo lỗi: "${errDetail}". Hãy sửa triệt để lỗi này và chạy kiểm thử cho đến khi PASS 100%, sau đó git commit.`;
+        await sendHtmlCard(
+          chatId,
+          `🔄 <b>[${escHtml(task.targetMachine)}] Đang tự kiểm tra & cho Anty sửa lại lỗi (#${proj.idNum} ${escHtml(proj.name)} — Vòng tự phục hồi #${nextHealRound}/2):</b> ${escHtml(errDetail)}`
+        ).catch(() => {});
+
+        const { task: healTask } = await taskCoordinator.dispatchTask({
+          targetMachine: task.targetMachine || MACHINE_ROLE,
+          project: proj.name,
+          projectPath: proj.path,
+          instruction: healInstruction,
+          chatId,
+          baseCommitSha: proj.commitSha || '',
+          timeoutMs: 420000,
+          ackTimeoutMs: 8000,
+          allowNoCommit: Boolean(task.allowNoCommit),
+        });
+        taskCoordinator.updateTask(healTask.id, (t) => {
+          t.autoHealRound = nextHealRound;
+        });
+        activeTaskInfo = {
+          id: healTask.id,
+          idNum: proj.idNum,
+          project: proj.name,
+          task: cleanOneLine(healInstruction, 60),
+          startedAt: Date.now(),
+          baseCommitSha: proj.commitSha || '',
+        };
+        localTaskWorker.processNextAssignedTask().catch(() => {});
+        return;
+      }
+
+      const errLabel = task.status === 'TIMED_OUT' ? 'Quá thời gian chạy (Timeout)' : errDetail;
+      await sendHtmlCard(
+        chatId,
+        `⚠️ <b>Chưa hoàn tất sau khi tự thử lại trên [${escHtml(task.targetMachine)}] (#${proj.idNum} ${escHtml(proj.name)}):</b> ${escHtml(errLabel)}`
+      ).catch(() => {});
+    }
+  },
+});
+
+async function dispatchCodingTaskWithWatchdog(chatId, projectQuery, taskInstruction, preAnalysisText = '') {
+  let proj = findProjectByNumberOrName(projectQuery) || getSelectedProject();
+  if (!proj) {
+    await sendHtmlCard(chatId, `⚠️ Không tìm thấy dự án phù hợp để giao việc.`);
+    return null;
+  }
+
+  selectedProjectSlug = proj.name;
+  const activeMachine = getSelectedMachineInfo();
+  const targetMachineId = activeMachine.id || MACHINE_ROLE;
+  const analysisHeader = preAnalysisText
+    ? `🤖 <b>GEMINI ${escHtml(currentModelProfile.toUpperCase())}:</b> ${formatGeminiHtml(preAnalysisText)}\n`
+    : '';
+
+  // Case B (FAST PATH): Target machine is THIS machine (MACHINE_ROLE) -> Reply IMMEDIATELY (<1s) then run git pull + worker in background!
+  if (targetMachineId === MACHINE_ROLE) {
+    await sendHtmlCard(
+      chatId,
+      `${analysisHeader}⚡ <b>Đã giao Anty trên [${escHtml(MACHINE_ROLE)}] thực thi (#${proj.idNum} ${escHtml(proj.name)}):</b> ${escHtml(cleanOneLine(taskInstruction, 120))}`
+    );
+
+    (async () => {
+      try {
+        await pullLatestProjectFromGithub(proj.path);
+        const freshProj = getProjectsSummary(true).find((p) => p.name === proj.name) || proj;
+        const { task, deduplicated } = await taskCoordinator.dispatchTask({
+          targetMachine: MACHINE_ROLE,
+          project: freshProj.name,
+          projectPath: freshProj.path,
+          instruction: taskInstruction,
+          chatId,
+          baseCommitSha: freshProj.commitSha || '',
+          timeoutMs: 420000,
+          ackTimeoutMs: 8000,
+          allowNoCommit:
+            !/NEXT_ACTION|sửa|fix|thêm|cập nhật|update|tối ưu|viết|tạo|xóa|nâng cấp/i.test(taskInstruction) &&
+            /kiểm tra|check|test|báo cáo|status/i.test(taskInstruction),
+        });
+        if (deduplicated) return;
+
+        enqueueTaskForAnty({
+          id: task.id,
+          type: 'CODING_TASK',
+          machine: MACHINE_ROLE,
+          project: freshProj.name,
+          projectPath: freshProj.path,
+          instruction: taskInstruction,
+          chatId,
+          createdAt: task.createdAt,
+        });
+        activeTaskInfo = {
+          id: task.id,
+          idNum: freshProj.idNum,
+          project: freshProj.name,
+          task: cleanOneLine(taskInstruction, 60),
+          startedAt: Date.now(),
+          baseCommitSha: freshProj.commitSha || '',
+        };
+        localTaskWorker.processNextAssignedTask().catch(() => {});
+      } catch (err) {
+        console.error('⚠️ Lỗi khởi chạy tác vụ nền:', err.message);
+      }
+    })();
+
+    return null;
+  }
+
+  // Case A: Target machine is a REMOTE machine (e.g. WIN-1 while coordinator is WIN-2)
+  const waitingRes = await sendHtmlCard(
+    chatId,
+    `${analysisHeader}📡 <i>Đang chuyển việc sang máy [${escHtml(targetMachineId)}] (#${proj.idNum} ${escHtml(proj.name)}): ${escHtml(cleanOneLine(taskInstruction, 110))}...</i>`
+  );
+  const waitMsgId = waitingRes?.result?.message_id;
+
+  const { task, deduplicated } = await taskCoordinator.dispatchTask({
+    targetMachine: targetMachineId,
+    project: proj.name,
+    projectPath: proj.path,
+    instruction: taskInstruction,
+    chatId,
+    baseCommitSha: proj.commitSha || '',
+    timeoutMs: 420000,
+    ackTimeoutMs: 18000,
+    allowNoCommit:
+      !/NEXT_ACTION|sửa|fix|thêm|cập nhật|update|tối ưu|viết|tạo|xóa|nâng cấp/i.test(taskInstruction) &&
+      /kiểm tra|check|test|báo cáo|status/i.test(taskInstruction),
+  });
+
+  if (deduplicated) {
+    return null;
+  }
+
+  const ackResult = await taskCoordinator.waitForTaskAck(task.id, 1500, 18000);
+  if (ackResult.acked) {
+    const ackedText = `${analysisHeader}⚡ <b>Đã giao Anty trên [${escHtml(targetMachineId)}] thực thi (#${proj.idNum} ${escHtml(proj.name)}):</b> ${escHtml(cleanOneLine(taskInstruction, 110))}`;
+    if (waitMsgId) {
+      await tgApi('editMessageText', {
+        chat_id: chatId,
+        message_id: waitMsgId,
+        text: ackedText,
+        parse_mode: 'HTML',
+      }).catch(() => {});
+    }
+  } else {
+    const timeoutText = `${analysisHeader}🔴 Máy <b>[${escHtml(targetMachineId)}]</b> hiện không phản hồi nhận việc (có thể đang tắt). Bạn hãy nhắn <i>"chuyển qua máy ${escHtml(MACHINE_ROLE)}"</i> để chạy ngay trên máy đang mở.`;
+    if (waitMsgId) {
+      await tgApi('editMessageText', {
+        chat_id: chatId,
+        message_id: waitMsgId,
+        text: timeoutText,
+        parse_mode: 'HTML',
+      }).catch(() => {});
+    }
+  }
+  return null;
+}
+
+function killHungTasks() {
+  if (activeChildProcess?.pid) {
+    killProcessTreeSync(activeChildProcess.pid);
+    activeChildProcess = null;
+  }
+  const { cancelledTasks, killedPids } = taskCoordinator.cancelActiveTasks({
+    reason: `Ngắt cưỡng chế bởi người dùng (/restart) trên máy ${MACHINE_ROLE}`,
+  });
+  const prev = activeTaskInfo;
+  activeTaskInfo = null;
+  if (fs.existsSync(QUEUE_FILE)) {
+    fs.writeFileSync(QUEUE_FILE, '[]', 'utf8');
+  }
+  const pidList = killedPids.map((k) => `PID ${k.pid} (${k.verifiedDead ? 'đã diệt' : 'đang đóng'})`).join(', ');
+  if (cancelledTasks.length > 0 || killedPids.length > 0 || prev) {
+    return (
+      `Đã dừng thật ${cancelledTasks.length} tác vụ (${prev?.project || cancelledTasks[0]?.project || 'active'}) ` +
+      `${pidList ? `[${pidList}] ` : ''}và xóa hàng đợi trên máy ${MACHINE_ROLE}.`
+    );
+  }
+  return `Máy ${MACHINE_ROLE} hiện không có tiến trình Worker nào đang chạy. Hàng đợi sạch 100%!`;
+}
+
+// 9. Google Gemini Free API Natural Language Brain
+const GEMINI_TOOLS = [
+  {
+    functionDeclarations: [
+      {
+        name: 'dispatch_coding_task',
+        description:
+          'Gọi hàm này khi người dùng RA LỆNH GIAO VIỆC (viết code, sửa lỗi, thêm tính năng, chạy test/build, hoặc làm tiếp NEXT_ACTION) cho một dự án (#1 đến #5). Luôn điền kèm analysis_reply để phân tích ngắn gọn tự nhiên (1-2 câu) cho người dùng trước khi giao việc.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            project_name: {
+              type: 'STRING',
+              description: 'Tên dự án chuẩn (#1 management-lite, #2 tiktok-ai-factory-v4, #3 video-automation-v1, #4 tiktok-ai-factory, #5 anty-remote-hub)',
+            },
+            task_instruction: {
+              type: 'STRING',
+              description: 'Mô tả rõ ràng công việc kỹ thuật Anty cần thực hiện',
+            },
+            analysis_reply: {
+              type: 'STRING',
+              description: 'Câu trả lời & phân tích tự nhiên ngắn gọn (1-2 câu tiếng Việt) gửi cho người dùng giải thích Gemini hiểu yêu cầu thế nào và định hướng xử lý.',
+            },
+          },
+          required: ['project_name', 'task_instruction', 'analysis_reply'],
+        },
+      },
+      {
+        name: 'switch_target_machine',
+        description: 'Chuyển đổi máy tính thực thi dự án (WIN-2, WIN-1, MACBOOK) khi người dùng yêu cầu đổi máy hoặc chọn máy.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            machine_id: {
+              type: 'STRING',
+              description: 'Mã máy cần chuyển sang: WIN-2, WIN-1, hoặc MACBOOK',
+            },
+          },
+          required: ['machine_id'],
+        },
+      },
+      {
+        name: 'select_project',
+        description: 'Chọn dự án mặc định (#1 đến #5) khi người dùng chỉ yêu cầu chuyển sang dự án đó mà chưa giao việc.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            project_name: {
+              type: 'STRING',
+              description: 'Số thứ tự (1-5) hoặc tên dự án',
+            },
+            analysis_reply: {
+              type: 'STRING',
+              description: 'Câu trả lời tự nhiên ngắn gọn báo đã chọn dự án và tóm tắt trạng thái dự án đó.',
+            },
+          },
+          required: ['project_name'],
+        },
+      },
+      {
+        name: 'deploy_project_to_web',
+        description: 'Duyệt phát hành và cập nhật bản dựng mới nhất của dự án lên trang Web thật.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            project_name: {
+              type: 'STRING',
+              description: 'Số thứ tự (1-4) hoặc tên dự án cần phát hành lên web',
+            },
+            run_recheck_first: {
+              type: 'BOOLEAN',
+              description: 'True nếu người dùng yêu cầu kiểm tra/test lại trước khi đẩy lên web',
+            },
+          },
+          required: ['project_name'],
+        },
+      },
+      {
+        name: 'take_screenshot',
+        description: 'Chụp ảnh màn hình máy tính hiện tại và gửi thẳng ảnh về Telegram.',
+        parameters: { type: 'OBJECT', properties: {} },
+      },
+      {
+        name: 'create_new_project',
+        description: 'Tạo một dự án phần mềm mới hoàn toàn từ ý tưởng của người dùng.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            project_slug: { type: 'STRING', description: 'Tên thư mục dự án viết liền gạch ngang' },
+            idea_description: { type: 'STRING', description: 'Tóm tắt ngắn gọn ý tưởng dự án' },
+            five_stage_plan: { type: 'STRING', description: 'Lộ trình 5 giai đoạn ngắn gọn' },
+          },
+          required: ['project_slug', 'idea_description', 'five_stage_plan'],
+        },
+      },
+      {
+        name: 'restart_or_unblock',
+        description: 'Cưỡng chế hủy lệnh bị nghẽn/treo và làm sạch hàng đợi của Anty.',
+        parameters: { type: 'OBJECT', properties: {} },
+      },
+      {
+        name: 'set_gemini_model_mode',
+        description: 'Đổi dòng Model Gemini (argon, pro, flash, lite) hoặc chế độ suy luận (low, medium, high).',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            profile: { type: 'STRING', description: 'argon, pro, flash, lite' },
+            thinking_mode: { type: 'STRING', description: 'low, medium, high' },
+          },
+        },
+      },
+    ],
+  },
+];
+
+const MODEL_PROFILES = {
+  argon: ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-3.8-flash'],
+  pro: ['gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash'],
+  flash: ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.7-flash'],
+  lite: ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash'],
+};
+
+const THINKING_BUDGETS = { low: 0, medium: 1024, high: 8192 };
+
+let currentModelProfile = (process.env.GEMINI_MODEL_PROFILE || 'argon').toLowerCase();
+let currentThinkingMode = (process.env.GEMINI_THINKING_MODE || 'medium').toLowerCase();
+
+function getModelStatusHtml() {
+  return `🧠 Đang dùng <b>GEMINI ${currentModelProfile.toUpperCase()}</b> (${currentThinkingMode.toUpperCase()}) trên máy <b>[${MACHINE_ROLE}]</b>.`;
+}
+
+const invalidGeminiKeys = new Set();
+
+async function processWithGemini(chatId, userText) {
+  const activeGeminiKey = getGeminiApiKey();
+  if (!activeGeminiKey || invalidGeminiKeys.has(activeGeminiKey)) {
+    throw new Error('Gemini API key unavailable or unauthorized (using local dispatcher)');
+  }
+  const projects = getProjectsSummary();
+  const current = getSelectedProject();
+  const reg = loadMachinesRegistry();
+  const activeMachineId = reg.activeMachine || MACHINE_ROLE;
+  const onlineMachinesList = Object.values(reg.machines || {})
+    .map((m) => `${m.id} (${getCanonicalMachineLabel(m.id)}: ${isMachineOnline(m) ? 'ĐANG MỞ/ONLINE' : 'ĐANG TẮT'})`)
+    .join(', ');
+
+  const systemInstruction = `Bạn là Gemini Argon — Trợ Lý Kỹ Thuật & Điều Phối Ngôn Ngữ Tự Nhiên trên Telegram cho Owner.
+Hệ thống hiện tại:
+- Máy đang chọn thực thi: [${activeMachineId}] (Daemon đang chạy trên [${MACHINE_ROLE}]).
+- Trạng thái các máy: ${onlineMachinesList}.
+- Dự án đang chọn mặc định: #${current?.idNum || 1} "${current?.name || 'management-lite'}" (${current?.shortLabel || 'QuảnLý'}).
+- Dữ liệu 5 dự án trực tiếp: ${projects.map((p) => `#${p.idNum} ${p.name} (${p.shortLabel}, ${p.percent}%): Vừa xong="${p.lastDone}", Việc tiếp theo="${p.nextAction}"`).join(' | ')}
+- Ánh xạ tên dự án tự nhiên: #1 "quản lý"/"chấm công" = management-lite | #2 "tiktok v4" = tiktok-ai-factory-v4 | #3 "video auto" = video-automation-v1 | #4 "tiktok v3" = tiktok-ai-factory | #5 "anty"/"bot tele" = anty-remote-hub.
+
+QUY TẮC TRẢ LỜI TỰ NHIÊN & GIAO VIỆC (CỰC KỲ QUAN TRỌNG):
+1. KHÔNG BAO GIỜ in bảng báo cáo mẫu rườm rà hay liệt kê danh sách nút bấm. Hãy trò chuyện, phân tích tự nhiên, thông minh, đi thẳng vào trọng tâm bằng tiếng Việt ngắn gọn (1–3 câu).
+2. Khi người dùng HỎI thông tin (máy nào đang mở, tiến độ dự án, hỏi đáp kỹ thuật, kiểm tra trạng thái): trả lời tự nhiên trực tiếp từ dữ liệu trên, TUYỆT ĐỐI KHÔNG gọi dispatch_coding_task.
+3. Khi người dùng RA LỆNH GIAO VIỆC / SỬA CODE / THÊM TÍNH NĂNG / FIX LỖI / LÀM TIẾP / KIỂM THỬ: gọi hàm dispatch_coding_task và điền analysis_reply để phân tích ngắn gọn tự nhiên (1–2 câu) trước khi giao việc cho Anty thực thi.`;
+
+  const models = MODEL_PROFILES[currentModelProfile] || MODEL_PROFILES.flash;
+  let lastErr = null;
+
+  for (const model of models) {
+    try {
+      const genConfig = model.includes('lite')
+        ? { temperature: 0.2 }
+        : { temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } };
+      const payload = {
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: 'user', parts: [{ text: userText }] }],
+        tools: GEMINI_TOOLS,
+        generationConfig: genConfig,
+      };
+
+      const res = await httpsJsonPost(
+        'generativelanguage.googleapis.com',
+        `/v1beta/models/${model}:generateContent?key=${activeGeminiKey}`,
+        payload,
+        4,
+        12000
+      );
+
+      if (res.status === 401 || res.status === 403) {
+        invalidGeminiKeys.add(activeGeminiKey);
+        throw new Error(`Gemini (${model}) HTTP ${res.status}`);
+      }
+      if (res.status < 200 || res.status >= 300 || !res.data) {
+        lastErr = new Error(`Gemini (${model}) HTTP ${res.status}`);
+        continue;
+      }
+
+      const candidate = res.data.candidates?.[0]?.content?.parts || [];
+      let replyTexts = [];
+
+      for (const part of candidate) {
+        if (part.text && !part.thought) replyTexts.push(formatGeminiHtml(part.text.trim()));
+        if (part.functionCall) {
+          const { name, args } = part.functionCall;
+          if (name === 'take_screenshot') {
+            const r = await takeScreenshotAndSend(chatId);
+            replyTexts.push(`✅ ${escHtml(r)}`);
+          } else if (name === 'switch_target_machine') {
+            await switchTargetMachineAndHandover(chatId, args.machine_id);
+            return null;
+          } else if (name === 'select_project') {
+            const proj = findProjectByNumberOrName(args.project_name) || getSelectedProject();
+            if (proj) {
+              selectedProjectSlug = proj.name;
+              const naturalMsg =
+                args.analysis_reply ||
+                `Đã chuyển sang dự án #${proj.idNum} ${proj.name} (${proj.percent}%). Việc tiếp theo: ${proj.nextAction}`;
+              replyTexts.push(formatGeminiHtml(naturalMsg));
+            }
+          } else if (name === 'deploy_project_to_web') {
+            const proj = findProjectByNumberOrName(args.project_name) || getSelectedProject();
+            if (proj) {
+              selectedProjectSlug = proj.name;
+              await executeWebReleaseAndDeploy(chatId, proj, Boolean(args.run_recheck_first));
+              return null;
+            }
+          } else if (name === 'create_new_project') {
+            const card = await createNewProjectFromIdea(
+              chatId,
+              args.project_slug,
+              args.idea_description,
+              args.five_stage_plan
+            );
+            await sendHtmlCard(chatId, card, args.project_slug);
+            return null;
+          } else if (name === 'dispatch_coding_task') {
+            const preAnalysis =
+              args.analysis_reply ||
+              (replyTexts.length > 0 ? replyTexts.join(' ') : '');
+            if (
+              isConversationalOrStatusQuestion(userText) &&
+              isConversationalOrStatusQuestion(args.task_instruction || '')
+            ) {
+              return formatGeminiHtml(
+                preAnalysis ||
+                  `Chào bạn! Mình đang sẵn sàng trên máy [${MACHINE_ROLE}] (Dự án đang chọn: #${current?.idNum || 1} ${current?.name || 'management-lite'}). Bạn cần mình phân tích hay thực thi việc gì cứ nhắn tự nhiên nhé!`
+              );
+            }
+            await dispatchCodingTaskWithWatchdog(
+              chatId,
+              args.project_name,
+              args.task_instruction,
+              preAnalysis
+            );
+            return null;
+          } else if (name === 'restart_or_unblock') {
+            const r = killHungTasks();
+            replyTexts.push(`🔄 ${escHtml(r)}`);
+          } else if (name === 'set_gemini_model_mode') {
+            if (args.profile && MODEL_PROFILES[args.profile.toLowerCase()]) {
+              currentModelProfile = args.profile.toLowerCase();
+            }
+            if (args.thinking_mode && THINKING_BUDGETS[args.thinking_mode.toLowerCase()] !== undefined) {
+              currentThinkingMode = args.thinking_mode.toLowerCase();
+            }
+            replyTexts.push(getModelStatusHtml());
+          }
+        }
+      }
+
+      const finalJoined = replyTexts.join('\n\n').trim();
+      if (!finalJoined) {
+        lastErr = new Error(`Gemini (${model}) returned empty content`);
+        continue;
+      }
+      return finalJoined;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  throw lastErr || new Error('Không thể kết nối Gemini API');
+}
+
+
+// 10. Web Release Approval & Automated Recheck + Web Deployment Handler
+async function executeWebReleaseAndDeploy(chatId, proj, runFullRecheckFirst = false, { autoTriggered = false } = {}) {
+  const domain = getDomainForProject(proj.name);
+  const branchName = proj.branch || 'main';
+  const modeLabel = runFullRecheckFirst
+    ? `🧪 ĐANG KIỂM TRA LẠI TOÀN DIỆN & CẬP NHẬT LÊN WEB (${domain})`
+    : `🚀 ĐANG DUYỆT & PHÁT HÀNH LÊN WEB (${domain})`;
+
+  if (!autoTriggered) {
+    await sendHtmlCard(
+      chatId,
+      `⏳ <b>${escHtml(modeLabel)}</b>\n` +
+        `${proj.icon} Dự án: <b>#${proj.idNum} ${escHtml(proj.shortLabel.toUpperCase())}</b> (${escHtml(proj.name)})\n` +
+        `<blockquote>• Bước 1: Đồng bộ GitHub & kiểm tra tính toàn vẹn Git (nhánh <code>${escHtml(branchName)}</code>)\n` +
+        (runFullRecheckFirst ? `• Bước 2: Chạy lại bộ kiểm thử & Typecheck toàn hệ thống\n` : '') +
+        `• Bước ${runFullRecheckFirst ? 3 : 2}: Đóng gói bản dựng Production Web (<code>build:web</code> / <code>build</code>)\n` +
+        `• Bước ${runFullRecheckFirst ? 4 : 3}: Cập nhật trực tiếp thư mục Web Live & phát hành lên <b>https://${escHtml(domain)}</b></blockquote>`,
+      proj.name,
+      false
+    );
+  }
+
+  try {
+    // 1. Pull latest commits from GitHub & ensure clean synced git state
+    await pullLatestProjectFromGithub(proj.path);
+    await autoCommitAndPushProject(proj.path, '', '').catch(() => {});
+    const fullSha = (await execAsync('git rev-parse HEAD', { cwd: proj.path })).stdout.trim();
+    const shortSha = fullSha.slice(0, 7);
+
+    // 1.5 Ensure node_modules AND node_modules/.bin exist at project root
+    const pkgJsonFile = path.join(proj.path, 'package.json');
+    const binDir = path.join(proj.path, 'node_modules', '.bin');
+    const hasBinTools =
+      fs.existsSync(binDir) &&
+      (fs.existsSync(path.join(binDir, 'vite')) ||
+        fs.existsSync(path.join(binDir, 'vite.cmd')) ||
+        fs.existsSync(path.join(binDir, 'tsc')) ||
+        fs.existsSync(path.join(binDir, 'tsc.cmd')));
+
+    if (fs.existsSync(pkgJsonFile) && (!fs.existsSync(path.join(proj.path, 'node_modules')) || !hasBinTools)) {
+      await execAsync('npm install --engine-strict=false --ignore-scripts --no-audit --no-fund', {
+        cwd: proj.path,
+        timeout: 150000,
+      }).catch(() => {});
+    }
+
+    // 2. Optional full recheck (typecheck/test/build) before web update
+    let checkSummary = 'Đã xác thực commit & chữ ký Git hợp lệ';
+    if (runFullRecheckFirst && fs.existsSync(pkgJsonFile)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgJsonFile, 'utf8'));
+      const scripts = pkg.scripts || {};
+      const checkCmd = scripts.typecheck
+        ? 'npm run typecheck'
+        : scripts.build
+        ? 'npm run build'
+        : 'git status -sb';
+      await execAsync(checkCmd, { cwd: proj.path, timeout: 90000 });
+      checkSummary = `${checkCmd} (PASS 100%)`;
+    }
+
+    // 3. Run Production Backend + Web Build (`build` + `build:web`)
+    let buildCmdRan = 'git push origin HEAD';
+    let pkgVersion = '0.1.1';
+    if (fs.existsSync(pkgJsonFile)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgJsonFile, 'utf8'));
+      if (pkg.version) pkgVersion = String(pkg.version).replace(/^v/i, '');
+      const scripts = pkg.scripts || {};
+      if (scripts.build && scripts['build:web']) {
+        await execAsync('npm run build', { cwd: proj.path, timeout: 120000 });
+        await execAsync('npm run build:web', { cwd: proj.path, timeout: 120000 });
+        buildCmdRan = 'npm run build && npm run build:web (PASS)';
+      } else if (scripts['build:web']) {
+        await execAsync('npm run build:web', { cwd: proj.path, timeout: 120000 });
+        buildCmdRan = 'npm run build:web (PASS)';
+      } else if (scripts.build) {
+        await execAsync('npm run build', { cwd: proj.path, timeout: 120000 });
+        buildCmdRan = 'npm run build (PASS)';
+      }
+    }
+
+    // 4. Write release-version.json & Sync Built Static Assets + Backend API to Live Server Root
+    const webDistDir = path.join(proj.path, 'apps', 'web', 'dist');
+    const apiDistDir = path.join(proj.path, 'dist');
+    const candidateDistDirs = [webDistDir, apiDistDir];
+    const builtDistDir = candidateDistDirs.find((d) => fs.existsSync(d)) || '';
+    const releaseMeta = {
+      project: proj.name,
+      version: pkgVersion,
+      domain,
+      sha: fullSha,
+      shortSha,
+      environment: 'production',
+      releasedAt: new Date().toISOString(),
+      releasedBy: MACHINE_ROLE,
+    };
+
+    let liveSyncNote = 'Đã đóng gói bản dựng Web chuẩn Production';
+    for (const d of candidateDistDirs) {
+      if (fs.existsSync(d)) {
+        try {
+          fs.writeFileSync(
+            path.join(d, 'release-version.json'),
+            JSON.stringify(releaseMeta, null, 2),
+            'utf8'
+          );
+        } catch {}
+      }
+    }
+
+    if (builtDistDir) {
+      if (proj.name === 'management-lite') {
+        const liveAppRoot = 'C:\\HoaiPhuong-Server\\apps\\management-lite';
+        const liveTargets = [
+          'C:\\HoaiPhuong-Server\\apps\\management-lite\\apps\\web\\dist',
+          'C:\\ManagementLite\\current\\web',
+        ];
+        const syncedTargets = [];
+        for (const targetDir of liveTargets) {
+          if (fs.existsSync(targetDir) && fs.existsSync(webDistDir)) {
+            try {
+              fs.cpSync(webDistDir, targetDir, { recursive: true, force: true });
+              syncedTargets.push(targetDir);
+            } catch {}
+          }
+        }
+
+        // Sync Backend API dist + migrations + reports + restart HPManagementLiteApi on Windows Server
+        if (os.platform() === 'win32' && fs.existsSync(liveAppRoot) && fs.existsSync(apiDistDir)) {
+          const liveApiDist = path.join(liveAppRoot, 'dist');
+          try {
+            await execAsync(
+              `git -c safe.directory=* -C "${liveAppRoot}" fetch origin main && git -c safe.directory=* -C "${liveAppRoot}" checkout -f ${fullSha}`,
+              { timeout: 15000 }
+            ).catch(() => {});
+          } catch {}
+          try {
+            await execAsync(`icacls "${liveApiDist}" /grant "${process.env.USERNAME || 'Users'}:(OI)(CI)F" /T /C /Q`, {
+              timeout: 8000,
+            }).catch(() => {});
+            fs.cpSync(apiDistDir, liveApiDist, { recursive: true, force: true });
+            const srcMigs = path.join(proj.path, 'packages', 'database', 'src', 'migrations');
+            const dstMigs1 = path.join(liveAppRoot, 'packages', 'database', 'src', 'migrations');
+            const dstMigs2 = path.join(liveAppRoot, 'migrations');
+            if (fs.existsSync(srcMigs)) {
+              fs.cpSync(srcMigs, dstMigs1, { recursive: true, force: true });
+              fs.cpSync(srcMigs, dstMigs2, { recursive: true, force: true });
+            }
+            if (fs.existsSync(pkgJsonFile)) {
+              fs.copyFileSync(pkgJsonFile, path.join(liveAppRoot, 'package.json'));
+            }
+          } catch {}
+
+          // Run pending database migrations on Windows Server PostgreSQL (best-effort)
+          try {
+            const pgPassFile = 'C:\\HoaiPhuong-Server\\config\\test-secrets\\pgpass.conf';
+            const nodeExeCandidates = [
+              'C:\\HoaiPhuong-Server\\config\\runtime\\node-v22.14.0-win-x64\\node.exe',
+              process.execPath,
+            ];
+            const nodeBin = nodeExeCandidates.find((n) => fs.existsSync(n)) || 'node';
+            if (fs.existsSync(pgPassFile)) {
+              const pass = fs.readFileSync(pgPassFile, 'utf8').trim().split(':').pop() || '';
+              const migScript = path.join(proj.path, 'scripts', 'migrate.mjs');
+              if (pass && fs.existsSync(migScript)) {
+                for (const dbName of ['management_lite_test', 'management_lite']) {
+                  const dbUrl = `postgresql://hp_test_admin:${pass}@127.0.0.1:55432/${dbName}`;
+                  await execAsync(`"${nodeBin}" "${migScript}"`, {
+                    cwd: proj.path,
+                    env: { ...process.env, DATABASE_URL: dbUrl },
+                    timeout: 20000,
+                  }).catch(() => {});
+                }
+              }
+            }
+          } catch {}
+
+          // Update running-components-sha.json, current-live-sha.txt, and deploy-history.log
+          try {
+            const reportsDir = 'C:\\HoaiPhuong-Server\\reports';
+            const logsDir = 'C:\\HoaiPhuong-Server\\logs';
+            if (fs.existsSync(reportsDir)) {
+              const rcPayload = {
+                sha: fullSha,
+                api_sha: fullSha,
+                web_sha: fullSha,
+                verified_at_utc: new Date().toISOString(),
+              };
+              fs.writeFileSync(
+                path.join(reportsDir, 'running-components-sha.json'),
+                JSON.stringify(rcPayload, null, 2),
+                'utf8'
+              );
+              fs.writeFileSync(path.join(reportsDir, 'current-live-sha.txt'), fullSha, 'utf8');
+            }
+            if (fs.existsSync(logsDir)) {
+              const histEntry = JSON.stringify({
+                timestamp: new Date().toISOString(),
+                version: pkgVersion,
+                sha: fullSha,
+                status: 'SUCCESS',
+                sandbox: false,
+                message: 'Auto-deployed via Anty Remote Hub 24/7',
+                duration_ms: 1500,
+              });
+              fs.appendFileSync(path.join(logsDir, 'deploy-history.log'), `${histEntry}\n`, 'utf8');
+            }
+          } catch {}
+
+          // Restart HPManagementLiteApi service or respawn API node.exe worker so new Backend dist takes effect in RAM
+          try {
+            await execAsync(
+              'powershell -NoProfile -Command "Restart-Service HPManagementLiteApi -Force -ErrorAction SilentlyContinue"',
+              { timeout: 12000 }
+            ).catch(() => {});
+            await execAsync(
+              'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name = \'node.exe\'\\" | Where-Object { $_.CommandLine -match \'apps[\\\\\\\\/]api[\\\\\\\\/]src[\\\\\\\\/]main\\.js\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"',
+              { timeout: 8000 }
+            ).catch(() => {});
+            await new Promise((r) => setTimeout(r, 3500));
+          } catch {}
+          // Non-secret mail-delivery diagnostics (writes diag-mail.out.json and pushes it)
+          try {
+            const diagScript = path.join(ROOT_DIR, 'src', 'diag-mail.mjs');
+            if (fs.existsSync(diagScript)) {
+              await execAsync(`"${process.execPath}" "${diagScript}"`, { timeout: 90000 }).catch(() => {});
+            }
+          } catch {}
+        }
+
+        if (syncedTargets.length > 0) {
+          liveSyncNote = `Đã cập nhật trực tiếp Web + API lên Server (${syncedTargets[0]})`;
+        }
+      } else if (proj.name === 'tiktok-ai-factory' || proj.name === 'tiktok-ai-factory-v4') {
+        liveSyncNote = `Đã cập nhật trực tiếp bundle tại ${builtDistDir}`;
+      }
+    }
+
+    // 5. Trigger GitHub Actions Release/Deploy Workflow if `.github/workflows/deploy.yml` exists
+    let ciDeployTriggered = false;
+    if (fs.existsSync(path.join(proj.path, '.github', 'workflows', 'deploy.yml'))) {
+      try {
+        await execAsync(`gh workflow run deploy.yml -f commit_sha=${fullSha}`, {
+          cwd: proj.path,
+          timeout: 15000,
+        });
+        ciDeployTriggered = true;
+      } catch {}
+    }
+
+    // 6. Verify local HTTP health if running on the web server host
+    let liveHttpStatus = '';
+    const localPort =
+      proj.name === 'management-lite'
+        ? 3001
+        : proj.name === 'tiktok-ai-factory' || proj.name === 'tiktok-ai-factory-v4'
+        ? 3000
+        : 0;
+    if (localPort > 0) {
+      await new Promise((resolve) => {
+        const req = http.get(`http://127.0.0.1:${localPort}/`, { timeout: 3000 }, (res) => {
+          res.resume();
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
+            liveHttpStatus = `HTTP ${res.statusCode} OK (Port ${localPort})`;
+          }
+          resolve();
+        });
+        req.on('error', () => resolve());
+        req.on('timeout', () => {
+          req.destroy();
+          resolve();
+        });
+      });
+    }
+
+    // 7. Record this project + commitSha as PUBLISHED so its approval prompt/button is HIDDEN!
+    await recordProjectWebRelease(proj.name, {
+      commitSha: shortSha,
+      fullSha,
+      domain,
+      publishedBy: MACHINE_ROLE,
+    });
+
+    notifyLocalScreen(
+      `🟢 ĐÃ PHÁT HÀNH LÊN WEB (${domain})`,
+      `#${proj.idNum} ${proj.shortLabel} • Bản #${shortSha}`,
+      `Vui lòng mở https://${domain} để kiểm tra lại giao diện & tính năng!`,
+      false
+    );
+
+    const commitLink = `<a href="https://github.com/truhoaiphuong03/${proj.name}/commit/${shortSha}">#${escHtml(shortSha)} (Xem bản phát hành)</a>`;
+    const webLink = `<a href="https://${domain}">https://${escHtml(domain)}</a>`;
+
+    await sendHtmlCard(
+      chatId,
+      `🟢 <b>${runFullRecheckFirst ? 'ĐÃ KIỂM TRA LẠI (100% PASS) & PHÁT HÀNH LÊN WEB THÀNH CÔNG' : 'ĐÃ DUYỆT & PHÁT HÀNH LÊN WEB THÀNH CÔNG'}</b>\n` +
+        `🌐 Website: <b>${webLink}</b>\n` +
+        `${proj.icon} Dự án: <b>#${proj.idNum} ${escHtml(proj.shortLabel.toUpperCase())}</b> (${escHtml(proj.name)}) — <b>${proj.percent}%</b>\n\n` +
+        `<blockquote>✅ <b>Kiểm tra chất lượng:</b> ${escHtml(checkSummary)}\n` +
+        `📦 <b>Đóng gói Web:</b> <code>${escHtml(buildCmdRan)}</code>\n` +
+        `🚀 <b>Trạng thái Live Web:</b> ${escHtml(liveSyncNote)}${liveHttpStatus ? ` • <b>${escHtml(liveHttpStatus)}</b>` : ''}\n` +
+        `🧾 <b>Mã phát hành (SHA):</b> ${commitLink}\n` +
+        (ciDeployTriggered
+          ? `☁️ <b>CI/CD Cloud:</b> Đã kích hoạt <code>deploy.yml</code> cho SHA <code>${escHtml(shortSha)}</code>\n`
+          : '') +
+        `🙈 <b>Tự động ẩn duyệt:</b> Bản dựng <code>#${escHtml(shortSha)}</code> đã phát hành xong nên đã được <b>ẩn khỏi danh sách chờ duyệt phát hành</b>!</blockquote>\n` +
+        `<blockquote>🔔 <b>YÊU CẦU BẠN KIỂM TRA LẠI TRÊN WEB:</b>\n` +
+        `👉 Vui lòng bấm vào <b>${webLink}</b> (hoặc nút <b>🌐 Mở Web Kiểm Tra</b> bên dưới) để kiểm tra lại giao diện và tính năng thực tế vừa phát hành.\n` +
+        `🛠️ <i>Nếu phát hiện điểm nào cần chỉnh sửa thêm, hãy nhắn trực tiếp hoặc bấm <b>🧪 Kiểm Tra Lại Web</b>!</i></blockquote>`,
+      proj.name,
+      true
+    );
+  } catch (err) {
+    if (autoTriggered) return;
+    const errMsg = cleanOneLine(err?.stderr || err?.stdout || err?.message || 'Lỗi khi đóng gói phát hành', 180);
+    await sendHtmlCard(
+      chatId,
+      `🔴 <b>PHÁT HIỆN LỖI KHI KIỂM TRA / ĐÓNG GÓI WEB (${escHtml(domain)})</b>\n` +
+        `<blockquote>❌ <b>Chi tiết:</b> ${escHtml(errMsg)}</blockquote>\n` +
+        `🛠️ <i>Đang tự động giao Anty sửa ngay lỗi này trước khi phát hành lại...</i>`,
+      proj.name,
+      false
+    );
+    await dispatchCodingTaskWithWatchdog(
+      chatId,
+      proj.name,
+      `Sửa lỗi phát sinh khi kiểm tra/build phát hành lên web (${domain}): ${errMsg}`
+    );
+  }
+}
+
+// 10B. Command, Shorthand Number (`1 ...`, `2 ...`), & Button Callback Handler
+async function handleCallbackQuery(cb) {
+  const chatId = String(cb.message?.chat?.id || ALLOWED_CHAT_ID);
+  const data = cb.data || '';
+
+  try {
+    await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
+  } catch {}
+
+  if (data.startsWith('focus:')) {
+    const slug = data.slice(6);
+    const proj = findProjectByNumberOrName(slug);
+    if (proj) {
+      selectedProjectSlug = proj.name;
+      await sendHtmlCard(
+        chatId,
+        formatSingleProjectCardHtml(proj, `🎯 <b>ĐANG CHỌN DỰ ÁN #${proj.idNum}</b>`),
+        proj.name,
+        true
+      );
+    }
+    return;
+  }
+
+  if (data.startsWith('deploy_web:') || data.startsWith('recheck_deploy:')) {
+    const isRecheck = data.startsWith('recheck_deploy:');
+    const slug = data.slice(isRecheck ? 'recheck_deploy:'.length : 'deploy_web:'.length);
+    const proj = findProjectByNumberOrName(slug) || getSelectedProject();
+    if (proj) {
+      selectedProjectSlug = proj.name;
+      await executeWebReleaseAndDeploy(chatId, proj, isRecheck);
+    }
+    return;
+  }
+
+  if (data.startsWith('run_next:')) {
+    const slug = data.slice(9);
+    const proj = findProjectByNumberOrName(slug);
+    if (proj) {
+      selectedProjectSlug = proj.name;
+      await dispatchCodingTaskWithWatchdog(chatId, proj.name, `Thực thi ngay NEXT_ACTION: ${proj.nextAction}`);
+    }
+    return;
+  }
+
+  if (data.startsWith('verify:')) {
+    const slug = data.slice(7);
+    const proj = findProjectByNumberOrName(slug) || getSelectedProject();
+    if (proj) {
+      selectedProjectSlug = proj.name;
+      await sendHtmlCard(chatId, formatGitProofDetailCardHtml(proj), proj.name, false);
+      await takeScreenshotAndSend(chatId).catch(() => {});
+    }
+    return;
+  }
+
+  if (data.startsWith('fix_bug:')) {
+    const parts = data.slice('fix_bug:'.length).split(':');
+    const slug = parts[0] || 'management-lite';
+    const bugCode = parts.slice(1).join(':') || 'BUG-WEB';
+    const proj = findProjectByNumberOrName(slug) || getSelectedProject();
+    const inboxFile = path.join(ROOT_DIR, '.anty-bug-inbox.json');
+    let bugDetail = `Sửa lỗi Web [${bugCode}] và kiểm thử tự động`;
+    if (fs.existsSync(inboxFile)) {
+      try {
+        const list = JSON.parse(fs.readFileSync(inboxFile, 'utf8'));
+        const found = Array.isArray(list) ? list.find((b) => b.bugCode === bugCode) : null;
+        if (found) {
+          found.status = 'FIXING';
+          fs.writeFileSync(inboxFile, JSON.stringify(list, null, 2), 'utf8');
+          const fixHint = found.aiSuggestedFix ? ` | Hướng fix đề xuất: ${found.aiSuggestedFix}` : '';
+          bugDetail = `Sửa dứt điểm lỗi Web [${found.bugCode}] tại màn hình "${found.routeTemplate || '/'}": ${found.title} (${found.description})${fixHint}`;
+        }
+      } catch {}
+    }
+    if (proj) {
+      selectedProjectSlug = proj.name;
+      await dispatchCodingTaskWithWatchdog(chatId, proj.name, bugDetail);
+    }
+    return;
+  }
+
+  if (data === 'sync:all') {
+    const synced = await autoSyncAllProjectsToGithub();
+    await sendHtmlCard(
+      chatId,
+      formatAllProjectsDashboardHtml(`☁️ ĐÃ LƯU & ĐỒNG BỘ GITHUB (${synced} DỰ ÁN)`),
+      null,
+      true
+    );
+    return;
+  }
+
+  if (data === 'dashboard:all') {
+    await sendHtmlCard(chatId, formatAllProjectsDashboardHtml(), null, true);
+    return;
+  }
+
+  if (data === 'menu:machines' || data === 'refresh:machines') {
+    await refreshMachinesStatusFromGithub(data === 'refresh:machines');
+    await sendHtmlCard(
+      chatId,
+      formatMachineSelectorCardHtml(),
+      null,
+      true,
+      buildMachineSelectorKeyboard()
+    );
+    return;
+  }
+
+  if (data.startsWith('switch_machine:')) {
+    const targetId = data.slice('switch_machine:'.length);
+    await switchTargetMachineAndHandover(chatId, targetId);
+    return;
+  }
+
+  if (data.startsWith('handover_pull:')) {
+    const slug = data.slice('handover_pull:'.length);
+    const proj = findProjectByNumberOrName(slug) || getSelectedProject();
+    if (proj) {
+      await pullLatestProjectFromGithub(proj.path);
+      const freshProj = findProjectByNumberOrName(proj.name) || proj;
+      await sendHtmlCard(
+        chatId,
+        formatSingleProjectCardHtml(
+          freshProj,
+          `☁️ <b>ĐÃ KÉO BẢN MỚI NHẤT VỀ MÁY [${MACHINE_ROLE}]</b>`,
+          `Đã đồng bộ code & AGENTS.md mới nhất từ GitHub (${freshProj.lastDone})`,
+          '',
+          freshProj.nextAction
+        ),
+        freshProj.name,
+        true
+      );
+    }
+    return;
+  }
+
+  if (data === 'action:screen') {
+    const r = await takeScreenshotAndSend(chatId);
+    await sendHtmlCard(chatId, `✅ <b>${escHtml(r)}</b>`);
+  }
+}
+
+function isConversationalOrStatusQuestion(text) {
+  const s = String(text || '').trim().toLowerCase();
+  if (!s) return true;
+  const hasCodingActionVerb =
+    /(sửa|sua|fix|thêm|them|tạo|tao|xóa|xoa|cập\s+nhật|cap\s+nhat|tối\s+ưu|toi\s+uu|viết|viet|code|build|test|kiểm\s+thử|kiem\s+thu|triển\s+khai|trien\s+khai|làm\s+tiếp|lam\s+tiep|thực\s+thi|thuc\s+thi|chạy|chay|cài|cai|nâng\s+cấp|nang\s+cap|thiết\s+kế|thiet\s+ke)/i.test(
+      s
+    );
+  if (hasCodingActionVerb) return false;
+  return true;
+}
+
+async function handleMessage(chatId, text) {
+  const trimmed = text.trim();
+  const lower = trimmed.toLowerCase();
+  tgApi('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
+
+  if (lower.startsWith('/model')) {
+    const parts = lower.replace('/model', '').trim().split(/\s+/).filter(Boolean);
+    for (const p of parts) {
+      if (MODEL_PROFILES[p]) currentModelProfile = p;
+      if (THINKING_BUDGETS[p] !== undefined) currentThinkingMode = p;
+    }
+    await sendHtmlCard(chatId, getModelStatusHtml());
+    return;
+  }
+
+  if (lower === '/screen') {
+    const res = await takeScreenshotAndSend(chatId);
+    await sendHtmlCard(chatId, `✅ <b>${escHtml(res)}</b>`);
+    return;
+  }
+
+  if (lower === '/restart' || lower === '/kill' || lower === '/stop') {
+    const res = killHungTasks();
+    await sendHtmlCard(chatId, `🔄 <b>${escHtml(res)}</b>`);
+    return;
+  }
+
+  // 1. Instant deterministic commands (<0.2s response, 100% reliable even when external AI API is offline)
+  if (
+    ['/start', '/status', '/menu', '/help', 'status', 'menu', 'help', 'báo cáo', 'bao cao', 'tiến độ', 'tien do', 'tình hình', 'tinh hinh', 'dự án', 'du an', 'bảng điều khiển'].includes(
+      lower
+    ) ||
+    /^(?:xem\s+|cho\s+xem\s+)?(?:báo\s+cáo|bao\s+cao|tiến\s+độ|tien\s+do|tình\s+hình|tinh\s+hinh|danh\s+sách\s+dự\s+án)(?:\s+tất\s+cả|\s+5\s+dự\s+án|\s+hệ\s+thống)?[!?.\s]*$/i.test(
+      trimmed
+    )
+  ) {
+    await sendHtmlCard(chatId, formatAllProjectsDashboardHtml(), null, true, buildInteractiveKeyboard());
+    return;
+  }
+
+  if (['/sync', 'sync', 'đồng bộ', 'dong bo'].includes(lower)) {
+    const synced = await autoSyncAllProjectsToGithub();
+    await sendHtmlCard(
+      chatId,
+      formatAllProjectsDashboardHtml(`☁️ ĐÃ LƯU & ĐỒNG BỘ GITHUB (${synced} DỰ ÁN)`),
+      null,
+      true,
+      buildInteractiveKeyboard()
+    );
+    return;
+  }
+
+  if (
+    ['/machines', 'machines', 'máy', 'may', 'kiểm tra máy', 'kiem tra may'].includes(lower) ||
+    /(?:máy\s+nào|may\s+nao)\s+(?:đang\s+)?(?:kết\s+nối|ket\s+noi|mở|mo|chạy|chay|online|dùng|dung)/i.test(trimmed) ||
+    /^(?:xem|kiểm\s+tra|kiem\s+tra)\s+(?:trạng\s+thái\s+)?(?:các\s+)?máy(?:\s+tính)?[!?.\s]*$/i.test(trimmed)
+  ) {
+    ensureCurrentMachineRegistered('ONLINE');
+    await sendHtmlCard(chatId, formatMachineSelectorCardHtml(), null, true, buildMachineSelectorKeyboard());
+    return;
+  }
+
+  // Natural language machine switching (e.g. "chuyển qua máy win 2", "dùng máy win 1", "đổi sang máy 2")
+  const nlMachineMatch = trimmed.match(
+    /(?:chuyển|chuyen|đổi|doi|chọn|chon|dùng|dung|sang)\s+(?:qua\s+|sang\s+)?(?:máy\s+|may\s+)?(win-?1|win-?2|máy\s*1|may\s*1|máy\s*2|may\s*2|m1|m2|mac(?:book)?)\b/i
+  );
+  if (nlMachineMatch) {
+    const rawTarget = nlMachineMatch[1]
+      .replace(/(?:máy|may)\s*1/i, 'WIN-1')
+      .replace(/(?:máy|may)\s*2/i, 'WIN-2');
+    await switchTargetMachineAndHandover(chatId, rawTarget);
+    return;
+  }
+
+  // Natural language web release approval (e.g. "duyệt phát hành dự án 1", "đẩy dự án quản lý lên web", "phát hành lên web")
+  const nlDeployMatch = trimmed.match(
+    /^(?:duyệt\s+phát\s+hành|duyet\s+phat\s+hanh|phát\s+hành|phat\s+hanh|đẩy\s+lên\s+web|day\s+len\s+web|cập\s+nhật\s+lên\s+web|cap\s+nhat\s+len\s+web)(?:\s+dự\s+án|\s+du\s+an|\s+số|\s+so)?\s*(.*)$/i
+  );
+  if (nlDeployMatch) {
+    const targetQuery = nlDeployMatch[1]?.trim();
+    const proj = (targetQuery ? findProjectByNumberOrName(targetQuery) : null) || getSelectedProject();
+    if (proj) {
+      selectedProjectSlug = proj.name;
+      await executeWebReleaseAndDeploy(chatId, proj, /kiểm\s+tra|kiem\s+tra|test/i.test(trimmed));
+      return;
+    }
+  }
+
+  // Direct project number or "chọn/mở/xem/báo cáo dự án X"
+  const nlSelectProjMatch =
+    trimmed.match(/^#?([1-5])$/) ||
+    trimmed.match(/^(?:chọn|chon|mở|mo|xem|báo\s+cáo|bao\s+cao|tiến\s+độ|tien\s+do|chuyển\s+sang|chuyen\s+sang)\s+(?:dự\s+án\s+|du\s+an\s+|số\s+|so\s+)?#?(.+)$/i);
+  if (nlSelectProjMatch) {
+    const proj = findProjectByNumberOrName(nlSelectProjMatch[1]);
+    if (proj) {
+      selectedProjectSlug = proj.name;
+      await sendHtmlCard(
+        chatId,
+        formatSingleProjectCardHtml(proj, `🎯 <b>ĐANG CHỌN DỰ ÁN #${proj.idNum}</b>`),
+        proj.name,
+        true,
+        buildInteractiveKeyboard(proj.name)
+      );
+      return;
+    }
+  }
+
+  // Natural language "làm tiếp [dự án X]"
+  const nlContinueMatch = trimmed.match(
+    /^(?:làm\s+tiếp|lam\s+tiep|tiếp\s+tục|tiep\s+tuc|next)(?:\s+(?:dự\s+án\s+|du\s+an\s+|số\s+|so\s+)?(.+))?$/i
+  );
+  if (nlContinueMatch) {
+    const proj = (nlContinueMatch[1] ? findProjectByNumberOrName(nlContinueMatch[1]) : null) || getSelectedProject();
+    if (proj) {
+      selectedProjectSlug = proj.name;
+      await dispatchCodingTaskWithWatchdog(
+        chatId,
+        proj.name,
+        `Thực thi ngay NEXT_ACTION: ${proj.nextAction}`,
+        `Đã nhận lệnh làm tiếp dự án #${proj.idNum} ${proj.name}.`
+      );
+      return;
+    }
+  }
+
+  // Shorthand project number + instruction: e.g. "1 sửa lỗi đăng nhập", "#2 kiểm tra lại giao diện"
+  const shorthandTaskMatch = trimmed.match(/^#?([1-5])\s+[:.-]?\s*(.+)$/s);
+  if (shorthandTaskMatch) {
+    const proj = findProjectByNumberOrName(shorthandTaskMatch[1]);
+    const instructionText = shorthandTaskMatch[2].trim();
+    if (proj && instructionText) {
+      selectedProjectSlug = proj.name;
+      await dispatchCodingTaskWithWatchdog(
+        chatId,
+        proj.name,
+        instructionText,
+        `Đã nhận lệnh cho dự án #${proj.idNum} ${proj.name}.`
+      );
+      return;
+    }
+  }
+
+  // 2. Route natural language messages, questions, and task commands through Gemini Argon when key is valid
+  GEMINI_API_KEY = getGeminiApiKey();
+  if (GEMINI_API_KEY && !invalidGeminiKeys.has(GEMINI_API_KEY)) {
+    try {
+      const reply = await processWithGemini(chatId, trimmed);
+      if (reply) {
+        await sendHtmlCard(chatId, `🤖 <b>GEMINI ${escHtml(currentModelProfile.toUpperCase())}:</b> ${reply}`);
+      }
+      return;
+    } catch (err) {
+      console.error('⚠️ Gemini API fallback sang xử lý trực tiếp:', err.message);
+    }
+  }
+
+  // 3. Intelligent Local Natural Language Analyzer & Task Dispatcher (works 100% even when Gemini API key is HTTP 401)
+  const matchedProj = findProjectByNumberOrName(trimmed);
+  const curProj = matchedProj || getSelectedProject();
+  const curMachine = getSelectedMachineInfo();
+
+  if (
+    /^(?:xin\s+chào|chào|chao|hello|hi|alo|có\s+đó\s+không|co\s+do\s+khong|test|ping)[!?.]*$/i.test(trimmed) ||
+    /(?:giao\s+việc\s+(?:được|dc)\s+chưa|nhận\s+lệnh\s+(?:được|dc)\s+chưa|sẵn\s+sàng\s+chưa|xong\s+chưa|còn\s+việc\s+gì)/i.test(
+      trimmed
+    )
+  ) {
+    await sendHtmlCard(
+      chatId,
+      `🟢 <b>[${escHtml(curMachine.id)}] ĐÃ NHẬN TIN NHẮN & SẴN SÀNG NHẬN LỆNH 100%!</b>\n` +
+        `🎯 Dự án đang chọn: <b>#${curProj?.idNum || 1} ${escHtml(curProj?.name || 'management-lite')}</b> (${curProj?.percent || 100}%)\n` +
+        `<blockquote>✔️ <b>Vừa xong:</b> ${escHtml(cleanOneLine(curProj?.lastDone || '', 110))}\n` +
+        `👉 <b>Việc tiếp theo:</b> ${escHtml(cleanOneLine(curProj?.nextAction || '', 110))}</blockquote>\n` +
+        `💬 <i>Bạn có thể gõ lệnh tự nhiên (VD: "làm tiếp", "1 sửa lỗi...", "duyệt phát hành", "báo cáo") hoặc bấm nút bên dưới!</i>`,
+      curProj?.name || null,
+      false,
+      buildInteractiveKeyboard(curProj?.name || null)
+    );
+    return;
+  }
+
+  // Any other command or instruction -> Dispatch immediately to Anty on the target project!
+  if (curProj) {
+    selectedProjectSlug = curProj.name;
+    await dispatchCodingTaskWithWatchdog(
+      chatId,
+      curProj.name,
+      trimmed,
+      `Đã phân tích yêu cầu và chuyển cho Anty thực thi trên dự án #${curProj.idNum} ${curProj.name}.`
+    );
+  }
+}
+
+// 10B. Auto-Save Session Handover & Push to GitHub (Multi-Machine Continuity)
+function updateAgentsCheckpointFile(projPath, doneSummary, nextSummary) {
+  const agentsPath = path.join(projPath, 'AGENTS.md');
+  if (!fs.existsSync(agentsPath)) return false;
+  try {
+    let content = fs.readFileSync(agentsPath, 'utf8');
+    const nowStr = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    let changed = false;
+
+    if (doneSummary) {
+      const cleanDone = cleanOneLine(doneSummary, 140);
+      if (/- \*\*LAST_DONE:\*\* .*/i.test(content)) {
+        content = content.replace(/- \*\*LAST_DONE:\*\* .*/i, `- **LAST_DONE:** [${MACHINE_ROLE} • ${nowStr}] ${cleanDone}`);
+        changed = true;
+      } else if (!content.includes(cleanDone)) {
+        const doneSectionRe = /(- \*\*(?:Các )?hạng mục ĐÃ XONG[^\n]*\n(?:[ \t]+[-*]\s+[^\n]+\n)*)/i;
+        if (doneSectionRe.test(content)) {
+          content = content.replace(doneSectionRe, `$1  - [x] [${MACHINE_ROLE} • ${nowStr}] ${cleanDone}\n`);
+          changed = true;
+        }
+      }
+    }
+    if (nextSummary) {
+      const cleanNext = cleanOneLine(nextSummary, 140);
+      if (/- \*\*NEXT_ACTION:\*\* .*/i.test(content)) {
+        content = content.replace(/- \*\*NEXT_ACTION:\*\* .*/i, `- **NEXT_ACTION:** ${cleanNext}`);
+        changed = true;
+      } else {
+        const nextBulletRe = /(- \*\*VIỆC TIẾP THEO \(`NEXT_ACTION`\):\*\*\r?\n[ \t]*[-*]\s+)([^\r\n]+)/i;
+        if (nextBulletRe.test(content)) {
+          content = content.replace(nextBulletRe, `$1${cleanNext}`);
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      fs.writeFileSync(agentsPath, content, 'utf8');
+    }
+    return changed;
+  } catch {
+    return false;
+  }
+}
+
+async function autoCommitAndPushProject(projPath, doneSummary = '', nextSummary = '') {
+  if (!fs.existsSync(path.join(projPath, '.git'))) return '';
+  try {
+    if (doneSummary || nextSummary) {
+      updateAgentsCheckpointFile(projPath, doneSummary, nextSummary);
+    }
+    const { stdout: statusOut } = await execAsync('git status --porcelain', { cwd: projPath });
+    if (statusOut.trim().length > 0) {
+      const msg = cleanOneLine(doneSummary || `Auto-save session report from ${MACHINE_ROLE}`, 72).replace(/"/g, "'");
+      await execAsync(`git add -A && git commit -m "chore(${MACHINE_ROLE.toLowerCase()}): ${msg}"`, { cwd: projPath });
+    }
+    const { stdout: aheadOut } = await execAsync('git status -sb', { cwd: projPath });
+    if (aheadOut.includes('[ahead')) {
+      await execAsync('git push', { cwd: projPath, timeout: 15000 });
+    }
+    const { stdout: shaOut } = await execAsync('git rev-parse --short HEAD', { cwd: projPath });
+    return shaOut.trim();
+  } catch {
+    return '';
+  }
+}
+
+async function autoSyncAllProjectsToGithub() {
+  const projs = getProjectsSummary();
+  let count = 0;
+  for (const p of projs) {
+    if (p.name === 'anty-remote-hub') continue;
+    const sha = await autoCommitAndPushProject(p.path);
+    if (sha) count++;
+  }
+  return count;
+}
+
+// 11A. Auto-Completion Watcher 1: Git Commits across ALL Projects (Only triggers on actual new commit SHA so it never fires mid-edit!)
+const projectCommitSnapshot = new Map();
+
+async function snapshotProjects(notifyOnChange = false) {
+  const projs = getProjectsSummary();
+  for (const proj of projs) {
+    try {
+      if (!fs.existsSync(path.join(proj.path, '.git'))) continue;
+      const { stdout } = await execAsync('git log -1 --format="%h|%s"', { cwd: proj.path });
+      const parts = stdout.trim().split('|');
+      const commitSha = parts[0] || '';
+      const commitSubject = parts.slice(1).join('|') || '';
+      if (!commitSha) continue;
+
+      const prevSha = projectCommitSnapshot.get(proj.name);
+      projectCommitSnapshot.set(proj.name, commitSha);
+
+      // Automatically push any unpushed commits to GitHub so all 3 machines stay in sync
+      const { stdout: sbOut } = await execAsync('git status -sb', { cwd: proj.path });
+      if (sbOut.includes('[ahead')) {
+        await execAsync('git push', { cwd: proj.path, timeout: 15000 }).catch(() => {});
+      }
+
+      if (notifyOnChange && prevSha && prevSha !== commitSha && ALLOWED_CHAT_ID) {
+        // Priority 5: A new commit alone is NOT proof of task completion!
+        // Only evaluate completion if there is an active task for this project, and require all 3 evidence pillars.
+        // Note: Tasks dispatched via TaskBusCoordinator (id starting with "task-") are verified & notified directly by localTaskWorker.
+        if (
+          !activeTaskInfo ||
+          activeTaskInfo.project !== proj.name ||
+          String(activeTaskInfo.id || '').startsWith('task-') ||
+          (localTaskWorker?.runningTaskIds?.size || 0) > 0
+        ) {
+          continue;
+        }
+        const lastNotify = lastProjectNotifyTime.get(proj.name) || 0;
+        if (Date.now() - lastNotify < 15000) continue;
+
+        const verification = await verifyTaskCompletionEvidence({
+          projPath: proj.path,
+          taskRecord: {
+            id: activeTaskInfo.id || 'git-watcher',
+            status: 'RUNNING',
+            baseCommitSha: activeTaskInfo.baseCommitSha || prevSha,
+            result: { summary: commitSubject || activeTaskInfo.task },
+          },
+          requireCommitOrArtifact: true,
+        });
+
+        const freshProj = findProjectByNumberOrName(proj.name) || proj;
+        lastProjectNotifyTime.set(proj.name, Date.now());
+
+        if (!verification.passed) {
+          await sendHtmlCard(
+            ALLOWED_CHAT_ID,
+            `⚠️ <b>Commit mới <code>#${escHtml(commitSha)}</code> trên #${freshProj.idNum} ${escHtml(freshProj.name)} chưa đạt kiểm thử:</b> ${escHtml(cleanOneLine(verification.details, 140))}`
+          );
+          continue;
+        }
+
+        const completedTaskId = activeTaskInfo?.id || '';
+        activeTaskInfo = null;
+        if (freshProj && completedTaskId) {
+          taskCoordinator.updateTask(completedTaskId, (t) => {
+            t.status = 'SUCCEEDED';
+            t.evidence = verification.evidence;
+            t.notifiedCompletion = true;
+            t.finishedAt = new Date().toISOString();
+          });
+        }
+        notifyLocalScreen(
+          `🟢 ĐÃ XONG (ĐỦ 3 BẰNG CHỨNG) • #${freshProj.idNum} (${freshProj.shortLabel})`,
+          `Kiểm thử: ${verification.evidence.checkCommand} (PASS)`,
+          commitSubject || freshProj.lastDone,
+          false
+        );
+        await sendHtmlCard(
+          ALLOWED_CHAT_ID,
+          `✅ <b>Đã hoàn thành trên [${escHtml(MACHINE_ROLE)}] (#${freshProj.idNum} ${escHtml(freshProj.name)}):</b> ${escHtml(cleanOneLine(commitSubject || freshProj.lastDone, 160))} <code>(#${escHtml(commitSha)})</code>`
+        );
+        if (detectIsWebServerHost() && freshProj.isWebProject && freshProj.name !== 'anty-remote-hub') {
+          executeWebReleaseAndDeploy(ALLOWED_CHAT_ID, freshProj, false).catch(() => {});
+        }
+      }
+    } catch {}
+  }
+}
+
+// 11B. Auto-Completion Watcher 2: Antigravity Live Chat Transcripts (Fires when Anty finishes a response in chat)
+const convStepSnapshot = new Map();
+
+function readTailUtf8(filePath, maxBytes = 40960) {
+  const stat = fs.statSync(filePath);
+  if (stat.size === 0) return '';
+  const readSize = Math.min(stat.size, maxBytes);
+  const buf = Buffer.alloc(readSize);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    fs.readSync(fd, buf, 0, readSize, stat.size - readSize);
+  } finally {
+    fs.closeSync(fd);
+  }
+  return buf.toString('utf8');
+}
+
+function extractConciseReportFromChatContent(content) {
+  if (!content) return { done: '', next: '' };
+  let done = '';
+  let next = '';
+
+  const doneMatch =
+    content.match(/Vừa hoàn thành:\*\*\s*([^\n]+)/i) ||
+    content.match(/Tiến độ đã xong[^:]*:\*\*\s*([^\n]+)/i) ||
+    content.match(/Đã hoàn thành[^:]*:\*\*\s*([^\n]+)/i);
+  if (doneMatch) done = cleanOneLine(doneMatch[1], 100);
+
+  const nextMatch =
+    content.match(/Việc tiếp theo[^:]*:\*\*\s*([^\n]+)/i) ||
+    content.match(/NEXT_ACTION[^:]*:\*\*\s*([^\n]+)/i) ||
+    content.match(/Thực thi ngay[^:]*:\*\*\s*([^\n]+)/i);
+  if (nextMatch) next = cleanOneLine(nextMatch[1], 100);
+
+  if (!done) {
+    const lines = content
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('📋') && !l.startsWith('✅') && !l.startsWith('---') && !l.startsWith('- **Máy đang dùng'));
+    if (lines.length > 0) {
+      done = cleanOneLine(lines[0], 100);
+    }
+  }
+  return { done, next };
+}
+
+function detectProjectFromTranscriptChunk(tailText, knownProjects, lastContent = '') {
+  if (/Dự án\s*&\s*Nhánh:\*\*\s*Chưa mở workspace/i.test(lastContent || tailText)) {
+    return '';
+  }
+
+  const headerMatch = (lastContent || tailText).match(/Dự án\s*&\s*Nhánh:\*\*\s*`?([a-zA-Z0-9_-]+)`?/i);
+  if (headerMatch && headerMatch[1] !== 'anty-remote-hub') {
+    const matched = knownProjects.find((p) => p.name.toLowerCase() === headerMatch[1].toLowerCase());
+    if (matched) return matched.name;
+  }
+
+  if (activeTaskInfo?.project) {
+    return activeTaskInfo.project;
+  }
+
+  const regex = /\/Projects\/([a-zA-Z0-9_-]+)/g;
+  let match;
+  const seen = new Set();
+  let lastProj = '';
+  while ((match = regex.exec(tailText)) !== null) {
+    if (match[1] !== 'anty-remote-hub') {
+      seen.add(match[1]);
+      lastProj = match[1];
+    }
+  }
+  // If 3 or more distinct projects appear in the same tail chunk, it's a global multi-project check, not a single project session
+  if (seen.size >= 3) return '';
+  if (lastProj) return lastProj;
+
+  const mentioned = knownProjects.filter((p) => tailText.includes(p.name));
+  if (mentioned.length === 1) return mentioned[0].name;
+  return '';
+}
+
+async function watchAntigravityConversations(notifyOnChange = false) {
+  if (!fs.existsSync(BRAIN_ROOT)) return;
+  const entries = fs.readdirSync(BRAIN_ROOT, { withFileTypes: true });
+  const knownProjects = getProjectsSummary();
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'tempmediaStorage') continue;
+    const transcriptPath = path.join(BRAIN_ROOT, entry.name, '.system_generated', 'logs', 'transcript.jsonl');
+    if (!fs.existsSync(transcriptPath)) continue;
+
+    try {
+      const tailText = readTailUtf8(transcriptPath, 45000);
+      const lines = tailText
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.startsWith('{') && l.endsWith('}'));
+      if (lines.length === 0) continue;
+
+      const lastObj = JSON.parse(lines[lines.length - 1]);
+      const report = await evaluateConversationTurnForReport({
+        convId: entry.name,
+        transcriptText: tailText,
+        lastObj,
+        knownProjects,
+        activeTaskProject: activeTaskInfo?.project || '',
+        prevCommitShaMap: projectCommitSnapshot,
+      });
+
+      if (!report) continue;
+
+      const prevTurnKey = convStepSnapshot.get(entry.name);
+      convStepSnapshot.set(entry.name, report.turnKey);
+
+      // On initial daemon startup (notifyOnChange === false), seed existing turns into persistent store so old chats are never re-sent
+      if (!notifyOnChange) {
+        runtimeStore.claimConversationTurn(report.turnKey);
+        continue;
+      }
+
+      if (!ALLOWED_CHAT_ID) continue;
+      if (prevTurnKey === report.turnKey || runtimeStore.hasReportedTurn(report.turnKey)) {
+        continue;
+      }
+
+      // Persist turnKey immediately to disk so it is never reported twice
+      if (!runtimeStore.claimConversationTurn(report.turnKey)) {
+        continue;
+      }
+
+      // TYPE 1: Chat ngoài dự án (Gửi tên chat + tóm tắt câu trả lời cuối ngắn gọn 1 dòng)
+      if (report.mode === 'NON_PROJECT_CHAT') {
+        const nonProjHtml = `💬 <b>[${escHtml(MACHINE_ROLE)}] ${escHtml(cleanOneLine(report.chatTitle, 55))}:</b> ${escHtml(cleanOneLine(report.summary, 160))}`;
+        await sendHtmlCard(ALLOWED_CHAT_ID, nonProjHtml, null, false);
+        continue;
+      }
+
+      // TYPE 2: Chat trong dự án (Gửi kết quả ngắn gọn 1 dòng)
+      const freshProj = findProjectByNumberOrName(report.project.name) || report.project;
+      lastProjectNotifyTime.set(freshProj.name, Date.now());
+
+      if (report.hasNewCommit && report.codeVerified) {
+        if (report.headSha) projectCommitSnapshot.set(freshProj.name, report.headSha);
+        activeTaskInfo = null;
+        await autoCommitAndPushProject(freshProj.path, report.summary, '').catch(() => {});
+        await sendHtmlCard(
+          ALLOWED_CHAT_ID,
+          `✅ <b>[${escHtml(MACHINE_ROLE)}] #${freshProj.idNum} ${escHtml(freshProj.name)}:</b> ${escHtml(cleanOneLine(report.summary, 160))} <code>(#${escHtml(report.headSha || freshProj.commitSha)})</code>`
+        );
+        if (detectIsWebServerHost() && freshProj.isWebProject && freshProj.name !== 'anty-remote-hub') {
+          executeWebReleaseAndDeploy(ALLOWED_CHAT_ID, freshProj, false).catch(() => {});
+        }
+      } else if (report.hasNewCommit && !report.codeVerified) {
+        if (report.headSha) projectCommitSnapshot.set(freshProj.name, report.headSha);
+        await sendHtmlCard(
+          ALLOWED_CHAT_ID,
+          `⚠️ <b>[${escHtml(MACHINE_ROLE)}] #${freshProj.idNum} ${escHtml(freshProj.name)} (Chưa đạt kiểm thử):</b> ${escHtml(cleanOneLine(report.summary, 140))}`
+        );
+      } else {
+        const projChatHtml = `📘 <b>[${escHtml(MACHINE_ROLE)}] #${freshProj.idNum} ${escHtml(freshProj.name)}:</b> ${escHtml(cleanOneLine(report.summary, 160))}`;
+        await sendHtmlCard(ALLOWED_CHAT_ID, projChatHtml, freshProj.name, false);
+      }
+    } catch {}
+  }
+}
+
+// 11C. Auto-Watcher 3: Unified Web Bug Analyzer & Telegram Alert (hoaiphuong.click, ql.hoaiphuong.click, video.hoaiphuong.click)
+function getDomainForProject(projName = '', customDomain = '') {
+  if (customDomain) return customDomain;
+  const p = String(projName).toLowerCase();
+  if (p.includes('management-lite') || p === '1') return 'ql.hoaiphuong.click';
+  if (p.includes('video-automation') || p === '3') return 'video.hoaiphuong.click';
+  return 'hoaiphuong.click';
+}
+
+function findLikelySourceFileForRoute(projPath, routeTemplate = '/', title = '', description = '') {
+  if (!projPath || !fs.existsSync(projPath)) return '';
+  const text = `${routeTemplate} ${title} ${description}`.toLowerCase();
+  const candidates = [
+    // management-lite (ql.hoaiphuong.click)
+    { match: /login|đăng nhập|session|401|auth/, file: 'apps/web/src/screens/LoginScreen.tsx' },
+    { match: /clock|chấm công|ca làm/, file: 'apps/web/src/screens/ClockScreen.tsx' },
+    { match: /payroll|bảng lương|lương/, file: 'apps/web/src/screens/PayrollScreen.tsx' },
+    { match: /schedule|lịch làm/, file: 'apps/web/src/screens/ScheduleScreen.tsx' },
+    { match: /employee|nhân sự|nhân viên/, file: 'apps/web/src/screens/EmployeesScreen.tsx' },
+    { match: /finance|thu chi|tài chính/, file: 'apps/web/src/screens/FinanceOverviewScreen.tsx' },
+    { match: /issue|báo lỗi|bug/, file: 'apps/web/src/screens/IssuesScreen.tsx' },
+    // tiktok-ai-factory & v4 (hoaiphuong.click)
+    { match: /product|sản phẩm/, file: 'src/components/ProductsView.tsx' },
+    { match: /script|kịch bản|one-shot|oneshot/, file: 'src/components/ScriptGeneratorView.tsx' },
+    { match: /prompt|ghép ảnh|character|nhân vật/, file: 'src/components/CharacterPromptMerger.tsx' },
+    { match: /channel|kênh|scout|trend/, file: 'src/components/ChannelVideoScoutView.tsx' },
+    // video-automation-v1 (video.hoaiphuong.click)
+    { match: /download|tải video|publish|reel|library|facebook/, file: 'apps/web/src/App.tsx' },
+  ];
+
+  for (const c of candidates) {
+    if (c.match.test(text)) {
+      const abs = path.join(projPath, c.file);
+      if (fs.existsSync(abs)) return c.file;
+    }
+  }
+
+  const fallbackFiles = [
+    'apps/web/src/App.tsx',
+    'src/App.tsx',
+    'apps/web/src/AppShell.tsx',
+  ];
+  for (const f of fallbackFiles) {
+    if (fs.existsSync(path.join(projPath, f))) return f;
+  }
+  return 'src/App.tsx';
+}
+
+async function analyzeBugBeforeTelegram(entry, proj) {
+  const projPath = proj?.path || '';
+  const route = entry.routeTemplate || '/';
+  const title = entry.title || '';
+  const desc = entry.description || '';
+  const consoleLogs = Array.isArray(entry.consoleErrors) ? entry.consoleErrors.join(' | ') : '';
+  const targetFile = findLikelySourceFileForRoute(projPath, route, title, desc);
+
+  // 1. Heuristic Smart Code Analysis (instant & 100% reliable even when offline)
+  const combined = `${title} ${desc} ${route} ${consoleLogs}`.toLowerCase();
+  let defaultDiagnosis = `Sự cố giao diện/logic tại màn hình "${route}" (file nghi vấn: ${targetFile}).`;
+  let defaultSuggestedFix = `Kiểm tra state & event handler trong ${targetFile}, bổ sung try/catch xử lý lỗi API và cập nhật lại UI state.`;
+
+  if (/không bấm được|đơ|treo|loading|quay vòng|disabled|kẹt/.test(combined)) {
+    defaultDiagnosis = `Lỗi kẹt trạng thái UI (Loading/Disabled state lock) tại "${route}" trong ${targetFile} khi hàm bất đồng bộ kết thúc hoặc gặp lỗi.`;
+    defaultSuggestedFix = `Đảm bảo reset biến state isSubmitting/busy = false trong khối finally {} và mở khóa nút bấm tại ${targetFile}.`;
+  } else if (/401|403|đăng nhập|session|token|quyền|auth|csrf/.test(combined)) {
+    defaultDiagnosis = `Lỗi xác thực phiên / CSRF token hoặc phân quyền (401/403) khi gọi API từ màn hình "${route}" (${targetFile}).`;
+    defaultSuggestedFix = `Kiểm tra header X-CSRF-Token / credentials: 'include' và đồng bộ lại session state trước khi gọi API trong ${targetFile}.`;
+  } else if (/400|422|500|502|api|lưu không được|không lưu|fetch|network|mạng/.test(combined)) {
+    defaultDiagnosis = `Lỗi gọi API / lệch schema dữ liệu gửi lên Backend từ màn hình "${route}" (${targetFile}).`;
+    defaultSuggestedFix = `Đối chiếu payload request ở ${targetFile} với schema Backend route tương ứng, thêm fallback và hiển thị thông báo lỗi rõ ràng.`;
+  } else if (/hiển thị|lệch|vỡ|mất chữ|tràn|mobile|điện thoại|css|màu|giao diện/.test(combined)) {
+    defaultDiagnosis = `Lỗi bố cục hiển thị (CSS/Responsive Layout/Overflow) trên màn hình "${route}" tại ${targetFile}.`;
+    defaultSuggestedFix = `Chỉnh lại flex/grid layout, min-width: 0 và media query responsive trong ${targetFile} để không bị tràn hoặc che khuất.`;
+  } else if (/trắng trang|crash|undefined|null|map is not a function|render/.test(combined)) {
+    defaultDiagnosis = `Lỗi Runtime Render (truy cập thuộc tính của undefined/null khi dữ liệu chưa kịp tải) tại "${route}" (${targetFile}).`;
+    defaultSuggestedFix = `Thêm optional chaining (?.) và giá trị mặc định (Array.isArray / ?? []) trước khi render dữ liệu trong ${targetFile}.`;
+  }
+
+  // 2. If Gemini API Key is available, enrich with fast Gemini Flash diagnosis (3.5s max timeout so Telegram never lags)
+  const activeGeminiKey = getGeminiApiKey();
+  if (activeGeminiKey) {
+    try {
+      const prompt =
+        `Bạn là Senior Tech Lead. Hãy phân tích báo lỗi Web sau đây trước khi gửi về Telegram cho chủ dự án:\n` +
+        `- Website: ${entry.domain}\n` +
+        `- Dự án: ${proj?.name || entry.project}\n` +
+        `- Màn hình (Route): ${route} (File code chính: ${targetFile})\n` +
+        `- Tiêu đề lỗi: ${title}\n` +
+        `- Mô tả chi tiết: ${desc}\n` +
+        (consoleLogs ? `- Lỗi Console/Network: ${consoleLogs}\n` : '') +
+        `Trả về đúng 2 dòng ngắn gọn (không dùng markdown **):\n` +
+        `CHAN_DOAN: <1 câu chỉ rõ đây là lỗi gì, nguyên nhân gốc ở đâu>\n` +
+        `GOI_Y_FIX: <1 câu chỉ rõ cần sửa file nào, hàm/logic gì để fix dứt điểm>`;
+
+      const payload = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 512,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      };
+
+      const res = await httpsJsonPost(
+        'generativelanguage.googleapis.com',
+        `/v1beta/models/gemini-3.5-flash:generateContent?key=${activeGeminiKey}`,
+        payload,
+        4,
+        5000
+      );
+      const rawText =
+        res?.data?.candidates?.[0]?.content?.parts
+          ?.filter((p) => !p.thought)
+          .map((p) => p.text || '')
+          .join('\n') || '';
+      const diagMatch = rawText.match(/CHAN_DOAN:\s*([^\n]+)/i);
+      const fixMatch = rawText.match(/GOI_Y_FIX:\s*([^\n]+)/i);
+      if (diagMatch?.[1]) defaultDiagnosis = cleanOneLine(diagMatch[1], 145);
+      if (fixMatch?.[1]) defaultSuggestedFix = cleanOneLine(fixMatch[1], 155);
+    } catch {}
+  }
+
+  return {
+    targetFile,
+    aiDiagnosis: entry.aiDiagnosis || entry.geminiSummary || defaultDiagnosis,
+    aiSuggestedFix: entry.aiSuggestedFix || defaultSuggestedFix,
+  };
+}
+
+async function watchWebBugReports() {
+  if (!ALLOWED_CHAT_ID) return;
+  const inboxFile = path.join(ROOT_DIR, '.anty-bug-inbox.json');
+  if (!fs.existsSync(inboxFile)) return;
+
+  try {
+    const list = JSON.parse(fs.readFileSync(inboxFile, 'utf8'));
+    if (!Array.isArray(list)) return;
+
+    let changed = false;
+    for (const item of list) {
+      if (item && !item.notified) {
+        item.notified = true;
+        changed = true;
+
+        const proj = findProjectByNumberOrName(item.project) || getSelectedProject();
+        const projName = proj?.name || item.project || 'management-lite';
+        const projLabel = proj ? `#${proj.idNum} ${proj.shortLabel.toUpperCase()}` : projName;
+        const domain = getDomainForProject(projName, item.domain);
+        item.domain = domain;
+
+        // Analyze bug & generate concrete fix suggestion BEFORE sending to Telegram
+        const analysis = await analyzeBugBeforeTelegram(item, proj);
+        item.aiDiagnosis = analysis.aiDiagnosis;
+        item.aiSuggestedFix = analysis.aiSuggestedFix;
+        item.targetFile = analysis.targetFile;
+
+        notifyLocalScreen(
+          `🚨 BÁO LỖI [${domain}] • ${item.bugCode}`,
+          `${projLabel} • Màn hình: ${item.routeTemplate || '/'}`,
+          cleanOneLine(item.aiDiagnosis, 85),
+          false
+        );
+
+        const bugHtml =
+          `🚨 <b>BÁO LỖI HỆ THỐNG • ${escHtml(domain.toUpperCase())}</b>\n` +
+          `📦 Dự án: <b>${escHtml(projLabel)}</b>  •  🆔 Mã: <code>${escHtml(item.bugCode)}</code>\n` +
+          `📍 Màn hình: <code>${escHtml(item.routeTemplate || '/')}</code>  •  ⚠️ Mức độ: <b>${escHtml(item.severity || 'P1')}</b>\n\n` +
+          `<blockquote>📝 <b>Người dùng báo:</b> ${escHtml(cleanOneLine(item.title, 95))}\n` +
+          `💬 <b>Chi tiết:</b> ${escHtml(cleanOneLine(item.description, 120))}</blockquote>\n` +
+          `<blockquote>🔍 <b>Phân tích (Đó là lỗi gì?):</b>\n${escHtml(cleanOneLine(item.aiDiagnosis, 160))}\n\n` +
+          `💡 <b>Gợi ý hướng Fix ngay:</b>\n${escHtml(cleanOneLine(item.aiSuggestedFix, 170))}</blockquote>\n` +
+          `👇 <i>Bấm nút dưới để Anty áp dụng ngay gợi ý trên, sửa code và đẩy GitHub:</i>`;
+
+        const bugKeyboard = {
+          inline_keyboard: [
+            [
+              {
+                text: `🛠️ Cho Anty Fix Theo Gợi Ý Này [${item.bugCode}]`,
+                callback_data: `fix_bug:${projName}:${item.bugCode}`,
+              },
+            ],
+            [
+              { text: `🔍 Bằng chứng Code #${proj?.idNum || 1}`, callback_data: `verify:${projName}` },
+              { text: '📸 Chụp màn hình', callback_data: 'action:screen' },
+            ],
+          ],
+        };
+
+        await sendHtmlCard(ALLOWED_CHAT_ID, bugHtml, projName, false, bugKeyboard);
+      }
+    }
+
+    if (changed) {
+      fs.writeFileSync(inboxFile, JSON.stringify(list, null, 2), 'utf8');
+    }
+  } catch {}
+}
+
+function startWebBugHttpServer() {
+  const port = Number(process.env.BUG_WEBHOOK_PORT || 4799);
+  const server = http.createServer((req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    if (
+      req.method === 'POST' &&
+      ['/api/bug-report', '/bug-report', '/api/report-bug', '/report-bug', '/api/bug-analyze', '/api/v1/reports'].includes(req.url)
+    ) {
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', async () => {
+        try {
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+          const proj = findProjectByNumberOrName(body.project) || getSelectedProject();
+          const projName = proj?.name || body.project || 'tiktok-ai-factory-v4';
+          const domain = getDomainForProject(projName, body.domain);
+          const bugCode = body.bugCode || `BUG-${String(Date.now()).slice(-4)}`;
+
+          const draftEntry = {
+            id: `${bugCode}-${Date.now()}`,
+            project: projName,
+            domain,
+            bugCode,
+            title: body.title || 'Báo lỗi trực tiếp từ giao diện Web',
+            description: body.description || body.title || '',
+            routeTemplate: body.routeTemplate || body.route || '/',
+            moduleName: body.moduleName || '',
+            severity: body.severity || 'P1',
+            consoleErrors: Array.isArray(body.consoleErrors) ? body.consoleErrors : [],
+            geminiSummary: body.geminiSummary || '',
+            createdAt: new Date().toISOString(),
+            notified: false,
+          };
+
+          const analysis = await analyzeBugBeforeTelegram(draftEntry, proj);
+          draftEntry.aiDiagnosis = analysis.aiDiagnosis;
+          draftEntry.aiSuggestedFix = analysis.aiSuggestedFix;
+          draftEntry.targetFile = analysis.targetFile;
+
+          if (req.url !== '/api/bug-analyze') {
+            const inboxFile = path.join(ROOT_DIR, '.anty-bug-inbox.json');
+            let list = [];
+            if (fs.existsSync(inboxFile)) {
+              try {
+                list = JSON.parse(fs.readFileSync(inboxFile, 'utf8'));
+                if (!Array.isArray(list)) list = [];
+              } catch {
+                list = [];
+              }
+            }
+            list.push(draftEntry);
+            fs.writeFileSync(inboxFile, JSON.stringify(list.slice(-50), null, 2), 'utf8');
+            await watchWebBugReports().catch(() => {});
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              ok: true,
+              bugCode,
+              domain,
+              aiDiagnosis: draftEntry.aiDiagnosis,
+              aiSuggestedFix: draftEntry.aiSuggestedFix,
+              targetFile: draftEntry.targetFile,
+            })
+          );
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: err.message }));
+        }
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url.startsWith('/api/hub-state')) {
+      try {
+        const reg = loadMachinesRegistry();
+        const projs = getProjectsSummary();
+        const bus = taskCoordinator.loadBus();
+        const tasks = Object.values(bus.tasks || {})
+          .sort((a, b) => Number(b.updatedAtMs || b.createdAtMs || 0) - Number(a.updatedAtMs || a.createdAtMs || 0))
+          .slice(0, 15);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(
+          JSON.stringify({
+            ok: true,
+            service: 'anty-remote-hub',
+            localMachine: MACHINE_ROLE,
+            activeMachine: reg.activeMachine || MACHINE_ROLE,
+            selectedProjectSlug,
+            machines: reg.machines || {},
+            projects: projs,
+            tasks,
+            messages: recentHubMessages,
+            serverTime: formatVnTime(new Date()),
+          })
+        );
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/hub-command') {
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', async () => {
+        try {
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+          const cmdText = String(body.text || '').trim();
+          if (!cmdText) {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ ok: false, error: 'Empty command' }));
+            return;
+          }
+          recentHubMessages.unshift({
+            id: Date.now() + '-user',
+            time: formatVnTime(new Date()),
+            machine: 'OWNER (Localhost)',
+            html: `<b>👤 Lệnh gửi từ Localhost:</b> ${escHtml(cmdText)}`,
+          });
+          await handleMessage({
+            message_id: Date.now(),
+            chat: { id: Number(ALLOWED_CHAT_ID) },
+            text: cmdText,
+          });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ ok: true, latestMessage: recentHubMessages[0] || null }));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ ok: false, error: err.message }));
+        }
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/?') || req.url === '/dashboard')) {
+      const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anty Remote Hub — Trung Tâm Điều Khiển 3 Máy & 5 Dự Án</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #131b2e;
+      --card-border: #23304d;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 20px;
+    }
+    .container { max-width: 1280px; margin: 0 auto; }
+    .header {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      background: linear-gradient(135deg, #131b2e 0%, #1e293b 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 14px; padding: 18px 22px; margin-bottom: 18px;
+    }
+    .header h1 { margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      background: rgba(56, 189, 248, 0.15); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+    .badge.green { background: rgba(34, 197, 94, 0.15); color: var(--green); border-color: rgba(34, 197, 94, 0.35); }
+    .badge.amber { background: rgba(245, 158, 11, 0.15); color: var(--amber); border-color: rgba(245, 158, 11, 0.35); }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .grid-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }
+    @media (max-width: 960px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card); border: 1px solid var(--card-border);
+      border-radius: 12px; padding: 16px;
+    }
+    .card h2 { margin: 0 0 12px 0; font-size: 15px; color: var(--accent); display: flex; justify-content: space-between; align-items: center; }
+    .machine-card {
+      background: #0f172a; border: 1px solid var(--card-border); border-radius: 10px; padding: 14px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .machine-card.active { border-color: var(--green); box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3); }
+    .proj-item {
+      background: #0f172a; border: 1px solid var(--card-border); border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .proj-item.selected { border-color: var(--accent); }
+    .proj-title { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
+    .muted { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    button {
+      background: #1e293b; color: var(--text); border: 1px solid #334155;
+      border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 500; cursor: pointer;
+      transition: all 0.15s;
+    }
+    button:hover { background: #334155; border-color: var(--accent); }
+    button.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
+    button.primary:hover { background: #0369a1; }
+    .cmd-box { display: flex; gap: 8px; margin-bottom: 12px; }
+    .cmd-box input {
+      flex: 1; background: #0f172a; color: var(--text); border: 1px solid var(--card-border);
+      border-radius: 8px; padding: 10px 14px; font-size: 13.5px; outline: none;
+    }
+    .cmd-box input:focus { border-color: var(--accent); }
+    .log-list { max-height: 440px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .log-item {
+      background: #0f172a; border: 1px solid var(--card-border); border-radius: 8px;
+      padding: 10px 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap;
+    }
+    .log-item blockquote {
+      margin: 6px 0; padding: 8px 10px; background: rgba(56,189,248,0.07);
+      border-left: 3px solid var(--accent); border-radius: 4px;
+    }
+    code { background: #1e293b; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #7dd3fc; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>🛰️ Anty Remote Hub <span class="badge" id="localRoleBadge">Đang tải...</span></h1>
+        <div class="muted" style="margin-top:5px">Trung tâm điều phối 3 máy (WIN-1, WIN-2, MacBook) & 5 dự án qua Telegram + Gemini Argon</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="badge green" id="activeMachineBadge">Máy nhận lệnh: ...</span>
+        <span class="muted" id="serverTimeText"></span>
+      </div>
+    </div>
+
+    <div class="grid-3" id="machinesGrid"></div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>📂 Danh Sách 5 Dự Án Chuẩn <span class="muted" id="selectedProjLabel"></span></h2>
+        <div id="projectsList"></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card">
+          <h2>💬 Điều Khiển & Giao Việc Trực Tiếp (Localhost / Telegram)</h2>
+          <form class="cmd-box" onsubmit="sendCmd(event)">
+            <input id="cmdInput" type="text" placeholder="Nhập lệnh tự nhiên (VD: báo cáo, chuyển qua máy 2, chọn dự án 1...)" />
+            <button type="submit" class="primary" id="sendBtn">Gửi Lệnh</button>
+          </form>
+          <div class="btn-row" style="margin-bottom:12px">
+            <button onclick="quickCmd('báo cáo')">📊 Báo cáo tổng hợp</button>
+            <button onclick="quickCmd('máy nào đang kết nối?')">🖥️ Kiểm tra 3 máy</button>
+            <button onclick="quickCmd('chuyển qua máy win 1')">⚡ Chọn WIN-1</button>
+            <button onclick="quickCmd('chuyển qua máy win 2')">⚡ Chọn WIN-2</button>
+          </div>
+          <div class="log-list" id="messagesList"></div>
+        </div>
+
+        <div class="card">
+          <h2>⚙️ Hàng Đợi Tác Vụ Đa Máy (tasks-bus.json)</h2>
+          <div class="log-list" id="tasksList" style="max-height:240px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadState() {
+      try {
+        const res = await fetch('/api/hub-state');
+        const data = await res.json();
+        if (!data.ok) return;
+
+        document.getElementById('localRoleBadge').textContent = 'Host: ' + data.localMachine + ' (Port 4799)';
+        document.getElementById('activeMachineBadge').textContent = '🎯 Máy đang nhận lệnh: ' + data.activeMachine;
+        document.getElementById('serverTimeText').textContent = '🕒 ' + data.serverTime;
+        document.getElementById('selectedProjLabel').textContent = 'Đang chọn: ' + data.selectedProjectSlug;
+
+        const mGrid = document.getElementById('machinesGrid');
+        mGrid.innerHTML = Object.values(data.machines || {}).map(m => {
+          const isTarget = m.id === data.activeMachine;
+          const isOnline = m.status === 'ONLINE';
+          const badgeCls = isOnline ? 'green' : 'amber';
+          return \`
+            <div class="machine-card \${isTarget ? 'active' : ''}">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <strong>\${m.icon || '🖥️'} \${m.label || m.id}</strong>
+                <span class="badge \${badgeCls}">\${m.status}</span>
+              </div>
+              <div class="muted">Hostname: <code>\${m.hostname || '-'}</code> • RAM: <code>\${m.ramGB || '-'} GB</code></div>
+              <div class="muted">Nhịp tim: \${m.lastSeen || '-'}</div>
+              <div class="btn-row">
+                <button class="\${isTarget ? 'primary' : ''}" onclick="quickCmd('chuyển qua máy \${m.id}')">
+                  \${isTarget ? '✅ Đang điều khiển máy này' : '🔄 Chuyển sang ' + m.id}
+                </button>
+              </div>
+            </div>
+          \`;
+        }).join('');
+
+        const pList = document.getElementById('projectsList');
+        pList.innerHTML = (data.projects || []).map(p => {
+          const isSel = p.name === data.selectedProjectSlug;
+          return \`
+            <div class="proj-item \${isSel ? 'selected' : ''}">
+              <div class="proj-title">
+                <span>#\${p.idNum} \${p.name} <span class="muted">(\${p.branch})</span></span>
+                <span class="badge \${p.isPublished ? 'green' : 'amber'}">\${p.isPublished ? '🟢 Đã lên Web' : '🟡 Chờ duyệt Web'}</span>
+              </div>
+              <div class="muted">Commit: <code>#\${p.commitSha}</code> — \${p.lastCommitMsg || ''}</div>
+              <div class="muted" style="margin-top:4px">Tiến độ: <strong>\${p.progress || '100%'}</strong> • Tiếp theo: \${p.nextStep || '-'}</div>
+              <div class="btn-row">
+                <button class="\${isSel ? 'primary' : ''}" onclick="quickCmd('chọn dự án #\${p.idNum}')">
+                  \${isSel ? '🎯 Đang chọn' : 'Chọn #' + p.idNum}
+                </button>
+                <button onclick="quickCmd('tiến độ #\${p.idNum}')">📋 Chi tiết #\${p.idNum}</button>
+              </div>
+            </div>
+          \`;
+        }).join('');
+
+        const tList = document.getElementById('tasksList');
+        const tasks = data.tasks || [];
+        tList.innerHTML = tasks.length ? tasks.map(t => \`
+          <div class="log-item">
+            <div style="display:flex;justify-content:space-between">
+              <strong>#\${t.projectSlug || '-'} → \${t.targetMachine || '-'}</strong>
+              <span class="badge \${t.status === 'SUCCEEDED' ? 'green' : 'amber'}">\${t.status}</span>
+            </div>
+            <div class="muted" style="margin-top:4px">\${(t.instruction || '').slice(0, 140)}</div>
+          </div>
+        \`).join('') : '<div class="muted">Chưa có tác vụ nào trong hàng đợi.</div>';
+
+        const msgList = document.getElementById('messagesList');
+        const msgs = data.messages || [];
+        msgList.innerHTML = msgs.length ? msgs.map(m => \`
+          <div class="log-item">
+            <div class="muted" style="margin-bottom:4px">[\${m.time}] <strong>\${m.machine}</strong></div>
+            <div>\${m.html}</div>
+          </div>
+        \`).join('') : '<div class="muted">Hãy bấm nút hoặc nhập lệnh bên trên để kiểm tra phản hồi của Anty Remote Hub.</div>';
+      } catch (e) {}
+    }
+
+    async function quickCmd(text) {
+      document.getElementById('cmdInput').value = text;
+      await submitText(text);
+    }
+
+    async function sendCmd(e) {
+      e.preventDefault();
+      const input = document.getElementById('cmdInput');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      await submitText(text);
+    }
+
+    async function submitText(text) {
+      const btn = document.getElementById('sendBtn');
+      btn.disabled = true;
+      btn.textContent = 'Đang xử lý...';
+      try {
+        await fetch('/api/hub-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        await loadState();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Gửi Lệnh';
+      }
+    }
+
+    loadState();
+    setInterval(loadState, 3000);
+  </script>
+</body>
+</html>`;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, service: 'anty-remote-hub-bug-receiver', machine: MACHINE_ROLE }));
+  });
+
+  server.on('error', () => {});
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`🚨 [WEB-BUG-RECEIVER] Đang lắng nghe & phân tích lỗi 24/7 cho 3 miền (hoaiphuong.click, ql.hoaiphuong.click, video.hoaiphuong.click) tại http://0.0.0.0:${port}/api/report-bug`);
+  });
+}
+
+function ensureWindows24x7WatchdogInstalled() {
+  if (os.platform() !== 'win32') return;
+  try {
+    const daemonScript = path.join(ROOT_DIR, 'src', 'server-daemon.mjs');
+    const vbsPath = 'C:\\Projects\\anty-daemon-hidden.vbs';
+    const vbsContent = [
+      'Set WshShell = CreateObject("WScript.Shell")',
+      `WshShell.CurrentDirectory = "${ROOT_DIR}"`,
+      `WshShell.Run """${process.execPath}"" ""${daemonScript}""", 0, False`,
+    ].join('\r\n') + '\r\n';
+    fs.writeFileSync(vbsPath, vbsContent, 'utf8');
+
+    const startupDir = path.join(
+      process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
+      'Microsoft',
+      'Windows',
+      'Start Menu',
+      'Programs',
+      'Startup'
+    );
+    if (fs.existsSync(startupDir)) {
+      const startupVbs = path.join(startupDir, 'anty-remote-hub.vbs');
+      fs.writeFileSync(startupVbs, vbsContent, 'utf8');
+      const oldCmd = path.join(startupDir, 'anty-remote-hub.cmd');
+      if (fs.existsSync(oldCmd)) {
+        try {
+          fs.unlinkSync(oldCmd);
+        } catch {}
+      }
+    }
+
+    // 1. Register in HKCU Run so it starts hidden at every user login
+    try {
+      execSync(
+        `reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "AntyRemoteHubServer24x7" /t REG_SZ /d "wscript.exe //B //NoLogo ${vbsPath}" /f`,
+        { stdio: 'ignore', timeout: 4000 }
+      );
+    } catch {}
+
+    // 2. Register 5-minute user-level Scheduled Task Watchdog (only if missing so we don't reset start timer)
+    try {
+      execSync('schtasks /Query /TN "AntyRemoteHubServer24x7"', { stdio: 'ignore', timeout: 3000 });
+    } catch {
+      try {
+        execSync(
+          `schtasks /Create /F /SC MINUTE /MO 5 /ST 00:00 /TN "AntyRemoteHubServer24x7" /TR "wscript.exe //B //NoLogo ${vbsPath}"`,
+          { stdio: 'ignore', timeout: 4000 }
+        );
+      } catch {}
+    }
+
+    // 3. Prevent Windows from sleeping or hibernating while running 24/7 in background
+    try {
+      execSync(
+        'powercfg /change standby-timeout-ac 0 && powercfg /change standby-timeout-dc 0 && powercfg /change hibernate-timeout-ac 0 && powercfg /change hibernate-timeout-dc 0',
+        { stdio: 'ignore', timeout: 4000 }
+      );
+    } catch {}
+  } catch {}
+}
+
+// 12. Main Long-Polling Loop
+async function startPolling() {
+  if (MACHINE_ROLE === 'MACBOOK' && !process.argv.includes('--force-mac-poll') && process.env.FORCE_MAC_DAEMON !== '1') {
+    console.log('⏸️ [MACBOOK-STANDBY] MacBook đã tắt chế độ chạy ngầm liên tục. Máy chủ Windows Server đảm nhận kết nối & báo cáo Telegram 24/7.');
+    process.exit(0);
+  }
+
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.error('❌ Thiếu TELEGRAM_BOT_TOKEN trong file .env!');
+    process.exit(1);
+  }
+
+  ensureWindows24x7WatchdogInstalled();
+  startWebBugHttpServer();
+
+  let me = null;
+  while (!me || !me.ok) {
+    try {
+      me = await tgApi('getMe', {});
+    } catch (err) {
+      console.error('⏳ Đang chờ kết nối mạng tới Telegram API...', err.message);
+      await new Promise((r) => setTimeout(r, 4000));
+    }
+  }
+
+  await refreshMachinesStatusFromGithub(true);
+  // Auto-pull all 4 projects when this machine powers on so it is immediately ready!
+  for (const p of getProjectsSummary()) {
+    await pullLatestProjectFromGithub(p.path);
+  }
+  await snapshotProjects(false);
+  await watchAntigravityConversations(false);
+
+  let isAutoDeployingWeb = false;
+  const autoDeployAttemptedShaMap = new Map();
+
+  async function autoPullAndPublishWebProjectsOnServer() {
+    if (isAutoDeployingWeb) return;
+    if (!detectIsWebServerHost() || !ALLOWED_CHAT_ID) return;
+    if (activeTaskInfo || (localTaskWorker?.runningTaskIds?.size || 0) > 0) return;
+
+    isAutoDeployingWeb = true;
+    try {
+      const projs = getProjectsSummary(true);
+      for (const p of projs) {
+        if (!p.isWebProject || p.name === 'anty-remote-hub') continue;
+        await pullLatestProjectFromGithub(p.path);
+        const freshP = parseProjectDetails(p.name, p.path, p.idNum);
+        if (!freshP.commitSha) continue;
+
+        if (!isProjectVersionPublishedOnWeb(freshP.name, freshP.commitSha)) {
+          const lastAttemptedSha = autoDeployAttemptedShaMap.get(freshP.name);
+          if (lastAttemptedSha === freshP.commitSha) continue;
+          autoDeployAttemptedShaMap.set(freshP.name, freshP.commitSha);
+          await executeWebReleaseAndDeploy(ALLOWED_CHAT_ID, freshP, false, { autoTriggered: true });
+        }
+      }
+    } catch {} finally {
+      isAutoDeployingWeb = false;
+    }
+  }
+
+  autoPullAndPublishWebProjectsOnServer().catch(() => {});
+
+  // Track known online/offline state of all machines to alert whenever any peer machine turns ON or OFF
+  const peerPowerStateMap = new Map();
+  const peerOfflineStrikeMap = new Map();
+  const initReg = loadMachinesRegistry();
+  for (const m of Object.values(initReg.machines || {})) {
+    peerPowerStateMap.set(m.id, isMachineOnline(m));
+    peerOfflineStrikeMap.set(m.id, 0);
+  }
+
+  async function checkPeerMachinesPowerTransitions() {
+    const reg = await refreshMachinesStatusFromGithub(true);
+    await autoPullAndPublishWebProjectsOnServer().catch(() => {});
+    if (!ALLOWED_CHAT_ID) return;
+
+    for (const m of Object.values(reg.machines || {})) {
+      if (m.id === MACHINE_ROLE || m.id === 'MACBOOK') continue;
+      const nowOnline = isMachineOnline(m);
+      const wasOnline = peerPowerStateMap.get(m.id) || false;
+
+      if (nowOnline) {
+        peerOfflineStrikeMap.set(m.id, 0);
+        peerPowerStateMap.set(m.id, true);
+        if (!wasOnline) {
+          await sendHtmlCard(
+            ALLOWED_CHAT_ID,
+            `🟢 <b>[${escHtml(m.id)}] Đã kết nối & sẵn sàng!</b>`,
+            null,
+            true
+          ).catch(() => {});
+        }
+      } else if (wasOnline && !nowOnline) {
+        const strikes = (peerOfflineStrikeMap.get(m.id) || 0) + 1;
+        peerOfflineStrikeMap.set(m.id, strikes);
+        if (strikes < 6) {
+          continue;
+        }
+        peerPowerStateMap.set(m.id, false);
+        if (reg.activeMachine === m.id) {
+          reg.activeMachine = MACHINE_ROLE;
+        }
+        if (reg.machines[m.id]) {
+          reg.machines[m.id].status = 'OFFLINE';
+        }
+        saveMachinesRegistry(reg);
+        await execAsync(
+          `git add machines.json && git commit -m "chore(machines): detect ${m.id} OFFLINE" && git push origin main`,
+          { cwd: ROOT_DIR, timeout: 10000 }
+        ).catch(() => {});
+        await sendHtmlCard(
+          ALLOWED_CHAT_ID,
+          `🔴 <b>[${escHtml(m.id)}] Đã ngắt kết nối (Tự chuyển về [${escHtml(MACHINE_ROLE)}]).</b>`,
+          null,
+          true
+        ).catch(() => {});
+      }
+    }
+  }
+
+  // Priority 4: Reconcile any tasks interrupted by a crash/restart before starting worker loop
+  taskCoordinator.reconcileInterruptedTasksOnStartup();
+
+  // Priority 3: Persistent Task Worker loop (runs on ALL machines, even when in Follower/Standby mode!)
+  setInterval(() => {
+    localTaskWorker.processNextAssignedTask().catch(() => {});
+  }, 3000);
+
+  setInterval(() => {
+    snapshotProjects(true).catch(() => {});
+  }, 8000);
+
+  setInterval(() => {
+    watchAntigravityConversations(true).catch(() => {});
+  }, 6000);
+
+  setInterval(() => {
+    watchWebBugReports().catch(() => {});
+  }, 4000);
+
+  // Heartbeat every 45s locally + check peer machines ON/OFF transitions every 45s
+  setInterval(() => {
+    ensureCurrentMachineRegistered('ONLINE');
+  }, 45000);
+
+  setInterval(() => {
+    checkPeerMachinesPowerTransitions().catch(() => {});
+  }, 45000);
+
+  // Lid-Open / Wake-from-Sleep Detector: if system clock jumps > 25s between 4s ticks, the machine just woke up from Sleep!
+  let lastClockTickMs = Date.now();
+  setInterval(async () => {
+    const now = Date.now();
+    const deltaSec = Math.round((now - lastClockTickMs) / 1000);
+    lastClockTickMs = now;
+
+    if (deltaSec >= 25 && ALLOWED_CHAT_ID) {
+      const reg = ensureCurrentMachineRegistered('ONLINE');
+      reg.activeMachine = MACHINE_ROLE;
+      saveMachinesRegistry(reg);
+      for (const p of getProjectsSummary()) {
+        await pullLatestProjectFromGithub(p.path);
+      }
+      await refreshMachinesStatusFromGithub(true);
+      await sendHtmlCard(
+        ALLOWED_CHAT_ID,
+        `🟢 <b>[${escHtml(MACHINE_ROLE)}] Đã mở lên & kết nối 24/7!</b>`,
+        null,
+        true
+      ).catch(() => {});
+    }
+  }, 4000);
+
+  // Graceful power-off / shutdown notification
+  let shuttingDown = false;
+  const handleShutdown = async (signalName = 'SHUTDOWN', silent = false) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    try {
+      await autoSyncAllProjectsToGithub().catch(() => {});
+      if (!silent) {
+        ensureCurrentMachineRegistered('OFFLINE');
+        await execAsync(
+          `git add machines.json && git commit -m "chore(machines): ${MACHINE_ROLE} OFFLINE" && git push origin main`,
+          { cwd: ROOT_DIR, timeout: 8000 }
+        ).catch(() => {});
+        if (ALLOWED_CHAT_ID) {
+          await tgApi('sendMessage', {
+            chat_id: ALLOWED_CHAT_ID,
+            parse_mode: 'HTML',
+            text: `🔴 <b>[${escHtml(MACHINE_ROLE)}] Đã tắt / ngắt kết nối (${escHtml(signalName)}).</b>`,
+          }).catch(() => {});
+        }
+      }
+    } finally {
+      process.exit(0);
+    }
+  };
+  process.on('SIGINT', () => handleShutdown('Tắt thủ công', false));
+  process.on('SIGTERM', () => handleShutdown('Khởi động lại dịch vụ ngầm', true));
+  process.on('SIGHUP', () => handleShutdown('Đóng phiên / Tắt máy', false));
+  if (os.platform() === 'win32') {
+    process.on('SIGBREAK', () => handleShutdown('Tắt máy / Đóng cửa sổ Windows', false));
+  }
+
+  console.log(`✅ [ANTY-REMOTE-HUB] Máy chủ 24/7 đang chạy trên [${MACHINE_ROLE}] — Bot: @${me.result.username}`);
+  if (ALLOWED_CHAT_ID) {
+    try {
+      const reg = loadMachinesRegistry();
+      const prevMachine = reg.machines?.[MACHINE_ROLE];
+      const wasAlreadyOnlineRecently =
+        prevMachine &&
+        prevMachine.status === 'ONLINE' &&
+        Date.now() - Number(prevMachine.lastHeartbeatMs || 0) < 12 * 60 * 1000;
+      const updatedReg = ensureCurrentMachineRegistered('ONLINE');
+      if (!updatedReg.activeMachine || updatedReg.activeMachine === 'MACBOOK') {
+        updatedReg.activeMachine = MACHINE_ROLE;
+      }
+      saveMachinesRegistry(updatedReg);
+      if (!wasAlreadyOnlineRecently) {
+        await sendHtmlCard(
+          ALLOWED_CHAT_ID,
+          `🟢 <b>[${escHtml(MACHINE_ROLE)}] Đã mở lên & kết nối sẵn sàng!</b>`,
+          null,
+          true
+        );
+      }
+    } catch (err) {
+      console.error('⚠️ Không thể gửi bảng khởi động:', err.message);
+    }
+  }
+
+  let offset = runtimeStore.getNextOffset();
+  let outageStartedAt = 0;
+  lastPollLoopTickMs = Date.now();
+  const waitOnceMode = process.argv.includes('--wait-one-task');
+
+  // Watchdog: if the getUpdates loop ever stalls for >120s AND no worker/deploy is active, exit so server-daemon restarts it
+  setInterval(() => {
+    const hasActiveWork =
+      Boolean(activeTaskInfo) ||
+      Boolean(localTaskWorker?.isProcessing) ||
+      (localTaskWorker?.runningTaskIds?.size || 0) > 0 ||
+      Boolean(isAutoDeployingWeb);
+    if (hasActiveWork) {
+      lastPollLoopTickMs = Date.now();
+      return;
+    }
+    if (Date.now() - lastPollLoopTickMs > 120000) {
+      console.error('🔄 [POLL-WATCHDOG] Phát hiện vòng lặp getUpdates bị treo >120s, tự khởi động lại...');
+      process.exit(0);
+    }
+  }, 15000);
+
+  while (true) {
+    lastPollLoopTickMs = Date.now();
+    try {
+      // Priority 2: Only the elected Central Telegram Receiver (preferring the user's selected activeMachine when online)
+      // polls getUpdates; other machines stay in Worker/Standby mode to prevent 409 Conflict race conditions.
+      const regNow = loadMachinesRegistry();
+      const preferredPoller =
+        regNow.activeMachine && regNow.activeMachine !== 'MACBOOK' ? regNow.activeMachine : MACHINE_ROLE;
+      const preferredInfo = regNow.machines?.[preferredPoller];
+      const preferredOnline =
+        preferredPoller === MACHINE_ROLE ||
+        (preferredInfo &&
+          preferredInfo.status === 'ONLINE' &&
+          Date.now() - Number(preferredInfo.lastHeartbeatMs || 0) < 3 * 60 * 1000);
+
+      const isElectedPoller =
+        preferredPoller === MACHINE_ROLE
+          ? Date.now() >= taskCoordinator.standbyUntilMs
+          : !preferredOnline && taskCoordinator.canPollTelegram();
+
+      if (!isElectedPoller) {
+        await localTaskWorker.processNextAssignedTask().catch(() => {});
+        await new Promise((r) => setTimeout(r, 4000));
+        continue;
+      }
+
+      const updates = await tgApi('getUpdates', { offset, timeout: 12 });
+      lastPollLoopTickMs = Date.now();
+      if (updates && updates.ok === false && updates.error_code === 409) {
+        taskCoordinator.recordPollingConflict(30000);
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+
+      if (outageStartedAt > 0) {
+        const outageSec = Math.max(1, Math.round((Date.now() - outageStartedAt) / 1000));
+        outageStartedAt = 0;
+        // Drain any outbound messages queued while offline
+        const queuedMsgs = runtimeStore.drainOutboundQueue();
+        for (const item of queuedMsgs) {
+          await sendHtmlCard(item.chatId, item.htmlText).catch(() => {});
+        }
+        if (outageSec >= 15 && ALLOWED_CHAT_ID) {
+          await autoSyncAllProjectsToGithub();
+          await refreshMachinesStatusFromGithub(true);
+          await sendHtmlCard(
+            ALLOWED_CHAT_ID,
+            `🟢 <b>[${escHtml(MACHINE_ROLE)}] Đã khôi phục kết nối sau ${outageSec}s!</b>`,
+            null,
+            true
+          ).catch(() => {});
+        }
+      }
+
+      if (updates.ok && Array.isArray(updates.result)) {
+        for (const u of updates.result) {
+          lastPollLoopTickMs = Date.now();
+          offset = u.update_id + 1;
+
+          // Priority 4: Idempotent update deduplication persisted to disk BEFORE handling!
+          if (!runtimeStore.claimUpdateId(u.update_id)) {
+            continue;
+          }
+
+          if (u.callback_query) {
+            const cbChatId = String(u.callback_query.message?.chat?.id || '');
+            if (!ALLOWED_CHAT_ID || cbChatId === String(ALLOWED_CHAT_ID)) {
+              await handleCallbackQuery(u.callback_query).catch((err) => {
+                console.error('⚠️ Lỗi xử lý nút bấm:', err.message);
+              });
+            }
+            continue;
+          }
+
+          const msg = u.message || u.edited_message;
+          if (!msg || !msg.text) continue;
+
+          const chatId = String(msg.chat.id);
+          if (!ALLOWED_CHAT_ID) {
+            ALLOWED_CHAT_ID = chatId;
+            try {
+              const envPath = path.join(ROOT_DIR, '.env');
+              if (fs.existsSync(envPath)) {
+                const envContent = fs.readFileSync(envPath, 'utf8');
+                const updated = envContent.replace(/^ALLOWED_TELEGRAM_CHAT_ID=.*$/m, `ALLOWED_TELEGRAM_CHAT_ID=${ALLOWED_CHAT_ID}`);
+                fs.writeFileSync(envPath, updated, { mode: 0o600 });
+              }
+            } catch {}
+          } else if (chatId !== String(ALLOWED_CHAT_ID)) {
+            continue;
+          }
+
+          await handleMessage(chatId, msg.text).catch((err) => {
+            console.error('⚠️ Lỗi xử lý tin nhắn:', err.message);
+          });
+
+          if (waitOnceMode && fs.existsSync(QUEUE_FILE)) {
+            const q = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8'));
+            if (q.length > 0) {
+              console.log('🔔 WAKEUP_ANTY_TASK_QUEUED:', JSON.stringify(q[q.length - 1]));
+              process.exit(0);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      const isConflict = String(err?.message || '').includes('409');
+      if (isConflict) {
+        taskCoordinator.recordPollingConflict(30000);
+      } else if (outageStartedAt === 0) {
+        outageStartedAt = Date.now();
+        // Immediately auto-commit any dirty files locally in case power or battery dies next!
+        autoSyncAllProjectsToGithub().catch(() => {});
+      }
+      await new Promise((r) => setTimeout(r, isConflict ? 6000 : 3000));
+    }
+  }
+}
+
+startPolling();

@@ -1,0 +1,39 @@
+﻿param([Parameter(Mandatory=$true)][ValidateSet('TikTok','Anty','VideoAutomation')][string]$Target)
+$ErrorActionPreference='Stop'
+$logDir='C:\Users\ADMIN\AppData\Local\HoaiPhuongServer\logs'
+New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+$logPath=Join-Path $logDir ($Target+'-startup.log')
+function Write-StartupLog([string]$message){[IO.File]::AppendAllText($logPath,([DateTime]::Now.ToString('o')+' '+$message+[Environment]::NewLine),[Text.Encoding]::UTF8)}
+function Test-Listening([int]$port){return (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count -gt 0)}
+try {
+Write-StartupLog ('Starting check for '+$Target+'; User='+[Security.Principal.WindowsIdentity]::GetCurrent().Name+'; Session='+[Diagnostics.Process]::GetCurrentProcess().SessionId)
+switch($Target){
+'TikTok' {
+if(Test-Listening 3000){Write-StartupLog 'Port 3000 already listening; left existing server unchanged.';exit 0}
+Set-Location 'C:\Projects\tiktok-ai-factory-v4'
+while($true){
+if(Test-Listening 3000){Write-StartupLog 'Port 3000 already listening; refusing to start a duplicate.';exit 0}
+& 'C:\Program Files\nodejs\node.exe' 'C:\Projects\tiktok-ai-factory-v4\scripts\start-v4-production-m2.mjs' *>> (Join-Path $logDir 'TikTok-runtime.log')
+Write-StartupLog ('TikTok exited '+$LASTEXITCODE+'; retrying in 2 seconds.')
+Start-Sleep -Seconds 2
+}
+}
+'Anty' {
+$existing=@(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object {$_.CommandLine -like '*anty-remote-hub*server-daemon.mjs*'})
+if($existing.Count -gt 0){Write-StartupLog 'Anty daemon already running; left unchanged.';exit 0}
+Set-Location 'C:\Projects\anty-remote-hub'
+& 'C:\Program Files\nodejs\node.exe' 'C:\Projects\anty-remote-hub\src\server-daemon.mjs'
+if($LASTEXITCODE -ne 0){throw ('Anty launcher exited '+$LASTEXITCODE)}
+}
+'VideoAutomation' {
+if(Test-Listening 3401){Write-StartupLog 'Port 3401 already listening; left existing server unchanged.';exit 0}
+Set-Location 'C:\Projects\video-automation-v1'
+& "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File 'C:\Projects\video-automation-v1\scripts\start-windows.ps1' -Runtime typescript -Supervisor
+if($LASTEXITCODE -ne 0){throw ('Video Automation launcher exited '+$LASTEXITCODE)}
+}
+}
+Write-StartupLog 'Launcher exited normally.'
+exit 0
+}catch{Write-StartupLog ('ERROR: '+$_.Exception.Message);exit 1}
+
+

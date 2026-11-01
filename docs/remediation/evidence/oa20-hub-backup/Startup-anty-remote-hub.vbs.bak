@@ -1,0 +1,3 @@
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.CurrentDirectory = "C:\Projects\anty-remote-hub"
+WshShell.Run """C:\Program Files\nodejs\node.exe"" ""C:\Projects\anty-remote-hub\src\server-daemon.mjs""", 0, False

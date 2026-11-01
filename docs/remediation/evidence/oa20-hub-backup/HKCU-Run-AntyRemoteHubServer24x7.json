@@ -1,0 +1,6 @@
+﻿{
+    "key":  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+    "name":  "AntyRemoteHubServer24x7",
+    "value":  "wscript.exe //B //NoLogo C:\\Projects\\anty-daemon-hidden.vbs",
+    "exported_at":  "2026-11-02T05:58:29.8857290+07:00"
+}

@@ -1,0 +1,74 @@
+﻿[
+    {
+        "file":  "anty-daemon-hidden.vbs.bak",
+        "size_bytes":  222,
+        "sha256":  "CE00A4F877E79B06B5FC130ED2ABC6E27B39B3AC0D2B9D5E55198F1BA3B028ED",
+        "source_path":  "C:\\Projects\\anty-daemon-hidden.vbs"
+    },
+    {
+        "file":  "dev-server-daemon.mjs.bak",
+        "size_bytes":  3022,
+        "sha256":  "360737DDAC35DF067CAA5A045C7417F3C873FDD5B6299FBAC464ACD33BF43F79",
+        "source_path":  "C:\\Projects-Dev\\anty-remote-hub\\src\\server-daemon.mjs"
+    },
+    {
+        "file":  "dev-sync-live-web.mjs.bak",
+        "size_bytes":  10252,
+        "sha256":  "99E37F44F9C7BB9709C1D2B4869BED94945EC6A73F893DCF6416F3055567FE7D",
+        "source_path":  "C:\\Projects-Dev\\anty-remote-hub\\src\\sync-live-web.mjs"
+    },
+    {
+        "file":  "HKCU-Run-AntyRemoteHubServer24x7.json",
+        "size_bytes":  260,
+        "sha256":  "527498947DD4D7A78FEBB34E8E98DF1746320D14F724FA0E6E637130E184FC59",
+        "source_path":  "exported-system-state"
+    },
+    {
+        "file":  "HKCU-Run-before-oa20.reg",
+        "size_bytes":  2088,
+        "sha256":  "50B2B429AED6B5961E4F9A9F7A05F6E3F63C864B0D76C4BF55DE87E33B65AE25",
+        "source_path":  "exported-system-state"
+    },
+    {
+        "file":  "legacy-index.mjs.bak",
+        "size_bytes":  169909,
+        "sha256":  "37E272395560EBC2544E29604EA3A66409815417A8823427B41CF3A89DF31B57",
+        "source_path":  "C:\\Projects\\anty-remote-hub\\src\\index.mjs"
+    },
+    {
+        "file":  "legacy-server-daemon.mjs.bak",
+        "size_bytes":  3022,
+        "sha256":  "360737DDAC35DF067CAA5A045C7417F3C873FDD5B6299FBAC464ACD33BF43F79",
+        "source_path":  "C:\\Projects\\anty-remote-hub\\src\\server-daemon.mjs"
+    },
+    {
+        "file":  "legacy-sync-live-web.mjs.bak",
+        "size_bytes":  10700,
+        "sha256":  "60F299CC2107CABC4747C68422B3961A489E558E2FF616C05CB7AFFE3FF2AEF0",
+        "source_path":  "C:\\Projects\\anty-remote-hub\\src\\sync-live-web.mjs"
+    },
+    {
+        "file":  "server-atboot.ps1.bak",
+        "size_bytes":  2440,
+        "sha256":  "6435664C8126385396DC6CE2AE7502D65AE8C5DBD65C1FE2D319B360547A8F6E",
+        "source_path":  "C:\\ProgramData\\HoaiPhuong\\ServerStartup\\server-atboot.ps1"
+    },
+    {
+        "file":  "Startup-anty-remote-hub.vbs.bak",
+        "size_bytes":  222,
+        "sha256":  "CE00A4F877E79B06B5FC130ED2ABC6E27B39B3AC0D2B9D5E55198F1BA3B028ED",
+        "source_path":  "C:\\Users\\ADMIN\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\anty-remote-hub.vbs"
+    },
+    {
+        "file":  "Task-AntyRemoteHubServer24x7.xml",
+        "size_bytes":  1461,
+        "sha256":  "786EBE4BAFFEC30423B1CA67401BF4F6F17D2B5A38F42FB550D94782D774F1FA",
+        "source_path":  "exported-system-state"
+    },
+    {
+        "file":  "Task-HoaiPhuong-Anty-AtBoot.xml",
+        "size_bytes":  1716,
+        "sha256":  "11E8E214E462495A34C4D286293D19000692988B91C5A50C5310444742EA8653",
+        "source_path":  "exported-system-state"
+    }
+]
