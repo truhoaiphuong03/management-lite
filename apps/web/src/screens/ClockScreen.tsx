@@ -154,6 +154,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
   const [collapsedEmployeeIds, setCollapsedEmployeeIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [showOwnerAdvancedFilters, setShowOwnerAdvancedFilters] =
+    useState<boolean>(false);
 
   // Q65-05: Multi-page employee selector generation and abort management
   const employeesFetchIdRef = useRef<number>(0);
@@ -2027,7 +2029,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       }
                     }}
                     style={{
-                      padding: '6px 10px',
+                      padding: '6px 9px',
                       borderRadius: '6px',
                       border: '1px solid var(--border-color)',
                       backgroundColor: 'var(--surface-subtle)',
@@ -2038,9 +2040,17 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     }}
                   >
                     {collapsedEmployeeIds.size >=
-                    groupedOwnerShiftsByEmployee.length
-                      ? '▾ Mở rộng tất cả NV'
-                      : '▴ Thu gọn tất cả NV'}
+                    groupedOwnerShiftsByEmployee.length ? (
+                      <span>
+                        ▾ Mở rộng
+                        <span className="mobile-hide-label"> tất cả NV</span>
+                      </span>
+                    ) : (
+                      <span>
+                        ▴ Thu gọn
+                        <span className="mobile-hide-label"> tất cả NV</span>
+                      </span>
+                    )}
                   </button>
                 )}
 
@@ -2053,7 +2063,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    padding: '6px 12px',
+                    padding: '6px 10px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-color)',
                     backgroundColor: 'var(--surface-subtle)',
@@ -2064,7 +2074,10 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   }}
                 >
                   <DownloadIcon size={14} />
-                  <span>Xuất CSV tổng hợp công</span>
+                  <span>
+                    Xuất CSV
+                    <span className="mobile-hide-label"> tổng hợp công</span>
+                  </span>
                 </button>
               )}
 
@@ -2082,7 +2095,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '6px 12px',
+                  padding: '6px 10px',
                   borderRadius: '6px',
                   border: '1px solid rgba(20, 184, 166, 0.35)',
                   backgroundColor: 'rgba(20, 184, 166, 0.12)',
@@ -2092,7 +2105,50 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   cursor: 'pointer',
                 }}
               >
-                <span>Đối soát Bảng lương →</span>
+                <span>
+                  <span className="mobile-hide-label">Đối soát </span>Bảng lương
+                  →
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowOwnerAdvancedFilters((v) => !v)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border:
+                    showOwnerAdvancedFilters ||
+                    selectedDate ||
+                    selectedToDate ||
+                    selectedRunState !== 'all'
+                      ? '1px solid #14B8A6'
+                      : '1px solid var(--border-color)',
+                  backgroundColor:
+                    showOwnerAdvancedFilters ||
+                    selectedDate ||
+                    selectedToDate ||
+                    selectedRunState !== 'all'
+                      ? 'rgba(20, 184, 166, 0.14)'
+                      : 'var(--surface-subtle)',
+                  color:
+                    showOwnerAdvancedFilters ||
+                    selectedDate ||
+                    selectedToDate ||
+                    selectedRunState !== 'all'
+                      ? 'var(--accent-text)'
+                      : 'var(--muted-color)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <span>
+                  {showOwnerAdvancedFilters ? '▴ Ẩn lọc' : '▾ Bộ lọc ngày'}
+                </span>
               </button>
             </div>
           </div>
@@ -2102,9 +2158,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             data-testid="owner-review-quick-tabs"
             style={{
               display: 'flex',
-              gap: '8px',
-              flexWrap: 'wrap',
-              marginBottom: '16px',
+              gap: '6px',
+              flexWrap: 'nowrap',
+              overflowX: 'auto',
+              paddingBottom: '4px',
+              marginBottom: '10px',
+              scrollbarWidth: 'none',
             }}
           >
             {[
@@ -2139,12 +2198,14 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   setShiftPage(0);
                 }}
                 style={{
-                  padding: '8px 14px',
-                  borderRadius: '20px',
-                  fontSize: '13px',
+                  padding: '6px 12px',
+                  borderRadius: '999px',
+                  fontSize: '12.5px',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  minHeight: '38px',
+                  minHeight: '34px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                   border:
                     selectedReviewState === pill.id
                       ? '1px solid #14B8A6'
@@ -2164,11 +2225,105 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             ))}
           </div>
 
+          {employeeOptions.length > 0 && (
+            <div
+              data-testid="quick-employee-filter-chips"
+              style={{
+                display: 'flex',
+                gap: '6px',
+                flexWrap: 'nowrap',
+                overflowX: 'auto',
+                alignItems: 'center',
+                paddingBottom: '4px',
+                marginBottom: '12px',
+                scrollbarWidth: 'none',
+              }}
+            >
+              <span
+                className="mobile-hide-label"
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--muted-color)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Nhân sự:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedEmployeeId('all');
+                  setShiftPage(0);
+                }}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '999px',
+                  border:
+                    selectedEmployeeId === 'all'
+                      ? '1px solid #14B8A6'
+                      : '1px solid var(--border-color)',
+                  backgroundColor:
+                    selectedEmployeeId === 'all'
+                      ? 'rgba(20, 184, 166, 0.16)'
+                      : 'var(--surface-color)',
+                  color:
+                    selectedEmployeeId === 'all'
+                      ? 'var(--accent-text)'
+                      : 'var(--text-secondary)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                Tất cả NV ({employeeOptions.length})
+              </button>
+              {employeeOptions.map((emp) => {
+                const isSelected = selectedEmployeeId === emp.id;
+                return (
+                  <button
+                    key={emp.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedEmployeeId(isSelected ? 'all' : emp.id);
+                      setShiftPage(0);
+                    }}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '999px',
+                      border: isSelected
+                        ? '1px solid #14B8A6'
+                        : '1px solid var(--border-color)',
+                      backgroundColor: isSelected
+                        ? 'rgba(20, 184, 166, 0.16)'
+                        : 'var(--surface-color)',
+                      color: isSelected
+                        ? 'var(--accent-text)'
+                        : 'var(--text-secondary)',
+                      fontSize: '12px',
+                      fontWeight: isSelected ? 700 : 500,
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {emp.full_name} ({emp.employee_code})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Filter Bar */}
-          <AppCard
-            data-testid="owner-shifts-filter-bar"
-            style={{ marginBottom: '20px', padding: '16px' }}
+          <div
+            className="attendance-advanced-filter-card"
+            data-collapsed={showOwnerAdvancedFilters ? 'false' : 'true'}
           >
+            <AppCard
+              data-testid="owner-shifts-filter-bar"
+              style={{ marginBottom: '16px', padding: '14px' }}
+            >
             {employeesError && (
               <div
                 style={{
@@ -2482,84 +2637,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 </AppButton>
               )}
             </div>
-            {employeeOptions.length > 0 && (
-              <div
-                data-testid="quick-employee-filter-chips"
-                style={{
-                  display: 'flex',
-                  gap: '6px',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  marginTop: '12px',
-                  paddingTop: '12px',
-                  borderTop: '1px solid var(--border-subtle)',
-                }}
-              >
-                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Chọn nhanh nhân viên:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedEmployeeId('all');
-                    setShiftPage(0);
-                  }}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '999px',
-                    border:
-                      selectedEmployeeId === 'all'
-                        ? '1px solid #14B8A6'
-                        : '1px solid var(--border-color)',
-                    backgroundColor:
-                      selectedEmployeeId === 'all'
-                        ? 'rgba(20, 184, 166, 0.16)'
-                        : 'var(--bg-color)',
-                    color:
-                      selectedEmployeeId === 'all'
-                        ? 'var(--accent-text)'
-                        : 'var(--text-secondary)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Tất cả ({employeeOptions.length})
-                </button>
-                {employeeOptions.map((emp) => {
-                  const isSelected = selectedEmployeeId === emp.id;
-                  return (
-                    <button
-                      key={emp.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedEmployeeId(isSelected ? 'all' : emp.id);
-                        setShiftPage(0);
-                      }}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '999px',
-                        border: isSelected
-                          ? '1px solid #14B8A6'
-                          : '1px solid var(--border-color)',
-                        backgroundColor: isSelected
-                          ? 'rgba(20, 184, 166, 0.16)'
-                          : 'var(--bg-color)',
-                        color: isSelected
-                          ? 'var(--accent-text)'
-                          : 'var(--text-secondary)',
-                        fontSize: '12px',
-                        fontWeight: isSelected ? 700 : 500,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {emp.full_name} ({emp.employee_code})
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </AppCard>
+            </AppCard>
+          </div>
 
           {ownerLoading ? (
             <LoadingState message="Đang tải danh sách ca làm việc…" />
@@ -2571,7 +2650,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           ) : ownerViewMode === 'by_employee' ? (
             <div
               data-testid="owner-shifts-grouped-by-employee"
-              style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
             >
               {groupedOwnerShiftsByEmployee.map((group) => {
                 const isCollapsed = collapsedEmployeeIds.has(group.employeeId);
@@ -2579,7 +2658,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   <AppCard
                     key={group.employeeId}
                     data-testid={`employee-shift-group-${group.employeeId}`}
-                    style={{ padding: '16px' }}
+                    style={{ padding: '14px' }}
                   >
                     <div
                       onClick={() => {
@@ -2612,13 +2691,15 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                           display: 'flex',
                           alignItems: 'center',
                           gap: '10px',
-                          flexWrap: 'wrap',
+                          flexWrap: 'nowrap',
+                          minWidth: 0,
+                          flex: '1 1 220px',
                         }}
                       >
                         <div
                           style={{
-                            width: '34px',
-                            height: '34px',
+                            width: '36px',
+                            height: '36px',
                             borderRadius: '8px',
                             backgroundColor: 'rgba(20, 184, 166, 0.14)',
                             border: '1px solid rgba(20, 184, 166, 0.3)',
@@ -2627,68 +2708,53 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontWeight: 700,
-                            fontSize: '13px',
+                            fontSize: '12px',
                             flexShrink: 0,
                           }}
                         >
                           {group.employeeCode}
                         </div>
-                        <div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
                           <div
                             style={{
                               fontWeight: 700,
-                              fontSize: '16px',
+                              fontSize: '15px',
                               color: 'var(--text-color)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              flexWrap: 'wrap',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
                             }}
                           >
-                            <span>{group.employeeName}</span>
-                            <span
-                              style={{
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                color: 'var(--muted-color)',
-                                backgroundColor: 'var(--surface-hover)',
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                              }}
-                            >
-                              {group.employeeCode}
-                            </span>
+                            {group.employeeName}
                           </div>
                           <div
                             style={{
-                              fontSize: '12.5px',
+                              fontSize: '12px',
                               color: 'var(--muted-color)',
-                              marginTop: '3px',
+                              marginTop: '2px',
                               display: 'flex',
-                              gap: '12px',
+                              gap: '8px',
                               flexWrap: 'wrap',
+                              alignItems: 'center',
                             }}
                           >
                             <span>
-                              Tổng số ca:{' '}
                               <strong style={{ color: 'var(--text-color)' }}>
                                 {group.shifts.length} ca
                               </strong>
                             </span>
+                            <span>•</span>
                             <span>
-                              Tổng giờ làm:{' '}
+                              Tổng:{' '}
                               <strong style={{ color: 'var(--accent-text)' }}>
                                 {formatHoursMinutes(group.totalWorkedSeconds)}
                               </strong>
                             </span>
+                            <span>•</span>
                             <span>
-                              Đã duyệt:{' '}
+                              Duyệt:{' '}
                               <strong style={{ color: 'var(--success-text)' }}>
-                                {group.approvedCount}/{group.shifts.length} ca (
-                                {formatHoursMinutes(
-                                  group.approvedWorkedSeconds,
-                                )}
-                                )
+                                {group.approvedCount}/{group.shifts.length}
                               </strong>
                             </span>
                           </div>
@@ -2741,6 +2807,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         )}
                         <button
                           type="button"
+                          className="mobile-hide-label"
                           data-testid={`employee-payroll-link-${group.employeeId}`}
                           onClick={() => {
                             if (onNavigate) {

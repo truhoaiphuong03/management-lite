@@ -2345,12 +2345,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
       {/* KPI Cards */}
       <div
-        className="kpi-grid-4"
+        className="kpi-grid-4 work-kpi-strip"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
           gap: '12px',
-          marginBottom: '20px',
+          marginBottom: '16px',
         }}
       >
         <AppCard style={{ padding: '16px', textAlign: 'center' }}>
@@ -2447,10 +2447,13 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         data-testid="work-ml04-focus-bar"
         style={{
           display: 'flex',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
           gap: '6px',
+          paddingBottom: '4px',
           marginBottom: '12px',
           alignItems: 'center',
+          scrollbarWidth: 'none',
         }}
       >
         {(
@@ -2550,9 +2553,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 color: 'var(--text-color)',
               }}
             >
-              Lịch trực tuần này (Chỉ đọc)
+              Lịch trực tuần này
+              <span className="mobile-hide-label"> (Chỉ đọc)</span>
             </span>
             <span
+              className="work-schedule-badge"
               style={{
                 fontSize: '12px',
                 padding: '2px 6px',
@@ -2574,7 +2579,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 height: 'auto',
               }}
             >
-              Xem toàn bộ lịch →
+              <span>
+                Xem <span className="mobile-hide-label">toàn bộ </span>lịch →
+              </span>
             </AppButton>
           )}
         </div>
@@ -2640,6 +2647,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       {/* Search & Filter Bar */}
       <AppCard style={{ padding: '12px 14px', marginBottom: '14px' }}>
         <div
+          className="work-filter-grid"
           style={{
             display: 'grid',
             gridTemplateColumns:

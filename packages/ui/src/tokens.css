@@ -486,21 +486,38 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 @media (max-width: 768px) {
-  .has-subnav .mobile-breadcrumb-back {
+  .has-subnav .mobile-breadcrumb-back,
+  .app-shell-role-text,
+  .app-shell-header-btn > span,
+  .mobile-hide-label,
+  .payroll-nav-label,
+  .work-schedule-badge,
+  .page-header-root:has(.page-header-actions) .page-header-badge {
     display: none !important;
+  }
+  .app-shell-header-btn {
+    padding: 6px 8px !important;
+    min-height: 32px !important;
+    min-width: 32px !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
   }
   .app-shell-content > div {
     padding-left: 0 !important;
     padding-right: 0 !important;
-    padding-top: 4px !important;
+    padding-top: 2px !important;
   }
   .page-header-root {
     margin-bottom: 12px !important;
     padding-bottom: 10px !important;
     gap: 8px !important;
+    flex-wrap: nowrap !important;
   }
   .page-header-title {
-    font-size: 18px !important;
+    font-size: 17.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
   .page-header-subtitle {
     display: none !important;
@@ -509,34 +526,104 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     display: none !important;
   }
   .btn-floating-report-bug {
-    padding: 9px !important;
+    padding: 7px !important;
     border-radius: 999px !important;
-    opacity: 0.88;
+    opacity: 0.72;
+    transform: scale(0.88);
   }
   .app-subnav-bar {
-    flex-wrap: wrap;
-    overflow-x: hidden;
-    margin-bottom: 10px;
-    padding: 0 0 6px 0;
-    gap: 4px;
-    border-radius: 0;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin-bottom: 12px !important;
+    padding: 3px !important;
+    gap: 4px !important;
+    background: var(--surface-subtle, rgba(15, 23, 42, 0.55)) !important;
+    border: 1px solid var(--border-subtle, #1e293b) !important;
+    border-radius: 10px !important;
   }
   .app-subnav-item {
-    padding: 5px 8px;
-    font-size: 12px;
-    gap: 4px;
-    max-width: 100%;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    gap: 5px !important;
+    border-radius: 7px !important;
+    flex-shrink: 0 !important;
+    max-width: none !important;
   }
   .kpi-grid-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
+    margin-bottom: 14px !important;
   }
   .kpi-grid-4 > div {
-    padding: 12px !important;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+  }
+  .kpi-grid-4 > div > div:first-child {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+  }
+  .kpi-grid-4 > div > div:first-child > span:first-child {
+    font-size: 12px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .kpi-grid-4 > div > div:first-child > span:nth-child(2) {
+    display: none !important;
   }
   .kpi-grid-4 > div > div:nth-child(2) {
-    font-size: 16.5px !important;
+    font-size: 16px !important;
     line-height: 1.25 !important;
+    margin: 4px 0 2px 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .kpi-grid-4 > div > div:nth-child(3) {
+    font-size: 11.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .kpi-grid-4 > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1 !important;
+  }
+  .work-kpi-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .work-kpi-strip > div {
+    padding: 8px 4px !important;
+  }
+  .work-kpi-strip > div > div:first-child {
+    font-size: 11px !important;
+    justify-content: center !important;
+  }
+  .work-kpi-strip > div > div:nth-child(2) {
+    font-size: 17px !important;
+    margin: 2px 0 0 0 !important;
+  }
+  .work-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .work-filter-grid > div:first-child {
+    grid-column: 1 / -1 !important;
+  }
+  .work-filter-grid select {
+    padding: 7px 6px !important;
+    font-size: 12px !important;
+  }
+  .payroll-earnings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .attendance-advanced-filter-card[data-collapsed='true'] {
+    display: none !important;
   }
   .quick-actions-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -580,9 +667,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   table.rt-cards tr {
     display: block;
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    border-radius: 12px;
     background: var(--surface-color);
-    padding: 4px 12px;
+    padding: 6px 14px;
   }
   table.rt-cards td {
     display: block;
@@ -590,7 +677,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     min-width: 0;
     text-align: right;
     overflow-wrap: anywhere;
-    padding: 8px 0 8px 38% !important;
+    padding: 8px 0 8px 36% !important;
     min-height: 22px;
     border: 0 !important;
     border-bottom: 1px solid var(--border-subtle) !important;
@@ -605,7 +692,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     position: absolute;
     left: 0;
     top: 8px;
-    width: 35%;
+    width: 34%;
     text-align: left;
     color: var(--muted-color);
     font-size: 12px;
@@ -613,7 +700,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     line-height: 1.35;
   }
   table.rt-cards td[data-label]:not([data-label='']) > div {
-    justify-content: flex-end;
+    justify-content: flex-end !important;
+    align-items: flex-end !important;
+    text-align: right !important;
   }
   table.rt-cards td[data-colspan] {
     display: block;

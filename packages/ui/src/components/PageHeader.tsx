@@ -48,7 +48,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           >
             {title}
           </h1>
-          {badge}
+          {badge && <span className="page-header-badge">{badge}</span>}
         </div>
         {subtitle && (
           <p

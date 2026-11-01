@@ -488,10 +488,65 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       <div
         style={{
           display: 'flex',
-          justifyContent: 'flex-end',
-          marginBottom: '10px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '10px',
+          marginBottom: '16px',
         }}
       >
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'nowrap',
+            overflowX: 'auto',
+            gap: '6px',
+            flex: '1 1 auto',
+            minWidth: 0,
+            scrollbarWidth: 'none',
+          }}
+        >
+          {[
+            { key: 'all', label: 'Tất cả' },
+            { key: 'active', label: 'Đang hoạt động' },
+            { key: 'invited', label: 'Chờ kích hoạt' },
+            { key: 'suspended', label: 'Tạm ngưng' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setStatusFilter(tab.key)}
+              style={{
+                boxSizing: 'border-box',
+                minHeight: '34px',
+                padding: '6px 8px',
+                borderRadius: '6px',
+                border: '1px solid',
+                borderColor:
+                  statusFilter === tab.key ? '#14B8A6' : 'var(--border-color)',
+                backgroundColor:
+                  statusFilter === tab.key
+                    ? 'rgba(20, 184, 166, 0.15)'
+                    : 'var(--surface-hover)',
+                color:
+                  statusFilter === tab.key
+                    ? 'var(--accent-text)'
+                    : 'var(--muted-color)',
+                fontSize: '12px',
+                fontWeight: 600,
+                lineHeight: 1.2,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                transition:
+                  'border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <AppButton
           variant="secondary"
           disabled={filteredEmployees.length === 0}
@@ -543,68 +598,22 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               variant: 'success',
             });
           }}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <DownloadIcon size={14} />
-          <span>Xuất CSV danh sách ({filteredEmployees.length})</span>
-        </AppButton>
-      </div>
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          marginBottom: '20px',
-        }}
-      >
-        <div
           style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '8px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            minHeight: '34px',
+            padding: '6px 10px',
+            fontSize: '12px',
           }}
         >
-          {[
-            { key: 'all', label: 'Tất cả' },
-            { key: 'active', label: 'Đang hoạt động' },
-            { key: 'invited', label: 'Chờ kích hoạt' },
-            { key: 'suspended', label: 'Tạm ngưng' },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setStatusFilter(tab.key)}
-              style={{
-                boxSizing: 'border-box',
-                minHeight: '34px',
-                padding: '6px 10px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor:
-                  statusFilter === tab.key ? '#14B8A6' : 'var(--border-color)',
-                backgroundColor:
-                  statusFilter === tab.key
-                    ? 'rgba(20, 184, 166, 0.15)'
-                    : 'var(--surface-hover)',
-                color:
-                  statusFilter === tab.key
-                    ? 'var(--accent-text)'
-                    : 'var(--muted-color)',
-                fontSize: '13px',
-                fontWeight: 600,
-                lineHeight: 1.2,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition:
-                  'border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+          <DownloadIcon size={14} />
+          <span>
+            Xuất CSV
+            <span className="mobile-hide-label"> danh sách</span> (
+            {filteredEmployees.length})
+          </span>
+        </AppButton>
 
         <div
           style={{

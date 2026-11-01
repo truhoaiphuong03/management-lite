@@ -2569,8 +2569,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '8px',
+                flexWrap: 'nowrap',
+                gap: '6px',
                 paddingBottom: '10px',
                 marginBottom: '10px',
                 borderBottom: '1px solid var(--border-subtle)',
@@ -2579,14 +2579,18 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               <div
                 data-testid="accounts-view-tabs"
                 style={{
-                  display: 'inline-flex',
+                  display: 'flex',
                   gap: '4px',
-                  flexWrap: 'wrap',
+                  flexWrap: 'nowrap',
+                  overflowX: 'auto',
+                  flex: '1 1 0',
+                  minWidth: 0,
                   maxWidth: '100%',
                   padding: '3px',
                   borderRadius: '8px',
                   backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid var(--border-color)',
+                  scrollbarWidth: 'none',
                 }}
               >
                 {(
@@ -2626,7 +2630,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         color: active
                           ? 'var(--accent-text)'
                           : 'var(--muted-color)',
-                        fontSize: '12.5px',
+                        fontSize: '12px',
                         fontWeight: active ? 700 : 500,
                         whiteSpace: 'nowrap',
                         flexShrink: 0,
@@ -2641,6 +2645,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
               <button
                 type="button"
+                aria-label="Làm mới danh sách"
                 onClick={loadData}
                 disabled={loading || actionLoading}
                 title="Làm mới danh sách"
@@ -2662,7 +2667,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 }}
               >
                 <RotateCcwIcon size={13} />
-                <span>Làm mới</span>
+                <span className="mobile-hide-label">Làm mới</span>
               </button>
             </div>
 
@@ -3852,7 +3857,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         color: 'var(--muted-color)',
                       }}
                     >
-                      Liên kết (Gmail • SĐT)
+                      Liên kết
                     </th>
                     <th
                       style={{
@@ -4099,9 +4104,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           <div
                             style={{
                               display: 'flex',
-                              flexDirection: 'column',
+                              flexWrap: 'wrap',
                               gap: '4px',
-                              alignItems: 'flex-start',
+                              alignItems: 'center',
                             }}
                           >
                             <span
@@ -4118,12 +4123,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             >
                               {hInfo.label}
                             </span>
-                            {account.status === 'active' ? (
-                              <StatusBadge
-                                status="success"
-                                label="Đang hoạt động"
-                              />
-                            ) : (
+                            {account.status !== 'active' && (
                               <StatusBadge
                                 status="neutral"
                                 label="Đã lưu trữ"

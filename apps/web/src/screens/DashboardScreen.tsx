@@ -373,8 +373,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           setEmployeesMetric({
             badgeStatus: 'success',
             badgeLabel: 'Quản lý',
-            value: `${summary.employees.active_count} nhân sự hoạt động`,
-            subtext: `Tổng ${summary.employees.total_count} hồ sơ (${summary.employees.invited_count} chờ kích hoạt)`,
+            value: `${summary.employees.active_count} nhân sự`,
+            subtext: `${summary.employees.total_count} hồ sơ (${summary.employees.invited_count} chờ duyệt)`,
           });
         }
         if (summary.payroll) {
@@ -534,15 +534,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           setEmployeesMetric({
             badgeStatus: 'success',
             badgeLabel: 'Quản lý',
-            value: `${activeCount} nhân sự hoạt động`,
-            subtext: `Tổng ${allEmployees.length} hồ sơ (${invitedCount} chờ kích hoạt)`,
+            value: `${activeCount} nhân sự`,
+            subtext: `${allEmployees.length} hồ sơ (${invitedCount} chờ duyệt)`,
           });
         } else if (active) {
           setEmployeesMetric({
             badgeStatus: 'success',
             badgeLabel: 'Quản lý',
-            value: '0 nhân sự hoạt động',
-            subtext: 'Tổng 0 hồ sơ (0 chờ kích hoạt)',
+            value: '0 nhân sự',
+            subtext: '0 hồ sơ (0 chờ duyệt)',
           });
         }
       } catch {
@@ -1681,14 +1681,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       margin: 0,
                     }}
                   >
-                    Kết nối dữ liệu TikTok AI Factory (hoaiphuong.click)
+                    Liên thông TikTok AI Factory (hoaiphuong.click)
                   </h2>
                   <StatusBadge
                     status={bridgeStatus?.connected ? 'success' : 'neutral'}
                     label={
-                      bridgeStatus?.connected
-                        ? 'Đã kết nối liên thông'
-                        : 'Chưa kết nối'
+                      bridgeStatus?.connected ? 'Đã kết nối' : 'Chưa kết nối'
                     }
                   />
                 </div>
@@ -1706,21 +1704,31 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   </div>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {role === 'owner' && (
                   <AppButton
                     variant="primary"
                     onClick={() => void handleSyncTikTokV4()}
                     disabled={bridgeSyncing}
+                    style={{ padding: '6px 12px', fontSize: '12.5px' }}
                   >
-                    {bridgeSyncing
-                      ? 'Đang đồng bộ…'
-                      : 'Đồng bộ nhân sự & công việc'}
+                    {bridgeSyncing ? (
+                      'Đang đồng bộ…'
+                    ) : (
+                      <span>
+                        Đồng bộ
+                        <span className="mobile-hide-label">
+                          {' '}
+                          nhân sự & công việc
+                        </span>
+                      </span>
+                    )}
                   </AppButton>
                 )}
                 <AppButton
                   variant="secondary"
                   onClick={() => setShowBridgeDetails((v) => !v)}
+                  style={{ padding: '6px 12px', fontSize: '12.5px' }}
                 >
                   {showBridgeDetails ? 'Ẩn chi tiết V4' : 'Chi tiết V4'}
                 </AppButton>
@@ -1735,8 +1743,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       );
                     }
                   }}
+                  style={{ padding: '6px 12px', fontSize: '12.5px' }}
                 >
-                  Mở hoaiphuong.click
+                  <span>
+                    Mở<span className="mobile-hide-label"> hoaiphuong.click</span>
+                  </span>
                 </AppButton>
               </div>
             </div>

@@ -2486,18 +2486,20 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              flexWrap: 'wrap',
+              gap: '6px',
+              flexWrap: 'nowrap',
+              maxWidth: '100%',
             }}
           >
             <button
               type="button"
+              aria-label="Tháng trước"
               onClick={() => setSelectedMonth((m) => shiftMonth(m, -1))}
               disabled={loading || actionLoading}
               style={{
                 boxSizing: 'border-box',
                 minHeight: '36px',
-                padding: '6px 12px',
+                padding: '6px 10px',
                 backgroundColor: 'var(--surface-hover)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '6px',
@@ -2505,13 +2507,27 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontWeight: 500,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
-              &larr; Tháng trước
+              &larr;<span className="payroll-nav-label"> Tháng trước</span>
             </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CalendarIcon size={18} style={{ color: 'var(--accent-text)' }} />
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                flex: '1 1 auto',
+                minWidth: 0,
+              }}
+            >
+              <CalendarIcon
+                size={18}
+                className="payroll-nav-label"
+                style={{ color: 'var(--accent-text)', flexShrink: 0 }}
+              />
               <input
                 type="month"
                 aria-label="Chọn tháng bảng lương"
@@ -2523,12 +2539,14 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 style={{
                   boxSizing: 'border-box',
                   minHeight: '36px',
+                  width: '100%',
+                  minWidth: 0,
                   backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '6px',
                   color: 'var(--text-color)',
-                  padding: '6px 12px',
-                  fontSize: '14px',
+                  padding: '6px 10px',
+                  fontSize: '13.5px',
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
@@ -2537,12 +2555,13 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
             <button
               type="button"
+              aria-label="Tháng sau"
               onClick={() => setSelectedMonth((m) => shiftMonth(m, 1))}
               disabled={loading || actionLoading}
               style={{
                 boxSizing: 'border-box',
                 minHeight: '36px',
-                padding: '6px 12px',
+                padding: '6px 10px',
                 backgroundColor: 'var(--surface-hover)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '6px',
@@ -2550,19 +2569,22 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontWeight: 500,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
-              Tháng sau &rarr;
+              <span className="payroll-nav-label">Tháng sau </span>&rarr;
             </button>
 
             <button
               type="button"
+              aria-label="Tải lại"
               onClick={() => loadData(selectedMonth, role)}
               disabled={loading || actionLoading}
               style={{
                 boxSizing: 'border-box',
                 minHeight: '36px',
-                padding: '6px 12px',
+                padding: '6px 10px',
                 backgroundColor: 'transparent',
                 border: '1px solid var(--border-color)',
                 borderRadius: '6px',
@@ -2572,10 +2594,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 alignItems: 'center',
                 gap: '6px',
                 fontSize: '13px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
               <RotateCcwIcon size={14} />
-              <span>Tải lại</span>
+              <span className="payroll-nav-label">Tải lại</span>
             </button>
           </div>
 
@@ -3316,6 +3340,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
 
                     {/* 3-Tier Earnings Grid */}
                     <div
+                      className="payroll-earnings-grid"
                       style={{
                         display: 'grid',
                         gridTemplateColumns:
@@ -3373,7 +3398,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                   marginTop: '2px',
                                 }}
                               >
-                                🎁 Thưởng: +
+                                + Thưởng:{' '}
                                 {formatVnd(item.confirmed.bonus_vnd ?? 0)}
                               </div>
                             )}
@@ -3384,7 +3409,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                   marginTop: '2px',
                                 }}
                               >
-                                🍱 Phụ cấp: +
+                                + Phụ cấp:{' '}
                                 {formatVnd(item.confirmed.allowance_vnd ?? 0)}
                               </div>
                             )}
@@ -3395,7 +3420,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                   marginTop: '2px',
                                 }}
                               >
-                                ➖ Khấu trừ: -
+                                - Khấu trừ:{' '}
                                 {formatVnd(item.confirmed.deduction_vnd ?? 0)}
                               </div>
                             )}
