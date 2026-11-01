@@ -4,7 +4,7 @@
 
 **Goal:** Kích hoạt 100% các tính năng hạ tầng đang chờ cấu hình (`Google Drive Live OAuth`, `Account Secrets Encryption`, `AI Receipt Store`), hoàn thiện vòng lặp nghiệp vụ **Chấm công → Báo cáo → Bảng lương (Thưởng/Phụ cấp/Khấu trừ + VietQR) → Sổ thu chi**, nâng cấp trải nghiệm Quản trị Nhân sự/Dashboard và tối ưu hiệu năng tải trang.
 
-**Architecture:** Giữ nguyên kiến trúc Monorepo (`@hp/contracts` → `@hp/database` → `@hp/api` Fastify → `@hp/web` React/Vite) và nguyên tắc **Dual UI (Desktop & Mobile responsive)**. Mọi thay đổi schema đều đi qua migration tuần tự (`0031+`) và kiểm thử tự động trước khi đồng bộ sang `C:\HoaiPhuong-Server\apps\management-lite`.
+**Architecture:** Giữ nguyên kiến trúc Monorepo (`@hp/contracts` → `@hp/database` → `@hp/api` Fastify → `@hp/web` React/Vite) và nguyên tắc **Dual UI (Desktop & Mobile responsive)**. Mọi thay đổi schema đều đi qua migration tuần tự (`0031+`) và kiểm thử tự động trước khi Owner phát hành lên Production qua cổng phát hành (AI không tự đồng bộ — xem `AGENTS.md` §0).
 
 **Tech Stack:** TypeScript, Fastify, PostgreSQL 18, React 18, Vite, Node test runner (`node --test`).
 
