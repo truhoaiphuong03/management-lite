@@ -905,11 +905,56 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       );
     }
 
+    const applyQuickDueAt = (
+      preset: 'today_18' | 'tomorrow_12' | 'tomorrow_18' | 'plus_3d',
+    ) => {
+      const now = new Date();
+      const target = new Date(now);
+      if (preset === 'today_18') {
+        target.setHours(18, 0, 0, 0);
+      } else if (preset === 'tomorrow_12') {
+        target.setDate(target.getDate() + 1);
+        target.setHours(12, 0, 0, 0);
+      } else if (preset === 'tomorrow_18') {
+        target.setDate(target.getDate() + 1);
+        target.setHours(18, 0, 0, 0);
+      } else {
+        target.setDate(target.getDate() + 3);
+        target.setHours(18, 0, 0, 0);
+      }
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const localIso = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`;
+      setNewDueAt(localIso);
+    };
+
+    const assignableEmployees = employees
+      .filter((emp, idx, arr) => {
+        if (emp.employee_code === 'ADMIN') {
+          const hasAdm01 = arr.some((e) => e.employee_code === 'ADM01');
+          if (hasAdm01) return false;
+        }
+        return (
+          arr.findIndex(
+            (e) =>
+              e.id === emp.id ||
+              (e.full_name === emp.full_name &&
+                e.full_name.toLowerCase().includes('quản trị viên')),
+          ) === idx
+        );
+      })
+      .sort((a, b) => {
+        const aIsAdmin = /^adm/i.test(a.employee_code) ? 1 : 0;
+        const bIsAdmin = /^adm/i.test(b.employee_code) ? 1 : 0;
+        if (aIsAdmin !== bIsAdmin) return aIsAdmin - bIsAdmin;
+        return a.employee_code.localeCompare(b.employee_code);
+      });
+
+    // Legacy [EXECUTOR: compatibility tag retained for existing task badges
     return (
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '16px' }}>
         <PageHeader
           title="Giao việc mới"
-          subtitle="Tạo công việc và phân công nhân sự thực hiện (WORK-01)"
+          subtitle="Tạo công việc, đặt hạn hoàn thành và phân công cho nhân sự thực hiện"
         />
 
         {errorMessage && (
@@ -952,10 +997,84 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           </div>
         )}
 
-        <AppCard style={{ padding: '24px' }}>
+        <AppCard style={{ padding: '20px' }}>
           <form onSubmit={handleCreateWorkItem}>
+            {/* Quick Human Work Templates */}
+            <div style={{ marginBottom: '16px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    color: 'var(--muted-color)',
+                  }}
+                >
+                  Mẫu việc nhanh:
+                </span>
+                {[
+                  {
+                    label: 'Dựng Video',
+                    type: 'video' as WorkType,
+                    titlePrefix: 'Dựng video: ',
+                    tpl: '- Kênh / Chủ đề:\n- Số lượng & Thời lượng:\n- Yêu cầu nộp: Link Google Drive video hoàn chỉnh',
+                  },
+                  {
+                    label: 'Viết Kịch bản / Nội dung',
+                    type: 'content' as WorkType,
+                    titlePrefix: 'Soạn kịch bản: ',
+                    tpl: '- Chủ đề nội dung:\n- Số lượng kịch bản:\n- Yêu cầu nộp: Link tài liệu / File kịch bản',
+                  },
+                  {
+                    label: 'Đăng bài & Chăm sóc kênh',
+                    type: 'general' as WorkType,
+                    titlePrefix: 'Đăng bài & tương tác kênh: ',
+                    tpl: '- Kênh thực hiện (TikTok / FB / YTB):\n- Khung giờ đăng:\n- Yêu cầu nộp: Link bài đã đăng hoặc ảnh chụp kết quả',
+                  },
+                  {
+                    label: 'Thiết kế Ảnh / Thumbnail',
+                    type: 'design' as WorkType,
+                    titlePrefix: 'Thiết kế: ',
+                    tpl: '- Nội dung thiết kế:\n- Kích thước / Tỷ lệ:\n- Yêu cầu nộp: Link file ảnh thành phẩm',
+                  },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      setNewWorkType(preset.type);
+                      if (!newTitle.trim()) {
+                        setNewTitle(preset.titlePrefix);
+                      }
+                      setNewDescription((prev) =>
+                        prev.trim() ? prev : preset.tpl,
+                      );
+                    }}
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    + {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Title */}
-            <div style={{ marginBottom: '18px' }}>
+            <div style={{ marginBottom: '16px' }}>
               <label
                 style={{
                   display: 'block',
@@ -972,7 +1091,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 type="text"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="VD: Kiểm kê kho cuối tuần, Dựng video món mới…"
+                placeholder="VD: Dựng 3 video TikTok kênh Phong Thủy, Đăng bài & tương tác kênh…"
                 maxLength={200}
                 required
                 style={{
@@ -988,74 +1107,23 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               />
             </div>
 
-            {/* Description + ML-03 Task Packet Presets */}
-            <div style={{ marginBottom: '18px' }}>
-              <div
+            {/* Description */}
+            <div style={{ marginBottom: '16px' }}>
+              <label
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '8px',
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: 'var(--text-color)',
                   marginBottom: '6px',
                 }}
               >
-                <label
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: 'var(--text-color)',
-                  }}
-                >
-                  Chi tiết yêu cầu & Mô tả (Chuẩn Task Packet ML-03)
-                </label>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {[
-                    {
-                      label: '🤖 Anty (Win 1)',
-                      tpl: '[EXECUTOR: Anty | MÁY: WIN-1 | MÔI TRƯỜNG: DEV/QA]\n- Mục tiêu:\n- Tiêu chí PASS:\n- Bằng chứng cần nộp (SHA / Test / Link):',
-                    },
-                    {
-                      label: '🖥️ Máy Win 2',
-                      tpl: '[EXECUTOR: Anty | MÁY: WIN-2 | MÔI TRƯỜNG: STAGING/PROD]\n- Mục tiêu:\n- Tiêu chí PASS:\n- Kế hoạch Rollback:',
-                    },
-                    {
-                      label: '💻 MacBook',
-                      tpl: '[EXECUTOR: AI/Owner | MÁY: MACBOOK | MÔI TRƯỜNG: DEV/iOS]\n- Mục tiêu:\n- Tiêu chí PASS:',
-                    },
-                    {
-                      label: '🎬 Sản xuất Video V4',
-                      tpl: '[EXECUTOR: Nhân sự / V4 Lite | KÊNH: Phong Thủy Lão Sư]\n- Kịch bản & Giọng đọc:\n- Link thành phẩm Google Drive (MP4/WAV):',
-                    },
-                  ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() =>
-                        setNewDescription((prev) =>
-                          prev.trim() ? `${preset.tpl}\n\n${prev}` : preset.tpl,
-                        )
-                      }
-                      style={{
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: 'rgba(20, 184, 166, 0.14)',
-                        border: '1px solid rgba(20, 184, 166, 0.35)',
-                        color: 'var(--accent-text)',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      + {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                Chi tiết yêu cầu & Kết quả cần nộp
+              </label>
               <textarea
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="Nêu rõ các bước cần làm, yêu cầu đầu ra…"
+                placeholder="Ghi rõ yêu cầu công việc, link nguyên liệu (nếu có) và kết quả nhân viên cần nộp lại…"
                 rows={4}
                 style={{
                   width: '100%',
@@ -1078,7 +1146,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 gridTemplateColumns:
                   'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                 gap: '16px',
-                marginBottom: '18px',
+                marginBottom: '16px',
               }}
             >
               <div>
@@ -1091,7 +1159,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     color: 'var(--text-color)',
                   }}
                 >
-                  Phân loại
+                  Phân loại công việc
                 </label>
                 <select
                   value={newWorkType}
@@ -1107,10 +1175,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     outline: 'none',
                   }}
                 >
-                  <option value="general">Việc chung</option>
-                  <option value="content">Nội dung</option>
+                  <option value="general">Việc chung / Vận hành kênh</option>
                   <option value="video">Dựng video</option>
-                  <option value="design">Thiết kế</option>
+                  <option value="content">Kịch bản / Nội dung</option>
+                  <option value="design">Thiết kế ảnh / Thumbnail</option>
                   <option value="other">Khác</option>
                 </select>
               </div>
@@ -1146,26 +1214,79 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   <option value="low">Thấp</option>
                   <option value="medium">Bình thường</option>
                   <option value="high">Cao</option>
-                  <option value="urgent">Khẩn cấp</option>
+                  <option value="urgent">Khẩn cấp (Làm ngay)</option>
                 </select>
               </div>
             </div>
 
-            {/* Due date */}
+            {/* Due date + Quick Deadline Chips */}
             <div style={{ marginBottom: '18px' }}>
-              <label
+              <div
                 style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: 600,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
                   marginBottom: '6px',
-                  color: 'var(--text-color)',
                 }}
               >
-                Hạn chót hoàn thành (Asia/Ho_Chi_Minh)
-              </label>
+                <label
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'var(--text-color)',
+                  }}
+                >
+                  Hạn hoàn thành
+                </label>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[
+                    { id: 'today_18' as const, label: 'Hôm nay 18:00' },
+                    { id: 'tomorrow_12' as const, label: 'Trưa mai 12:00' },
+                    { id: 'tomorrow_18' as const, label: 'Chiều mai 18:00' },
+                    { id: 'plus_3d' as const, label: '+3 ngày' },
+                  ].map((dPreset) => (
+                    <button
+                      key={dPreset.id}
+                      type="button"
+                      onClick={() => applyQuickDueAt(dPreset.id)}
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        padding: '3px 8px',
+                        borderRadius: '999px',
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--accent-text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {dPreset.label}
+                    </button>
+                  ))}
+                  {newDueAt && (
+                    <button
+                      type="button"
+                      onClick={() => setNewDueAt('')}
+                      style={{
+                        fontSize: '12px',
+                        padding: '3px 8px',
+                        borderRadius: '999px',
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--muted-color)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Xóa hạn
+                    </button>
+                  )}
+                </div>
+              </div>
               <input
                 type="datetime-local"
+                aria-label="Hạn hoàn thành công việc"
                 value={newDueAt}
                 onChange={(e) => setNewDueAt(e.target.value)}
                 style={{
@@ -1183,18 +1304,73 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
             {/* Assignee multi-select */}
             <div style={{ marginBottom: '24px' }}>
-              <label
+              <div
                 style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: 600,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
                   marginBottom: '6px',
-                  color: 'var(--text-color)',
                 }}
               >
-                Giao cho nhân viên (có thể chọn nhiều người)
-              </label>
-              {employees.length === 0 ? (
+                <label
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'var(--text-color)',
+                  }}
+                >
+                  Giao cho nhân viên ({selectedAssigneeIds.length} đã chọn)
+                </label>
+                {assignableEmployees.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const staffOnly = assignableEmployees.filter(
+                          (e) => !/^adm/i.test(e.employee_code),
+                        );
+                        const targetList =
+                          staffOnly.length > 0
+                            ? staffOnly
+                            : assignableEmployees;
+                        setSelectedAssigneeIds(targetList.map((e) => e.id));
+                      }}
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--surface-subtle)',
+                        color: 'var(--accent-text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Chọn tất cả NV
+                    </button>
+                    {selectedAssigneeIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAssigneeIds([])}
+                        style={{
+                          fontSize: '12px',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-subtle)',
+                          backgroundColor: 'transparent',
+                          color: 'var(--muted-color)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Bỏ chọn
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {assignableEmployees.length === 0 ? (
                 <div
                   style={{
                     padding: '12px',
@@ -1212,9 +1388,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                   style={{
                     display: 'grid',
                     gridTemplateColumns:
-                      'repeat(auto-fill, minmax(min(100%, 200px), 1fr))',
+                      'repeat(auto-fill, minmax(min(100%, 210px), 1fr))',
                     gap: '8px',
-                    maxHeight: '180px',
+                    maxHeight: '200px',
                     overflowY: 'auto',
                     padding: '8px',
                     backgroundColor: 'var(--bg-color)',
@@ -1222,7 +1398,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     borderRadius: '6px',
                   }}
                 >
-                  {employees.map((emp) => {
+                  {assignableEmployees.map((emp) => {
                     const isChecked = selectedAssigneeIds.includes(emp.id);
                     return (
                       <label
@@ -1231,8 +1407,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
-                          padding: '6px 10px',
-                          borderRadius: '4px',
+                          padding: '8px 10px',
+                          borderRadius: '6px',
                           backgroundColor: isChecked
                             ? 'rgba(20, 184, 166, 0.15)'
                             : 'var(--surface-subtle)',
@@ -1263,13 +1439,25 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         />
                         <span
                           style={{
-                            fontWeight: 600,
-                            color: 'var(--text-color)',
+                            fontWeight: 700,
+                            fontSize: '12px',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                            color: 'var(--accent-text)',
                           }}
                         >
                           {emp.employee_code}
                         </span>
-                        <span style={{ color: 'var(--muted-color)' }}>
+                        <span
+                          style={{
+                            color: 'var(--text-color)',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           {emp.full_name}
                         </span>
                       </label>
