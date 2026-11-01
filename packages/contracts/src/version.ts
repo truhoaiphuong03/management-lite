@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.6.7';
-export const SYSTEM_COMMIT = '012f7ea';
+export const SYSTEM_VERSION = '0.6.9';
+export const SYSTEM_COMMIT = '018b16a';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,43 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.6.7',
+    version: '0.6.9',
     commit: 'latest',
+    released_at: '2026-11-01',
+    summary:
+      'Xuất CSV tổng hợp công theo nhân viên, Duyệt nhanh toàn bộ ca chờ theo nhân sự, Đối soát Bảng lương 1-chạm & Dọn sạch Sổ tay lỗi',
+    added: [
+      'Bổ sung nút "Xuất CSV tổng hợp công" trên /attendance: xuất bảng tổng hợp giờ làm, giờ đã duyệt và chi tiết từng ca theo từng nhân viên chuẩn UTF-8 mở trực tiếp trên Excel.',
+      'Thêm nút "✓ Duyệt nhanh N ca" ngay trên từng thẻ nhân sự trong chế độ xem Theo từng nhân viên để Chủ sở hữu duyệt toàn bộ ca hợp lệ của 1 nhân viên chỉ với 1 chạm.',
+      'Thêm lối tắt "Đối soát Bảng lương →" và "Bảng lương →" trên từng nhân viên để chuyển nhanh từ bảng chấm công sang đối chiếu kỳ lương.',
+    ],
+    improved: [
+      'Hiển thị rõ số giờ công đã duyệt bên cạnh số ca đã duyệt trên từng nhóm nhân viên (/attendance).',
+    ],
+    fixed: [
+      'Hỗ trợ tham số phân trang ?limit= trên API GET /api/v1/work-items tránh cảnh báo 400 Invalid filter trong Nhật ký hệ thống và hoàn tất xác nhận đóng 30 phiếu kiểm thử tồn đọng trong Sổ tay lỗi (/issues).',
+    ],
+  },
+  {
+    version: '0.6.8',
+    commit: '018b16a',
+    released_at: '2026-11-01',
+    summary:
+      'Chế độ xem Chấm công Theo từng nhân viên, tổng hợp giờ công & bộ lọc nhanh nhân sự trên /attendance',
+    added: [
+      'Bổ sung chế độ xem "Theo từng nhân viên" mặc định trên Lịch sử & Duyệt công (/attendance): tự động gom toàn bộ ca làm theo từng nhân sự kèm tổng số ca, tổng giờ làm, tổng giờ đã duyệt và số ca chờ duyệt.',
+      'Thêm dải nút chọn nhanh nhân sự 1-chạm ("Xem nhanh theo nhân sự") ngay trên thanh bộ lọc Chấm công để xem riêng từng nhân viên tức thì.',
+    ],
+    improved: [
+      'Cho phép chuyển đổi linh hoạt giữa 2 góc nhìn "Theo từng nhân viên" và "Theo từng ca", kèm nút Thu gọn / Mở rộng danh sách ca của từng nhân sự và duyệt/đóng ca trực tiếp ngay trong bảng nhân viên.',
+    ],
+    fixed: [
+      'Khắc phục lỗi danh sách ca làm hiển thị rời rạc theo thứ tự thời gian khiến Chủ sở hữu khó theo dõi tổng công của từng nhân viên và bổ sung tự động danh sách nhân viên từ dữ liệu ca thực tế vào bộ lọc.',
+    ],
+  },
+  {
+    version: '0.6.7',
+    commit: '81ee366',
     released_at: '2026-11-01',
     summary:
       'Kiểm toán UX/UI tự động 144 kịch bản (Playwright + axe-core đạt 0 lỗi) & Tinh chỉnh hiển thị Mobile/Desktop',

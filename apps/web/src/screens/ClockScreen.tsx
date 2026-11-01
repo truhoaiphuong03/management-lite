@@ -17,6 +17,7 @@ import {
   UserIcon,
   CalendarIcon,
   FileTextIcon,
+  DownloadIcon,
   AppDialog,
   AppToast,
   Pagination,
@@ -147,6 +148,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
   );
   const [selectedRunState, setSelectedRunState] = useState<string>('all');
   const [ownerLoading, setOwnerLoading] = useState(false);
+  const [ownerViewMode, setOwnerViewMode] = useState<
+    'by_employee' | 'by_shift'
+  >(mode === 'review' ? 'by_shift' : 'by_employee');
+  const [collapsedEmployeeIds, setCollapsedEmployeeIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   // Q65-05: Multi-page employee selector generation and abort management
   const employeesFetchIdRef = useRef<number>(0);
@@ -319,6 +326,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       if (selectedRunState !== 'all') {
         params.append('run_state', selectedRunState);
       }
+      params.append('limit', '100');
       const url = `/api/v1/attendance/shifts?${params.toString()}`;
       const shiftInit: RequestInit = { credentials: 'include' };
       if (signal) shiftInit.signal = signal;
@@ -416,8 +424,38 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     Boolean(shift.pending_correction) ||
     shift.run_state !== 'completed';
 
+  const employeeOptions = React.useMemo(() => {
+    const map = new Map<
+      string,
+      { id: string; full_name: string; employee_code: string }
+    >();
+    for (const emp of employees) {
+      map.set(emp.id, {
+        id: emp.id,
+        full_name: emp.full_name,
+        employee_code: emp.employee_code,
+      });
+    }
+    for (const s of ownerShifts) {
+      if (s.employee_id && !map.has(s.employee_id)) {
+        map.set(s.employee_id, {
+          id: s.employee_id,
+          full_name: s.employee_name || 'Nhân viên',
+          employee_code: s.employee_code || 'NV',
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [employees, ownerShifts]);
+
   const filteredOwnerShifts = React.useMemo(() => {
     return ownerShifts.filter((shift) => {
+      if (
+        selectedEmployeeId !== 'all' &&
+        shift.employee_id !== selectedEmployeeId
+      ) {
+        return false;
+      }
       if (selectedReviewState === 'pending_all') {
         return isActionablePending(shift);
       }
@@ -435,15 +473,71 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       }
       return true;
     });
-  }, [ownerShifts, selectedReviewState, selectedRunState]);
+  }, [ownerShifts, selectedEmployeeId, selectedReviewState, selectedRunState]);
+
+  const groupedOwnerShiftsByEmployee = React.useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        employeeId: string;
+        employeeName: string;
+        employeeCode: string;
+        shifts: ShiftData[];
+        totalWorkedSeconds: number;
+        approvedWorkedSeconds: number;
+        approvedCount: number;
+        pendingCount: number;
+        workingCount: number;
+      }
+    >();
+
+    for (const shift of filteredOwnerShifts) {
+      const empId = shift.employee_id || 'unknown';
+      let grp = groups.get(empId);
+      if (!grp) {
+        grp = {
+          employeeId: empId,
+          employeeName: shift.employee_name || 'Nhân viên',
+          employeeCode: shift.employee_code || 'NV',
+          shifts: [],
+          totalWorkedSeconds: 0,
+          approvedWorkedSeconds: 0,
+          approvedCount: 0,
+          pendingCount: 0,
+          workingCount: 0,
+        };
+        groups.set(empId, grp);
+      }
+      grp.shifts.push(shift);
+      grp.totalWorkedSeconds += shift.worked_seconds || 0;
+      if (shift.review_state === 'approved' || shift.is_self_shift) {
+        grp.approvedCount += 1;
+        grp.approvedWorkedSeconds += shift.worked_seconds || 0;
+      }
+      if (isActionablePending(shift)) {
+        grp.pendingCount += 1;
+      }
+      if (shift.run_state !== 'completed') {
+        grp.workingCount += 1;
+      }
+    }
+
+    return Array.from(groups.values()).sort((a, b) => {
+      if (b.pendingCount !== a.pendingCount)
+        return b.pendingCount - a.pendingCount;
+      return b.totalWorkedSeconds - a.totalWorkedSeconds;
+    });
+  }, [filteredOwnerShifts]);
 
   useEffect(() => {
     if (mode === 'review') {
       setActiveTab('owner_review');
       setSelectedReviewState('pending_all');
+      setOwnerViewMode('by_shift');
     } else if (mode === 'history') {
       setActiveTab(role === 'owner' ? 'owner_review' : 'my_clock');
       setSelectedReviewState('all');
+      setOwnerViewMode('by_employee');
     } else {
       setActiveTab('my_clock');
     }
@@ -811,6 +905,162 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     } finally {
       setOwnerLoading(false);
     }
+  };
+
+  const handleApproveAllEmployeeShifts = async (group: {
+    employeeId: string;
+    employeeName: string;
+    employeeCode: string;
+    shifts: ShiftData[];
+  }) => {
+    const actionableShifts = group.shifts.filter((s) =>
+      isActionableUnreviewed(s),
+    );
+    if (actionableShifts.length === 0) return;
+
+    setOwnerLoading(true);
+    try {
+      let approvedCount = 0;
+      for (const s of actionableShifts) {
+        const res = await fetch(`/api/v1/attendance/shifts/${s.id}/reviews`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            decision: 'approved',
+            reason: 'Duyệt nhanh toàn bộ ca hợp lệ của nhân viên',
+          }),
+        });
+        const body = await res.json().catch(() => null);
+        if (res.ok && body?.success) {
+          approvedCount += 1;
+        }
+      }
+      if (approvedCount === 0) {
+        throw new Error('Không thể duyệt nhanh các ca làm việc của nhân viên.');
+      }
+      const msg = `Đã duyệt nhanh ${approvedCount} ca làm việc của ${group.employeeName} (${group.employeeCode})!`;
+      setSuccessMessage(msg);
+      setToast({ message: msg, variant: 'success' });
+      await fetchOwnerShifts();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Không thể duyệt nhanh ca làm.';
+      setToast({ message: msg, variant: 'error' });
+    } finally {
+      setOwnerLoading(false);
+    }
+  };
+
+  const handleExportAttendanceSummaryCsv = () => {
+    if (groupedOwnerShiftsByEmployee.length === 0) return;
+    const escapeCsv = (val: unknown) => {
+      const raw = String(val ?? '');
+      const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+
+    const lines: string[] = [];
+    lines.push(
+      [
+        'Mã nhân viên',
+        'Họ và tên',
+        'Tổng số ca',
+        'Số ca đã duyệt',
+        'Số ca chờ xử lý',
+        'Tổng giờ làm (giờ)',
+        'Tổng giờ đã duyệt (giờ)',
+        'Thời lượng hiển thị',
+      ]
+        .map(escapeCsv)
+        .join(','),
+    );
+
+    for (const grp of groupedOwnerShiftsByEmployee) {
+      const totalHours = (grp.totalWorkedSeconds / 3600).toFixed(2);
+      const approvedHours = (grp.approvedWorkedSeconds / 3600).toFixed(2);
+      lines.push(
+        [
+          grp.employeeCode,
+          grp.employeeName,
+          grp.shifts.length,
+          grp.approvedCount,
+          grp.pendingCount,
+          totalHours,
+          approvedHours,
+          formatHoursMinutes(grp.totalWorkedSeconds),
+        ]
+          .map(escapeCsv)
+          .join(','),
+      );
+    }
+
+    lines.push('');
+    lines.push(
+      [
+        'Mã nhân viên',
+        'Họ và tên',
+        'Ngày vào ca',
+        'Giờ vào ca',
+        'Giờ ra ca',
+        'Thời lượng tính công',
+        'Trạng thái ca',
+        'Trạng thái duyệt',
+        'Ghi chú duyệt',
+      ]
+        .map(escapeCsv)
+        .join(','),
+    );
+
+    for (const shift of filteredOwnerShifts) {
+      lines.push(
+        [
+          shift.employee_code || 'NV',
+          shift.employee_name || 'Nhân viên',
+          formatVnDate(shift.clock_in_at),
+          formatVnTime(shift.clock_in_at),
+          shift.clock_out_at ? formatVnTime(shift.clock_out_at) : 'Đang mở',
+          formatHoursMinutes(shift.worked_seconds),
+          shift.run_state === 'completed' ? 'Đã đóng ca' : 'Đang mở',
+          shift.is_self_shift
+            ? 'Ca Chủ sở hữu'
+            : shift.review_state === 'approved'
+              ? 'Đã duyệt'
+              : shift.review_state === 'rejected'
+                ? 'Đã từ chối'
+                : shift.review_state === 'needs_review'
+                  ? 'Cần giải trình'
+                  : 'Chờ duyệt',
+          shift.review_reason || '',
+        ]
+          .map(escapeCsv)
+          .join(','),
+      );
+    }
+
+    const csvContent = `\uFEFF${lines.join('\r\n')}`;
+    if (
+      typeof document !== 'undefined' &&
+      typeof Blob !== 'undefined' &&
+      typeof URL !== 'undefined' &&
+      typeof URL.createObjectURL === 'function'
+    ) {
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bang-tong-hop-cham-cong-${selectedDate || 'toan-bo'}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+    const msg = 'Đã xuất file CSV tổng hợp chấm công theo nhân viên.';
+    setSuccessMessage(msg);
+    setToast({ message: msg, variant: 'success' });
   };
 
   // Owner Decide on Correction Request
@@ -1672,6 +1922,175 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       ) : (
         /* Owner Review & History Tab */
         <div>
+          {/* View Mode Switcher + Quick Status Filter Pills */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              marginBottom: '14px',
+            }}
+          >
+            <div
+              data-testid="owner-attendance-view-switcher"
+              style={{
+                display: 'inline-flex',
+                gap: '4px',
+                padding: '3px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              <button
+                type="button"
+                data-testid="attendance-view-by-employee"
+                onClick={() => setOwnerViewMode('by_employee')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor:
+                    ownerViewMode === 'by_employee'
+                      ? 'rgba(20, 184, 166, 0.16)'
+                      : 'transparent',
+                  color:
+                    ownerViewMode === 'by_employee'
+                      ? 'var(--accent-text)'
+                      : 'var(--muted-color)',
+                  fontSize: '12.5px',
+                  fontWeight: ownerViewMode === 'by_employee' ? 700 : 500,
+                  cursor: 'pointer',
+                }}
+              >
+                Theo từng nhân viên ({groupedOwnerShiftsByEmployee.length})
+              </button>
+              <button
+                type="button"
+                data-testid="attendance-view-by-shift"
+                onClick={() => setOwnerViewMode('by_shift')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor:
+                    ownerViewMode === 'by_shift'
+                      ? 'rgba(20, 184, 166, 0.16)'
+                      : 'transparent',
+                  color:
+                    ownerViewMode === 'by_shift'
+                      ? 'var(--accent-text)'
+                      : 'var(--muted-color)',
+                  fontSize: '12.5px',
+                  fontWeight: ownerViewMode === 'by_shift' ? 700 : 500,
+                  cursor: 'pointer',
+                }}
+              >
+                Theo từng ca ({filteredOwnerShifts.length})
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
+              {ownerViewMode === 'by_employee' &&
+                groupedOwnerShiftsByEmployee.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        collapsedEmployeeIds.size >=
+                        groupedOwnerShiftsByEmployee.length
+                      ) {
+                        setCollapsedEmployeeIds(new Set());
+                      } else {
+                        setCollapsedEmployeeIds(
+                          new Set(
+                            groupedOwnerShiftsByEmployee.map(
+                              (g) => g.employeeId,
+                            ),
+                          ),
+                        );
+                      }
+                    }}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--surface-subtle)',
+                      color: 'var(--muted-color)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {collapsedEmployeeIds.size >=
+                    groupedOwnerShiftsByEmployee.length
+                      ? '▾ Mở rộng tất cả NV'
+                      : '▴ Thu gọn tất cả NV'}
+                  </button>
+                )}
+
+              {groupedOwnerShiftsByEmployee.length > 0 && (
+                <button
+                  type="button"
+                  data-testid="export-attendance-summary-csv"
+                  onClick={handleExportAttendanceSummaryCsv}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--surface-subtle)',
+                    color: 'var(--text-color)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <DownloadIcon size={14} />
+                  <span>Xuất CSV tổng hợp công</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                data-testid="goto-payroll-reconcile"
+                onClick={() => {
+                  if (onNavigate) {
+                    onNavigate('/payroll');
+                  } else if (typeof window !== 'undefined') {
+                    window.location.href = '/payroll';
+                  }
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(20, 184, 166, 0.35)',
+                  backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                  color: 'var(--accent-text)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <span>Đối soát Bảng lương →</span>
+              </button>
+            </div>
+          </div>
+
           {/* Quick Status Filter Pills */}
           <div
             data-testid="owner-review-quick-tabs"
@@ -1857,7 +2276,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   }}
                 >
                   <option value="all">Tất cả nhân viên</option>
-                  {employees.map((emp) => (
+                  {employeeOptions.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.full_name} ({emp.employee_code})
                     </option>
@@ -2057,6 +2476,83 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 </AppButton>
               )}
             </div>
+            {employeeOptions.length > 0 && (
+              <div
+                data-testid="quick-employee-filter-chips"
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  marginTop: '12px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--border-subtle)',
+                }}
+              >
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  Chọn nhanh nhân viên:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedEmployeeId('all');
+                    setShiftPage(0);
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                    border:
+                      selectedEmployeeId === 'all'
+                        ? '1px solid #14B8A6'
+                        : '1px solid var(--border-color)',
+                    backgroundColor:
+                      selectedEmployeeId === 'all'
+                        ? 'rgba(20, 184, 166, 0.16)'
+                        : 'var(--bg-color)',
+                    color:
+                      selectedEmployeeId === 'all'
+                        ? 'var(--accent-text)'
+                        : 'var(--text-secondary)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Tất cả ({employeeOptions.length})
+                </button>
+                {employeeOptions.map((emp) => {
+                  const isSelected = selectedEmployeeId === emp.id;
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedEmployeeId(isSelected ? 'all' : emp.id);
+                        setShiftPage(0);
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '999px',
+                        border: isSelected
+                          ? '1px solid #14B8A6'
+                          : '1px solid var(--border-color)',
+                        backgroundColor: isSelected
+                          ? 'rgba(20, 184, 166, 0.16)'
+                          : 'var(--bg-color)',
+                        color: isSelected
+                          ? 'var(--accent-text)'
+                          : 'var(--text-secondary)',
+                        fontSize: '12px',
+                        fontWeight: isSelected ? 700 : 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {emp.full_name} ({emp.employee_code})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </AppCard>
 
           {ownerLoading ? (
@@ -2066,6 +2562,418 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
               title="Không tìm thấy ca làm"
               description="Không có ca làm việc nào phù hợp với bộ lọc."
             />
+          ) : ownerViewMode === 'by_employee' ? (
+            <div
+              data-testid="owner-shifts-grouped-by-employee"
+              style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+            >
+              {groupedOwnerShiftsByEmployee.map((group) => {
+                const isCollapsed = collapsedEmployeeIds.has(group.employeeId);
+                return (
+                  <AppCard
+                    key={group.employeeId}
+                    data-testid={`employee-shift-group-${group.employeeId}`}
+                    style={{ padding: '16px' }}
+                  >
+                    <div
+                      onClick={() => {
+                        setCollapsedEmployeeIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(group.employeeId)) {
+                            next.delete(group.employeeId);
+                          } else {
+                            next.add(group.employeeId);
+                          }
+                          return next;
+                        });
+                      }}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        paddingBottom: isCollapsed ? 0 : '12px',
+                        marginBottom: isCollapsed ? 0 : '12px',
+                        borderBottom: isCollapsed
+                          ? 'none'
+                          : '1px solid var(--border-subtle)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                            border: '1px solid rgba(20, 184, 166, 0.3)',
+                            color: 'var(--accent-text)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {group.employeeCode}
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: '16px',
+                              color: 'var(--text-color)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <span>{group.employeeName}</span>
+                            <span
+                              style={{
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                color: 'var(--muted-color)',
+                                backgroundColor: 'var(--surface-hover)',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                              }}
+                            >
+                              {group.employeeCode}
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '12.5px',
+                              color: 'var(--muted-color)',
+                              marginTop: '3px',
+                              display: 'flex',
+                              gap: '12px',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <span>
+                              Tổng số ca:{' '}
+                              <strong style={{ color: 'var(--text-color)' }}>
+                                {group.shifts.length} ca
+                              </strong>
+                            </span>
+                            <span>
+                              Tổng giờ làm:{' '}
+                              <strong style={{ color: 'var(--accent-text)' }}>
+                                {formatHoursMinutes(group.totalWorkedSeconds)}
+                              </strong>
+                            </span>
+                            <span>
+                              Đã duyệt:{' '}
+                              <strong style={{ color: 'var(--success-text)' }}>
+                                {group.approvedCount}/{group.shifts.length} ca (
+                                {formatHoursMinutes(
+                                  group.approvedWorkedSeconds,
+                                )}
+                                )
+                              </strong>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          flexWrap: 'wrap',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {group.workingCount > 0 && (
+                          <StatusBadge status="success" label="Đang trong ca" />
+                        )}
+                        {group.pendingCount > 0 && (
+                          <StatusBadge
+                            status="warning"
+                            label={`${group.pendingCount} chờ xử lý`}
+                          />
+                        )}
+                        {group.shifts.some((s) => isActionableUnreviewed(s)) && (
+                          <button
+                            type="button"
+                            data-testid={`approve-all-employee-shifts-${group.employeeId}`}
+                            onClick={() => handleApproveAllEmployeeShifts(group)}
+                            disabled={ownerLoading}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              border: '1px solid rgba(16, 185, 129, 0.4)',
+                              backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                              color: 'var(--success-text)',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✓ Duyệt nhanh{' '}
+                            {
+                              group.shifts.filter((s) =>
+                                isActionableUnreviewed(s),
+                              ).length
+                            }{' '}
+                            ca
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          data-testid={`employee-payroll-link-${group.employeeId}`}
+                          onClick={() => {
+                            if (onNavigate) {
+                              onNavigate('/payroll');
+                            } else if (typeof window !== 'undefined') {
+                              window.location.href = '/payroll';
+                            }
+                          }}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--surface-subtle)',
+                            color: 'var(--accent-text)',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Bảng lương →
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCollapsedEmployeeIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(group.employeeId)) {
+                                next.delete(group.employeeId);
+                              } else {
+                                next.add(group.employeeId);
+                              }
+                              return next;
+                            });
+                          }}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--surface-subtle)',
+                            color: 'var(--text-secondary)',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isCollapsed
+                            ? `▾ Xem ${group.shifts.length} ca`
+                            : '▴ Thu gọn'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {!isCollapsed && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                        }}
+                      >
+                        {group.shifts.map((shift) => (
+                          <div
+                            key={shift.id}
+                            style={{
+                              padding: '12px 14px',
+                              borderRadius: '8px',
+                              backgroundColor: 'var(--bg-color)',
+                              border: '1px solid var(--border-subtle)',
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gap: '8px',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '10px',
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontWeight: 600,
+                                    fontSize: '13.5px',
+                                    color: 'var(--text-color)',
+                                  }}
+                                >
+                                  {formatVnDate(shift.clock_in_at)} •{' '}
+                                  {formatVnTime(shift.clock_in_at)}
+                                  {shift.clock_out_at
+                                    ? ` – ${formatVnTime(shift.clock_out_at)}`
+                                    : ' (Đang mở)'}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: '12.5px',
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                                    color: 'var(--accent-text)',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {formatHoursMinutes(shift.worked_seconds)}
+                                </span>
+                                {isOvernightShift(
+                                  shift.clock_in_at,
+                                  shift.clock_out_at,
+                                ) && (
+                                  <span
+                                    style={{
+                                      fontSize: '11.5px',
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
+                                      backgroundColor:
+                                        'rgba(139, 92, 246, 0.2)',
+                                      color: 'var(--purple-text)',
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    Ca qua đêm (+1 ngày)
+                                  </span>
+                                )}
+                              </div>
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <StatusBadge
+                                  status={
+                                    shift.review_state === 'approved' ||
+                                    shift.is_self_shift
+                                      ? 'success'
+                                      : shift.review_state === 'rejected'
+                                        ? 'error'
+                                        : shift.review_state === 'needs_review'
+                                          ? 'warning'
+                                          : 'neutral'
+                                  }
+                                  label={
+                                    shift.is_self_shift
+                                      ? 'Ca Chủ sở hữu'
+                                      : shift.review_state === 'approved'
+                                        ? 'Đã duyệt'
+                                        : shift.review_state === 'rejected'
+                                          ? 'Đã từ chối'
+                                          : shift.review_state ===
+                                              'needs_review'
+                                            ? 'Cần giải trình'
+                                            : 'Chờ duyệt'
+                                  }
+                                />
+                                {shift.run_state !== 'completed' &&
+                                  !shift.pending_correction && (
+                                    <AppButton
+                                      variant="primary"
+                                      onClick={() =>
+                                        handleOwnerCloseShift(shift)
+                                      }
+                                      style={{
+                                        minHeight: '32px',
+                                        padding: '4px 10px',
+                                        fontSize: '12px',
+                                      }}
+                                    >
+                                      <CheckIcon size={13} /> Đóng & Xác nhận
+                                    </AppButton>
+                                  )}
+                                {shift.run_state === 'completed' &&
+                                  shift.review_state === 'unreviewed' &&
+                                  !shift.pending_correction &&
+                                  !shift.is_self_shift &&
+                                  shift.is_payroll_eligible !== false && (
+                                    <>
+                                      <AppButton
+                                        variant="secondary"
+                                        onClick={() =>
+                                          handleReviewShift(shift, 'rejected')
+                                        }
+                                        style={{
+                                          minHeight: '32px',
+                                          padding: '4px 10px',
+                                          fontSize: '12px',
+                                        }}
+                                      >
+                                        Từ chối
+                                      </AppButton>
+                                      <AppButton
+                                        variant="primary"
+                                        onClick={() =>
+                                          handleReviewShift(shift, 'approved')
+                                        }
+                                        style={{
+                                          minHeight: '32px',
+                                          padding: '4px 10px',
+                                          fontSize: '12px',
+                                        }}
+                                      >
+                                        <CheckIcon size={13} /> Duyệt ca
+                                      </AppButton>
+                                    </>
+                                  )}
+                              </div>
+                            </div>
+
+                            {shift.review_reason && (
+                              <div
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--muted-color)',
+                                  marginTop: '6px',
+                                }}
+                              >
+                                Ghi chú duyệt: <em>"{shift.review_reason}"</em>
+                                {shift.reviewed_at
+                                  ? ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTime(shift.reviewed_at)}`
+                                  : ''}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </AppCard>
+                );
+              })}
+            </div>
           ) : (
             <div
               style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}

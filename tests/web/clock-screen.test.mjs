@@ -52,7 +52,9 @@ test('ATT-007: Attendance correction request modal & decision workflow', () => {
 
   // 3. API endpoints
   assert.ok(
-    screen.includes('/api/v1/attendance/shifts/${targetShiftForCorrection.id}/correction-requests'),
+    screen.includes(
+      '/api/v1/attendance/shifts/${targetShiftForCorrection.id}/correction-requests',
+    ),
     'ClockScreen must call staff correction request endpoint',
   );
   assert.ok(
@@ -140,10 +142,7 @@ test('ATT-HISTORY-REVIEW-01: Dedicated Attendance History (/attendance) and Atte
     resolve(root, 'apps/web/src/screens/ClockScreen.tsx'),
     'utf8',
   );
-  const appSource = readFileSync(
-    resolve(root, 'apps/web/src/App.tsx'),
-    'utf8',
-  );
+  const appSource = readFileSync(resolve(root, 'apps/web/src/App.tsx'), 'utf8');
 
   // 1. Dedicated modes in ClockScreen and App.tsx routing
   assert.ok(
@@ -188,3 +187,38 @@ test('ATT-HISTORY-REVIEW-01: Dedicated Attendance History (/attendance) and Atte
   );
 });
 
+test('PHASE-28-29: Attendance grouped by employee, CSV summary export, batch approve per employee, and Payroll reconcile shortcut', () => {
+  const clockScreen = readFileSync(
+    resolve(root, 'apps/web/src/screens/ClockScreen.tsx'),
+    'utf8',
+  );
+  const workService = readFileSync(
+    resolve(root, 'apps/api/src/work/service.ts'),
+    'utf8',
+  );
+
+  assert.ok(
+    clockScreen.includes('data-testid="owner-shifts-grouped-by-employee"') &&
+      clockScreen.includes('data-testid="quick-employee-filter-chips"'),
+    'ClockScreen must support grouped-by-employee view and quick employee filter chips',
+  );
+  assert.ok(
+    clockScreen.includes('data-testid="export-attendance-summary-csv"') &&
+      clockScreen.includes('handleExportAttendanceSummaryCsv'),
+    'ClockScreen must provide CSV attendance summary export by employee',
+  );
+  assert.ok(
+    clockScreen.includes('data-testid="goto-payroll-reconcile"') &&
+      clockScreen.includes('employee-payroll-link-'),
+    'ClockScreen must provide quick navigation to Payroll reconciliation (/payroll)',
+  );
+  assert.ok(
+    clockScreen.includes('approve-all-employee-shifts-') &&
+      clockScreen.includes('handleApproveAllEmployeeShifts'),
+    'ClockScreen must support 1-click batch approval of unreviewed shifts per employee',
+  );
+  assert.ok(
+    workService.includes("'limit'") && workService.includes('parsedLimit'),
+    'WorkService.list must accept optional limit query parameter without throwing 400 Invalid filter',
+  );
+});
