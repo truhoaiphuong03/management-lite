@@ -1,0 +1,30 @@
+{
+  "label": "after",
+  "at": "2026-11-01T20:30:19",
+  "web_dist": {
+    "files": 989,
+    "newest": "2026-11-01T19:00:59",
+    "listing_sha": "9A7FA926A3517830"
+  },
+  "api_dist": {
+    "files": 331,
+    "newest": "2026-11-01T19:00:47",
+    "listing_sha": "AEF81FC7AD4263C0"
+  },
+  "release_files": {
+    "api_rv_sha": "8ee37a2",
+    "deploy_history_lines": 857,
+    "deploy_history_mtime": "2026-11-01T18:28:43",
+    "live_sha_mtime": "2026-11-01T18:28:43"
+  },
+  "prod_db_listener_pid": 5656,
+  "listening": "3000,3001,3002,55432",
+  "listener_pids": "3001:36112 3002:30436 55432:5656",
+  "backups": {
+    "newest_dump": "postgres-20261031T200001Z-9f82fb6f70d4453f9ec5cabbc801dd02.dump",
+    "dumps": 45
+  },
+  "api_env_mtime": "2026-10-30T19:35:28",
+  "release_gate_dir_mtime": "2026-10-16T22:30:22",
+  "acl_dist_sha": "97753418A7B25384"
+}
