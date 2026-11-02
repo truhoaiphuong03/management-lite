@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.8.0';
-export const SYSTEM_COMMIT = '61f3e32';
+export const SYSTEM_VERSION = '0.8.1';
+export const SYSTEM_COMMIT = '8bc67fc';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -40,6 +40,25 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  * Bản 'latest' tự động gắn với commit thực tế của bản dựng mới nhất khi đóng gói và triển khai.
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
+  {
+    version: '0.8.1',
+    commit: 'latest',
+    released_at: '2026-11-03',
+    summary:
+      'Thiết kế lại Giao diện Báo giá in ấn (PrintQuote UX/UI v0.8.1) tinh gọn, trực quan trên Desktop & iPhone và chuẩn hóa trình bày đơn giá trên PDF A4 gửi khách',
+    added: [
+      'Gom điều hướng phân hệ Báo giá in ấn (/print-quotes) thành 4 nhóm chính rõ ràng (Báo giá, Đơn hàng, Danh mục, Báo cáo) kèm dải nhảy nhanh 1 dòng trên màn hình Tạo báo giá.',
+      'Thêm nhanh hồ sơ Khách hàng mới ngay trong màn hình Tạo báo giá và tự động thu gọn các dòng sản phẩm đã nhập xong (kèm nút Sửa, Nhân đôi, Xóa dòng).',
+      'Bảng tổng kết duy nhất chuyển đổi 1-chạm giữa "Bản gửi khách (Ẩn giá vốn)" và "Bóc tách nội bộ (Giá vốn & Lời)", mặc định thu gọn phần Tùy chọn nâng cao.',
+    ],
+    improved: [
+      'Chuẩn hóa trình bày đơn giá trên PDF A4 gửi khách & Bản gửi khách: hiển thị khớp phép nhân đối với đơn giá thập phân hữu hạn 2 chữ số (VD: 763,16 ₫ × 100 tờ = 76.316 ₫) và trình bày tự nhiên "~đơn giá (Tính trọn gói N đơn vị)" đối với số lượng lẻ chia không hết, loại bỏ hoàn toàn thuật ngữ kỹ thuật "Hiệu chỉnh làm tròn".',
+      'Tối ưu hiển thị điện thoại (320px, 390px) và máy tính (1440px): lưới nhóm 2×2 trên mobile không cắt chữ, nút cảm ứng chuẩn 44px và vùng đệm đáy chống nút Báo lỗi đè lên tổng tiền/thanh hành động.',
+    ],
+    fixed: [
+      'Sửa lỗi hiển thị tiếng Việt trong trạng thái đang tải của phân hệ Báo giá in ấn và khử thông tin lặp lại trên tiêu đề thẻ sản phẩm khi đang mở nhập liệu.',
+    ],
+  },
   {
     version: '0.8.0',
     commit: 'latest',
