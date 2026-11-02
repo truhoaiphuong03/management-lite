@@ -72,7 +72,12 @@ function toIso(val: unknown): string {
 
 function toDateStr(val: unknown): string | null {
   if (!val) return null;
-  if (val instanceof Date) return val.toISOString().slice(0, 10);
+  if (val instanceof Date) {
+    const year = val.getFullYear();
+    const month = String(val.getMonth() + 1).padStart(2, '0');
+    const day = String(val.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   if (typeof val === 'string') {
     const trimmed = val.trim();
     if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
@@ -645,7 +650,9 @@ export class PrintQuoteService {
     });
   }
 
-  private mapPriceItemRow(r: Record<string, unknown>): PrintVendorPriceItemData {
+  private mapPriceItemRow(
+    r: Record<string, unknown>,
+  ): PrintVendorPriceItemData {
     return {
       id: String(r['id']),
       workspace_id: String(r['workspace_id']),
@@ -1128,7 +1135,7 @@ export class PrintQuoteService {
       idempotencyKey,
       201,
       async (client) => {
-        let customerId =
+        const customerId =
           typeof input['customer_id'] === 'string' &&
           input['customer_id'].trim()
             ? input['customer_id'].trim()
@@ -1207,8 +1214,7 @@ export class PrintQuoteService {
             ? rawStrategy
             : ShippingAllocationStrategy.PROPORTIONAL_BY_BASE_AMOUNT;
 
-        const rawRoundingMode =
-          input['rounding_mode'] ?? input['roundingMode'];
+        const rawRoundingMode = input['rounding_mode'] ?? input['roundingMode'];
         const roundingMode: RoundingModeType =
           rawRoundingMode === RoundingMode.FLOOR ||
           rawRoundingMode === RoundingMode.CEIL
@@ -1452,8 +1458,7 @@ export class PrintQuoteService {
 
       const shippingAllocationStrategy: ShippingAllocationStrategyType =
         (input['shipping_allocation_strategy'] as
-          | ShippingAllocationStrategyType
-          | undefined) ??
+          ShippingAllocationStrategyType | undefined) ??
         (existing[
           'shipping_allocation_strategy'
         ] as ShippingAllocationStrategyType);
@@ -1908,8 +1913,8 @@ export class PrintQuoteService {
 
         const productionStatus: PrintProductionStatusType =
           (input['production_status'] as
-            | PrintProductionStatusType
-            | undefined) ?? PrintProductionStatus.PENDING;
+            PrintProductionStatusType | undefined) ??
+          PrintProductionStatus.PENDING;
         const deliveryStatus: PrintDeliveryStatusType =
           (input['delivery_status'] as PrintDeliveryStatusType | undefined) ??
           PrintDeliveryStatus.NOT_SHIPPED;
@@ -2034,10 +2039,7 @@ export class PrintQuoteService {
         ? Math.max(0, toInt(input['actual_extra_cost'], 0))
         : toInt(existing['actual_extra_cost'], 0);
     const actualProfit =
-      totalQuoteAmount -
-      actualVendorCost -
-      actualShippingFee -
-      actualExtraCost;
+      totalQuoteAmount - actualVendorCost - actualShippingFee - actualExtraCost;
 
     const depositRequired =
       input['deposit_required'] !== undefined

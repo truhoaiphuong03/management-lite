@@ -501,6 +501,60 @@
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — `10/10` tests `PASS` (`duration_ms: 103.83ms`).
 10. **Evidence (`VERIFIED`):** `node --test tests/web/printquote-screen.test.mjs tests/web/ui-shell-02.test.mjs`.
-11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+11. **Commit / PR:** `8d4b1a2` (Nhánh `feature/printquote-module-v1`)
 12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
 13. **NEXT_ACTION:** Bắt đầu `Phase PQ-4` (`PQ4-T01..T03` — Đơn hàng, Kiểm thử Toàn diện & Diễn tập Backup/Rollback).
+
+---
+
+### Task `PQ4-T01` — Quản Lý Đơn Hàng In Ấn, Tiến Độ Sản Xuất / Giao Hàng Độc Lập, Đặt Cọc, Thanh Toán Từng Đợt, Công Nợ & Dashboard Lợi Nhuận
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-4`
+3. **Task ID:** `PQ4-T01`
+4. **Mô tả:** Hoàn thiện quản lý ngày đặt in (`print_ordered_at`), trạng thái sản xuất (`production_status`) và giao hàng (`delivery_status`) độc lập, tiền cọc (`deposit_amount`) và thanh toán từng đợt (`print_order_payments`), tự động tính công nợ còn phải thu (`remaining_debt`), đối chiếu lợi nhuận dự kiến (`expected_profit_amount`) vs lợi nhuận thực tế (`actual_profit_amount` / `realized_profit_amount`), và Dashboard thống kê (`getStats`) trên `PrintQuoteService` và `PrintQuoteScreen.tsx` (Tab 5 & Tab 6). Sửa chuẩn hóa `toDateStr` theo múi giờ local để không lệch ngày `DATE` từ PostgreSQL.
+5. **Phụ thuộc:** `PQ3-T03` (`PASS`).
+6. **Acceptance Criteria:** Tạo đơn hàng từ báo giá, lưu ngày đặt in, cập nhật tiến độ sản xuất & giao hàng độc lập, ghi nhận đặt cọc + thanh toán từng đợt, tự động giảm công nợ về `0đ` và tính lợi nhuận thực tế chính xác.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — Kiểm thử vòng đời đơn hàng và thanh toán đạt `PASS` (`0 fail`).
+10. **Evidence (`VERIFIED`):** `apps/api/src/printquote/service.ts`, `apps/web/src/screens/PrintQuoteScreen.tsx`, `tests/backend/printquote-e2e-security.test.mjs`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `PQ4-T02`.
+
+---
+
+### Task `PQ4-T02` — Kiểm Thử Unit, Integration, E2E, Security & Kiểm Tra Hồi Quy Toàn Hệ Thống
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-4`
+3. **Task ID:** `PQ4-T02`
+4. **Mô tả:** Viết và thực thi bộ kiểm thử E2E & Security `tests/backend/printquote-e2e-security.test.mjs` cùng toàn bộ suite PrintQuote (`printquote-pricing-engine.test.mjs`, `printquote-postgres.test.mjs`, `printquote-screen.test.mjs`), kiểm tra hồi quy toàn bộ chức năng cũ (`npm run test:security`, `tests/database/migrator.test.mjs`, `tests/database/config.test.mjs`, `npm run test:web`, `npm run check:bundle`, `npm run lint`).
+5. **Phụ thuộc:** `PQ4-T01` (`PASS`).
+6. **Acceptance Criteria:** `15/15` PrintQuote tests `PASS`, `28/28` Security tests `PASS`, `23/23` Database tests `PASS`, `427/427` Web tests `PASS` (`0 fail`), `npm run lint` `0` lỗi, `npm run check:bundle` `PASS` (`438.3 KB raw / 125.1 KB gzip`).
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — Toàn bộ `493` bài test (`15` PrintQuote + `28` Security + `23` DB + `427` Web) đạt `PASS` (`0 fail`), `eslint .` đạt `0 errors, 0 warnings`.
+10. **Evidence (`VERIFIED`):** `node --test tests/backend/printquote-*.test.mjs tests/web/printquote-screen.test.mjs`, `npm run test:security`, `npm run test:web`, `npm run lint`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `PQ4-T03`.
+
+---
+
+### Task `PQ4-T03` — Diễn Tập Sao Lưu (`pg_dump`) & Khôi Phục / Rollback Migration `0033_printquote_v1` Trên PostgreSQL DEV
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-4`
+3. **Task ID:** `PQ4-T03`
+4. **Mô tả:** Thực hiện sao lưu (`pg_dump`) cơ sở dữ liệu DEV trên `127.0.0.1:55499` ra `/Users/duongbinh/Library/Application Support/ManagementSystem/mglite-printquote-dev-pg18/backups/mglite_mac_dev_printquote_v1.sql` (`249 KB`) và `mglite_mvp_v01_test_printquote_v1.sql`; nạp vào DB thử nghiệm `mglite_rollback_drill_test`, chạy kịch bản rollback xóa 7 bảng `print_*` và bản ghi `0033_printquote_v1` trong `schema_migrations`, xác minh các bảng cốt lõi (`workspaces=7`, `users=16`) còn nguyên vẹn 100%, sau đó chạy lại `runMigrations` để xác minh khôi phục tiến (`forward recovery`) về `0033_printquote_v1` thành công và dọn sạch DB tạm.
+5. **Phụ thuộc:** `PQ4-T02` (`PASS`).
+6. **Acceptance Criteria:** Sao lưu `pg_dump`, rollback về `0032_employee_sub_permissions` không ảnh hưởng dữ liệu cốt lõi và re-apply `0033_printquote_v1` đạt `PASS`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — Trước rollback: `print_tables=7, print_quotes_rows=6, core_workspaces=7, core_users=16`; Sau rollback: `print_tables=0, core_workspaces=7, core_users=16, latest_migration=0032_employee_sub_permissions`; Sau re-apply: `print_tables_after_reapply=7, latest_migration=0033_printquote_v1`.
+10. **Evidence (`VERIFIED`):** File backup `/Users/duongbinh/Library/Application Support/ManagementSystem/mglite-printquote-dev-pg18/backups/mglite_mac_dev_printquote_v1.sql` & log diễn tập rollback/recovery trên `:55499`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Trình Owner kiểm tra và phê duyệt nghiệm thu (`APPROVED`) module `MGL-PRINTQUOTE V1` trên nhánh `feature/printquote-module-v1`. Chưa merge `main`, chưa phát hành Windows Production.

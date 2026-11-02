@@ -15,7 +15,12 @@ import { hashToken } from '../../dist/packages/security/src/tokens.js';
 const CSRF_SECRET = 'test-csrf-secret-printquote-postgres-32chars!';
 const ALLOWED_ORIGIN = 'http://127.0.0.1:3000';
 
-async function apiRequest(baseUrl, method, path, { cookie, csrfToken, idempotencyKey, body } = {}) {
+async function apiRequest(
+  baseUrl,
+  method,
+  path,
+  { cookie, csrfToken, idempotencyKey, body } = {},
+) {
   const headers = {
     Origin: ALLOWED_ORIGIN,
   };
@@ -148,119 +153,159 @@ describe('MGL-PRINTQUOTE V1 — Phase 2 & 4 PostgreSQL Integration Tests', () =>
   });
 
   it('1. Bảo vệ quyền truy cập Owner: Nhân viên (staff) bị từ chối 403 FORBIDDEN trên toàn bộ API Báo giá in ấn', async () => {
-    const res1 = await apiRequest(baseUrl, 'GET', '/api/v1/print-quotes/quotes', {
-      cookie: staffCookie,
-    });
+    const res1 = await apiRequest(
+      baseUrl,
+      'GET',
+      '/api/v1/print-quotes/quotes',
+      {
+        cookie: staffCookie,
+      },
+    );
     assert.equal(res1.status, 403);
     assert.equal(res1.body.error.code, 'FORBIDDEN');
 
-    const res2 = await apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/vendors', {
-      cookie: staffCookie,
-      csrfToken: staffCsrf,
-      body: { name: 'Nhà in Test' },
-    });
+    const res2 = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/vendors',
+      {
+        cookie: staffCookie,
+        csrfToken: staffCsrf,
+        body: { name: 'Nhà in Test' },
+      },
+    );
     assert.equal(res2.status, 403);
   });
 
   it('2. Quản lý Nhà in, Bảng giá, Khách hàng + Idempotency & Transaction trên PostgreSQL DEV', async () => {
     const idemKey = `idem-vendor-${crypto.randomUUID()}`;
-    const vCreate = await apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/vendors', {
-      cookie: ownerCookie,
-      csrfToken: ownerCsrf,
-      idempotencyKey: idemKey,
-      body: {
-        name: 'Nhà in Nhanh Sài Gòn',
-        phone: '0909111222',
-        bank_name: 'Vietcombank',
-        bank_account_number: '0071000888999',
-        bank_account_holder: 'CONG TY IN NHANH SG',
+    const vCreate = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/vendors',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        idempotencyKey: idemKey,
+        body: {
+          name: 'Nhà in Nhanh Sài Gòn',
+          phone: '0909111222',
+          bank_name: 'Vietcombank',
+          bank_account_number: '0071000888999',
+          bank_account_holder: 'CONG TY IN NHANH SG',
+        },
       },
-    });
+    );
     assert.equal(vCreate.status, 201);
     const vendor = vCreate.body.data;
     assert.equal(vendor.code, 'NI001');
     assert.equal(vendor.name, 'Nhà in Nhanh Sài Gòn');
 
     // Replay cùng Idempotency-Key trả về cùng bản ghi, không tạo trùng
-    const vReplay = await apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/vendors', {
-      cookie: ownerCookie,
-      csrfToken: ownerCsrf,
-      idempotencyKey: idemKey,
-      body: {
-        name: 'Nhà in Nhanh Sài Gòn',
-        phone: '0909111222',
-        bank_name: 'Vietcombank',
-        bank_account_number: '0071000888999',
-        bank_account_holder: 'CONG TY IN NHANH SG',
+    const vReplay = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/vendors',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        idempotencyKey: idemKey,
+        body: {
+          name: 'Nhà in Nhanh Sài Gòn',
+          phone: '0909111222',
+          bank_name: 'Vietcombank',
+          bank_account_number: '0071000888999',
+          bank_account_holder: 'CONG TY IN NHANH SG',
+        },
       },
-    });
+    );
     assert.equal(vReplay.status, 201);
     assert.equal(vReplay.body.data.id, vendor.id);
 
     // Dùng cùng Idempotency-Key nhưng đổi payload -> 409 IDEMPOTENCY_CONFLICT
-    const vConflict = await apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/vendors', {
-      cookie: ownerCookie,
-      csrfToken: ownerCsrf,
-      idempotencyKey: idemKey,
-      body: { name: 'Nhà in Khác' },
-    });
+    const vConflict = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/vendors',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        idempotencyKey: idemKey,
+        body: { name: 'Nhà in Khác' },
+      },
+    );
     assert.equal(vConflict.status, 409);
     assert.equal(vConflict.body.error.code, 'IDEMPOTENCY_CONFLICT');
 
     // Tạo bảng giá nhà in
-    const pCreate = await apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/price-items', {
-      cookie: ownerCookie,
-      csrfToken: ownerCsrf,
-      body: {
-        vendor_id: vendor.id,
-        name: 'Tờ rơi A5 C150',
-        category: 'Tờ rơi',
-        specification: 'In Offset 4 màu 2 mặt',
-        unit: 'tờ',
-        pricing_mode: 'PER_UNIT',
-        unit_cost: 300,
-        default_profit_mode: 'FIXED_AMOUNT',
-        default_profit_scope: 'PER_UNIT',
-        default_profit_value: 200,
+    const pCreate = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/price-items',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          vendor_id: vendor.id,
+          name: 'Tờ rơi A5 C150',
+          category: 'Tờ rơi',
+          specification: 'In Offset 4 màu 2 mặt',
+          unit: 'tờ',
+          pricing_mode: 'PER_UNIT',
+          unit_cost: 300,
+          default_profit_mode: 'FIXED_AMOUNT',
+          default_profit_scope: 'PER_UNIT',
+          default_profit_value: 200,
+        },
       },
-    });
+    );
     assert.equal(pCreate.status, 201);
     const priceItem = pCreate.body.data;
     assert.equal(priceItem.unit_cost, 300);
 
     // Tạo khách hàng
-    const cCreate = await apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/customers', {
-      cookie: ownerCookie,
-      csrfToken: ownerCsrf,
-      body: {
-        name: 'Chị Lan Anh',
-        company_name: 'Thẩm mỹ viện Hoa Lan',
-        phone: '0912333444',
-        address: '123 Nguyễn Huệ, Q.1, TP.HCM',
+    const cCreate = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/customers',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          name: 'Chị Lan Anh',
+          company_name: 'Thẩm mỹ viện Hoa Lan',
+          phone: '0912333444',
+          address: '123 Nguyễn Huệ, Q.1, TP.HCM',
+        },
       },
-    });
+    );
     assert.equal(cCreate.status, 201);
     const customer = cCreate.body.data;
     assert.equal(customer.code, 'KH001');
 
     // 3. Tạo báo giá v1 từ bảng giá nhà in (100 tờ x (300đ + 200đ) + 50.000đ ship = 100.000đ)
-    const qCreate = await apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/quotes', {
-      cookie: ownerCookie,
-      csrfToken: ownerCsrf,
-      body: {
-        customer_id: customer.id,
-        title: 'Báo giá tờ rơi khai trương',
-        shipping_fee: 50_000,
-        include_shipping_in_unit_price: true,
-        items: [
-          {
-            id: 'LINE-1',
-            vendor_price_item_id: priceItem.id,
-            quantity: 100,
-          },
-        ],
+    const qCreate = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/quotes',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          customer_id: customer.id,
+          title: 'Báo giá tờ rơi khai trương',
+          shipping_fee: 50_000,
+          include_shipping_in_unit_price: true,
+          items: [
+            {
+              id: 'LINE-1',
+              vendor_price_item_id: priceItem.id,
+              quantity: 100,
+            },
+          ],
+        },
       },
-    });
+    );
     assert.equal(qCreate.status, 201);
     const quoteV1 = qCreate.body.data;
     assert.equal(quoteV1.current_version, 1);
@@ -294,7 +339,10 @@ describe('MGL-PRINTQUOTE V1 — Phase 2 & 4 PostgreSQL Integration Tests', () =>
     );
     assert.equal(qCheckAfterCatalogChange.status, 200);
     assert.equal(qCheckAfterCatalogChange.body.data.total_vendor_cost, 30_000);
-    assert.equal(qCheckAfterCatalogChange.body.data.total_quote_amount, 100_000);
+    assert.equal(
+      qCheckAfterCatalogChange.body.data.total_quote_amount,
+      100_000,
+    );
 
     // 5. Cập nhật báo giá sang v2 (giữ lịch sử cả v1 và v2)
     const qUpdateV2 = await apiRequest(
@@ -418,9 +466,14 @@ describe('MGL-PRINTQUOTE V1 — Phase 2 & 4 PostgreSQL Integration Tests', () =>
     assert.equal(payFinal.body.data.payments.length, 2);
 
     // 10. Kiểm tra Dashboard thống kê
-    const statsRes = await apiRequest(baseUrl, 'GET', '/api/v1/print-quotes/stats', {
-      cookie: ownerCookie,
-    });
+    const statsRes = await apiRequest(
+      baseUrl,
+      'GET',
+      '/api/v1/print-quotes/stats',
+      {
+        cookie: ownerCookie,
+      },
+    );
     assert.equal(statsRes.status, 200);
     const stats = statsRes.body.data;
     assert.equal(stats.total_vendors, 1);

@@ -12,11 +12,9 @@ import {
   roundByPolicy,
   allocateIntegerAmount,
   calculatePrintQuote,
-  buildPdfQuotePayload,
   buildCustomerSafePdfPayload,
   assertCustomerSafePdfPayload,
   createQuoteOrderSnapshot,
-  finalizeQuoteOrder,
   verifyQuoteSnapshotIntegrity,
   QuoteOrderRepository,
   buildQuoteLineFromVendorCatalogItem,
@@ -28,7 +26,11 @@ describe('MGL-PRINTQUOTE V1 — Phase 1 Pricing Engine Unit Tests', () => {
       '',
       'abc',
       '100 tờ × (300đ vốn + 200đ lợi nhuận) + 50.000đ vận chuyển = 100.000đ',
-      JSON.stringify({ quoteId: 'PQ-001', totalQuoteAmount: 100000, lines: [1, 2, 3] }),
+      JSON.stringify({
+        quoteId: 'PQ-001',
+        totalQuoteAmount: 100000,
+        lines: [1, 2, 3],
+      }),
     ];
     for (const s of samples) {
       const expected = crypto.createHash('sha256').update(s).digest('hex');
@@ -162,7 +164,8 @@ describe('MGL-PRINTQUOTE V1 — Phase 1 Pricing Engine Unit Tests', () => {
 
     // Nếu cố tình chèn trường cấm vào payload PDF khách hàng -> phải bị chặn
     assert.throws(
-      () => assertCustomerSafePdfPayload({ ...safePdf, totalVendorCost: 30_000 }),
+      () =>
+        assertCustomerSafePdfPayload({ ...safePdf, totalVendorCost: 30_000 }),
       /Forbidden internal cost\/profit field "totalVendorCost"/,
     );
   });
@@ -252,7 +255,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 1 Pricing Engine Unit Tests', () => {
     const repo = new QuoteOrderRepository();
     const draft = createQuoteOrderSnapshot(quoteT1, { orderId: 'ORD-HIST-01' });
     repo.save(draft);
-    const finalized = repo.finalize('ORD-HIST-01');
+    repo.finalize('ORD-HIST-01');
 
     // Thời điểm T2: Bảng giá nhà in tăng gấp đôi (300đ -> 600đ) và lợi nhuận mặc định đổi sang 500đ
     vendorCatalogItem.unitCost = 600;

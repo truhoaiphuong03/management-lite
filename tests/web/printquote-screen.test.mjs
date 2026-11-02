@@ -10,7 +10,6 @@ import { PrintQuoteScreen } from '../../dist/apps/web/src/screens/PrintQuoteScre
 import {
   buildPrintQuoteA4Html,
   numberToVietnameseWords,
-  formatVnd,
 } from '../../dist/apps/web/src/screens/helpers/printquote-helpers.js';
 import {
   calculatePrintQuote,
