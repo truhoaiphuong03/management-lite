@@ -183,6 +183,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   const [pdfPreviewState, setPdfPreviewState] = useState<{
     title: string;
     html: string;
+    quoteId?: string | null;
+    quoteCode: string;
   } | null>(null);
 
   // Expanded Quote Version History ID
@@ -218,7 +220,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     useState<PrintOrderData | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [paymentType, setPaymentType] = useState<
-    'DEPOSIT' | 'INSTALLMENT' | 'FINAL'
+    'DEPOSIT' | 'INSTALLMENT' | 'FINAL' | 'REFUND'
   >('INSTALLMENT');
   const [paymentMethod, setPaymentMethod] = useState<string>('BANK_TRANSFER');
   const [paymentNote, setPaymentNote] = useState<string>('');
@@ -402,6 +404,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     setPdfPreviewState({
       title: `Xem trước PDF A4 — ${editingQuoteCode || 'Bản xem trước'}`,
       html,
+      quoteId: editingQuoteId,
+      quoteCode: editingQuoteCode || 'BG-PREVIEW',
     });
   };
 
@@ -427,7 +431,107 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     setPdfPreviewState({
       title: `Báo giá PDF A4 — ${quote.quote_code} (v${quote.current_version})`,
       html,
+      quoteId: quote.id,
+      quoteCode: quote.quote_code,
     });
+  };
+
+  const triggerBrowserPdfDownload = (blob: Blob, quoteCode: string) => {
+    if (typeof window === 'undefined') return;
+    const safeName = `${(quoteCode || 'BG-DRAFT').replace(/[^A-Za-z0-9_.-]/g, '-')}.pdf`;
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = safeName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => window.URL.revokeObjectURL(url), 3000);
+  };
+
+  const handleDownloadSavedQuotePdfFile = async (
+    quoteId: string,
+    quoteCode: string,
+  ) => {
+    try {
+      const res = await fetch(
+        `/api/v1/print-quotes/quotes/${encodeURIComponent(quoteId)}/pdf-file`,
+        { credentials: 'include' },
+      );
+      if (!res.ok) {
+        setBannerMessage({
+          type: 'error',
+          text: 'Không thể tải file PDF báo giá.',
+        });
+        return;
+      }
+      const blob = await res.blob();
+      triggerBrowserPdfDownload(blob, quoteCode);
+      setBannerMessage({
+        type: 'success',
+        text: `Đã tải xuống file báo giá ${quoteCode}.pdf!`,
+      });
+    } catch {
+      setBannerMessage({
+        type: 'error',
+        text: 'Lỗi kết nối khi tải file PDF.',
+      });
+    }
+  };
+
+  const handleDownloadLivePdfFile = async () => {
+    if (editingQuoteId && editingQuoteCode) {
+      await handleDownloadSavedQuotePdfFile(editingQuoteId, editingQuoteCode);
+      return;
+    }
+    if (!livePricingResult.customerPdf) return;
+    try {
+      const csrf = await getCsrfToken();
+      const code = editingQuoteCode || 'BG-DRAFT';
+      const res = await fetch('/api/v1/print-quotes/pdf-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          customer_pdf: livePricingResult.customerPdf,
+          meta: {
+            quoteCode: code,
+            quoteTitle,
+            versionNo: editingQuoteVersion,
+            createdAt: new Date().toISOString(),
+            validUntil: validUntil || null,
+            workspaceName,
+            customerName: selectedCustomer?.name || 'Quý khách hàng',
+            customerCompany: selectedCustomer?.company_name || null,
+            customerPhone: selectedCustomer?.phone || null,
+            customerEmail: selectedCustomer?.email || null,
+            customerAddress: selectedCustomer?.address || null,
+            customerNotes,
+          },
+        }),
+      });
+      if (!res.ok) {
+        setBannerMessage({
+          type: 'error',
+          text: 'Không thể tạo file PDF báo giá.',
+        });
+        return;
+      }
+      const blob = await res.blob();
+      triggerBrowserPdfDownload(blob, code);
+      setBannerMessage({
+        type: 'success',
+        text: `Đã tải xuống file báo giá ${code}.pdf!`,
+      });
+    } catch {
+      setBannerMessage({
+        type: 'error',
+        text: 'Lỗi kết nối khi tạo file PDF.',
+      });
+    }
   };
 
   const handlePrintA4Window = (html: string) => {
@@ -773,6 +877,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       },
     );
     if (res.ok) {
+      await loadAllData();
       setPaymentOrderTarget(null);
       setPaymentAmount(0);
       setPaymentNote('');
@@ -780,7 +885,6 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         type: 'success',
         text: 'Đã ghi nhận thanh toán & cập nhật công nợ đơn hàng!',
       });
-      await loadAllData();
     }
   };
 
@@ -1967,8 +2071,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
                   <button
                     type="button"
-                    data-testid="pq-preview-pdf-btn"
-                    onClick={handleOpenLiveA4Preview}
+                    data-testid="pq-download-pdf-btn"
+                    onClick={handleDownloadLivePdfFile}
                     style={{
                       flex: 1,
                       minWidth: '180px',
@@ -1982,7 +2086,27 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                       cursor: 'pointer',
                     }}
                   >
-                    🖨️ Xem & Xuất PDF A4 Tiếng Việt
+                    ⬇️ Tải PDF A4 ({editingQuoteCode || 'BG-DRAFT'}.pdf)
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="pq-preview-pdf-btn"
+                    onClick={handleOpenLiveA4Preview}
+                    style={{
+                      flex: 1,
+                      minWidth: '160px',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--surface-color)',
+                      color: 'var(--text-color)',
+                      fontWeight: 700,
+                      fontSize: '13.5px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    👁️ Xem trước PDF A4
                   </button>
                 </div>
               </div>
@@ -2170,7 +2294,10 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                     >
                       <button
                         type="button"
-                        onClick={() => handleOpenSavedQuotePdf(q)}
+                        data-testid={`pq-quote-download-pdf-${q.quote_code}`}
+                        onClick={() =>
+                          handleDownloadSavedQuotePdfFile(q.id, q.quote_code)
+                        }
                         style={{
                           padding: '6px 12px',
                           borderRadius: '6px',
@@ -2182,7 +2309,25 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                           cursor: 'pointer',
                         }}
                       >
-                        🖨️ Xuất PDF A4 Khách hàng
+                        ⬇️ Tải PDF ({q.quote_code}.pdf)
+                      </button>
+
+                      <button
+                        type="button"
+                        data-testid={`pq-quote-preview-pdf-${q.quote_code}`}
+                        onClick={() => handleOpenSavedQuotePdf(q)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--surface-color)',
+                          color: 'var(--text-color)',
+                          fontWeight: 600,
+                          fontSize: '12.5px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        👁️ Xem PDF A4
                       </button>
 
                       {q.status === 'DRAFT' && (
@@ -2220,9 +2365,10 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                         </>
                       )}
 
-                      {q.status !== 'CONVERTED' && q.status !== 'CANCELLED' && (
+                      {q.status !== 'CONVERTED' && q.status !== 'CANCELLED' ? (
                         <button
                           type="button"
+                          data-testid={`pq-convert-order-btn-${q.quote_code}`}
                           onClick={() => handleConvertQuoteToOrder(q)}
                           style={{
                             padding: '6px 12px',
@@ -2237,7 +2383,22 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                         >
                           📦 Chuyển thành Đơn đặt in
                         </button>
-                      )}
+                      ) : q.status === 'CONVERTED' ? (
+                        <span
+                          data-testid={`pq-quote-converted-badge-${q.quote_code}`}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--surface-color)',
+                            color: 'var(--success-text)',
+                            fontWeight: 700,
+                            fontSize: '12px',
+                          }}
+                        >
+                          ✓ Đã chuyển đơn in
+                        </span>
+                      ) : null}
 
                       <button
                         type="button"
@@ -2967,6 +3128,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                     >
                       <button
                         type="button"
+                        data-testid={`pq-order-record-payment-${ord.order_code}`}
                         onClick={() => {
                           setPaymentOrderTarget(ord);
                           setPaymentAmount(ord.remaining_debt_amount || 0);
@@ -3032,13 +3194,18 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                     value={paymentType}
                     onChange={(e) =>
                       setPaymentType(
-                        e.target.value as 'DEPOSIT' | 'INSTALLMENT' | 'FINAL',
+                        e.target.value as
+                          | 'DEPOSIT'
+                          | 'INSTALLMENT'
+                          | 'FINAL'
+                          | 'REFUND',
                       )
                     }
                   >
                     <option value="DEPOSIT">Tiền đặt cọc (Deposit)</option>
                     <option value="INSTALLMENT">Thanh toán đợt</option>
                     <option value="FINAL">Tất toán công nợ cuối</option>
+                    <option value="REFUND">Hoàn tiền (Refund)</option>
                   </select>
                 </div>
                 <div style={{ marginBottom: '10px' }}>
@@ -3351,10 +3518,20 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                 {pdfPreviewState.title} (Chỉ hiển thị giá bán — Ẩn 100% giá nhà
                 in & lợi nhuận)
               </strong>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={() => handlePrintA4Window(pdfPreviewState.html)}
+                  data-testid="pq-modal-download-pdf-btn"
+                  onClick={() => {
+                    if (pdfPreviewState.quoteId) {
+                      void handleDownloadSavedQuotePdfFile(
+                        pdfPreviewState.quoteId,
+                        pdfPreviewState.quoteCode,
+                      );
+                    } else {
+                      void handleDownloadLivePdfFile();
+                    }
+                  }}
                   style={{
                     padding: '6px 14px',
                     borderRadius: '6px',
@@ -3366,7 +3543,23 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                     cursor: 'pointer',
                   }}
                 >
-                  🖨️ Mở cửa sổ In / Lưu PDF A4
+                  ⬇️ Tải file .PDF ({pdfPreviewState.quoteCode}.pdf)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePrintA4Window(pdfPreviewState.html)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--accent-text)',
+                    backgroundColor: 'var(--accent-soft)',
+                    color: 'var(--accent-text)',
+                    fontWeight: 700,
+                    fontSize: '12.5px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🖨️ Mở cửa sổ In A4
                 </button>
                 <button
                   type="button"

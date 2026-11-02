@@ -557,4 +557,78 @@
 10. **Evidence (`VERIFIED`):** File backup `/Users/duongbinh/Library/Application Support/ManagementSystem/mglite-printquote-dev-pg18/backups/mglite_mac_dev_printquote_v1.sql` & log diễn tập rollback/recovery trên `:55499`.
 11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
 12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
-13. **NEXT_ACTION:** Trình Owner kiểm tra và phê duyệt nghiệm thu (`APPROVED`) module `MGL-PRINTQUOTE V1` trên nhánh `feature/printquote-module-v1`. Chưa merge `main`, chưa phát hành Windows Production.
+13. **NEXT_ACTION:** Chuyển sang `Phase PQ-QA` (`QA-01..QA-04` — Nghiệm thu Thực tế & Sửa lỗi Trước Release trên MacBook).
+
+---
+
+## PHASE PQ-QA — NGHIỆM THU THỰC TẾ VÀ SỬA LỖI TRƯỚC RELEASE (`MGL-PRINTQUOTE V1`)
+
+### Task `QA-01` — Kiểm Tra An Toàn Dữ Liệu (Chặn Trùng Đơn, Cấp Mã Đồng Thời & Kiểm Soát Công Nợ)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-QA`
+3. **Task ID:** `QA-01`
+4. **Mô tả:** (1) Chặn chuyển cùng một báo giá thành nhiều đơn hàng ngoài ý muốn bằng khóa hàng `FOR UPDATE` trên `print_quotes`, kiểm tra `status === 'CONVERTED'` hoặc bản ghi `print_orders` đã tồn tại trả `409 CONFLICT`, kết hợp ràng buộc mức DB `CONSTRAINT uq_print_orders_workspace_quote UNIQUE (workspace_id, quote_id)`; (2) Thay thế hoàn toàn cơ chế `COUNT(*) + 1` bằng bảng bộ đếm nguyên tử `print_code_counters` (`INSERT ... ON CONFLICT (workspace_id, counter_key) DO UPDATE SET last_value = print_code_counters.last_value + 1 RETURNING last_value`) giúp cấp mã báo giá (`BG-YYYYMM-NNN`) và mã đơn hàng (`DH-YYYYMM-NNN`) an toàn dưới nhiều request đồng thời và không bao giờ tái sử dụng mã đã xóa; (3) Kiểm soát chặt công nợ khi đặt cọc (`DEPOSIT`), thanh toán nhiều đợt (`INSTALLMENT` / `FINAL`), hoàn tiền (`REFUND`), chặn thanh toán vượt công nợ còn lại (`amount > currentRemainingDebt` → `400 VALIDATION_ERROR`) và chặn hoàn tiền vượt số đã thu (`amount > runningTotalPaid` → `400 VALIDATION_ERROR`); (4) Sửa `resolveQuoteLinesWithCatalog` nhận đồng thời trường camelCase và snake_case từ UI.
+5. **Phụ thuộc:** `PQ4-T03` (`PASS`).
+6. **Acceptance Criteria:** Chuyển 1 báo giá thành đơn lần 2 (tuần tự hoặc 5 request đồng thời) chỉ tạo đúng 1 đơn (`201`) và trả `409 CONFLICT` cho các request trùng; 8 request tạo báo giá/đơn hàng đồng thời sinh 8 mã duy nhất liên tiếp và xóa bản ghi cũ không làm tái sử dụng mã; công nợ đặt cọc/nhiều đợt/hoàn tiền/chặn vượt tổng đơn chính xác 100%.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — Các bài kiểm thử `QA-01` (Sequential & 5-way Concurrent Duplicate Order Guard, 8-way Concurrent Code Allocation + No Reuse After Delete, Deposit/Multi-Installment/Refund/Overpayment Guard) trong `tests/backend/printquote-e2e-security.test.mjs` đạt `PASS` (`0 fail`).
+10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0033_printquote_v1.sql`, `packages/database/src/migrations/catalog.ts`, `apps/api/src/printquote/service.ts`, `tests/backend/printquote-e2e-security.test.mjs`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu nghiệm thu thực tế trên MacBook; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `QA-02`.
+
+---
+
+### Task `QA-02` — Kiểm Tra Xuất File `.PDF` A4 Trực Tiếp & Đơn Giá Sau Phân Bổ Vận Chuyển
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-QA`
+3. **Task ID:** `QA-02`
+4. **Mô tả:** Xây dựng bộ kết xuất file nhị phân `.pdf` A4 trực tiếp `apps/api/src/printquote/pdf-renderer.ts` (`renderCustomerSafeA4PdfBuffer`, `buildServerA4Html`, `sanitizePdfFilename`) và 2 endpoint `GET /api/v1/print-quotes/quotes/:id/pdf-file` + `POST /api/v1/print-quotes/pdf-file` trả về file `.pdf` A4 tải về trực tiếp (`Content-Type: application/pdf`, `Content-Disposition: attachment; filename="<quote_code>.pdf"`). Đảm bảo chữ tiếng Việt chuẩn xác, bố cục A4 dọc không tràn trang, kiểm định `assertCustomerSafePdfPayload` tuyệt đối không lộ giá nhà in/lợi nhuận, và hiển thị minh bạch đơn giá sau phân bổ vận chuyển khi có hiệu chỉnh làm tròn (`roundingAdjustment`).
+5. **Phụ thuộc:** `QA-01` (`PASS`).
+6. **Acceptance Criteria:** Tải trực tiếp file `<quote_code>.pdf` chuẩn `%PDF-1.4` khổ A4 tiếng Việt, ẩn 100% giá vốn và lợi nhuận, hiển thị rõ đơn giá sau phân bổ vận chuyển và hiệu chỉnh làm tròn (nếu có).
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — Bài test `QA-02` trong `tests/backend/printquote-e2e-security.test.mjs` và kiểm thử tải file thực tế `BG-202611-001.pdf` (`307 KB`, 1 trang A4 chuẩn) đạt `PASS` (`0 fail`).
+10. **Evidence (`VERIFIED`):** `apps/api/src/printquote/pdf-renderer.ts`, `apps/api/src/routes/printquote-routes.ts`, `apps/web/src/screens/PrintQuoteScreen.tsx`, `apps/web/src/screens/helpers/printquote-helpers.ts`, `tests/backend/printquote-e2e-security.test.mjs`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu nghiệm thu thực tế trên MacBook; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `QA-03`.
+
+---
+
+### Task `QA-03` — Kiểm Thử Giao Diện Thực Tế Với Playwright & Trình Duyệt Google Chrome Thật
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-QA`
+3. **Task ID:** `QA-03`
+4. **Mô tả:** Khởi động Management Lite DEV trên MacBook (`API` tại `http://127.0.0.1:3002`, `Web` tại `http://localhost:3001` kết nối PostgreSQL 18.6 DEV `:55499/mglite_mac_dev`). Viết và chạy `tests/web/printquote-playwright-e2e.test.mjs` bằng Playwright điều khiển trình duyệt Google Chrome thật (`channel: 'chrome'`), kiểm tra xuyên suốt: Đăng nhập Owner ➔ Mở menu **Báo giá in ấn** ➔ Tạo Nhà in (`Nhà in Offset Sài Gòn Chuẩn`), Bảng giá (`Tờ rơi A5 Couche 150gsm` — giá in `300đ/tờ`, lợi nhuận `200đ/tờ`), Khách hàng (`Anh Minh — Chuỗi Trà Sữa Sài Gòn`) ➔ Tạo báo giá `100 tờ`, vận chuyển `50.000đ` ➔ Xác nhận đơn giá khách `1.000 ₫/tờ`, tổng `100.000 ₫` ➔ Lưu báo giá `BG-202611-001`, tải trực tiếp file `BG-202611-001.pdf` và mở cửa sổ xem trước A4 ➔ Chuyển thành đơn hàng `DH-202611-001` ➔ Đặt cọc `40.000 ₫` (còn nợ `60.000 ₫`), cập nhật hoàn tất sản xuất & giao hàng, tất toán `60.000 ₫` (công nợ `0 ₫`, trạng thái `Đã tất toán`) ➔ Đăng xuất và đăng nhập lại xác nhận dữ liệu còn nguyên vẹn ➔ Kiểm tra giao diện Desktop (`1440×1120`) và khung nhìn iPhone (`390×844`, `0` lỗi tràn ngang).
+5. **Phụ thuộc:** `QA-02` (`PASS`).
+6. **Acceptance Criteria:** Toàn bộ 11 bước E2E trên trình duyệt thật hoàn thành với `0` lỗi console/pageerror, xuất đủ 9 ảnh chụp màn hình Desktop/iPhone và file báo giá mẫu `BG-202611-001.pdf`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — `node --test tests/web/printquote-playwright-e2e.test.mjs` đạt `1/1 PASS` (`4.93s`, `0 fail`).
+10. **Evidence (`VERIFIED`):** `tests/web/printquote-playwright-e2e.test.mjs`, bộ 9 ảnh chụp màn hình `qa03-01..qa03-09.png` và file `BG-202611-001.pdf`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu nghiệm thu thực tế trên MacBook; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `QA-04`.
+
+---
+
+### Task `QA-04` — Chạy Lại Toàn Bộ Kiểm Thử, Cập Nhật Hồ Sơ Dự Án & Bàn Giao Localhost Cho Owner Nghiệm Thu
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-QA`
+3. **Task ID:** `QA-04`
+4. **Mô tả:** Chạy lại toàn bộ các bộ kiểm thử (`lint`, `typecheck`, `build`, `build:web`, `check:bundle`, `test:security`, `test:db`, `printquote-*` backend tests, `test:web`), tổng hợp số lượng test thực tế chạy và kết quả `PASS/FAIL`, cung cấp ảnh chụp các màn hình chức năng + file PDF báo giá mẫu + địa chỉ `http://localhost:3001` đang hoạt động trên MacBook, ghi commit mới trên nhánh `feature/printquote-module-v1` và cập nhật `PROJECT_STATUS.md`, `AGENTS.md`, `docs/PHASE_TASK_HISTORY.md`.
+5. **Phụ thuộc:** `QA-03` (`PASS`).
+6. **Acceptance Criteria:** `500/500` tests thực chạy đạt `PASS` (`0 fail`), `0` lỗi ESLint/TypeScript, `http://localhost:3001` đang hoạt động sẵn sàng để Owner mở trình duyệt thử nghiệm trực tiếp; tuyệt đối không chạm Windows Production hoặc merge `main`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — `500/500 PASS` (`15/15` PrintQuote Backend/Concurrency/PDF + `428/432` Web/Playwright E2E + `28/28` Security + `29/29` DB; `4` test FIN QA skipped do dùng biến môi trường riêng), `eslint .` `0` lỗi, `tsc --noEmit` `0` lỗi, `check:bundle` `438.3 KB raw / 125.1 KB gzip` (`OK`).
+10. **Evidence (`VERIFIED`):** `PROJECT_STATUS.md`, `AGENTS.md`, `docs/PHASE_TASK_HISTORY.md`, dịch vụ DEV đang chạy tại `http://localhost:3001` (`task-702`).
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `PENDING_OWNER_REVIEW` _(Dừng tại bước bàn giao để Owner trực tiếp mở web thử nghiệm tại `http://localhost:3001` và phê duyệt nghiệm thu `APPROVED`)_
+13. **NEXT_ACTION:** Owner mở `http://localhost:3001` trên MacBook để kiểm tra trực tiếp và phê duyệt nghiệm thu (`APPROVED`). Chưa merge `main`, chưa phát hành Windows Production.

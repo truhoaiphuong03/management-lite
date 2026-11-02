@@ -8,8 +8,15 @@ import { requireCsrf } from '../auth/guard.js';
 import {
   calculatePrintQuote,
   buildCustomerSafePdfPayload,
+  assertCustomerSafePdfPayload,
+  type CustomerSafePdfPayload,
   type QuoteCalculationInput,
 } from '../../../../packages/contracts/src/printquote.js';
+import {
+  renderCustomerSafeA4PdfBuffer,
+  sanitizePdfFilename,
+  type ServerA4PdfMeta,
+} from '../printquote/pdf-renderer.js';
 import type { RouteRequestContext } from './router.js';
 
 export async function handlePrintQuoteRoutes(
@@ -95,6 +102,38 @@ export async function handlePrintQuoteRoutes(
         400,
       );
     }
+  }
+
+  // 2B. POST /api/v1/print-quotes/pdf-file (Direct binary A4 .pdf download for live/draft quote)
+  if (subPath === '/pdf-file' && method === 'POST') {
+    requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+    const body = await parseJsonBody<{
+      customer_pdf: CustomerSafePdfPayload;
+      meta?: ServerA4PdfMeta;
+    }>(req);
+    if (!body?.customer_pdf) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Thiếu dữ liệu customer_pdf để xuất file PDF A4.',
+        400,
+      );
+    }
+    assertCustomerSafePdfPayload(body.customer_pdf);
+    const quoteCode =
+      body.meta?.quoteCode || body.customer_pdf.quoteCode || 'BG-DRAFT';
+    const pdfBuf = await renderCustomerSafeA4PdfBuffer(body.customer_pdf, {
+      ...body.meta,
+      quoteCode,
+    });
+    const filename = sanitizePdfFilename(quoteCode);
+    res.writeHead(200, {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(pdfBuf.length),
+      'Cache-Control': 'no-store',
+    });
+    res.end(pdfBuf);
+    return true;
   }
 
   // 3. Vendors: /vendors & /vendors/:id
@@ -219,7 +258,7 @@ export async function handlePrintQuoteRoutes(
     }
   }
   const quoteMatch = subPath.match(
-    /^\/quotes\/([a-zA-Z0-9_-]+)(?:\/(finalize|pdf))?$/,
+    /^\/quotes\/([a-zA-Z0-9_-]+)(?:\/(finalize|pdf|pdf-file))?$/,
   );
   if (quoteMatch) {
     const quoteId = quoteMatch[1]!;
@@ -264,6 +303,31 @@ export async function handlePrintQuoteRoutes(
         quoteId,
       );
       sendJson(res, 200, createSuccessEnvelope(safePdf, requestId));
+      return true;
+    }
+    if (subAction === 'pdf-file' && method === 'GET') {
+      const quote = await printQuoteService.getQuote(sessionContext, quoteId);
+      const safePdf = quote.customer_pdf_json;
+      assertCustomerSafePdfPayload(safePdf);
+      const pdfBuf = await renderCustomerSafeA4PdfBuffer(safePdf, {
+        quoteCode: quote.quote_code,
+        quoteTitle: quote.title,
+        versionNo: quote.current_version,
+        createdAt: quote.created_at,
+        validUntil: quote.valid_until,
+        customerName: quote.customer_name,
+        customerPhone: quote.customer_phone,
+        customerAddress: quote.customer_address,
+        customerNotes: quote.notes,
+      });
+      const filename = sanitizePdfFilename(quote.quote_code);
+      res.writeHead(200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': String(pdfBuf.length),
+        'Cache-Control': 'no-store',
+      });
+      res.end(pdfBuf);
       return true;
     }
   }

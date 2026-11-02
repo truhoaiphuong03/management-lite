@@ -415,4 +415,396 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
     assert.equal(stats.orders_by_production_status.FINISHING, 1);
     assert.equal(stats.orders_by_delivery_status.PACKING, 1);
   });
+
+  it('3. QA-01: Chặn chuyển cùng một báo giá thành nhiều đơn hàng (Sequential & 5 Concurrent Requests)', async () => {
+    const qRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/quotes',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          title: 'Báo giá Kiểm tra Chống Trùng Đơn',
+          shipping_fee: 50000,
+          items: [
+            {
+              id: 'DUP-1',
+              name: 'Tờ rơi A5',
+              quantity: 100,
+              unitVendorCost: 300,
+              profitMode: 'FIXED_AMOUNT',
+              profitScope: 'PER_UNIT',
+              profitValue: 200,
+            },
+          ],
+        },
+      },
+    );
+    assert.equal(qRes.status, 201);
+    const quoteId = qRes.body.data.id;
+
+    // Bắn đồng thời 5 request chuyển cùng 1 báo giá thành đơn hàng
+    const concurrentResults = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/orders', {
+          cookie: ownerCookie,
+          csrfToken: ownerCsrf,
+          body: { quote_id: quoteId, deposit_paid: 20000 },
+        }),
+      ),
+    );
+
+    const createdCount = concurrentResults.filter(
+      (r) => r.status === 201,
+    ).length;
+    const conflictCount = concurrentResults.filter(
+      (r) => r.status === 409,
+    ).length;
+    assert.equal(
+      createdCount,
+      1,
+      'Chỉ duy nhất 1 request được phép tạo đơn hàng',
+    );
+    assert.equal(
+      conflictCount,
+      4,
+      '4 request đồng thời còn lại phải bị chặn với 409 CONFLICT',
+    );
+
+    // Gọi tuần tự thêm 1 lần nữa cũng phải bị chặn 409 CONFLICT
+    const seqRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/orders',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: { quote_id: quoteId },
+      },
+    );
+    assert.equal(seqRes.status, 409);
+    assert.equal(seqRes.body.error.code, 'CONFLICT');
+  });
+
+  it('4. QA-01: Cấp mã báo giá và mã đơn hàng đồng thời (Concurrency) & Không tái sử dụng mã khi xóa bản ghi', async () => {
+    // 1. Tạo đồng thời 8 báo giá không truyền quote_code
+    const quoteResponses = await Promise.all(
+      Array.from({ length: 8 }, (_, idx) =>
+        apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/quotes', {
+          cookie: ownerCookie,
+          csrfToken: ownerCsrf,
+          body: {
+            title: `Báo giá Đồng thời #${idx + 1}`,
+            shipping_fee: 10000,
+            items: [
+              {
+                id: `CONC-${idx + 1}`,
+                name: 'Danh thiếp',
+                quantity: 100,
+                unitVendorCost: 500,
+                profitMode: 'FIXED_AMOUNT',
+                profitScope: 'PER_UNIT',
+                profitValue: 300,
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    for (const r of quoteResponses) {
+      assert.equal(r.status, 201);
+    }
+    const quoteCodes = quoteResponses.map((r) => r.body.data.quote_code);
+    assert.equal(
+      new Set(quoteCodes).size,
+      8,
+      '8 báo giá tạo đồng thời phải có 8 mã quote_code duy nhất không trùng',
+    );
+
+    // 2. Chuyển đồng thời 8 báo giá đó sang 8 đơn hàng
+    const orderResponses = await Promise.all(
+      quoteResponses.map((qr) =>
+        apiRequest(baseUrl, 'POST', '/api/v1/print-quotes/orders', {
+          cookie: ownerCookie,
+          csrfToken: ownerCsrf,
+          body: { quote_id: qr.body.data.id },
+        }),
+      ),
+    );
+
+    for (const r of orderResponses) {
+      assert.equal(r.status, 201);
+    }
+    const orderCodes = orderResponses.map((r) => r.body.data.order_code);
+    assert.equal(
+      new Set(orderCodes).size,
+      8,
+      '8 đơn hàng tạo đồng thời phải có 8 mã order_code duy nhất không trùng',
+    );
+
+    // 3. Xóa 1 báo giá nháp trong DB và tạo báo giá mới -> Mã mới phải tăng tiếp, không được lùi về mã cũ (chứng minh không dùng COUNT(*) + 1)
+    const tempQuoteRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/quotes',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          title: 'Báo giá Tạm để xóa',
+          shipping_fee: 0,
+          items: [
+            {
+              id: 'DEL-1',
+              name: 'Nhãn dán',
+              quantity: 10,
+              unitVendorCost: 1000,
+              profitMode: 'FIXED_AMOUNT',
+              profitScope: 'PER_UNIT',
+              profitValue: 500,
+            },
+          ],
+        },
+      },
+    );
+    assert.equal(tempQuoteRes.status, 201);
+    const deletedQuoteCode = tempQuoteRes.body.data.quote_code;
+    await pool.query(`DELETE FROM print_quotes WHERE id = $1`, [
+      tempQuoteRes.body.data.id,
+    ]);
+
+    const afterDeleteRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/quotes',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          title: 'Báo giá Sau khi xóa',
+          shipping_fee: 0,
+          items: [
+            {
+              id: 'AFTER-DEL-1',
+              name: 'Nhãn dán 2',
+              quantity: 10,
+              unitVendorCost: 1000,
+              profitMode: 'FIXED_AMOUNT',
+              profitScope: 'PER_UNIT',
+              profitValue: 500,
+            },
+          ],
+        },
+      },
+    );
+    assert.equal(afterDeleteRes.status, 201);
+    assert.notEqual(
+      afterDeleteRes.body.data.quote_code,
+      deletedQuoteCode,
+      'Không được tái sử dụng mã báo giá đã xóa',
+    );
+  });
+
+  it('5. QA-01: Kiểm tra chính xác công nợ khi Đặt cọc, Thanh toán nhiều đợt, Hoàn tiền (REFUND) và Chặn thanh toán vượt tổng đơn (Overpayment)', async () => {
+    // Tạo báo giá chuẩn 100.000đ (100 tờ x (300đ vốn + 200đ lời) + 50.000đ ship)
+    const qRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/quotes',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          title: 'Báo giá Kiểm tra Công nợ 100k',
+          shipping_fee: 50000,
+          items: [
+            {
+              id: 'DEBT-100',
+              name: 'Tờ rơi A5 Chuẩn',
+              quantity: 100,
+              unitVendorCost: 300,
+              profitMode: 'FIXED_AMOUNT',
+              profitScope: 'PER_UNIT',
+              profitValue: 200,
+            },
+          ],
+        },
+      },
+    );
+    assert.equal(qRes.status, 201);
+    const quote = qRes.body.data;
+    assert.equal(quote.total_quote_amount, 100000);
+    assert.equal(quote.single_product_final_unit_price, 1000);
+
+    // A. Chặn đặt cọc vượt tổng đơn (150.000đ > 100.000đ)
+    const overDepositOrder = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/orders',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          quote_id: quote.id,
+          deposit_paid: 150000,
+        },
+      },
+    );
+    assert.equal(overDepositOrder.status, 400);
+
+    // B. Tạo đơn với đặt cọc 30.000đ -> Đã trả 30.000đ, Còn nợ 70.000đ (DEPOSIT_PAID)
+    const ordRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/orders',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          quote_id: quote.id,
+          deposit_required: 30000,
+          deposit_paid: 30000,
+        },
+      },
+    );
+    assert.equal(ordRes.status, 201);
+    const orderId = ordRes.body.data.id;
+    assert.equal(ordRes.body.data.total_paid_amount, 30000);
+    assert.equal(ordRes.body.data.remaining_debt_amount, 70000);
+    assert.equal(ordRes.body.data.payment_status, 'DEPOSIT_PAID');
+
+    // C. Thanh toán đợt 2: 40.000đ -> Đã trả 70.000đ, Còn nợ 30.000đ (PARTIALLY_PAID)
+    const pay1 = await apiRequest(
+      baseUrl,
+      'POST',
+      `/api/v1/print-quotes/orders/${orderId}/payments`,
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: { payment_type: 'INSTALLMENT', amount: 40000 },
+      },
+    );
+    assert.equal(pay1.status, 201);
+    assert.equal(pay1.body.data.total_paid_amount, 70000);
+    assert.equal(pay1.body.data.remaining_debt_amount, 30000);
+    assert.equal(pay1.body.data.payment_status, 'PARTIALLY_PAID');
+
+    // D. Chặn thanh toán vượt công nợ còn lại (đang nợ 30.000đ nhưng thu 50.000đ)
+    const overPay = await apiRequest(
+      baseUrl,
+      'POST',
+      `/api/v1/print-quotes/orders/${orderId}/payments`,
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: { payment_type: 'FINAL', amount: 50000 },
+      },
+    );
+    assert.equal(overPay.status, 400);
+
+    // E. Tất toán đúng 30.000đ còn lại -> Đã trả 100.000đ, Còn nợ 0đ (PAID)
+    const payFinal = await apiRequest(
+      baseUrl,
+      'POST',
+      `/api/v1/print-quotes/orders/${orderId}/payments`,
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: { payment_type: 'FINAL', amount: 30000 },
+      },
+    );
+    assert.equal(payFinal.status, 201);
+    assert.equal(payFinal.body.data.total_paid_amount, 100000);
+    assert.equal(payFinal.body.data.remaining_debt_amount, 0);
+    assert.equal(payFinal.body.data.payment_status, 'PAID');
+
+    // F. Hoàn tiền (REFUND) 25.000đ -> Đã trả giảm về 75.000đ, Công nợ tăng lên 25.000đ (PARTIALLY_PAID)
+    const refundOk = await apiRequest(
+      baseUrl,
+      'POST',
+      `/api/v1/print-quotes/orders/${orderId}/payments`,
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          payment_type: 'REFUND',
+          amount: 25000,
+          note: 'Hoàn tiền chiết khấu',
+        },
+      },
+    );
+    assert.equal(refundOk.status, 201);
+    assert.equal(refundOk.body.data.total_paid_amount, 75000);
+    assert.equal(refundOk.body.data.remaining_debt_amount, 25000);
+    assert.equal(refundOk.body.data.payment_status, 'PARTIALLY_PAID');
+
+    // G. Chặn hoàn tiền vượt quá số tiền đã thu (đã thu ròng 75.000đ nhưng hoàn 80.000đ)
+    const overRefund = await apiRequest(
+      baseUrl,
+      'POST',
+      `/api/v1/print-quotes/orders/${orderId}/payments`,
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: { payment_type: 'REFUND', amount: 80000 },
+      },
+    );
+    assert.equal(overRefund.status, 400);
+  });
+
+  it('6. QA-02: Xuất file .PDF A4 trực tiếp theo mã báo giá & Kiểm tra đơn giá sau phân bổ vận chuyển có làm tròn', async () => {
+    // Tạo báo giá có số lượng lẻ (3 hộp) để kiểm tra làm tròn đơn giá sau phân bổ vận chuyển:
+    // 3 hộp x (10.000đ vốn + 5.000đ lời) = 45.000đ + 55.000đ vận chuyển = 100.000đ
+    // Đơn giá sau gộp ship = round(100.000 / 3) = 33.333đ; 33.333 x 3 = 99.999đ; Hiệu chỉnh làm tròn = +1đ -> Tổng = 100.000đ
+    const qRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/quotes',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          title: 'Báo giá Kiểm tra Làm tròn & Xuất PDF',
+          shipping_fee: 55000,
+          include_shipping_in_unit_price: true,
+          items: [
+            {
+              id: 'ROUND-3',
+              name: 'Hộp giấy Ivory 350gsm',
+              unit: 'hộp',
+              quantity: 3,
+              unitVendorCost: 10000,
+              profitMode: 'FIXED_AMOUNT',
+              profitScope: 'PER_UNIT',
+              profitValue: 5000,
+            },
+          ],
+        },
+      },
+    );
+    assert.equal(qRes.status, 201);
+    const quote = qRes.body.data;
+    assert.equal(quote.total_quote_amount, 100000);
+    assert.equal(quote.single_product_final_unit_price, 33333);
+    assert.equal(quote.total_rounding_adjustment, 1);
+
+    // Tải trực tiếp file .pdf A4 theo mã báo giá
+    const pdfRes = await fetch(
+      `${baseUrl}/api/v1/print-quotes/quotes/${quote.id}/pdf-file`,
+      {
+        headers: { Cookie: ownerCookie },
+      },
+    );
+    assert.equal(pdfRes.status, 200);
+    assert.equal(pdfRes.headers.get('content-type'), 'application/pdf');
+    assert.equal(
+      pdfRes.headers.get('content-disposition'),
+      `attachment; filename="${quote.quote_code}.pdf"`,
+    );
+    const pdfBytes = Buffer.from(await pdfRes.arrayBuffer());
+    assert.ok(pdfBytes.length > 500);
+    assert.equal(pdfBytes.subarray(0, 5).toString('ascii'), '%PDF-');
+  });
 });

@@ -98,6 +98,72 @@ export class PrintQuoteService {
     }
   }
 
+  /**
+   * Cấp mã báo giá (`BG-YYYYMM-NNN`) hoặc mã đơn hàng (`DH-YYYYMM-NNN`) tuần tự,
+   * nguyên tử (atomic) trên PostgreSQL bằng bảng `print_code_counters` (`INSERT ... ON CONFLICT DO UPDATE`).
+   * Tuyệt đối KHÔNG dùng `COUNT(*) + 1` để tránh trùng mã khi nhiều request đồng thời
+   * và không bao giờ tái sử dụng mã cũ khi có bản ghi bị xóa.
+   */
+  private async allocateNextCode(
+    client: pg.PoolClient,
+    workspaceId: string,
+    kind: 'QUOTE' | 'ORDER',
+    explicitCode?: unknown,
+  ): Promise<string> {
+    const tableName = kind === 'QUOTE' ? 'print_quotes' : 'print_orders';
+    const codeColumn = kind === 'QUOTE' ? 'quote_code' : 'order_code';
+
+    if (typeof explicitCode === 'string' && explicitCode.trim()) {
+      const normalized = explicitCode.trim().toUpperCase();
+      const dupRes = await client.query(
+        `SELECT 1 FROM ${tableName} WHERE workspace_id = $1 AND ${codeColumn} = $2 LIMIT 1`,
+        [workspaceId, normalized],
+      );
+      if (dupRes.rows.length > 0) {
+        throw new AuthError(
+          'CONFLICT',
+          `Mã ${kind === 'QUOTE' ? 'báo giá' : 'đơn hàng'} "${normalized}" đã tồn tại.`,
+          409,
+        );
+      }
+      return normalized;
+    }
+
+    const now = new Date();
+    const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const prefix = kind === 'QUOTE' ? 'BG' : 'DH';
+    const counterKey = `${kind}:${ym}`;
+
+    for (let attempt = 0; attempt < 1000; attempt++) {
+      const counterRes = await client.query<{ last_value: string }>(
+        `INSERT INTO print_code_counters (workspace_id, counter_key, last_value, updated_at)
+         VALUES ($1, $2, 1, now())
+         ON CONFLICT (workspace_id, counter_key)
+         DO UPDATE SET
+           last_value = print_code_counters.last_value + 1,
+           updated_at = now()
+         RETURNING last_value::text AS last_value`,
+        [workspaceId, counterKey],
+      );
+      const seq = Number(counterRes.rows[0]?.last_value ?? 1);
+      const candidate = `${prefix}-${ym}-${String(seq).padStart(3, '0')}`;
+
+      const existsRes = await client.query(
+        `SELECT 1 FROM ${tableName} WHERE workspace_id = $1 AND ${codeColumn} = $2 LIMIT 1`,
+        [workspaceId, candidate],
+      );
+      if (existsRes.rows.length === 0) {
+        return candidate;
+      }
+    }
+
+    throw new AuthError(
+      'INTERNAL_ERROR',
+      'Không thể cấp mã tự động sau nhiều lần thử.',
+      500,
+    );
+  }
+
   private async withIdempotentTransaction<T>(
     ctx: AuthenticatedContext,
     method: string,
@@ -933,19 +999,32 @@ export class PrintQuoteService {
         }
         const mappedCat = this.mapPriceItemRow(cat);
         const rawProfit = raw['profit'] as Record<string, unknown> | undefined;
-        const profitOverride = rawProfit
-          ? {
-              mode:
-                rawProfit['mode'] === ProfitMode.PERCENTAGE
-                  ? ProfitMode.PERCENTAGE
-                  : ProfitMode.FIXED_AMOUNT,
-              scope:
-                rawProfit['scope'] === ProfitScope.TOTAL_BATCH
-                  ? ProfitScope.TOTAL_BATCH
-                  : ProfitScope.PER_UNIT,
-              value: Math.max(0, toNum(rawProfit['value'], 0)),
-            }
-          : undefined;
+        const explicitProfitVal =
+          rawProfit?.['value'] ?? raw['profit_value'] ?? raw['profitValue'];
+        const explicitProfitMode =
+          rawProfit?.['mode'] ?? raw['profit_mode'] ?? raw['profitMode'];
+        const explicitProfitScope =
+          rawProfit?.['scope'] ?? raw['profit_scope'] ?? raw['profitScope'];
+        const profitOverride =
+          rawProfit !== undefined ||
+          explicitProfitVal !== undefined ||
+          explicitProfitMode !== undefined ||
+          explicitProfitScope !== undefined
+            ? {
+                mode:
+                  explicitProfitMode === ProfitMode.PERCENTAGE
+                    ? ProfitMode.PERCENTAGE
+                    : ProfitMode.FIXED_AMOUNT,
+                scope:
+                  explicitProfitScope === ProfitScope.TOTAL_BATCH
+                    ? ProfitScope.TOTAL_BATCH
+                    : ProfitScope.PER_UNIT,
+                value: Math.max(
+                  0,
+                  toNum(explicitProfitVal, mappedCat.default_profit_value),
+                ),
+              }
+            : undefined;
 
         lines.push(
           buildQuoteLineFromVendorCatalogItem(
@@ -966,10 +1045,37 @@ export class PrintQuoteService {
                 typeof raw['unit'] === 'string' && raw['unit'].trim()
                   ? raw['unit'].trim()
                   : mappedCat.unit,
-              pricingMode: mappedCat.pricing_mode,
-              unitCost: mappedCat.unit_cost,
+              pricingMode:
+                raw['unitVendorCost'] !== undefined ||
+                raw['unit_vendor_cost'] !== undefined
+                  ? VendorCostMode.PER_UNIT
+                  : raw['totalVendorCost'] !== undefined ||
+                      raw['total_vendor_cost'] !== undefined
+                    ? VendorCostMode.TOTAL_BATCH
+                    : mappedCat.pricing_mode,
+              unitCost:
+                raw['unitVendorCost'] !== undefined ||
+                raw['unit_vendor_cost'] !== undefined
+                  ? Math.max(
+                      0,
+                      toNum(
+                        raw['unitVendorCost'] ?? raw['unit_vendor_cost'],
+                        mappedCat.unit_cost,
+                      ),
+                    )
+                  : mappedCat.unit_cost,
               batchQuantity: mappedCat.batch_quantity,
-              batchTotalCost: mappedCat.batch_total_cost,
+              batchTotalCost:
+                raw['totalVendorCost'] !== undefined ||
+                raw['total_vendor_cost'] !== undefined
+                  ? Math.max(
+                      0,
+                      toInt(
+                        raw['totalVendorCost'] ?? raw['total_vendor_cost'],
+                        mappedCat.batch_total_cost,
+                      ),
+                    )
+                  : mappedCat.batch_total_cost,
               defaultProfitMode: mappedCat.default_profit_mode,
               defaultProfitScope: mappedCat.default_profit_scope,
               defaultProfitValue: mappedCat.default_profit_value,
@@ -1013,17 +1119,21 @@ export class PrintQuoteService {
 
       const rawProfit = raw['profit'] as Record<string, unknown> | undefined;
       const profitMode: ProfitModeType =
-        (rawProfit?.['mode'] ?? raw['profit_mode']) === ProfitMode.PERCENTAGE
+        (rawProfit?.['mode'] ?? raw['profit_mode'] ?? raw['profitMode']) ===
+        ProfitMode.PERCENTAGE
           ? ProfitMode.PERCENTAGE
           : ProfitMode.FIXED_AMOUNT;
       const profitScope: ProfitScopeType =
-        (rawProfit?.['scope'] ?? raw['profit_scope']) ===
+        (rawProfit?.['scope'] ?? raw['profit_scope'] ?? raw['profitScope']) ===
         ProfitScope.TOTAL_BATCH
           ? ProfitScope.TOTAL_BATCH
           : ProfitScope.PER_UNIT;
       const profitVal = Math.max(
         0,
-        toNum(rawProfit?.['value'] ?? raw['profit_value'], 0),
+        toNum(
+          rawProfit?.['value'] ?? raw['profit_value'] ?? raw['profitValue'],
+          0,
+        ),
       );
 
       const lineItem: QuoteLineInput = {
@@ -1177,15 +1287,12 @@ export class PrintQuoteService {
           customerName = 'Khách lẻ';
         }
 
-        const countRes = await client.query<{ cnt: string }>(
-          `SELECT COUNT(*)::text AS cnt FROM print_quotes WHERE workspace_id = $1`,
-          [ctx.workspace.id],
+        const quoteCode = await this.allocateNextCode(
+          client,
+          ctx.workspace.id,
+          'QUOTE',
+          input['quote_code'],
         );
-        const nextNum = Number(countRes.rows[0]?.cnt ?? 0) + 1;
-        const quoteCode =
-          typeof input['quote_code'] === 'string' && input['quote_code'].trim()
-            ? input['quote_code'].trim().toUpperCase()
-            : `BG-${new Date().toISOString().slice(0, 7).replace('-', '')}-${String(nextNum).padStart(3, '0')}`;
 
         const title =
           typeof input['title'] === 'string' && input['title'].trim()
@@ -1830,6 +1937,34 @@ export class PrintQuoteService {
           );
         }
 
+        if (quoteRow['status'] === QuoteOrderStatus.CANCELLED) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'Không thể chuyển báo giá đã hủy thành đơn hàng.',
+            400,
+          );
+        }
+
+        // Kiểm tra chống chuyển trùng cùng một báo giá thành nhiều đơn hàng
+        const existingOrderRes = await client.query<{
+          id: string;
+          order_code: string;
+        }>(
+          `SELECT id, order_code FROM print_orders WHERE workspace_id = $1 AND quote_id = $2 LIMIT 1`,
+          [ctx.workspace.id, quoteId],
+        );
+        if (
+          existingOrderRes.rows.length > 0 ||
+          quoteRow['status'] === QuoteOrderStatus.CONVERTED
+        ) {
+          const existingCode = existingOrderRes.rows[0]?.order_code;
+          throw new AuthError(
+            'CONFLICT',
+            `Báo giá ${String(quoteRow['quote_code'])} đã được chuyển thành đơn hàng${existingCode ? ` (${existingCode})` : ''}. Không thể chuyển cùng một báo giá thành nhiều đơn hàng.`,
+            409,
+          );
+        }
+
         // Khóa báo giá sang trạng thái CONVERTED (chốt bất biến)
         await client.query(
           `UPDATE print_quotes
@@ -1840,15 +1975,12 @@ export class PrintQuoteService {
           [quoteId, ctx.workspace.id],
         );
 
-        const countRes = await client.query<{ cnt: string }>(
-          `SELECT COUNT(*)::text AS cnt FROM print_orders WHERE workspace_id = $1`,
-          [ctx.workspace.id],
+        const orderCode = await this.allocateNextCode(
+          client,
+          ctx.workspace.id,
+          'ORDER',
+          input['order_code'],
         );
-        const nextNum = Number(countRes.rows[0]?.cnt ?? 0) + 1;
-        const orderCode =
-          typeof input['order_code'] === 'string' && input['order_code'].trim()
-            ? input['order_code'].trim().toUpperCase()
-            : `DH-${new Date().toISOString().slice(0, 7).replace('-', '')}-${String(nextNum).padStart(3, '0')}`;
 
         const totalQuoteAmount = toInt(quoteRow['total_quote_amount'], 0);
         const expectedVendorCost = toInt(quoteRow['total_vendor_cost'], 0);
@@ -1874,16 +2006,34 @@ export class PrintQuoteService {
           actualShippingFee -
           actualExtraCost;
 
-        const depositRequired = Math.max(
-          0,
-          toInt(input['deposit_required'], 0),
-        );
-        const initialDepositPaid = Math.max(0, toInt(input['deposit_paid'], 0));
+        const rawDepositRequired = toInt(input['deposit_required'], 0);
+        const rawInitialDepositPaid = toInt(input['deposit_paid'], 0);
+        if (rawDepositRequired < 0 || rawInitialDepositPaid < 0) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'Số tiền đặt cọc không được âm.',
+            400,
+          );
+        }
+        if (rawDepositRequired > totalQuoteAmount) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `Số tiền yêu cầu đặt cọc (${rawDepositRequired} VND) không được vượt quá tổng giá trị đơn hàng (${totalQuoteAmount} VND).`,
+            400,
+          );
+        }
+        if (rawInitialDepositPaid > totalQuoteAmount) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `Số tiền đặt cọc ban đầu (${rawInitialDepositPaid} VND) không được vượt quá tổng giá trị đơn hàng (${totalQuoteAmount} VND).`,
+            400,
+          );
+        }
+
+        const depositRequired = rawDepositRequired;
+        const initialDepositPaid = rawInitialDepositPaid;
         const totalPaidAmount = initialDepositPaid;
-        const remainingDebtAmount = Math.max(
-          0,
-          totalQuoteAmount - totalPaidAmount,
-        );
+        const remainingDebtAmount = totalQuoteAmount - totalPaidAmount;
         const paymentStatus = this.computePaymentStatus(
           totalQuoteAmount,
           initialDepositPaid,
@@ -2170,6 +2320,53 @@ export class PrintQuoteService {
           throw new AuthError('NOT_FOUND', 'Không tìm thấy đơn hàng.', 404);
         }
 
+        const totalQuoteAmount = toInt(ord['total_quote_amount'], 0);
+
+        const existingPayRes = await client.query(
+          `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC, created_at ASC`,
+          [orderId, ctx.workspace.id],
+        );
+        const existingPayments = existingPayRes.rows.map((p) =>
+          this.mapPaymentRow(p),
+        );
+
+        let runningDepositPaid = 0;
+        let runningTotalPaid = 0;
+        for (const p of existingPayments) {
+          if (p.payment_type === 'REFUND') {
+            runningTotalPaid = Math.max(0, runningTotalPaid - p.amount);
+            runningDepositPaid = Math.min(runningDepositPaid, runningTotalPaid);
+          } else {
+            if (p.payment_type === 'DEPOSIT') {
+              runningDepositPaid += p.amount;
+            }
+            runningTotalPaid += p.amount;
+          }
+        }
+
+        const currentRemainingDebt = Math.max(
+          0,
+          totalQuoteAmount - runningTotalPaid,
+        );
+
+        if (paymentType === 'REFUND') {
+          if (amount > runningTotalPaid) {
+            throw new AuthError(
+              'VALIDATION_ERROR',
+              `Số tiền hoàn trả (${amount} VND) không được vượt quá tổng số tiền khách đã thanh toán (${runningTotalPaid} VND).`,
+              400,
+            );
+          }
+        } else {
+          if (amount > currentRemainingDebt) {
+            throw new AuthError(
+              'VALIDATION_ERROR',
+              `Số tiền thanh toán (${amount} VND) vượt quá công nợ còn lại của đơn hàng (${currentRemainingDebt} VND).`,
+              400,
+            );
+          }
+        }
+
         await client.query(
           `INSERT INTO print_order_payments (
             workspace_id, order_id, payment_type, amount, payment_method, reference_code, note, recorded_by
@@ -2191,7 +2388,7 @@ export class PrintQuoteService {
         );
 
         const payListRes = await client.query(
-          `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC`,
+          `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC, created_at ASC`,
           [orderId, ctx.workspace.id],
         );
         const payments = payListRes.rows.map((p) => this.mapPaymentRow(p));
@@ -2201,6 +2398,7 @@ export class PrintQuoteService {
         for (const p of payments) {
           if (p.payment_type === 'REFUND') {
             totalPaidAmount = Math.max(0, totalPaidAmount - p.amount);
+            depositPaid = Math.min(depositPaid, totalPaidAmount);
           } else {
             if (p.payment_type === 'DEPOSIT') {
               depositPaid += p.amount;
@@ -2209,7 +2407,6 @@ export class PrintQuoteService {
           }
         }
 
-        const totalQuoteAmount = toInt(ord['total_quote_amount'], 0);
         const remainingDebtAmount = Math.max(
           0,
           totalQuoteAmount - totalPaidAmount,

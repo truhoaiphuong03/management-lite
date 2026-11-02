@@ -173,11 +173,20 @@ CREATE TABLE IF NOT EXISTS print_orders (
   created_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT uq_print_orders_workspace_code UNIQUE (workspace_id, order_code)
+  CONSTRAINT uq_print_orders_workspace_code UNIQUE (workspace_id, order_code),
+  CONSTRAINT uq_print_orders_workspace_quote UNIQUE (workspace_id, quote_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_print_orders_workspace_created
   ON print_orders (workspace_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS print_code_counters (
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  counter_key text NOT NULL,
+  last_value bigint NOT NULL DEFAULT 0 CHECK (last_value >= 0),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (workspace_id, counter_key)
+);
 
 CREATE TABLE IF NOT EXISTS print_order_payments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -206,6 +215,7 @@ BEGIN
       print_quotes,
       print_quote_versions,
       print_orders,
+      print_code_counters,
       print_order_payments
     TO hp_app_runtime;
   END IF;
@@ -217,6 +227,7 @@ BEGIN
       print_quotes,
       print_quote_versions,
       print_orders,
+      print_code_counters,
       print_order_payments
     TO hp_app_test;
   END IF;

@@ -224,7 +224,7 @@ export function buildPrintQuoteA4Html(
       const unitLabel = escapeHtml(extra?.unit || item.unit || 'sp');
       const adjNote =
         item.roundingAdjustment !== 0
-          ? `<div class="item-split-note">Hiệu chỉnh làm tròn đơn giá: ${item.roundingAdjustment > 0 ? '+' : ''}${formatVnd(item.roundingAdjustment)}</div>`
+          ? `<div class="item-split-note">Đơn giá làm tròn: ${formatVnd(item.unitPrice)} × ${formatNumberVn(item.quantity)} = ${formatVnd(item.billedSubtotal)} (Hiệu chỉnh làm tròn: ${item.roundingAdjustment > 0 ? '+' : ''}${formatVnd(item.roundingAdjustment)})</div>`
           : '';
 
       return `
@@ -243,6 +243,20 @@ export function buildPrintQuoteA4Html(
       `;
     })
     .join('\n');
+
+  const roundingSummaryRowsHtml =
+    pdfPayload.totalRoundingAdjustment !== 0
+      ? `
+      <tr class="summary-row">
+        <td colspan="5" class="summary-label">Tạm tính theo đơn giá làm tròn:</td>
+        <td class="summary-val">${formatVnd(pdfPayload.subtotalFromLines)}</td>
+      </tr>
+      <tr class="summary-row">
+        <td colspan="5" class="summary-label">Hiệu chỉnh làm tròn đơn giá:</td>
+        <td class="summary-val">${pdfPayload.totalRoundingAdjustment > 0 ? '+' : ''}${formatVnd(pdfPayload.totalRoundingAdjustment)}</td>
+      </tr>
+    `
+      : '';
 
   const shippingRowHtml = pdfPayload.includeShippingInUnitPrice
     ? `
@@ -477,6 +491,7 @@ export function buildPrintQuoteA4Html(
       </thead>
       <tbody>
         ${rowsHtml}
+        ${roundingSummaryRowsHtml}
         <tr class="summary-row">
           <td colspan="5" class="summary-label">Cộng tiền hàng:</td>
           <td class="summary-val">${formatVnd(pdfPayload.subtotalFromLines + pdfPayload.totalRoundingAdjustment)}</td>
