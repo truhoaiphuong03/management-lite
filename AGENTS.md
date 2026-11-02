@@ -18,7 +18,7 @@
 
 ## 📌 1. LIVE_CHECKPOINT (ĐỌC DUY NHẤT MỤC NÀY ĐẦU PHIÊN — CẤM ĐỌC LẠI TOÀN BỘ SOURCE)
 
-- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.7.1`
+- **Dự án:** `management-lite` | **Nhánh:** `main` | **Version hiện tại:** `v0.7.2`
 - **Tiến độ lũy kế:** Hoàn tất **Phase 20 (`v0.6.0` — Hệ sinh thái Tài khoản 4 Tầng `SĐT ➔ Gmail ➔ TikTok/FB/YTB` + `GG Authenticator` + `TK Khôi phục`)** & **Phase 13/13 (`100%`)** của lộ trình nâng cấp toàn diện (`docs/plans/2026-10-30-system-upgrade-plan.md`, Master Plan `ML-03..05` & Đợt chuẩn hóa UI/UX Desktop + Mobile `v0.3.0`–`v0.3.2`):
   - ✅ **Phase 1 (`v0.1.4`):** Hồ sơ Nhân sự mở rộng + Ngân hàng + Nhắc SĐT (`migration 0030`) + Kích hoạt `Google Drive Live OAuth`, `ACCOUNT_SECRET_KEY`, `FIN_RECEIPT_DIR` (`96d3d1e`).
   - ✅ **Phase 2 (`v0.1.5`):** Mở khóa tính **Thưởng (`bonus`), Phụ cấp (`allowance`), Khấu trừ (`deduction`)** trong bảng lương & khi import Excel + Hiển thị **Số TK Ngân hàng & mã QR chuyển khoản (`VietQR`)** tự động trong cửa sổ Chi trả lương + Tự động ghi **Phiếu chi lương** vào **Sổ thu chi (`/finance`)** (`c4896f0`).
@@ -62,6 +62,7 @@
   - ✅ **Phase 29 (`v0.6.9` — Xuất CSV Tổng hợp Công theo Nhân viên, Duyệt nhanh Ca chờ 1-chạm, Đối soát Lương & Dọn sạch Sổ tay lỗi):** Bổ sung nút **Xuất CSV tổng hợp công** (`export-attendance-summary-csv`), nút **✓ Duyệt nhanh N ca** theo từng nhân sự (`approve-all-employee-shifts-*`), lối tắt **Đối soát Bảng lương →** (`goto-payroll-reconcile`) trên `/attendance`; mở khóa tham số `?limit=` trên `GET /api/v1/work-items` (`WorkService.list`) và hoàn tất xác nhận đóng toàn bộ 30 phiếu tồn đọng trong Sổ tay lỗi (`/issues`).
   - ✅ **Phase 30 (`v0.7.0` — Tối giản Lịch sử Chấm công theo Tháng, Tối ưu Giao diện Điện thoại & Chuẩn hóa Giao việc Nhân sự Media):** Rút gọn 6 tầng thanh công cụ trên `/attendance` xuống 1 thanh điều khiển duy nhất, bổ sung ô chọn **Tháng công riêng cho từng nhân viên** (`employee-month-selector-*`) ngay trên thẻ `NV001`/`NV002`/`ADM01` (mặc định hiển thị 5 ca kèm nút `▾ Xem thêm N ca`), mở rộng huy hiệu mã nhân viên + bỏ hiển thị giây `:ss` + Việt hóa `"Imported from timesheet"` → `"Bảng công Excel"`; chuẩn hóa biểu mẫu **Giao việc mới (`/work/new`)** cho nhân sự thực tế (thay các nút mẫu máy/AI kỹ thuật bằng 4 mẫu việc Media `+ Dựng Video`, `+ Viết Kịch bản / Nội dung`, `+ Đăng bài & Chăm sóc kênh`, `+ Thiết kế Ảnh / Thumbnail`, thêm nút chọn nhanh hạn chót 1-chạm và khử trùng lặp `ADM01`/`ADMIN`).
   - ✅ **Phase 31 (`v0.7.1` — Đưa mục Tài khoản lên Thanh menu đứng, Sắp xếp Thứ tự & Đặt tên Ngắn gọn 2 Chữ):** Tách `Tài khoản` (`/accounts`) thành mục điều hướng độc lập trên `DesktopSidebar`, sắp xếp lại 7 mục theo đúng luồng vận hành (`Tổng quan` ➔ `Công việc` ➔ `Chấm công` ➔ `Nhân sự` ➔ `Tài khoản` ➔ `Thu chi` ➔ `Quản trị`) và chuẩn hóa tên gọi đồng bộ 2 chữ ngắn gọn, dễ nhìn.
+  - ✅ **Phase 32 (`v0.7.2` — Phân quyền Nhân sự 3 Cấp `Staff / Admin / Owner` + 6 Nhóm Quyền phụ Chi tiết & Hoàn tất Kiểm toán Wave 1–2B):** Bổ sung vai trò **Quản lý phụ (`admin`)** + 6 nhóm quyền phụ (`attendance:review`, `work:manage`, `employees:manage`, `accounts:manage`, `payroll:manage`, `finance:manage`) (`migration 0032`), nút **Phân quyền / Sửa** 1-chạm trên `/employees`, bảo vệ chống tự hạ quyền/khóa Owner cuối cùng và hoàn tất 71/71 bộ kiểm thử cô lập trên PostgreSQL `:55433`.
 
 ---
 

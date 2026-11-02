@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.7.1';
-export const SYSTEM_COMMIT = 'a11d175';
+export const SYSTEM_VERSION = '0.7.2';
+export const SYSTEM_COMMIT = 'f09d04f';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -40,6 +40,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  * Bản 'latest' tự động gắn với commit thực tế của bản dựng mới nhất khi đóng gói và triển khai.
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
+  {
+    version: '0.7.2',
+    commit: 'latest',
+    released_at: '2026-11-02',
+    summary:
+      'Phân quyền Nhân sự 3 cấp (Nhân viên / Quản lý phụ - Admin / Chủ sở hữu - Owner) kèm 6 nhóm quyền phụ chi tiết (sub_permissions) & nút mở nhanh Phân quyền / Sửa',
+    added: [
+      'Bổ sung vai trò "Quản lý phụ (Admin vận hành)" và 6 nhóm quyền phụ chi tiết (Duyệt chấm công & lịch ca, Giao việc & duyệt báo cáo, Quản lý hồ sơ nhân sự, Quản lý Tài khoản dùng chung & Drive, Quản lý & chốt Bảng lương, Quản lý Sổ Thu chi) trong chỉnh sửa nhân sự (/employees/:id).',
+      'Thêm nút "Phân quyền / Sửa" mở nhanh 1-chạm từ danh sách nhân sự (/employees) vào thẳng chế độ chỉnh sửa phân quyền (/employees/:id?edit=1).',
+    ],
+    improved: [
+      'Tích hợp kiểm tra ủy quyền động (delegated RBAC) tại tầng phiên đăng nhập và cổng bảo vệ API kèm chặn Quản lý phụ tự ý chỉnh sửa/hạ quyền Chủ sở hữu.',
+      'Chuẩn hóa toàn bộ 71 tệp kiểm thử tự động trên môi trường PostgreSQL cô lập (:55433) kèm bảo vệ chống chạm cơ sở dữ liệu Production.',
+    ],
+    fixed: [
+      'Khắc phục lỗi thiếu đồng bộ phiên bản kiểm thử và khóa an toàn chống tự động hạ quyền Chủ sở hữu duy nhất.',
+    ],
+  },
   {
     version: '0.7.1',
     commit: 'latest',
