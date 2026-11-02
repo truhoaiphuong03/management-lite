@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import {
   assertCustomerSafePdfPayload,
@@ -26,7 +27,9 @@ export interface ServerA4PdfMeta {
   customerNotes?: string | null;
 }
 
-export function sanitizePdfFilename(quoteCode: string | null | undefined): string {
+export function sanitizePdfFilename(
+  quoteCode: string | null | undefined,
+): string {
   const base = (quoteCode || 'BG-DRAFT')
     .trim()
     .replace(/[^A-Za-z0-9_.-]/g, '-')
@@ -535,108 +538,125 @@ export function buildServerA4Html(
 </html>`;
 }
 
-const BROWSER_CANDIDATES = [
-  process.env['CHROME_BIN'],
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium',
-  '/usr/bin/chromium-browser',
-  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-].filter((p): p is string => Boolean(p && existsSync(p)));
-
-function buildFallbackPdfBuffer(
-  pdfPayload: CustomerSafePdfPayload,
-  meta: ServerA4PdfMeta,
-): Buffer {
-  assertCustomerSafePdfPayload(pdfPayload);
-  const lines: string[] = [
-    `BAO GIA DICH VU IN AN - ${meta.quoteCode || pdfPayload.quoteCode}`,
-    `Khach hang: ${meta.customerName || pdfPayload.customerName || 'Quy khach'}`,
-    `Tong thanh toan: ${formatVnd(pdfPayload.grandTotalPayable)}`,
-  ];
-  for (const item of pdfPayload.lines) {
-    lines.push(
-      `${item.index}. ${item.name} | SL: ${item.quantity} | Don gia: ${item.unitPrice} | Thanh tien: ${item.lineTotal}`,
-    );
+export class PdfRendererUnavailableError extends Error {
+  readonly code = 'PDF_RENDERER_UNAVAILABLE';
+  constructor(message: string) {
+    super(message);
+    this.name = 'PdfRendererUnavailableError';
   }
-  const streamBody = [
-    'BT',
-    '/F1 12 Tf',
-    '50 780 Td',
-    ...lines.map((l, idx) => {
-      const safeAscii = l
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/đ/g, 'd')
-        .replace(/Đ/g, 'D')
-        .replace(/[()\\]/g, '');
-      return `${idx === 0 ? '' : '0 -20 Td '}(${safeAscii}) Tj`;
-    }),
-    'ET',
-  ].join('\n');
+}
 
-  const objects = [
-    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
-    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
-    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n',
-    `4 0 obj\n<< /Length ${Buffer.byteLength(streamBody, 'utf8')} >>\nstream\n${streamBody}\nendstream\nendobj\n`,
-    '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+export function resolveBrowserCandidates(
+  env: Record<string, string | undefined> = process.env,
+): string[] {
+  const localAppData = env['LOCALAPPDATA'];
+  const programFiles = env['ProgramFiles'] || 'C:\\Program Files';
+  const programFilesX86 = env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+
+  const rawCandidates = [
+    env['CHROME_BIN'],
+    env['EDGE_BIN'],
+    join(programFiles, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    join(programFilesX86, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    localAppData
+      ? join(localAppData, 'Google', 'Chrome', 'Application', 'chrome.exe')
+      : undefined,
+    join(programFilesX86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    join(programFiles, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
   ];
 
-  let pdf = '%PDF-1.4\n';
-  const offsets: number[] = [];
-  for (const obj of objects) {
-    offsets.push(Buffer.byteLength(pdf, 'utf8'));
-    pdf += obj;
+  const seen = new Set<string>();
+  const resolved: string[] = [];
+  for (const candidate of rawCandidates) {
+    const trimmed = candidate?.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    if (existsSync(trimmed)) {
+      resolved.push(trimmed);
+    }
   }
-  const xrefStart = Buffer.byteLength(pdf, 'utf8');
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  for (const off of offsets) {
-    pdf += `${String(off).padStart(10, '0')} 00000 n \n`;
-  }
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
-  return Buffer.from(pdf, 'utf8');
+  return resolved;
 }
 
 export async function renderCustomerSafeA4PdfBuffer(
   pdfPayload: CustomerSafePdfPayload,
   meta: ServerA4PdfMeta,
+  env: Record<string, string | undefined> = process.env,
 ): Promise<Buffer> {
   assertCustomerSafePdfPayload(pdfPayload);
   const html = buildServerA4Html(pdfPayload, meta);
 
-  const browserBin = BROWSER_CANDIDATES[0];
-  if (!browserBin) {
-    return buildFallbackPdfBuffer(pdfPayload, meta);
+  const browserCandidates = resolveBrowserCandidates(env);
+  if (browserCandidates.length === 0) {
+    throw new PdfRendererUnavailableError(
+      'Không thể kết xuất file PDF A4 tiếng Việt: không tìm thấy trình duyệt Chromium/Chrome/Edge trên máy chủ để nhúng font Unicode tiếng Việt.',
+    );
   }
 
   const tempDir = await mkdtemp(join(tmpdir(), 'mglite-pq-pdf-'));
   const htmlPath = join(tempDir, 'quote.html');
-  const pdfPath = join(tempDir, 'quote.pdf');
+  const htmlFileUrl = pathToFileURL(htmlPath).href;
+  const errors: string[] = [];
 
   try {
     await writeFile(htmlPath, html, 'utf8');
-    await execFileAsync(
-      browserBin,
-      [
-        '--headless',
-        '--disable-gpu',
-        '--no-sandbox',
-        '--no-pdf-header-footer',
-        `--print-to-pdf=${pdfPath}`,
-        `file://${htmlPath}`,
-      ],
-      { timeout: 15_000 },
-    );
-    const pdfBuf = await readFile(pdfPath);
-    if (pdfBuf.length > 100 && pdfBuf.subarray(0, 5).toString('ascii') === '%PDF-') {
-      return pdfBuf;
+
+    for (let idx = 0; idx < browserCandidates.length; idx++) {
+      const browserBin = browserCandidates[idx]!;
+      for (const headlessArg of ['--headless=new', '--headless']) {
+        const pdfPath = join(
+          tempDir,
+          `quote-${idx}-${headlessArg.replace(/[^a-z]/g, '')}.pdf`,
+        );
+        const profileDir = join(
+          tempDir,
+          `profile-${idx}-${headlessArg.replace(/[^a-z]/g, '')}`,
+        );
+        try {
+          await execFileAsync(
+            browserBin,
+            [
+              headlessArg,
+              `--user-data-dir=${profileDir}`,
+              '--disable-gpu',
+              '--no-sandbox',
+              '--no-first-run',
+              '--no-default-browser-check',
+              '--disable-extensions',
+              '--no-pdf-header-footer',
+              `--print-to-pdf=${pdfPath}`,
+              htmlFileUrl,
+            ],
+            { timeout: 20_000 },
+          );
+          if (existsSync(pdfPath)) {
+            const pdfBuf = await readFile(pdfPath);
+            if (
+              pdfBuf.length > 1000 &&
+              pdfBuf.subarray(0, 5).toString('ascii') === '%PDF-'
+            ) {
+              return pdfBuf;
+            }
+          }
+          errors.push(
+            `${browserBin} (${headlessArg}): file PDF đầu ra không hợp lệ hoặc rỗng`,
+          );
+        } catch (err) {
+          errors.push(
+            `${browserBin} (${headlessArg}): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
     }
-    return buildFallbackPdfBuffer(pdfPayload, meta);
-  } catch {
-    return buildFallbackPdfBuffer(pdfPayload, meta);
+
+    throw new PdfRendererUnavailableError(
+      `Không thể kết xuất file PDF A4 tiếng Việt từ Chromium/Chrome/Edge (${errors.join(' | ')}). Hệ thống từ chối trả về PDF mất dấu tiếng Việt.`,
+    );
   } finally {
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }

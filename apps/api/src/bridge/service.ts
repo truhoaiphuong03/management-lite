@@ -100,10 +100,14 @@ interface PersistedBridgeCache {
 
 function getLocalBridgeCachePath(workspaceId: string): string {
   const configuredDir = process.env['MANAGEMENT_LITE_DATA_DIR']?.trim();
+  const cwd = process.cwd();
+  const isGitRepoWorkingTree = fs.existsSync(path.join(cwd, '.git'));
   const baseDir =
     configuredDir && configuredDir.length > 0
       ? configuredDir
-      : path.join(os.tmpdir(), 'management-lite-data', 'bridge-cache');
+      : isGitRepoWorkingTree
+        ? path.join(os.tmpdir(), 'management-lite-data', 'bridge-cache')
+        : path.join(cwd, '.data');
   return path.join(
     baseDir,
     `tiktok-v4-bridge-${encodeURIComponent(workspaceId)}.json`,

@@ -34,7 +34,11 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
     '1. NAV_GROUPS defines the approved groups including independent finance and accounts',
     () => {
       assert.ok(NAV_ITEMS.length > 0, 'NAV_ITEMS must contain items');
-      assert.equal(NAV_GROUPS.length, 8, 'Must define 8 groups including print-quotes');
+      assert.equal(
+        NAV_GROUPS.length,
+        8,
+        'Must define 8 groups including print-quotes',
+      );
       const groupIds = NAV_GROUPS.map((g) => g.id);
       assert.deepEqual(
         groupIds,

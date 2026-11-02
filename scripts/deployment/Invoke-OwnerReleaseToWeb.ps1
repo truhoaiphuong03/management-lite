@@ -1,24 +1,49 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-  One-Command Elevated Owner Release Ceremony for Management Lite.
+  Hardened One-Command Elevated Owner Release Ceremony for Management Lite (Phase 32 / v0.7.2).
   - Strictly enforces OS Kernel High-Integrity Elevated Administrator token (UAC).
-  - Automatically resolves GitHub Actions CI run & downloads official immutable bundle + CI receipt if needed.
-  - Signs SINGLE_SHA approval with allow_migration = true using Owner's passphrase via STDIN.
-  - Invokes locked Deploy-SemiAutoWindows.ps1 to apply pending migrations and atomically cut over API + Web.
+  - Performs 100% read-only preflight (parameter validation, controller SHA-256 verification, artifact + provenance + CI receipt checksum verification, and live GitHub Actions Run & Jobs API verification) BEFORE touching any ACLs or files on disk.
+  - Backs up encryption config (api.env) using Windows DPAPI (zero plaintext exposure).
+  - Captures a transactional snapshot of release-gate files (release-gate-policy.json, owner-approval-public.pem, approved-release.json, approval-audit.jsonl) and automatically restores them + re-locks NTFS ACLs in catch/finally if any step (signing, backup, migration, or deploy) fails.
+  - Invokes Deploy-SemiAutoWindows.ps1 with -RunMigrations and WITHOUT -SkipBackup so pre-cutover PostgreSQL backup and Migration 0032 execute safely before atomic runtime cutover.
 #>
 [CmdletBinding()]
 param(
   [string]$ArtifactsDir = 'C:\Projects\management-lite\dist\release-artifacts',
   [string]$CommitSha = '',
-  [int]$ExpiresInMinutes = 180
+  [int]$ExpiresInMinutes = 180,
+  [string]$ServerRoot = 'C:\HoaiPhuong-Server',
+  [string]$DeployControllerPath = '',
+  [string]$ExpectedControllerSha256 = '',
+  [string]$GitHubApiBaseUrl = 'https://api.github.com',
+  [switch]$EnrollNewPublicKey,
+  [switch]$DryRunPreflightOnly,
+  [switch]$SandboxMode,
+  [switch]$SimulateNonElevatedCaller,
+  [switch]$SimulateSigningFailureAfterPolicyWrite,
+  [switch]$SimulateBackupFailure,
+  [switch]$SimulateMigrationFailure
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$node = 'C:\HoaiPhuong-Server\config\runtime\node-v22.14.0-win-x64\node.exe'
-if (-not (Test-Path -LiteralPath $node)) { $node = 'node' }
+$realProdServerPrefix = [IO.Path]::GetFullPath('C:\HoaiPhuong-Server').TrimEnd('\', '/')
+$normServerRoot = [IO.Path]::GetFullPath($ServerRoot).TrimEnd('\', '/')
+$targetsProductionHost = (-not $SandboxMode) -or $normServerRoot.Equals($realProdServerPrefix, [StringComparison]::OrdinalIgnoreCase) -or $normServerRoot.StartsWith("$realProdServerPrefix\", [StringComparison]::OrdinalIgnoreCase)
+
+if ($SandboxMode -and ($normServerRoot.Equals($realProdServerPrefix, [StringComparison]::OrdinalIgnoreCase) -or $normServerRoot.StartsWith("$realProdServerPrefix\", [StringComparison]::OrdinalIgnoreCase))) {
+  throw "SANDBOX_VIOLATION_PRODUCTION_PATH_FORBIDDEN: SandboxMode cannot target Production ServerRoot '$ServerRoot'."
+}
+
+$node = Join-Path $realProdServerPrefix 'config\runtime\node-v22.14.0-win-x64\node.exe'
+if (-not (Test-Path -LiteralPath $node)) {
+  $node = 'C:\ML-Test\runtime\node\node.exe'
+}
+if (-not (Test-Path -LiteralPath $node)) {
+  $node = 'node'
+}
 
 # 1. OS KERNEL HIGH-INTEGRITY ELEVATED TOKEN CHECK
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -26,20 +51,60 @@ $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 $isElevatedAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 $hasHighIntegrity = @($identity.Groups | Where-Object { $_.Value -in @('S-1-16-12288', 'S-1-16-16384') }).Count -gt 0
 
-if (-not ($isElevatedAdmin -and $hasHighIntegrity)) {
-  throw 'SECURITY_VIOLATION_NON_ELEVATED_TOKEN: Invoke-OwnerReleaseToWeb.ps1 must be run in an Elevated Administrator PowerShell session (Run as Administrator).'
+if ($SimulateNonElevatedCaller -or ($targetsProductionHost -and (-not ($isElevatedAdmin -and $hasHighIntegrity)))) {
+  throw 'SECURITY_VIOLATION_NON_ELEVATED_TOKEN: Invoke-OwnerReleaseToWeb.ps1 requires an OS Kernel High-Integrity Elevated Administrator token (Run as Administrator). Non-elevated sessions are blocked fail-closed.'
 }
 
+if ($targetsProductionHost) {
+  $normGhApi = if ([string]::IsNullOrWhiteSpace($GitHubApiBaseUrl)) { 'https://api.github.com' } else { $GitHubApiBaseUrl.Trim().TrimEnd('/').ToLowerInvariant() }
+  if ($normGhApi -ne 'https://api.github.com') {
+    throw "REJECTED_NON_OFFICIAL_GITHUB_API_IN_PRODUCTION: Production release strictly requires official https://api.github.com (got '$GitHubApiBaseUrl')."
+  }
+  $GitHubApiBaseUrl = 'https://api.github.com'
+}
+
+# 2. PARAMETER & CONTROLLER PROVENANCE VALIDATION (BEFORE ANY DISK/ACL CHANGE)
 if ([string]::IsNullOrWhiteSpace($CommitSha)) {
-  $CommitSha = (git -C 'C:\Projects\management-lite' rev-parse HEAD).Trim().ToLowerInvariant()
+  $CommitSha = (git -C 'C:\Projects\management-lite' rev-parse HEAD 2>$null).Trim().ToLowerInvariant()
+} else {
+  $CommitSha = $CommitSha.Trim().ToLowerInvariant()
 }
 if ($CommitSha -notmatch '^[0-9a-f]{40}$') {
-  throw "Invalid CommitSha '$CommitSha'."
+  throw "REJECTED_INVALID_SHA: CommitSha '$CommitSha' must be a 40-character lowercase hexadecimal Git SHA."
+}
+if ($ExpiresInMinutes -lt 5 -or $ExpiresInMinutes -gt 1440) {
+  throw "REJECTED_INVALID_TTL: ExpiresInMinutes ($ExpiresInMinutes) must be between 5 and 1440 minutes."
 }
 
-# Resolve in-memory GitHub read token from GCM for private repo CI verification & artifact download
+$gateDir = Join-Path $ServerRoot 'config\release-gate'
+if ([string]::IsNullOrWhiteSpace($DeployControllerPath)) {
+  $DeployControllerPath = Join-Path $gateDir 'controllers\Deploy-SemiAutoWindows.ps1'
+}
+if (-not (Test-Path -LiteralPath $DeployControllerPath -PathType Leaf)) {
+  throw "REJECTED_CONTROLLER_MISSING: Deploy controller not found at '$DeployControllerPath'."
+}
+
+$actualControllerSha = (Get-FileHash -LiteralPath $DeployControllerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$trustedControllerHashes = @(
+  '7cfa9c134f2cd61412bd2bb2fd94789887fcd79784c12ae60a411b1c1267ee7e', # Locked Production Controller (v1)
+  '3b5708842693d19068d0664c2a14248f0244fff187e54cc9f8506c309cfb59c3'  # OA-21 Hardened Repo Controller (v2)
+)
+if (-not [string]::IsNullOrWhiteSpace($ExpectedControllerSha256)) {
+  $trustedControllerHashes = @($ExpectedControllerSha256.Trim().ToLowerInvariant())
+}
+if ($trustedControllerHashes -notcontains $actualControllerSha) {
+  throw "REJECTED_CONTROLLER_HASH_MISMATCH: Controller '$DeployControllerPath' SHA-256 ($actualControllerSha) is not in the trusted controller allowlist."
+}
+
+# Verify controller supports -RunMigrations so Migration 0032 is guaranteed to run
+$controllerRaw = Get-Content -LiteralPath $DeployControllerPath -Raw
+if ($controllerRaw -notmatch '\$RunMigrations') {
+  throw "REJECTED_CONTROLLER_INCOMPATIBLE: Controller '$DeployControllerPath' does not support -RunMigrations."
+}
+
+# 3. RESOLVE IN-MEMORY GITHUB TOKEN & DOWNLOAD ARTIFACT IF NEEDED (INTO NON-PRODUCTION ARTIFACTS DIR)
 $ghToken = $env:GITHUB_READONLY_TOKEN
-if ([string]::IsNullOrWhiteSpace($ghToken)) {
+if ([string]::IsNullOrWhiteSpace($ghToken) -and $targetsProductionHost) {
   $credIn = "protocol=https`nhost=github.com`n`n"
   $credOut = $credIn | git -C 'C:\Projects\management-lite' credential fill 2>$null
   $match = $credOut | Select-String '^password=(.+)$'
@@ -55,48 +120,37 @@ $shaSrc = "$tarSrc.sha256"
 $provSrc = "$tarSrc.provenance.json"
 $receiptSrc = Join-Path $ArtifactsDir "ci-run-receipt-$CommitSha.json"
 
+$apiHeaders = @{
+  Accept                 = 'application/vnd.github+json'
+  'User-Agent'           = 'ManagementLite-OwnerReleaseGate'
+  'X-GitHub-Api-Version' = '2022-11-28'
+}
+if (-not [string]::IsNullOrWhiteSpace($ghToken)) {
+  $apiHeaders['Authorization'] = "Bearer $ghToken"
+}
+
 if (-not (Test-Path -LiteralPath $receiptSrc -PathType Leaf)) {
-  if ([string]::IsNullOrWhiteSpace($ghToken)) {
-    throw "Missing $receiptSrc and no GitHub token available to download CI artifact."
+  if ([string]::IsNullOrWhiteSpace($ghToken) -and $targetsProductionHost) {
+    throw "REJECTED_ARTIFACT_MISSING: Missing '$receiptSrc' and no GitHub token available to query/download CI artifact."
   }
-  $headers = @{
-    Authorization          = "Bearer $ghToken"
-    Accept                 = 'application/vnd.github+json'
-    'User-Agent'           = 'ManagementLite-OwnerRelease'
-    'X-GitHub-Api-Version' = '2022-11-28'
+  Write-Host "[CI-PREFLIGHT] Querying GitHub Actions runs for commit $CommitSha..." -ForegroundColor Cyan
+  $runsResp = Invoke-RestMethod -Uri "$($GitHubApiBaseUrl.TrimEnd('/'))/repos/truhoaiphuong03/management-lite/actions/runs?head_sha=$CommitSha&per_page=10" -Headers $apiHeaders -Method Get -TimeoutSec 15
+  $candidateRuns = @($runsResp.workflow_runs | Where-Object { $_.path -in @('.github/workflows/foundation.yml', '.github/workflows/deploy.yml') -and $_.head_branch -eq 'main' })
+  if ($candidateRuns.Count -eq 0) {
+    throw "REJECTED_CI_NOT_PASSED: No GitHub Actions workflow run found on branch 'main' for commit $CommitSha."
   }
-  Write-Host "[CI-WAIT] Checking GitHub Actions CI run for commit $CommitSha..." -ForegroundColor Cyan
-  $matchedRun = $null
-  for ($attempt = 1; $attempt -le 60; $attempt++) {
-    $runsResp = Invoke-RestMethod -Uri "https://api.github.com/repos/truhoaiphuong03/management-lite/actions/runs?head_sha=$CommitSha&per_page=10" -Headers $headers -Method Get
-    $candidateRuns = @($runsResp.workflow_runs | Where-Object { $_.path -in @('.github/workflows/foundation.yml', '.github/workflows/deploy.yml') })
-    if ($candidateRuns.Count -gt 0) {
-      $latestRun = $candidateRuns[0]
-      if ($latestRun.status -eq 'completed') {
-        if ($latestRun.conclusion -ne 'success') {
-          throw "GitHub Actions run $($latestRun.id) completed with conclusion '$($latestRun.conclusion)' ($($latestRun.html_url))."
-        }
-        $matchedRun = $latestRun
-        break
-      }
-      Write-Host "  [$attempt/60] CI Run $($latestRun.id) is '$($latestRun.status)'... waiting 10s" -ForegroundColor DarkGray
-    } else {
-      Write-Host "  [$attempt/60] Waiting for GitHub Actions run to register..." -ForegroundColor DarkGray
-    }
-    Start-Sleep -Seconds 10
-  }
-  if (-not $matchedRun) {
-    throw "Timed out waiting for GitHub Actions CI run for $CommitSha."
+  $latestRun = $candidateRuns[0]
+  if ([string]$latestRun.status -ne 'completed' -or [string]$latestRun.conclusion -ne 'success') {
+    throw "REJECTED_CI_NOT_PASSED: GitHub Actions run $($latestRun.id) for $CommitSha is status='$($latestRun.status)', conclusion='$($latestRun.conclusion)'. Release is blocked fail-closed."
   }
 
-  Write-Host "[CI-DOWNLOAD] Downloading verified artifact bundle from CI Run $($matchedRun.id)..." -ForegroundColor Cyan
-  $artsResp = Invoke-RestMethod -Uri "https://api.github.com/repos/truhoaiphuong03/management-lite/actions/runs/$($matchedRun.id)/artifacts" -Headers $headers -Method Get
-  $targetArt = @($artsResp.artifacts | Where-Object { $_.name -eq "management-lite-release-$CommitSha" }) | Select-Object -First 1
+  $artsResp = Invoke-RestMethod -Uri "$($GitHubApiBaseUrl.TrimEnd('/'))/repos/truhoaiphuong03/management-lite/actions/runs/$($latestRun.id)/artifacts" -Headers $apiHeaders -Method Get -TimeoutSec 15
+  $targetArt = @($artsResp.artifacts | Where-Object { $_.name -eq "management-lite-release-$CommitSha" -and (-not $_.expired) }) | Select-Object -First 1
   if (-not $targetArt) {
-    throw "Artifact 'management-lite-release-$CommitSha' not found on CI run $($matchedRun.id)."
+    throw "REJECTED_ARTIFACT_MISSING: Official GitHub artifact 'management-lite-release-$CommitSha' not found on CI run $($latestRun.id)."
   }
   $zipPath = Join-Path $ArtifactsDir "gh-artifact-$CommitSha.zip"
-  Invoke-WebRequest -Uri $targetArt.archive_download_url -Headers $headers -OutFile $zipPath -UseBasicParsing
+  Invoke-WebRequest -Uri $targetArt.archive_download_url -Headers $apiHeaders -OutFile $zipPath -UseBasicParsing
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $extractTmp = Join-Path $ArtifactsDir "gh-extract-$CommitSha"
   if (Test-Path -LiteralPath $extractTmp) { Remove-Item -LiteralPath $extractTmp -Recurse -Force }
@@ -108,85 +162,260 @@ if (-not (Test-Path -LiteralPath $receiptSrc -PathType Leaf)) {
   Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
 }
 
+# 4. STRICT READ-ONLY VERIFICATION OF ARTIFACT, PROVENANCE, CI RECEIPT & LIVE GITHUB RUN/JOBS BEFORE ANY MUTATION
 foreach ($reqFile in @($tarSrc, $shaSrc, $provSrc, $receiptSrc)) {
   if (-not (Test-Path -LiteralPath $reqFile -PathType Leaf)) {
-    throw "Missing required verified release artifact or CI receipt: $reqFile"
+    throw "REJECTED_ARTIFACT_MISSING: Required verified release artifact file is missing: '$reqFile'."
   }
 }
 
+$actualTarSha = (Get-FileHash -LiteralPath $tarSrc -Algorithm SHA256).Hash.ToLowerInvariant()
+$sidecarSha = ((Get-Content -LiteralPath $shaSrc -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
 $prov = Get-Content -LiteralPath $provSrc -Raw | ConvertFrom-Json
 $receipt = Get-Content -LiteralPath $receiptSrc -Raw | ConvertFrom-Json
 
-$ArtifactSha256 = [string]$prov.sha256.Trim().ToLowerInvariant()
+$provCommit = if ($prov.PSObject.Properties.Name -contains 'commitSha' -and $prov.commitSha) { [string]$prov.commitSha } elseif ($prov.PSObject.Properties.Name -contains 'sha' -and $prov.sha) { [string]$prov.sha } else { '' }
+$provSha256 = [string]$prov.sha256.Trim().ToLowerInvariant()
 $SchemaSha256 = [string]$prov.schemaIdentity.Trim().ToLowerInvariant()
-$CiRunId = [string]$receipt.run_id.Trim()
+
+if ($actualTarSha -ne $sidecarSha -or $actualTarSha -ne $provSha256 -or $provCommit.Trim().ToLowerInvariant() -ne $CommitSha -or $SchemaSha256 -notmatch '^[0-9a-f]{64}$') {
+  throw "REJECTED_ARTIFACT_CHECKSUM_MISMATCH: Artifact SHA-256 ($actualTarSha), sidecar ($sidecarSha), provenance ($provSha256 / $provCommit), or schemaIdentity ($SchemaSha256) mismatch."
+}
+
+if (($receipt.PSObject.Properties.Name -contains 'synthetic_local' -and [bool]$receipt.synthetic_local) -or
+    ($receipt.PSObject.Properties.Name -contains 'simulated' -and [bool]$receipt.simulated) -or
+    (-not ($receipt.PSObject.Properties.Name -contains 'generated_at_utc')) -or
+    [string]::IsNullOrWhiteSpace([string]$receipt.generated_at_utc)) {
+  throw 'REJECTED_SYNTHETIC_CI_RECEIPT: Synthetic or self-generated CI receipt is forbidden.'
+}
+
+$CiRunId = if ($receipt.PSObject.Properties.Name -contains 'run_id' -and $receipt.run_id) { [string]$receipt.run_id.Trim() } else { [string]$receipt.id.Trim() }
 $CiRunAttempt = [int]$receipt.run_attempt
 $WorkflowPath = [string]$receipt.workflow_path.Trim()
 $SourceBranch = [string]$receipt.head_branch.Trim()
+$receiptSha = [string]$receipt.head_sha.Trim().ToLowerInvariant()
+$receiptArtSha = [string]$receipt.artifact_sha256.Trim().ToLowerInvariant()
+$receiptSchemaSha = [string]$receipt.schema_sha256.Trim().ToLowerInvariant()
+$receiptStatus = [string]$receipt.status.Trim().ToLowerInvariant()
+$receiptConclusion = [string]$receipt.conclusion.Trim().ToLowerInvariant()
+
+if ($receiptSha -ne $CommitSha -or $receiptArtSha -ne $actualTarSha -or $receiptSchemaSha -ne $SchemaSha256 -or $receiptStatus -ne 'completed' -or $receiptConclusion -ne 'success' -or $SourceBranch -ne 'main') {
+  throw "REJECTED_CI_RECEIPT_MISMATCH: CI receipt does not match target SHA, artifact digest, schemaIdentity, branch='main', or status=completed/success."
+}
+
+# Verify live GitHub Actions Run & Jobs API before prompting or unlocking ACLs
+$liveRunUrl = "$($GitHubApiBaseUrl.TrimEnd('/'))/repos/truhoaiphuong03/management-lite/actions/runs/$CiRunId"
+try {
+  $liveRun = Invoke-RestMethod -Uri $liveRunUrl -Headers $apiHeaders -Method Get -TimeoutSec 15
+} catch {
+  throw "REJECTED_GITHUB_API_CI_VERIFICATION_FAILED: Failed to query live GitHub Actions run '$liveRunUrl': $($_.Exception.Message)"
+}
+
+if ([string]$liveRun.id -ne $CiRunId -or
+    [string]$liveRun.head_sha.Trim().ToLowerInvariant() -ne $CommitSha -or
+    [string]$liveRun.status.Trim().ToLowerInvariant() -ne 'completed' -or
+    [string]$liveRun.conclusion.Trim().ToLowerInvariant() -ne 'success' -or
+    [string]$liveRun.head_branch.Trim() -ne 'main') {
+  throw "REJECTED_CI_NOT_PASSED: Live GitHub Actions run $CiRunId failed verification (sha=$($liveRun.head_sha), status=$($liveRun.status), conclusion=$($liveRun.conclusion), branch=$($liveRun.head_branch))."
+}
+
+$liveJobsUrl = "$($GitHubApiBaseUrl.TrimEnd('/'))/repos/truhoaiphuong03/management-lite/actions/runs/$CiRunId/jobs"
+try {
+  $liveJobsResp = Invoke-RestMethod -Uri $liveJobsUrl -Headers $apiHeaders -Method Get -TimeoutSec 15
+  if ($liveJobsResp -and ($liveJobsResp.PSObject.Properties.Name -contains 'jobs')) {
+    $failedJobs = @($liveJobsResp.jobs | Where-Object { [string]$_.status -ne 'completed' -or [string]$_.conclusion -ne 'success' })
+    if ($failedJobs.Count -gt 0) {
+      $failedNames = ($failedJobs | ForEach-Object { "$($_.name):$($_.conclusion)" }) -join ', '
+      throw "REJECTED_CI_JOBS_NOT_PASSED: One or more mandatory CI jobs did not succeed ($failedNames)."
+    }
+  }
+} catch {
+  if ($_.Exception.Message -match '^REJECTED_CI_JOBS_NOT_PASSED:') { throw }
+  throw "REJECTED_GITHUB_API_CI_VERIFICATION_FAILED: Failed to verify CI jobs for run ${CiRunId}: $($_.Exception.Message)"
+}
+
+if ($DryRunPreflightOnly) {
+  Write-Host "[PREFLIGHT-PASS] All controller, artifact, schema ($SchemaSha256), CI receipt, and live GitHub Run ($CiRunId) checks passed (Zero disk mutations)." -ForegroundColor Green
+  return
+}
 
 Write-Host '==================================================================' -ForegroundColor Cyan
 Write-Host ' MANAGEMENT LITE - OWNER ONE-STEP RELEASE & MIGRATION CEREMONY' -ForegroundColor Cyan
 Write-Host " Principal       : $($identity.Name) (High-Integrity Elevated Token)" -ForegroundColor Yellow
 Write-Host " Target SHA      : $CommitSha" -ForegroundColor Yellow
-Write-Host " Artifact SHA256 : $ArtifactSha256" -ForegroundColor Yellow
+Write-Host " Artifact SHA256 : $actualTarSha" -ForegroundColor Yellow
 Write-Host " Schema SHA256   : $SchemaSha256" -ForegroundColor Yellow
 Write-Host " CI Run ID       : $CiRunId ($WorkflowPath on $SourceBranch)" -ForegroundColor Yellow
-Write-Host ' Mode            : SINGLE_SHA (allow_migration = true)' -ForegroundColor Yellow
+Write-Host ' Mode            : SINGLE_SHA (allow_migration = true, -RunMigrations = true, Pre-Deploy Backup = ENABLED)' -ForegroundColor Yellow
 Write-Host '==================================================================' -ForegroundColor Cyan
 
-$secPass = Read-Host -Prompt 'Nhap mat khau ky Owner (Passphrase/PIN bi mat >= 12 ky tu)' -AsSecureString
-$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secPass)
 $plainPass = ''
-try {
-  $plainPass = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
-} finally {
-  if ($bstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+if ($SandboxMode -and (-not [string]::IsNullOrWhiteSpace($env:SANDBOX_TEST_OWNER_PASSPHRASE))) {
+  $plainPass = $env:SANDBOX_TEST_OWNER_PASSPHRASE
+} else {
+  $secPass = Read-Host -Prompt 'Nhap mat khau ky Owner (Passphrase/PIN bi mat >= 12 ky tu)' -AsSecureString
+  $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secPass)
+  try {
+    $plainPass = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+  } finally {
+    if ($bstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+  }
 }
 
 if ([string]::IsNullOrWhiteSpace($plainPass) -or $plainPass.Length -lt 12) {
   $plainPass = ''
-  throw 'Passphrase must be at least 12 characters.'
+  throw 'REJECTED_INVALID_PASSPHRASE: Owner passphrase must be at least 12 characters.'
 }
 
-$stageDir = "C:\HoaiPhuong-Server\releases\management-lite\artifacts\$CommitSha"
-New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
-Copy-Item -LiteralPath $tarSrc -Destination "$stageDir\management-lite-full-$CommitSha.tar.gz" -Force
-Copy-Item -LiteralPath $shaSrc -Destination "$stageDir\management-lite-full-$CommitSha.tar.gz.sha256" -Force
-Copy-Item -LiteralPath $provSrc -Destination "$stageDir\management-lite-full-$CommitSha.tar.gz.provenance.json" -Force
-Copy-Item -LiteralPath $receiptSrc -Destination "$stageDir\ci-run-receipt-$CommitSha.json" -Force
+function Lock-ReleaseGateDirectoryAcl {
+  param([string]$TargetGateDir, [bool]$IsProdTarget)
+  if (-not (Test-Path -LiteralPath $TargetGateDir)) { return }
+  $adminPrincipal = if ($IsProdTarget) { 'DESKTOP-8T8UHTS\ADMIN' } else { [Security.Principal.WindowsIdentity]::GetCurrent().Name }
+  $dirGrant = if ($IsProdTarget) { "${adminPrincipal}:(OI)(CI)RX" } else { "${adminPrincipal}:(OI)(CI)(RX,WDAC)" }
+  $fileGrant = if ($IsProdTarget) { "${adminPrincipal}:RX" } else { "${adminPrincipal}:(RX,WDAC)" }
+  $ownerDirGrant = if ($IsProdTarget) { '*S-1-3-4:(OI)(CI)RX' } else { '*S-1-3-4:(OI)(CI)(RX,WDAC)' }
+  $ownerFileGrant = if ($IsProdTarget) { '*S-1-3-4:RX' } else { '*S-1-3-4:(RX,WDAC)' }
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $children = @(Get-ChildItem -LiteralPath $TargetGateDir -Recurse -Force -ErrorAction SilentlyContinue | Sort-Object { $_.FullName.Length } -Descending)
+    foreach ($child in $children) {
+      if ($child.PSIsContainer) {
+        & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" $dirGrant $ownerDirGrant "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" 2>$null | Out-Null
+      } elseif ($child.Name -eq 'github-pat.dpapi') {
+        & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" $fileGrant $ownerFileGrant /deny "*S-1-5-19:F" "*S-1-5-20:F" 2>$null | Out-Null
+      } else {
+        & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" $fileGrant $ownerFileGrant "*S-1-5-19:R" "*S-1-5-20:R" /deny "*S-1-5-19:(W,M,D,WDAC,WO)" "*S-1-5-20:(W,M,D,WDAC,WO)" 2>$null | Out-Null
+      }
+    }
+    & icacls.exe $TargetGateDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" $dirGrant $ownerDirGrant "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" 2>$null | Out-Null
+  } finally {
+    $ErrorActionPreference = $prevEap
+  }
+}
 
-$gateDir = 'C:\HoaiPhuong-Server\config\release-gate'
+function Unlock-ReleaseGateDirectoryAcl {
+  param([string]$TargetGateDir, [bool]$IsElevated, [string]$CallerPrincipal)
+  if (-not (Test-Path -LiteralPath $TargetGateDir)) { return }
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    if ($IsElevated) {
+      & takeown.exe /F $TargetGateDir /A /R /D Y 2>$null | Out-Null
+    }
+    & icacls.exe $TargetGateDir /remove "*S-1-3-4" 2>$null | Out-Null
+    & icacls.exe $TargetGateDir /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${CallerPrincipal}:(OI)(CI)F" "*S-1-3-4:(OI)(CI)F" 2>$null | Out-Null
+    $children = @(Get-ChildItem -LiteralPath $TargetGateDir -Recurse -Force -ErrorAction SilentlyContinue)
+    foreach ($child in $children) {
+      & icacls.exe $child.FullName /remove "*S-1-3-4" 2>$null | Out-Null
+      if ($child.PSIsContainer) {
+        & icacls.exe $child.FullName /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${CallerPrincipal}:(OI)(CI)F" "*S-1-3-4:(OI)(CI)F" 2>$null | Out-Null
+      } else {
+        & icacls.exe $child.FullName /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "${CallerPrincipal}:F" "*S-1-3-4:F" 2>$null | Out-Null
+      }
+    }
+  } finally {
+    $ErrorActionPreference = $prevEap
+  }
+}
+
 $policyPath = Join-Path $gateDir 'release-gate-policy.json'
 $pubKeyPath = Join-Path $gateDir 'owner-approval-public.pem'
 $manifestPath = Join-Path $gateDir 'approved-release.json'
 $auditLogPath = Join-Path $gateDir 'approval-audit.jsonl'
-$watermarkPath = 'C:\HoaiPhuong-Server\reports\approval-watermark.json'
+$gateReceiptPath = Join-Path $gateDir "ci-run-receipt-$CommitSha.json"
+$watermarkPath = Join-Path $ServerRoot 'reports\approval-watermark.json'
 
-# Unlock release-gate ACL temporarily for elevated write
-& takeown.exe /F $gateDir /A /R /D Y 2>$null | Out-Null
-& icacls.exe $gateDir /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "*S-1-3-4:(OI)(CI)F" /T /C 2>$null | Out-Null
-
-Copy-Item -LiteralPath $receiptSrc -Destination (Join-Path $gateDir "ci-run-receipt-$CommitSha.json") -Force
-
-$sequence = 2
-if (Test-Path -LiteralPath $watermarkPath) {
-  $wm = Get-Content -LiteralPath $watermarkPath -Raw | ConvertFrom-Json
-  if ($null -ne $wm.last_sequence) { $sequence = [int]$wm.last_sequence + 1 }
+if (-not (Test-Path -LiteralPath $policyPath -PathType Leaf)) {
+  $plainPass = ''
+  throw "REJECTED_NO_POLICY: Missing release-gate-policy.json at '$policyPath'."
 }
 
-$prevHash = '0' * 64
-if (Test-Path -LiteralPath $auditLogPath) {
-  $lines = @(Get-Content -LiteralPath $auditLogPath | Where-Object { $_.Trim() -ne '' })
-  if ($lines.Count -gt 0) {
-    $lastObj = $lines[-1] | ConvertFrom-Json
-    if ($lastObj.entry_hash) { $prevHash = [string]$lastObj.entry_hash }
-    $sequence = $lines.Count + 1
+# 5. CAPTURE TRANSACTIONAL IN-MEMORY BACKUP OF GATE FILES BEFORE UNLOCKING OR MODIFYING ANYTHING
+$gateSnapshot = @{}
+foreach ($gf in @($policyPath, $pubKeyPath, $manifestPath, $auditLogPath, $gateReceiptPath)) {
+  if (Test-Path -LiteralPath $gf -PathType Leaf) {
+    $gateSnapshot[$gf] = @{
+      Existed = $true
+      Bytes   = [IO.File]::ReadAllBytes($gf)
+    }
+  } else {
+    $gateSnapshot[$gf] = @{
+      Existed = $false
+      Bytes   = $null
+    }
   }
 }
 
-$winPrincipal = $identity.Name
+function Restore-GateSnapshot {
+  foreach ($kv in $gateSnapshot.GetEnumerator()) {
+    $targetFile = $kv.Key
+    $state = $kv.Value
+    if ($state.Existed) {
+      [IO.File]::WriteAllBytes($targetFile, $state.Bytes)
+    } elseif ([IO.File]::Exists($targetFile)) {
+      [IO.File]::Delete($targetFile)
+    }
+  }
+}
 
-$jsInline = @'
+# 6. DPAPI-ENCRYPTED BACKUP OF PRODUCTION ENCRYPTION KEYS (api.env) BEFORE MIGRATION/DEPLOY
+$apiEnvPath = Join-Path $ServerRoot 'config\test-secrets\api.env'
+if (Test-Path -LiteralPath $apiEnvPath -PathType Leaf) {
+  $dpapiBackupDir = Join-Path $ServerRoot 'backups\secrets-dpapi'
+  New-Item -ItemType Directory -Path $dpapiBackupDir -Force | Out-Null
+  $apiEnvRaw = [IO.File]::ReadAllText($apiEnvPath, [Text.Encoding]::UTF8)
+  $apiEnvSha = (Get-FileHash -LiteralPath $apiEnvPath -Algorithm SHA256).Hash.ToUpperInvariant()
+  $secEnv = ConvertTo-SecureString -String $apiEnvRaw -AsPlainText -Force
+  $dpapiStr = ConvertFrom-SecureString -SecureString $secEnv
+  $apiEnvRaw = ''
+  $dpapiFile = Join-Path $dpapiBackupDir 'api.env.dpapi'
+  Set-Content -LiteralPath $dpapiFile -Value $dpapiStr -Encoding UTF8 -Force
+  @{
+    Algorithm      = 'SHA256'
+    SourceSha256   = $apiEnvSha
+    DpapiSha256    = (Get-FileHash -LiteralPath $dpapiFile -Algorithm SHA256).Hash.ToUpperInvariant()
+    BackedUpAtUtc  = (Get-Date).ToUniversalTime().ToString('o')
+  } | ConvertTo-Json | Set-Content -LiteralPath "$dpapiFile.sha256.json" -Encoding UTF8 -Force
+}
+
+$stageDir = Join-Path $ServerRoot "releases\management-lite\artifacts\$CommitSha"
+New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+Copy-Item -LiteralPath $tarSrc -Destination (Join-Path $stageDir "management-lite-full-$CommitSha.tar.gz") -Force
+Copy-Item -LiteralPath $shaSrc -Destination (Join-Path $stageDir "management-lite-full-$CommitSha.tar.gz.sha256") -Force
+Copy-Item -LiteralPath $provSrc -Destination (Join-Path $stageDir "management-lite-full-$CommitSha.tar.gz.provenance.json") -Force
+Copy-Item -LiteralPath $receiptSrc -Destination (Join-Path $stageDir "ci-run-receipt-$CommitSha.json") -Force
+
+$gateMutated = $false
+try {
+  # Unlock release-gate ACL temporarily for elevated transactional write
+  Unlock-ReleaseGateDirectoryAcl -TargetGateDir $gateDir -IsElevated $isElevatedAdmin -CallerPrincipal $identity.Name
+  $gateMutated = $true
+  Copy-Item -LiteralPath $receiptSrc -Destination $gateReceiptPath -Force
+
+  $sequence = 1
+  if (Test-Path -LiteralPath $watermarkPath -PathType Leaf) {
+    $wm = Get-Content -LiteralPath $watermarkPath -Raw | ConvertFrom-Json
+    if ($null -ne $wm.last_sequence) { $sequence = [int]$wm.last_sequence + 1 }
+  }
+
+  $prevHash = '0' * 64
+  if (Test-Path -LiteralPath $auditLogPath -PathType Leaf) {
+    $lines = @(Get-Content -LiteralPath $auditLogPath | Where-Object { $_.Trim() -ne '' })
+    if ($lines.Count -gt 0) {
+      $lastObj = $lines[-1] | ConvertFrom-Json
+      if ($lastObj.entry_hash) { $prevHash = [string]$lastObj.entry_hash }
+      if ($lines.Count + 1 -gt $sequence) {
+        $sequence = $lines.Count + 1
+      }
+    }
+  }
+
+  $winPrincipal = $identity.Name
+  $enrollFlag = if ($EnrollNewPublicKey) { 'true' } else { 'false' }
+  $simSignFailFlag = if ($SimulateSigningFailureAfterPolicyWrite) { 'true' } else { 'false' }
+
+  $jsInline = @'
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 
@@ -207,6 +436,8 @@ const [
   winPrincipal,
   prevHash,
   ttlMinutesStr,
+  enrollNewKeyStr,
+  simFailAfterPolicyStr,
 ] = process.argv.slice(1);
 
 const REVOKED_KEY_SHA256 = '2e92bb4a96b8f60da691d309399b494b20bdbe60aa3b39c2add7313e0441931e';
@@ -234,23 +465,39 @@ if (revokedSet.has(pubSha256)) {
   throw new Error('REJECTED_REVOKED_PUBLIC_KEY: Derived public key is in revoked_public_key_sha256s.');
 }
 
-const updatedPolicy = {
-  version: 1,
-  repository: 'truhoaiphuong03/management-lite',
-  allowed_approvers: ['Owner', 'truhoaiphuong03'],
-  require_independent_ci_receipt: true,
-  require_github_api_verification: true,
-  github_api_base_url: 'https://api.github.com',
-  allowed_ci_events: ['workflow_dispatch', 'push'],
-  allowed_workflow_paths: ['.github/workflows/deploy.yml', '.github/workflows/foundation.yml'],
-  allowed_source_branch: 'main',
-  key_status: 'ACTIVE_OWNER_ENROLLED',
-  revoked_public_key_sha256s: Array.from(revokedSet),
-  trusted_public_key_sha256: pubSha256,
-  trusted_public_key_pem: pubPem,
-};
-fs.writeFileSync(pubKeyPath, pubPem, 'utf8');
-fs.writeFileSync(policyPath, JSON.stringify(updatedPolicy, null, 2), 'utf8');
+const existingTrustedFp = String(existingPolicy.trusted_public_key_sha256 || '').trim().toLowerCase();
+const isCurrentlyEnrolled = /^[0-9a-f]{64}$/.test(existingTrustedFp) && !revokedSet.has(existingTrustedFp);
+
+if (!isCurrentlyEnrolled) {
+  if (enrollNewKeyStr !== 'true') {
+    throw new Error('REJECTED_UNENROLLED_POLICY_KEY: Policy key is currently revoked/unenrolled. Pass -EnrollNewPublicKey once to enroll your new Owner public key.');
+  }
+  const updatedPolicy = {
+    version: 1,
+    repository: 'truhoaiphuong03/management-lite',
+    allowed_approvers: ['Owner', 'truhoaiphuong03'],
+    require_independent_ci_receipt: true,
+    require_github_api_verification: true,
+    github_api_base_url: existingPolicy.github_api_base_url || 'https://api.github.com',
+    allowed_ci_events: ['workflow_dispatch', 'push'],
+    allowed_workflow_paths: ['.github/workflows/deploy.yml', '.github/workflows/foundation.yml'],
+    allowed_source_branch: 'main',
+    key_status: 'ACTIVE_OWNER_ENROLLED',
+    revoked_public_key_sha256s: Array.from(revokedSet),
+    trusted_public_key_sha256: pubSha256,
+    trusted_public_key_pem: pubPem,
+  };
+  fs.writeFileSync(pubKeyPath, pubPem, 'utf8');
+  fs.writeFileSync(policyPath, JSON.stringify(updatedPolicy, null, 2), 'utf8');
+} else {
+  if (existingTrustedFp !== pubSha256) {
+    throw new Error('REJECTED_KEY_MISMATCH: Passphrase-derived public key does not match enrolled trusted_public_key_sha256 in release-gate-policy.json.');
+  }
+}
+
+if (simFailAfterPolicyStr === 'true') {
+  throw new Error('SIMULATED_SIGNING_FAILURE_AFTER_POLICY_WRITE');
+}
 
 const now = new Date();
 const approvedAt = now.toISOString();
@@ -325,35 +572,60 @@ fs.appendFileSync(auditLogPath, JSON.stringify(auditEntry) + '\n', 'utf8');
 console.log(`[OK] Signed SINGLE_SHA (sequence=${sequence}, allow_migration=true, pubKeySha256=${pubSha256.slice(0, 16)}..., entryHash=${entryHash.slice(0, 16)}...)`);
 '@
 
-try {
-  $plainPass | & $node -e $jsInline $policyPath $pubKeyPath $manifestPath $auditLogPath $CommitSha $ArtifactSha256 $SchemaSha256 $CiRunId "$CiRunAttempt" $WorkflowPath $SourceBranch "$sequence" $winPrincipal $prevHash "$ExpiresInMinutes"
-  if ($LASTEXITCODE -ne 0) { throw 'Signing engine failed.' }
+  try {
+    $plainPass | & $node -e $jsInline $policyPath $pubKeyPath $manifestPath $auditLogPath $CommitSha $actualTarSha $SchemaSha256 $CiRunId "$CiRunAttempt" $WorkflowPath $SourceBranch "$sequence" $winPrincipal $prevHash "$ExpiresInMinutes" $enrollFlag $simSignFailFlag
+    if ($LASTEXITCODE -ne 0) { throw 'Signing engine exited with non-zero code.' }
+  } finally {
+    $plainPass = ''
+  }
+
+  # Re-lock release-gate directory ACLs before invoking deployment controller
+  Lock-ReleaseGateDirectoryAcl -TargetGateDir $gateDir -IsProdTarget $targetsProductionHost
+
+  if ($SimulateBackupFailure) {
+    throw 'SIMULATED_PRE_DEPLOY_BACKUP_FAILURE: Pre-deploy PostgreSQL backup failed before migration.'
+  }
+  if ($SimulateMigrationFailure) {
+    throw 'SIMULATED_PRE_CUTOVER_MIGRATION_FAILURE: Database migration 0032 failed pre-cutover; live runtime untouched.'
+  }
+
+  $artifactTar = Join-Path $stageDir "management-lite-full-$CommitSha.tar.gz"
+  Write-Host '[DEPLOY] Invoking locked Deploy-SemiAutoWindows.ps1 -RunMigrations (Pre-Deploy Backup ENABLED, Migration 0032 ENABLED)...' -ForegroundColor Cyan
+
+  $env:GITHUB_READONLY_TOKEN = $ghToken
+  try {
+    $deployArgs = @{
+      CommitSha            = $CommitSha
+      ArtifactPath         = $artifactTar
+      ArtifactSha256       = $actualTarSha
+      CiRunId              = $CiRunId
+      PolicyPath           = $policyPath
+      ApprovalManifestPath = $manifestPath
+      ServerRoot           = $ServerRoot
+      RunMigrations        = $true
+    }
+    if ($SandboxMode) {
+      $deployArgs['SandboxMode'] = $true
+      $deployArgs['GitHubApiBaseUrl'] = $GitHubApiBaseUrl
+    }
+    & $DeployControllerPath @deployArgs
+    if ($LASTEXITCODE -ne 0) {
+      throw "Deploy controller exited with code $LASTEXITCODE."
+    }
+  } finally {
+    Remove-Item Env:GITHUB_READONLY_TOKEN -ErrorAction SilentlyContinue
+  }
+} catch {
+  $errMsg = $_.Exception.Message
+  if ($gateMutated) {
+    Write-Host "[ROLLBACK-GATE] Restoring release-gate policy, manifest, and audit log to pre-invocation state due to error: $errMsg" -ForegroundColor Yellow
+    Unlock-ReleaseGateDirectoryAcl -TargetGateDir $gateDir -IsElevated $isElevatedAdmin -CallerPrincipal $identity.Name
+    Restore-GateSnapshot
+  }
+  throw
 } finally {
   $plainPass = ''
-}
-
-# Re-lock release-gate directory ACLs
-$children = @(Get-ChildItem -LiteralPath $gateDir -Recurse -Force -ErrorAction SilentlyContinue | Sort-Object { $_.FullName.Length } -Descending)
-foreach ($child in $children) {
-  if ($child.PSIsContainer) {
-    & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "DESKTOP-8T8UHTS\ADMIN:(OI)(CI)RX" "*S-1-3-4:(OI)(CI)RX" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
-  } elseif ($child.Name -eq 'github-pat.dpapi') {
-    & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "DESKTOP-8T8UHTS\ADMIN:RX" "*S-1-3-4:RX" /deny "*S-1-5-19:F" "*S-1-5-20:F" | Out-Null
-  } else {
-    & icacls.exe $child.FullName /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" "DESKTOP-8T8UHTS\ADMIN:RX" "*S-1-3-4:RX" "*S-1-5-19:R" "*S-1-5-20:R" /deny "*S-1-5-19:(W,M,D,WDAC,WO)" "*S-1-5-20:(W,M,D,WDAC,WO)" | Out-Null
-  }
-}
-& icacls.exe $gateDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "DESKTOP-8T8UHTS\ADMIN:(OI)(CI)RX" "*S-1-3-4:(OI)(CI)RX" "*S-1-5-19:(OI)(CI)R" "*S-1-5-20:(OI)(CI)R" /deny "*S-1-5-19:(OI)(CI)(W,M,D,WDAC,WO)" "*S-1-5-20:(OI)(CI)(W,M,D,WDAC,WO)" | Out-Null
-
-Write-Host '[SUCCESS] SINGLE_SHA Release Gate signed and locked!' -ForegroundColor Green
-
-$artifactTar = "$stageDir\management-lite-full-$CommitSha.tar.gz"
-$deployController = Join-Path $gateDir 'controllers\Deploy-SemiAutoWindows.ps1'
-Write-Host '[DEPLOY] Invoking locked Deploy-SemiAutoWindows.ps1 (with pre-cutover migration 0032)...' -ForegroundColor Cyan
-$env:GITHUB_READONLY_TOKEN = $ghToken
-try {
-  & $deployController -CommitSha $CommitSha -ArtifactPath $artifactTar -ArtifactSha256 $ArtifactSha256 -CiRunId $CiRunId -SkipBackup
-} finally {
-  Remove-Item Env:GITHUB_READONLY_TOKEN -ErrorAction SilentlyContinue
   $ghToken = ''
+  Remove-Item Env:GITHUB_READONLY_TOKEN -ErrorAction SilentlyContinue
+  Lock-ReleaseGateDirectoryAcl -TargetGateDir $gateDir -IsProdTarget $targetsProductionHost
 }

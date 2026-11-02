@@ -42,12 +42,7 @@ import {
 import type { UserRole } from '../types.js';
 
 export type PrintQuoteTabId =
-  | 'create'
-  | 'quotes'
-  | 'vendors'
-  | 'customers'
-  | 'orders'
-  | 'analytics';
+  'create' | 'quotes' | 'vendors' | 'customers' | 'orders' | 'analytics';
 
 export interface PrintQuoteScreenProps {
   role: UserRole;
@@ -720,7 +715,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     if (!res.ok) {
       setBannerMessage({
         type: 'error',
-        text: json?.error?.message || 'Không thể chuyển báo giá thành đơn hàng.',
+        text:
+          json?.error?.message || 'Không thể chuyển báo giá thành đơn hàng.',
       });
       return;
     }
@@ -1338,7 +1334,10 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                     }}
                   >
                     <strong
-                      style={{ fontSize: '13.5px', color: 'var(--accent-text)' }}
+                      style={{
+                        fontSize: '13.5px',
+                        color: 'var(--accent-text)',
+                      }}
                     >
                       Sản phẩm #{idx + 1}
                     </strong>
@@ -2403,9 +2402,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                       <button
                         type="button"
                         onClick={() =>
-                          setExpandedQuoteHistoryId(
-                            isHistoryOpen ? null : q.id,
-                          )
+                          setExpandedQuoteHistoryId(isHistoryOpen ? null : q.id)
                         }
                         style={{
                           padding: '6px 12px',
@@ -3195,10 +3192,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                     onChange={(e) =>
                       setPaymentType(
                         e.target.value as
-                          | 'DEPOSIT'
-                          | 'INSTALLMENT'
-                          | 'FINAL'
-                          | 'REFUND',
+                          'DEPOSIT' | 'INSTALLMENT' | 'FINAL' | 'REFUND',
                       )
                     }
                   >

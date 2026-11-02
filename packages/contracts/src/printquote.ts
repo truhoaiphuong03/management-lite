@@ -551,7 +551,9 @@ function resolveLineCostAndProfit(
       totalProfit = Math.round(profitConfig.value);
       unitProfit = totalProfit / item.quantity;
     } else {
-      throw new Error(`ProfitScope không hợp lệ: ${String(profitConfig.scope)}`);
+      throw new Error(
+        `ProfitScope không hợp lệ: ${String(profitConfig.scope)}`,
+      );
     }
   } else if (profitConfig.mode === ProfitMode.PERCENTAGE) {
     if (profitConfig.scope === ProfitScope.PER_UNIT) {
@@ -561,7 +563,9 @@ function resolveLineCostAndProfit(
       totalProfit = Math.round((totalVendorCost * profitConfig.value) / 100);
       unitProfit = totalProfit / item.quantity;
     } else {
-      throw new Error(`ProfitScope không hợp lệ: ${String(profitConfig.scope)}`);
+      throw new Error(
+        `ProfitScope không hợp lệ: ${String(profitConfig.scope)}`,
+      );
     }
   } else {
     throw new Error(`ProfitMode không hợp lệ: ${String(profitConfig.mode)}`);
@@ -589,7 +593,8 @@ function buildExactSplitSchedule(
   targetLineTotal: number,
 ): ExactUnitPriceSplitSegment[] {
   if (roundingAdjustment === 0 || quantity === 1) {
-    const effectiveUnitPrice = quantity === 1 ? targetLineTotal : finalUnitPrice;
+    const effectiveUnitPrice =
+      quantity === 1 ? targetLineTotal : finalUnitPrice;
     return [
       {
         quantity,

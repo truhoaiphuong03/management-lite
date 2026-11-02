@@ -12,6 +12,10 @@ import { createRequestHandler } from '../../dist/apps/api/src/app.js';
 import { generateCsrfToken } from '../../dist/packages/security/src/csrf.js';
 import { hashToken } from '../../dist/packages/security/src/tokens.js';
 import { buildPrintQuoteA4Html } from '../../dist/apps/web/src/screens/helpers/printquote-helpers.js';
+import {
+  renderCustomerSafeA4PdfBuffer,
+  PdfRendererUnavailableError,
+} from '../../dist/apps/api/src/printquote/pdf-renderer.js';
 
 const CSRF_SECRET = 'test-csrf-secret-printquote-e2e-sec-32chars!';
 const ALLOWED_ORIGIN = 'http://127.0.0.1:3000';
@@ -804,7 +808,40 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
       `attachment; filename="${quote.quote_code}.pdf"`,
     );
     const pdfBytes = Buffer.from(await pdfRes.arrayBuffer());
-    assert.ok(pdfBytes.length > 500);
+    assert.ok(
+      pdfBytes.length > 10000,
+      `Expected real Chromium A4 PDF with embedded Vietnamese Unicode font (>10KB), got ${pdfBytes.length} bytes`,
+    );
     assert.equal(pdfBytes.subarray(0, 5).toString('ascii'), '%PDF-');
+    const pdfRawLatin1 = pdfBytes.toString('latin1');
+    assert.ok(
+      pdfRawLatin1.includes('/CIDFontType2') ||
+        pdfRawLatin1.includes('/TrueType') ||
+        pdfRawLatin1.includes('/ToUnicode'),
+      'PDF must contain embedded Unicode font / ToUnicode CMap for Vietnamese diacritics',
+    );
+    assert.ok(
+      !pdfRawLatin1.includes('/BaseFont /Helvetica'),
+      'PDF must not fall back to Type1 Helvetica ASCII without Vietnamese diacritics',
+    );
+
+    // Chặn fail-closed khi không có trình duyệt Chromium/Chrome/Edge (tuyệt đối không âm thầm trả về PDF mất dấu)
+    await assert.rejects(
+      () =>
+        renderCustomerSafeA4PdfBuffer(
+          quote.customer_pdf_json,
+          { quoteCode: quote.quote_code },
+          {
+            CHROME_BIN: 'Z:\\nonexistent\\chrome.exe',
+            EDGE_BIN: 'Z:\\nonexistent\\msedge.exe',
+            ProgramFiles: 'Z:\\nonexistent',
+            'ProgramFiles(x86)': 'Z:\\nonexistent',
+            LOCALAPPDATA: 'Z:\\nonexistent',
+          },
+        ),
+      (err) =>
+        err instanceof PdfRendererUnavailableError &&
+        /Không thể kết xuất file PDF A4 tiếng Việt/.test(err.message),
+    );
   });
 });

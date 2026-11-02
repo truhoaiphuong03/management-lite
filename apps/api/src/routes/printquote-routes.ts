@@ -13,6 +13,7 @@ import {
   type QuoteCalculationInput,
 } from '../../../../packages/contracts/src/printquote.js';
 import {
+  PdfRendererUnavailableError,
   renderCustomerSafeA4PdfBuffer,
   sanitizePdfFilename,
   type ServerA4PdfMeta,
@@ -98,7 +99,9 @@ export async function handlePrintQuoteRoutes(
     } catch (err) {
       throw new AuthError(
         'VALIDATION_ERROR',
-        err instanceof Error ? err.message : 'Dữ liệu tính báo giá không hợp lệ.',
+        err instanceof Error
+          ? err.message
+          : 'Dữ liệu tính báo giá không hợp lệ.',
         400,
       );
     }
@@ -121,10 +124,18 @@ export async function handlePrintQuoteRoutes(
     assertCustomerSafePdfPayload(body.customer_pdf);
     const quoteCode =
       body.meta?.quoteCode || body.customer_pdf.quoteCode || 'BG-DRAFT';
-    const pdfBuf = await renderCustomerSafeA4PdfBuffer(body.customer_pdf, {
-      ...body.meta,
-      quoteCode,
-    });
+    let pdfBuf: Buffer;
+    try {
+      pdfBuf = await renderCustomerSafeA4PdfBuffer(body.customer_pdf, {
+        ...body.meta,
+        quoteCode,
+      });
+    } catch (err) {
+      if (err instanceof PdfRendererUnavailableError) {
+        throw new AuthError('SERVICE_UNAVAILABLE', err.message, 503);
+      }
+      throw err;
+    }
     const filename = sanitizePdfFilename(quoteCode);
     res.writeHead(200, {
       'Content-Type': 'application/pdf',
@@ -309,17 +320,25 @@ export async function handlePrintQuoteRoutes(
       const quote = await printQuoteService.getQuote(sessionContext, quoteId);
       const safePdf = quote.customer_pdf_json;
       assertCustomerSafePdfPayload(safePdf);
-      const pdfBuf = await renderCustomerSafeA4PdfBuffer(safePdf, {
-        quoteCode: quote.quote_code,
-        quoteTitle: quote.title,
-        versionNo: quote.current_version,
-        createdAt: quote.created_at,
-        validUntil: quote.valid_until,
-        customerName: quote.customer_name,
-        customerPhone: quote.customer_phone,
-        customerAddress: quote.customer_address,
-        customerNotes: quote.notes,
-      });
+      let pdfBuf: Buffer;
+      try {
+        pdfBuf = await renderCustomerSafeA4PdfBuffer(safePdf, {
+          quoteCode: quote.quote_code,
+          quoteTitle: quote.title,
+          versionNo: quote.current_version,
+          createdAt: quote.created_at,
+          validUntil: quote.valid_until,
+          customerName: quote.customer_name,
+          customerPhone: quote.customer_phone,
+          customerAddress: quote.customer_address,
+          customerNotes: quote.notes,
+        });
+      } catch (err) {
+        if (err instanceof PdfRendererUnavailableError) {
+          throw new AuthError('SERVICE_UNAVAILABLE', err.message, 503);
+        }
+        throw err;
+      }
       const filename = sanitizePdfFilename(quote.quote_code);
       res.writeHead(200, {
         'Content-Type': 'application/pdf',
