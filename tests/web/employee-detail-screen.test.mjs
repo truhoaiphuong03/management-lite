@@ -497,9 +497,14 @@ test('EmployeeDetailScreen & EMP-009: Mounted lifecycle & hourly rate configurat
               ...currentEmp,
               full_name: patchPayload.full_name,
               role: patchPayload.role,
+              sub_permissions: patchPayload.sub_permissions,
               is_payroll_eligible: patchPayload.is_payroll_eligible,
               version: currentEmp.version + 1,
-              user: { ...currentEmp.user, role: patchPayload.role },
+              user: {
+                ...currentEmp.user,
+                role: patchPayload.role,
+                sub_permissions: patchPayload.sub_permissions,
+              },
             };
           }
           return {
@@ -586,6 +591,169 @@ test('EmployeeDetailScreen & EMP-009: Mounted lifecycle & hourly rate configurat
         assert.ok(
           updatedBadge.textContent.includes('Quản trị / Chủ sở hữu (Owner)'),
           'Updated role badge must reflect Owner role',
+        );
+      } finally {
+        await cleanup();
+      }
+    },
+  );
+
+  await t.test(
+    'Owner can assign Sub-Admin (admin) role with custom sub_permissions checkboxes',
+    async () => {
+      const { container, root, flush, cleanup } = createTestContainer();
+
+      let currentEmp = {
+        id: 'emp-404',
+        full_name: 'Pham Thi SubAdmin',
+        employee_code: 'NV004',
+        role: 'staff',
+        sub_permissions: [],
+        employment_status: 'active',
+        is_payroll_eligible: true,
+        version: 1,
+        created_at: '2026-01-01T00:00:00Z',
+        user_id: 'staff-user-04',
+        user: {
+          id: 'staff-user-04',
+          email: 'subadmin@company.local',
+          username: 'subadmin',
+          role: 'staff',
+          sub_permissions: [],
+        },
+      };
+
+      let patchPayload = null;
+
+      globalThis.fetch = async (url, options = {}) => {
+        if (url.includes('/auth/me')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: {
+                csrf_token: 'test-csrf-token-404',
+                user: { id: 'owner-01' },
+              },
+            }),
+          };
+        }
+        if (url.includes('/api/v1/employees/emp-404')) {
+          if (options.method === 'PATCH') {
+            patchPayload = JSON.parse(options.body);
+            currentEmp = {
+              ...currentEmp,
+              full_name: patchPayload.full_name,
+              role: patchPayload.role,
+              sub_permissions: patchPayload.sub_permissions,
+              is_payroll_eligible: patchPayload.is_payroll_eligible,
+              version: currentEmp.version + 1,
+              user: {
+                ...currentEmp.user,
+                role: patchPayload.role,
+                sub_permissions: patchPayload.sub_permissions,
+              },
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: currentEmp,
+            }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: [] }),
+        };
+      };
+
+      try {
+        await act(async () => {
+          root.render(
+            React.createElement(EmployeeDetailScreen, {
+              employeeId: 'emp-404',
+              role: 'owner',
+              onNavigate: () => {},
+            }),
+          );
+        });
+        await flush();
+
+        const editBtn = Array.from(container.querySelectorAll('button')).find(
+          (b) => b.textContent.includes('Chỉnh sửa thông tin'),
+        );
+        assert.ok(editBtn, 'Edit button must exist');
+
+        await act(async () => {
+          getProps(editBtn).onClick();
+        });
+        await flush();
+
+        const roleSelect = container.querySelector(
+          '[data-testid="edit-employee-role-select"]',
+        );
+        const subPermsPanel = container.querySelector(
+          '[data-testid="employee-sub-permissions-panel"]',
+        );
+        assert.ok(roleSelect, 'Role select must render');
+        assert.ok(subPermsPanel, 'Sub-permissions panel must render');
+
+        // Select 'admin' -> pre-checks 4 operational sub-permissions
+        await act(async () => {
+          getProps(roleSelect).onChange({ target: { value: 'admin' } });
+        });
+        await flush();
+
+        // Also check 'payroll:manage'
+        const payrollCheckbox = container.querySelector(
+          '[data-testid="sub-perm-checkbox-payroll:manage"]',
+        );
+        assert.ok(
+          payrollCheckbox,
+          'Payroll sub-permission checkbox must exist',
+        );
+        assert.equal(payrollCheckbox.checked, false);
+
+        await act(async () => {
+          getProps(payrollCheckbox).onChange({ target: { checked: true } });
+        });
+        await flush();
+
+        const form = container.querySelector('form');
+        await act(async () => {
+          getProps(form).onSubmit({ preventDefault() {} });
+        });
+        await flush();
+
+        assert.ok(patchPayload, 'PATCH request must be sent');
+        assert.equal(patchPayload.role, 'admin');
+        assert.deepEqual(patchPayload.sub_permissions, [
+          'attendance:review',
+          'work:manage',
+          'employees:manage',
+          'accounts:manage',
+          'payroll:manage',
+        ]);
+
+        const updatedBadge = container.querySelector(
+          '[data-testid="employee-detail-role-badge"]',
+        );
+        assert.ok(
+          updatedBadge.textContent.includes('Quản lý phụ (Admin vận hành)'),
+          'Badge must show Sub-Admin role',
+        );
+        const subPermBadges = container.querySelector(
+          '[data-testid="employee-detail-sub-permissions"]',
+        );
+        assert.ok(subPermBadges, 'Sub-permission badges must be rendered');
+        assert.ok(
+          subPermBadges.textContent.includes('Quản lý & Chốt Bảng lương'),
+          'Granted payroll permission badge must be visible',
         );
       } finally {
         await cleanup();

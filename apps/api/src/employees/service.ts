@@ -12,11 +12,86 @@ import {
 } from './profile-validator.js';
 import type {
   EmployeeData,
+  EmployeeMemberRole,
+  EmployeeSubPermission,
   CreateEmployeeRequestBody,
   CreateEmployeeResponseData,
   UpdateEmployeeRequestBody,
   ActivationStatusResponseData,
 } from '../../../../packages/contracts/src/employees.js';
+
+export const ALL_SUB_PERMISSIONS: readonly EmployeeSubPermission[] = [
+  'attendance:review',
+  'work:manage',
+  'employees:manage',
+  'accounts:manage',
+  'payroll:manage',
+  'finance:manage',
+] as const;
+
+export const DEFAULT_ADMIN_SUB_PERMISSIONS: readonly EmployeeSubPermission[] = [
+  'attendance:review',
+  'work:manage',
+  'employees:manage',
+  'accounts:manage',
+] as const;
+
+export function parseEmployeeSubPermissions(
+  raw: unknown,
+): EmployeeSubPermission[] {
+  let list: unknown[] = [];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (typeof raw === 'string' && raw.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) list = parsed;
+    } catch {
+      list = [];
+    }
+  }
+  const seen = new Set<EmployeeSubPermission>();
+  for (const item of list) {
+    if (
+      typeof item === 'string' &&
+      (ALL_SUB_PERMISSIONS as readonly string[]).includes(item)
+    ) {
+      seen.add(item as EmployeeSubPermission);
+    }
+  }
+  return Array.from(seen);
+}
+
+function resolveEmployeeRoleAndPermissions(row: {
+  user_role?: string | null | undefined;
+  employee_code: string;
+  sub_role?: string | null | undefined;
+  sub_permissions?: unknown;
+}): {
+  role: EmployeeMemberRole;
+  sub_permissions: EmployeeSubPermission[];
+} {
+  if (row.user_role === 'owner' || row.employee_code === 'OWNER') {
+    return {
+      role: 'owner',
+      sub_permissions: [...ALL_SUB_PERMISSIONS],
+    };
+  }
+  const parsedPerms = parseEmployeeSubPermissions(row.sub_permissions);
+  if (row.sub_role === 'admin') {
+    return {
+      role: 'admin',
+      sub_permissions:
+        parsedPerms.length > 0 || Array.isArray(row.sub_permissions)
+          ? parsedPerms
+          : [...DEFAULT_ADMIN_SUB_PERMISSIONS],
+    };
+  }
+  return {
+    role: 'staff',
+    sub_permissions: parsedPerms,
+  };
+}
 
 export class EmployeeService {
   constructor(private readonly pool: DatabasePool) {}
@@ -172,7 +247,9 @@ export class EmployeeService {
         to_jsonb(e) ->> 'emergency_contact' AS emergency_contact,
         to_jsonb(e) ->> 'bank_name' AS bank_name,
         to_jsonb(e) ->> 'bank_account_number' AS bank_account_number,
-        to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder
+        to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder,
+        to_jsonb(e) ->> 'sub_role' AS sub_role,
+        to_jsonb(e) -> 'sub_permissions' AS sub_permissions
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
       LEFT JOIN workspace_memberships wm ON wm.workspace_id = e.workspace_id AND wm.user_id = e.user_id
@@ -207,6 +284,8 @@ export class EmployeeService {
       bank_name?: string | null;
       bank_account_number?: string | null;
       bank_account_holder?: string | null;
+      sub_role?: string | null;
+      sub_permissions?: unknown;
     }>(query, params);
 
     const rows = res.rows;
@@ -225,10 +304,8 @@ export class EmployeeService {
     }
 
     const items: EmployeeData[] = rows.map((r) => {
-      const resolvedRole: 'owner' | 'staff' =
-        r.user_role === 'owner' || r.employee_code === 'OWNER'
-          ? 'owner'
-          : 'staff';
+      const { role: resolvedRole, sub_permissions: resolvedSubPermissions } =
+        resolveEmployeeRoleAndPermissions(r);
       return {
         id: r.id,
         workspace_id: r.workspace_id,
@@ -236,6 +313,7 @@ export class EmployeeService {
         employee_code: r.employee_code,
         full_name: r.full_name,
         role: resolvedRole,
+        sub_permissions: resolvedSubPermissions,
         phone: r.phone ?? null,
         date_of_birth: r.date_of_birth ?? null,
         gender: r.gender ?? null,
@@ -259,6 +337,7 @@ export class EmployeeService {
               email: r.user_email || '',
               status: r.user_status || '',
               role: resolvedRole,
+              sub_permissions: resolvedSubPermissions,
             }
           : null,
       };
@@ -300,6 +379,8 @@ export class EmployeeService {
       bank_name?: string | null;
       bank_account_number?: string | null;
       bank_account_holder?: string | null;
+      sub_role?: string | null;
+      sub_permissions?: unknown;
     }>(
       `
       SELECT
@@ -326,7 +407,9 @@ export class EmployeeService {
         to_jsonb(e) ->> 'emergency_contact' AS emergency_contact,
         to_jsonb(e) ->> 'bank_name' AS bank_name,
         to_jsonb(e) ->> 'bank_account_number' AS bank_account_number,
-        to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder
+        to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder,
+        to_jsonb(e) ->> 'sub_role' AS sub_role,
+        to_jsonb(e) -> 'sub_permissions' AS sub_permissions
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
       LEFT JOIN workspace_memberships wm ON wm.workspace_id = e.workspace_id AND wm.user_id = e.user_id
@@ -345,10 +428,8 @@ export class EmployeeService {
       throw new AuthError('NOT_FOUND', 'Employee not found', 404);
     }
 
-    const resolvedRole: 'owner' | 'staff' =
-      row.user_role === 'owner' || row.employee_code === 'OWNER'
-        ? 'owner'
-        : 'staff';
+    const { role: resolvedRole, sub_permissions: resolvedSubPermissions } =
+      resolveEmployeeRoleAndPermissions(row);
 
     return {
       id: row.id,
@@ -357,6 +438,7 @@ export class EmployeeService {
       employee_code: row.employee_code,
       full_name: row.full_name,
       role: resolvedRole,
+      sub_permissions: resolvedSubPermissions,
       phone: row.phone ?? null,
       date_of_birth: row.date_of_birth ?? null,
       gender: row.gender ?? null,
@@ -380,6 +462,7 @@ export class EmployeeService {
             email: row.user_email || '',
             status: row.user_status || '',
             role: resolvedRole,
+            sub_permissions: resolvedSubPermissions,
           }
         : null,
     };
@@ -414,6 +497,8 @@ export class EmployeeService {
       bank_name?: string | null;
       bank_account_number?: string | null;
       bank_account_holder?: string | null;
+      sub_role?: string | null;
+      sub_permissions?: unknown;
       user_email_verified: boolean | null;
     }>(
       `
@@ -442,6 +527,8 @@ export class EmployeeService {
         to_jsonb(e) ->> 'bank_name' AS bank_name,
         to_jsonb(e) ->> 'bank_account_number' AS bank_account_number,
         to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder,
+        to_jsonb(e) ->> 'sub_role' AS sub_role,
+        to_jsonb(e) -> 'sub_permissions' AS sub_permissions,
         u.email_verified AS user_email_verified
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
@@ -460,10 +547,8 @@ export class EmployeeService {
       );
     }
 
-    const resolvedRole: 'owner' | 'staff' =
-      row.user_role === 'owner' || row.employee_code === 'OWNER'
-        ? 'owner'
-        : 'staff';
+    const { role: resolvedRole, sub_permissions: resolvedSubPermissions } =
+      resolveEmployeeRoleAndPermissions(row);
 
     return {
       id: row.id,
@@ -472,6 +557,7 @@ export class EmployeeService {
       employee_code: row.employee_code,
       full_name: row.full_name,
       role: resolvedRole,
+      sub_permissions: resolvedSubPermissions,
       phone: row.phone ?? null,
       date_of_birth: row.date_of_birth ?? null,
       gender: row.gender ?? null,
@@ -495,6 +581,7 @@ export class EmployeeService {
             email: row.user_email || '',
             status: row.user_status || '',
             role: resolvedRole,
+            sub_permissions: resolvedSubPermissions,
             email_verified: Boolean(row.user_email_verified),
           }
         : null,
@@ -762,21 +849,55 @@ export class EmployeeService {
     if (
       body.role !== undefined &&
       body.role !== 'owner' &&
+      body.role !== 'admin' &&
       body.role !== 'staff'
     ) {
       throw new AuthError(
         'VALIDATION_ERROR',
-        'Vai trò phân quyền không hợp lệ (chỉ chấp nhận owner hoặc staff)',
+        'Vai trò phân quyền không hợp lệ (chỉ chấp nhận owner, admin hoặc staff)',
         400,
         [{ field: 'role', message: 'Vai trò không hợp lệ' }],
       );
+    }
+
+    let validatedBodySubPermissions: EmployeeSubPermission[] | undefined;
+    if (body.sub_permissions !== undefined) {
+      if (!Array.isArray(body.sub_permissions)) {
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          'Danh sách quyền phụ (sub_permissions) phải là mảng',
+          400,
+          [
+            {
+              field: 'sub_permissions',
+              message: 'sub_permissions phải là mảng',
+            },
+          ],
+        );
+      }
+      const seen = new Set<EmployeeSubPermission>();
+      for (const perm of body.sub_permissions) {
+        if (
+          typeof perm !== 'string' ||
+          !(ALL_SUB_PERMISSIONS as readonly string[]).includes(perm)
+        ) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `Quyền phụ không hợp lệ: "${String(perm)}"`,
+            400,
+            [{ field: 'sub_permissions', message: 'Quyền phụ không hợp lệ' }],
+          );
+        }
+        seen.add(perm as EmployeeSubPermission);
+      }
+      validatedBodySubPermissions = Array.from(seen);
     }
 
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
 
-      if (body.role !== undefined) {
+      if (body.role !== undefined || body.sub_permissions !== undefined) {
         await client.query(
           `SELECT id FROM workspaces WHERE id = $1 FOR UPDATE;`,
           [context.workspace.id],
@@ -790,8 +911,21 @@ export class EmployeeService {
         is_payroll_eligible: boolean;
         user_id: string | null;
         employee_code: string;
+        sub_role?: string | null;
+        sub_permissions?: unknown;
       }>(
-        `SELECT id, version, full_name, is_payroll_eligible, user_id, employee_code FROM employees WHERE workspace_id = $1 AND id = $2 FOR UPDATE;`,
+        `SELECT
+           id,
+           version,
+           full_name,
+           is_payroll_eligible,
+           user_id,
+           employee_code,
+           to_jsonb(employees) ->> 'sub_role' AS sub_role,
+           to_jsonb(employees) -> 'sub_permissions' AS sub_permissions
+         FROM employees
+         WHERE workspace_id = $1 AND id = $2
+         FOR UPDATE;`,
         [context.workspace.id, employeeId],
       );
 
@@ -808,12 +942,22 @@ export class EmployeeService {
         );
       }
 
-      let previousRole: 'owner' | 'staff' | undefined;
+      let previousRole: EmployeeMemberRole | undefined;
+      let nextSubRoleToSave: EmployeeMemberRole | undefined;
+      let nextSubPermissionsToSave: EmployeeSubPermission[] | undefined;
       let roleChanged = false;
+      let subPermissionsChanged = false;
 
-      if (body.role !== undefined) {
+      if (
+        body.role !== undefined ||
+        validatedBodySubPermissions !== undefined
+      ) {
         if (!emp.user_id) {
-          if (body.role !== 'staff' && emp.employee_code !== 'OWNER') {
+          if (
+            body.role &&
+            body.role !== 'staff' &&
+            emp.employee_code !== 'OWNER'
+          ) {
             throw new AuthError(
               'VALIDATION_ERROR',
               'Nhân viên chưa có tài khoản đăng nhập liên kết để phân quyền',
@@ -826,29 +970,71 @@ export class EmployeeService {
               ],
             );
           }
+          const existingResolved = resolveEmployeeRoleAndPermissions({
+            user_role: 'staff',
+            employee_code: emp.employee_code,
+            sub_role: emp.sub_role,
+            sub_permissions: emp.sub_permissions,
+          });
+          previousRole = existingResolved.role;
+          nextSubRoleToSave = body.role ?? existingResolved.role;
+          nextSubPermissionsToSave =
+            validatedBodySubPermissions ??
+            (body.role === 'staff' ? [] : existingResolved.sub_permissions);
         } else {
           const memRes = await client.query<{ role: string; status: string }>(
             `SELECT role, status FROM workspace_memberships WHERE workspace_id = $1 AND user_id = $2 FOR UPDATE;`,
             [context.workspace.id, emp.user_id],
           );
           const currentMem = memRes.rows[0];
-          previousRole = currentMem?.role === 'owner' ? 'owner' : 'staff';
+          const previousMemRole: 'owner' | 'staff' =
+            currentMem?.role === 'owner' ? 'owner' : 'staff';
+          const existingResolved = resolveEmployeeRoleAndPermissions({
+            user_role: previousMemRole,
+            employee_code: emp.employee_code,
+            sub_role: emp.sub_role,
+            sub_permissions: emp.sub_permissions,
+          });
+          previousRole = existingResolved.role;
 
-          if (body.role !== previousRole) {
-            if (
-              body.role === 'staff' &&
-              (emp.user_id === context.user.id || emp.employee_code === 'OWNER')
-            ) {
-              throw new AuthError(
-                'FORBIDDEN',
-                'Chủ sở hữu không thể tự hạ quyền tài khoản của chính mình',
-                403,
-              );
-            }
+          const targetRole: EmployeeMemberRole =
+            body.role !== undefined ? body.role : existingResolved.role;
 
+          // Delegated sub-admin cannot modify an Owner or promote anyone to Owner
+          if (
+            context.trueRole &&
+            context.trueRole !== 'owner' &&
+            (previousRole === 'owner' ||
+              targetRole === 'owner' ||
+              emp.employee_code === 'OWNER')
+          ) {
+            throw new AuthError(
+              'FORBIDDEN',
+              'Quản lý phụ không được chỉnh sửa quyền của Chủ sở hữu hoặc cấp quyền Chủ sở hữu',
+              403,
+            );
+          }
+
+          if (
+            targetRole !== 'owner' &&
+            (emp.user_id === context.user.id ||
+              emp.employee_code === 'OWNER') &&
+            previousMemRole === 'owner'
+          ) {
+            throw new AuthError(
+              'FORBIDDEN',
+              'Chủ sở hữu không thể tự hạ quyền tài khoản của chính mình',
+              403,
+            );
+          }
+
+          const targetMemRole: 'owner' | 'staff' =
+            targetRole === 'owner' ? 'owner' : 'staff';
+
+          if (targetMemRole !== previousMemRole) {
             if (
-              previousRole === 'owner' &&
-              body.role === 'staff' &&
+              previousMemRole === 'owner' &&
+              targetMemRole === 'staff' &&
               currentMem?.status === 'active'
             ) {
               const activeOwnersRes = await client.query<{ user_id: string }>(
@@ -870,11 +1056,47 @@ export class EmployeeService {
                    version = version + 1,
                    updated_at = now()
                WHERE workspace_id = $2 AND user_id = $3;`,
-              [body.role, context.workspace.id, emp.user_id],
+              [targetMemRole, context.workspace.id, emp.user_id],
             );
-            roleChanged = true;
           }
+
+          if (targetRole === 'owner') {
+            nextSubRoleToSave = 'owner';
+            nextSubPermissionsToSave = [...ALL_SUB_PERMISSIONS];
+          } else if (targetRole === 'admin') {
+            nextSubRoleToSave = 'admin';
+            nextSubPermissionsToSave =
+              validatedBodySubPermissions !== undefined
+                ? validatedBodySubPermissions
+                : existingResolved.role === 'admin'
+                  ? existingResolved.sub_permissions
+                  : [...DEFAULT_ADMIN_SUB_PERMISSIONS];
+          } else {
+            nextSubRoleToSave = 'staff';
+            nextSubPermissionsToSave =
+              validatedBodySubPermissions !== undefined
+                ? validatedBodySubPermissions
+                : body.role === 'staff'
+                  ? []
+                  : existingResolved.sub_permissions;
+          }
+
+          roleChanged = targetRole !== previousRole;
+          subPermissionsChanged =
+            JSON.stringify(nextSubPermissionsToSave) !==
+            JSON.stringify(existingResolved.sub_permissions);
         }
+      }
+
+      if (
+        nextSubRoleToSave !== undefined &&
+        nextSubPermissionsToSave !== undefined
+      ) {
+        await client.query(
+          `ALTER TABLE employees
+             ADD COLUMN IF NOT EXISTS sub_role text NULL,
+             ADD COLUMN IF NOT EXISTS sub_permissions jsonb NOT NULL DEFAULT '[]'::jsonb;`,
+        );
       }
 
       const newFullName =
@@ -916,6 +1138,15 @@ export class EmployeeService {
           extraSets.push(`${col} = $${extraVals.length}`);
         }
       }
+      if (
+        nextSubRoleToSave !== undefined &&
+        nextSubPermissionsToSave !== undefined
+      ) {
+        extraVals.push(nextSubRoleToSave);
+        extraSets.push(`sub_role = $${extraVals.length}`);
+        extraVals.push(JSON.stringify(nextSubPermissionsToSave));
+        extraSets.push(`sub_permissions = $${extraVals.length}::jsonb`);
+      }
       if (extraSets.length === 0) {
         await client.query(
           `
@@ -947,11 +1178,12 @@ export class EmployeeService {
           previous_version: expectedVersion,
           new_full_name: newFullName,
           is_payroll_eligible: newEligibility,
-          ...(roleChanged
+          ...(roleChanged || subPermissionsChanged
             ? {
-                role_changed: true,
+                role_changed: roleChanged,
                 previous_role: previousRole,
-                new_role: body.role,
+                new_role: nextSubRoleToSave,
+                sub_permissions: nextSubPermissionsToSave,
               }
             : {}),
         },

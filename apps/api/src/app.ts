@@ -2110,6 +2110,7 @@ export function createRequestHandler(
           assertAllowedFields(body, [
             'full_name',
             'role',
+            'sub_permissions',
             'is_payroll_eligible',
             'phone',
             'date_of_birth',

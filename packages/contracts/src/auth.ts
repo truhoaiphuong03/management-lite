@@ -12,6 +12,8 @@ export interface ActiveWorkspaceData {
   name: string;
   timezone: string;
   role: UserRole;
+  sub_role?: UserRole | undefined;
+  sub_permissions?: string[] | undefined;
 }
 
 export interface WorkspaceMembershipSummary {

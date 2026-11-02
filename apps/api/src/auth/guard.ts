@@ -42,6 +42,75 @@ export function extractSessionToken(
   return cookies[defaultName];
 }
 
+function elevateDelegatedContextForRequest(
+  context: AuthenticatedContext,
+  rawUrl: string,
+): AuthenticatedContext {
+  if (context.workspace.role === 'owner') {
+    return context;
+  }
+  const perms = context.subPermissions;
+  if (!perms || perms.length === 0) {
+    return context;
+  }
+  const pathname = rawUrl.split('?')[0] || '/';
+  const has = (p: string) => perms.includes(p);
+
+  let matched = false;
+  if (
+    has('attendance:review') &&
+    (pathname.startsWith('/api/v1/attendance/shifts') ||
+      pathname.startsWith('/api/v1/attendance/import') ||
+      (pathname.startsWith('/api/v1/schedules') &&
+        pathname !== '/api/v1/schedules/my-week'))
+  ) {
+    matched = true;
+  } else if (
+    has('work:manage') &&
+    (pathname.startsWith('/api/v1/work-items') ||
+      (pathname.startsWith('/api/v1/daily-reports') &&
+        pathname !== '/api/v1/daily-reports/me') ||
+      pathname === '/api/v1/dashboard/summary')
+  ) {
+    matched = true;
+  } else if (
+    has('employees:manage') &&
+    ((pathname.startsWith('/api/v1/employees') &&
+      pathname !== '/api/v1/employees/me') ||
+      pathname === '/api/v1/dashboard/summary')
+  ) {
+    matched = true;
+  } else if (
+    has('accounts:manage') &&
+    (pathname.startsWith('/api/v1/accounts') ||
+      pathname.startsWith('/api/v1/storage') ||
+      pathname === '/api/v1/auth/reauth')
+  ) {
+    matched = true;
+  } else if (
+    has('payroll:manage') &&
+    pathname.startsWith('/api/v1/payroll') &&
+    pathname !== '/api/v1/payroll/me'
+  ) {
+    matched = true;
+  } else if (has('finance:manage') && pathname.startsWith('/api/v1/finance')) {
+    matched = true;
+  }
+
+  if (!matched) {
+    return context;
+  }
+
+  return {
+    ...context,
+    trueRole: context.trueRole ?? context.workspace.role,
+    workspace: {
+      ...context.workspace,
+      role: 'owner',
+    },
+  };
+}
+
 /**
  * Enforces session authentication for protected routes.
  * Throws 401 UNAUTHENTICATED if session is missing, expired, or invalid.
@@ -66,7 +135,7 @@ export async function requireAuth(
     );
   }
 
-  return context;
+  return elevateDelegatedContextForRequest(context, req.url || '/');
 }
 
 /**

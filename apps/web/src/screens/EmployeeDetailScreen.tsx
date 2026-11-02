@@ -16,13 +16,70 @@ import {
   type ToastVariant,
 } from '../../../../packages/ui/src/components/index.js';
 import { TOKENS, THEME_COLORS } from '../../../../packages/ui/src/tokens.js';
-import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
+import type {
+  EmployeeData,
+  EmployeeMemberRole,
+  EmployeeSubPermission,
+} from '../../../../packages/contracts/src/employees.js';
 import type { HourlyRateData } from '../../../../packages/contracts/src/payroll.js';
 import type { UserRole } from '../types.js';
 import {
   VnDateOfBirthSelect,
   VnBankAutocompleteInput,
 } from '../components/VnProfileInputs.js';
+
+export const SUB_PERMISSION_CATALOG: ReadonlyArray<{
+  key: EmployeeSubPermission;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: 'attendance:review',
+    label: 'Duyệt chấm công & Xếp lịch ca',
+    description:
+      'Xem toàn bộ ca nhân sự, duyệt/từ chối công và xếp lịch làm việc (/attendance, /schedule)',
+  },
+  {
+    key: 'work:manage',
+    label: 'Giao việc & Duyệt báo cáo ngày',
+    description:
+      'Giao việc mới, duyệt tiến độ và xem báo cáo công việc toàn đội (/work, /reports)',
+  },
+  {
+    key: 'employees:manage',
+    label: 'Quản lý hồ sơ nhân sự',
+    description:
+      'Xem danh sách, mời nhân sự và cập nhật thông tin nhân viên (/employees)',
+  },
+  {
+    key: 'accounts:manage',
+    label: 'Quản lý Tài khoản dùng chung & Drive',
+    description:
+      'Quản lý kho tài khoản SĐT/Gmail/Kênh & tệp Google Drive (/accounts, /storage)',
+  },
+  {
+    key: 'payroll:manage',
+    label: 'Quản lý & Chốt Bảng lương',
+    description:
+      'Tạo kỳ lương, nhập thưởng/phụ cấp/khấu trừ và chốt phiếu lương (/payroll)',
+  },
+  {
+    key: 'finance:manage',
+    label: 'Quản lý Sổ Thu chi',
+    description: 'Ghi nhận phiếu thu/chi và đối soát quỹ vận hành (/finance)',
+  },
+];
+
+const ALL_SUB_PERMS: EmployeeSubPermission[] = SUB_PERMISSION_CATALOG.map(
+  (p) => p.key,
+);
+
+const DEFAULT_ADMIN_SUB_PERMS: EmployeeSubPermission[] = [
+  'attendance:review',
+  'work:manage',
+  'employees:manage',
+  'accounts:manage',
+];
 
 export interface EmployeeDetailScreenProps {
   employeeId: string;
@@ -41,9 +98,22 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
     useState<HourlyRateData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.location &&
+      typeof window.location.search === 'string'
+    ) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('edit') === '1';
+    }
+    return false;
+  });
   const [fullName, setFullName] = useState('');
-  const [memberRole, setMemberRole] = useState<'owner' | 'staff'>('staff');
+  const [memberRole, setMemberRole] = useState<EmployeeMemberRole>('staff');
+  const [subPermissions, setSubPermissions] = useState<EmployeeSubPermission[]>(
+    [],
+  );
   const [isPayrollEligible, setIsPayrollEligible] = useState(true);
   const [phone, setPhone] = useState('');
   const [positionTitle, setPositionTitle] = useState('');
@@ -143,13 +213,25 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
       }
       setEmployee(data.data);
       setFullName(data.data.full_name || '');
-      setMemberRole(
+      const resolvedRole: EmployeeMemberRole =
         data.data.role === 'owner' ||
-          data.data.user?.role === 'owner' ||
-          data.data.employee_code === 'OWNER'
+        data.data.user?.role === 'owner' ||
+        data.data.employee_code === 'OWNER'
           ? 'owner'
-          : 'staff',
-      );
+          : data.data.role === 'admin' || data.data.user?.role === 'admin'
+            ? 'admin'
+            : 'staff';
+      setMemberRole(resolvedRole);
+      const rawPerms = Array.isArray(data.data.sub_permissions)
+        ? (data.data.sub_permissions as EmployeeSubPermission[])
+        : Array.isArray(data.data.user?.sub_permissions)
+          ? (data.data.user.sub_permissions as EmployeeSubPermission[])
+          : resolvedRole === 'owner'
+            ? ALL_SUB_PERMS
+            : resolvedRole === 'admin'
+              ? DEFAULT_ADMIN_SUB_PERMS
+              : [];
+      setSubPermissions(rawPerms);
       setIsPayrollEligible(Boolean(data.data.is_payroll_eligible));
       setPhone(data.data.phone || '');
       setPositionTitle(data.data.position_title || '');
@@ -289,6 +371,8 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         body: JSON.stringify({
           full_name: fullName.trim(),
           role: memberRole,
+          sub_permissions:
+            memberRole === 'owner' ? ALL_SUB_PERMS : subPermissions,
           is_payroll_eligible: isPayrollEligible,
           phone: phone.trim() || null,
           position_title: positionTitle.trim() || null,
@@ -307,13 +391,23 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         throw new Error(data?.error?.message || 'Không thể cập nhật hồ sơ');
       }
       setEmployee(data.data);
-      setMemberRole(
+      const updatedRole: EmployeeMemberRole =
         data.data.role === 'owner' ||
-          data.data.user?.role === 'owner' ||
-          data.data.employee_code === 'OWNER'
+        data.data.user?.role === 'owner' ||
+        data.data.employee_code === 'OWNER'
           ? 'owner'
-          : 'staff',
-      );
+          : data.data.role === 'admin' || data.data.user?.role === 'admin'
+            ? 'admin'
+            : 'staff';
+      setMemberRole(updatedRole);
+      const updatedPerms = Array.isArray(data.data.sub_permissions)
+        ? (data.data.sub_permissions as EmployeeSubPermission[])
+        : updatedRole === 'owner'
+          ? ALL_SUB_PERMS
+          : updatedRole === 'admin'
+            ? DEFAULT_ADMIN_SUB_PERMS
+            : [];
+      setSubPermissions(updatedPerms);
       setIsEditing(false);
       setActionNotice('Đã cập nhật thông tin nhân viên thành công.');
       setToast({
@@ -662,7 +756,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                           ? 'owner'
                           : 'staff')) === 'owner'
                         ? 'rgba(20, 184, 166, 0.15)'
-                        : 'var(--surface-hover)',
+                        : (employee.role || employee.user?.role) === 'admin'
+                          ? 'rgba(59, 130, 246, 0.15)'
+                          : 'var(--surface-hover)',
                     color:
                       (employee.role ||
                         employee.user?.role ||
@@ -670,7 +766,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                           ? 'owner'
                           : 'staff')) === 'owner'
                         ? 'var(--accent-text)'
-                        : 'var(--text-color)',
+                        : (employee.role || employee.user?.role) === 'admin'
+                          ? '#60A5FA'
+                          : 'var(--text-color)',
                     border: '1px solid var(--border-subtle)',
                   }}
                 >
@@ -680,8 +778,41 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                       ? 'owner'
                       : 'staff')) === 'owner'
                     ? 'Quản trị / Chủ sở hữu (Owner)'
-                    : 'Nhân viên (Staff)'}
+                    : (employee.role || employee.user?.role) === 'admin'
+                      ? 'Quản lý phụ (Admin vận hành)'
+                      : 'Nhân viên (Staff)'}
                 </div>
+                {Array.isArray(employee.sub_permissions) &&
+                  employee.sub_permissions.length > 0 && (
+                    <div
+                      data-testid="employee-detail-sub-permissions"
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '6px',
+                        marginTop: '8px',
+                      }}
+                    >
+                      {SUB_PERMISSION_CATALOG.filter((opt) =>
+                        employee.sub_permissions?.includes(opt.key),
+                      ).map((opt) => (
+                        <span
+                          key={opt.key}
+                          style={{
+                            fontSize: '11px',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                            color: 'var(--accent-text)',
+                            border: '1px solid rgba(20, 184, 166, 0.25)',
+                            fontWeight: 500,
+                          }}
+                        >
+                          ✓ {opt.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
               </div>
 
               <div>
@@ -1069,12 +1200,17 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     ) || employee.employee_code === 'OWNER'
                   }
                   onChange={(e) => {
-                    const nextRole = e.target.value as 'owner' | 'staff';
+                    const nextRole = e.target.value as EmployeeMemberRole;
                     setMemberRole(nextRole);
                     if (nextRole === 'owner') {
                       setIsPayrollEligible(false);
-                    } else if (nextRole === 'staff') {
+                      setSubPermissions([...ALL_SUB_PERMS]);
+                    } else if (nextRole === 'admin') {
                       setIsPayrollEligible(true);
+                      setSubPermissions([...DEFAULT_ADMIN_SUB_PERMS]);
+                    } else {
+                      setIsPayrollEligible(true);
+                      setSubPermissions([]);
                     }
                   }}
                   style={{
@@ -1098,6 +1234,10 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                   <option value="staff">
                     Nhân viên (Staff) — Chấm công, nhận việc, xem lương cá nhân
                   </option>
+                  <option value="admin">
+                    Quản lý phụ (Admin vận hành) — Cấp quyền quản lý theo phân
+                    hệ bên dưới
+                  </option>
                   <option value="owner">
                     Quản trị / Chủ sở hữu (Owner) — Toàn quyền quản lý hệ thống
                   </option>
@@ -1115,6 +1255,191 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     chính mình.
                   </div>
                 )}
+              </div>
+
+              <div
+                data-testid="employee-sub-permissions-panel"
+                style={{
+                  gridColumn: '1 / -1',
+                  padding: '14px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--surface-hover)',
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    marginBottom: '10px',
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: 'var(--text-color)',
+                      }}
+                    >
+                      🔑 Phân quyền chi tiết theo phân hệ (Quyền phụ ủy quyền)
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--muted-color)',
+                        marginTop: '2px',
+                      }}
+                    >
+                      {memberRole === 'owner'
+                        ? 'Chủ sở hữu (Owner) mặc định có toàn bộ 6 nhóm quyền hệ thống.'
+                        : 'Tích chọn các phân hệ muốn giao cho Quản lý phụ (Admin) hoặc Nhân viên phụ trách thêm:'}
+                    </div>
+                  </div>
+                  {memberRole !== 'owner' && (
+                    <div
+                      style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}
+                    >
+                      <button
+                        type="button"
+                        data-testid="preset-sub-perms-admin"
+                        onClick={() => {
+                          if (memberRole === 'staff') setMemberRole('admin');
+                          setSubPermissions([...DEFAULT_ADMIN_SUB_PERMS]);
+                        }}
+                        style={{
+                          fontSize: '12px',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(20, 184, 166, 0.35)',
+                          backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                          color: 'var(--accent-text)',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Gói Admin vận hành (4 quyền)
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="preset-sub-perms-all"
+                        onClick={() => {
+                          if (memberRole === 'staff') setMemberRole('admin');
+                          setSubPermissions([...ALL_SUB_PERMS]);
+                        }}
+                        style={{
+                          fontSize: '12px',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-color)',
+                          color: 'var(--text-color)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Chọn tất cả (6)
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="preset-sub-perms-clear"
+                        onClick={() => setSubPermissions([])}
+                        style={{
+                          fontSize: '12px',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-color)',
+                          color: 'var(--muted-color)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Bỏ chọn hết
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+                    gap: '10px',
+                  }}
+                >
+                  {SUB_PERMISSION_CATALOG.map((opt) => {
+                    const isChecked =
+                      memberRole === 'owner' ||
+                      subPermissions.includes(opt.key);
+                    return (
+                      <label
+                        key={opt.key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: 'var(--bg-color)',
+                          border: isChecked
+                            ? '1px solid rgba(20, 184, 166, 0.45)'
+                            : '1px solid var(--border-subtle)',
+                          cursor:
+                            memberRole === 'owner' ? 'default' : 'pointer',
+                          opacity: memberRole === 'owner' ? 0.85 : 1,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          data-testid={`sub-perm-checkbox-${opt.key}`}
+                          checked={isChecked}
+                          disabled={memberRole === 'owner'}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setSubPermissions((prev) =>
+                              checked
+                                ? Array.from(new Set([...prev, opt.key]))
+                                : prev.filter((k) => k !== opt.key),
+                            );
+                          }}
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            marginTop: '2px',
+                            accentColor: '#14B8A6',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              color: isChecked
+                                ? 'var(--accent-text)'
+                                : 'var(--text-color)',
+                            }}
+                          >
+                            {opt.label}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--muted-color)',
+                              marginTop: '2px',
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            {opt.description}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
@@ -1503,8 +1828,12 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
             }}
           >
             {!isEditing && (
-              <AppButton variant="secondary" onClick={() => setIsEditing(true)}>
-                Chỉnh sửa thông tin
+              <AppButton
+                variant="secondary"
+                data-testid="btn-open-edit-employee"
+                onClick={() => setIsEditing(true)}
+              >
+                Chỉnh sửa thông tin & Phân quyền
               </AppButton>
             )}
 

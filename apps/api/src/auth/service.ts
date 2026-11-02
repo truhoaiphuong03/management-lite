@@ -28,6 +28,11 @@ import {
   normalizeDateOfBirth,
   normalizeBankAccountNumber,
 } from '../employees/profile-validator.js';
+import {
+  ALL_SUB_PERMISSIONS,
+  DEFAULT_ADMIN_SUB_PERMISSIONS,
+  parseEmployeeSubPermissions,
+} from '../employees/service.js';
 
 export class AuthError extends Error {
   constructor(
@@ -50,6 +55,9 @@ export interface AuthenticatedContext {
   sessionTokenHash: string;
   user: AuthUserData;
   workspace: ActiveWorkspaceData;
+  trueRole?: UserRole | undefined;
+  subRole?: UserRole | undefined;
+  subPermissions?: string[] | undefined;
   sessionExpiresAt?: string | undefined;
   rememberMe?: boolean | undefined;
 }
@@ -562,6 +570,45 @@ export class AuthService {
       return null;
     }
 
+    let subRole: UserRole = row.role;
+    let subPermissions: string[] =
+      row.role === 'owner' ? [...ALL_SUB_PERMISSIONS] : [];
+
+    if (row.role !== 'owner') {
+      try {
+        const empPermRes = await this.pool.query<{
+          sub_role?: string | null;
+          sub_permissions?: unknown;
+        }>(
+          `SELECT
+             to_jsonb(e) ->> 'sub_role' AS sub_role,
+             to_jsonb(e) -> 'sub_permissions' AS sub_permissions
+           FROM employees e
+           WHERE e.workspace_id = $1 AND e.user_id = $2
+           LIMIT 1;`,
+          [row.workspace_id, row.user_id],
+        );
+        const empRow = empPermRes.rows[0];
+        if (empRow) {
+          const parsedPerms = parseEmployeeSubPermissions(
+            empRow.sub_permissions,
+          );
+          if (empRow.sub_role === 'admin') {
+            subRole = 'admin';
+            subPermissions =
+              parsedPerms.length > 0 || Array.isArray(empRow.sub_permissions)
+                ? parsedPerms
+                : [...DEFAULT_ADMIN_SUB_PERMISSIONS];
+          } else {
+            subRole = 'staff';
+            subPermissions = parsedPerms;
+          }
+        }
+      } catch {
+        // Fallback if employees table or columns are not yet present in partial test DB
+      }
+    }
+
     return {
       sessionId: row.session_id,
       sessionTokenHash: row.session_token_hash,
@@ -576,7 +623,12 @@ export class AuthService {
         name: row.workspace_name,
         timezone: row.timezone,
         role: row.role,
+        sub_role: subRole,
+        sub_permissions: subPermissions,
       },
+      trueRole: row.role,
+      subRole,
+      subPermissions,
       sessionExpiresAt: new Date(row.absolute_expires_at).toISOString(),
       rememberMe: Boolean(row.is_remembered),
     };
@@ -791,10 +843,11 @@ export class AuthService {
       [context.user.id],
     );
 
-    const permissions =
-      context.workspace.role === 'owner'
-        ? [...OWNER_PERMISSIONS]
-        : [...STAFF_PERMISSIONS];
+    const baseRole = context.trueRole ?? context.workspace.role;
+    const basePermissions =
+      baseRole === 'owner' ? [...OWNER_PERMISSIONS] : [...STAFF_PERMISSIONS];
+    const delegated = context.subPermissions ?? [];
+    const permissions = Array.from(new Set([...basePermissions, ...delegated]));
 
     const memberships: WorkspaceMembershipSummary[] = membershipRes.rows.map(
       (m) => ({

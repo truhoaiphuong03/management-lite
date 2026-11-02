@@ -728,6 +728,32 @@ test('P0 Owner Self-Lockout & Last-Owner Protection Regression Suite', async (t)
             403,
             'Owner cannot self-demote to staff',
           );
+
+          // 4. Owner1 assigns 'admin' role + custom sub_permissions to Staff1, and verifies delegated access
+          const staffVer3 = demoteRes.body.data.version;
+          const assignAdminRes = await makeRequest(
+            `${baseUrl}/api/v1/employees/${staffEmpId}`,
+            {
+              method: 'PATCH',
+              headers: {
+                Cookie: owner1Auth.cookieStr,
+                Origin: allowedOrigin,
+                'X-CSRF-Token': owner1Auth.csrfToken,
+                'If-Match': `"${staffVer3}"`,
+              },
+              body: {
+                full_name: 'Staff Một (Quản lý phụ)',
+                role: 'admin',
+                sub_permissions: ['attendance:review', 'work:manage'],
+              },
+            },
+          );
+          assert.equal(assignAdminRes.status, 200);
+          assert.equal(assignAdminRes.body.data.role, 'admin');
+          assert.deepEqual(assignAdminRes.body.data.sub_permissions, [
+            'attendance:review',
+            'work:manage',
+          ]);
         },
       );
     } finally {

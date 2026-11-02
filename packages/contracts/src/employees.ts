@@ -1,13 +1,22 @@
 export type EmploymentStatus = 'invited' | 'active' | 'suspended' | 'archived';
-export type EmployeeMemberRole = 'owner' | 'staff';
+export type EmployeeMemberRole = 'owner' | 'admin' | 'staff';
+
+export type EmployeeSubPermission =
+  | 'attendance:review'
+  | 'work:manage'
+  | 'employees:manage'
+  | 'accounts:manage'
+  | 'payroll:manage'
+  | 'finance:manage';
 
 export interface EmployeeUserData {
   id: string;
   username: string;
   email: string;
   status: string;
-  role?: EmployeeMemberRole;
-  email_verified?: boolean;
+  role?: EmployeeMemberRole | undefined;
+  sub_permissions?: EmployeeSubPermission[] | undefined;
+  email_verified?: boolean | undefined;
 }
 
 export interface EmployeeData {
@@ -16,7 +25,8 @@ export interface EmployeeData {
   user_id: string | null;
   employee_code: string;
   full_name: string;
-  role?: EmployeeMemberRole;
+  role?: EmployeeMemberRole | undefined;
+  sub_permissions?: EmployeeSubPermission[] | undefined;
   phone?: string | null;
   date_of_birth?: string | null;
   gender?: string | null;
@@ -66,6 +76,7 @@ export interface CreateEmployeeResponseData {
 export interface UpdateEmployeeRequestBody {
   full_name?: string;
   role?: EmployeeMemberRole;
+  sub_permissions?: EmployeeSubPermission[];
   is_payroll_eligible?: boolean;
   phone?: string | null;
   date_of_birth?: string | null;

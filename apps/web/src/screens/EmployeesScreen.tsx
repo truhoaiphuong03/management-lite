@@ -795,7 +795,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                               ? 'owner'
                               : 'staff')) === 'owner'
                             ? 'rgba(20, 184, 166, 0.15)'
-                            : 'var(--surface-hover)',
+                            : (emp.role || emp.user?.role) === 'admin'
+                              ? 'rgba(59, 130, 246, 0.15)'
+                              : 'var(--surface-hover)',
                         color:
                           (emp.role ||
                             emp.user?.role ||
@@ -803,7 +805,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                               ? 'owner'
                               : 'staff')) === 'owner'
                             ? 'var(--accent-text)'
-                            : 'var(--muted-color)',
+                            : (emp.role || emp.user?.role) === 'admin'
+                              ? '#60A5FA'
+                              : 'var(--muted-color)',
                         border: '1px solid var(--border-subtle)',
                         fontWeight: 600,
                       }}
@@ -813,7 +817,12 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                         (emp.employee_code === 'OWNER' ? 'owner' : 'staff')) ===
                       'owner'
                         ? 'Quản trị (Owner)'
-                        : 'Nhân viên'}
+                        : (emp.role || emp.user?.role) === 'admin'
+                          ? `Quản lý phụ (${Array.isArray(emp.sub_permissions) ? emp.sub_permissions.length : 4} quyền)`
+                          : Array.isArray(emp.sub_permissions) &&
+                              emp.sub_permissions.length > 0
+                            ? `Nhân viên (+${emp.sub_permissions.length} quyền phụ)`
+                            : 'Nhân viên'}
                     </span>
                   </div>
                   <div
@@ -914,6 +923,19 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                     flexWrap: 'wrap',
                   }}
                 >
+                  <AppButton
+                    variant="secondary"
+                    data-testid={`btn-edit-role-${emp.id}`}
+                    onClick={() => onNavigate(`/employees/${emp.id}?edit=1`)}
+                    style={{
+                      fontSize: '12px',
+                      padding: '6px 10px',
+                      minHeight: '36px',
+                    }}
+                  >
+                    Phân quyền / Sửa
+                  </AppButton>
+
                   <ActionIconButton
                     action="view"
                     target={emp.full_name}

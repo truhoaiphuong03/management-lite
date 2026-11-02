@@ -1915,6 +1915,14 @@ BEGIN
 END $$;
 `;
 
+export const EMPLOYEE_SUB_PERMISSIONS_SQL = `-- Migration: 0032_employee_sub_permissions
+-- Scope: Sub-Admin role (sub_role) and granular delegated permissions (sub_permissions) on employees.
+
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS sub_role text NULL,
+  ADD COLUMN IF NOT EXISTS sub_permissions jsonb NOT NULL DEFAULT '[]'::jsonb;
+`;
+
 export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
   {
     id: '0001_m00_prerequisites',
@@ -2066,5 +2074,10 @@ export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
     id: '0031_accounts_ecosystem_hierarchy',
     sql: ACCOUNTS_ECOSYSTEM_HIERARCHY_SQL,
     checksum: calculateChecksum(ACCOUNTS_ECOSYSTEM_HIERARCHY_SQL),
+  },
+  {
+    id: '0032_employee_sub_permissions',
+    sql: EMPLOYEE_SUB_PERMISSIONS_SQL,
+    checksum: calculateChecksum(EMPLOYEE_SUB_PERMISSIONS_SQL),
   },
 ];
