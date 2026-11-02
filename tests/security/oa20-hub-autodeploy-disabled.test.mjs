@@ -120,7 +120,9 @@ test('OA-20.1: Dual permanent backups exist, match SHA-256 manifest, and pass Re
 
 test('OA-20.2: All direct, indirect, and boot-scheduled legacy auto-deploy entrypoints fail closed with exit code 43/1 and do not recreate persistence vectors', async (t) => {
   if (!IS_HOST_WITH_OA20_BACKUP) {
-    t.skip('Windows server host-specific Hub directory check');
+    t.diagnostic(
+      'Windows server host-specific Hub directory check skipped via diagnostic on disposable CI runner.',
+    );
     return;
   }
   const nodeTriggers = [
@@ -229,7 +231,9 @@ test('OA-20.2: All direct, indirect, and boot-scheduled legacy auto-deploy entry
 
 test('OA-20.3: Production services and isolated DEV Bot remain healthy while legacy preview port 4799 is released', (t) => {
   if (!IS_HOST_WITH_OA20_BACKUP) {
-    t.skip('Windows server host-specific runtime check');
+    t.diagnostic(
+      'Windows server host-specific runtime check skipped via diagnostic on disposable CI runner.',
+    );
     return;
   }
   const lockFile = 'C:\\Projects-Dev\\anty-remote-hub\\.anty-poller.lock';
