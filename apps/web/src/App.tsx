@@ -76,7 +76,7 @@ export {
 
 /** Shows a lightweight placeholder while a lazily loaded screen chunk is downloading. */
 const withSuspense = (node: React.ReactNode): React.ReactElement => (
-  <React.Suspense fallback={<LoadingState message="Äang táº£i mÃ n hÃ¬nh…" />}>
+  <React.Suspense fallback={<LoadingState message="Đang tải màn hình…" />}>
     {node}
   </React.Suspense>
 );

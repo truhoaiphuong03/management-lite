@@ -690,9 +690,10 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       /100\.000/,
     );
 
-    // Step 7: Test multi-item & rounding in UI (add 2nd line item, verify shipping charged only once, then remove 2nd line)
+    // Step 7: Test multi-item & rounding in UI (add 2nd line item, verify line 1 auto-collapses, verify shipping charged only once, then remove 2nd line)
     await page.click('[data-testid="pq-add-line-btn"]');
     await page.waitForSelector('[data-testid="pq-line-card-1"]');
+    await page.waitForSelector('[data-testid="pq-line-collapsed-0"]');
     await page.fill(
       'input[aria-label="Tên sản phẩm dòng 2"]',
       'Voucher giảm giá 20%',
@@ -709,7 +710,11 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       await page.textContent('[data-testid="pq-summary-total"]'),
       /145\.000/,
     );
-    // Remove 2nd line to return to canonical 100 tờ quote
+    await page.screenshot({
+      path: path.join(artifactDir, 'qa03-03b-desktop-multi-item-collapsed.png'),
+      fullPage: false,
+    });
+    // Remove 2nd line to return to canonical 100 tờ quote (Line 1 automatically re-expands)
     await page.click(
       '[data-testid="pq-line-card-1"] button:has-text("Xóa dòng")',
     );
@@ -1110,6 +1115,26 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
 
     await page.screenshot({
       path: path.join(artifactDir, 'qa03-09-iphone-orders.png'),
+      fullPage: false,
+    });
+
+    // Also verify 320px ultra-compact mobile viewport has zero horizontal overflow
+    await page.setViewportSize({ width: 320, height: 740 });
+    await page.click('[data-testid="tab-create-quote"]');
+    await page.waitForSelector('[data-testid="panel-create-quote"]');
+    const overflow320Create = await page.evaluate(() => {
+      return (
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+      );
+    });
+    assert.equal(
+      overflow320Create,
+      false,
+      '320px compact mobile view on Create Quote must not overflow horizontally',
+    );
+    await page.screenshot({
+      path: path.join(artifactDir, 'qa03-10-mobile-320px-create-quote.png'),
       fullPage: false,
     });
 

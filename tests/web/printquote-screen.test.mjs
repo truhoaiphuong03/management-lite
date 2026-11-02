@@ -309,4 +309,45 @@ describe('MGL-PRINTQUOTE V1 — Phase 3 Web UI & Vietnamese A4 PDF Tests', () =>
     assert.equal(a4Html.includes('222.300'), false);
     assert.equal(a4Html.includes('>50.000 ₫<'), false);
   });
+
+  it('5. PrintQuote v0.8.1 UX/UI Redesign: 4 nhóm điều hướng, 4 khối thu gọn linh hoạt trên Tab Tạo báo giá, thêm khách nhanh inline, bảng tổng kết chuyển đổi và tùy chọn nâng cao thu gọn', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(PrintQuoteScreen, {
+        role: 'owner',
+        workspaceName: 'Hoài Phương Media',
+        initialTab: 'create',
+      }),
+    );
+
+    // 4 nhóm điều hướng rõ ràng: Báo giá, Đơn hàng, Danh mục, Báo cáo
+    assert.equal(html.includes('pq-nav-group-quotes'), true);
+    assert.equal(html.includes('pq-nav-group-orders'), true);
+    assert.equal(html.includes('pq-nav-group-catalog'), true);
+    assert.equal(html.includes('pq-nav-group-analytics'), true);
+
+    // Thanh nhảy nhanh và 4 nhóm thông tin có thể thu gọn trên 1 màn hình
+    assert.equal(html.includes('pq-section-jump-bar'), true);
+    assert.equal(html.includes('pq-sec-customer'), true);
+    assert.equal(html.includes('pq-sec-products'), true);
+    assert.equal(html.includes('pq-sec-summary'), true);
+    assert.equal(html.includes('pq-sec-actions'), true);
+    assert.equal(html.includes('pq-jump-customer'), true);
+    assert.equal(html.includes('pq-jump-products'), true);
+    assert.equal(html.includes('pq-jump-summary'), true);
+    assert.equal(html.includes('pq-jump-actions'), true);
+
+    // Nút thêm khách hàng mới ngay trong màn hình Tạo báo giá
+    assert.equal(html.includes('pq-inline-new-customer-btn'), true);
+
+    // Một bảng tổng kết duy nhất có nút chuyển đổi Bản gửi khách / Bóc tách nội bộ
+    assert.equal(html.includes('pq-view-mode-customer'), true);
+    assert.equal(html.includes('pq-view-mode-internal'), true);
+
+    // Tùy chọn nâng cao mặc định thu gọn
+    assert.equal(html.includes('pq-advanced-options-toggle'), true);
+    assert.equal(html.includes('pq-advanced-options-panel'), false);
+
+    // Thanh hành động Lưu / Xuất PDF luôn dễ truy cập
+    assert.equal(html.includes('pq-action-bar'), true);
+  });
 });
