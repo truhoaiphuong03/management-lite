@@ -34,7 +34,7 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
     '1. NAV_GROUPS defines the approved groups including independent finance and accounts',
     () => {
       assert.ok(NAV_ITEMS.length > 0, 'NAV_ITEMS must contain items');
-      assert.equal(NAV_GROUPS.length, 7, 'Must define exactly 7 groups');
+      assert.equal(NAV_GROUPS.length, 8, 'Must define 8 groups including print-quotes');
       const groupIds = NAV_GROUPS.map((g) => g.id);
       assert.deepEqual(
         groupIds,
@@ -45,9 +45,10 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
           'hr-payroll',
           'accounts',
           'finance',
+          'print-quotes',
           'admin',
         ],
-        'Groups must match approved order: Tổng quan, Công việc, Chấm công, Nhân sự, Tài khoản, Thu chi, Quản trị',
+        'Groups must match approved order including Báo giá in ấn',
       );
       const groupTitles = NAV_GROUPS.map((g) => g.title);
       assert.deepEqual(groupTitles, [
@@ -57,6 +58,7 @@ test('UI-SHELL-02 — Phương án A: 5-Group Navigation Architecture and RBAC',
         'Nhân sự',
         'Tài khoản',
         'Thu chi',
+        'Báo giá in ấn',
         'Quản trị',
       ]);
     },

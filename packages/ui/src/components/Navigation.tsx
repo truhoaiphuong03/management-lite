@@ -72,6 +72,13 @@ export const NAV_ITEMS: NavItem[] = [
     ownerOnly: true,
   },
   {
+    id: 'print-quotes',
+    label: 'Báo giá in ấn',
+    path: '/print-quotes',
+    icon: 'print-quotes',
+    ownerOnly: true,
+  },
+  {
     id: 'audit',
     label: 'Nhật ký Audit',
     path: '/audit',
@@ -145,6 +152,13 @@ export const NAV_GROUPS: NavGroup[] = [
     path: '/finance',
     icon: 'finance',
     itemIds: ['finance'],
+  },
+  {
+    id: 'print-quotes',
+    title: 'Báo giá in ấn',
+    path: '/print-quotes',
+    icon: 'print-quotes',
+    itemIds: ['print-quotes'],
   },
   {
     id: 'admin',
@@ -412,6 +426,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           work: 'Công việc',
           'hr-payroll': 'Nhân sự',
           finance: 'Thu chi',
+          'print-quotes': 'Báo giá',
           accounts: 'Tài khoản',
           admin: 'Quản trị',
         };

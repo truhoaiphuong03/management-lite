@@ -19,7 +19,8 @@ export interface RouteMeta {
     | 'audit'
     | 'system'
     | 'issues'
-    | 'finance';
+    | 'finance'
+    | 'print-quotes';
 }
 
 export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
@@ -250,6 +251,14 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     ownerOnly: true,
     implemented: true,
     category: 'accounts',
+  },
+  '/print-quotes': {
+    id: 'UI-PRINTQUOTE-01',
+    path: '/print-quotes',
+    title: 'Báo giá in ấn',
+    ownerOnly: true,
+    implemented: true,
+    category: 'print-quotes',
   },
   '/storage': {
     id: 'UI-STORAGE-01',

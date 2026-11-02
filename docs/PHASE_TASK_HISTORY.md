@@ -447,6 +447,60 @@
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — `2/2` suite kiểm thử tích hợp PostgreSQL DEV đạt `PASS` (`duration_ms: 215.09ms`).
 10. **Evidence (`VERIFIED`):** `node --test tests/backend/printquote-postgres.test.mjs`.
-11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+11. **Commit / PR:** `f69b21a` (Nhánh `feature/printquote-module-v1`)
 12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
 13. **NEXT_ACTION:** Bắt đầu `Phase PQ-3` (`PQ3-T01` — Giao diện Báo giá in ấn & Xuất PDF A4 tiếng Việt).
+
+---
+
+### Task `PQ3-T01` — Bổ Sung Nhóm Menu **Báo Giá In Ấn** (`/print-quotes`) & Định Tuyến Tách Gói (`React.lazy`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-3`
+3. **Task ID:** `PQ3-T01`
+4. **Mô tả:** Bổ sung nhóm menu mới **Báo giá in ấn** (`id: 'print-quotes'`, `path: '/print-quotes'`, `ownerOnly: true`) vào `Navigation.tsx`, `Icons.tsx`, `types.ts`, `GroupOverviewScreen.tsx`, đăng ký `PrintQuoteScreen` qua `React.lazy` trong `lazy-screens.ts` và gắn vào `App.tsx` giữ nguyên ngân sách gói JS tải lần đầu (`< 450 KB raw / < 130 KB gzip`).
+5. **Phụ thuộc:** `PQ2-T03` (`PASS`).
+6. **Acceptance Criteria:** Menu **Báo giá in ấn** hiển thị cho Owner trên Desktop/Mobile, ẩn với Staff; `npm run check:bundle` đạt `PASS` (`438.3 KB raw / 125.1 KB gzip`).
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — `check:bundle` đạt `438.3 KB raw / 125.1 KB gzip` (`Bundle budget OK`), `UI-SHELL-02` đạt `5/5 PASS`.
+10. **Evidence (`VERIFIED`):** `packages/ui/src/components/{Navigation,Icons}.tsx`, `apps/web/src/{types,lazy-screens,App}.tsx`, `npm run check:bundle`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `PQ3-T02`.
+
+---
+
+### Task `PQ3-T02` — Xây Dựng Màn Hình `PrintQuoteScreen.tsx` (6 Chức Năng) & Bộ Xuất PDF A4 Tiếng Việt (`printquote-helpers.ts`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-3`
+3. **Task ID:** `PQ3-T02`
+4. **Mô tả:** Xây dựng `apps/web/src/screens/PrintQuoteScreen.tsx` và `apps/web/src/screens/helpers/printquote-helpers.ts` đồng nhất giao diện Management Lite, responsive Desktop/iPhone, gồm 6 tab chức năng: (1) Tạo báo giá trực tiếp kèm đối soát giá vốn/lời nội bộ & xem trước bảng giá khách, (2) Danh sách báo giá & lịch sử phiên bản `v1..vN`, (3) Nhà in & Bảng giá, (4) Khách hàng, (5) Đơn hàng, (6) Lợi nhuận & Công nợ; kèm bộ sinh PDF A4 tiếng Việt `buildPrintQuoteA4Html` chỉ hiển thị giá bán, tuyệt đối không lộ giá nhà in hoặc lợi nhuận.
+5. **Phụ thuộc:** `PQ3-T01` (`PASS`).
+6. **Acceptance Criteria:** Hoàn thành quy trình báo giá thực tế, lưu dữ liệu và xuất PDF A4 tiếng Việt kèm đọc số tiền bằng chữ (`numberToVietnameseWords`); `assertCustomerSafePdfPayload` khóa cứng không lộ giá vốn/lợi nhuận.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — Biên dịch TypeScript & Vite production build đạt `0` lỗi (`dist/assets/PrintQuoteScreen-C9CvBqLw.js`).
+10. **Evidence (`VERIFIED`):** `apps/web/src/screens/PrintQuoteScreen.tsx`, `apps/web/src/screens/helpers/printquote-helpers.ts`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `PQ3-T03`.
+
+---
+
+### Task `PQ3-T03` — Kiểm Thử Giao Diện Web & Bảo Mật Xuất PDF A4 (`tests/web/printquote-screen.test.mjs`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-3`
+3. **Task ID:** `PQ3-T03`
+4. **Mô tả:** Viết và thực thi bộ kiểm thử `tests/web/printquote-screen.test.mjs` xác minh hiển thị menu theo RBAC, render đủ 6 tab chức năng trên `PrintQuoteScreen`, tính toán trực tiếp trên giao diện, và kiểm chứng bản in PDF A4 tiếng Việt không lộ bất kỳ con số giá vốn nhà in, lợi nhuận hay tiền ship gộp nào.
+5. **Phụ thuộc:** `PQ3-T02` (`PASS`).
+6. **Acceptance Criteria:** `tests/web/printquote-screen.test.mjs` và `tests/web/ui-shell-02.test.mjs` đạt `10/10 PASS` (`0 fail`).
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — `10/10` tests `PASS` (`duration_ms: 103.83ms`).
+10. **Evidence (`VERIFIED`):** `node --test tests/web/printquote-screen.test.mjs tests/web/ui-shell-02.test.mjs`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Bắt đầu `Phase PQ-4` (`PQ4-T01..T03` — Đơn hàng, Kiểm thử Toàn diện & Diễn tập Backup/Rollback).

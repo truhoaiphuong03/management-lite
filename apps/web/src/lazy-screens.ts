@@ -131,3 +131,8 @@ export const FinancePlanScreen = lazy(() =>
     default: m.FinancePlanScreen,
   })),
 );
+export const PrintQuoteScreen = lazy(() =>
+  import('./screens/PrintQuoteScreen.js').then((m) => ({
+    default: m.PrintQuoteScreen,
+  })),
+);
