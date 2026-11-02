@@ -653,6 +653,8 @@ export function NavIcon({
       return <WalletIcon size={size} />;
     case 'accounts':
       return <KeyIcon size={size} />;
+    case 'print-quotes':
+      return <ClipboardListIcon size={size} />;
     case 'audit':
       return <ShieldCheckIcon size={size} />;
     case 'system-logs':

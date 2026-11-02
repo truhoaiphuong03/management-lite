@@ -44,6 +44,8 @@ const ITEM_DESCRIPTIONS: Record<string, string> = {
   'my-pay': 'Tra cứu chi tiết phiếu lương và thu nhập cá nhân.',
   finance: 'Theo dõi sổ thu chi riêng của bạn.',
   accounts: 'Quản lý danh mục tài khoản dịch vụ và thông tin xác thực.',
+  'print-quotes':
+    'Tính báo giá in ấn, quản lý nhà in, khách hàng, xuất PDF A4 và theo dõi đơn in/công nợ.',
   audit: 'Theo dõi nhật ký hoạt động và sự kiện bảo mật trong hệ thống.',
   'system-logs':
     'Tra cứu nhật ký vận hành kỹ thuật, trạng thái tác vụ nền và kết nối dịch vụ.',
@@ -64,6 +66,7 @@ const DISPATCHED_PATHS = new Set([
   '/my-pay',
   '/work',
   '/accounts',
+  '/print-quotes',
   '/finance',
   '/storage',
   '/audit',

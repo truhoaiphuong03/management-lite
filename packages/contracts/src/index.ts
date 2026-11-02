@@ -12,3 +12,4 @@ export * from './issues.js';
 export * from './version.js';
 export * from './finance.js';
 export * from './dashboard.js';
+export * from './printquote.js';

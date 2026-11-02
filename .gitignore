@@ -22,3 +22,4 @@ scripts/ui-audit/out*/
 
 # Local scratch for remediation work (sandbox clones, isolated test clusters, input dumps). Never commit.
 .local/
+.planning/

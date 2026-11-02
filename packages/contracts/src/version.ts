@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.7.2';
-export const SYSTEM_COMMIT = 'f09d04f';
+export const SYSTEM_VERSION = '0.8.0';
+export const SYSTEM_COMMIT = '61f3e32';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -40,6 +40,26 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  * Bản 'latest' tự động gắn với commit thực tế của bản dựng mới nhất khi đóng gói và triển khai.
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
+  {
+    version: '0.8.0',
+    commit: 'latest',
+    released_at: '2026-11-02',
+    summary:
+      'Phân hệ Báo giá in ấn (MGL-PRINTQUOTE V1 — /print-quotes): Nhà in & Bảng giá, Tạo báo giá tự động phân bổ vận chuyển, Xuất file PDF A4 tiếng Việt ẩn giá vốn, Quản lý Đơn hàng, Đặt cọc/Công nợ & Thống kê lợi nhuận',
+    added: [
+      'Bổ sung phân hệ "Báo giá in ấn" (/print-quotes, chỉ dành cho Chủ sở hữu) với 6 tab chức năng: Tạo báo giá, Danh sách báo giá, Nhà in & Bảng giá, Khách hàng, Đơn hàng, Lợi nhuận & Công nợ.',
+      'Động cơ tính giá in ấn chuẩn xác (giá nhà in theo đơn vị/lô, lợi nhuận VND/% theo đơn vị/lô, cước vận chuyển cộng 1 lần và phân bổ Largest Remainder vào đơn giá báo khách, bảo toàn lịch sử giá đơn cũ khi cập nhật bảng giá).',
+      'Xuất và tải trực tiếp file báo giá PDF khổ A4 tiếng Việt (<quote_code>.pdf) chỉ hiển thị đơn giá bán và thành tiền khách hàng, ẩn 100% giá vốn nhà in và lợi nhuận nội bộ.',
+      'Quản lý vòng đời Đơn hàng in ấn (chuyển báo giá thành đơn hàng chống trùng lặp 409 CONFLICT, cấp mã nguyên tử BG-YYYYMM-NNN / DH-YYYYMM-NNN, theo dõi ngày đặt in, tiến độ sản xuất & giao hàng, đặt cọc/thanh toán nhiều đợt/hoàn tiền và công nợ thực tế).',
+    ],
+    improved: [
+      'Gia cố bộ kết xuất PDF A4 chạy ổn định dưới tài khoản dịch vụ Windows (NT AUTHORITY\\LocalService / Session 0) và khóa phân quyền Owner-only chặt chẽ tại cả tầng giao diện lẫn API.',
+      'Hoàn tất kiểm thử nghiệm thu độc lập trên Windows Staging (PostgreSQL 18 TEST :55433 cô lập, migration tuần tự 0031 ➔ 0032 ➔ 0033 và Playwright trình duyệt Chrome thật Desktop + iPhone).',
+    ],
+    fixed: [
+      'Khắc phục xung đột lịch sử nhánh giữa feature/printquote-module-v1 và main (v0.7.2), đồng bộ đầy đủ các bản vá bảo mật và cổng phát hành Owner-Locked Release Gate.',
+    ],
+  },
   {
     version: '0.7.2',
     commit: 'latest',

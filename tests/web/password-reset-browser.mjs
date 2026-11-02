@@ -4,13 +4,14 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import pg from 'pg';
 
-const DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+import {
+  loadTestDatabaseConfig,
+  assertSafeTestDatabase,
+} from '../../dist/packages/database/src/config.js';
 
-if (!DATABASE_URL) {
-  throw new Error(
-    'TEST_DATABASE_URL or DATABASE_URL must be defined in environment to connect to isolated test database',
-  );
-}
+const dbConfig = loadTestDatabaseConfig(process.env);
+assertSafeTestDatabase(dbConfig, process.env);
+const DATABASE_URL = dbConfig.connectionString;
 
 async function runBrowserE2E() {
   console.log('=== CHROME CDP E2E: PASSWORD RESET & LOGIN FLOW ===');

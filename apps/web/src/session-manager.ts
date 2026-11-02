@@ -234,6 +234,7 @@ export function evaluateRouteAccess(
     (routeMeta?.category === 'finance' &&
       (!verifiedOwnerSession || role !== 'owner')) ||
     (isIssuesRoute && (!verifiedOwnerSession || role !== 'owner')) ||
+    (routeMeta?.path === '/print-quotes' && role !== 'owner') ||
     (!isIssuesRoute && routeMeta?.ownerOnly && role === 'staff') ||
     (!isIssuesRoute && routeMeta?.staffOnly && role === 'owner'),
   );

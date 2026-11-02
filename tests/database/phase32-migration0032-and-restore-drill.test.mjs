@@ -175,19 +175,19 @@ test('Phase 32 Task 2 & Task 4: Migration 0032 E2E verification, legacy data pre
   const allMigrations = loadMigrationFiles(
     path.join(rootDir, 'packages/database/src/migrations'),
   );
-  assert.equal(
-    allMigrations.length,
-    32,
-    'Must have 32 total migrations (0001..0032)',
+  assert.ok(
+    allMigrations.length >= 32,
+    'Must have at least 32 migrations (0001..0032+)',
   );
   const pre0032Migrations = allMigrations.slice(0, 31);
+  const upTo0032Migrations = allMigrations.slice(0, 32);
   assert.equal(
     pre0032Migrations[30].id,
     '0031_accounts_ecosystem_hierarchy',
     '31st migration must be 0031_accounts_ecosystem_hierarchy',
   );
   assert.equal(
-    allMigrations[31].id,
+    upTo0032Migrations[31].id,
     '0032_employee_sub_permissions',
     '32nd migration must be 0032_employee_sub_permissions',
   );
@@ -369,7 +369,7 @@ test('Phase 32 Task 2 & Task 4: Migration 0032 E2E verification, legacy data pre
     assert.equal(preEmpList.json.data.items.length, 4);
 
     // 4. Apply Migration 0032 on top of populated 0001..0031 database
-    const mig32Res = await runMigrations(drillPool, allMigrations);
+    const mig32Res = await runMigrations(drillPool, upTo0032Migrations);
     assert.equal(mig32Res.appliedCount, 1);
     assert.deepEqual(mig32Res.appliedIds, ['0032_employee_sub_permissions']);
 
@@ -621,4 +621,35 @@ test('Phase 32 Task 2 & Task 4: Migration 0032 E2E verification, legacy data pre
     )
   ).rows;
   assert.equal(afterRollbackRows.length, 4);
+
+  // 8. Verify sequential upgrade 0031 -> 0032 -> 0033 (v0.8.0 PrintQuote V1) preserves legacy data and creates all 8 print_* tables
+  const seq32And33Res = await runMigrations(drillPool, allMigrations);
+  assert.equal(seq32And33Res.appliedCount, 2);
+  assert.deepEqual(seq32And33Res.appliedIds, [
+    '0032_employee_sub_permissions',
+    '0033_printquote_v1',
+  ]);
+  const printTablesRes = await drillPool.query(
+    `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'print_%' ORDER BY tablename`,
+  );
+  assert.deepEqual(
+    printTablesRes.rows.map((r) => r.tablename),
+    [
+      'print_code_counters',
+      'print_customers',
+      'print_order_payments',
+      'print_orders',
+      'print_quote_versions',
+      'print_quotes',
+      'print_vendor_price_items',
+      'print_vendors',
+    ],
+  );
+  const afterSeqEmpRows = (
+    await drillPool.query(
+      `SELECT employee_code, phone, bank_name, sub_role, sub_permissions FROM employees WHERE workspace_id = $1 ORDER BY employee_code`,
+      [wsId],
+    )
+  ).rows;
+  assert.equal(afterSeqEmpRows.length, 4);
 });

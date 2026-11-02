@@ -33,6 +33,7 @@ import {
   FinanceEntryScreen,
   FinanceCategoriesScreen,
   FinancePlanScreen,
+  PrintQuoteScreen,
 } from './lazy-screens.js';
 import {
   SettingsScreen,
@@ -722,6 +723,14 @@ export const App: React.FC = () => {
         );
       case '/accounts':
         return <AccountsScreen role={role} onNavigate={handleNavigate} />;
+      case '/print-quotes':
+        return (
+          <PrintQuoteScreen
+            role={role}
+            workspaceName={workspaceName}
+            onNavigate={handleNavigate}
+          />
+        );
       case '/accounts/:id':
         return (
           <AccountsScreen

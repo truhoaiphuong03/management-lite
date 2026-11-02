@@ -254,8 +254,9 @@ test('Phase 32 Final Recovery Safety Validation: Post-Migration 0032 Cutover Fai
     'src',
     'migrations',
   );
-  const all32Migs = loadMigrationFiles(migrationsSrcDir);
-  assert.equal(all32Migs.length, 32);
+  const allCatalogMigs = loadMigrationFiles(migrationsSrcDir);
+  assert.ok(allCatalogMigs.length >= 32);
+  const all32Migs = allCatalogMigs.slice(0, 32);
   const first31Migs = all32Migs.slice(0, 31);
 
   const schemaId31 = sha256Hex(
@@ -504,6 +505,19 @@ test('Phase 32 Final Recovery Safety Validation: Post-Migration 0032 Cutover Fai
     path.join(rootDir, 'dist', 'packages', 'database', 'src'),
     path.join(bundleBuildDir, 'dist', 'packages', 'database', 'src'),
     { recursive: true },
+  );
+  fs.writeFileSync(
+    path.join(
+      bundleBuildDir,
+      'dist',
+      'packages',
+      'database',
+      'src',
+      'migrations',
+      'catalog.js',
+    ),
+    `export const EMBEDDED_MIGRATIONS = ${JSON.stringify(all32Migs, null, 2)};\n`,
+    'utf8',
   );
   fs.writeFileSync(
     path.join(bundleBuildDir, 'dist', 'apps', 'api', 'src', 'main.js'),

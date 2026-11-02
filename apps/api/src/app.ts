@@ -67,6 +67,8 @@ import { handleSchedulesRoutes } from './routes/schedules-routes.js';
 import { handleAccountsRoutes } from './routes/accounts-routes.js';
 import { handleStorageRoutes } from './routes/storage-routes.js';
 import { handleAuditAndIssuesRoutes } from './routes/issues-routes.js';
+import { handlePrintQuoteRoutes } from './routes/printquote-routes.js';
+import { PrintQuoteService } from './printquote/service.js';
 
 export interface AppDependencies {
   pool?: DatabasePool | null | undefined;
@@ -86,6 +88,7 @@ export interface AppDependencies {
   financeService?: FinanceService;
   dashboardService?: DashboardService;
   bridgeService?: BridgeService;
+  printQuoteService?: PrintQuoteService;
   apiCache?: ScopedApiCache;
   accountSecretKey?: Buffer | undefined;
   csrfSecret?: string;
@@ -467,6 +470,9 @@ export function createRequestHandler(
   );
   const bridgeService =
     deps.bridgeService ?? (deps.pool ? new BridgeService(deps.pool) : null);
+  const printQuoteService =
+    deps.printQuoteService ??
+    (deps.pool ? new PrintQuoteService(deps.pool) : null);
   const apiCache = deps.apiCache ?? new ScopedApiCache();
 
   const routeTable = new RouteTable()
@@ -500,7 +506,8 @@ export function createRequestHandler(
     )
     .registerExact('GET', '/api/v1/issues', handleAuditAndIssuesRoutes)
     .registerExact('POST', '/api/v1/issues', handleAuditAndIssuesRoutes)
-    .registerPrefix('/api/v1/issues', handleAuditAndIssuesRoutes);
+    .registerPrefix('/api/v1/issues', handleAuditAndIssuesRoutes)
+    .registerPrefix('/api/v1/print-quotes', handlePrintQuoteRoutes);
 
   // Resolve release info once at boot so the one-time git fallback never runs while a
   // (public) health request is waiting on it.
@@ -2661,6 +2668,7 @@ export function createRequestHandler(
         storageService: storageService ?? undefined,
         auditService: auditService ?? undefined,
         issuesService: issuesService ?? undefined,
+        printQuoteService: printQuoteService ?? undefined,
       };
       if (await routeTable.dispatch(routeCtx)) {
         return;

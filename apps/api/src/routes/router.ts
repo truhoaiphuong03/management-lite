@@ -5,6 +5,7 @@ import type { AccountsService } from '../accounts/service.js';
 import type { StorageService } from '../storage/service.js';
 import type { AuditService } from '../audit/service.js';
 import type { IssuesService } from '../issues/service.js';
+import type { PrintQuoteService } from '../printquote/service.js';
 
 export interface RouteRequestContext {
   req: http.IncomingMessage;
@@ -32,6 +33,7 @@ export interface RouteRequestContext {
   storageService?: StorageService | undefined;
   auditService?: AuditService | undefined;
   issuesService?: IssuesService | undefined;
+  printQuoteService?: PrintQuoteService | undefined;
 }
 
 export type RouteHandler = (

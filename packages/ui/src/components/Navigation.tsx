@@ -72,6 +72,13 @@ export const NAV_ITEMS: NavItem[] = [
     ownerOnly: true,
   },
   {
+    id: 'print-quotes',
+    label: 'Báo giá in ấn',
+    path: '/print-quotes',
+    icon: 'print-quotes',
+    ownerOnly: true,
+  },
+  {
     id: 'audit',
     label: 'Nhật ký Audit',
     path: '/audit',
@@ -147,6 +154,13 @@ export const NAV_GROUPS: NavGroup[] = [
     itemIds: ['finance'],
   },
   {
+    id: 'print-quotes',
+    title: 'Báo giá in ấn',
+    path: '/print-quotes',
+    icon: 'print-quotes',
+    itemIds: ['print-quotes'],
+  },
+  {
     id: 'admin',
     title: 'Quản trị',
     path: '/groups/admin',
@@ -195,6 +209,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       (isOwnerVerified !== true || role !== 'owner')
     )
       return false;
+    if (item.id === 'print-quotes' && role !== 'owner') return false;
     if (role === 'staff' && item.ownerOnly) return false;
     if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
       return false; // C04/PAY-02: Owner has no payroll entry
@@ -358,6 +373,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       (isOwnerVerified !== true || role !== 'owner')
     )
       return false;
+    if (item.id === 'print-quotes' && role !== 'owner') return false;
     if (role === 'staff' && item.ownerOnly) return false;
     if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
       return false;
@@ -412,6 +428,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           work: 'Công việc',
           'hr-payroll': 'Nhân sự',
           finance: 'Thu chi',
+          'print-quotes': 'Báo giá',
           accounts: 'Tài khoản',
           admin: 'Quản trị',
         };
