@@ -18,12 +18,22 @@ param(
   [string]$ExpectedControllerSha256 = '',
   [string]$GitHubApiBaseUrl = 'https://api.github.com',
   [switch]$EnrollNewPublicKey,
+  [switch]$Force,
   [switch]$DryRunPreflightOnly,
   [switch]$SandboxMode,
+  [int]$SandboxDbPort = 0,
+  [string]$SandboxDbUser = '',
+  [string]$SandboxDbTarget = '',
+  [string]$SandboxPgPassFilePath = '',
+  [string]$SandboxPgBinDir = '',
+  [string]$SandboxHealthUrl = '',
+  [string]$SandboxReadyUrl = '',
+  [string]$SandboxWebUrl = '',
   [switch]$SimulateNonElevatedCaller,
   [switch]$SimulateSigningFailureAfterPolicyWrite,
   [switch]$SimulateBackupFailure,
-  [switch]$SimulateMigrationFailure
+  [switch]$SimulateMigrationFailure,
+  [switch]$SimulateCutoverHealthFailure
 )
 
 Set-StrictMode -Version Latest
@@ -100,6 +110,18 @@ if ($trustedControllerHashes -notcontains $actualControllerSha) {
 $controllerRaw = Get-Content -LiteralPath $DeployControllerPath -Raw
 if ($controllerRaw -notmatch '\$RunMigrations') {
   throw "REJECTED_CONTROLLER_INCOMPATIBLE: Controller '$DeployControllerPath' does not support -RunMigrations."
+}
+
+# Verify deployment-state.json is not in an unrecovered or blocked rollback state without explicit -Force
+$stateJournalPath = Join-Path $ServerRoot 'reports\deployment-state.json'
+if (Test-Path -LiteralPath $stateJournalPath -PathType Leaf) {
+  $jState = Get-Content -LiteralPath $stateJournalPath -Raw | ConvertFrom-Json
+  if ($jState.status -in @('IN_PROGRESS', 'ROLLING_BACK', 'MANUAL_INTERVENTION')) {
+    throw "REJECTED_INTERRUPTED_STATE_REQUIRES_RECOVERY: Deployment state '$($jState.status)' detected in '$stateJournalPath'. Resolve interrupted state before running a new release."
+  }
+  if ($jState.status -eq 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK' -and (-not $Force)) {
+    throw "REJECTED_STOP_NO_GO_REQUIRES_FORWARD_RECOVERY: Deployment state 'STOP_NO_GO_INCOMPATIBLE_ROLLBACK' detected in '$stateJournalPath'. Code-only rollback is blocked; pass -Force with a newly signed release approval for safe forward recovery."
+  }
 }
 
 # 3. RESOLVE IN-MEMORY GITHUB TOKEN & DOWNLOAD ARTIFACT IF NEEDED (INTO NON-PRODUCTION ARTIFACTS DIR)
@@ -387,6 +409,7 @@ Copy-Item -LiteralPath $provSrc -Destination (Join-Path $stageDir "management-li
 Copy-Item -LiteralPath $receiptSrc -Destination (Join-Path $stageDir "ci-run-receipt-$CommitSha.json") -Force
 
 $gateMutated = $false
+$sequence = 0
 try {
   # Unlock release-gate ACL temporarily for elevated transactional write
   Unlock-ReleaseGateDirectoryAcl -TargetGateDir $gateDir -IsElevated $isElevatedAdmin -CallerPrincipal $identity.Name
@@ -394,17 +417,65 @@ try {
   Copy-Item -LiteralPath $receiptSrc -Destination $gateReceiptPath -Force
 
   $sequence = 1
-  if (Test-Path -LiteralPath $watermarkPath -PathType Leaf) {
+  $wmExists = Test-Path -LiteralPath $watermarkPath -PathType Leaf
+  $wmSeq = 0
+  if ($wmExists) {
     $wm = Get-Content -LiteralPath $watermarkPath -Raw | ConvertFrom-Json
-    if ($null -ne $wm.last_sequence) { $sequence = [int]$wm.last_sequence + 1 }
+    if ($null -ne $wm.last_sequence) {
+      $wmSeq = [int]$wm.last_sequence
+      $sequence = $wmSeq + 1
+    }
   }
 
   $prevHash = '0' * 64
   if (Test-Path -LiteralPath $auditLogPath -PathType Leaf) {
     $lines = @(Get-Content -LiteralPath $auditLogPath | Where-Object { $_.Trim() -ne '' })
+    if ($wmExists -and $wmSeq -gt 0 -and $lines.Count -ne $wmSeq) {
+      throw "REJECTED_WATERMARK_AUDIT_DESYNC: approval-watermark.json (last_sequence=$wmSeq) does not match approval-audit.jsonl entry count ($($lines.Count)). Manual watermark or audit log tampering is forbidden."
+    }
     if ($lines.Count -gt 0) {
-      $lastObj = $lines[-1] | ConvertFrom-Json
-      if ($lastObj.entry_hash) { $prevHash = [string]$lastObj.entry_hash }
+      $expectedPrevAudit = '0' * 64
+      for ($idx = 0; $idx -lt $lines.Count; $idx++) {
+        $entryObj = $lines[$idx] | ConvertFrom-Json
+        $hasSeqProp = ($entryObj.PSObject.Properties.Name -contains 'sequence') -and ($null -ne $entryObj.sequence)
+        $hasPrevProp = ($entryObj.PSObject.Properties.Name -contains 'prev_audit_hash') -and (-not [string]::IsNullOrWhiteSpace([string]$entryObj.prev_audit_hash))
+        $entryHashStr = if ($entryObj.PSObject.Properties.Name -contains 'entry_hash') { [string]$entryObj.entry_hash.Trim().ToLowerInvariant() } else { '' }
+        if ($entryHashStr -notmatch '^[0-9a-f]{64}$') {
+          throw 'AUDIT_CHAIN_LINK_BROKEN: Invalid entry_hash in approval-audit.jsonl.'
+        }
+        if ($hasSeqProp -and [int]$entryObj.sequence -ne ($idx + 1)) {
+          throw "AUDIT_CHAIN_LINK_BROKEN: Sequence mismatch at line $($idx + 1) in approval-audit.jsonl."
+        }
+        if ($hasPrevProp -and [string]$entryObj.prev_audit_hash.Trim().ToLowerInvariant() -ne $expectedPrevAudit) {
+          throw "AUDIT_CHAIN_LINK_BROKEN: Broken prev_audit_hash link at line $($idx + 1) in approval-audit.jsonl."
+        }
+        $expectedPrevAudit = $entryHashStr
+      }
+      $prevHash = $expectedPrevAudit
+      if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
+        try {
+          $existingManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        } catch {
+          throw 'AUDIT_CHAIN_LINK_BROKEN: Existing approved-release.json is unreadable or invalid JSON.'
+        }
+        if ($existingManifest -and ($existingManifest.PSObject.Properties.Name -contains 'sequence') -and [int]$existingManifest.sequence -eq $lines.Count) {
+          $lastAuditObj = $lines[$lines.Count - 1] | ConvertFrom-Json
+          $lastPrevStr = [string]$lastAuditObj.prev_audit_hash.Trim()
+          $lastCanonical = [string]$existingManifest.payload_canonical_json
+          $lastSig = [string]$existingManifest.signature_base64
+          $sha256Alg = [Security.Cryptography.SHA256]::Create()
+          try {
+            $rawBytes = [Text.Encoding]::UTF8.GetBytes("${lastPrevStr}|${lastCanonical}|${lastSig}")
+            $hashBytes = $sha256Alg.ComputeHash($rawBytes)
+            $computedTailHash = ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+          } finally {
+            $sha256Alg.Dispose()
+          }
+          if ($computedTailHash -ne $expectedPrevAudit) {
+            throw 'AUDIT_CHAIN_LINK_BROKEN: Last entry_hash in approval-audit.jsonl does not match approved-release.json manifest digest.'
+          }
+        }
+      }
       if ($lines.Count + 1 -gt $sequence) {
         $sequence = $lines.Count + 1
       }
@@ -604,9 +675,21 @@ console.log(`[OK] Signed SINGLE_SHA (sequence=${sequence}, allow_migration=true,
       ServerRoot           = $ServerRoot
       RunMigrations        = $true
     }
+    if ($Force) {
+      $deployArgs['Force'] = $true
+    }
     if ($SandboxMode) {
       $deployArgs['SandboxMode'] = $true
       $deployArgs['GitHubApiBaseUrl'] = $GitHubApiBaseUrl
+      if ($SandboxDbPort -gt 0) { $deployArgs['DbPort'] = $SandboxDbPort }
+      if (-not [string]::IsNullOrWhiteSpace($SandboxDbUser)) { $deployArgs['DbUser'] = $SandboxDbUser }
+      if (-not [string]::IsNullOrWhiteSpace($SandboxDbTarget)) { $deployArgs['DbTarget'] = $SandboxDbTarget }
+      if (-not [string]::IsNullOrWhiteSpace($SandboxPgPassFilePath)) { $deployArgs['PgPassFilePath'] = $SandboxPgPassFilePath }
+      if (-not [string]::IsNullOrWhiteSpace($SandboxPgBinDir)) { $deployArgs['PgBinDir'] = $SandboxPgBinDir }
+      if (-not [string]::IsNullOrWhiteSpace($SandboxHealthUrl)) { $deployArgs['HealthUrl'] = $SandboxHealthUrl }
+      if (-not [string]::IsNullOrWhiteSpace($SandboxReadyUrl)) { $deployArgs['ReadyUrl'] = $SandboxReadyUrl }
+      if (-not [string]::IsNullOrWhiteSpace($SandboxWebUrl)) { $deployArgs['WebUrl'] = $SandboxWebUrl }
+      if ($SimulateCutoverHealthFailure) { $deployArgs['SimulateHealthFailure'] = $true }
     }
     & $DeployControllerPath @deployArgs
     if ($LASTEXITCODE -ne 0) {
@@ -617,10 +700,21 @@ console.log(`[OK] Signed SINGLE_SHA (sequence=${sequence}, allow_migration=true,
   }
 } catch {
   $errMsg = $_.Exception.Message
-  if ($gateMutated) {
+  $watermarkConsumed = $false
+  if ($sequence -gt 0 -and (Test-Path -LiteralPath $watermarkPath -PathType Leaf)) {
+    try {
+      $wmAfter = Get-Content -LiteralPath $watermarkPath -Raw | ConvertFrom-Json
+      if ($null -ne $wmAfter.last_sequence -and [int]$wmAfter.last_sequence -ge $sequence) {
+        $watermarkConsumed = $true
+      }
+    } catch {}
+  }
+  if ($gateMutated -and (-not $watermarkConsumed)) {
     Write-Host "[ROLLBACK-GATE] Restoring release-gate policy, manifest, and audit log to pre-invocation state due to error: $errMsg" -ForegroundColor Yellow
     Unlock-ReleaseGateDirectoryAcl -TargetGateDir $gateDir -IsElevated $isElevatedAdmin -CallerPrincipal $identity.Name
     Restore-GateSnapshot
+  } elseif ($gateMutated -and $watermarkConsumed) {
+    Write-Host "[AUDIT-PRESERVED] Sequence $sequence was already committed to approval-watermark.json by controller; preserving enrolled policy and append-only approval-audit.jsonl for forward recovery." -ForegroundColor Yellow
   }
   throw
 } finally {
