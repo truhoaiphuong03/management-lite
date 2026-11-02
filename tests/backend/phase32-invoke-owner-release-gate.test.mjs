@@ -854,3 +854,266 @@ exit 0
   }).stdout;
   assert.match(finalIcacls, /\(OI\)\(CI\)\(RX/i);
 });
+
+test('Hotfix Release Gate Key Custody Detector & Trusted Controller Allowlist (Cases 1..5): System.Private.*.dll PASS, PEM/KEY/PFX/P12/Unverifiable BLOCK fail-closed, and synchronized controller SHA-256', async (t) => {
+  if (process.platform !== 'win32') {
+    t.diagnostic('Windows PowerShell test only');
+    return;
+  }
+
+  const realControllerPath = path.join(
+    rootDir,
+    'scripts',
+    'deployment',
+    'Deploy-SemiAutoWindows.ps1',
+  );
+  const invokeScriptContent = fs.readFileSync(scriptPath, 'utf8');
+  const controllerBytes = fs.readFileSync(realControllerPath);
+  const controllerSha = sha256Hex(controllerBytes).toLowerCase();
+
+  // TASK 4 check: Verify real repo controller SHA-256 is in Invoke-OwnerReleaseToWeb.ps1 allowlist and old false-positive hashes are removed
+  assert.equal(
+    invokeScriptContent.toLowerCase().includes(controllerSha),
+    true,
+    `Invoke-OwnerReleaseToWeb.ps1 must include patched Deploy-SemiAutoWindows.ps1 SHA-256 (${controllerSha}) in $trustedControllerHashes`,
+  );
+  assert.equal(
+    invokeScriptContent.includes(
+      '7cfa9c134f2cd61412bd2bb2fd94789887fcd79784c12ae60a411b1c1267ee7e',
+    ),
+    false,
+    'Old false-positive v1 controller hash must not remain in $trustedControllerHashes',
+  );
+  assert.equal(
+    invokeScriptContent.includes(
+      '3b5708842693d19068d0664c2a14248f0244fff187e54cc9f8506c309cfb59c3',
+    ),
+    false,
+    'Old false-positive v2 controller hash must not remain in $trustedControllerHashes',
+  );
+
+  const sbRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'ml-hotfix-keycustody-'),
+  );
+  t.after(() => {
+    fs.rmSync(sbRoot, { recursive: true, force: true });
+  });
+
+  const runnerBinDir = path.join(sbRoot, 'runner', 'bin');
+  const gateDir = path.join(sbRoot, 'config', 'release-gate');
+  const secretsDir = path.join(sbRoot, 'config', 'test-secrets');
+  const reportsDir = path.join(sbRoot, 'reports');
+  for (const d of [runnerBinDir, gateDir, secretsDir, reportsDir]) {
+    fs.mkdirSync(d, { recursive: true });
+  }
+
+  const dummySha = '52167d21507a2f56fcef5ab15275cbe47b5b554a';
+  const latestDeployJson = path.join(reportsDir, 'latest-deployment.json');
+  const readLatestReport = () =>
+    JSON.parse(
+      fs.readFileSync(latestDeployJson, 'utf8').replace(/^\uFEFF/, ''),
+    );
+
+  const runControllerStep2B = () =>
+    spawnSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        realControllerPath,
+        '-CommitSha',
+        dummySha,
+        '-ServerRoot',
+        sbRoot,
+        '-PolicyPath',
+        path.join(gateDir, 'release-gate-policy.json'),
+        '-ApprovalManifestPath',
+        path.join(gateDir, 'approved-release.json'),
+        '-SandboxMode',
+      ],
+      { encoding: 'utf8', windowsHide: true },
+    );
+
+  // Case 1: Valid System.Private.CoreLib.dll in runner/bin -> PASS Step 2B (advances past 2B to Step 3B REJECTED_ARTIFACT_MISSING)
+  const coreLibPath = path.join(runnerBinDir, 'System.Private.CoreLib.dll');
+  fs.writeFileSync(coreLibPath, 'MZ\x90\x00dotnet-corelib-binary-stub', 'utf8');
+  runControllerStep2B();
+  const reportCase1 = readLatestReport();
+  assert.notEqual(
+    reportCase1.status,
+    'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST',
+    'Case 1: Valid System.Private.CoreLib.dll must NOT be flagged as private key',
+  );
+  assert.equal(reportCase1.status, 'REJECTED_ARTIFACT_MISSING');
+
+  // Case 2: All valid System.Private.*.dll libraries + benign C headers / Python modules / public PEM -> PASS Step 2B
+  for (const dllName of [
+    'System.Private.DataContractSerialization.dll',
+    'System.Private.Uri.dll',
+    'System.Private.Xml.dll',
+    'System.Private.Xml.Linq.dll',
+  ]) {
+    fs.writeFileSync(
+      path.join(runnerBinDir, dllName),
+      `MZ\x90\x00dotnet-runtime-${dllName}`,
+      'utf8',
+    );
+  }
+  fs.writeFileSync(
+    path.join(gateDir, 'owner-approval-public.pem'),
+    '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAvalidpublickey==\n-----END PUBLIC KEY-----\n',
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(runnerBinDir, 'gin_private.h'),
+    '/* PostgreSQL header */\n',
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(runnerBinDir, '_private_endpoint_connections_operations.py'),
+    '# Azure SDK module\n',
+    'utf8',
+  );
+
+  runControllerStep2B();
+  const reportCase2 = readLatestReport();
+  assert.notEqual(
+    reportCase2.status,
+    'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST',
+    'Case 2: Valid System.Private.*.dll and public PEM must PASS Step 2B',
+  );
+  assert.equal(reportCase2.status, 'REJECTED_ARTIFACT_MISSING');
+
+  // Case 3: PEM containing private key (PKCS#8, RSA, OpenSSH, and disguised as System.Private.CoreLib.dll) -> BLOCK
+  for (const [fileName, content] of [
+    [
+      'leaked-cert.pem',
+      '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC\n-----END PRIVATE KEY-----\n',
+    ],
+    [
+      'rsa-secret.pem',
+      '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----\n',
+    ],
+    [
+      'openssh.pem',
+      '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmU=\n-----END OPENSSH PRIVATE KEY-----\n',
+    ],
+  ]) {
+    const targetFile = path.join(secretsDir, fileName);
+    fs.writeFileSync(targetFile, content, 'utf8');
+    const resPem = runControllerStep2B();
+    assert.notEqual(resPem.status, 0);
+    const repPem = readLatestReport();
+    assert.equal(
+      repPem.status,
+      'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST',
+      `Case 3: ${fileName} containing private key must be BLOCKED`,
+    );
+    assert.ok(repPem.message.includes(fileName));
+    fs.rmSync(targetFile, { force: true });
+  }
+
+  // Case 3b: Disguised PEM private key inside System.Private.CoreLib.dll -> BLOCK
+  fs.writeFileSync(
+    coreLibPath,
+    '-----BEGIN PRIVATE KEY-----\ndisguised-key\n-----END PRIVATE KEY-----\n',
+    'utf8',
+  );
+  const resDisguised = runControllerStep2B();
+  assert.notEqual(resDisguised.status, 0);
+  const repDisguised = readLatestReport();
+  assert.equal(
+    repDisguised.status,
+    'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST',
+    'Case 3b: PEM private key disguised as System.Private.CoreLib.dll must be BLOCKED',
+  );
+  // Restore valid System.Private.CoreLib.dll
+  fs.writeFileSync(coreLibPath, 'MZ\x90\x00dotnet-corelib-binary-stub', 'utf8');
+
+  // Case 4: Private key files .key, .pfx, .p12, owner-approval-private.pem, id_ed25519 -> BLOCK
+  for (const keyFileName of [
+    'server-tls.key',
+    'certificate.pfx',
+    'bundle.p12',
+    'owner-approval-private.pem',
+    'owner-private.txt',
+    'id_ed25519',
+  ]) {
+    const targetKey = path.join(secretsDir, keyFileName);
+    fs.writeFileSync(targetKey, 'binary-or-text-key-material', 'utf8');
+    const resKey = runControllerStep2B();
+    assert.notEqual(resKey.status, 0);
+    const repKey = readLatestReport();
+    assert.equal(
+      repKey.status,
+      'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST',
+      `Case 4: ${keyFileName} must be BLOCKED`,
+    );
+    assert.ok(repKey.message.includes(keyFileName));
+    fs.rmSync(targetKey, { force: true });
+  }
+
+  // Case 5: Unverifiable security state (empty/corrupt .pem, 0-byte System.Private.CoreLib.dll, or exclusively locked unreadable .pem) -> BLOCK fail-closed
+  const corruptPem = path.join(gateDir, 'corrupt-unrecognized.pem');
+  fs.writeFileSync(corruptPem, 'NOT_A_VALID_PEM_HEADER_AT_ALL', 'utf8');
+  const resCorruptPem = runControllerStep2B();
+  assert.notEqual(resCorruptPem.status, 0);
+  assert.equal(
+    readLatestReport().status,
+    'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST',
+    'Case 5a: Unrecognized .pem file must be BLOCKED fail-closed',
+  );
+  fs.rmSync(corruptPem, { force: true });
+
+  // Case 5b: 0-byte System.Private.CoreLib.dll -> BLOCK fail-closed
+  fs.writeFileSync(coreLibPath, '', 'utf8');
+  const resEmptyDll = runControllerStep2B();
+  assert.notEqual(resEmptyDll.status, 0);
+  assert.equal(
+    readLatestReport().status,
+    'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST',
+    'Case 5b: 0-byte System.Private.CoreLib.dll must be BLOCKED fail-closed',
+  );
+  fs.writeFileSync(coreLibPath, 'MZ\x90\x00dotnet-corelib-binary-stub', 'utf8');
+
+  // Case 5c: Exclusively locked (unreadable) .pem file -> BLOCK fail-closed
+  const lockedPem = path.join(secretsDir, 'locked-unreadable.pem');
+  fs.writeFileSync(
+    lockedPem,
+    '-----BEGIN PUBLIC KEY-----\nlocked\n-----END PUBLIC KEY-----\n',
+    'utf8',
+  );
+  const lockVerifyRes = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      `
+        $fs = [IO.File]::Open('${lockedPem.replace(/'/g, "''")}', [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+        try {
+          & '${realControllerPath.replace(/'/g, "''")}' -CommitSha '${dummySha}' -ServerRoot '${sbRoot.replace(/'/g, "''")}' -PolicyPath '${path.join(gateDir, 'release-gate-policy.json').replace(/'/g, "''")}' -ApprovalManifestPath '${path.join(gateDir, 'approved-release.json').replace(/'/g, "''")}' -SandboxMode
+          exit 0
+        } catch {
+          Write-Output ("LOCKED_BLOCKED=" + $_.Exception.Message)
+          exit 43
+        } finally {
+          $fs.Dispose()
+        }
+      `,
+    ],
+    { encoding: 'utf8', windowsHide: true },
+  );
+  assert.equal(lockVerifyRes.status, 43);
+  assert.equal(
+    readLatestReport().status,
+    'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST',
+    'Case 5c: Unreadable/locked .pem file must be BLOCKED fail-closed',
+  );
+  fs.rmSync(lockedPem, { force: true });
+});

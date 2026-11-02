@@ -754,6 +754,74 @@ if ($normalizedSha -notmatch '^[0-9a-f]{40}$') {
 }
 
 # 2B. OFF-SERVER KEY CUSTODY ENFORCEMENT (REJECT IF ANY PRIVATE KEY IS LEFT IN SERVER RELEASE-GATE, RUNNER, OR TEST-SECRETS)
+function Test-HostPrivateKeyCustodyFile {
+  param([System.IO.FileInfo]$CandidateFile)
+  if ($null -eq $CandidateFile) { return $true }
+  $fileName = [string]$CandidateFile.Name
+  $fileExt = [string]$CandidateFile.Extension
+
+  # 1. Explicit private key container extensions (.key, .pfx, .p12, .pkcs12, .jks, .keystore)
+  if ($fileExt -match '^(?i)\.(key|pfx|p12|pkcs12|jks|keystore)$') {
+    return $true
+  }
+
+  # 2. Standard .NET runtime assemblies (System.Private.*.dll / .pdb / .exe):
+  #    Allow only if readable, non-empty, and confirmed not to contain PEM/JSON private key markers (fail-closed if unreadable or disguised key).
+  if ($fileExt -match '^(?i)\.(dll|pdb|exe)$' -and $fileName -match '^(?i)System\.Private\.[A-Za-z0-9_.]+\.(dll|pdb|exe)$') {
+    $stream = $null
+    try {
+      $stream = [IO.File]::Open($CandidateFile.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+      $bufLen = [int][Math]::Min(4096, $stream.Length)
+      if ($bufLen -le 0) {
+        return $true
+      }
+      $buf = New-Object byte[] $bufLen
+      $readBytes = $stream.Read($buf, 0, $bufLen)
+      $headStr = [Text.Encoding]::ASCII.GetString($buf, 0, $readBytes)
+      if ($headStr -match '(?i)(-----\s*BEGIN\s+([A-Z0-9\s]+)?PRIVATE\s+KEY|"private_key"\s*:)') {
+        return $true
+      }
+      return $false
+    } catch {
+      return $true
+    } finally {
+      if ($null -ne $stream) { $stream.Dispose() }
+    }
+  }
+
+  # 3. Explicit Owner signing key or SSH/TLS private key filenames
+  if ($fileName -match '(?i)(owner[-_.]?(approval[-_.]?)?private|(^|[-_.])private[-_.]?key([-.]|$)|^id_(rsa|ed25519|ecdsa|dsa)(\.|$))') {
+    if ($fileExt -ieq '.pub') { return $false }
+    return $true
+  }
+
+  # 4. Standalone 'private' token in filename (excluding benign source/header/doc/compiled runtime files)
+  if ($fileName -match '(?i)(^|[-_.])private([-.]|$)' -and $fileExt -notmatch '^(?i)\.(dll|pdb|exe|h|c|cpp|py|pyc|js|mjs|cjs|jsx|ts|tsx|md|html|doctree|png|svg|css)$') {
+    return $true
+  }
+
+  # 5. PEM file content inspection (Fail-closed if unreadable, empty, private key, or unrecognized PEM header)
+  if ($fileExt -ieq '.pem') {
+    $pemRaw = $null
+    try {
+      $pemRaw = [IO.File]::ReadAllText($CandidateFile.FullName, [Text.Encoding]::UTF8)
+    } catch {
+      return $true
+    }
+    if ([string]::IsNullOrWhiteSpace($pemRaw)) {
+      return $true
+    }
+    if ($pemRaw -match '(?i)(-----\s*BEGIN\s+([A-Z0-9\s]+)?PRIVATE\s+KEY|"private_key"\s*:)') {
+      return $true
+    }
+    if ($pemRaw -notmatch '(?i)(-----\s*BEGIN\s+(PUBLIC\s+KEY|CERTIFICATE|TRUSTED\s+CERTIFICATE)\s*-----|^#\s*REVOKED\s+PUBLIC\s+KEY|^UNENROLLED\s*$)') {
+      return $true
+    }
+  }
+
+  return $false
+}
+
 $gateScanDirs = @(
   (Split-Path -Path $PolicyPath -Parent),
   (Split-Path -Path $ApprovalManifestPath -Parent),
@@ -767,11 +835,14 @@ if (-not $SandboxMode) {
 $gateScanDirs = @($gateScanDirs | Where-Object { $_ } | Select-Object -Unique)
 foreach ($scanDir in $gateScanDirs) {
   if ($scanDir -and (Test-Path -LiteralPath $scanDir)) {
-    $suspectKeyFiles = @(Get-ChildItem -LiteralPath $scanDir -File -Recurse -ErrorAction SilentlyContinue | Where-Object {
-      $_.Name -match '(?i)(private|\.key$|\.pfx$|\.p12$)' -or (
-        $_.Extension -eq '.pem' -and ((Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue) -match 'PRIVATE KEY')
-      )
-    })
+    $scanEnumErrors = $null
+    $scannedFiles = @(Get-ChildItem -LiteralPath $scanDir -File -Recurse -ErrorAction SilentlyContinue -ErrorVariable scanEnumErrors)
+    if ($scanEnumErrors -and $scanEnumErrors.Count -gt 0) {
+      $errDetail = ($scanEnumErrors | ForEach-Object { $_.Exception.Message }) -join '; '
+      Record-DeployResult -Status 'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST' -Sha $normalizedSha -Message "Fail-closed: Unable to verify host key custody state in '$scanDir' ($errDetail)" -DurationMs 0
+      throw "GATE REJECTED: Fail-closed key custody check could not verify directory '$scanDir' ($errDetail)."
+    }
+    $suspectKeyFiles = @($scannedFiles | Where-Object { Test-HostPrivateKeyCustodyFile -CandidateFile $_ })
     if ($suspectKeyFiles.Count -gt 0) {
       $exposedNames = ($suspectKeyFiles | ForEach-Object { $_.Name }) -join ', '
       Record-DeployResult -Status 'REJECTED_PRIVATE_KEY_EXPOSED_ON_HOST' -Sha $normalizedSha -Message "Private key file detected in host gate/runner/test-secrets directory ($exposedNames)" -DurationMs 0
@@ -1824,6 +1895,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
       git -c safe.directory=* -C $TargetDir fetch --quiet origin --all --tags --prune 2>$null
       git -c safe.directory=* -C $TargetDir fetch --quiet origin $normalizedSha 2>$null
+    }
+    git -c safe.directory=* -C $TargetDir cat-file -e "$normalizedSha^{commit}" 2>$null
+    if ($LASTEXITCODE -ne 0 -and (Test-Path -LiteralPath 'C:\Projects\management-lite\.git')) {
+      git -c safe.directory=* -C $TargetDir fetch --quiet 'C:\Projects\management-lite' $normalizedSha 2>$null
     }
     git -c safe.directory=* -C $TargetDir checkout --quiet -f $normalizedSha 2>$null
     $checkoutExit = $LASTEXITCODE

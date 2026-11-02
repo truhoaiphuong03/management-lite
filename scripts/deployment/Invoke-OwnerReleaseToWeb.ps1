@@ -170,8 +170,8 @@ if (-not (Test-Path -LiteralPath $DeployControllerPath -PathType Leaf)) {
 
 $actualControllerSha = (Get-FileHash -LiteralPath $DeployControllerPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $trustedControllerHashes = @(
-  '7cfa9c134f2cd61412bd2bb2fd94789887fcd79784c12ae60a411b1c1267ee7e', # Locked Production Controller (v1)
-  '3b5708842693d19068d0664c2a14248f0244fff187e54cc9f8506c309cfb59c3'  # OA-21 Hardened Repo Controller (v2)
+  '4809cfd5efc4582615a5edbfbb9c5661f15769db0eca8b7239800984667e6dae', # OA-22 Hardened Repo Controller v3 (LF)
+  'ff3ecd0546b4c1e3ec92129d3937142773f3e24baea648958f9837bff9d3e586'  # OA-22 Hardened Repo Controller v3 (CRLF)
 )
 if (-not [string]::IsNullOrWhiteSpace($ExpectedControllerSha256)) {
   $trustedControllerHashes = @($ExpectedControllerSha256.Trim().ToLowerInvariant())
