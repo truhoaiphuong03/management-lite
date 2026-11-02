@@ -13,6 +13,7 @@ import { generateCsrfToken } from '../../dist/packages/security/src/csrf.js';
 import { hashToken } from '../../dist/packages/security/src/tokens.js';
 import { buildPrintQuoteA4Html } from '../../dist/apps/web/src/screens/helpers/printquote-helpers.js';
 import {
+  buildServerA4Html,
   renderCustomerSafeA4PdfBuffer,
   PdfRendererUnavailableError,
 } from '../../dist/apps/api/src/printquote/pdf-renderer.js';
@@ -811,6 +812,17 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
     assert.equal(quote.total_quote_amount, 100000);
     assert.equal(quote.single_product_final_unit_price, 33333);
     assert.equal(quote.total_rounding_adjustment, 1);
+
+    // Kiểm tra HTML PDF máy chủ trình bày tự nhiên cho trường hợp chia 3 không hết (~33.333 ₫ Tính trọn gói 3 hộp), không dùng thuật ngữ kỹ thuật "Hiệu chỉnh làm tròn"
+    const serverHtml = buildServerA4Html(quote.customer_pdf_json, {
+      quoteCode: quote.quote_code,
+      quoteTitle: quote.title,
+    });
+    assert.equal(serverHtml.includes('~33.333 ₫'), true);
+    assert.equal(serverHtml.includes('(Tính trọn gói 3 hộp)'), true);
+    assert.equal(serverHtml.includes('100.000 ₫'), true);
+    assert.equal(serverHtml.includes('Hiệu chỉnh làm tròn'), false);
+    assert.equal(serverHtml.includes('Tạm tính theo đơn giá làm tròn'), false);
 
     // Tải trực tiếp file .pdf A4 theo mã báo giá
     const pdfRes = await fetch(

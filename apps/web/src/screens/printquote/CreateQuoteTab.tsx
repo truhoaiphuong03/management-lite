@@ -19,6 +19,7 @@ import {
 import {
   formatVnd,
   formatExactVnd,
+  formatCustomerLinePriceDisplay,
   formatNumberVn,
   numberToVietnameseWords,
 } from '../helpers/printquote-helpers.js';
@@ -1661,8 +1662,14 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                         <tbody>
                           {livePricingResult.customerPdf.lines.map(
                             (item, lineIdx) => {
-                              const calcLine =
-                                livePricingResult.calc?.lines[lineIdx];
+                              const rawUnit =
+                                draftLines[lineIdx]?.unit || item.unit || 'tờ';
+                              const priceDisplay =
+                                formatCustomerLinePriceDisplay(
+                                  item.lineTotal,
+                                  item.quantity,
+                                  rawUnit,
+                                );
                               return (
                                 <tr
                                   key={item.id}
@@ -1690,23 +1697,18 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                       textAlign: 'right',
                                     }}
                                   >
-                                    <div>{formatVnd(item.unitPrice)}</div>
-                                    {calcLine &&
-                                      calcLine.roundingAdjustment !== 0 && (
-                                        <div
-                                          style={{
-                                            fontSize: '12px',
-                                            color: 'var(--muted-color)',
-                                            fontWeight: 400,
-                                          }}
-                                        >
-                                          (Đơn giá chuẩn:{' '}
-                                          {formatExactVnd(
-                                            calcLine.rawFinalUnitPrice,
-                                          )}
-                                          )
-                                        </div>
-                                      )}
+                                    <div>{priceDisplay.unitPriceDisplay}</div>
+                                    {priceDisplay.priceSubNote && (
+                                      <div
+                                        style={{
+                                          fontSize: '12px',
+                                          color: 'var(--muted-color)',
+                                          fontWeight: 400,
+                                        }}
+                                      >
+                                        ({priceDisplay.priceSubNote})
+                                      </div>
+                                    )}
                                   </td>
                                   <td
                                     style={{
@@ -1716,24 +1718,6 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                     }}
                                   >
                                     <div>{formatVnd(item.lineTotal)}</div>
-                                    {calcLine &&
-                                      calcLine.roundingAdjustment !== 0 && (
-                                        <div
-                                          style={{
-                                            fontSize: '12px',
-                                            color: 'var(--muted-color)',
-                                            fontWeight: 400,
-                                          }}
-                                        >
-                                          (Cân đối làm tròn:{' '}
-                                          {calcLine.roundingAdjustment > 0
-                                            ? `+${formatVnd(calcLine.roundingAdjustment)}`
-                                            : formatVnd(
-                                                calcLine.roundingAdjustment,
-                                              )}
-                                          )
-                                        </div>
-                                      )}
                                   </td>
                                 </tr>
                               );
@@ -2039,7 +2023,10 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
           </button>
 
           {/* Vùng đệm tự động tránh nút Báo lỗi nổi ở góc phải dưới trên màn hình rộng */}
-          <div aria-hidden="true" style={{ flex: '0 0 110px', height: '1px' }} />
+          <div
+            aria-hidden="true"
+            style={{ flex: '0 0 110px', height: '1px' }}
+          />
         </div>
       </div>
     </div>

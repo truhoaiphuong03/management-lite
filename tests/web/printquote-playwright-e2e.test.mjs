@@ -710,9 +710,46 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       await page.textContent('[data-testid="pq-summary-total"]'),
       /145\.000/,
     );
+    const multiItemCustomerCardText = await page.textContent(
+      '[data-testid="pq-customer-safe-card"]',
+    );
+    assert.match(multiItemCustomerCardText, /763,16\s*₫/);
+    assert.match(multiItemCustomerCardText, /76\.316\s*₫/);
+    assert.match(multiItemCustomerCardText, /~22\.895\s*₫/);
+    assert.match(multiItemCustomerCardText, /Tính trọn gói 3 tờ/);
+    assert.match(multiItemCustomerCardText, /68\.684\s*₫/);
+    assert.ok(
+      !multiItemCustomerCardText.includes('Cân đối làm tròn') &&
+        !multiItemCustomerCardText.includes('Hiệu chỉnh làm tròn'),
+      'Customer summary table must not show technical rounding jargon',
+    );
     await page.screenshot({
       path: path.join(artifactDir, 'qa03-03b-desktop-multi-item-collapsed.png'),
       fullPage: false,
+    });
+    // Also preview the A4 PDF for this multi-item quote (763,16 ₫ × 100 = 76.316 ₫ and ~22.895 ₫ × 3 = 68.684 ₫)
+    await page.click('[data-testid="pq-preview-pdf-btn"]');
+    await page.waitForSelector('[data-testid="pq-pdf-modal"]');
+    const multiPdfSrcDoc =
+      (await page
+        .locator('[data-testid="pq-pdf-modal"] iframe')
+        .getAttribute('srcdoc')) || '';
+    assert.ok(multiPdfSrcDoc.includes('763,16 ₫'));
+    assert.ok(multiPdfSrcDoc.includes('76.316 ₫'));
+    assert.ok(multiPdfSrcDoc.includes('~22.895 ₫'));
+    assert.ok(multiPdfSrcDoc.includes('(Tính trọn gói 3 tờ)'));
+    assert.ok(multiPdfSrcDoc.includes('68.684 ₫'));
+    assert.ok(multiPdfSrcDoc.includes('145.000 ₫'));
+    assert.ok(!multiPdfSrcDoc.includes('Hiệu chỉnh làm tròn'));
+    await page.screenshot({
+      path: path.join(
+        artifactDir,
+        'qa03-04c-desktop-pdf-a4-multi-item-763-16.png',
+      ),
+    });
+    await page.click('[data-testid="pq-pdf-modal"] button:has-text("Đóng")');
+    await page.waitForSelector('[data-testid="pq-pdf-modal"]', {
+      state: 'detached',
     });
     // Remove 2nd line to return to canonical 100 tờ quote (Line 1 automatically re-expands)
     await page.click(
