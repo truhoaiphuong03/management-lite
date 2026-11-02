@@ -40,6 +40,16 @@ describe('MGL-PRINTQUOTE V1 — Phase 3 Web UI & Vietnamese A4 PDF Tests', () =>
     );
     assert.equal(staffSidebar.includes('Báo giá in ấn'), false);
 
+    const adminSidebar = renderToStaticMarkup(
+      React.createElement(DesktopSidebar, {
+        currentPath: '/',
+        onNavigate: () => {},
+        role: 'admin',
+        isOwnerVerified: false,
+      }),
+    );
+    assert.equal(adminSidebar.includes('Báo giá in ấn'), false);
+
     const ownerMobile = renderToStaticMarkup(
       React.createElement(MobileBottomNav, {
         currentPath: '/print-quotes',
@@ -49,6 +59,16 @@ describe('MGL-PRINTQUOTE V1 — Phase 3 Web UI & Vietnamese A4 PDF Tests', () =>
       }),
     );
     assert.equal(ownerMobile.includes('Báo giá'), true);
+
+    const adminMobile = renderToStaticMarkup(
+      React.createElement(MobileBottomNav, {
+        currentPath: '/',
+        onNavigate: () => {},
+        role: 'admin',
+        isOwnerVerified: false,
+      }),
+    );
+    assert.equal(adminMobile.includes('Báo giá'), false);
   });
 
   it('2. PrintQuoteScreen hiển thị đầy đủ 6 tab chức năng và tính trực tiếp bài toán chuẩn trên Tab 1 (Tạo báo giá)', () => {

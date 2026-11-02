@@ -621,4 +621,35 @@ test('Phase 32 Task 2 & Task 4: Migration 0032 E2E verification, legacy data pre
     )
   ).rows;
   assert.equal(afterRollbackRows.length, 4);
+
+  // 8. Verify sequential upgrade 0031 -> 0032 -> 0033 (v0.8.0 PrintQuote V1) preserves legacy data and creates all 8 print_* tables
+  const seq32And33Res = await runMigrations(drillPool, allMigrations);
+  assert.equal(seq32And33Res.appliedCount, 2);
+  assert.deepEqual(seq32And33Res.appliedIds, [
+    '0032_employee_sub_permissions',
+    '0033_printquote_v1',
+  ]);
+  const printTablesRes = await drillPool.query(
+    `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'print_%' ORDER BY tablename`,
+  );
+  assert.deepEqual(
+    printTablesRes.rows.map((r) => r.tablename),
+    [
+      'print_code_counters',
+      'print_customers',
+      'print_order_payments',
+      'print_orders',
+      'print_quote_versions',
+      'print_quotes',
+      'print_vendor_price_items',
+      'print_vendors',
+    ],
+  );
+  const afterSeqEmpRows = (
+    await drillPool.query(
+      `SELECT employee_code, phone, bank_name, sub_role, sub_permissions FROM employees WHERE workspace_id = $1 ORDER BY employee_code`,
+      [wsId],
+    )
+  ).rows;
+  assert.equal(afterSeqEmpRows.length, 4);
 });

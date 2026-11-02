@@ -209,6 +209,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       (isOwnerVerified !== true || role !== 'owner')
     )
       return false;
+    if (item.id === 'print-quotes' && role !== 'owner') return false;
     if (role === 'staff' && item.ownerOnly) return false;
     if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
       return false; // C04/PAY-02: Owner has no payroll entry
@@ -372,6 +373,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       (isOwnerVerified !== true || role !== 'owner')
     )
       return false;
+    if (item.id === 'print-quotes' && role !== 'owner') return false;
     if (role === 'staff' && item.ownerOnly) return false;
     if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
       return false;

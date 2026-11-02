@@ -617,22 +617,48 @@ export async function renderCustomerSafeA4PdfBuffer(
           tempDir,
           `profile-${idx}-${headlessArg.replace(/[^a-z]/g, '')}`,
         );
+        const cacheDir = join(
+          tempDir,
+          `cache-${idx}-${headlessArg.replace(/[^a-z]/g, '')}`,
+        );
         try {
           await execFileAsync(
             browserBin,
             [
               headlessArg,
               `--user-data-dir=${profileDir}`,
+              `--disk-cache-dir=${cacheDir}`,
               '--disable-gpu',
+              '--disable-software-rasterizer',
+              '--disable-dev-shm-usage',
               '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-crash-reporter',
+              '--disable-breakpad',
+              '--no-crashpad',
               '--no-first-run',
               '--no-default-browser-check',
               '--disable-extensions',
+              '--disable-background-networking',
+              '--disable-sync',
               '--no-pdf-header-footer',
               `--print-to-pdf=${pdfPath}`,
               htmlFileUrl,
             ],
-            { timeout: 20_000 },
+            {
+              timeout: 20_000,
+              windowsHide: true,
+              env: {
+                ...process.env,
+                ...env,
+                USERPROFILE: tempDir,
+                LOCALAPPDATA: tempDir,
+                APPDATA: tempDir,
+                HOME: tempDir,
+                TEMP: tempDir,
+                TMP: tempDir,
+              },
+            },
           );
           if (existsSync(pdfPath)) {
             const pdfBuf = await readFile(pdfPath);

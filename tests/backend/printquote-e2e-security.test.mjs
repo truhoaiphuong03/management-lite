@@ -111,6 +111,24 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
       [ownerUserId, workspaceId, staffUserId],
     );
 
+    await pool.query(
+      `INSERT INTO employees (id, workspace_id, user_id, employee_code, full_name, employment_status, sub_role, sub_permissions)
+       VALUES ($1, $2, $3, 'NV001', 'Sub-Admin E2E', 'active', 'admin', $4::jsonb)`,
+      [
+        crypto.randomUUID(),
+        workspaceId,
+        staffUserId,
+        JSON.stringify([
+          'attendance:review',
+          'work:manage',
+          'employees:manage',
+          'accounts:manage',
+          'payroll:manage',
+          'finance:manage',
+        ]),
+      ],
+    );
+
     const ownerRawToken = `owner-e2e-tok-${crypto.randomUUID()}`;
     const ownerTokenHash = hashToken(ownerRawToken);
     await pool.query(
@@ -157,7 +175,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
     }
   });
 
-  it('1. Security Guard: Chặn truy cập ẩn danh (401), chặn Staff (403) và bắt buộc CSRF trên mọi thao tác ghi', async () => {
+  it('1. Security Guard: Chặn truy cập ẩn danh (401), chặn Staff & Sub-Admin có đủ 6 quyền phụ (403), chỉ cho phép Owner và bắt buộc CSRF trên mọi thao tác ghi', async () => {
     const unauth = await apiRequest(
       baseUrl,
       'GET',
@@ -842,6 +860,25 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
       (err) =>
         err instanceof PdfRendererUnavailableError &&
         /Không thể kết xuất file PDF A4 tiếng Việt/.test(err.message),
+    );
+
+    // Kiểm chứng Chrome/Edge headless chạy thành công dưới môi trường Windows Service (NT AUTHORITY\LocalService)
+    // nơi USERPROFILE / LOCALAPPDATA / APPDATA / HOME bị khóa hoặc không truy cập được
+    const servicePdfBuf = await renderCustomerSafeA4PdfBuffer(
+      quote.customer_pdf_json,
+      { quoteCode: quote.quote_code },
+      {
+        USERPROFILE: 'C:\\Windows\\ServiceProfiles\\LocalService',
+        LOCALAPPDATA:
+          'C:\\Windows\\ServiceProfiles\\LocalService\\AppData\\Local',
+        APPDATA: 'C:\\Windows\\ServiceProfiles\\LocalService\\AppData\\Roaming',
+        HOME: 'C:\\Windows\\ServiceProfiles\\LocalService',
+      },
+    );
+    assert.ok(
+      servicePdfBuf.length > 10000 &&
+        servicePdfBuf.subarray(0, 5).toString('ascii') === '%PDF-',
+      'PDF renderer must succeed under non-interactive Windows Service profile environment',
     );
   });
 });

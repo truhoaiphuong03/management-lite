@@ -630,5 +630,25 @@
 9. **Kết quả test:** `PASS` — `500/500 PASS` (`15/15` PrintQuote Backend/Concurrency/PDF + `428/432` Web/Playwright E2E + `28/28` Security + `29/29` DB; `4` test FIN QA skipped do dùng biến môi trường riêng), `eslint .` `0` lỗi, `tsc --noEmit` `0` lỗi, `check:bundle` `438.3 KB raw / 125.1 KB gzip` (`OK`).
 10. **Evidence (`VERIFIED`):** `PROJECT_STATUS.md`, `AGENTS.md`, `docs/PHASE_TASK_HISTORY.md`, dịch vụ DEV đang chạy tại `http://localhost:3001` (`task-702`).
 11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
-12. **Approval:** `PENDING_OWNER_REVIEW` _(Dừng tại bước bàn giao để Owner trực tiếp mở web thử nghiệm tại `http://localhost:3001` và phê duyệt nghiệm thu `APPROVED`)_
-13. **NEXT_ACTION:** Owner mở `http://localhost:3001` trên MacBook để kiểm tra trực tiếp và phê duyệt nghiệm thu (`APPROVED`). Chưa merge `main`, chưa phát hành Windows Production.
+12. **Approval:** `CONDITIONALLY_APPROVED_BY_OWNER` _(Owner đã nghiệm thu kỹ thuật có điều kiện Windows Staging 1.120/1.120 PASS và cho phép chuẩn bị `v0.8.0` + rà soát PR `#22`)_
+13. **NEXT_ACTION:** Chuyển sang `Phase PQ-WIN` (`WIN-0..WIN-4` — Chuẩn bị `v0.8.0`, Rà soát PR `#22` & Kế hoạch phát hành trên Windows `WIN-1`).
+
+---
+
+## PHASE PQ-WIN — NGHIỆM THU ĐỘC LẬP WINDOWS STAGING, RÀ SOÁT PR `#22` & CHUẨN BỊ `v0.8.0` (`MGL-PRINTQUOTE V1`)
+
+### Task `WIN-0..WIN-4` — Đồng Bộ `origin/main`, Gia Cố RBAC & `Session 0` PDF, Kiểm Thử Migration `0031 ➔ 0032 ➔ 0033` & Nâng Phiên Bản `v0.8.0`
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-WIN` (`v0.8.0`)
+3. **Task ID:** `WIN-0..WIN-4`
+4. **Mô tả:** (1) Thực hiện nghiệm thu độc lập trên máy Windows `WIN-1` (`C:\Projects\management-lite-printquote-staging`, PostgreSQL 18 TEST `:55433` cô lập, thêm khóa fail-closed `MGLITE_ALLOW_PRINTQUOTE_E2E_RESET=YES_TEST_DB_ONLY` trong `tests/web/printquote-playwright-e2e.test.mjs`); (2) Hợp nhất `origin/main` (`bdefacae4be77c3c346db72a7a3dc63decb99273` — `v0.7.2`) vào `feature/printquote-module-v1` giải quyết xung đột `add/add` tại `tests/database/phase32-migration0032-and-restore-drill.test.mjs` để PR `#22` đạt `mergeable = true`; (3) Gia cố `apps/api/src/printquote/pdf-renderer.ts` chạy ổn định dưới tài khoản dịch vụ Windows `NT AUTHORITY\LocalService` (`Session 0`) bằng cách cô lập `USERPROFILE`/`LOCALAPPDATA`/`APPDATA`/`TEMP`, `--disk-cache-dir`, `--no-crashpad`, `--disable-breakpad`, `--disable-software-rasterizer`; (4) Khóa chặt phân quyền Owner-only trên `/print-quotes` ở cả `Navigation.tsx`, `session-manager.ts` và API (`requireOwner`), chặn cả `staff` lẫn `admin` (kể cả khi `admin` có đủ 6 `sub_permissions`); (5) Kiểm thử tuần tự migration `0031 ➔ 0032 ➔ 0033` trên `:55433` bảo toàn dữ liệu cũ; (6) Nâng phiên bản lên `0.8.0` (`package.json`, `packages/contracts/src/version.ts`) và lập kế hoạch phát hành 2 bước (`Phương án B: v0.7.2 ➔ v0.8.0`).
+5. **Phụ thuộc:** `QA-04` (`PASS`).
+6. **Acceptance Criteria:** Không còn xung đột Git với `origin/main` (`bdefaca`), bảo toàn 100% các bản vá bảo mật từ `main`, vượt qua toàn bộ bộ test (`format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle`, `foundation`, `security`, `database` gồm `0031 ➔ 0032 ➔ 0033`, `backend`, `web`, `Playwright Chrome E2E`), và GitHub Actions CI `SUCCESS` trên PR `#22`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`WIN-1`)
+9. **Kết quả test:** `PASS` — Toàn bộ các bài kiểm thử cục bộ trên Windows `:55433` và GitHub Actions CI trên `feature/printquote-module-v1` đạt `PASS` (`0 fail`).
+10. **Evidence (`VERIFIED`):** `package.json`, `packages/contracts/src/version.ts`, `apps/api/src/printquote/pdf-renderer.ts`, `packages/ui/src/components/Navigation.tsx`, `apps/web/src/session-manager.ts`, `tests/database/phase32-migration0032-and-restore-drill.test.mjs`, `tests/backend/printquote-e2e-security.test.mjs`, `tests/web/printquote-screen.test.mjs`, `tests/web/printquote-playwright-e2e.test.mjs`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1` (Draft PR `#22`: `https://github.com/truhoaiphuong03/management-lite/pull/22`)
+12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Đã được Owner phê duyệt chuẩn bị `v0.8.0` & rà soát PR `#22`; chờ Owner phê duyệt merge `main` và phát hành Production)_
+13. **NEXT_ACTION:** Owner xem báo cáo rà soát PR `#22`, phê duyệt merge `main` và thực thi lộ trình phát hành **Phương án B (`v0.7.2` ➔ `v0.8.0`)** qua cổng `Owner-Locked Release Gate`.
