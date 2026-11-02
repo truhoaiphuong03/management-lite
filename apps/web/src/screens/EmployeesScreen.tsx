@@ -782,6 +782,39 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                     >
                       {emp.full_name}
                     </strong>
+                    <span
+                      data-testid={`emp-role-${emp.id}`}
+                      style={{
+                        fontSize: '11px',
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        backgroundColor:
+                          (emp.role ||
+                            emp.user?.role ||
+                            (emp.employee_code === 'OWNER'
+                              ? 'owner'
+                              : 'staff')) === 'owner'
+                            ? 'rgba(20, 184, 166, 0.15)'
+                            : 'var(--surface-hover)',
+                        color:
+                          (emp.role ||
+                            emp.user?.role ||
+                            (emp.employee_code === 'OWNER'
+                              ? 'owner'
+                              : 'staff')) === 'owner'
+                            ? 'var(--accent-text)'
+                            : 'var(--muted-color)',
+                        border: '1px solid var(--border-subtle)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {(emp.role ||
+                        emp.user?.role ||
+                        (emp.employee_code === 'OWNER' ? 'owner' : 'staff')) ===
+                      'owner'
+                        ? 'Quản trị (Owner)'
+                        : 'Nhân viên'}
+                    </span>
                   </div>
                   <div
                     style={{

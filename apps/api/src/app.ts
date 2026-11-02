@@ -2109,6 +2109,7 @@ export function createRequestHandler(
           const body = await parseJsonBody<Record<string, unknown>>(req);
           assertAllowedFields(body, [
             'full_name',
+            'role',
             'is_payroll_eligible',
             'phone',
             'date_of_birth',

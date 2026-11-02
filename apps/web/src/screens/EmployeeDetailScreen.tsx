@@ -43,6 +43,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [memberRole, setMemberRole] = useState<'owner' | 'staff'>('staff');
   const [isPayrollEligible, setIsPayrollEligible] = useState(true);
   const [phone, setPhone] = useState('');
   const [positionTitle, setPositionTitle] = useState('');
@@ -142,6 +143,13 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
       }
       setEmployee(data.data);
       setFullName(data.data.full_name || '');
+      setMemberRole(
+        data.data.role === 'owner' ||
+          data.data.user?.role === 'owner' ||
+          data.data.employee_code === 'OWNER'
+          ? 'owner'
+          : 'staff',
+      );
       setIsPayrollEligible(Boolean(data.data.is_payroll_eligible));
       setPhone(data.data.phone || '');
       setPositionTitle(data.data.position_title || '');
@@ -280,6 +288,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         credentials: 'include',
         body: JSON.stringify({
           full_name: fullName.trim(),
+          role: memberRole,
           is_payroll_eligible: isPayrollEligible,
           phone: phone.trim() || null,
           position_title: positionTitle.trim() || null,
@@ -298,6 +307,13 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         throw new Error(data?.error?.message || 'Không thể cập nhật hồ sơ');
       }
       setEmployee(data.data);
+      setMemberRole(
+        data.data.role === 'owner' ||
+          data.data.user?.role === 'owner' ||
+          data.data.employee_code === 'OWNER'
+          ? 'owner'
+          : 'staff',
+      );
       setIsEditing(false);
       setActionNotice('Đã cập nhật thông tin nhân viên thành công.');
       setToast({
@@ -622,6 +638,49 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                   }}
                 >
                   {employee.full_name}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  Vai trò / Phân quyền
+                </div>
+                <div
+                  data-testid="employee-detail-role-badge"
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginTop: '4px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '2px 10px',
+                    borderRadius: '999px',
+                    backgroundColor:
+                      (employee.role ||
+                        employee.user?.role ||
+                        (employee.employee_code === 'OWNER'
+                          ? 'owner'
+                          : 'staff')) === 'owner'
+                        ? 'rgba(20, 184, 166, 0.15)'
+                        : 'var(--surface-hover)',
+                    color:
+                      (employee.role ||
+                        employee.user?.role ||
+                        (employee.employee_code === 'OWNER'
+                          ? 'owner'
+                          : 'staff')) === 'owner'
+                        ? 'var(--accent-text)'
+                        : 'var(--text-color)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {(employee.role ||
+                    employee.user?.role ||
+                    (employee.employee_code === 'OWNER'
+                      ? 'owner'
+                      : 'staff')) === 'owner'
+                    ? 'Quản trị / Chủ sở hữu (Owner)'
+                    : 'Nhân viên (Staff)'}
                 </div>
               </div>
 
@@ -986,6 +1045,76 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     boxSizing: 'border-box',
                   }}
                 />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editRole"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: 'var(--muted-color)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Phân quyền hệ thống (Vai trò truy cập): *
+                </label>
+                <select
+                  id="editRole"
+                  data-testid="edit-employee-role-select"
+                  value={memberRole}
+                  disabled={
+                    Boolean(
+                      currentUserId && employee.user_id === currentUserId,
+                    ) || employee.employee_code === 'OWNER'
+                  }
+                  onChange={(e) => {
+                    const nextRole = e.target.value as 'owner' | 'staff';
+                    setMemberRole(nextRole);
+                    if (nextRole === 'owner') {
+                      setIsPayrollEligible(false);
+                    } else if (nextRole === 'staff') {
+                      setIsPayrollEligible(true);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    opacity:
+                      (currentUserId && employee.user_id === currentUserId) ||
+                      employee.employee_code === 'OWNER'
+                        ? 0.65
+                        : 1,
+                  }}
+                >
+                  <option value="staff">
+                    Nhân viên (Staff) — Chấm công, nhận việc, xem lương cá nhân
+                  </option>
+                  <option value="owner">
+                    Quản trị / Chủ sở hữu (Owner) — Toàn quyền quản lý hệ thống
+                  </option>
+                </select>
+                {((currentUserId && employee.user_id === currentUserId) ||
+                  employee.employee_code === 'OWNER') && (
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '4px',
+                    }}
+                  >
+                    Tài khoản Chủ sở hữu hiện tại không thể tự hạ quyền của
+                    chính mình.
+                  </div>
+                )}
               </div>
 
               <div>

@@ -639,6 +639,97 @@ test('P0 Owner Self-Lockout & Last-Owner Protection Regression Suite', async (t)
           );
         },
       );
+
+      // -------------------------------------------------------------------
+      // TEST 8: Phân quyền lại nhân sự qua PATCH /api/v1/employees/:id
+      // -------------------------------------------------------------------
+      await t.test(
+        'Owner can reassign staff role to owner and back to staff, but cannot self-demote',
+        async () => {
+          // 1. Owner1 promotes Staff1 ('staff' -> 'owner')
+          const getStaffRes = await makeRequest(
+            `${baseUrl}/api/v1/employees/${staffEmpId}`,
+            {
+              headers: { Cookie: owner1Auth.cookieStr },
+            },
+          );
+          assert.equal(getStaffRes.status, 200);
+          assert.equal(getStaffRes.body.data.role, 'staff');
+          const staffVer1 = getStaffRes.body.data.version;
+
+          const promoteRes = await makeRequest(
+            `${baseUrl}/api/v1/employees/${staffEmpId}`,
+            {
+              method: 'PATCH',
+              headers: {
+                Cookie: owner1Auth.cookieStr,
+                Origin: allowedOrigin,
+                'X-CSRF-Token': owner1Auth.csrfToken,
+                'If-Match': `"${staffVer1}"`,
+              },
+              body: {
+                full_name: 'Staff Một (Đã nâng quyền)',
+                role: 'owner',
+                is_payroll_eligible: false,
+              },
+            },
+          );
+          assert.equal(promoteRes.status, 200);
+          assert.equal(promoteRes.body.data.role, 'owner');
+
+          // 2. Owner1 demotes Staff1 back to 'staff'
+          const staffVer2 = promoteRes.body.data.version;
+          const demoteRes = await makeRequest(
+            `${baseUrl}/api/v1/employees/${staffEmpId}`,
+            {
+              method: 'PATCH',
+              headers: {
+                Cookie: owner1Auth.cookieStr,
+                Origin: allowedOrigin,
+                'X-CSRF-Token': owner1Auth.csrfToken,
+                'If-Match': `"${staffVer2}"`,
+              },
+              body: {
+                full_name: 'Staff Một',
+                role: 'staff',
+                is_payroll_eligible: true,
+              },
+            },
+          );
+          assert.equal(demoteRes.status, 200);
+          assert.equal(demoteRes.body.data.role, 'staff');
+
+          // 3. Owner1 attempts to self-demote ('owner' -> 'staff') -> MUST FAIL 403
+          const getOwner1Res = await makeRequest(
+            `${baseUrl}/api/v1/employees/${owner1EmpId}`,
+            {
+              headers: { Cookie: owner1Auth.cookieStr },
+            },
+          );
+          const owner1Ver = getOwner1Res.body.data.version;
+          const selfDemoteRes = await makeRequest(
+            `${baseUrl}/api/v1/employees/${owner1EmpId}`,
+            {
+              method: 'PATCH',
+              headers: {
+                Cookie: owner1Auth.cookieStr,
+                Origin: allowedOrigin,
+                'X-CSRF-Token': owner1Auth.csrfToken,
+                'If-Match': `"${owner1Ver}"`,
+              },
+              body: {
+                full_name: 'Owner Một',
+                role: 'staff',
+              },
+            },
+          );
+          assert.equal(
+            selfDemoteRes.status,
+            403,
+            'Owner cannot self-demote to staff',
+          );
+        },
+      );
     } finally {
       server.close();
     }

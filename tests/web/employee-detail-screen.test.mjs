@@ -453,4 +453,143 @@ test('EmployeeDetailScreen & EMP-009: Mounted lifecycle & hourly rate configurat
       }
     },
   );
+
+  await t.test(
+    'Owner can reassign employee role in Edit mode (staff <-> owner) via PATCH /api/v1/employees/:id',
+    async () => {
+      const { container, root, flush, cleanup } = createTestContainer();
+
+      let currentEmp = {
+        id: 'emp-303',
+        user_id: 'user-303',
+        full_name: 'Le Van Staff',
+        employee_code: 'NV303',
+        role: 'staff',
+        employment_status: 'active',
+        is_payroll_eligible: true,
+        version: 2,
+        created_at: '2026-01-01T00:00:00Z',
+        user: {
+          id: 'user-303',
+          email: 'staff303@company.local',
+          username: 'staff303',
+          role: 'staff',
+        },
+      };
+
+      let patchPayload = null;
+
+      globalThis.fetch = async (url, options = {}) => {
+        if (url.includes('/auth/me')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: { csrf_token: 'csrf-role-test', user: { id: 'owner-id' } },
+            }),
+          };
+        }
+        if (url.includes('/api/v1/employees/emp-303')) {
+          if (options.method === 'PATCH') {
+            patchPayload = JSON.parse(options.body);
+            currentEmp = {
+              ...currentEmp,
+              full_name: patchPayload.full_name,
+              role: patchPayload.role,
+              is_payroll_eligible: patchPayload.is_payroll_eligible,
+              version: currentEmp.version + 1,
+              user: { ...currentEmp.user, role: patchPayload.role },
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: currentEmp,
+            }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: [] }),
+        };
+      };
+
+      try {
+        await act(async () => {
+          root.render(
+            React.createElement(EmployeeDetailScreen, {
+              employeeId: 'emp-303',
+              role: 'owner',
+              onNavigate: () => {},
+            }),
+          );
+        });
+        await flush();
+
+        const roleBadge = container.querySelector(
+          '[data-testid="employee-detail-role-badge"]',
+        );
+        assert.ok(roleBadge, 'Role badge should be displayed in detail view');
+        assert.ok(
+          roleBadge.textContent.includes('Nhân viên (Staff)'),
+          'Initial role badge must show Staff',
+        );
+
+        const editBtn = Array.from(container.querySelectorAll('button')).find(
+          (b) => b.textContent.includes('Chỉnh sửa thông tin'),
+        );
+        assert.ok(editBtn, 'Edit button must exist for Owner');
+
+        await act(async () => {
+          getProps(editBtn).onClick();
+        });
+        await flush();
+
+        const roleSelect = container.querySelector(
+          '[data-testid="edit-employee-role-select"]',
+        );
+        assert.ok(roleSelect, 'Role select must render in Edit mode');
+        assert.equal(roleSelect.disabled, false);
+
+        await act(async () => {
+          getProps(roleSelect).onChange({ target: { value: 'owner' } });
+        });
+        await flush();
+
+        const form = container.querySelector('form');
+        assert.ok(form, 'Edit form must exist');
+
+        await act(async () => {
+          getProps(form).onSubmit({ preventDefault() {} });
+        });
+        await flush();
+
+        assert.ok(patchPayload, 'PATCH /api/v1/employees/emp-303 must be sent');
+        assert.equal(
+          patchPayload.role,
+          'owner',
+          'PATCH body must include reassigned role=owner',
+        );
+        assert.equal(
+          patchPayload.is_payroll_eligible,
+          false,
+          'Promoting to owner defaults is_payroll_eligible to false',
+        );
+
+        const updatedBadge = container.querySelector(
+          '[data-testid="employee-detail-role-badge"]',
+        );
+        assert.ok(
+          updatedBadge.textContent.includes('Quản trị / Chủ sở hữu (Owner)'),
+          'Updated role badge must reflect Owner role',
+        );
+      } finally {
+        await cleanup();
+      }
+    },
+  );
 });

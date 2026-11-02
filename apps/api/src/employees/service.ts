@@ -162,6 +162,7 @@ export class EmployeeService {
         u.username_normalized AS user_username,
         u.email_normalized AS user_email,
         u.status AS user_status,
+        wm.role AS user_role,
         to_jsonb(e) ->> 'phone' AS phone,
         to_jsonb(e) ->> 'date_of_birth' AS date_of_birth,
         to_jsonb(e) ->> 'gender' AS gender,
@@ -174,6 +175,7 @@ export class EmployeeService {
         to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
+      LEFT JOIN workspace_memberships wm ON wm.workspace_id = e.workspace_id AND wm.user_id = e.user_id
       WHERE ${conditions.join(' AND ')}
       ORDER BY e.created_at DESC, e.id DESC
       LIMIT ${limitPlaceholder};
@@ -194,6 +196,7 @@ export class EmployeeService {
       user_username: string | null;
       user_email: string | null;
       user_status: string | null;
+      user_role?: string | null;
       phone?: string | null;
       date_of_birth?: string | null;
       gender?: string | null;
@@ -221,37 +224,45 @@ export class EmployeeService {
       }
     }
 
-    const items: EmployeeData[] = rows.map((r) => ({
-      id: r.id,
-      workspace_id: r.workspace_id,
-      user_id: r.user_id,
-      employee_code: r.employee_code,
-      full_name: r.full_name,
-      phone: r.phone ?? null,
-      date_of_birth: r.date_of_birth ?? null,
-      gender: r.gender ?? null,
-      national_id: r.national_id ?? null,
-      address: r.address ?? null,
-      position_title: r.position_title ?? null,
-      emergency_contact: r.emergency_contact ?? null,
-      bank_name: r.bank_name ?? null,
-      bank_account_number: r.bank_account_number ?? null,
-      bank_account_holder: r.bank_account_holder ?? null,
-      employment_status:
-        r.employment_status as EmployeeData['employment_status'],
-      is_payroll_eligible: r.is_payroll_eligible,
-      version: r.version,
-      created_at: r.created_at.toISOString(),
-      updated_at: r.updated_at.toISOString(),
-      user: r.user_id
-        ? {
-            id: r.user_id,
-            username: r.user_username || '',
-            email: r.user_email || '',
-            status: r.user_status || '',
-          }
-        : null,
-    }));
+    const items: EmployeeData[] = rows.map((r) => {
+      const resolvedRole: 'owner' | 'staff' =
+        r.user_role === 'owner' || r.employee_code === 'OWNER'
+          ? 'owner'
+          : 'staff';
+      return {
+        id: r.id,
+        workspace_id: r.workspace_id,
+        user_id: r.user_id,
+        employee_code: r.employee_code,
+        full_name: r.full_name,
+        role: resolvedRole,
+        phone: r.phone ?? null,
+        date_of_birth: r.date_of_birth ?? null,
+        gender: r.gender ?? null,
+        national_id: r.national_id ?? null,
+        address: r.address ?? null,
+        position_title: r.position_title ?? null,
+        emergency_contact: r.emergency_contact ?? null,
+        bank_name: r.bank_name ?? null,
+        bank_account_number: r.bank_account_number ?? null,
+        bank_account_holder: r.bank_account_holder ?? null,
+        employment_status:
+          r.employment_status as EmployeeData['employment_status'],
+        is_payroll_eligible: r.is_payroll_eligible,
+        version: r.version,
+        created_at: r.created_at.toISOString(),
+        updated_at: r.updated_at.toISOString(),
+        user: r.user_id
+          ? {
+              id: r.user_id,
+              username: r.user_username || '',
+              email: r.user_email || '',
+              status: r.user_status || '',
+              role: resolvedRole,
+            }
+          : null,
+      };
+    });
 
     return { items, next_cursor: nextCursor };
   }
@@ -278,6 +289,7 @@ export class EmployeeService {
       user_username: string | null;
       user_email: string | null;
       user_status: string | null;
+      user_role?: string | null;
       phone?: string | null;
       date_of_birth?: string | null;
       gender?: string | null;
@@ -304,6 +316,7 @@ export class EmployeeService {
         u.username_normalized AS user_username,
         u.email_normalized AS user_email,
         u.status AS user_status,
+        wm.role AS user_role,
         to_jsonb(e) ->> 'phone' AS phone,
         to_jsonb(e) ->> 'date_of_birth' AS date_of_birth,
         to_jsonb(e) ->> 'gender' AS gender,
@@ -316,6 +329,7 @@ export class EmployeeService {
         to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
+      LEFT JOIN workspace_memberships wm ON wm.workspace_id = e.workspace_id AND wm.user_id = e.user_id
       WHERE e.workspace_id = $1 AND e.id = $2;
     `,
       [context.workspace.id, employeeId],
@@ -331,12 +345,18 @@ export class EmployeeService {
       throw new AuthError('NOT_FOUND', 'Employee not found', 404);
     }
 
+    const resolvedRole: 'owner' | 'staff' =
+      row.user_role === 'owner' || row.employee_code === 'OWNER'
+        ? 'owner'
+        : 'staff';
+
     return {
       id: row.id,
       workspace_id: row.workspace_id,
       user_id: row.user_id,
       employee_code: row.employee_code,
       full_name: row.full_name,
+      role: resolvedRole,
       phone: row.phone ?? null,
       date_of_birth: row.date_of_birth ?? null,
       gender: row.gender ?? null,
@@ -359,6 +379,7 @@ export class EmployeeService {
             username: row.user_username || '',
             email: row.user_email || '',
             status: row.user_status || '',
+            role: resolvedRole,
           }
         : null,
     };
@@ -382,6 +403,7 @@ export class EmployeeService {
       user_username: string | null;
       user_email: string | null;
       user_status: string | null;
+      user_role?: string | null;
       phone: string | null;
       date_of_birth?: string | null;
       gender?: string | null;
@@ -409,6 +431,7 @@ export class EmployeeService {
         u.username_normalized AS user_username,
         u.email_normalized AS user_email,
         u.status AS user_status,
+        wm.role AS user_role,
         to_jsonb(e) ->> 'phone' AS phone,
         to_jsonb(e) ->> 'date_of_birth' AS date_of_birth,
         to_jsonb(e) ->> 'gender' AS gender,
@@ -422,6 +445,7 @@ export class EmployeeService {
         u.email_verified AS user_email_verified
       FROM employees e
       LEFT JOIN users u ON u.id = e.user_id
+      LEFT JOIN workspace_memberships wm ON wm.workspace_id = e.workspace_id AND wm.user_id = e.user_id
       WHERE e.workspace_id = $1 AND e.user_id = $2;
     `,
       [context.workspace.id, context.user.id],
@@ -436,12 +460,18 @@ export class EmployeeService {
       );
     }
 
+    const resolvedRole: 'owner' | 'staff' =
+      row.user_role === 'owner' || row.employee_code === 'OWNER'
+        ? 'owner'
+        : 'staff';
+
     return {
       id: row.id,
       workspace_id: row.workspace_id,
       user_id: row.user_id,
       employee_code: row.employee_code,
       full_name: row.full_name,
+      role: resolvedRole,
       phone: row.phone ?? null,
       date_of_birth: row.date_of_birth ?? null,
       gender: row.gender ?? null,
@@ -464,6 +494,7 @@ export class EmployeeService {
             username: row.user_username || '',
             email: row.user_email || '',
             status: row.user_status || '',
+            role: resolvedRole,
             email_verified: Boolean(row.user_email_verified),
           }
         : null,
@@ -728,17 +759,39 @@ export class EmployeeService {
       );
     }
 
+    if (
+      body.role !== undefined &&
+      body.role !== 'owner' &&
+      body.role !== 'staff'
+    ) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Vai trò phân quyền không hợp lệ (chỉ chấp nhận owner hoặc staff)',
+        400,
+        [{ field: 'role', message: 'Vai trò không hợp lệ' }],
+      );
+    }
+
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+
+      if (body.role !== undefined) {
+        await client.query(
+          `SELECT id FROM workspaces WHERE id = $1 FOR UPDATE;`,
+          [context.workspace.id],
+        );
+      }
 
       const empRes = await client.query<{
         id: string;
         version: number;
         full_name: string;
         is_payroll_eligible: boolean;
+        user_id: string | null;
+        employee_code: string;
       }>(
-        `SELECT id, version, full_name, is_payroll_eligible FROM employees WHERE workspace_id = $1 AND id = $2 FOR UPDATE;`,
+        `SELECT id, version, full_name, is_payroll_eligible, user_id, employee_code FROM employees WHERE workspace_id = $1 AND id = $2 FOR UPDATE;`,
         [context.workspace.id, employeeId],
       );
 
@@ -753,6 +806,75 @@ export class EmployeeService {
           `Stale employee version. Expected ${expectedVersion}, found ${emp.version}`,
           412,
         );
+      }
+
+      let previousRole: 'owner' | 'staff' | undefined;
+      let roleChanged = false;
+
+      if (body.role !== undefined) {
+        if (!emp.user_id) {
+          if (body.role !== 'staff' && emp.employee_code !== 'OWNER') {
+            throw new AuthError(
+              'VALIDATION_ERROR',
+              'Nhân viên chưa có tài khoản đăng nhập liên kết để phân quyền',
+              400,
+              [
+                {
+                  field: 'role',
+                  message: 'Chưa liên kết tài khoản người dùng',
+                },
+              ],
+            );
+          }
+        } else {
+          const memRes = await client.query<{ role: string; status: string }>(
+            `SELECT role, status FROM workspace_memberships WHERE workspace_id = $1 AND user_id = $2 FOR UPDATE;`,
+            [context.workspace.id, emp.user_id],
+          );
+          const currentMem = memRes.rows[0];
+          previousRole = currentMem?.role === 'owner' ? 'owner' : 'staff';
+
+          if (body.role !== previousRole) {
+            if (
+              body.role === 'staff' &&
+              (emp.user_id === context.user.id || emp.employee_code === 'OWNER')
+            ) {
+              throw new AuthError(
+                'FORBIDDEN',
+                'Chủ sở hữu không thể tự hạ quyền tài khoản của chính mình',
+                403,
+              );
+            }
+
+            if (
+              previousRole === 'owner' &&
+              body.role === 'staff' &&
+              currentMem?.status === 'active'
+            ) {
+              const activeOwnersRes = await client.query<{ user_id: string }>(
+                `SELECT user_id FROM workspace_memberships WHERE workspace_id = $1 AND role = 'owner' AND status = 'active' FOR UPDATE;`,
+                [context.workspace.id],
+              );
+              if (activeOwnersRes.rows.length <= 1) {
+                throw new AuthError(
+                  'CONFLICT',
+                  'Không thể hạ quyền Chủ sở hữu duy nhất còn hoạt động của workspace',
+                  409,
+                );
+              }
+            }
+
+            await client.query(
+              `UPDATE workspace_memberships
+               SET role = $1,
+                   version = version + 1,
+                   updated_at = now()
+               WHERE workspace_id = $2 AND user_id = $3;`,
+              [body.role, context.workspace.id, emp.user_id],
+            );
+            roleChanged = true;
+          }
+        }
       }
 
       const newFullName =
@@ -825,6 +947,13 @@ export class EmployeeService {
           previous_version: expectedVersion,
           new_full_name: newFullName,
           is_payroll_eligible: newEligibility,
+          ...(roleChanged
+            ? {
+                role_changed: true,
+                previous_role: previousRole,
+                new_role: body.role,
+              }
+            : {}),
         },
       });
 

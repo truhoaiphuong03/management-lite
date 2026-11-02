@@ -1,10 +1,12 @@
 export type EmploymentStatus = 'invited' | 'active' | 'suspended' | 'archived';
+export type EmployeeMemberRole = 'owner' | 'staff';
 
 export interface EmployeeUserData {
   id: string;
   username: string;
   email: string;
   status: string;
+  role?: EmployeeMemberRole;
   email_verified?: boolean;
 }
 
@@ -14,6 +16,7 @@ export interface EmployeeData {
   user_id: string | null;
   employee_code: string;
   full_name: string;
+  role?: EmployeeMemberRole;
   phone?: string | null;
   date_of_birth?: string | null;
   gender?: string | null;
@@ -62,6 +65,7 @@ export interface CreateEmployeeResponseData {
 
 export interface UpdateEmployeeRequestBody {
   full_name?: string;
+  role?: EmployeeMemberRole;
   is_payroll_eligible?: boolean;
   phone?: string | null;
   date_of_birth?: string | null;
