@@ -58,8 +58,8 @@ export const DEFAULT_DRAFT_LINE = (index: number): DraftLineState => ({
 
 export const inputStyle: React.CSSProperties = {
   width: '100%',
-  minHeight: '38px',
-  padding: '7px 10px',
+  minHeight: '42px',
+  padding: '8px 10px',
   borderRadius: '8px',
   border: '1px solid var(--border-color)',
   backgroundColor: 'var(--bg-color)',

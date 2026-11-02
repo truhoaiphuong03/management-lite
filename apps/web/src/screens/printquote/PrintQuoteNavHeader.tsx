@@ -111,6 +111,8 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
     },
   ];
 
+  const groupTabs = tabs.filter((tab) => tab.group === activeGroup);
+
   return (
     <div
       style={{
@@ -122,16 +124,17 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
         boxSizing: 'border-box',
       }}
     >
-      {/* 4 Nhóm điều hướng rõ ràng: Báo giá • Đơn hàng • Danh mục • Báo cáo */}
+      {/* 4 Nhóm điều hướng chính: Báo giá • Đơn hàng • Danh mục • Báo cáo (Lưới 2x2 trên Mobile 320px/390px, 1 hàng 4 cột trên Desktop) */}
       <div
         role="navigation"
         aria-label="Nhóm chức năng Báo giá in ấn"
         data-testid="pq-grouped-nav"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(min(100%, 135px), 1fr))',
           gap: '6px',
-          padding: '4px',
+          padding: '6px',
           borderRadius: '10px',
           backgroundColor: 'var(--surface-color)',
           border: '1px solid var(--border-color)',
@@ -148,28 +151,26 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
               aria-current={isGroupActive ? 'true' : undefined}
               onClick={() => onSelectTab(grp.defaultTab)}
               style={{
-                minHeight: '36px',
-                padding: '6px 8px',
-                borderRadius: '7px',
+                minHeight: '44px',
+                padding: '8px 10px',
+                borderRadius: '8px',
                 border: isGroupActive
                   ? '1px solid var(--accent-text)'
-                  : '1px solid transparent',
+                  : '1px solid var(--border-color)',
                 backgroundColor: isGroupActive
                   ? 'var(--accent-soft)'
-                  : 'transparent',
+                  : 'var(--bg-color)',
                 color: isGroupActive
                   ? 'var(--accent-text)'
                   : 'var(--text-color)',
                 fontWeight: isGroupActive ? 700 : 600,
-                fontSize: '12.5px',
+                fontSize: '13px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '4px',
+                gap: '5px',
                 whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
               }}
             >
               <span>{grp.label}</span>
@@ -177,7 +178,7 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
                 <span
                   style={{
                     fontSize: '12px',
-                    opacity: 0.85,
+                    opacity: 0.9,
                   }}
                 >
                   ({grp.badge})
@@ -188,60 +189,55 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
         })}
       </div>
 
-      {/* Thanh 6 màn hình chi tiết (giữ đầy đủ các màn hình hiện có, nổi bật nhóm đang chọn) */}
-      <div
-        role="tablist"
-        aria-label="Chức năng Báo giá in ấn"
-        style={{
-          display: 'flex',
-          gap: '6px',
-          overflowX: 'auto',
-          paddingBottom: '4px',
-          borderBottom: '1px solid var(--border-color)',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {tabs.map((tab) => {
-          const active = activeTab === tab.id;
-          const inActiveGroup = tab.group === activeGroup;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              data-testid={tab.testId}
-              onClick={() => onSelectTab(tab.id)}
-              style={{
-                padding: '7px 12px',
-                borderRadius: '8px',
-                border: active
-                  ? '1px solid var(--accent-text)'
-                  : inActiveGroup
-                    ? '1px solid var(--border-color)'
-                    : '1px solid transparent',
-                backgroundColor: active
-                  ? 'var(--accent-soft)'
-                  : inActiveGroup
-                    ? 'var(--surface-color)'
-                    : 'transparent',
-                color: active
-                  ? 'var(--accent-text)'
-                  : inActiveGroup
-                    ? 'var(--text-color)'
-                    : 'var(--muted-color)',
-                fontWeight: active ? 700 : 500,
-                fontSize: '12.5px',
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Chỉ hiển thị các màn hình con thuộc nhóm đang chọn (khi nhóm có từ 2 màn hình con trở lên) */}
+      {groupTabs.length > 1 && (
+        <div
+          role="tablist"
+          aria-label="Chức năng Báo giá in ấn"
+          data-testid="pq-subtab-bar"
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
+            gap: '6px',
+          }}
+        >
+          {groupTabs.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                data-testid={tab.testId}
+                onClick={() => onSelectTab(tab.id)}
+                style={{
+                  minHeight: '42px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: active
+                    ? '1px solid var(--accent-text)'
+                    : '1px solid var(--border-color)',
+                  backgroundColor: active
+                    ? 'var(--accent-soft)'
+                    : 'var(--surface-color)',
+                  color: active ? 'var(--accent-text)' : 'var(--text-color)',
+                  fontWeight: active ? 700 : 600,
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

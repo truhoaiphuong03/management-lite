@@ -125,8 +125,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
           style={{
             display: 'flex',
             gap: '6px',
-            overflowX: 'auto',
-            flexWrap: 'nowrap',
+            flexWrap: 'wrap',
           }}
         >
           {statusTabs.map((tab) => {
@@ -137,7 +136,8 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                 type="button"
                 onClick={() => setStatusFilter(tab.id)}
                 style={{
-                  padding: '6px 11px',
+                  minHeight: '38px',
+                  padding: '6px 12px',
                   borderRadius: '999px',
                   border: active
                     ? '1px solid var(--accent-text)'

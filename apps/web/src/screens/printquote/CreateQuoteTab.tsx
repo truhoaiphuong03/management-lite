@@ -18,6 +18,7 @@ import {
 } from '../../../../../packages/contracts/src/printquote.js';
 import {
   formatVnd,
+  formatExactVnd,
   formatNumberVn,
   numberToVietnameseWords,
 } from '../helpers/printquote-helpers.js';
@@ -248,46 +249,50 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
       data-testid="panel-create-quote"
       style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
     >
-      {/* Thanh nhảy nhanh 4 bước / nhóm thông tin (Cho phép mở trực tiếp bất kỳ nhóm nào) */}
+      {/* Thanh nhảy nhanh gọn nhẹ cho 4 mục trong Tạo báo giá (Không trùng lặp với thanh menu phân hệ) */}
       <div
         data-testid="pq-section-jump-bar"
         style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 135px), 1fr))',
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
           gap: '6px',
-          padding: '8px',
+          padding: '6px 10px',
           borderRadius: '10px',
           backgroundColor: 'var(--surface-color)',
           border: '1px solid var(--border-color)',
         }}
       >
+        <span
+          style={{
+            fontSize: '12px',
+            fontWeight: 700,
+            color: 'var(--muted-color)',
+            marginRight: '2px',
+          }}
+        >
+          Mở nhanh:
+        </span>
         {[
           {
             id: 'customer' as const,
             domId: 'pq-sec-customer',
             label: '1. Khách hàng',
-            sub: selectedCustomerObj ? selectedCustomerObj.name : 'Khách lẻ',
           },
           {
             id: 'products' as const,
             domId: 'pq-sec-products',
             label: `2. Sản phẩm (${draftLines.length})`,
-            sub: `${draftLines.reduce((s, l) => s + (Number(l.quantity) || 0), 0)} ĐVT`,
           },
           {
             id: 'summary' as const,
             domId: 'pq-sec-summary',
             label: '3. Tổng kết',
-            sub: livePricingResult.calc
-              ? formatVnd(livePricingResult.calc.totalQuoteAmount)
-              : '—',
           },
           {
             id: 'actions' as const,
             domId: 'pq-sec-actions',
-            label: '4. Lưu / Xuất PDF',
-            sub: editingQuoteCode || 'Bản mới (v1)',
+            label: '4. Lưu & Xuất PDF',
           },
         ].map((step) => {
           const isOpen = openSections[step.id];
@@ -298,39 +303,23 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               data-testid={`pq-jump-${step.id}`}
               onClick={() => focusAndOpenSection(step.id, step.domId)}
               style={{
-                textAlign: 'left',
-                padding: '7px 10px',
-                borderRadius: '8px',
+                minHeight: '38px',
+                padding: '6px 10px',
+                borderRadius: '999px',
                 border: isOpen
                   ? '1px solid var(--accent-text)'
                   : '1px solid var(--border-color)',
                 backgroundColor: isOpen
                   ? 'var(--accent-soft)'
                   : 'var(--bg-color)',
-                color: 'var(--text-color)',
+                color: isOpen ? 'var(--accent-text)' : 'var(--text-color)',
+                fontSize: '12px',
+                fontWeight: isOpen ? 700 : 600,
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
               }}
             >
-              <div
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  color: isOpen ? 'var(--accent-text)' : 'var(--text-color)',
-                }}
-              >
-                {step.label}
-              </div>
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: 'var(--muted-color)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {step.sub}
-              </div>
+              {step.label}
             </button>
           );
         })}
@@ -389,12 +378,13 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 setShowQuickCustomerForm((v) => !v);
               }}
               style={{
-                padding: '5px 10px',
-                borderRadius: '6px',
+                minHeight: '40px',
+                padding: '7px 12px',
+                borderRadius: '8px',
                 border: '1px solid var(--accent-text)',
                 backgroundColor: 'var(--accent-soft)',
                 color: 'var(--accent-text)',
-                fontSize: '12px',
+                fontSize: '12.5px',
                 fontWeight: 700,
                 cursor: 'pointer',
               }}
@@ -407,12 +397,13 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 type="button"
                 onClick={onResetNewQuote}
                 style={{
-                  padding: '5px 10px',
-                  borderRadius: '6px',
+                  minHeight: '40px',
+                  padding: '7px 12px',
+                  borderRadius: '8px',
                   border: '1px solid var(--border-color)',
                   backgroundColor: 'transparent',
                   color: 'var(--text-color)',
-                  fontSize: '12px',
+                  fontSize: '12.5px',
                   cursor: 'pointer',
                 }}
               >
@@ -624,12 +615,13 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                   }
                 }}
                 style={{
-                  padding: '6px 10px',
+                  minHeight: '40px',
+                  padding: '7px 12px',
                   borderRadius: '8px',
                   border: '1px solid var(--border-color)',
                   backgroundColor: 'transparent',
                   color: 'var(--muted-color)',
-                  fontSize: '12px',
+                  fontSize: '12.5px',
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
@@ -645,6 +637,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               data-testid="pq-add-line-btn"
               onClick={handleAddProductLine}
               style={{
+                minHeight: '40px',
                 padding: '7px 12px',
                 borderRadius: '8px',
                 border: '1px solid var(--accent-text)',
@@ -681,7 +674,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                     backgroundColor: 'var(--bg-color)',
                   }}
                 >
-                  {/* Thanh tiêu đề & tóm tắt gọn cho từng sản phẩm */}
+                  {/* Thanh tiêu đề & tóm tắt gọn cho từng sản phẩm (Không lặp thông tin khi đang mở chỉnh sửa) */}
                   <div
                     data-testid={
                       isCollapsed
@@ -697,57 +690,108 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                       marginBottom: isCollapsed ? 0 : '10px',
                     }}
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        flexWrap: 'wrap',
-                        flex: 1,
-                        minWidth: '180px',
-                      }}
-                    >
-                      <strong
+                    {isCollapsed ? (
+                      <div
                         style={{
-                          fontSize: '13px',
-                          color: 'var(--accent-text)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          flexWrap: 'wrap',
+                          flex: 1,
+                          minWidth: '180px',
                         }}
                       >
-                        #{idx + 1}. {line.name || `Sản phẩm #${idx + 1}`}
-                      </strong>
-                      <span
-                        style={{
-                          fontSize: '12px',
-                          color: 'var(--muted-color)',
-                        }}
-                      >
-                        ({formatNumberVn(line.quantity)} {line.unit || 'tờ'})
-                      </span>
-                      {calcLine && (
+                        <strong
+                          style={{
+                            fontSize: '13px',
+                            color: 'var(--accent-text)',
+                          }}
+                        >
+                          #{idx + 1}. {line.name || `Sản phẩm #${idx + 1}`}
+                        </strong>
                         <span
                           style={{
                             fontSize: '12px',
-                            fontWeight: 700,
-                            color: 'var(--text-color)',
+                            color: 'var(--muted-color)',
                           }}
                         >
-                          • Báo khách: {formatVnd(calcLine.finalUnitPrice)}/
-                          {line.unit || 'tờ'} (
-                          {formatVnd(calcLine.reconciledLineTotal)})
+                          ({formatNumberVn(line.quantity)} {line.unit || 'tờ'})
                         </span>
-                      )}
-                      {calcLine && (
-                        <span
+                        {calcLine && (
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color: 'var(--text-color)',
+                            }}
+                          >
+                            {calcLine.roundingAdjustment !== 0 ? (
+                              <>
+                                • Đơn giá gộp ship:{' '}
+                                {formatExactVnd(calcLine.rawFinalUnitPrice)}/
+                                {line.unit || 'tờ'} (làm tròn{' '}
+                                {formatVnd(calcLine.finalUnitPrice)}) • Thành
+                                tiền: {formatVnd(calcLine.reconciledLineTotal)}
+                              </>
+                            ) : (
+                              <>
+                                • Báo khách:{' '}
+                                {formatVnd(calcLine.finalUnitPrice)}/
+                                {line.unit || 'tờ'} (Thành tiền:{' '}
+                                {formatVnd(calcLine.reconciledLineTotal)})
+                              </>
+                            )}
+                          </span>
+                        )}
+                        {calcLine && (
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              color: 'var(--success-text)',
+                            }}
+                          >
+                            | 🔒 Lời: +{formatVnd(calcLine.totalProfit)}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <strong
                           style={{
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            color: 'var(--success-text)',
+                            fontSize: '13px',
+                            color: 'var(--accent-text)',
                           }}
                         >
-                          | 🔒 Lời: +{formatVnd(calcLine.totalProfit)}
-                        </span>
-                      )}
-                    </div>
+                          Sản phẩm #{idx + 1}
+                        </strong>
+                        {calcLine && (
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              color: 'var(--muted-color)',
+                            }}
+                          >
+                            • Thành tiền dòng này:{' '}
+                            <strong style={{ color: 'var(--text-color)' }}>
+                              {formatVnd(calcLine.reconciledLineTotal)}
+                            </strong>{' '}
+                            (🔒 Lời:{' '}
+                            <strong style={{ color: 'var(--success-text)' }}>
+                              +{formatVnd(calcLine.totalProfit)}
+                            </strong>
+                            )
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     <div
                       style={{
@@ -768,8 +812,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             }))
                           }
                           style={{
-                            padding: '4px 10px',
-                            borderRadius: '6px',
+                            minHeight: '38px',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
                             border: '1px solid var(--accent-text)',
                             backgroundColor: isCollapsed
                               ? 'var(--accent-soft)'
@@ -789,8 +834,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                         data-testid={`pq-line-duplicate-${idx}`}
                         onClick={() => handleDuplicateProductLine(idx)}
                         style={{
-                          padding: '4px 10px',
-                          borderRadius: '6px',
+                          minHeight: '38px',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
                           border: '1px solid var(--border-color)',
                           backgroundColor: 'var(--surface-color)',
                           color: 'var(--text-color)',
@@ -808,8 +854,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                           data-testid={`pq-line-delete-${idx}`}
                           onClick={() => handleRemoveProductLine(idx)}
                           style={{
-                            padding: '4px 10px',
-                            borderRadius: '6px',
+                            minHeight: '38px',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
                             border: '1px solid var(--danger-text)',
                             backgroundColor: 'transparent',
                             color: 'var(--danger-text)',
@@ -1127,10 +1174,10 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-start',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '8px',
+            gap: '12px',
             marginBottom: openSections.summary ? '12px' : 0,
           }}
         >
@@ -1170,8 +1217,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               setShowAdvancedOptions((v) => !v);
             }}
             style={{
-              padding: '5px 10px',
-              borderRadius: '6px',
+              minHeight: '38px',
+              padding: '6px 12px',
+              borderRadius: '8px',
               border: '1px solid var(--border-color)',
               backgroundColor: showAdvancedOptions
                 ? 'var(--accent-soft)'
@@ -1517,8 +1565,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                         data-testid="pq-view-mode-customer"
                         onClick={() => setSummaryViewMode('customer')}
                         style={{
-                          padding: '6px 12px',
-                          borderRadius: '7px',
+                          minHeight: '40px',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
                           border:
                             summaryViewMode === 'customer'
                               ? '1px solid var(--success-text)'
@@ -1544,8 +1593,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                         data-testid="pq-view-mode-internal"
                         onClick={() => setSummaryViewMode('internal')}
                         style={{
-                          padding: '6px 12px',
-                          borderRadius: '7px',
+                          minHeight: '40px',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
                           border:
                             summaryViewMode === 'internal'
                               ? '1px solid var(--accent-text)'
@@ -1609,37 +1659,86 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                           </tr>
                         </thead>
                         <tbody>
-                          {livePricingResult.customerPdf.lines.map((item) => (
-                            <tr
-                              key={item.id}
-                              style={{
-                                borderBottom: '1px solid var(--border-color)',
-                              }}
-                            >
-                              <td style={{ padding: '6px', fontWeight: 600 }}>
-                                {item.name}
-                              </td>
-                              <td
-                                style={{ padding: '6px', textAlign: 'right' }}
-                              >
-                                {formatNumberVn(item.quantity)}
-                              </td>
-                              <td
-                                style={{ padding: '6px', textAlign: 'right' }}
-                              >
-                                {formatVnd(item.unitPrice)}
-                              </td>
-                              <td
-                                style={{
-                                  padding: '6px',
-                                  textAlign: 'right',
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {formatVnd(item.lineTotal)}
-                              </td>
-                            </tr>
-                          ))}
+                          {livePricingResult.customerPdf.lines.map(
+                            (item, lineIdx) => {
+                              const calcLine =
+                                livePricingResult.calc?.lines[lineIdx];
+                              return (
+                                <tr
+                                  key={item.id}
+                                  style={{
+                                    borderBottom:
+                                      '1px solid var(--border-color)',
+                                  }}
+                                >
+                                  <td
+                                    style={{ padding: '6px', fontWeight: 600 }}
+                                  >
+                                    {item.name}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: '6px',
+                                      textAlign: 'right',
+                                    }}
+                                  >
+                                    {formatNumberVn(item.quantity)}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: '6px',
+                                      textAlign: 'right',
+                                    }}
+                                  >
+                                    <div>{formatVnd(item.unitPrice)}</div>
+                                    {calcLine &&
+                                      calcLine.roundingAdjustment !== 0 && (
+                                        <div
+                                          style={{
+                                            fontSize: '12px',
+                                            color: 'var(--muted-color)',
+                                            fontWeight: 400,
+                                          }}
+                                        >
+                                          (Đơn giá chuẩn:{' '}
+                                          {formatExactVnd(
+                                            calcLine.rawFinalUnitPrice,
+                                          )}
+                                          )
+                                        </div>
+                                      )}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: '6px',
+                                      textAlign: 'right',
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    <div>{formatVnd(item.lineTotal)}</div>
+                                    {calcLine &&
+                                      calcLine.roundingAdjustment !== 0 && (
+                                        <div
+                                          style={{
+                                            fontSize: '12px',
+                                            color: 'var(--muted-color)',
+                                            fontWeight: 400,
+                                          }}
+                                        >
+                                          (Cân đối làm tròn:{' '}
+                                          {calcLine.roundingAdjustment > 0
+                                            ? `+${formatVnd(calcLine.roundingAdjustment)}`
+                                            : formatVnd(
+                                                calcLine.roundingAdjustment,
+                                              )}
+                                          )
+                                        </div>
+                                      )}
+                                  </td>
+                                </tr>
+                              );
+                            },
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1715,7 +1814,21 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                   fontWeight: 700,
                                 }}
                               >
-                                {formatVnd(item.finalUnitPrice)}
+                                <div>{formatVnd(item.finalUnitPrice)}</div>
+                                {item.roundingAdjustment !== 0 && (
+                                  <div
+                                    style={{
+                                      fontSize: '12px',
+                                      color: 'var(--muted-color)',
+                                      fontWeight: 400,
+                                    }}
+                                  >
+                                    (Chuẩn:{' '}
+                                    {formatExactVnd(item.rawFinalUnitPrice)} |
+                                    Cân đối:{' '}
+                                    {formatVnd(item.roundingAdjustment)})
+                                  </div>
+                                )}
                               </td>
                               <td
                                 style={{
@@ -1834,7 +1947,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
         )}
       </div>
 
-      {/* NHÓM 4: THANH HÀNH ĐỘNG CHÍNH (LƯU BÁO GIÁ / XUẤT PDF A4 — KHÔNG CHE NỘI DUNG MOBILE) */}
+      {/* NHÓM 4: THANH HÀNH ĐỘNG CHÍNH (LƯU BÁO GIÁ / XUẤT PDF A4 — KHÔNG CHE NỘI DUNG MOBILE & TRÁNH NÚT BÁO LỖI NỔI) */}
       <div
         id="pq-sec-actions"
         data-testid="pq-action-bar"
@@ -1849,27 +1962,17 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: '8px',
           }}
         >
-          <div style={{ fontSize: '13px', fontWeight: 700 }}>
+          <div style={{ fontSize: '13.5px', fontWeight: 800 }}>
             4. Hoàn tất & Xuất báo giá PDF A4
           </div>
-          {livePricingResult.calc && (
-            <div style={{ fontSize: '12.5px' }}>
-              Tổng báo khách:{' '}
-              <strong style={{ color: 'var(--accent-text)' }}>
-                {formatVnd(livePricingResult.calc.totalQuoteAmount)}
-              </strong>{' '}
-              • 🔒 Lời:{' '}
-              <strong style={{ color: 'var(--success-text)' }}>
-                +{formatVnd(livePricingResult.calc.totalProfit)}
-              </strong>
-            </div>
-          )}
+          <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+            (Lưu vào hệ thống hoặc tải file PDF A4 gửi khách ngay)
+          </span>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -1879,7 +1982,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
             onClick={onSaveQuote}
             style={{
               flex: '1 1 170px',
-              minHeight: '42px',
+              minHeight: '44px',
               padding: '10px 14px',
               borderRadius: '8px',
               border: 'none',
@@ -1901,7 +2004,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
             onClick={onDownloadLivePdf}
             style={{
               flex: '1 1 170px',
-              minHeight: '42px',
+              minHeight: '44px',
               padding: '10px 14px',
               borderRadius: '8px',
               border: '1px solid var(--accent-text)',
@@ -1921,7 +2024,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
             onClick={onOpenLivePreview}
             style={{
               flex: '1 1 150px',
-              minHeight: '42px',
+              minHeight: '44px',
               padding: '10px 14px',
               borderRadius: '8px',
               border: '1px solid var(--border-color)',
@@ -1934,6 +2037,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
           >
             👁️ Xem trước PDF A4
           </button>
+
+          {/* Vùng đệm tự động tránh nút Báo lỗi nổi ở góc phải dưới trên màn hình rộng */}
+          <div aria-hidden="true" style={{ flex: '0 0 110px', height: '1px' }} />
         </div>
       </div>
     </div>

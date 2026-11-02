@@ -562,8 +562,8 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       timeout: 10000,
     });
 
-    // Step 3: Create Vendor, Price Catalog Item, and Customer
-    await page.click('[data-testid="tab-vendors-catalog"]');
+    // Step 3: Create Vendor, Price Catalog Item, and Customer (under group Danh mục)
+    await page.click('[data-testid="pq-nav-group-catalog"]');
     await page.waitForSelector('[data-testid="panel-vendors-catalog"]');
 
     await page.fill(
@@ -622,7 +622,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     });
 
     // Step 4 & 5: Create Quote 100 tờ (vốn 300đ/tờ, lời 200đ/tờ, ship toàn đơn 50.000đ) -> Verify 1.000đ/tờ & 100.000đ
-    await page.click('[data-testid="tab-create-quote"]');
+    await page.click('[data-testid="pq-nav-group-quotes"]');
     await page.waitForSelector('[data-testid="panel-create-quote"]');
 
     await page.fill(
@@ -777,6 +777,11 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     assert.ok(codeMatch, `Expected quote code in banner: ${bannerAfterSave}`);
     const savedQuoteCode = codeMatch[1];
 
+    await page.evaluate(() => {
+      document
+        .getElementById('pq-sec-products')
+        ?.scrollIntoView({ block: 'start' });
+    });
     await page.screenshot({
       path: path.join(artifactDir, 'qa03-03-desktop-create-quote-100k.png'),
       fullPage: false,
@@ -1033,7 +1038,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     });
 
     // Check Tab 6 (Lợi nhuận & Công nợ)
-    await page.click('[data-testid="tab-profit-debt"]');
+    await page.click('[data-testid="pq-nav-group-analytics"]');
     await page.waitForSelector('[data-testid="panel-profit-debt"]');
     const analyticsText = await page.textContent(
       '[data-testid="panel-profit-debt"]',
@@ -1073,12 +1078,12 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       'Convert to Order button must be removed after quote is converted to prevent duplicates',
     );
 
-    await page.click('[data-testid="tab-orders"]');
+    await page.click('[data-testid="pq-nav-group-orders"]');
     await page.waitForSelector(`[data-testid="order-card-${savedOrderCode}"]`);
 
     // Step 12: Verify iPhone viewport (390x844) & no horizontal overflow
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.click('[data-testid="tab-create-quote"]');
+    await page.click('[data-testid="pq-nav-group-quotes"]');
     await page.waitForSelector('[data-testid="panel-create-quote"]');
 
     const mobileOverflowCreate = await page.evaluate(() => {
@@ -1098,7 +1103,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       fullPage: false,
     });
 
-    await page.click('[data-testid="tab-orders"]');
+    await page.click('[data-testid="pq-nav-group-orders"]');
     await page.waitForSelector('[data-testid="panel-orders"]');
 
     const mobileOverflowOrders = await page.evaluate(() => {
@@ -1120,7 +1125,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
 
     // Also verify 320px ultra-compact mobile viewport has zero horizontal overflow
     await page.setViewportSize({ width: 320, height: 740 });
-    await page.click('[data-testid="tab-create-quote"]');
+    await page.click('[data-testid="pq-nav-group-quotes"]');
     await page.waitForSelector('[data-testid="panel-create-quote"]');
     const overflow320Create = await page.evaluate(() => {
       return (

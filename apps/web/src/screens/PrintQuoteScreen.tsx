@@ -894,6 +894,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         gap: '14px',
         width: '100%',
         maxWidth: '100%',
+        paddingBottom: '96px',
         boxSizing: 'border-box',
       }}
     >

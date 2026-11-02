@@ -15,6 +15,16 @@ export function formatVnd(amount: number | null | undefined): string {
   return `${safe.toLocaleString('vi-VN')} ₫`;
 }
 
+export function formatExactVnd(amount: number | null | undefined): string {
+  const safe =
+    typeof amount === 'number' && Number.isFinite(amount) ? amount : 0;
+  const rounded2 = Math.round(safe * 100) / 100;
+  return `${rounded2.toLocaleString('vi-VN', {
+    minimumFractionDigits: Number.isInteger(rounded2) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })} ₫`;
+}
+
 export function formatNumberVn(amount: number | null | undefined): string {
   const safe =
     typeof amount === 'number' && Number.isFinite(amount)

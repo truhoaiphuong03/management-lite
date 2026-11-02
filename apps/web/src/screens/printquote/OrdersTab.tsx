@@ -156,8 +156,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           style={{
             display: 'flex',
             gap: '6px',
-            overflowX: 'auto',
-            flexWrap: 'nowrap',
+            flexWrap: 'wrap',
           }}
         >
           {filterButtons.map((btn) => {
@@ -168,7 +167,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                 type="button"
                 onClick={() => setFilterMode(btn.id)}
                 style={{
-                  padding: '6px 11px',
+                  minHeight: '38px',
+                  padding: '6px 12px',
                   borderRadius: '999px',
                   border: active
                     ? '1px solid var(--accent-text)'
@@ -415,7 +415,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                     }}
                     style={{
                       width: '100%',
-                      minHeight: '38px',
+                      minHeight: '42px',
                       padding: '8px 12px',
                       borderRadius: '8px',
                       border: 'none',

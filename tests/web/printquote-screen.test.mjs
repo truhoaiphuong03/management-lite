@@ -71,7 +71,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 3 Web UI & Vietnamese A4 PDF Tests', () =>
     assert.equal(adminMobile.includes('Báo giá'), false);
   });
 
-  it('2. PrintQuoteScreen hiển thị đầy đủ 6 tab chức năng và tính trực tiếp bài toán chuẩn trên Tab 1 (Tạo báo giá)', () => {
+  it('2. PrintQuoteScreen hiển thị 4 nhóm điều hướng chính, chỉ hiện tab con của nhóm đang chọn và tính trực tiếp bài toán chuẩn trên Tab 1 (Tạo báo giá)', () => {
     const html = renderToStaticMarkup(
       React.createElement(PrintQuoteScreen, {
         role: 'owner',
@@ -80,12 +80,29 @@ describe('MGL-PRINTQUOTE V1 — Phase 3 Web UI & Vietnamese A4 PDF Tests', () =>
       }),
     );
 
+    // 4 nhóm chính luôn hiện
+    assert.equal(html.includes('Báo giá'), true);
+    assert.equal(html.includes('Đơn hàng'), true);
+    assert.equal(html.includes('Danh mục'), true);
+    assert.equal(html.includes('Báo cáo'), true);
+
+    // Khi đang ở nhóm Báo giá: chỉ hiện 2 màn hình con thuộc nhóm Báo giá, không hiện đồng thời 6 tab gây rối
     assert.equal(html.includes('1. Tạo báo giá'), true);
     assert.equal(html.includes('2. Danh sách báo giá'), true);
-    assert.equal(html.includes('3. Nhà in &amp; Bảng giá'), true);
-    assert.equal(html.includes('4. Khách hàng'), true);
-    assert.equal(html.includes('5. Đơn hàng'), true);
-    assert.equal(html.includes('6. Lợi nhuận &amp; Công nợ'), true);
+    assert.equal(html.includes('3. Nhà in &amp; Bảng giá'), false);
+    assert.equal(html.includes('6. Lợi nhuận &amp; Công nợ'), false);
+
+    // Khi chuyển sang nhóm Danh mục (initialTab: 'vendors'): chỉ hiện 2 màn hình con thuộc Danh mục
+    const catalogHtml = renderToStaticMarkup(
+      React.createElement(PrintQuoteScreen, {
+        role: 'owner',
+        workspaceName: 'Hoài Phương Media',
+        initialTab: 'vendors',
+      }),
+    );
+    assert.equal(catalogHtml.includes('3. Nhà in &amp; Bảng giá'), true);
+    assert.equal(catalogHtml.includes('4. Khách hàng'), true);
+    assert.equal(catalogHtml.includes('1. Tạo báo giá'), false);
 
     // Default draft line: 100 tờ x (300đ vốn + 200đ lời) + 50.000đ ship = 100.000đ
     assert.equal(html.includes('30.000 ₫'), true);
