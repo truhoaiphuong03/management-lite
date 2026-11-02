@@ -393,6 +393,60 @@
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — `7/7` tests `PASS` (`duration_ms: 57.67ms`).
 10. **Evidence (`VERIFIED`):** `node --test tests/backend/printquote-pricing-engine.test.mjs`.
-11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+11. **Commit / PR:** `bdba0a5` (Nhánh `feature/printquote-module-v1`)
 12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
 13. **NEXT_ACTION:** Bắt đầu `Phase PQ-2` (`PQ2-T01` — Migration `0033_printquote_v1.sql` & Backend API).
+
+---
+
+### Task `PQ2-T01` — Tạo Migration PostgreSQL Bổ Sung `0033_printquote_v1.sql` & Cập Nhật `catalog.ts`
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-2`
+3. **Task ID:** `PQ2-T01`
+4. **Mô tả:** Tạo migration PostgreSQL bổ sung `packages/database/src/migrations/0033_printquote_v1.sql` và đăng ký vào `packages/database/src/migrations/catalog.ts` (không sửa bảng hiện hữu), khởi tạo 7 bảng mới: `print_vendors`, `print_vendor_price_items`, `print_customers`, `print_quotes`, `print_quote_versions`, `print_orders`, `print_order_payments` kèm chỉ mục và phân quyền runtime.
+5. **Phụ thuộc:** `PQ1-T02` (`PASS`).
+6. **Acceptance Criteria:** `tests/database/migrator.test.mjs` đạt `15/15 PASS` (đồng bộ 1:1 giữa file `.sql` và `EMBEDDED_MIGRATIONS`); áp dụng thành công lên cả `mglite_mac_dev` và `mglite_mvp_v01_test` trên cụm PostgreSQL 18.6 DEV `:55499`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — `15/15` migrator tests `PASS` (`0 fail`), migration `0033_printquote_v1` áp dụng thành công.
+10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0033_printquote_v1.sql`, `packages/database/src/migrations/catalog.ts`, `node --test tests/database/migrator.test.mjs`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `PQ2-T02`.
+
+---
+
+### Task `PQ2-T02` — Xây Dựng `PrintQuoteService` & API Routes `/api/v1/print-quotes/*`
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-2`
+3. **Task ID:** `PQ2-T02`
+4. **Mô tả:** Xây dựng `apps/api/src/printquote/service.ts` và `apps/api/src/routes/printquote-routes.ts`, gắn vào `apps/api/src/app.ts`. Bảo vệ quyền truy cập chỉ cho `owner` (`403 FORBIDDEN` với `staff`), bọc transaction PostgreSQL & `Idempotency-Key` cho thao tác ghi quan trọng, lưu đầy đủ lịch sử & phiên bản báo giá (`print_quote_versions`), xuất payload PDF khách hàng đã lọc sạch giá vốn/lợi nhuận, và quản lý đơn hàng/thanh toán/công nợ/thống kê.
+5. **Phụ thuộc:** `PQ2-T01` (`PASS`).
+6. **Acceptance Criteria:** `npm run typecheck` và `npm run build` đạt `0` lỗi; mọi endpoint `/api/v1/print-quotes/*` kiểm tra CSRF + RBAC Owner + Transaction + Idempotency.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — `tsc --noEmit` và `tsc` đạt `0` lỗi.
+10. **Evidence (`VERIFIED`):** `apps/api/src/printquote/service.ts`, `apps/api/src/routes/printquote-routes.ts`, `apps/api/src/app.ts`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `PQ2-T03`.
+
+---
+
+### Task `PQ2-T03` — Kiểm Thử Tích Hợp (`Integration Tests`) Trên PostgreSQL DEV
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-2`
+3. **Task ID:** `PQ2-T03`
+4. **Mô tả:** Viết và chạy `tests/backend/printquote-postgres.test.mjs` trên PostgreSQL DEV (`127.0.0.1:55499`) kiểm chứng: chặn `403 FORBIDDEN` đối với `staff`, tạo Nhà in + Bảng giá + Khách hàng kèm `Idempotency-Key` (replay & conflict `409`), tạo báo giá `v1`, cập nhật bảng giá nhà in không làm đổi giá báo giá cũ `v1`, cập nhật báo giá sang `v2` giữ lịch sử phiên bản, API `/pdf` tuyệt đối không lộ giá vốn/lợi nhuận, chuyển thành đơn hàng + đặt cọc + cập nhật trạng thái sản xuất/giao hàng độc lập + thanh toán công nợ + thống kê lợi nhuận dự kiến/thực tế.
+5. **Phụ thuộc:** `PQ2-T02` (`PASS`).
+6. **Acceptance Criteria:** Toàn bộ test trong `tests/backend/printquote-postgres.test.mjs` đạt `PASS` (`0 fail`).
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — `2/2` suite kiểm thử tích hợp PostgreSQL DEV đạt `PASS` (`duration_ms: 215.09ms`).
+10. **Evidence (`VERIFIED`):** `node --test tests/backend/printquote-postgres.test.mjs`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Bắt đầu `Phase PQ-3` (`PQ3-T01` — Giao diện Báo giá in ấn & Xuất PDF A4 tiếng Việt).
