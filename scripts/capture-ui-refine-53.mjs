@@ -15,7 +15,9 @@ const runId = Math.random().toString(36).substring(2, 8);
 const targetUrl = loadQaEndpoint(process.env.QA_WEB_BASE);
 
 async function run() {
-  console.log('=== STARTING UI-REFINE-53 AUTOMATED VERIFICATION & SCREENSHOT CAPTURE ===\n');
+  console.log(
+    '=== STARTING UI-REFINE-53 AUTOMATED VERIFICATION & SCREENSHOT CAPTURE ===\n',
+  );
 
   const chrome = spawn(
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -32,9 +34,12 @@ async function run() {
   try {
     await new Promise((r) => setTimeout(r, 1500));
 
-    const newTab = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${port}/json/new?about:blank`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -69,7 +74,7 @@ async function run() {
         throw new Error(
           r.exceptionDetails.text +
             ': ' +
-            (r.exceptionDetails.exception?.description || '')
+            (r.exceptionDetails.exception?.description || ''),
         );
       }
       return r.result?.value;
@@ -190,9 +195,19 @@ async function run() {
       })()
     `);
     console.log('HR-Payroll check (Owner):', hrCardStatus);
-    assert.equal(hrCardStatus.hasEmpButton, true, 'Owner MUST see clickable Nhân sự card');
-    assert.equal(hrCardStatus.hasUnimplementedBadge, false, 'Nhân sự card must NOT show Chưa triển khai');
-    console.log('✔ Section 4 Check: Owner can access Nhân sự card directly: PASS');
+    assert.equal(
+      hrCardStatus.hasEmpButton,
+      true,
+      'Owner MUST see clickable Nhân sự card',
+    );
+    assert.equal(
+      hrCardStatus.hasUnimplementedBadge,
+      false,
+      'Nhân sự card must NOT show Chưa triển khai',
+    );
+    console.log(
+      '✔ Section 4 Check: Owner can access Nhân sự card directly: PASS',
+    );
 
     // =========================================================================
     // 2. DESKTOP VIEWPORT (1440x900) — STAFF SCREENSHOTS & RBAC CHECKS
@@ -218,8 +233,16 @@ async function run() {
     `);
     console.log('Staff HR Group check:', staffHrStatus);
     assert.equal(staffHrStatus.hasMyPay, true, 'Staff sees Lương cá nhân card');
-    assert.equal(staffHrStatus.hasEmployeesCard, false, 'Staff NEVER sees Nhân sự card');
-    assert.equal(staffHrStatus.hasPayrollCard, false, 'Staff NEVER sees Bảng lương card');
+    assert.equal(
+      staffHrStatus.hasEmployeesCard,
+      false,
+      'Staff NEVER sees Nhân sự card',
+    );
+    assert.equal(
+      staffHrStatus.hasPayrollCard,
+      false,
+      'Staff NEVER sees Bảng lương card',
+    );
     console.log('✔ Staff RBAC in Group Overview: PASS');
 
     await navigateSPA('/groups/admin');
@@ -255,7 +278,11 @@ async function run() {
       })()
     `);
     console.log('360px horizontal overflow check:', overflowCheck);
-    assert.equal(overflowCheck.hasHorizontalOverflow, false, 'No horizontal overflow at 360px');
+    assert.equal(
+      overflowCheck.hasHorizontalOverflow,
+      false,
+      'No horizontal overflow at 360px',
+    );
     console.log('✔ Mobile 360px zero horizontal overflow: PASS');
 
     // =========================================================================
@@ -297,9 +324,20 @@ async function run() {
         };
       })()
     `);
-    console.log('Detail route active group check (/issues/ISS-001):', detailActiveGroup);
-    assert.equal(detailActiveGroup.adminActive, true, 'Quản trị group button MUST be active on /issues/ISS-001');
-    assert.equal(detailActiveGroup.attendanceActive, false, 'Other groups must not be active');
+    console.log(
+      'Detail route active group check (/issues/ISS-001):',
+      detailActiveGroup,
+    );
+    assert.equal(
+      detailActiveGroup.adminActive,
+      true,
+      'Quản trị group button MUST be active on /issues/ISS-001',
+    );
+    assert.equal(
+      detailActiveGroup.attendanceActive,
+      false,
+      'Other groups must not be active',
+    );
     console.log('✔ Active group detection on detail routes: PASS');
 
     // 4C: Unknown group fallback
@@ -314,8 +352,16 @@ async function run() {
       })()
     `);
     console.log('Unknown group handling:', unknownGroupStatus);
-    assert.equal(unknownGroupStatus.hasNotFoundTitle, true, 'Renders safe fallback for unknown group');
-    assert.equal(unknownGroupStatus.hasGoBackButton, true, 'Renders Quay lại Tổng quan button');
+    assert.equal(
+      unknownGroupStatus.hasNotFoundTitle,
+      true,
+      'Renders safe fallback for unknown group',
+    );
+    assert.equal(
+      unknownGroupStatus.hasGoBackButton,
+      true,
+      'Renders Quay lại Tổng quan button',
+    );
     console.log('✔ Unknown group fallback screen: PASS');
 
     // 4D: Report bug button aesthetic check
@@ -333,13 +379,26 @@ async function run() {
       })()
     `);
     console.log('ReportBug button styles:', reportBugBtnStyle);
-    assert.equal(reportBugBtnStyle.background, 'rgb(30, 41, 59)', 'Button uses dark slate token');
-    assert.ok(!reportBugBtnStyle.boxShadow.includes('220, 38, 38'), 'No glowing red shadow');
-    assert.equal(reportBugBtnStyle.minHeight, '44px', 'Meets 44px touch target');
+    assert.equal(
+      reportBugBtnStyle.background,
+      'rgb(30, 41, 59)',
+      'Button uses dark slate token',
+    );
+    assert.ok(
+      !reportBugBtnStyle.boxShadow.includes('220, 38, 38'),
+      'No glowing red shadow',
+    );
+    assert.equal(
+      reportBugBtnStyle.minHeight,
+      '44px',
+      'Meets 44px touch target',
+    );
     console.log('✔ Report bug button toned-down styling: PASS');
 
     ws.close();
-    console.log('\n=== ALL UI-REFINE-53 SCREENSHOTS & LIVE CHECKS COMPLETED PERFECTLY ===\n');
+    console.log(
+      '\n=== ALL UI-REFINE-53 SCREENSHOTS & LIVE CHECKS COMPLETED PERFECTLY ===\n',
+    );
   } finally {
     chrome.kill();
   }

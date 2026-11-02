@@ -43,9 +43,20 @@ export function loadQaEndpoint(value) {
     url.protocol !== 'http:' ||
     url.hostname !== '127.0.0.1' ||
     !url.port ||
-    ['3004', '3005', '3007', '3008', '3017', '3018', '3027', '3028'].includes(
-      url.port,
-    )
+    [
+      '3000',
+      '3001',
+      '3002',
+      '3004',
+      '3005',
+      '3007',
+      '3008',
+      '3017',
+      '3018',
+      '3027',
+      '3028',
+      '55432',
+    ].includes(url.port)
   )
     throw new Error('Operational or nonlocal QA endpoint refused.');
   return value;

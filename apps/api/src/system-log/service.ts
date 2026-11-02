@@ -480,7 +480,8 @@ export class SystemLogService {
   }
 
   buildAiFixPrompt(row: SystemLogRow, occurrencesCount = 1): string {
-    const cleanMsg = sanitizeLogText(row.message, MAX_MESSAGE) || 'Lỗi hệ thống';
+    const cleanMsg =
+      sanitizeLogText(row.message, MAX_MESSAGE) || 'Lỗi hệ thống';
     const cleanStack = row.stack ? sanitizeLogText(row.stack, MAX_STACK) : '';
     const cleanRoute = row.route || '/';
     return [
@@ -507,7 +508,11 @@ export class SystemLogService {
     const fp = opts.fingerprint?.trim();
     if (fp) {
       if (!/^[0-9a-f]{8,32}$/i.test(fp)) {
-        throw new AuthError('VALIDATION_ERROR', 'fingerprint không hợp lệ.', 400);
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          'fingerprint không hợp lệ.',
+          400,
+        );
       }
       this.queue = this.queue.filter(
         (e) =>

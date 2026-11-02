@@ -38,7 +38,6 @@ export interface IssueDetailScreenProps {
   onNavigate: (path: string) => void;
 }
 
-
 export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
   issueId,
   role,
@@ -1525,7 +1524,11 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               Người báo cáo
             </span>
             <span
-              style={{ fontSize: '14px', color: 'var(--text-color)', fontWeight: 500 }}
+              style={{
+                fontSize: '14px',
+                color: 'var(--text-color)',
+                fontWeight: 500,
+              }}
             >
               {issue.reporter_name || 'Chủ sở hữu (Owner)'}
             </span>
@@ -1649,14 +1652,21 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 {Boolean(issue.metadata_context.url) && (
                   <div>
                     <span style={{ color: 'var(--muted-color)' }}>URL: </span>
-                    <span style={{ color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+                    <span
+                      style={{
+                        color: 'var(--text-secondary)',
+                        wordBreak: 'break-all',
+                      }}
+                    >
                       {String(issue.metadata_context.url)}
                     </span>
                   </div>
                 )}
                 {Boolean(issue.metadata_context.release_sha) && (
                   <div>
-                    <span style={{ color: 'var(--muted-color)' }}>Release SHA: </span>
+                    <span style={{ color: 'var(--muted-color)' }}>
+                      Release SHA:{' '}
+                    </span>
                     <code style={{ color: '#A5B4FC', fontFamily: 'monospace' }}>
                       {String(issue.metadata_context.release_sha).slice(0, 12)}
                     </code>
@@ -1664,24 +1674,45 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 )}
                 {Boolean(issue.metadata_context.error_id) && (
                   <div>
-                    <span style={{ color: 'var(--muted-color)' }}>Error ID: </span>
-                    <code style={{ color: 'var(--danger-text)', fontFamily: 'monospace' }}>
+                    <span style={{ color: 'var(--muted-color)' }}>
+                      Error ID:{' '}
+                    </span>
+                    <code
+                      style={{
+                        color: 'var(--danger-text)',
+                        fontFamily: 'monospace',
+                      }}
+                    >
                       {String(issue.metadata_context.error_id)}
                     </code>
                   </div>
                 )}
                 {Boolean(issue.metadata_context.request_id) && (
                   <div>
-                    <span style={{ color: 'var(--muted-color)' }}>Request ID: </span>
-                    <code style={{ color: 'var(--muted-color)', fontFamily: 'monospace' }}>
+                    <span style={{ color: 'var(--muted-color)' }}>
+                      Request ID:{' '}
+                    </span>
+                    <code
+                      style={{
+                        color: 'var(--muted-color)',
+                        fontFamily: 'monospace',
+                      }}
+                    >
                       {String(issue.metadata_context.request_id)}
                     </code>
                   </div>
                 )}
                 {Boolean(issue.metadata_context.user_agent) && (
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <span style={{ color: 'var(--muted-color)' }}>Trình duyệt: </span>
-                    <span style={{ color: 'var(--muted-color)', wordBreak: 'break-all' }}>
+                    <span style={{ color: 'var(--muted-color)' }}>
+                      Trình duyệt:{' '}
+                    </span>
+                    <span
+                      style={{
+                        color: 'var(--muted-color)',
+                        wordBreak: 'break-all',
+                      }}
+                    >
                       {String(issue.metadata_context.user_agent)}
                     </span>
                   </div>
@@ -1834,7 +1865,9 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                       </span>
                     </div>
 
-                    <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                    <span
+                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                    >
                       {formatTimestamp(act.created_at)}
                     </span>
                   </div>
@@ -1853,21 +1886,41 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                       }}
                     >
                       {Boolean(meta.previous_status && meta.to_status) && (
-                        <div style={{ color: 'var(--text-color)', marginBottom: '2px' }}>
+                        <div
+                          style={{
+                            color: 'var(--text-color)',
+                            marginBottom: '2px',
+                          }}
+                        >
                           Trạng thái:{' '}
                           <span style={{ color: 'var(--muted-color)' }}>
                             {String(meta.previous_status)}
                           </span>{' '}
                           ➔{' '}
-                          <span style={{ color: 'var(--accent-text)', fontWeight: 600 }}>
+                          <span
+                            style={{
+                              color: 'var(--accent-text)',
+                              fontWeight: 600,
+                            }}
+                          >
                             {String(meta.to_status)}
                           </span>
                         </div>
                       )}
 
                       {Boolean(meta.reason) && (
-                        <div style={{ color: 'var(--text-color)', marginTop: '4px' }}>
-                          <span style={{ color: 'var(--warning-text)', fontWeight: 600 }}>
+                        <div
+                          style={{
+                            color: 'var(--text-color)',
+                            marginTop: '4px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              color: 'var(--warning-text)',
+                              fontWeight: 600,
+                            }}
+                          >
                             Lý do:{' '}
                           </span>
                           <span>{String(meta.reason)}</span>
@@ -1875,8 +1928,18 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                       )}
 
                       {Boolean(meta.comment) && (
-                        <div style={{ color: 'var(--text-color)', marginTop: '4px' }}>
-                          <span style={{ color: 'var(--success-text)', fontWeight: 600 }}>
+                        <div
+                          style={{
+                            color: 'var(--text-color)',
+                            marginTop: '4px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              color: 'var(--success-text)',
+                              fontWeight: 600,
+                            }}
+                          >
                             Ghi chú:{' '}
                           </span>
                           <span>{String(meta.comment)}</span>
@@ -1884,7 +1947,12 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                       )}
 
                       {Boolean(meta.fields_changed) && (
-                        <div style={{ color: 'var(--muted-color)', marginTop: '2px' }}>
+                        <div
+                          style={{
+                            color: 'var(--muted-color)',
+                            marginTop: '2px',
+                          }}
+                        >
                           Các trường thay đổi:{' '}
                           {Array.isArray(meta.fields_changed)
                             ? meta.fields_changed.join(', ')
@@ -2003,9 +2071,14 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 }}
               >
                 Bạn đang thực hiện xác nhận đã khắc phục cho vấn đề:{' '}
-                <strong style={{ color: 'var(--accent-text)' }}>{issue.title}</strong> (ID:{' '}
-                {issue.id}). Trạng thái sẽ được chuyển sang{' '}
-                <strong style={{ color: 'var(--success-text)' }}>Đã đóng (closed)</strong>.
+                <strong style={{ color: 'var(--accent-text)' }}>
+                  {issue.title}
+                </strong>{' '}
+                (ID: {issue.id}). Trạng thái sẽ được chuyển sang{' '}
+                <strong style={{ color: 'var(--success-text)' }}>
+                  Đã đóng (closed)
+                </strong>
+                .
               </p>
 
               <div style={{ marginBottom: '16px' }}>
@@ -2185,7 +2258,10 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               >
                 Vui lòng nhập lý do mở lại vấn đề để đội ngũ kỹ thuật tiếp tục
                 khắc phục. Trạng thái sẽ được chuyển sang{' '}
-                <strong style={{ color: 'var(--warning-text)' }}>Mở (open)</strong>.
+                <strong style={{ color: 'var(--warning-text)' }}>
+                  Mở (open)
+                </strong>
+                .
               </p>
 
               <div style={{ marginBottom: '16px' }}>
@@ -2199,7 +2275,8 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Lý do mở lại <span style={{ color: 'var(--danger-text)' }}>*</span>
+                  Lý do mở lại{' '}
+                  <span style={{ color: 'var(--danger-text)' }}>*</span>
                 </label>
                 <textarea
                   id="reopen-reason"

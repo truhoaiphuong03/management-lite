@@ -18,7 +18,8 @@ import {
   AppCard,
   AppDialog,
   AppInput,
-  TOKENS, THEME_COLORS,
+  TOKENS,
+  THEME_COLORS,
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,
@@ -276,7 +277,8 @@ export function FinancePlanScreen({
             }}
           >
             <div>
-              Không tìm thấy khoản {isIncome ? 'thu' : 'chi'} nào khớp với &quot;{searchQuery}&quot;.
+              Không tìm thấy khoản {isIncome ? 'thu' : 'chi'} nào khớp với
+              &quot;{searchQuery}&quot;.
             </div>
             <AppButton
               variant="secondary"
@@ -322,9 +324,7 @@ export function FinancePlanScreen({
                 <span
                   style={{
                     fontWeight: TOKENS.typography.fontWeight.semibold,
-                    color: i.is_active
-                      ? THEME_COLORS.text
-                      : THEME_COLORS.muted,
+                    color: i.is_active ? THEME_COLORS.text : THEME_COLORS.muted,
                     overflowWrap: 'anywhere',
                   }}
                 >

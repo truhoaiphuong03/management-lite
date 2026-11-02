@@ -1746,7 +1746,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   style={{ padding: '6px 12px', fontSize: '12.5px' }}
                 >
                   <span>
-                    Mở<span className="mobile-hide-label"> hoaiphuong.click</span>
+                    Mở
+                    <span className="mobile-hide-label"> hoaiphuong.click</span>
                   </span>
                 </AppButton>
               </div>

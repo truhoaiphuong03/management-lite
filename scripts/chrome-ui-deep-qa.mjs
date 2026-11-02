@@ -8,12 +8,13 @@ const adminPass = ownerCreds.password;
 
 const runId = Math.random().toString(36).substring(2, 8);
 
-
 const testResults = [];
 function recordStep(category, stepName, isPass, detail = '') {
   testResults.push({ category, stepName, isPass, detail });
   const status = isPass ? '[PASS]' : '[FAIL]';
-  console.log(`  ${status} [${category}] ${stepName}${detail ? ` - ${detail}` : ''}`);
+  console.log(
+    `  ${status} [${category}] ${stepName}${detail ? ` - ${detail}` : ''}`,
+  );
 }
 
 async function main() {
@@ -36,9 +37,12 @@ async function main() {
 
   try {
     await new Promise((r) => setTimeout(r, 1500));
-    const newTab = await fetch(`http://127.0.0.1:9226/json/new?${webBase + '/login'}`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:9226/json/new?${webBase + '/login'}`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -64,7 +68,15 @@ async function main() {
 
     const evaluate = async (exp, timeout = 12000) => {
       const timer = new Promise((_, rej) =>
-        setTimeout(() => rej(new Error(`CDP evaluation timed out after ${timeout}ms: ${exp.slice(0, 80)}`)), timeout),
+        setTimeout(
+          () =>
+            rej(
+              new Error(
+                `CDP evaluation timed out after ${timeout}ms: ${exp.slice(0, 80)}`,
+              ),
+            ),
+          timeout,
+        ),
       );
       const evalPromise = send('Runtime.evaluate', {
         expression: exp,
@@ -92,8 +104,14 @@ async function main() {
     // FLOW 1: AUTHENTICATION UI
     // -------------------------------------------------------------
     console.log('[FLOW 1: AUTHENTICATION UI]');
-    const loginRendered = await evaluate(`Boolean(document.querySelector('input[type=password]') && [...document.querySelectorAll('button')].some(b => b.type === 'submit' && b.textContent.includes('Đăng nhập')))`);
-    recordStep('AUTH', 'Login screen mounted with password form and submit action', loginRendered);
+    const loginRendered = await evaluate(
+      `Boolean(document.querySelector('input[type=password]') && [...document.querySelectorAll('button')].some(b => b.type === 'submit' && b.textContent.includes('Đăng nhập')))`,
+    );
+    recordStep(
+      'AUTH',
+      'Login screen mounted with password form and submit action',
+      loginRendered,
+    );
 
     // Perform interactive UI login
     await evaluate(`
@@ -118,21 +136,38 @@ async function main() {
     `);
     await new Promise((r) => setTimeout(r, 2000));
 
-    const loggedInHeader = await evaluate('document.querySelector("header")?.textContent');
-    const isLoggedIn = loggedInHeader?.toLowerCase().includes('management lite');
-    recordStep('AUTH', 'Login submission succeeded and mounted AppShell', isLoggedIn);
+    const loggedInHeader = await evaluate(
+      'document.querySelector("header")?.textContent',
+    );
+    const isLoggedIn = loggedInHeader
+      ?.toLowerCase()
+      .includes('management lite');
+    recordStep(
+      'AUTH',
+      'Login submission succeeded and mounted AppShell',
+      isLoggedIn,
+    );
 
     // -------------------------------------------------------------
     // FLOW 2: NHÂN SỰ (HR) UI: TẠO, XEM CHI TIẾT, SỬA, BẢO VỆ KHÓA
     // -------------------------------------------------------------
     console.log('\n[FLOW 2: NHÂN SỰ (HR) UI]');
-    
+
     // 2.1 Navigate to /employees/new
-    await evaluate(`window.history.pushState(null, '', '/employees/new'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/employees/new'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await new Promise((r) => setTimeout(r, 1000));
 
-    const newEmpPage = await evaluate('document.querySelector("h1, h2")?.textContent');
-    recordStep('EMP', 'Navigate to Create Employee page (/employees/new)', newEmpPage?.includes('Tạo nhân sự mới') || newEmpPage?.includes('nhân sự'));
+    const newEmpPage = await evaluate(
+      'document.querySelector("h1, h2")?.textContent',
+    );
+    recordStep(
+      'EMP',
+      'Navigate to Create Employee page (/employees/new)',
+      newEmpPage?.includes('Tạo nhân sự mới') ||
+        newEmpPage?.includes('nhân sự'),
+    );
 
     // 2.2 Form Validation check: Empty submit displays error
     await evaluate(`
@@ -144,7 +179,11 @@ async function main() {
     await new Promise((r) => setTimeout(r, 300));
     const validationErr = await evaluate('document.body.textContent');
     const hasValidationErr = validationErr.includes('Vui lòng điền đầy đủ');
-    recordStep('EMP', 'Client-side form validation triggers on empty submit', hasValidationErr);
+    recordStep(
+      'EMP',
+      'Client-side form validation triggers on empty submit',
+      hasValidationErr,
+    );
 
     // 2.3 Fill form & submit
     const empCode = `NV_UI_${runId}`;
@@ -181,8 +220,14 @@ async function main() {
     await new Promise((r) => setTimeout(r, 2000));
 
     const inviteResult = await evaluate('document.body.textContent');
-    const inviteGenerated = inviteResult.includes('Liên kết kích hoạt') || inviteResult.includes('/activate?token=');
-    recordStep('EMP', 'Employee creation yields activation invite link in UI', inviteGenerated);
+    const inviteGenerated =
+      inviteResult.includes('Liên kết kích hoạt') ||
+      inviteResult.includes('/activate?token=');
+    recordStep(
+      'EMP',
+      'Employee creation yields activation invite link in UI',
+      inviteGenerated,
+    );
 
     // 2.4 Verify employee listed in /employees table
     await evaluate(`
@@ -208,7 +253,11 @@ async function main() {
 
     const listText = await evaluate('document.body.textContent');
     const inList = listText.includes(empCode) && listText.includes(empName);
-    recordStep('EMP', 'Newly created employee appears in Employee list table', inList);
+    recordStep(
+      'EMP',
+      'Newly created employee appears in Employee list table',
+      inList,
+    );
 
     // 2.5 Verify Owner self-suspend guard in UI
     const selfLockGuard = await evaluate(`
@@ -222,18 +271,31 @@ async function main() {
         };
       })()
     `);
-    recordStep('EMP', 'Owner self-suspend button is disabled with safety tooltip in UI', selfLockGuard.foundDisabled && selfLockGuard.tooltip.includes('chính mình'));
+    recordStep(
+      'EMP',
+      'Owner self-suspend button is disabled with safety tooltip in UI',
+      selfLockGuard.foundDisabled &&
+        selfLockGuard.tooltip.includes('chính mình'),
+    );
 
     // -------------------------------------------------------------
     // FLOW 3: WORK (QUẢN LÝ CÔNG VIỆC) UI
     // -------------------------------------------------------------
     console.log('\n[FLOW 3: WORK (QUẢN LÝ CÔNG VIỆC) UI]');
 
-    await evaluate(`window.history.pushState(null, '', '/work/new'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/work/new'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await new Promise((r) => setTimeout(r, 1000));
 
-    const workNewPage = await evaluate('document.querySelector("h1, h2")?.textContent');
-    recordStep('WORK', 'Navigate to Create Work page (/work/new)', Boolean(workNewPage));
+    const workNewPage = await evaluate(
+      'document.querySelector("h1, h2")?.textContent',
+    );
+    recordStep(
+      'WORK',
+      'Navigate to Create Work page (/work/new)',
+      Boolean(workNewPage),
+    );
 
     const workTitle = `Nhiệm vụ Chrome UI ${runId}`;
     await evaluate(`
@@ -262,19 +324,27 @@ async function main() {
     `);
     await new Promise((r) => setTimeout(r, 2000));
 
-    await evaluate(`window.history.pushState(null, '', '/work'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/work'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await new Promise((r) => setTimeout(r, 1200));
 
     const workListText = await evaluate('document.body.textContent');
     const workCreated = workListText.includes(workTitle);
-    recordStep('WORK', 'Work item created via form and rendered in list table', workCreated);
+    recordStep(
+      'WORK',
+      'Work item created via form and rendered in list table',
+      workCreated,
+    );
 
     // -------------------------------------------------------------
     // FLOW 4: ACC (TÀI KHOẢN & SECRET VAULT) UI
     // -------------------------------------------------------------
     console.log('\n[FLOW 4: ACC (TÀI KHOẢN & SECRET VAULT) UI]');
 
-    await evaluate(`window.history.pushState(null, '', '/accounts'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/accounts'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await new Promise((r) => setTimeout(r, 1200));
 
     // 4.1 Open Create Account Modal
@@ -311,7 +381,11 @@ async function main() {
 
     const accListText = await evaluate('document.body.textContent');
     const accCreated = accListText.includes(accUsername);
-    recordStep('ACC', 'Create managed account via modal form and verify in table', accCreated);
+    recordStep(
+      'ACC',
+      'Create managed account via modal form and verify in table',
+      accCreated,
+    );
 
     // 4.3 Reauth & Reveal Secret in UI
     // Find the button "Xem pass" for shop_admin (the seeded account)
@@ -328,8 +402,14 @@ async function main() {
     await new Promise((r) => setTimeout(r, 800));
 
     const reauthModalText = await evaluate('document.body.textContent');
-    const reauthOpened = reauthModalText.includes('Xác thực lại để xem mật khẩu') || reauthModalText.includes('SEC-02');
-    recordStep('ACC', 'Clicking "Xem pass" opens Step-up Reauth modal dialog', reauthOpened);
+    const reauthOpened =
+      reauthModalText.includes('Xác thực lại để xem mật khẩu') ||
+      reauthModalText.includes('SEC-02');
+    recordStep(
+      'ACC',
+      'Clicking "Xem pass" opens Step-up Reauth modal dialog',
+      reauthOpened,
+    );
 
     // Enter owner password in re-auth dialog and submit
     await evaluate(`
@@ -350,8 +430,14 @@ async function main() {
     await new Promise((r) => setTimeout(r, 2500));
 
     const secretBoxText = await evaluate('document.body.textContent');
-    const secretRevealed = secretBoxText.includes('TikTokPass2026!Secure') || secretBoxText.includes('Mật khẩu được giải mã');
-    recordStep('ACC', 'Reauth verification succeeds and decrypts AEAD secret in DOM', secretRevealed);
+    const secretRevealed =
+      secretBoxText.includes('TikTokPass2026!Secure') ||
+      secretBoxText.includes('Mật khẩu được giải mã');
+    recordStep(
+      'ACC',
+      'Reauth verification succeeds and decrypts AEAD secret in DOM',
+      secretRevealed,
+    );
 
     // Close reveal modal
     await evaluate(`
@@ -368,7 +454,9 @@ async function main() {
     console.log('\n[FLOW 5: CHẤM CÔNG, LỊCH & BẢNG LƯƠNG UI]');
 
     // 5.1 Navigate to /clock & verify tab navigation
-    await evaluate(`window.history.pushState(null, '', '/clock'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/clock'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await new Promise((r) => setTimeout(r, 1000));
 
     const clockTabs = await evaluate(`
@@ -378,7 +466,11 @@ async function main() {
         return Boolean(reviewTab);
       })()
     `);
-    recordStep('CLOCK', 'Navigate to /clock and verify Owner Review tab', clockTabs);
+    recordStep(
+      'CLOCK',
+      'Navigate to /clock and verify Owner Review tab',
+      clockTabs,
+    );
 
     // Switch to Owner Review tab
     await evaluate(`
@@ -390,14 +482,26 @@ async function main() {
     `);
     await new Promise((r) => setTimeout(r, 1000));
     const reviewTabActive = await evaluate('document.body.textContent');
-    recordStep('CLOCK', 'Owner Review shifts table mounts in DOM', reviewTabActive.includes('Duyệt công') || reviewTabActive.includes('ca làm việc'));
+    recordStep(
+      'CLOCK',
+      'Owner Review shifts table mounts in DOM',
+      reviewTabActive.includes('Duyệt công') ||
+        reviewTabActive.includes('ca làm việc'),
+    );
 
     // 5.2 Navigate to /payroll & verify Vietnamese banner / Rate modal
-    await evaluate(`window.history.pushState(null, '', '/payroll'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/payroll'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await new Promise((r) => setTimeout(r, 1500));
 
     const payrollPageText = await evaluate('document.body.textContent');
-    recordStep('PAY', 'Navigate to /payroll: Period overview & employee table rendered', payrollPageText.includes('Quản lý bảng lương') || payrollPageText.includes('bảng lương'));
+    recordStep(
+      'PAY',
+      'Navigate to /payroll: Period overview & employee table rendered',
+      payrollPageText.includes('Quản lý bảng lương') ||
+        payrollPageText.includes('bảng lương'),
+    );
 
     // Open rate modal on first available employee
     await evaluate(`
@@ -409,8 +513,13 @@ async function main() {
     await new Promise((r) => setTimeout(r, 800));
 
     const rateModalText = await evaluate('document.body.textContent');
-    const rateModalOpened = rateModalText.includes('đơn giá') || rateModalText.includes('giờ');
-    recordStep('PAY', 'Click "Thiết lập đơn giá" opens hourly rate configuration modal', rateModalOpened);
+    const rateModalOpened =
+      rateModalText.includes('đơn giá') || rateModalText.includes('giờ');
+    recordStep(
+      'PAY',
+      'Click "Thiết lập đơn giá" opens hourly rate configuration modal',
+      rateModalOpened,
+    );
 
     // Close rate modal
     await evaluate(`
@@ -426,24 +535,40 @@ async function main() {
     // -------------------------------------------------------------
     console.log('\n[FLOW 6: FILE (QUẢN LÝ TỆP & THÙNG RÁC) UI]');
 
-    await evaluate(`window.history.pushState(null, '', '/storage'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/storage'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await new Promise((r) => setTimeout(r, 1200));
 
     const storagePageText = await evaluate('document.body.textContent');
-    const storageRendered = storagePageText.toLowerCase().includes('quản lý tệp') || storagePageText.toLowerCase().includes('storage');
-    recordStep('FILE', 'Navigate to /storage: Folder groups and readiness cards rendered', storageRendered);
+    const storageRendered =
+      storagePageText.toLowerCase().includes('quản lý tệp') ||
+      storagePageText.toLowerCase().includes('storage');
+    recordStep(
+      'FILE',
+      'Navigate to /storage: Folder groups and readiness cards rendered',
+      storageRendered,
+    );
 
     // -------------------------------------------------------------
     // FLOW 7: SETTINGS & PASSWORD CHANGE (UI20)
     // -------------------------------------------------------------
     console.log('\n[FLOW 7: SETTINGS & ĐỔI MẬT KHẨU (UI20)]');
 
-    await evaluate(`window.history.pushState(null, '', '/settings'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/settings'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await new Promise((r) => setTimeout(r, 1200));
 
     const settingsPageText = await evaluate('document.body.textContent');
-    const settingsRendered = settingsPageText.includes('Cài đặt & Hồ sơ cá nhân') && settingsPageText.includes('C06 Multi-Tenant Isolated');
-    recordStep('SET', 'Navigate to /settings: Profile and C06 Workspace Context cards rendered', settingsRendered);
+    const settingsRendered =
+      settingsPageText.includes('Cài đặt & Hồ sơ cá nhân') &&
+      settingsPageText.includes('C06 Multi-Tenant Isolated');
+    recordStep(
+      'SET',
+      'Navigate to /settings: Profile and C06 Workspace Context cards rendered',
+      settingsRendered,
+    );
 
     // 1. Validation: Empty submit
     await evaluate(`
@@ -453,8 +578,14 @@ async function main() {
       })()
     `);
     await new Promise((r) => setTimeout(r, 600));
-    const emptyErrText = await evaluate('document.querySelector("[data-testid=\'alert-password-error\']")?.textContent || ""');
-    recordStep('SET', 'Client-side validation rejects empty submit with inline alert', emptyErrText.includes('Vui lòng nhập mật khẩu hiện tại'));
+    const emptyErrText = await evaluate(
+      'document.querySelector("[data-testid=\'alert-password-error\']")?.textContent || ""',
+    );
+    recordStep(
+      'SET',
+      'Client-side validation rejects empty submit with inline alert',
+      emptyErrText.includes('Vui lòng nhập mật khẩu hiện tại'),
+    );
 
     // 2. Validation: Mismatched confirmation
     await evaluate(`
@@ -476,8 +607,14 @@ async function main() {
       })()
     `);
     await new Promise((r) => setTimeout(r, 600));
-    const mismatchErrText = await evaluate('document.querySelector("[data-testid=\'alert-password-error\']")?.textContent || ""');
-    recordStep('SET', 'Validation rejects mismatched password confirmation', mismatchErrText.includes('không khớp'));
+    const mismatchErrText = await evaluate(
+      'document.querySelector("[data-testid=\'alert-password-error\']")?.textContent || ""',
+    );
+    recordStep(
+      'SET',
+      'Validation rejects mismatched password confirmation',
+      mismatchErrText.includes('không khớp'),
+    );
 
     // 3. Validation: Short password (< 8 chars)
     await evaluate(`
@@ -499,8 +636,14 @@ async function main() {
       })()
     `);
     await new Promise((r) => setTimeout(r, 600));
-    const shortErrText = await evaluate('document.querySelector("[data-testid=\'alert-password-error\']")?.textContent || ""');
-    recordStep('SET', 'Validation rejects weak/short password (< 8 chars)', shortErrText.includes('tối thiểu 8 ký tự'));
+    const shortErrText = await evaluate(
+      'document.querySelector("[data-testid=\'alert-password-error\']")?.textContent || ""',
+    );
+    recordStep(
+      'SET',
+      'Validation rejects weak/short password (< 8 chars)',
+      shortErrText.includes('tối thiểu 8 ký tự'),
+    );
 
     // 4. API Error: Wrong current password returns 401 and UI shows friendly error
     await evaluate(`
@@ -522,8 +665,14 @@ async function main() {
       })()
     `);
     await new Promise((r) => setTimeout(r, 1500));
-    const wrongCurErrText = await evaluate('document.querySelector("[data-testid=\'alert-password-error\']")?.textContent || ""');
-    recordStep('SET', 'API rejects wrong current password with 401 error message in DOM', wrongCurErrText.includes('không chính xác'));
+    const wrongCurErrText = await evaluate(
+      'document.querySelector("[data-testid=\'alert-password-error\']")?.textContent || ""',
+    );
+    recordStep(
+      'SET',
+      'API rejects wrong current password with 401 error message in DOM',
+      wrongCurErrText.includes('không chính xác'),
+    );
 
     // 5. API Success: Correct password change
     const tempNewPass = 'TempPass12345678!';
@@ -547,8 +696,14 @@ async function main() {
         })()
       `);
       await new Promise((r) => setTimeout(r, 2000));
-      const successAlertText = await evaluate('document.querySelector("[data-testid=\'alert-password-success\']")?.textContent || ""');
-      recordStep('SET', 'Successful password change renders green confirmation alert', successAlertText.includes('thành công'));
+      const successAlertText = await evaluate(
+        'document.querySelector("[data-testid=\'alert-password-success\']")?.textContent || ""',
+      );
+      recordStep(
+        'SET',
+        'Successful password change renders green confirmation alert',
+        successAlertText.includes('thành công'),
+      );
 
       // 5b. Verify Session Rotation & CSRF Refreshed in active session
       const meAfterRotation = await evaluate(`
@@ -559,7 +714,11 @@ async function main() {
           return { ok: true, hasCsrf: Boolean(json.data?.csrf_token) };
         })()
       `);
-      recordStep('SET', 'Session rotation preserves authenticated context and provides valid CSRF', meAfterRotation.ok && meAfterRotation.hasCsrf);
+      recordStep(
+        'SET',
+        'Session rotation preserves authenticated context and provides valid CSRF',
+        meAfterRotation.ok && meAfterRotation.hasCsrf,
+      );
     } finally {
       // 6. Restore original password immediately to keep QA credentials stable
       await evaluate(`
@@ -581,8 +740,14 @@ async function main() {
         })()
       `);
       await new Promise((r) => setTimeout(r, 2000));
-      const restoredAlertText = await evaluate('document.querySelector("[data-testid=\'alert-password-success\']")?.textContent || ""');
-      recordStep('SET', 'Restoration of baseline QA credential succeeds cleanly', restoredAlertText.includes('thành công'));
+      const restoredAlertText = await evaluate(
+        'document.querySelector("[data-testid=\'alert-password-success\']")?.textContent || ""',
+      );
+      recordStep(
+        'SET',
+        'Restoration of baseline QA credential succeeds cleanly',
+        restoredAlertText.includes('thành công'),
+      );
 
       const meAfterRestore = await evaluate(`
         (async () => {
@@ -590,7 +755,11 @@ async function main() {
           return res.ok;
         })()
       `);
-      recordStep('SET', 'Session active and authenticated after credential restoration', meAfterRestore);
+      recordStep(
+        'SET',
+        'Session active and authenticated after credential restoration',
+        meAfterRestore,
+      );
     }
 
     // -------------------------------------------------------------
@@ -599,7 +768,9 @@ async function main() {
     console.log('\n[FLOW 8: AUDIT SYSTEM LOG (UI19)]');
 
     // 1. Navigate to /audit via pushState and popstate event
-    await evaluate(`window.history.pushState(null, '', '/audit'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/audit'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await new Promise((r) => setTimeout(r, 1500));
 
     // 2. Verify Audit Screen Header & ID
@@ -612,17 +783,34 @@ async function main() {
         };
       })()
     `);
-    recordStep('AUDIT', 'Navigate to /audit renders UI19 Audit Screen and PageHeader', 
-      auditHeader.title.includes('Nhật ký kiểm toán hệ thống') && auditHeader.url === '/audit');
+    recordStep(
+      'AUDIT',
+      'Navigate to /audit renders UI19 Audit Screen and PageHeader',
+      auditHeader.title.includes('Nhật ký kiểm toán hệ thống') &&
+        auditHeader.url === '/audit',
+    );
 
     // 3. Verify Security Assurance Banner (Q3-OPS-003, Q3-ACC-006)
-    const auditBannerText = await evaluate('document.querySelector("[data-testid=\'audit-security-banner\']")?.textContent || ""');
-    recordStep('AUDIT', 'Security assurance banner visible with Q3-OPS-003 and Q3-ACC-006 compliance',
-      auditBannerText.includes('Q3-OPS-003') && auditBannerText.includes('Q3-ACC-006'));
+    const auditBannerText = await evaluate(
+      'document.querySelector("[data-testid=\'audit-security-banner\']")?.textContent || ""',
+    );
+    recordStep(
+      'AUDIT',
+      'Security assurance banner visible with Q3-OPS-003 and Q3-ACC-006 compliance',
+      auditBannerText.includes('Q3-OPS-003') &&
+        auditBannerText.includes('Q3-ACC-006'),
+    );
 
     // 4. Verify Audit Event Cards rendered with Action badges and Timestamps
-    const auditCardsCount = await evaluate('document.querySelectorAll("[data-testid=\'audit-event-card\']").length');
-    recordStep('AUDIT', 'Audit event cards rendered with timestamps, actor, and actions', auditCardsCount > 0, `Found ${auditCardsCount} cards`);
+    const auditCardsCount = await evaluate(
+      'document.querySelectorAll("[data-testid=\'audit-event-card\']").length',
+    );
+    recordStep(
+      'AUDIT',
+      'Audit event cards rendered with timestamps, actor, and actions',
+      auditCardsCount > 0,
+      `Found ${auditCardsCount} cards`,
+    );
 
     // 5. Expand first event metadata to verify redaction & sanitized view
     await evaluate(`
@@ -633,12 +821,19 @@ async function main() {
     `);
     await new Promise((r) => setTimeout(r, 800));
 
-    const metadataText = await evaluate('document.querySelector("[data-testid=\'audit-metadata-block\']")?.textContent || ""');
-    const isRedacted = !metadataText.includes('password_hash') && 
-                       !metadataText.includes('secret_ciphertext') && 
-                       !metadataText.includes('token_hash') &&
-                       metadataText.includes('Không chứa mã băm');
-    recordStep('AUDIT', 'Expandable technical details render sanitized metadata without secret leaks', isRedacted);
+    const metadataText = await evaluate(
+      'document.querySelector("[data-testid=\'audit-metadata-block\']")?.textContent || ""',
+    );
+    const isRedacted =
+      !metadataText.includes('password_hash') &&
+      !metadataText.includes('secret_ciphertext') &&
+      !metadataText.includes('token_hash') &&
+      metadataText.includes('Không chứa mã băm');
+    recordStep(
+      'AUDIT',
+      'Expandable technical details render sanitized metadata without secret leaks',
+      isRedacted,
+    );
 
     // 6. Test Action Filter: select auth.login
     await evaluate(`
@@ -652,9 +847,17 @@ async function main() {
     `);
     await new Promise((r) => setTimeout(r, 1500));
 
-    const filteredCardsCount = await evaluate('document.querySelectorAll("[data-testid=\'audit-event-card\']").length');
-    const filterResetBtnVisible = await evaluate('Boolean(document.querySelector("[data-testid=\'btn-reset-filters\']"))');
-    recordStep('AUDIT', 'Action filter filters timeline and reveals Reset button', filteredCardsCount > 0 && filterResetBtnVisible);
+    const filteredCardsCount = await evaluate(
+      'document.querySelectorAll("[data-testid=\'audit-event-card\']").length',
+    );
+    const filterResetBtnVisible = await evaluate(
+      'Boolean(document.querySelector("[data-testid=\'btn-reset-filters\']"))',
+    );
+    recordStep(
+      'AUDIT',
+      'Action filter filters timeline and reveals Reset button',
+      filteredCardsCount > 0 && filterResetBtnVisible,
+    );
 
     // 7. Reset filters
     await evaluate(`
@@ -665,8 +868,14 @@ async function main() {
     `);
     await new Promise((r) => setTimeout(r, 1500));
 
-    const restoredCardsCount = await evaluate('document.querySelectorAll("[data-testid=\'audit-event-card\']").length');
-    recordStep('AUDIT', 'Reset filters restores full audit event list', restoredCardsCount >= filteredCardsCount);
+    const restoredCardsCount = await evaluate(
+      'document.querySelectorAll("[data-testid=\'audit-event-card\']").length',
+    );
+    recordStep(
+      'AUDIT',
+      'Reset filters restores full audit event list',
+      restoredCardsCount >= filteredCardsCount,
+    );
 
     // -------------------------------------------------------------
     // FLOW 9: MOBILE RESPONSIVE (375x667) & DRAWER NAVIGATION
@@ -691,7 +900,11 @@ async function main() {
         };
       })()
     `);
-    recordStep('MOBILE', 'Desktop sidebar hidden and responsive layout active on 375px', mobileLayout.sidebarHidden);
+    recordStep(
+      'MOBILE',
+      'Desktop sidebar hidden and responsive layout active on 375px',
+      mobileLayout.sidebarHidden,
+    );
 
     // Logout from Mobile / Desktop
     await evaluate(`
@@ -704,8 +917,11 @@ async function main() {
 
     const finalUrl = await evaluate('window.location.pathname');
     const logoutSuccess = finalUrl === '/login';
-    recordStep('AUTH', 'Logout terminates session and redirects back to /login', logoutSuccess);
-
+    recordStep(
+      'AUTH',
+      'Logout terminates session and redirects back to /login',
+      logoutSuccess,
+    );
   } finally {
     try {
       chrome.kill('SIGTERM');

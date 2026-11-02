@@ -138,8 +138,14 @@ test('ScheduleScreen uses shared UI primitives and Owner detail inspection', asy
     resolve(root, 'apps/web/src/screens/ScheduleScreen.tsx'),
     'utf8',
   );
-  assert.ok(src.includes('handleOpenOwnerDetail(schedule)'), 'ScheduleScreen must bind owner detail handler');
-  assert.ok(src.includes('Xem chi tiết & Lịch sử'), 'ScheduleScreen must render detail & revision history button');
+  assert.ok(
+    src.includes('handleOpenOwnerDetail(schedule)'),
+    'ScheduleScreen must bind owner detail handler',
+  );
+  assert.ok(
+    src.includes('Xem chi tiết & Lịch sử'),
+    'ScheduleScreen must render detail & revision history button',
+  );
 });
 
 test('ScheduleScreen has employee filter, dual Owner/Staff tabs, and empty state', async () => {

@@ -626,7 +626,11 @@ export class TimesheetService {
       for (const pm of parsedMonths) {
         const periodMonth = `${year}-${String(pm.month).padStart(2, '0')}`;
         for (const d of pm.days) {
-          if (d.bonus > 0 && d.day >= 1 && d.day <= daysInMonth(year, pm.month)) {
+          if (
+            d.bonus > 0 &&
+            d.day >= 1 &&
+            d.day <= daysInMonth(year, pm.month)
+          ) {
             const bonusDate = `${periodMonth}-${String(d.day).padStart(2, '0')}`;
             const bonusAmt = Math.round(d.bonus);
             if (bonusAmt > 0) {
@@ -651,7 +655,11 @@ export class TimesheetService {
                     )
                   ).rows[0];
                   if (itemRow) {
-                    const reasonText = `[THƯỞNG] Thưởng chấm công ngày ${bonusDate}${d.task ? ` - ${d.task}` : ''}`.slice(0, 1000);
+                    const reasonText =
+                      `[THƯỞNG] Thưởng chấm công ngày ${bonusDate}${d.task ? ` - ${d.task}` : ''}`.slice(
+                        0,
+                        1000,
+                      );
                     const dupAdj = await c.query(
                       'SELECT 1 FROM payroll_adjustments WHERE workspace_id=$1 AND payroll_item_id=$2 AND attributable_date=$3 AND amount_vnd=$4 AND reason=$5 LIMIT 1',
                       [ws, itemRow.id, bonusDate, bonusAmt, reasonText],
@@ -659,7 +667,14 @@ export class TimesheetService {
                     if (!dupAdj.rowCount) {
                       await c.query(
                         "INSERT INTO payroll_adjustments(workspace_id,payroll_item_id,adjustment_type,attributable_date,amount_vnd,reason,created_by) VALUES($1,$2,'paid_leave',$3,$4,$5,$6)",
-                        [ws, itemRow.id, bonusDate, bonusAmt, reasonText, auth.user.id],
+                        [
+                          ws,
+                          itemRow.id,
+                          bonusDate,
+                          bonusAmt,
+                          reasonText,
+                          auth.user.id,
+                        ],
                       );
                     }
                   }

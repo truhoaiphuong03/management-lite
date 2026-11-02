@@ -87,7 +87,18 @@ test('QA Target Safety: Rejects missing port and operational/blocked ports', () 
   );
 
   // Blocked operational and privileged ports
-  for (const port of ['80', '443', '3000', '3004', '3005', '3017', '3018', '3027', '3028', '8080']) {
+  for (const port of [
+    '80',
+    '443',
+    '3000',
+    '3004',
+    '3005',
+    '3017',
+    '3018',
+    '3027',
+    '3028',
+    '8080',
+  ]) {
     assert.throws(
       () => validateQaTarget(`http://127.0.0.1:${port}`),
       /(?:refused|outside valid unprivileged port range)/,
@@ -114,7 +125,10 @@ test('QA Target Safety: Rejects redirects to untrusted or external hosts', async
     globalThis.fetch = async () => ({
       status: 302,
       headers: {
-        get: (h) => (h.toLowerCase() === 'location' ? 'https://malicious-external-site.com/login' : null),
+        get: (h) =>
+          h.toLowerCase() === 'location'
+            ? 'https://malicious-external-site.com/login'
+            : null,
       },
     });
 
@@ -128,13 +142,21 @@ test('QA Target Safety: Rejects redirects to untrusted or external hosts', async
 });
 
 test('QA Target Safety: sanitizeErrorMessage redacts credentials, secrets, and raw CDP timeouts', () => {
-  const leakedMsg = 'Error: Authentication failed with password="super_secret_pass_123" and token: abcdef0123456789abcdef0123456789';
+  const leakedMsg =
+    'Error: Authentication failed with password="super_secret_pass_123" and token: abcdef0123456789abcdef0123456789';
   const sanitized = sanitizeErrorMessage(leakedMsg);
-  assert.ok(!sanitized.includes('super_secret_pass_123'), 'Password must be redacted');
-  assert.ok(!sanitized.includes('abcdef0123456789abcdef0123456789'), 'Hex token must be redacted');
+  assert.ok(
+    !sanitized.includes('super_secret_pass_123'),
+    'Password must be redacted',
+  );
+  assert.ok(
+    !sanitized.includes('abcdef0123456789abcdef0123456789'),
+    'Hex token must be redacted',
+  );
   assert.ok(sanitized.includes('[REDACTED]'), 'Must contain [REDACTED]');
 
-  const cdpTimeout = 'Timeout: (() => { const secret = "123456"; return secret; })()';
+  const cdpTimeout =
+    'Timeout: (() => { const secret = "123456"; return secret; })()';
   const sanitizedCdp = sanitizeErrorMessage(cdpTimeout);
   assert.equal(sanitizedCdp, 'Browser evaluation timed out');
 });

@@ -1,9 +1,10 @@
 # TÀI LIỆU HỢP ĐỒNG API VÀ YÊU CẦU KỸ THUẬT (ANTY → CODEX)
+
 **Mã tài liệu:** `ANTY-API-REQUIREMENTS.md`  
 **Ngày lập:** 12/10/2026  
 **Tác giả:** Anty (Frontend & UI/UX Specialist)  
 **Người nhận:** Codex (Backend & Database Auditor)  
-**Nhánh công việc:** `feat/anty-acceptance-123`  
+**Nhánh công việc:** `feat/anty-acceptance-123`
 
 ---
 
@@ -24,6 +25,7 @@ Tài liệu này chuẩn hóa và ghi nhận chính thức hợp đồng API (AP
 ### 2.1. ATT-007: Giải trình & Điều chỉnh chấm công (C01)
 
 #### Endpoint 1: Nhân viên gửi đơn giải trình
+
 - **Method / Route:** `POST /api/v1/attendance/shifts/:id/correction-requests`
 - **Headers:** `Content-Type: application/json`, `X-CSRF-Token: <token>`
 - **Request Body:**
@@ -51,6 +53,7 @@ Tài liệu này chuẩn hóa và ghi nhận chính thức hợp đồng API (AP
 - **UI Element:** `data-testid="correction-modal"`, `data-testid="correction-submit-btn"`.
 
 #### Endpoint 2: Chủ sở hữu duyệt / từ chối đơn giải trình
+
 - **Method / Route:** `POST /api/v1/attendance/correction-requests/:id/decide`
 - **Headers:** `Content-Type: application/json`, `X-CSRF-Token: <token>`
 - **Request Body:**
@@ -78,6 +81,7 @@ Tài liệu này chuẩn hóa và ghi nhận chính thức hợp đồng API (AP
 ### 2.3. PAY-003 & PAY-004: Phiếu lương cá nhân & Khóa quyền Owner (C04)
 
 #### Endpoint: Xem phiếu lương cá nhân
+
 - **Method / Route:** `GET /api/v1/payroll/periods/:month/me`
 - **Quy tắc phân quyền (RBAC & Invariant C04):**
   - **Nhân viên (Staff):** Backend trả về đối tượng `StaffPayslipData` chứa đầy đủ 3 tầng thu nhập (Confirmed, Pending review, Live provisional), đơn giá giờ, chi tiết ngày công và các khoản chi trả.
@@ -129,6 +133,7 @@ Tài liệu này chuẩn hóa và ghi nhận chính thức hợp đồng API (AP
 ### 2.6. PAY-007: Chốt kỳ lương (Finalize) & Chi trả (Payout)
 
 #### Bước 1: Chốt kỳ lương bất biến (Finalize)
+
 - **Method / Route:** `POST /api/v1/payroll/periods/:month/finalize`
 - **Headers:** `Content-Type: application/json`, `X-CSRF-Token: <token>`, `If-Match: "<period_version>"`, `Idempotency-Key: <uuid>`
 - **Request Body:** `{}` (Body rỗng)
@@ -137,6 +142,7 @@ Tài liệu này chuẩn hóa và ghi nhận chính thức hợp đồng API (AP
   - Snapshot hash và toàn bộ bảng kê hàng ngày chuyển sang trạng thái bất biến.
 
 #### Bước 2: Ghi nhận chi trả lương (Disbursement)
+
 - **Method / Route:** `POST /api/v1/payroll/items/:id/disbursements`
 - **Headers:** `Content-Type: application/json`, `X-CSRF-Token: <token>`, `Idempotency-Key: <uuid>`
 - **Request Body:**

@@ -41,36 +41,37 @@ Chuỗi commit độc lập trên nhánh `fix/anty-qa-followup-acc-fin-lint` t�
 
 Toàn bộ thay đổi chỉ giới hạn trong phạm vi frontend của Anty, hoàn toàn không chỉnh sửa backend (`apps/api/**`), cơ sở dữ liệu (`packages/db/**`), migration, lockfile hoặc kịch bản CI/CD.
 
-| Phân loại | Tệp tin thay đổi | Mô tả tóm tắt |
-| :--- | :--- | :--- |
-| **Shell & App** | `apps/web/src/App.tsx` | Thêm banner mất mạng cục bộ, lắng nghe sự kiện `online`/`offline` có dọn dẹp listener. |
-| **Màn hình Web** | `apps/web/src/screens/AccountsScreen.tsx` | Nâng cấp bảo vệ secret ACC-005 (deadline + background purge), đóng modal bằng phím Escape (ACC-006). |
-| | `apps/web/src/screens/EmployeesScreen.tsx` | Tích hợp `AppSkeleton` trạng thái tải bảng nhân viên; bảo toàn 4 trạng thái lifecycle. |
-| | `apps/web/src/screens/FinanceHistoryScreen.tsx`| Tích hợp `AppSkeleton` cho bảng giao dịch tài chính; bảo toàn 4 trạng thái lifecycle. |
-| | `apps/web/src/screens/PayrollScreen.tsx` | Tích hợp `AppSkeleton` cho KPI cards và bảng lương; bảo toàn 4 trạng thái lifecycle. |
-| | `apps/web/src/screens/ReportsScreen.tsx` | Bổ sung nút lọc ngày nhanh (Hôm nay, Hôm qua) chuẩn Asia/Ho_Chi_Minh. |
-| | `apps/web/src/screens/SettingsScreen.tsx` | Khắc phục 4 lỗi `no-explicit-any` với type-safe guard `isThemeValue`, `isTimezoneValue`, `isCurrencyValue`. |
-| **Giao diện dùng chung** | `packages/ui/src/components/AppSkeleton.tsx` | Component hiển thị khung giữ chỗ, hỗ trợ `aria-busy`, `role="presentation"`, `aria-hidden`. |
-| | `packages/ui/src/components/index.ts` | Export `AppSkeleton`. |
-| **Kiểm thử Web** | `tests/web/accounts-screen.test.mjs` | Bổ sung kiểm thử unit test cho deadline timer và phím Escape. |
-| | `tests/web/finance-categories-mounted.test.mjs` | Ổn định fake DOM cleanup khi unmount dialog tài chính. |
-| | `tests/web/helpers/fake-dom.mjs` | Mở rộng hỗ trợ dispatchEvent, removeEventListener và mock container methods. |
-| | `tests/web/high-risk-acceptance-invariants.test.mjs` | Kiểm thử bất biến ca đêm, RBAC phía client và fail-closed session. |
-| | `tests/web/screens-skeleton.test.mjs` | Kiểm thử a11y và 4-state lifecycle trên 3 màn hình. |
-| | `tests/web/skeleton.test.mjs` | Kiểm thử rendering các biến thể (text, circle, rect) của `AppSkeleton`. |
-| | `tests/web/ui-enhancements.test.mjs` | Kiểm thử date presets và sự kiện mạng `online`/`offline`. |
-| **Kịch bản QA Chrome** | `scripts/chrome-acc-qa-recheck.mjs` | Kiểm thử tự động trên Chrome thật cho ACC-005 và ACC-006. |
-| | `scripts/chrome-screens-skeleton-responsive.mjs` | Kiểm thử responsive (360px, 768px, 1440px) và skeleton loading. |
-| **Tài liệu Handoff** | `docs/handoff/ANTY-PROPOSED-FEATURES-AND-API-REQUIREMENTS.md` | Đặc tả API cho các tính năng UI đề xuất mới. |
-| | `docs/handoff/ANTY-CODEX-HANDOFF-STAGE7-READY.md` | Báo cáo bàn giao nghiệm thu Stage 7 cho Codex. |
+| Phân loại                | Tệp tin thay đổi                                              | Mô tả tóm tắt                                                                                               |
+| :----------------------- | :------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------- |
+| **Shell & App**          | `apps/web/src/App.tsx`                                        | Thêm banner mất mạng cục bộ, lắng nghe sự kiện `online`/`offline` có dọn dẹp listener.                      |
+| **Màn hình Web**         | `apps/web/src/screens/AccountsScreen.tsx`                     | Nâng cấp bảo vệ secret ACC-005 (deadline + background purge), đóng modal bằng phím Escape (ACC-006).        |
+|                          | `apps/web/src/screens/EmployeesScreen.tsx`                    | Tích hợp `AppSkeleton` trạng thái tải bảng nhân viên; bảo toàn 4 trạng thái lifecycle.                      |
+|                          | `apps/web/src/screens/FinanceHistoryScreen.tsx`               | Tích hợp `AppSkeleton` cho bảng giao dịch tài chính; bảo toàn 4 trạng thái lifecycle.                       |
+|                          | `apps/web/src/screens/PayrollScreen.tsx`                      | Tích hợp `AppSkeleton` cho KPI cards và bảng lương; bảo toàn 4 trạng thái lifecycle.                        |
+|                          | `apps/web/src/screens/ReportsScreen.tsx`                      | Bổ sung nút lọc ngày nhanh (Hôm nay, Hôm qua) chuẩn Asia/Ho_Chi_Minh.                                       |
+|                          | `apps/web/src/screens/SettingsScreen.tsx`                     | Khắc phục 4 lỗi `no-explicit-any` với type-safe guard `isThemeValue`, `isTimezoneValue`, `isCurrencyValue`. |
+| **Giao diện dùng chung** | `packages/ui/src/components/AppSkeleton.tsx`                  | Component hiển thị khung giữ chỗ, hỗ trợ `aria-busy`, `role="presentation"`, `aria-hidden`.                 |
+|                          | `packages/ui/src/components/index.ts`                         | Export `AppSkeleton`.                                                                                       |
+| **Kiểm thử Web**         | `tests/web/accounts-screen.test.mjs`                          | Bổ sung kiểm thử unit test cho deadline timer và phím Escape.                                               |
+|                          | `tests/web/finance-categories-mounted.test.mjs`               | Ổn định fake DOM cleanup khi unmount dialog tài chính.                                                      |
+|                          | `tests/web/helpers/fake-dom.mjs`                              | Mở rộng hỗ trợ dispatchEvent, removeEventListener và mock container methods.                                |
+|                          | `tests/web/high-risk-acceptance-invariants.test.mjs`          | Kiểm thử bất biến ca đêm, RBAC phía client và fail-closed session.                                          |
+|                          | `tests/web/screens-skeleton.test.mjs`                         | Kiểm thử a11y và 4-state lifecycle trên 3 màn hình.                                                         |
+|                          | `tests/web/skeleton.test.mjs`                                 | Kiểm thử rendering các biến thể (text, circle, rect) của `AppSkeleton`.                                     |
+|                          | `tests/web/ui-enhancements.test.mjs`                          | Kiểm thử date presets và sự kiện mạng `online`/`offline`.                                                   |
+| **Kịch bản QA Chrome**   | `scripts/chrome-acc-qa-recheck.mjs`                           | Kiểm thử tự động trên Chrome thật cho ACC-005 và ACC-006.                                                   |
+|                          | `scripts/chrome-screens-skeleton-responsive.mjs`              | Kiểm thử responsive (360px, 768px, 1440px) và skeleton loading.                                             |
+| **Tài liệu Handoff**     | `docs/handoff/ANTY-PROPOSED-FEATURES-AND-API-REQUIREMENTS.md` | Đặc tả API cho các tính năng UI đề xuất mới.                                                                |
+|                          | `docs/handoff/ANTY-CODEX-HANDOFF-STAGE7-READY.md`             | Báo cáo bàn giao nghiệm thu Stage 7 cho Codex.                                                              |
 
 ---
 
 ## III. KẾT QUẢ RÀ SOÁT CÁC ĐIỂM CHÚ Ý CỦA OWNER & CODEX
 
 ### 1. Rà soát Offline Banner
-- **Điều chỉnh nội dung thông điệp:** 
-  Đã sửa thành: *"Mất kết nối mạng cục bộ (Offline). Vui lòng kiểm tra Wi-Fi / 4G trước khi gửi yêu cầu. Nếu máy chủ phản hồi lỗi, vui lòng thử lại sau."*
+
+- **Điều chỉnh nội dung thông điệp:**
+  Đã sửa thành: _"Mất kết nối mạng cục bộ (Offline). Vui lòng kiểm tra Wi-Fi / 4G trước khi gửi yêu cầu. Nếu máy chủ phản hồi lỗi, vui lòng thử lại sau."_
 - **Tính chính xác kỹ thuật:**
   - Không khẳng định dữ liệu chưa lưu được bảo toàn đối với các form thông thường chưa có cơ chế local draft/IndexedDB.
   - Phân định rõ ràng giữa mất kết nối mạng phía client (`navigator.onLine === false`) và lỗi phía máy chủ/API (HTTP 5xx / timeout).
@@ -78,20 +79,22 @@ Toàn bộ thay đổi chỉ giới hạn trong phạm vi frontend của Anty, h
   - `tests/web/ui-enhancements.test.mjs` kiểm tra mô phỏng sự kiện `offline` -> `online` và hủy đăng ký event listener đúng vòng đời (PASS).
 
 ### 2. Rà soát AppSkeleton & Hiệu năng Giao diện
+
 - **Khả năng tiếp cận (Accessibility):**
   - Khung bao ngoài khai báo `aria-busy="true"` khi đang tải.
   - Các phần tử skeleton khai báo `aria-hidden="true"` và `role="presentation"` để tránh đọc thừa trên màn hình đọc trợ năng.
 - **Bảo toàn 4 trạng thái (4-State Lifecycle):**
   - Đã rà soát và kiểm thử khẳng định trên cả 3 màn hình:
-    1. *Loading:* Hiển thị `AppSkeleton` với kích thước tương ứng.
-    2. *Success:* Render danh sách dữ liệu thực tế (`map`).
-    3. *Error:* Hiển thị banner lỗi rõ ràng (`ErrorState` / `AppCard`) kèm nút thử lại khi tải thất bại.
-    4. *Empty:* Hiển thị thông báo khi không có bản ghi (`EmptyState` / "Chưa có dữ liệu").
+    1. _Loading:_ Hiển thị `AppSkeleton` với kích thước tương ứng.
+    2. _Success:_ Render danh sách dữ liệu thực tế (`map`).
+    3. _Error:_ Hiển thị banner lỗi rõ ràng (`ErrorState` / `AppCard`) kèm nút thử lại khi tải thất bại.
+    4. _Empty:_ Hiển thị thông báo khi không có bản ghi (`EmptyState` / "Chưa có dữ liệu").
 - **Tuyên bố về Layout Shift:**
   - Không tuyên bố tuyệt đối `CLS = 0` vì chưa đo bằng công cụ Web Vitals chuẩn (Lighthouse / PerformanceObserver).
-  - Tuyên bố chính xác: *"Giảm thiểu layout shift bằng khung giữ chỗ có kích thước cố định (pre-allocated layout dimensions)"*.
+  - Tuyên bố chính xác: _"Giảm thiểu layout shift bằng khung giữ chỗ có kích thước cố định (pre-allocated layout dimensions)"_.
 
 ### 3. Phân loại Kiểm thử Rủi ro cao & Ranh giới Bảo mật RBAC
+
 - **Phân loại minh bạch trong mã nguồn (`high-risk-acceptance-invariants.test.mjs`):**
   - `[Unit Test] ATT-009 / ATT-010`: Kiểm tra thuật toán tính giờ làm việc ca qua đêm (22:00 -> 06:00 hôm sau) và phân chia múi giờ độc lập phía client.
   - `[Source Invariant] PAY-C04 / Client RBAC`: Kiểm tra cấu hình `ROUTE_REGISTRY` chặn chuyển trang ở tầng UI (Owner: `/payroll`, Staff: `/my-pay`).
@@ -101,7 +104,9 @@ Toàn bộ thay đổi chỉ giới hạn trong phạm vi frontend của Anty, h
   - Mọi xác thực phiên làm việc, thu hồi token (token revocation), kiểm tra quyền truy cập API và bảo vệ bản ghi cơ sở dữ liệu phải do Codex nghiệm thu trên môi trường staging.
 
 ### 4. Danh sách các ca kiểm thử cần Codex xác thực trên Staging Backend
+
 Codex cần chạy kiểm thử tích hợp thực tế với database QA/staging cho các nghiệp vụ sau:
+
 1. **Ca làm việc qua đêm (ATT-009 / ATT-010):**
    - Chấm công vào lúc 22:00 ngày T và ra lúc 06:00 ngày T+1.
    - Kiểm tra API tính toán tổng giờ làm (8.0 giờ) và lưu vết đúng ngày công hoặc chia tách ca theo chính sách doanh nghiệp.
@@ -142,18 +147,18 @@ Tài liệu chi tiết tại `docs/handoff/ANTY-PROPOSED-FEATURES-AND-API-REQUIR
    - Mục đích: Cung cấp luồng kích hoạt và xác thực 2FA chuẩn TOTP RFC 6238 cho tài khoản quản trị.
    - Quyền: Xác thực người dùng hiện tại qua mật khẩu + TOTP.
 
-*Lưu ý: Anty tuyệt đối không tự ý phát triển backend endpoint mới hay cài đặt mock server trong mã nguồn sản phẩm. Toàn bộ danh mục trên là đề xuất thiết kế giao diện và hợp đồng API chuyển giao để Codex Backend xem xét triển khai đồng bộ.*
+_Lưu ý: Anty tuyệt đối không tự ý phát triển backend endpoint mới hay cài đặt mock server trong mã nguồn sản phẩm. Toàn bộ danh mục trên là đề xuất thiết kế giao diện và hợp đồng API chuyển giao để Codex Backend xem xét triển khai đồng bộ._
 
 ---
 
 ## VI. TỔNG HỢP KẾT QUẢ KIỂM THỬ ĐÃ THỰC HIỆN
 
-| Bộ kiểm thử | Công cụ / Môi trường | Kết quả | Ghi chú |
-| :--- | :--- | :--- | :--- |
-| **Kiểm tra kiểu dữ liệu (TypeScript)** | `tsc --noEmit` (TypeScript 5.9.3) | **0 lỗi (PASS)** | Sạch hoàn toàn, không có lỗi linter/type. |
-| **Đóng gói Web (Build)** | `npm run build:web` (Vite 6.4.4) | **PASS (3.30s)** | Tạo bundle sản phẩm thành công. |
-| **Targeted Unit & Invariant Tests** | Node.js Test Runner (v22.14.0) | **31 PASS / 0 FAIL** | Bao phủ 7 file test trọng tâm frontend. |
-| **Kiểm thử Chrome ACC-005 / ACC-006** | Chrome CDP (Headless Browser) | **11 / 11 PASS (100%)** | Xác nhận xóa DOM khi background & Escape modal. |
+| Bộ kiểm thử                               | Công cụ / Môi trường              | Kết quả                 | Ghi chú                                              |
+| :---------------------------------------- | :-------------------------------- | :---------------------- | :--------------------------------------------------- |
+| **Kiểm tra kiểu dữ liệu (TypeScript)**    | `tsc --noEmit` (TypeScript 5.9.3) | **0 lỗi (PASS)**        | Sạch hoàn toàn, không có lỗi linter/type.            |
+| **Đóng gói Web (Build)**                  | `npm run build:web` (Vite 6.4.4)  | **PASS (3.30s)**        | Tạo bundle sản phẩm thành công.                      |
+| **Targeted Unit & Invariant Tests**       | Node.js Test Runner (v22.14.0)    | **31 PASS / 0 FAIL**    | Bao phủ 7 file test trọng tâm frontend.              |
+| **Kiểm thử Chrome ACC-005 / ACC-006**     | Chrome CDP (Headless Browser)     | **11 / 11 PASS (100%)** | Xác nhận xóa DOM khi background & Escape modal.      |
 | **Kiểm thử Chrome Responsive & Skeleton** | Chrome CDP (360px, 768px, 1440px) | **14 / 14 PASS (100%)** | Kiểm tra hiển thị skeleton và giao diện đa thiết bị. |
 
 ---

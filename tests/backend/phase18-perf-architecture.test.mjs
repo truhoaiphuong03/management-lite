@@ -8,9 +8,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
 
 test('Phase 18.1: RouteTable provides O(1) exact route lookup and prefix dispatch', async () => {
-  const { RouteTable } = await import(
-    '../../dist/apps/api/src/routes/router.js'
-  );
+  const { RouteTable } =
+    await import('../../dist/apps/api/src/routes/router.js');
 
   const calls = [];
   const table = new RouteTable()
@@ -53,9 +52,8 @@ test('Phase 18.1: RouteTable provides O(1) exact route lookup and prefix dispatc
 });
 
 test('Phase 18.2: SchedulesService batches week entries into a single UNNEST INSERT query', async () => {
-  const { SchedulesService } = await import(
-    '../../dist/apps/api/src/schedules/service.js'
-  );
+  const { SchedulesService } =
+    await import('../../dist/apps/api/src/schedules/service.js');
 
   const executedQueries = [];
   const mockPool = {
@@ -85,11 +83,36 @@ test('Phase 18.2: SchedulesService batches week entries into a single UNNEST INS
   const svc = new SchedulesService(mockPool);
   const client = await mockPool.connect();
   const entries = [
-    { work_date: '2026-11-02', day_of_week: 1, start_time: '08:00', notes: 'Mon' },
-    { work_date: '2026-11-03', day_of_week: 2, start_time: '08:30', notes: 'Tue' },
-    { work_date: '2026-11-04', day_of_week: 3, start_time: '09:00', notes: null },
-    { work_date: '2026-11-05', day_of_week: 4, start_time: '08:00', notes: null },
-    { work_date: '2026-11-06', day_of_week: 5, start_time: '08:00', notes: null },
+    {
+      work_date: '2026-11-02',
+      day_of_week: 1,
+      start_time: '08:00',
+      notes: 'Mon',
+    },
+    {
+      work_date: '2026-11-03',
+      day_of_week: 2,
+      start_time: '08:30',
+      notes: 'Tue',
+    },
+    {
+      work_date: '2026-11-04',
+      day_of_week: 3,
+      start_time: '09:00',
+      notes: null,
+    },
+    {
+      work_date: '2026-11-05',
+      day_of_week: 4,
+      start_time: '08:00',
+      notes: null,
+    },
+    {
+      work_date: '2026-11-06',
+      day_of_week: 5,
+      start_time: '08:00',
+      notes: null,
+    },
   ];
 
   await svc.insertScheduleEntriesBatch(client, 'ws-1', 'sched-1', entries);
@@ -99,7 +122,10 @@ test('Phase 18.2: SchedulesService batches week entries into a single UNNEST INS
     1,
     'Expected 5 schedule entries to be inserted in 1 UNNEST query instead of 5 round-trips',
   );
-  assert.match(executedQueries[0].sql, /FROM unnest\(\$3::text\[\], \$4::int\[\], \$5::text\[\], \$6::text\[\]\)/i);
+  assert.match(
+    executedQueries[0].sql,
+    /FROM unnest\(\$3::text\[\], \$4::int\[\], \$5::text\[\], \$6::text\[\]\)/i,
+  );
   assert.deepEqual(executedQueries[0].params[2], [
     '2026-11-02',
     '2026-11-03',
@@ -110,9 +136,8 @@ test('Phase 18.2: SchedulesService batches week entries into a single UNNEST INS
 });
 
 test('Phase 18.2: AttendanceService supports keyset cursor pagination without OFFSET', async () => {
-  const { AttendanceService } = await import(
-    '../../dist/apps/api/src/attendance/service.js'
-  );
+  const { AttendanceService } =
+    await import('../../dist/apps/api/src/attendance/service.js');
 
   const sqlCalls = [];
   const mockPool = {
@@ -136,7 +161,9 @@ test('Phase 18.2: AttendanceService supports keyset cursor pagination without OF
     cursor: '2026-10-30T10:00:00.000Z|00000000-0000-4000-8000-000000000099',
   });
 
-  const selectCall = sqlCalls.find((c) => c.sql.includes('FROM attendance_shifts s\n      JOIN employees e'));
+  const selectCall = sqlCalls.find((c) =>
+    c.sql.includes('FROM attendance_shifts s\n      JOIN employees e'),
+  );
   assert.ok(selectCall, 'Expected shift list SELECT query');
   assert.match(
     selectCall.sql,
@@ -150,21 +177,16 @@ test('Phase 18.2: AttendanceService supports keyset cursor pagination without OF
 });
 
 test('Phase 18.3 & 18.4: Extracted web helpers and hot-query index/EXPLAIN scripts exist and work', async () => {
-  const payrollHelpers = await import(
-    '../../dist/apps/web/src/screens/helpers/payroll-helpers.js'
-  );
-  const workHelpers = await import(
-    '../../dist/apps/web/src/screens/helpers/work-helpers.js'
-  );
-  const accountsHelpers = await import(
-    '../../dist/apps/web/src/screens/helpers/accounts-helpers.js'
-  );
-  const storageHelpers = await import(
-    '../../dist/apps/web/src/screens/helpers/storage-helpers.js'
-  );
-  const { HOT_QUERY_SPECS } = await import(
-    '../../scripts/perf/explain-hot-queries.mjs'
-  );
+  const payrollHelpers =
+    await import('../../dist/apps/web/src/screens/helpers/payroll-helpers.js');
+  const workHelpers =
+    await import('../../dist/apps/web/src/screens/helpers/work-helpers.js');
+  const accountsHelpers =
+    await import('../../dist/apps/web/src/screens/helpers/accounts-helpers.js');
+  const storageHelpers =
+    await import('../../dist/apps/web/src/screens/helpers/storage-helpers.js');
+  const { HOT_QUERY_SPECS } =
+    await import('../../scripts/perf/explain-hot-queries.mjs');
 
   assert.equal(payrollHelpers.resolveVietQrBankCode('Vietcombank'), 'VCB');
   assert.equal(payrollHelpers.formatMinutes(95), '1h 35p');

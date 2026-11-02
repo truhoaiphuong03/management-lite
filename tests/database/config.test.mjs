@@ -233,7 +233,7 @@ test('isSafeTestDatabase and assertSafeTestDatabase enforce multi-factor databas
   assert.equal(protocolCheck.safe, false);
   assert.match(protocolCheck.reason || '', /Invalid protocol/);
 
-  // 8. Rejects Windows production database management_lite_test on port 55432
+  // 8. Rejects Windows production database cluster on port 55432 (any database name) and user hp_test_admin
   const winProdDbUrl =
     'postgresql://usr:pass@127.0.0.1:55432/management_lite_test';
   const winProdCheck = isSafeTestDatabase(
@@ -246,9 +246,40 @@ test('isSafeTestDatabase and assertSafeTestDatabase enforce multi-factor databas
     { NODE_ENV: 'test', TEST_DATABASE_URL: winProdDbUrl },
   );
   assert.equal(winProdCheck.safe, false);
+  assert.match(winProdCheck.reason || '', /active Windows production database/);
+
+  const winProdAltDbUrl =
+    'postgresql://usr:pass@127.0.0.1:55432/management_lite_integration_test';
+  const winProdAltCheck = isSafeTestDatabase(
+    {
+      connectionString: winProdAltDbUrl,
+      max: 5,
+      idleTimeoutMillis: 1000,
+      connectionTimeoutMillis: 1000,
+    },
+    { NODE_ENV: 'test', TEST_DATABASE_URL: winProdAltDbUrl },
+  );
+  assert.equal(winProdAltCheck.safe, false);
   assert.match(
-    winProdCheck.reason || '',
+    winProdAltCheck.reason || '',
     /active Windows production database/,
+  );
+
+  const winProdUserUrl =
+    'postgresql://hp_test_admin:pass@127.0.0.1:55433/management_lite_test';
+  const winProdUserCheck = isSafeTestDatabase(
+    {
+      connectionString: winProdUserUrl,
+      max: 5,
+      idleTimeoutMillis: 1000,
+      connectionTimeoutMillis: 1000,
+    },
+    { NODE_ENV: 'test', TEST_DATABASE_URL: winProdUserUrl },
+  );
+  assert.equal(winProdUserCheck.safe, false);
+  assert.match(
+    winProdUserCheck.reason || '',
+    /Windows production database user "hp_test_admin"/,
   );
 
   // 9. Accepts properly isolated test database

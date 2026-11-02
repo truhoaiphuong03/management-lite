@@ -213,6 +213,7 @@ export class ReportsService {
     try {
       const decodedStr = Buffer.from(cursor, 'base64url').toString('utf8');
       const decoded = JSON.parse(decodedStr);
+      // prettier-ignore
       if (
         !decoded ||
         typeof decoded !== 'object' ||

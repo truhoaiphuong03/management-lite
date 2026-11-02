@@ -18,17 +18,9 @@ export type StorageReceiptType =
   | 'deliverable_approval'
   | string;
 export type StorageOperationStatus =
-  | 'pending'
-  | 'in_progress'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'unknown';
+  'pending' | 'in_progress' | 'running' | 'completed' | 'failed' | 'unknown';
 export type StorageTrashRequestStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'expired'
-  | 'cancelled';
+  'pending' | 'confirmed' | 'expired' | 'cancelled';
 
 export type DrivePermissionRole = 'reader' | 'writer';
 export type StorageFileUploadStatus =
@@ -40,15 +32,9 @@ export type StorageFileUploadStatus =
   | 'completed'
   | 'failed';
 export type StorageFileReviewStatus =
-  | 'unreviewed'
-  | 'pending_review'
-  | 'approved'
-  | 'rejected';
+  'unreviewed' | 'pending_review' | 'approved' | 'rejected';
 export type StorageDriveConnectionStatus =
-  | 'connected'
-  | 'active'
-  | 'disconnected'
-  | 'revoked';
+  'connected' | 'active' | 'disconnected' | 'revoked';
 
 export interface StorageDriveConnectionData {
   id?: string | undefined;
@@ -372,7 +358,8 @@ export interface StorageOperationData {
   workspace_id: string;
   folder_id: string;
   operation_type: 'trash_group' | 'restore_group' | 'sync_metadata' | string;
-  status: 'pending' | 'running' | 'in_progress' | 'completed' | 'failed' | 'unknown';
+  status:
+    'pending' | 'running' | 'in_progress' | 'completed' | 'failed' | 'unknown';
   requested_by?: string | undefined;
   provider: StorageProvider;
   trash_request_id?: string | null | undefined;

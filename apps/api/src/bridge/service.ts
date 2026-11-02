@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import type { DatabasePool } from '../../../../packages/database/src/pool.js';
 import { recordAuditEvent } from '../../../../packages/database/src/audit.js';
@@ -98,9 +99,13 @@ interface PersistedBridgeCache {
 }
 
 function getLocalBridgeCachePath(workspaceId: string): string {
+  const configuredDir = process.env['MANAGEMENT_LITE_DATA_DIR']?.trim();
+  const baseDir =
+    configuredDir && configuredDir.length > 0
+      ? configuredDir
+      : path.join(os.tmpdir(), 'management-lite-data', 'bridge-cache');
   return path.join(
-    process.cwd(),
-    '.data',
+    baseDir,
     `tiktok-v4-bridge-${encodeURIComponent(workspaceId)}.json`,
   );
 }
@@ -519,7 +524,9 @@ export class BridgeService {
           full_name: r.full_name,
           email: r.email,
           position_title: r.position_title,
-          v4_linked: Boolean(r.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email)),
+          v4_linked: Boolean(
+            r.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email),
+          ),
         })),
         storage_root_folder_id:
           driveRow?.root_folder_id ??

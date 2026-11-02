@@ -1,4 +1,5 @@
 # BÁO CÁO NGHIỆM THU CUỐI CÙNG & KIỂM TOÁN HỆ THỐNG MANAGEMENT LITE
+
 **Mã tài liệu:** `MANAGEMENT-LITE-ANTY-FINAL-ACCEPTANCE-20261012`  
 **Ngày thực hiện:** 12/10/2026  
 **Thực hiện bởi:** Anty (Pair Programming Assistant)  
@@ -10,6 +11,7 @@
 ## 1. TỔNG QUAN VÀ MỤC TIÊU LỆNH CHỈ ĐẠO
 
 Thực hiện theo chỉ đạo của Owner về việc:
+
 1. Tiếp nhận đầy đủ kết quả kiểm toán của Codex (`MANAGEMENT-LITE-RELEASE-READINESS.md`, `MANAGEMENT-LITE-P1-FIX-AND-RETEST.md`, `WINDOWS-SERVER-FINAL-HEALTH-REPORT.md`).
 2. Tích hợp 3 bản vá P1 của Codex cùng với 5 màn hình giao diện đã hoàn thiện chuẩn `ActionIconButton` và `Pagination` (Work, Schedule, Payroll, Storage, Accounts) trên một nhánh tích hợp độc lập.
 3. Điều tra chuyên sâu nguyên nhân test `tests/web/issues-fix-03.test.mjs` bị `t.skip()` vô điều kiện và hiện trạng 3 tiêu chí 03A/03B/03C.
@@ -24,6 +26,7 @@ Thực hiện theo chỉ đạo của Owner về việc:
 Đối chiếu độc lập giữa mã nguồn thực tế, các bộ test TAP tự động, test Chrome CDP và ma trận kiểm toán 123 chức năng của Codex:
 
 ### 2.1. Thống kê theo module (12 module nghiệp vụ + SETTING)
+
 1. **FIN — Quản lý Thu chi cá nhân & Kế hoạch (FIN-001 đến FIN-029):**
    - 29 chức năng.
    - Các chức năng xem, thêm, sửa, lọc, ngừng dùng/kích hoạt danh mục và kế hoạch tài chính cố định: **PASS** cả trên API và Chrome UI thực tế (`chrome-fin-all-screens-qa.mjs` 30/30 PASS, `chrome-fin-plan-qa.mjs` 28/28 PASS, `fin-final-api-qa.mjs` 13/13 PASS).
@@ -76,6 +79,7 @@ Thực hiện theo chỉ đạo của Owner về việc:
     - Xem sổ tay lỗi, lọc bug/improvement, chi tiết dòng thời gian, nhân viên gửi báo cáo lỗi nhanh qua widget, cấm Staff vào sổ tay quản lý: **PASS** (`issues-endpoint.test.mjs` 25/25 PASS).
 
 ### 2.2. Tổng kết độ phủ chấp nhận:
+
 - Có kiểm thử API hoặc UI thực tế: **86 / 123 chức năng**.
 - Được bổ sung UI kiểm chứng trong đợt này (FIN Plan, Work, Schedule, Storage, Payroll, Accounts): **+14 chức năng** nâng tổng số có kiểm chứng thực tế lên **100 / 123 chức năng**.
 - 23 chức năng còn lại được ghi nhận minh bạch là **NOT TESTED** hoặc là tính năng tương lai chưa có kịch bản test tự động riêng, không khai man số liệu PASS.
@@ -99,11 +103,13 @@ Thực hiện theo chỉ đạo của Owner về việc:
 ## 4. TỔNG HỢP KẾT QUẢ TÍCH HỢP P1 VÀ GIAO DIỆN CHUẨN HÓA
 
 ### 4.1. Ba bản vá P1 của Codex:
+
 1. `scripts/seed-unified-qa.mjs`: Sửa lỗi liên kết khóa ngoại Owner (`empOwnerId`), định danh chính xác actor UUID cho Acceptance Owner (`2a565b98-868c-4d8b-821e-fdd9da94dacc`) và Acceptance Staff (`13b98f3e-5292-4d9f-a91f-517d2b98c17d`).
 2. `tests/database/finance-http-qa.test.mjs` & `tests/database/finance-receipt-race-qa.test.mjs`: Đồng bộ hóa số lượng migration files thực tế (16 migrations từ 0001 đến 0016), loại bỏ hardcoded 12/14.
 3. Bảo vệ script đặc quyền (`scripts/explicit-database.mjs`, `tests/backend/privileged-script-safety.test.mjs`): Chặn toàn bộ hành vi kết nối cổng vận hành mặc định, cấm truyền password qua argv CLI, bắt buộc `CONFIRM_ISOLATED_TEST_DB=true`.
 
 ### 4.2. Chuẩn hóa 5 màn hình với ActionIconButton & Pagination:
+
 1. `WorkScreen.tsx`: Thay thế các nút text dòng bằng `ActionIconButton` chuẩn (view, edit, deactivate) kèm tooltip tiếng Việt và aria-label. Bổ sung `Pagination` phân trang client-side 20 dòng/trang.
 2. `ScheduleScreen.tsx`: Thay thế nút xem chi tiết và hủy đăng ký dòng bằng `ActionIconButton`, thêm `Pagination` cho bảng phân ca.
 3. `PayrollScreen.tsx`: Tích hợp `ActionIconButton`, thêm `Pagination` cho bảng tính lương nhân viên, đảm bảo tổng tiền toàn kỳ được tính trên toàn bộ tập dữ liệu, không bị chia nhỏ theo trang.
@@ -133,30 +139,35 @@ Thực hiện theo chỉ đạo của Owner về việc:
 ## 6. KẾT QUẢ KIỂM THỬ TRÊN MÔI TRƯỜNG QA ĐỘC LẬP
 
 Cụm kiểm thử chạy trên PostgreSQL độc lập:
+
 - Cổng 55777 (`/tmp/ev/pgfin`): CSDL `mglite_integ_ci_test`, `mglite_integ_qa_test`, `fin_qa_integ_test`.
 - Cổng 55888 (`/tmp/ev/pgfin_endpoint`): CSDL `fin_endpoint_test`.
 - API Server: Cổng 3038.
 - Web Client (Vite Dev): Cổng 3037.
 
 ### 6.1. Kiểm thử đơn vị & tích hợp TAP:
+
 - **Backend TAP:** 126 tests PASS / 0 FAIL.
 - **Database TAP:** 42 tests PASS / 0 FAIL.
 - **Web TAP:** 121 tests PASS / 0 FAIL / 1 SKIP (`issues-fix-03.test.mjs`).
 - **Tổng TAP:** **289 PASS / 0 FAIL / 1 SKIP**.
 
 ### 6.2. Kiểm thử tự động Chrome CDP Headless:
+
 - `scripts/full-system-qa.mjs`: **48 / 48 PASS** (Đăng nhập, Nhân sự, Chấm công, Work, Accounts Vault, Storage, UI đa kích thước màn hình).
 - `scripts/chrome-fin-all-screens-qa.mjs`: **30 / 30 PASS** (4 màn hình Thu chi cá nhân, phân quyền RBAC Staff 403, kiểm tra tràn ngang viewport 1280, 768, 390).
 - `scripts/chrome-fin-plan-qa.mjs`: **28 / 28 PASS** (Kế hoạch thu chi cố định, công thức toán số tiền cần kiếm thêm ngày/tuần/tháng, năm nhuận, ẩn menu và chặn API 403 đối với Staff, 401 khi chưa đăng nhập).
 - **Tổng Chrome CDP:** **106 / 106 PASS**.
 
 ### 6.3. Kiểm thử Biên dịch & Lint:
+
 - `npm run typecheck` (`tsc --noEmit`): **PASS** (0 lỗi).
 - `npm run lint` (`eslint .`): **PASS** (0 cảnh báo/lỗi).
 - `npm run build` (`tsc`): **PASS** (0 lỗi).
 - `npm run --workspace=@management-lite/web build` (`vite build`): **PASS** (0 lỗi).
 
 ### 6.4. Kiểm thử Sao lưu & Phục hồi CSDL (Backup & Restore):
+
 - Tạo bản sao lưu nhị phân `pg_dump -Fc` từ `mglite_integ_ci_test`.
 - Khôi phục sang cơ sở dữ liệu độc lập `mglite_integ_restore_test`.
 - Đối soát tự động số lượng dòng dữ liệu trên toàn bộ **58 / 58 bảng CSDL**: **Khớp chính xác 100% (58/58 tables match)**.

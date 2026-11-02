@@ -35,8 +35,16 @@ interface ActionBadgeMeta {
 }
 
 const ACTION_MAP: Record<string, ActionBadgeMeta> = {
-  'auth.login': { label: 'Đăng nhập', variant: 'success', color: 'var(--success-text)' },
-  'auth.logout': { label: 'Đăng xuất', variant: 'default', color: 'var(--muted-color)' },
+  'auth.login': {
+    label: 'Đăng nhập',
+    variant: 'success',
+    color: 'var(--success-text)',
+  },
+  'auth.logout': {
+    label: 'Đăng xuất',
+    variant: 'default',
+    color: 'var(--muted-color)',
+  },
   'auth.password_change': {
     label: 'Đổi mật khẩu',
     variant: 'info',
@@ -47,7 +55,11 @@ const ACTION_MAP: Record<string, ActionBadgeMeta> = {
     variant: 'error',
     color: 'var(--danger-text)',
   },
-  'work.create': { label: 'Tạo công việc', variant: 'info', color: 'var(--info-text)' },
+  'work.create': {
+    label: 'Tạo công việc',
+    variant: 'info',
+    color: 'var(--info-text)',
+  },
   'work.submit': {
     label: 'Nộp báo cáo việc',
     variant: 'warning',
@@ -599,16 +611,21 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
           >
             <span style={{ fontSize: '13px', color: THEME_COLORS.muted }}>
               Tổng cộng:{' '}
-              <strong style={{ color: THEME_COLORS.text }}>
-                {totalCount}
-              </strong>{' '}
+              <strong style={{ color: THEME_COLORS.text }}>{totalCount}</strong>{' '}
               sự kiện
             </span>
             <AppButton
               variant="secondary"
               data-testid="btn-export-audit-csv"
               onClick={() => {
-                const headers = ['ID', 'Thời gian', 'Hành động', 'Người thực hiện', 'Thực thể', 'Mã thực thể'];
+                const headers = [
+                  'ID',
+                  'Thời gian',
+                  'Hành động',
+                  'Người thực hiện',
+                  'Thực thể',
+                  'Mã thực thể',
+                ];
                 const rows = events.map((ev) => [
                   ev.id,
                   formatEventTime(ev.created_at),
@@ -620,9 +637,15 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                 const csvContent =
                   '\uFEFF' +
                   [headers, ...rows]
-                    .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                    .map((r) =>
+                      r
+                        .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+                        .join(','),
+                    )
                     .join('\n');
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const blob = new Blob([csvContent], {
+                  type: 'text/csv;charset=utf-8;',
+                });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;

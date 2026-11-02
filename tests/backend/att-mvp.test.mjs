@@ -564,11 +564,11 @@ test('MVP Phase 3 ATT: Clock in/out, Break, History, Owner review, Correction, a
         (s) => s.id === shiftId,
       );
       assert.ok(approvedShiftItem, 'Filtered list must include approved shift');
-      assert.equal(
-        approvedShiftItem.review_reason,
-        'Ca làm đầy đủ, đúng giờ',
+      assert.equal(approvedShiftItem.review_reason, 'Ca làm đầy đủ, đúng giờ');
+      assert.ok(
+        approvedShiftItem.reviewed_at,
+        'Must include reviewed_at timestamp',
       );
-      assert.ok(approvedShiftItem.reviewed_at, 'Must include reviewed_at timestamp');
 
       // Verify GET /attendance/me supports date & status filters
       const filteredMeRes = await makeRequest(

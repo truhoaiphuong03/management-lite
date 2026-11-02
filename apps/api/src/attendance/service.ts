@@ -25,9 +25,7 @@ export class AttendanceService {
   /**
    * Helper to resolve the employee profile of the currently authenticated user in this workspace.
    */
-  private async getEmployeeForUser(
-    context: AuthenticatedContext,
-  ): Promise<{
+  private async getEmployeeForUser(context: AuthenticatedContext): Promise<{
     id: string;
     employee_code: string;
     full_name: string;
@@ -187,8 +185,8 @@ export class AttendanceService {
       reviewed_by_user_id: row.approval_reviewer_user_id ?? null,
       is_self_shift: Boolean(
         currentUserId &&
-          row.employee_user_id &&
-          row.employee_user_id === currentUserId,
+        row.employee_user_id &&
+        row.employee_user_id === currentUserId,
       ),
       is_payroll_eligible: row.is_payroll_eligible !== false,
     };
@@ -1203,11 +1201,7 @@ export class AttendanceService {
     }
 
     const shifts = shiftsRes.rows.map((row) =>
-      this.mapShiftData(
-        row,
-        breaksByShift.get(row.id) || [],
-        context.user.id,
-      ),
+      this.mapShiftData(row, breaksByShift.get(row.id) || [], context.user.id),
     );
 
     return {

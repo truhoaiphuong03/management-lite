@@ -29,18 +29,19 @@
 
 ## 📊 BẢNG ĐỊNH TUYẾN FILE & KHOẢNG DÒNG (`SURGICAL FILE MAP` CHO PHASE 21)
 
-| Mã Task | Hạng mục thực hiện | File mục tiêu & Khoảng dòng (`StartLine..EndLine`) | File kiểm thử (`Scoped Test`) |
-|---|---|---|---|
-| **Task 21.1** | Mở route `GET /api/v1/system/version` + API Dọn log cũ (`DELETE /api/v1/system/logs`) + API Chuyển lỗi sang Sổ tay lỗi & Sinh lệnh AI Fix (`POST /api/v1/system/logs/escalate`) | - `apps/api/src/system-log/service.ts:355-481`<br>- `apps/api/src/app.ts:984-1092` | `tests/backend/system-logs-escalation.test.mjs` |
-| **Task 21.2** | Giao diện `/system-logs`: Nút **`🔧 Yêu cầu AI sửa (Copy lệnh)`**, nút **`✓ Đã xử lý (Ẩn lỗi)`** trên từng dòng lỗi & nút **`🧹 Dọn sạch log cũ`** trên thanh công cụ | - `apps/web/src/screens/SystemLogsScreen.tsx:35-65, 292-340, 416-490, 636-680` | `tests/web/system-logs-screen.test.mjs` |
-| **Task 21.3** | Cảnh báo chủ động trên Trang chủ (`/dashboard`): Tự động hiện thẻ cảnh báo đỏ trong **Trung tâm Việc cần xử lý (`Action Center`)** khi phát hiện lỗi mới trong 24h | - `apps/web/src/screens/DashboardScreen.tsx:100-130, 550-620, 960-1120` | `tests/web/dashboard-error-alert.test.mjs` |
-| **Task 21.4** | Giao diện `/issues` (`Sổ tay lỗi`): Nút **`✓ Xác nhận & Đóng hàng loạt`** cho các phiếu `Chờ Owner duyệt` (`awaiting_owner` / `waiting_for_owner`) | - `apps/api/src/routes/issues-routes.ts:1-160`<br>- `apps/api/src/issues/service.ts:900-1150`<br>- `apps/web/src/screens/IssuesScreen.tsx:220-360, 750-920` | `tests/web/issues-bulk-confirm.test.mjs` |
+| Mã Task       | Hạng mục thực hiện                                                                                                                                                              | File mục tiêu & Khoảng dòng (`StartLine..EndLine`)                                                                                                          | File kiểm thử (`Scoped Test`)                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **Task 21.1** | Mở route `GET /api/v1/system/version` + API Dọn log cũ (`DELETE /api/v1/system/logs`) + API Chuyển lỗi sang Sổ tay lỗi & Sinh lệnh AI Fix (`POST /api/v1/system/logs/escalate`) | - `apps/api/src/system-log/service.ts:355-481`<br>- `apps/api/src/app.ts:984-1092`                                                                          | `tests/backend/system-logs-escalation.test.mjs` |
+| **Task 21.2** | Giao diện `/system-logs`: Nút **`🔧 Yêu cầu AI sửa (Copy lệnh)`**, nút **`✓ Đã xử lý (Ẩn lỗi)`** trên từng dòng lỗi & nút **`🧹 Dọn sạch log cũ`** trên thanh công cụ           | - `apps/web/src/screens/SystemLogsScreen.tsx:35-65, 292-340, 416-490, 636-680`                                                                              | `tests/web/system-logs-screen.test.mjs`         |
+| **Task 21.3** | Cảnh báo chủ động trên Trang chủ (`/dashboard`): Tự động hiện thẻ cảnh báo đỏ trong **Trung tâm Việc cần xử lý (`Action Center`)** khi phát hiện lỗi mới trong 24h              | - `apps/web/src/screens/DashboardScreen.tsx:100-130, 550-620, 960-1120`                                                                                     | `tests/web/dashboard-error-alert.test.mjs`      |
+| **Task 21.4** | Giao diện `/issues` (`Sổ tay lỗi`): Nút **`✓ Xác nhận & Đóng hàng loạt`** cho các phiếu `Chờ Owner duyệt` (`awaiting_owner` / `waiting_for_owner`)                              | - `apps/api/src/routes/issues-routes.ts:1-160`<br>- `apps/api/src/issues/service.ts:900-1150`<br>- `apps/web/src/screens/IssuesScreen.tsx:220-360, 750-920` | `tests/web/issues-bulk-confirm.test.mjs`        |
 
 ---
 
 ### Task 21.1: Backend Route `/api/v1/system/version`, Dọn Log Cũ & Chuyển Lỗi Sang Sổ Tay Lỗi (`Escalate to Issue`)
 
 **Files:**
+
 - Modify: `apps/api/src/system-log/service.ts:355-481`
 - Modify: `apps/api/src/app.ts:984-1092`
 - Test: `tests/backend/system-logs-escalation.test.mjs`
@@ -56,14 +57,15 @@
      - Sinh chuỗi Markdown chuẩn để Owner dán thẳng cho Antigravity/ChatGPT:
        ```markdown
        🛠️ [YÊU CẦU AI SỬA LỖI HỆ THỐNG — MANAGEMENT LITE]
+
        - Mã lỗi / HTTP: ${row.error_code ?? 'ERROR'} (HTTP ${row.status ?? '—'})
        - Thông điệp lỗi: ${row.message}
        - Đường dẫn (Route): ${row.method ?? 'GET'} ${row.route ?? '/'}
        - Nguồn: ${row.source === 'web' ? 'Trình duyệt (Web)' : 'Máy chủ (API)'} | Phiên bản: ${row.release ?? 'latest'}
        - Số lần lặp lại: ${occurrencesCount} lần | Fingerprint: ${row.fingerprint}
        - Request ID mẫu: ${row.request_id ?? '—'}
-       ${row.stack ? `- Stack trace:\n\`\`\`\n${row.stack}\n\`\`\`` : ''}
-       👉 Yêu cầu: Tìm nguyên nhân gốc rễ theo đúng file trong MODULE_FILE_MAP (AGENTS.md), sửa triệt để, chạy kiểm thử và cập nhật lên web.
+         ${row.stack ? `- Stack trace:\n\`\`\`\n${row.stack}\n\`\`\`` : ''}
+         👉 Yêu cầu: Tìm nguyên nhân gốc rễ theo đúng file trong MODULE_FILE_MAP (AGENTS.md), sửa triệt để, chạy kiểm thử và cập nhật lên web.
        ```
   4. Thêm phương thức `escalate(auth: AuthenticatedContext, input: { fingerprint?: string; log_id?: string }): Promise<{ issue_id: string | null; bug_code: string | null; ai_fix_prompt: string; deduplicated: boolean }>`:
      - Kiểm tra `requireRole(['owner'], auth)`.
@@ -88,12 +90,13 @@
 ### Task 21.2: Nâng Cấp Giao Diện `/system-logs` — Nút Yêu Cầu Fix 1-Chạm & Dọn Log Cũ
 
 **Files:**
+
 - Modify: `apps/web/src/screens/SystemLogsScreen.tsx:35-65, 292-340, 416-490, 636-680`
 - Test: `tests/web/system-logs-screen.test.mjs`
 
 - [x] **Step 1: Bổ sung thao tác 1 chạm trên bảng `Lỗi lặp lại nhiều nhất` (`SystemLogsScreen.tsx:416-490`)**
   - Thêm cột **`Thao tác xử lý`** vào bảng `Lỗi lặp lại nhiều nhất` với 2 nút trên mỗi dòng lỗi:
-    1. **`🔧 Yêu cầu AI sửa`**: Gọi `POST /api/v1/system/logs/escalate` với `{ fingerprint: t.fingerprint }`, tự động sao chép `ai_fix_prompt` vào Clipboard và hiện thông báo xanh: *"Đã tạo phiếu Sổ tay lỗi & sao chép lệnh sửa lỗi! Hãy dán (Ctrl+V) vào khung chat cho AI."*
+    1. **`🔧 Yêu cầu AI sửa`**: Gọi `POST /api/v1/system/logs/escalate` với `{ fingerprint: t.fingerprint }`, tự động sao chép `ai_fix_prompt` vào Clipboard và hiện thông báo xanh: _"Đã tạo phiếu Sổ tay lỗi & sao chép lệnh sửa lỗi! Hãy dán (Ctrl+V) vào khung chat cho AI."_
     2. **`✓ Đã sửa / Ẩn`**: Gọi `DELETE /api/v1/system/logs?fingerprint=${t.fingerprint}` và làm mới danh sách ngay lập tức.
   - Trên thanh công cụ đầu trang (`lines 304-335`), thêm nút **`🧹 Dọn sạch log cũ`** để xóa toàn bộ nhật ký lỗi lịch sử đã xử lý xong.
 
@@ -105,6 +108,7 @@
 ### Task 21.3: Cảnh Báo Lỗi Hệ Thống Chủ Động Trên Trang Chủ (`/dashboard`)
 
 **Files:**
+
 - Modify: `apps/web/src/screens/DashboardScreen.tsx:100-130, 550-620, 960-1120`
 - Test: `tests/web/dashboard-error-alert.test.mjs`
 
@@ -120,6 +124,7 @@
 ### Task 21.4: Nút `"Xác Nhận & Đóng Hàng Loạt"` Trên Sổ Tay Lỗi (`/issues`)
 
 **Files:**
+
 - Modify: `apps/api/src/routes/issues-routes.ts:1-160`
 - Modify: `apps/api/src/issues/service.ts:900-1150`
 - Modify: `apps/web/src/screens/IssuesScreen.tsx:220-360, 750-920`

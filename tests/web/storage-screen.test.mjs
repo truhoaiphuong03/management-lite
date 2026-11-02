@@ -421,26 +421,48 @@ test('UI standard: StorageScreen uses ActionIconButton + Pagination (source leve
     resolve(root, 'packages/ui/src/components/ActionIconButton.tsx'),
     'utf8',
   );
-  assert.ok(iconSrc.includes('aria-label=') && iconSrc.includes('title={title}'));
+  assert.ok(
+    iconSrc.includes('aria-label=') && iconSrc.includes('title={title}'),
+  );
   // Primary text actions and Drive Trash flow remain
-  assert.ok(screenContent.includes('Google Drive Trash') || screenContent.includes('thùng rác Google Drive'));
+  assert.ok(
+    screenContent.includes('Google Drive Trash') ||
+      screenContent.includes('thùng rác Google Drive'),
+  );
 });
 
 test('UI standard: Pagination renders when items exceed page size', async () => {
   const React = (await import('react')).default;
   const { renderToStaticMarkup } = await import('react-dom/server');
   const p = resolve(root, 'dist/packages/ui/src/components');
-  const { Pagination, DEFAULT_PAGE_SIZE } = await import(`file://${p}/Pagination.js`);
+  const { Pagination, DEFAULT_PAGE_SIZE } = await import(
+    `file://${p}/Pagination.js`
+  );
   const { ActionIconButton } = await import(`file://${p}/ActionIconButton.js`);
   assert.equal(DEFAULT_PAGE_SIZE, 20);
   const html = renderToStaticMarkup(
-    React.createElement(Pagination, { total: 45, page: 0, pageSize: 20, onPage() {}, onPageSize() {}, testId: 'storage-folders-pager' }),
+    React.createElement(Pagination, {
+      total: 45,
+      page: 0,
+      pageSize: 20,
+      onPage() {},
+      onPageSize() {},
+      testId: 'storage-folders-pager',
+    }),
   );
-  assert.ok(html.includes('Trang 1 / 3') && html.includes('Hiển thị 1–20 / 45'));
+  assert.ok(
+    html.includes('Trang 1 / 3') && html.includes('Hiển thị 1–20 / 45'),
+  );
   const btn = renderToStaticMarkup(
-    React.createElement(ActionIconButton, { action: 'view', target: 'Thư mục A' }),
+    React.createElement(ActionIconButton, {
+      action: 'view',
+      target: 'Thư mục A',
+    }),
   );
-  assert.ok(btn.includes('aria-label="Xem chi tiết: Thư mục A"') && btn.includes('title="Xem chi tiết"'));
+  assert.ok(
+    btn.includes('aria-label="Xem chi tiết: Thư mục A"') &&
+      btn.includes('title="Xem chi tiết"'),
+  );
 });
 
 test('FILE-001: StorageScreen search input, filter controls, and empty search state are wired', () => {
@@ -457,7 +479,7 @@ test('FILE-001: StorageScreen search input, filter controls, and empty search st
     'Must provide storage-empty-search testid on empty search results',
   );
   assert.ok(
-    screenContent.includes("setFolderPage(0)"),
+    screenContent.includes('setFolderPage(0)'),
     'Must reset page when searching or changing type filter',
   );
 });
@@ -566,6 +588,3 @@ test('FILE-01 Google Drive V2 UI: OAuth connect button, direct folder creation, 
     'Clean labels next to PlusIcon must be present without duplicate + text',
   );
 });
-
-
-

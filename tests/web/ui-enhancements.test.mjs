@@ -107,7 +107,8 @@ test('App.tsx: includes offline banner and online/offline event listeners', () =
     'App.tsx must define offline banner',
   );
   assert.ok(
-    appSrc.includes('role="status"') && appSrc.includes('aria-live="assertive"'),
+    appSrc.includes('role="status"') &&
+      appSrc.includes('aria-live="assertive"'),
     'Offline banner must include accessible live region attributes',
   );
   assert.ok(
@@ -148,7 +149,11 @@ test('App.tsx: responds to window online and offline events dynamically', () => 
 
   // Trigger offline event
   mockWindow.dispatchEvent({ type: 'offline' });
-  assert.equal(isOnline, false, 'State must transition to offline on offline event');
+  assert.equal(
+    isOnline,
+    false,
+    'State must transition to offline on offline event',
+  );
 
   // Trigger online event
   mockWindow.dispatchEvent({ type: 'online' });
@@ -157,6 +162,9 @@ test('App.tsx: responds to window online and offline events dynamically', () => 
   // Verify cleanup
   mockWindow.removeEventListener('online');
   mockWindow.removeEventListener('offline');
-  assert.equal(listeners.size, 0, 'Listeners must be properly removed on unmount');
+  assert.equal(
+    listeners.size,
+    0,
+    'Listeners must be properly removed on unmount',
+  );
 });
-

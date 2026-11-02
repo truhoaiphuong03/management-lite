@@ -96,9 +96,7 @@ export const AppInput = forwardRef<HTMLInputElement, AppInputProps>(
               display: 'block',
               fontSize: TOKENS.typography.fontSize.base,
               fontWeight: TOKENS.typography.fontWeight.semibold,
-              color: hasError
-                ? THEME_COLORS.error
-                : THEME_COLORS.textSecondary,
+              color: hasError ? THEME_COLORS.error : THEME_COLORS.textSecondary,
               marginBottom: '6px',
               userSelect: 'none',
             }}
@@ -298,9 +296,7 @@ export const AppTextarea = forwardRef<HTMLTextAreaElement, AppTextareaProps>(
               display: 'block',
               fontSize: TOKENS.typography.fontSize.base,
               fontWeight: TOKENS.typography.fontWeight.semibold,
-              color: hasError
-                ? THEME_COLORS.error
-                : THEME_COLORS.textSecondary,
+              color: hasError ? THEME_COLORS.error : THEME_COLORS.textSecondary,
               marginBottom: '6px',
             }}
           >

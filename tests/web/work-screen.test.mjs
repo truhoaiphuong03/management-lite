@@ -276,22 +276,64 @@ test('WORK-002 & WORK-010: WorkScreen supports status filtering and Owner cancel
   );
 
   // WORK-002: Status filtering
-  assert.ok(screenContent.includes('statusFilter'), 'Must maintain statusFilter state');
-  assert.ok(screenContent.includes('item.status !== statusFilter'), 'Must filter items by status');
-  assert.ok(screenContent.includes('value="todo"'), 'Must have todo filter option');
-  assert.ok(screenContent.includes('value="in_progress"'), 'Must have in_progress filter option');
-  assert.ok(screenContent.includes('value="completed"'), 'Must have completed filter option');
-  assert.ok(screenContent.includes('value="cancelled"'), 'Must have cancelled filter option');
+  assert.ok(
+    screenContent.includes('statusFilter'),
+    'Must maintain statusFilter state',
+  );
+  assert.ok(
+    screenContent.includes('item.status !== statusFilter'),
+    'Must filter items by status',
+  );
+  assert.ok(
+    screenContent.includes('value="todo"'),
+    'Must have todo filter option',
+  );
+  assert.ok(
+    screenContent.includes('value="in_progress"'),
+    'Must have in_progress filter option',
+  );
+  assert.ok(
+    screenContent.includes('value="completed"'),
+    'Must have completed filter option',
+  );
+  assert.ok(
+    screenContent.includes('value="cancelled"'),
+    'Must have cancelled filter option',
+  );
 
   // WORK-010: Owner cancel work item with audit reason
-  assert.ok(screenContent.includes('showCancelModal'), 'Must have showCancelModal state');
-  assert.ok(screenContent.includes('cancelReason'), 'Must have cancelReason state');
-  assert.ok(screenContent.includes('handleCancelWorkItem'), 'Must implement handleCancelWorkItem');
-  assert.ok(screenContent.includes('/api/v1/work-items/${workId}/cancel'), 'Must POST to cancel endpoint');
-  assert.ok(screenContent.includes('Lý do hủy'), 'Must require/prompt cancellation reason');
+  assert.ok(
+    screenContent.includes('showCancelModal'),
+    'Must have showCancelModal state',
+  );
+  assert.ok(
+    screenContent.includes('cancelReason'),
+    'Must have cancelReason state',
+  );
+  assert.ok(
+    screenContent.includes('handleCancelWorkItem'),
+    'Must implement handleCancelWorkItem',
+  );
+  assert.ok(
+    screenContent.includes('/api/v1/work-items/${workId}/cancel'),
+    'Must POST to cancel endpoint',
+  );
+  assert.ok(
+    screenContent.includes('Lý do hủy'),
+    'Must require/prompt cancellation reason',
+  );
 
   // ML-03 & ML-04: Smart Focus filters (Today / Overdue / Blocked / Pending Review), Executor Packet presets, and Evidence drill-down
-  assert.ok(screenContent.includes('work-ml04-focus-bar'), 'Must render ML-04 smart focus filter bar');
-  assert.ok(screenContent.includes('[EXECUTOR:'), 'Must support ML-03 Executor task packet presets and badge detection');
-  assert.ok(screenContent.includes('Xem bằng chứng'), 'Must support ML-04 direct evidence drill-down from work cards');
+  assert.ok(
+    screenContent.includes('work-ml04-focus-bar'),
+    'Must render ML-04 smart focus filter bar',
+  );
+  assert.ok(
+    screenContent.includes('[EXECUTOR:'),
+    'Must support ML-03 Executor task packet presets and badge detection',
+  );
+  assert.ok(
+    screenContent.includes('Xem bằng chứng'),
+    'Must support ML-04 direct evidence drill-down from work cards',
+  );
 });

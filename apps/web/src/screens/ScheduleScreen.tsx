@@ -59,7 +59,6 @@ function formatDateIso(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-
 // Helper: Given any Date, return the Date of Monday for that week
 function getMondayOfWeek(d: Date): Date {
   const date = new Date(d);
@@ -561,7 +560,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 activeTab === 'my_schedule'
                   ? 'rgba(20, 184, 166, 0.15)'
                   : 'var(--surface-hover)',
-              color: activeTab === 'my_schedule' ? 'var(--accent-text)' : 'var(--muted-color)',
+              color:
+                activeTab === 'my_schedule'
+                  ? 'var(--accent-text)'
+                  : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               cursor: 'pointer',
@@ -587,7 +589,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 activeTab === 'staff_schedules'
                   ? 'rgba(20, 184, 166, 0.15)'
                   : 'var(--surface-hover)',
-              color: activeTab === 'staff_schedules' ? 'var(--accent-text)' : 'var(--muted-color)',
+              color:
+                activeTab === 'staff_schedules'
+                  ? 'var(--accent-text)'
+                  : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               cursor: 'pointer',
@@ -966,7 +971,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   {dayName}
                                 </div>
                                 <div
-                                  style={{ fontSize: '13px', color: 'var(--muted-color)' }}
+                                  style={{
+                                    fontSize: '13px',
+                                    color: 'var(--muted-color)',
+                                  }}
                                 >
                                   {formatDateDisplay(entry.work_date)}
                                   <a
@@ -1235,7 +1243,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               backgroundColor: dayItem.isWorking
                                 ? 'rgba(16, 185, 129, 0.15)'
                                 : 'rgba(100, 116, 139, 0.18)',
-                              color: dayItem.isWorking ? 'var(--success-text)' : 'var(--muted-color)',
+                              color: dayItem.isWorking
+                                ? 'var(--success-text)'
+                                : 'var(--muted-color)',
                               border: `1px solid ${
                                 dayItem.isWorking
                                   ? 'rgba(16, 185, 129, 0.35)'
@@ -1490,7 +1500,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <UserIcon size={16} style={{ color: 'var(--muted-color)' }} />
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                <span
+                  style={{ fontSize: '13px', color: 'var(--text-secondary)' }}
+                >
                   Lọc theo nhân sự:
                 </span>
               </div>
@@ -1605,7 +1617,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 {schedule.employee_name || 'Nhân viên'}
                               </div>
                               <div
-                                style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--muted-color)',
+                                }}
                               >
                                 Mã NV: {schedule.employee_code || '--'} • Bản
                                 ghi v{schedule.version} (Lần #
@@ -1793,7 +1808,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               <div
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <RotateCcwIcon size={20} style={{ color: 'var(--accent-text)' }} />
+                <RotateCcwIcon
+                  size={20}
+                  style={{ color: 'var(--accent-text)' }}
+                />
                 <span
                   style={{
                     fontSize: '16px',
@@ -1878,7 +1896,12 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       >
                         Bản sửa đổi #{rev.revision_number}
                       </span>
-                      <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--muted-color)',
+                        }}
+                      >
                         {new Date(rev.edited_at).toLocaleString('vi-VN')}
                       </span>
                     </div>
@@ -1889,11 +1912,18 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                         marginBottom: '4px',
                       }}
                     >
-                      <strong style={{ color: 'var(--warning-text)' }}>Lý do: </strong>
+                      <strong style={{ color: 'var(--warning-text)' }}>
+                        Lý do:{' '}
+                      </strong>
                       {rev.reason || '(Không có lý do)'}
                     </div>
                     {rev.edited_by_name && (
-                      <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--muted-color)',
+                        }}
+                      >
                         Người sửa: {rev.edited_by_name}
                       </div>
                     )}
@@ -2060,7 +2090,12 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           }}
                         >
                           <div style={{ minWidth: 0 }}>
-                            <span style={{ fontWeight: 600, color: 'var(--text-color)' }}>
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                color: 'var(--text-color)',
+                              }}
+                            >
                               {dayName} ({formatDateDisplay(e.work_date)})
                             </span>
                             {e.notes && (
@@ -2077,7 +2112,12 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               </div>
                             )}
                           </div>
-                          <span style={{ color: 'var(--success-text)', fontWeight: 700 }}>
+                          <span
+                            style={{
+                              color: 'var(--success-text)',
+                              fontWeight: 700,
+                            }}
+                          >
                             Bắt đầu:{' '}
                             {e.start_time ? e.start_time.slice(0, 5) : '--:--'}
                           </span>

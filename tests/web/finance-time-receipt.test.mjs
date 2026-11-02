@@ -90,7 +90,10 @@ test('FIN receipt: magic-byte sniffing, size and type limits', () => {
   assert.equal(sniffReceiptMime(jpg), 'image/jpeg');
   assert.equal(sniffReceiptMime(webp), null); // WebP is out of Phase 1
   assert.equal(RECEIPT_MAX_BYTES, 4 * 1024 * 1024);
-  assert.deepEqual(checkReceiptBytes(webp), { ok: false, reason: 'unsupported' });
+  assert.deepEqual(checkReceiptBytes(webp), {
+    ok: false,
+    reason: 'unsupported',
+  });
   assert.equal(sniffReceiptMime(Buffer.from('<svg xmlns=')), null);
   assert.equal(sniffReceiptMime(Buffer.from('%PDF-1.7')), null);
   assert.deepEqual(checkReceiptBytes(new Uint8Array()), {

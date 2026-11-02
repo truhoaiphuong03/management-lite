@@ -181,7 +181,8 @@ test('ANTY-UIUX-AUDIT-01: DashboardScreen renders live-ready summary cards and c
     'Staff DashboardScreen should render staff-specific summary and quick-link cards',
   );
   assert.ok(
-    !staffHtml.includes('Tài khoản dùng chung') && !staffHtml.includes('Tài chính'),
+    !staffHtml.includes('Tài khoản dùng chung') &&
+      !staffHtml.includes('Tài chính'),
     'Staff DashboardScreen must not expose Owner-only module cards',
   );
 });

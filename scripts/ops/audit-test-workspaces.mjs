@@ -41,18 +41,17 @@ export async function auditWorkspaces(pool) {
 
 const isMain =
   process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+  path.resolve(process.argv[1]) ===
+    path.resolve(fileURLToPath(import.meta.url));
 
 if (isMain) {
-  const { createDatabasePool } = await import(
-    '../../dist/packages/database/src/pool.js'
-  );
-  const { loadDatabaseConfig } = await import(
-    '../../dist/packages/database/src/config.js'
-  );
+  const { createDatabasePool } =
+    await import('../../dist/packages/database/src/pool.js');
+  const { loadDatabaseConfig } =
+    await import('../../dist/packages/database/src/config.js');
   const pool = createDatabasePool(loadDatabaseConfig(process.env));
   try {
-        const report = await auditWorkspaces(pool);
+    const report = await auditWorkspaces(pool);
     if (process.argv.includes('--json')) {
       console.log(JSON.stringify(report, null, 2));
     } else {

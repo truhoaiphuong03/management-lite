@@ -7,38 +7,150 @@ export interface VnBankOption {
 }
 
 export const VN_BANKS: VnBankOption[] = [
-  { shortName: 'MB Bank', code: 'MB', fullName: 'Ngân hàng Quân Đội (MB Bank)' },
-  { shortName: 'Vietcombank', code: 'VCB', fullName: 'Ngân hàng Ngoại Thương Việt Nam (VCB)' },
-  { shortName: 'Techcombank', code: 'TCB', fullName: 'Ngân hàng Kỹ Thương Việt Nam (TCB)' },
-  { shortName: 'VietinBank', code: 'CTG', fullName: 'Ngân hàng Công Thương Việt Nam (VietinBank)' },
-  { shortName: 'BIDV', code: 'BIDV', fullName: 'Ngân hàng Đầu tư và Phát triển Việt Nam (BIDV)' },
+  {
+    shortName: 'MB Bank',
+    code: 'MB',
+    fullName: 'Ngân hàng Quân Đội (MB Bank)',
+  },
+  {
+    shortName: 'Vietcombank',
+    code: 'VCB',
+    fullName: 'Ngân hàng Ngoại Thương Việt Nam (VCB)',
+  },
+  {
+    shortName: 'Techcombank',
+    code: 'TCB',
+    fullName: 'Ngân hàng Kỹ Thương Việt Nam (TCB)',
+  },
+  {
+    shortName: 'VietinBank',
+    code: 'CTG',
+    fullName: 'Ngân hàng Công Thương Việt Nam (VietinBank)',
+  },
+  {
+    shortName: 'BIDV',
+    code: 'BIDV',
+    fullName: 'Ngân hàng Đầu tư và Phát triển Việt Nam (BIDV)',
+  },
   { shortName: 'ACB', code: 'ACB', fullName: 'Ngân hàng Á Châu (ACB)' },
-  { shortName: 'Agribank', code: 'VBA', fullName: 'Ngân hàng NN & PTNT Việt Nam (Agribank)' },
-  { shortName: 'VPBank', code: 'VPB', fullName: 'Ngân hàng Việt Nam Thịnh Vượng (VPBank)' },
-  { shortName: 'TPBank', code: 'TPB', fullName: 'Ngân hàng Tiên Phong (TPBank)' },
-  { shortName: 'Sacombank', code: 'STB', fullName: 'Ngân hàng Sài Gòn Thương Tín (Sacombank)' },
+  {
+    shortName: 'Agribank',
+    code: 'VBA',
+    fullName: 'Ngân hàng NN & PTNT Việt Nam (Agribank)',
+  },
+  {
+    shortName: 'VPBank',
+    code: 'VPB',
+    fullName: 'Ngân hàng Việt Nam Thịnh Vượng (VPBank)',
+  },
+  {
+    shortName: 'TPBank',
+    code: 'TPB',
+    fullName: 'Ngân hàng Tiên Phong (TPBank)',
+  },
+  {
+    shortName: 'Sacombank',
+    code: 'STB',
+    fullName: 'Ngân hàng Sài Gòn Thương Tín (Sacombank)',
+  },
   { shortName: 'VIB', code: 'VIB', fullName: 'Ngân hàng Quốc Tế (VIB)' },
-  { shortName: 'HDBank', code: 'HDB', fullName: 'Ngân hàng Phát triển TP.HCM (HDBank)' },
-  { shortName: 'SHB', code: 'SHB', fullName: 'Ngân hàng Sài Gòn - Hà Nội (SHB)' },
-  { shortName: 'MSB', code: 'MSB', fullName: 'Ngân hàng Hàng Hải Việt Nam (MSB)' },
+  {
+    shortName: 'HDBank',
+    code: 'HDB',
+    fullName: 'Ngân hàng Phát triển TP.HCM (HDBank)',
+  },
+  {
+    shortName: 'SHB',
+    code: 'SHB',
+    fullName: 'Ngân hàng Sài Gòn - Hà Nội (SHB)',
+  },
+  {
+    shortName: 'MSB',
+    code: 'MSB',
+    fullName: 'Ngân hàng Hàng Hải Việt Nam (MSB)',
+  },
   { shortName: 'OCB', code: 'OCB', fullName: 'Ngân hàng Phương Đông (OCB)' },
-  { shortName: 'SeABank', code: 'SSB', fullName: 'Ngân hàng Đông Nam Á (SeABank)' },
-  { shortName: 'LPBank', code: 'LPB', fullName: 'Ngân hàng Lộc Phát Việt Nam (LPBank)' },
-  { shortName: 'Eximbank', code: 'EIB', fullName: 'Ngân hàng Xuất Nhập Khẩu Việt Nam (Eximbank)' },
-  { shortName: 'BVBank', code: 'BVB', fullName: 'Ngân hàng Bản Việt (BVBank / Timo)' },
-  { shortName: 'Cake by VPBank', code: 'CAKE', fullName: 'Ngân hàng số Cake by VPBank' },
-  { shortName: 'Nam A Bank', code: 'NAB', fullName: 'Ngân hàng Nam Á (Nam A Bank)' },
-  { shortName: 'PVcomBank', code: 'PVC', fullName: 'Ngân hàng Đại Chúng Việt Nam (PVcomBank)' },
-  { shortName: 'Bac A Bank', code: 'BAB', fullName: 'Ngân hàng Bắc Á (Bac A Bank)' },
-  { shortName: 'VietABank', code: 'VAB', fullName: 'Ngân hàng Việt Á (VietABank)' },
-  { shortName: 'VietBank', code: 'VBB', fullName: 'Ngân hàng Việt Nam Thương Tín (VietBank)' },
-  { shortName: 'KienlongBank', code: 'KLB', fullName: 'Ngân hàng Kiên Long (KienlongBank)' },
+  {
+    shortName: 'SeABank',
+    code: 'SSB',
+    fullName: 'Ngân hàng Đông Nam Á (SeABank)',
+  },
+  {
+    shortName: 'LPBank',
+    code: 'LPB',
+    fullName: 'Ngân hàng Lộc Phát Việt Nam (LPBank)',
+  },
+  {
+    shortName: 'Eximbank',
+    code: 'EIB',
+    fullName: 'Ngân hàng Xuất Nhập Khẩu Việt Nam (Eximbank)',
+  },
+  {
+    shortName: 'BVBank',
+    code: 'BVB',
+    fullName: 'Ngân hàng Bản Việt (BVBank / Timo)',
+  },
+  {
+    shortName: 'Cake by VPBank',
+    code: 'CAKE',
+    fullName: 'Ngân hàng số Cake by VPBank',
+  },
+  {
+    shortName: 'Nam A Bank',
+    code: 'NAB',
+    fullName: 'Ngân hàng Nam Á (Nam A Bank)',
+  },
+  {
+    shortName: 'PVcomBank',
+    code: 'PVC',
+    fullName: 'Ngân hàng Đại Chúng Việt Nam (PVcomBank)',
+  },
+  {
+    shortName: 'Bac A Bank',
+    code: 'BAB',
+    fullName: 'Ngân hàng Bắc Á (Bac A Bank)',
+  },
+  {
+    shortName: 'VietABank',
+    code: 'VAB',
+    fullName: 'Ngân hàng Việt Á (VietABank)',
+  },
+  {
+    shortName: 'VietBank',
+    code: 'VBB',
+    fullName: 'Ngân hàng Việt Nam Thương Tín (VietBank)',
+  },
+  {
+    shortName: 'KienlongBank',
+    code: 'KLB',
+    fullName: 'Ngân hàng Kiên Long (KienlongBank)',
+  },
   { shortName: 'NCB', code: 'NCB', fullName: 'Ngân hàng Quốc Dân (NCB)' },
-  { shortName: 'PGBank', code: 'PGB', fullName: 'Ngân hàng Thịnh Vượng và Phát Triển (PGBank)' },
-  { shortName: 'Saigonbank', code: 'SGB', fullName: 'Ngân hàng Sài Gòn Công Thương (Saigonbank)' },
-  { shortName: 'BaoVietBank', code: 'BVB', fullName: 'Ngân hàng Bảo Việt (BaoVietBank)' },
-  { shortName: 'Shinhan Bank', code: 'SHBVN', fullName: 'Ngân hàng Shinhan Việt Nam' },
-  { shortName: 'Woori Bank', code: 'WVN', fullName: 'Ngân hàng Woori Việt Nam' },
+  {
+    shortName: 'PGBank',
+    code: 'PGB',
+    fullName: 'Ngân hàng Thịnh Vượng và Phát Triển (PGBank)',
+  },
+  {
+    shortName: 'Saigonbank',
+    code: 'SGB',
+    fullName: 'Ngân hàng Sài Gòn Công Thương (Saigonbank)',
+  },
+  {
+    shortName: 'BaoVietBank',
+    code: 'BVB',
+    fullName: 'Ngân hàng Bảo Việt (BaoVietBank)',
+  },
+  {
+    shortName: 'Shinhan Bank',
+    code: 'SHBVN',
+    fullName: 'Ngân hàng Shinhan Việt Nam',
+  },
+  {
+    shortName: 'Woori Bank',
+    code: 'WVN',
+    fullName: 'Ngân hàng Woori Việt Nam',
+  },
   { shortName: 'HSBC', code: 'HSBC', fullName: 'Ngân hàng HSBC Việt Nam' },
   { shortName: 'UOB', code: 'UOB', fullName: 'Ngân hàng UOB Việt Nam' },
 ];
@@ -50,10 +162,16 @@ export interface VnDateOfBirthSelectProps {
   onChange: (isoDate: string) => void;
 }
 
-const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
-const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+const DAYS = Array.from({ length: 31 }, (_, i) =>
+  String(i + 1).padStart(2, '0'),
+);
+const MONTHS = Array.from({ length: 12 }, (_, i) =>
+  String(i + 1).padStart(2, '0'),
+);
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 75 }, (_, i) => String(CURRENT_YEAR - 14 - i));
+const YEARS = Array.from({ length: 75 }, (_, i) =>
+  String(CURRENT_YEAR - 14 - i),
+);
 
 export const VnDateOfBirthSelect: React.FC<VnDateOfBirthSelectProps> = ({
   id,
@@ -79,7 +197,11 @@ export const VnDateOfBirthSelect: React.FC<VnDateOfBirthSelectProps> = ({
     }
   }, [value]);
 
-  const handlePartChange = (nextDay: string, nextMonth: string, nextYear: string) => {
+  const handlePartChange = (
+    nextDay: string,
+    nextMonth: string,
+    nextYear: string,
+  ) => {
     setDay(nextDay);
     setMonth(nextMonth);
     setYear(nextYear);
@@ -171,7 +293,9 @@ export interface VnBankAutocompleteInputProps {
   placeholder?: string;
 }
 
-export const VnBankAutocompleteInput: React.FC<VnBankAutocompleteInputProps> = ({
+export const VnBankAutocompleteInput: React.FC<
+  VnBankAutocompleteInputProps
+> = ({
   id,
   testId,
   value,
@@ -276,9 +400,21 @@ export const VnBankAutocompleteInput: React.FC<VnBankAutocompleteInputProps> = (
                 gap: '2px',
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--info-text)' }}>
+              <div
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  color: 'var(--info-text)',
+                }}
+              >
                 {bank.shortName}{' '}
-                <span style={{ fontSize: '12px', color: 'var(--muted-color)', fontWeight: 500 }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--muted-color)',
+                    fontWeight: 500,
+                  }}
+                >
                   ({bank.code})
                 </span>
               </div>

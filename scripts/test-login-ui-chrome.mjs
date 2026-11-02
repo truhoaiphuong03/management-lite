@@ -27,14 +27,19 @@ async function runChromeTest() {
   const steps = [];
   function record(name, pass, detail = '') {
     steps.push({ name, pass, detail });
-    console.log(`  ${pass ? '✔ PASS' : '✖ FAIL'}: ${name}${detail ? ` (${detail})` : ''}`);
+    console.log(
+      `  ${pass ? '✔ PASS' : '✖ FAIL'}: ${name}${detail ? ` (${detail})` : ''}`,
+    );
   }
 
   try {
     await new Promise((r) => setTimeout(r, 1500));
-    const newTab = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(webBase)}`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${port}/json/new?${encodeURIComponent(webBase)}`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -73,7 +78,9 @@ async function runChromeTest() {
     // Wait for login page ready
     let ready = false;
     for (let i = 0; i < 20; i++) {
-      const title = await evaluate(`document.querySelector('.login-card-container') ? true : false`);
+      const title = await evaluate(
+        `document.querySelector('.login-card-container') ? true : false`,
+      );
       if (title) {
         ready = true;
         break;
@@ -160,7 +167,11 @@ async function runChromeTest() {
       const pwInput = document.querySelector('#password');
       return pwInput ? pwInput.type : null;
     })()`);
-    record('Password input initially hidden', pwState0 === 'password', `type=${pwState0}`);
+    record(
+      'Password input initially hidden',
+      pwState0 === 'password',
+      `type=${pwState0}`,
+    );
 
     // Click toggle button
     await evaluate(`(() => {
@@ -177,7 +188,11 @@ async function runChromeTest() {
         ariaLabel: btn ? btn.getAttribute('aria-label') : null,
       };
     })()`);
-    record('Password visible after toggle click', pwState1.type === 'text' && pwState1.ariaLabel === 'Ẩn mật khẩu', `type=${pwState1.type}, label=${pwState1.ariaLabel}`);
+    record(
+      'Password visible after toggle click',
+      pwState1.type === 'text' && pwState1.ariaLabel === 'Ẩn mật khẩu',
+      `type=${pwState1.type}, label=${pwState1.ariaLabel}`,
+    );
 
     // Click toggle button again
     await evaluate(`(() => {
@@ -194,7 +209,11 @@ async function runChromeTest() {
         ariaLabel: btn ? btn.getAttribute('aria-label') : null,
       };
     })()`);
-    record('Password hidden after second toggle click', pwState2.type === 'password' && pwState2.ariaLabel === 'Hiện mật khẩu', `type=${pwState2.type}, label=${pwState2.ariaLabel}`);
+    record(
+      'Password hidden after second toggle click',
+      pwState2.type === 'password' && pwState2.ariaLabel === 'Hiện mật khẩu',
+      `type=${pwState2.type}, label=${pwState2.ariaLabel}`,
+    );
 
     // 3. Remember Me Compliance (FIX 3)
     const rememberMeState = await evaluate(`(() => {
@@ -207,10 +226,20 @@ async function runChromeTest() {
         badgeText: label ? label.querySelector('span:last-child')?.textContent : '',
       };
     })()`);
-    record('Remember Me checkbox disabled and unchecked', rememberMeState.disabled && !rememberMeState.checked, `disabled=${rememberMeState.disabled}`);
-    record('Remember Me displays "Chưa hỗ trợ" tag', rememberMeState.badgeText?.includes('Chưa hỗ trợ'), `badge=${rememberMeState.badgeText}`);
-    record('Remember Me tooltip states 12-hour duration and no browser-close claim',
-      rememberMeState.title.includes('12 giờ') && !rememberMeState.title.includes('khi đóng trình duyệt'),
+    record(
+      'Remember Me checkbox disabled and unchecked',
+      rememberMeState.disabled && !rememberMeState.checked,
+      `disabled=${rememberMeState.disabled}`,
+    );
+    record(
+      'Remember Me displays "Chưa hỗ trợ" tag',
+      rememberMeState.badgeText?.includes('Chưa hỗ trợ'),
+      `badge=${rememberMeState.badgeText}`,
+    );
+    record(
+      'Remember Me tooltip states 12-hour duration and no browser-close claim',
+      rememberMeState.title.includes('12 giờ') &&
+        !rememberMeState.title.includes('khi đóng trình duyệt'),
       `tooltip=${rememberMeState.title.slice(0, 40)}...`,
     );
 
@@ -240,24 +269,58 @@ async function runChromeTest() {
         activeTag: activeElement ? activeElement.tagName : null,
       };
     })()`);
-    record('Forgot Password modal opened with role="dialog" & aria-modal="true"', modalState.isOpen && modalState.role === 'dialog' && modalState.ariaModal === 'true');
-    record('Modal accessibility titles linked properly', modalState.hasTitle && modalState.hasDesc && modalState.ariaLabelledby === 'forgot-password-modal-title');
-    record('Focus moved inside modal to close button upon opening', modalState.activeIsCloseBtn, `activeElement=${modalState.activeTag}`);
+    record(
+      'Forgot Password modal opened with role="dialog" & aria-modal="true"',
+      modalState.isOpen &&
+        modalState.role === 'dialog' &&
+        modalState.ariaModal === 'true',
+    );
+    record(
+      'Modal accessibility titles linked properly',
+      modalState.hasTitle &&
+        modalState.hasDesc &&
+        modalState.ariaLabelledby === 'forgot-password-modal-title',
+    );
+    record(
+      'Focus moved inside modal to close button upon opening',
+      modalState.activeIsCloseBtn,
+      `activeElement=${modalState.activeTag}`,
+    );
 
     // Press Tab to test focus trap
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab' });
-    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab' });
+    await send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'Tab',
+      code: 'Tab',
+    });
+    await send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'Tab',
+      code: 'Tab',
+    });
     await new Promise((r) => setTimeout(r, 50));
 
     const focusAfterTab = await evaluate(`(() => {
       const active = document.activeElement;
       return active ? { tag: active.tagName, text: active.textContent } : null;
     })()`);
-    record('Focus advanced to modal primary action "Đã hiểu"', focusAfterTab?.text?.includes('Đã hiểu'), `text=${focusAfterTab?.text}`);
+    record(
+      'Focus advanced to modal primary action "Đã hiểu"',
+      focusAfterTab?.text?.includes('Đã hiểu'),
+      `text=${focusAfterTab?.text}`,
+    );
 
     // Press Escape to test closing
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
-    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
+    await send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'Escape',
+      code: 'Escape',
+    });
+    await send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'Escape',
+      code: 'Escape',
+    });
     await new Promise((r) => setTimeout(r, 100));
 
     const afterEscapeState = await evaluate(`(() => {
@@ -269,7 +332,11 @@ async function runChromeTest() {
       };
     })()`);
     record('Escape key closed modal', !afterEscapeState.isOpen);
-    record('Focus restored to "Quên mật khẩu?" trigger button', afterEscapeState.activeText?.includes('Quên mật khẩu'), `focused=${afterEscapeState.activeText}`);
+    record(
+      'Focus restored to "Quên mật khẩu?" trigger button',
+      afterEscapeState.activeText?.includes('Quên mật khẩu'),
+      `focused=${afterEscapeState.activeText}`,
+    );
 
     // 5. Client validation errors
     // Submit empty form
@@ -283,14 +350,18 @@ async function runChromeTest() {
       const alert = document.querySelector('div[role="alert"]');
       return alert ? alert.textContent : '';
     })()`);
-    record('Empty form submission triggers Vietnamese validation', errEmpty.includes('Vui lòng nhập tên đăng nhập và mật khẩu'), `error="${errEmpty}"`);
+    record(
+      'Empty form submission triggers Vietnamese validation',
+      errEmpty.includes('Vui lòng nhập tên đăng nhập và mật khẩu'),
+      `error="${errEmpty}"`,
+    );
 
     ws.close();
     chrome.kill('SIGTERM');
 
     console.log('\n======================================================');
     console.log(`TOTAL REAL CHROME CDP STEPS: ${steps.length}`);
-    const passed = steps.filter(s => s.pass).length;
+    const passed = steps.filter((s) => s.pass).length;
     console.log(`PASSED: ${passed}/${steps.length}`);
     console.log('======================================================\n');
 

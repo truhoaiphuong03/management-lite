@@ -21,7 +21,10 @@ export async function resolve(specifier, context, nextResolve) {
   return nextResolve(specifier, context);
 }
 `;
-register('data:text/javascript,' + encodeURIComponent(loaderCode), import.meta.url);
+register(
+  'data:text/javascript,' + encodeURIComponent(loaderCode),
+  import.meta.url,
+);
 
 test('V0.2 ISSUES-01: route registry, router matching, and ownerOnly route metadata', async () => {
   const { ROUTE_REGISTRY } = await import(
@@ -34,18 +37,37 @@ test('V0.2 ISSUES-01: route registry, router matching, and ownerOnly route metad
   // 1. Verify /issues list route in ROUTE_REGISTRY
   const issuesRoute = ROUTE_REGISTRY['/issues'];
   assert.ok(issuesRoute, 'Issues route must exist in ROUTE_REGISTRY');
-  assert.equal(issuesRoute.id, 'UI-ISSUES-01', 'Route ID must be UI-ISSUES-01 (nonconflicting)');
+  assert.equal(
+    issuesRoute.id,
+    'UI-ISSUES-01',
+    'Route ID must be UI-ISSUES-01 (nonconflicting)',
+  );
   assert.equal(issuesRoute.path, '/issues');
-  assert.equal(issuesRoute.implemented, true, 'Route must be marked implemented');
+  assert.equal(
+    issuesRoute.implemented,
+    true,
+    'Route must be marked implemented',
+  );
   assert.equal(issuesRoute.ownerOnly, true, 'Route must be Owner-only');
   assert.equal(issuesRoute.category, 'issues', 'Category must be issues');
 
   // 2. Verify /issues/:id detail route in ROUTE_REGISTRY
   const issueDetailRoute = ROUTE_REGISTRY['/issues/:id'];
-  assert.ok(issueDetailRoute, 'Issue detail route must exist in ROUTE_REGISTRY');
-  assert.equal(issueDetailRoute.id, 'UI-ISSUES-02', 'Route ID must be UI-ISSUES-02 (nonconflicting)');
+  assert.ok(
+    issueDetailRoute,
+    'Issue detail route must exist in ROUTE_REGISTRY',
+  );
+  assert.equal(
+    issueDetailRoute.id,
+    'UI-ISSUES-02',
+    'Route ID must be UI-ISSUES-02 (nonconflicting)',
+  );
   assert.equal(issueDetailRoute.path, '/issues/:id');
-  assert.equal(issueDetailRoute.implemented, true, 'Route must be marked implemented');
+  assert.equal(
+    issueDetailRoute.implemented,
+    true,
+    'Route must be marked implemented',
+  );
   assert.equal(issueDetailRoute.ownerOnly, true, 'Route must be Owner-only');
   assert.equal(issueDetailRoute.category, 'issues', 'Category must be issues');
 
@@ -74,7 +96,11 @@ test('V0.2 ISSUES-02: navigation binding, desktop sidebar, mobile More, and Staf
   const issuesNavItem = NAV_ITEMS.find((item) => item.id === 'issues');
   assert.ok(issuesNavItem, 'Issues item must exist in NAV_ITEMS');
   assert.equal(issuesNavItem.path, '/issues');
-  assert.equal(issuesNavItem.ownerOnly, true, 'Issues navigation item must be ownerOnly');
+  assert.equal(
+    issuesNavItem.ownerOnly,
+    true,
+    'Issues navigation item must be ownerOnly',
+  );
 
   // 2. Staff navigation filtering (Desktop sidebar): must NEVER include issues
   const staffVisible = NAV_ITEMS.filter((item) => {
@@ -102,7 +128,11 @@ test('V0.2 ISSUES-02: navigation binding, desktop sidebar, mobile More, and Staf
 
   // 4. Issues must NOT be in primary mobile tabs (not a 5th primary tab)
   const isPrimary = ['/', '/clock', '/reports'].includes(issuesNavItem.path);
-  assert.equal(isPrimary, false, 'Issues must NOT be added as a primary bottom tab');
+  assert.equal(
+    isPrimary,
+    false,
+    'Issues must NOT be added as a primary bottom tab',
+  );
 
   // 5. Owner navigation (verified): must include issues in desktop and More
   const ownerVisible = NAV_ITEMS.filter((item) => {
@@ -123,35 +153,67 @@ test('V0.2 ISSUES-03: session-based Owner access, role-switch protection, and fa
   const content = readFileSync(appPath, 'utf-8');
 
   // 1. Session verification check against /api/v1/auth/me
-  assert.ok(content.includes('/api/v1/auth/me'), 'App.tsx must verify session via /api/v1/auth/me');
-  assert.ok(content.includes('verifiedOwnerSession'), 'App.tsx must track verifiedOwnerSession from server');
-  assert.ok(content.includes("role === 'owner'"), 'App.tsx must check active_workspace.role === owner');
+  assert.ok(
+    content.includes('/api/v1/auth/me'),
+    'App.tsx must verify session via /api/v1/auth/me',
+  );
+  assert.ok(
+    content.includes('verifiedOwnerSession'),
+    'App.tsx must track verifiedOwnerSession from server',
+  );
+  assert.ok(
+    content.includes("role === 'owner'"),
+    'App.tsx must check active_workspace.role === owner',
+  );
 
   // 2. Fail-closed guard for issues routes
-  assert.ok(content.includes('isIssuesRoute'), 'App.tsx must identify issues routes');
   assert.ok(
-    content.includes('!verifiedOwnerSession || role !== \'owner\''),
+    content.includes('isIssuesRoute'),
+    'App.tsx must identify issues routes',
+  );
+  assert.ok(
+    content.includes("!verifiedOwnerSession || role !== 'owner'"),
     'App.tsx must fail closed if server session is not verified owner, even if UI role is switched',
   );
 
   // 3. Forbidden message for non-owner attempting access
   assert.ok(
-    content.includes('Chức năng Sổ tay lỗi chỉ dành riêng cho Chủ sở hữu (Owner)'),
+    content.includes(
+      'Chức năng Sổ tay lỗi chỉ dành riêng cho Chủ sở hữu (Owner)',
+    ),
     'App.tsx must provide explicit forbidden notice when non-owner accesses Issues',
   );
 
   // 4. Session termination clears verifiedOwnerSession
-  assert.ok(content.includes('setVerifiedOwnerSession(false)'), 'App.tsx must reset verifiedOwnerSession on logout or error');
+  assert.ok(
+    content.includes('setVerifiedOwnerSession(false)'),
+    'App.tsx must reset verifiedOwnerSession on logout or error',
+  );
 
   // 5. Routes wired in App.tsx
   assert.ok(content.includes("case '/issues':"), 'App.tsx must route /issues');
-  assert.ok(content.includes("case '/issues/:id':"), 'App.tsx must route /issues/:id');
-  assert.ok(content.includes('<IssuesScreen'), 'App.tsx must render IssuesScreen');
-  assert.ok(content.includes('<IssueDetailScreen'), 'App.tsx must render IssueDetailScreen');
+  assert.ok(
+    content.includes("case '/issues/:id':"),
+    'App.tsx must route /issues/:id',
+  );
+  assert.ok(
+    content.includes('<IssuesScreen'),
+    'App.tsx must render IssuesScreen',
+  );
+  assert.ok(
+    content.includes('<IssueDetailScreen'),
+    'App.tsx must render IssueDetailScreen',
+  );
 
   // 6. Browser popstate and direct URL support
-  assert.ok(content.includes('popstate'), 'App.tsx must synchronize with browser Back/Forward (popstate)');
-  assert.ok(content.includes('pushState'), 'App.tsx must update browser history (pushState)');
+  assert.ok(
+    content.includes('popstate'),
+    'App.tsx must synchronize with browser Back/Forward (popstate)',
+  );
+  assert.ok(
+    content.includes('pushState'),
+    'App.tsx must update browser history (pushState)',
+  );
 });
 
 test('V0.2 ISSUES-04: IssuesScreen.tsx read-only list, filters, cursor pagination, and zero mutations', () => {
@@ -161,20 +223,47 @@ test('V0.2 ISSUES-04: IssuesScreen.tsx read-only list, filters, cursor paginatio
   const content = readFileSync(screenPath, 'utf-8');
 
   // 1. Read-only API endpoint
-  assert.ok(content.includes('/api/v1/issues'), 'Must query canonical /api/v1/issues');
-  assert.ok(content.includes("credentials: 'include'"), 'Must send session credentials');
+  assert.ok(
+    content.includes('/api/v1/issues'),
+    'Must query canonical /api/v1/issues',
+  );
+  assert.ok(
+    content.includes("credentials: 'include'"),
+    'Must send session credentials',
+  );
 
   // 2. Query filters supported: status, type, cursor, limit
-  assert.ok(content.includes("queryParams.set('limit'"), 'Must set limit parameter');
-  assert.ok(content.includes("queryParams.set('status'"), 'Must support status filter');
-  assert.ok(content.includes("queryParams.set('type'"), 'Must support type filter');
-  assert.ok(content.includes("queryParams.set('cursor'"), 'Must support cursor pagination');
+  assert.ok(
+    content.includes("queryParams.set('limit'"),
+    'Must set limit parameter',
+  );
+  assert.ok(
+    content.includes("queryParams.set('status'"),
+    'Must support status filter',
+  );
+  assert.ok(
+    content.includes("queryParams.set('type'"),
+    'Must support type filter',
+  );
+  assert.ok(
+    content.includes("queryParams.set('cursor'"),
+    'Must support cursor pagination',
+  );
 
   // 3. Handled states
-  assert.ok(content.includes('LoadingState'), 'Must render LoadingState during loading');
-  assert.ok(content.includes('EmptyState'), 'Must render EmptyState when no issues found');
+  assert.ok(
+    content.includes('LoadingState'),
+    'Must render LoadingState during loading',
+  );
+  assert.ok(
+    content.includes('EmptyState'),
+    'Must render EmptyState when no issues found',
+  );
   assert.ok(content.includes('ErrorState'), 'Must render ErrorState on error');
-  assert.ok(content.includes('401'), 'Must handle 401 unauthenticated session expired');
+  assert.ok(
+    content.includes('401'),
+    'Must handle 401 unauthenticated session expired',
+  );
   assert.ok(content.includes('403'), 'Must handle 403 forbidden access denied');
   assert.ok(content.includes('400'), 'Must handle 400 invalid cursor / query');
   assert.ok(content.includes('429'), 'Must handle 429 rate limit');
@@ -183,22 +272,52 @@ test('V0.2 ISSUES-04: IssuesScreen.tsx read-only list, filters, cursor paginatio
   assert.ok(content.includes('nextCursor'), 'Must track nextCursor');
   assert.ok(content.includes('hasMore'), 'Must track hasMore flag');
   assert.ok(content.includes('btn-load-more'), 'Must render load more button');
-  assert.ok(content.includes('requestSeqRef'), 'Must guard against stale asynchronous responses');
+  assert.ok(
+    content.includes('requestSeqRef'),
+    'Must guard against stale asynchronous responses',
+  );
 
   // 5. Rendered issue fields
   assert.ok(content.includes('issue.title'), 'Must display issue title');
-  assert.ok(content.includes('issue.description'), 'Must display issue description');
-  assert.ok(content.includes('issue.route_template'), 'Must display route template');
+  assert.ok(
+    content.includes('issue.description'),
+    'Must display issue description',
+  );
+  assert.ok(
+    content.includes('issue.route_template'),
+    'Must display route template',
+  );
   assert.ok(content.includes('issue.version'), 'Must display version');
-  assert.ok(content.includes('issue.updated_at'), 'Must display updated timestamp');
-  assert.ok(content.includes('StatusBadge'), 'Must use StatusBadge for type and status');
+  assert.ok(
+    content.includes('issue.updated_at'),
+    'Must display updated timestamp',
+  );
+  assert.ok(
+    content.includes('StatusBadge'),
+    'Must use StatusBadge for type and status',
+  );
 
   // 6. Zero mutations lock: no create form, edit form, confirm-fix or reopen mutations
-  const nonBulkPostCount = (content.match(/method:\s*'POST'/g) || []).length - (content.includes('/api/v1/issues/bulk-confirm') ? 1 : 0);
-  assert.equal(nonBulkPostCount, 0, 'IssuesScreen MUST NOT issue single-issue POST mutation requests');
-  assert.ok(!content.includes("method: 'PATCH'"), 'IssuesScreen MUST NOT issue PATCH mutation requests in CP2.1');
-  assert.ok(!content.includes("method: 'DELETE'"), 'IssuesScreen MUST NOT issue DELETE mutation requests in CP2.1');
-  assert.ok(!content.includes('confirm-fix'), 'IssuesScreen MUST NOT contain confirm-fix handlers');
+  const nonBulkPostCount =
+    (content.match(/method:\s*'POST'/g) || []).length -
+    (content.includes('/api/v1/issues/bulk-confirm') ? 1 : 0);
+  assert.equal(
+    nonBulkPostCount,
+    0,
+    'IssuesScreen MUST NOT issue single-issue POST mutation requests',
+  );
+  assert.ok(
+    !content.includes("method: 'PATCH'"),
+    'IssuesScreen MUST NOT issue PATCH mutation requests in CP2.1',
+  );
+  assert.ok(
+    !content.includes("method: 'DELETE'"),
+    'IssuesScreen MUST NOT issue DELETE mutation requests in CP2.1',
+  );
+  assert.ok(
+    !content.includes('confirm-fix'),
+    'IssuesScreen MUST NOT contain confirm-fix handlers',
+  );
   assert.ok(
     !content.includes('/reopen') && !content.includes('handleReopen'),
     'IssuesScreen MUST NOT contain reopen mutation handlers',
@@ -206,14 +325,23 @@ test('V0.2 ISSUES-04: IssuesScreen.tsx read-only list, filters, cursor paginatio
 });
 
 test('V0.2 ISSUES-05: IssueDetailScreen.tsx metadata, activity timeline, safe 404 conceal, and zero HTML injection', () => {
-  const detailPath = resolve(root, 'apps/web/src/screens/IssueDetailScreen.tsx');
+  const detailPath = resolve(
+    root,
+    'apps/web/src/screens/IssueDetailScreen.tsx',
+  );
   assert.ok(existsSync(detailPath), 'IssueDetailScreen.tsx must exist');
 
   const content = readFileSync(detailPath, 'utf-8');
 
   // 1. Read-only API endpoint
-  assert.ok(content.includes('/api/v1/issues/'), 'Must query canonical GET /api/v1/issues/:id');
-  assert.ok(content.includes("credentials: 'include'"), 'Must send session credentials');
+  assert.ok(
+    content.includes('/api/v1/issues/'),
+    'Must query canonical GET /api/v1/issues/:id',
+  );
+  assert.ok(
+    content.includes("credentials: 'include'"),
+    'Must send session credentials',
+  );
 
   // 2. Safe 404 handling (conceals cross-workspace issues)
   assert.ok(content.includes('res.status === 404'), 'Must handle 404 response');
@@ -224,23 +352,47 @@ test('V0.2 ISSUES-05: IssueDetailScreen.tsx metadata, activity timeline, safe 40
 
   // 3. Rendered metadata fields
   assert.ok(content.includes('issue.title'), 'Must display issue title');
-  assert.ok(content.includes('issue.description'), 'Must display issue description');
-  assert.ok(content.includes('issue.route_template'), 'Must display route_template');
+  assert.ok(
+    content.includes('issue.description'),
+    'Must display issue description',
+  );
+  assert.ok(
+    content.includes('issue.route_template'),
+    'Must display route_template',
+  );
   assert.ok(content.includes('issue.status'), 'Must display status');
   assert.ok(content.includes('issue.version'), 'Must display version');
   assert.ok(content.includes('issue.created_at'), 'Must display created_at');
   assert.ok(content.includes('issue.updated_at'), 'Must display updated_at');
-  assert.ok(content.includes('issue.closed_at'), 'Must handle closed_at timestamp');
+  assert.ok(
+    content.includes('issue.closed_at'),
+    'Must handle closed_at timestamp',
+  );
 
   // 4. Activity timeline rendering
   assert.ok(content.includes('activities'), 'Must track activities list');
   assert.ok(content.includes('act.action'), 'Must display activity action');
   assert.ok(content.includes('act.actor_name'), 'Must display actor name');
-  assert.ok(content.includes('act.created_at'), 'Must display activity timestamp');
-  assert.ok(content.includes('metadata_sanitized'), 'Must display sanitized activity metadata');
-  assert.ok(content.includes('previous_status'), 'Must display previous_status in timeline');
-  assert.ok(content.includes('to_status'), 'Must display to_status in timeline');
-  assert.ok(content.includes('reason'), 'Must display sanitized reason in timeline');
+  assert.ok(
+    content.includes('act.created_at'),
+    'Must display activity timestamp',
+  );
+  assert.ok(
+    content.includes('metadata_sanitized'),
+    'Must display sanitized activity metadata',
+  );
+  assert.ok(
+    content.includes('previous_status'),
+    'Must display previous_status in timeline',
+  );
+  assert.ok(
+    content.includes('to_status'),
+    'Must display to_status in timeline',
+  );
+  assert.ok(
+    content.includes('reason'),
+    'Must display sanitized reason in timeline',
+  );
 
   // 5. Zero HTML injection (XSS protection)
   assert.ok(
@@ -249,16 +401,40 @@ test('V0.2 ISSUES-05: IssueDetailScreen.tsx metadata, activity timeline, safe 40
   );
 
   // 6. Navigation and refresh
-  assert.ok(content.includes('btn-back-to-issues'), 'Must provide back to list button');
-  assert.ok(content.includes('btn-refresh-detail'), 'Must provide refresh button');
+  assert.ok(
+    content.includes('btn-back-to-issues'),
+    'Must provide back to list button',
+  );
+  assert.ok(
+    content.includes('btn-refresh-detail'),
+    'Must provide refresh button',
+  );
 
   // 7. Controlled Owner mutations: confirm-fix and reopen endpoints supported; generic PATCH and DELETE remain locked
-  assert.ok(content.includes('/confirm-fix'), 'IssueDetailScreen must call /confirm-fix endpoint');
-  assert.ok(content.includes('/reopen'), 'IssueDetailScreen must call /reopen endpoint');
-  assert.ok(content.includes('btn-confirm-fix'), 'Must provide Confirm Fix button for Owner');
-  assert.ok(content.includes('btn-reopen-issue'), 'Must provide Reopen button for Owner');
-  assert.ok(!content.includes("method: 'PATCH'"), 'IssueDetailScreen MUST NOT issue PATCH mutation requests');
-  assert.ok(!content.includes("method: 'DELETE'"), 'IssueDetailScreen MUST NOT issue DELETE mutation requests');
+  assert.ok(
+    content.includes('/confirm-fix'),
+    'IssueDetailScreen must call /confirm-fix endpoint',
+  );
+  assert.ok(
+    content.includes('/reopen'),
+    'IssueDetailScreen must call /reopen endpoint',
+  );
+  assert.ok(
+    content.includes('btn-confirm-fix'),
+    'Must provide Confirm Fix button for Owner',
+  );
+  assert.ok(
+    content.includes('btn-reopen-issue'),
+    'Must provide Reopen button for Owner',
+  );
+  assert.ok(
+    !content.includes("method: 'PATCH'"),
+    'IssueDetailScreen MUST NOT issue PATCH mutation requests',
+  );
+  assert.ok(
+    !content.includes("method: 'DELETE'"),
+    'IssueDetailScreen MUST NOT issue DELETE mutation requests',
+  );
 });
 
 test('V0.2 ISSUES-06: design tokens, touch targets, and mobile responsiveness', async () => {
@@ -281,9 +457,18 @@ test('V0.2 ISSUES-06: design tokens, touch targets, and mobile responsiveness', 
     resolve(root, 'apps/web/src/screens/IssuesScreen.tsx'),
     'utf-8',
   );
-  assert.ok(screenContent.includes("minHeight: '44px'"), 'Interactive buttons must meet 44px touch target');
-  assert.ok(screenContent.includes("flexWrap: 'wrap'"), 'Toolbars must wrap to prevent horizontal overflow at 360px');
-  assert.ok(screenContent.includes("boxSizing: 'border-box'"), 'Input elements must use border-box');
+  assert.ok(
+    screenContent.includes("minHeight: '44px'"),
+    'Interactive buttons must meet 44px touch target',
+  );
+  assert.ok(
+    screenContent.includes("flexWrap: 'wrap'"),
+    'Toolbars must wrap to prevent horizontal overflow at 360px',
+  );
+  assert.ok(
+    screenContent.includes("boxSizing: 'border-box'"),
+    'Input elements must use border-box',
+  );
 });
 
 test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React rendering (Owner vs Staff vs Tampered)', async () => {
@@ -303,7 +488,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
       onNavigate: () => {},
       role: 'owner',
       isOwnerVerified: true,
-    })
+    }),
   );
   assert.ok(
     htmlOwnerSidebar.includes('Sổ tay lỗi'),
@@ -318,7 +503,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
       role: 'owner',
       isOwnerVerified: true,
       children: React.createElement('div', null, 'owner-content'),
-    })
+    }),
   );
   assert.ok(
     htmlOwnerAppShell.includes('Sổ tay lỗi'),
@@ -332,7 +517,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
       onNavigate: () => {},
       role: 'staff',
       isOwnerVerified: false,
-    })
+    }),
   );
   assert.equal(
     htmlStaffSidebar.includes('Sổ tay lỗi'),
@@ -353,7 +538,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
       role: 'staff',
       isOwnerVerified: false,
       children: React.createElement('div', null, 'staff-content'),
-    })
+    }),
   );
   assert.equal(
     htmlStaffAppShell.includes('Sổ tay lỗi'),
@@ -368,7 +553,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
       onNavigate: () => {},
       role: 'owner',
       isOwnerVerified: false,
-    })
+    }),
   );
   assert.equal(
     htmlTamperedSidebar.includes('Sổ tay lỗi'),
@@ -383,7 +568,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
       role: 'owner',
       isOwnerVerified: false,
       children: React.createElement('div', null, 'tampered-content'),
-    })
+    }),
   );
   assert.equal(
     htmlTamperedAppShell.includes('Sổ tay lỗi'),
@@ -399,7 +584,7 @@ test('V0.2 ISSUES-07: Behavioral - DesktopSidebar and AppShell runtime React ren
       role: 'owner',
       isOwnerVerified: undefined,
       children: React.createElement('div', null, 'undefined-content'),
-    })
+    }),
   );
   assert.equal(
     htmlUndefinedAppShell.includes('Sổ tay lỗi'),
@@ -416,39 +601,67 @@ test('V0.2 ISSUES-08: Behavioral - Production evaluateRouteAccess and RBAC decis
   // 1. Direct /issues navigation by verified Owner -> ALLOWED
   const res1 = evaluateRouteAccess('/issues', true, 'owner');
   assert.equal(res1.isIssuesRoute, true);
-  assert.equal(res1.isForbidden, false, 'Verified Owner must be allowed to access /issues');
+  assert.equal(
+    res1.isForbidden,
+    false,
+    'Verified Owner must be allowed to access /issues',
+  );
 
   // 2. Direct /issues navigation by Staff (T10) -> FORBIDDEN
   const res2 = evaluateRouteAccess('/issues', false, 'staff');
   assert.equal(res2.isIssuesRoute, true);
-  assert.equal(res2.isForbidden, true, 'Staff must be forbidden from accessing /issues');
+  assert.equal(
+    res2.isForbidden,
+    true,
+    'Staff must be forbidden from accessing /issues',
+  );
 
   // 3. Direct /issues navigation by unverified Owner (tampered local role, T12) -> FORBIDDEN
   const res3 = evaluateRouteAccess('/issues', false, 'owner');
   assert.equal(res3.isIssuesRoute, true);
-  assert.equal(res3.isForbidden, true, 'Unverified Owner must be forbidden from accessing /issues');
+  assert.equal(
+    res3.isForbidden,
+    true,
+    'Unverified Owner must be forbidden from accessing /issues',
+  );
 
   // 4. Direct /issues/:id navigation by verified Owner -> ALLOWED with param extraction
   const sampleUuid = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
   const res4 = evaluateRouteAccess(`/issues/${sampleUuid}`, true, 'owner');
   assert.equal(res4.isIssuesRoute, true);
-  assert.equal(res4.isForbidden, false, 'Verified Owner must be allowed to access /issues/:id');
+  assert.equal(
+    res4.isForbidden,
+    false,
+    'Verified Owner must be allowed to access /issues/:id',
+  );
   assert.equal(res4.params.id, sampleUuid);
 
   // 5. Direct /issues/:id navigation by Staff (T11) -> FORBIDDEN
   const res5 = evaluateRouteAccess(`/issues/${sampleUuid}`, false, 'staff');
   assert.equal(res5.isIssuesRoute, true);
-  assert.equal(res5.isForbidden, true, 'Staff must be forbidden from accessing /issues/:id');
+  assert.equal(
+    res5.isForbidden,
+    true,
+    'Staff must be forbidden from accessing /issues/:id',
+  );
 
   // 6. Direct /issues/:id navigation by unverified Owner (T12) -> FORBIDDEN
   const res6 = evaluateRouteAccess(`/issues/${sampleUuid}`, false, 'owner');
   assert.equal(res6.isIssuesRoute, true);
-  assert.equal(res6.isForbidden, true, 'Unverified Owner must be forbidden from accessing /issues/:id');
+  assert.equal(
+    res6.isForbidden,
+    true,
+    'Unverified Owner must be forbidden from accessing /issues/:id',
+  );
 
   // 7. Verified Owner who switches UI role to 'staff' (T12) -> FORBIDDEN (tamper-resistant)
   const res7 = evaluateRouteAccess('/issues', true, 'staff');
   assert.equal(res7.isIssuesRoute, true);
-  assert.equal(res7.isForbidden, true, 'Role switch to staff must immediately block /issues access');
+  assert.equal(
+    res7.isForbidden,
+    true,
+    'Role switch to staff must immediately block /issues access',
+  );
 });
 
 test('V0.2 ISSUES-09: Behavioral - Production session verification, login navigation, and logout races (T1-T9)', async () => {
@@ -479,7 +692,11 @@ test('V0.2 ISSUES-09: Behavioral - Production session verification, login naviga
     }),
   }));
   assert.equal(ok1, true, 'T1: Owner verification must succeed');
-  assert.equal(tracker1.verifiedOwnerSession, true, 'T1: verifiedOwnerSession must be true');
+  assert.equal(
+    tracker1.verifiedOwnerSession,
+    true,
+    'T1: verifiedOwnerSession must be true',
+  );
   assert.equal(tracker1.role, 'owner', 'T1: role must be owner');
   assert.equal(tracker1.isLoggedIn, true, 'T1: isLoggedIn must be true');
   assert.equal(tracker1.csrfToken, 'csrf-secret-1');
@@ -509,7 +726,11 @@ test('V0.2 ISSUES-09: Behavioral - Production session verification, login naviga
     }),
   }));
   assert.equal(ok2, true, 'T2: Staff verification must succeed');
-  assert.equal(tracker2.verifiedOwnerSession, false, 'T2: Staff must NOT be marked verified Owner');
+  assert.equal(
+    tracker2.verifiedOwnerSession,
+    false,
+    'T2: Staff must NOT be marked verified Owner',
+  );
   assert.equal(tracker2.role, 'staff', 'T2: role must be staff');
   assert.equal(tracker2.isLoggedIn, true, 'T2: isLoggedIn must be true');
   assert.equal(
@@ -532,7 +753,11 @@ test('V0.2 ISSUES-09: Behavioral - Production session verification, login naviga
     json: async () => ({ success: false, error: { message: 'Unauthorized' } }),
   }));
   assert.equal(ok3, false, 'T3: 401 must fail verification');
-  assert.equal(tracker3.verifiedOwnerSession, false, 'T3: verifiedOwnerSession must be cleared');
+  assert.equal(
+    tracker3.verifiedOwnerSession,
+    false,
+    'T3: verifiedOwnerSession must be cleared',
+  );
   assert.equal(tracker3.isLoggedIn, false, 'T3: isLoggedIn must be cleared');
   assert.equal(
     determinePostVerificationRoute('/login', false),
@@ -593,7 +818,10 @@ test('V0.2 ISSUES-09: Behavioral - Production session verification, login naviga
     { success: true, data: { active_workspace: null } },
     { success: true, data: { active_workspace: { id: '', role: 'owner' } } },
     { success: true, data: { active_workspace: { id: 12345, role: 'owner' } } },
-    { success: true, data: { active_workspace: { id: 'ws-1', role: 'unknown_role' } } },
+    {
+      success: true,
+      data: { active_workspace: { id: 'ws-1', role: 'unknown_role' } },
+    },
   ];
   for (const malformed of malformedBodies) {
     assert.equal(
@@ -613,7 +841,11 @@ test('V0.2 ISSUES-09: Behavioral - Production session verification, login naviga
       status: 200,
       json: async () => malformed,
     }));
-    assert.equal(okM, false, 'T6: executeSessionVerification must fail closed on malformed payload');
+    assert.equal(
+      okM,
+      false,
+      'T6: executeSessionVerification must fail closed on malformed payload',
+    );
     assert.equal(trackerM.verifiedOwnerSession, false);
     assert.equal(trackerM.isLoggedIn, false);
   }
@@ -669,7 +901,9 @@ test('V0.2 ISSUES-09: Behavioral - Production session verification, login naviga
     csrfToken: '',
   };
   let resolveDelayedOwnerFetch;
-  const delayedOwnerPromise = new Promise((r) => { resolveDelayedOwnerFetch = r; });
+  const delayedOwnerPromise = new Promise((r) => {
+    resolveDelayedOwnerFetch = r;
+  });
 
   const verifyPromise = executeSessionVerification(tracker8, async () => {
     await delayedOwnerPromise;
@@ -688,15 +922,31 @@ test('V0.2 ISSUES-09: Behavioral - Production session verification, login naviga
 
   // User logs out before verification completes
   executeLogout(tracker8);
-  assert.equal(tracker8.verifiedOwnerSession, false, 'T8: Logout clears verifiedOwnerSession');
+  assert.equal(
+    tracker8.verifiedOwnerSession,
+    false,
+    'T8: Logout clears verifiedOwnerSession',
+  );
   assert.equal(tracker8.isLoggedIn, false, 'T8: Logout clears isLoggedIn');
 
   // Now delayed fetch resolves
   resolveDelayedOwnerFetch();
   const verifyResult = await verifyPromise;
-  assert.equal(verifyResult, false, 'T8: Delayed Owner response must return false after logout');
-  assert.equal(tracker8.verifiedOwnerSession, false, 'T8: Stale response must NOT revive Owner privilege');
-  assert.equal(tracker8.isLoggedIn, false, 'T8: Stale response must NOT revive login state');
+  assert.equal(
+    verifyResult,
+    false,
+    'T8: Delayed Owner response must return false after logout',
+  );
+  assert.equal(
+    tracker8.verifiedOwnerSession,
+    false,
+    'T8: Stale response must NOT revive Owner privilege',
+  );
+  assert.equal(
+    tracker8.isLoggedIn,
+    false,
+    'T8: Stale response must NOT revive login state',
+  );
 
   // T9: Overlapping Owner/Staff verifications -> latest valid session wins
   const tracker9 = {
@@ -707,7 +957,9 @@ test('V0.2 ISSUES-09: Behavioral - Production session verification, login naviga
     csrfToken: '',
   };
   let resolveSlowOwner;
-  const slowOwnerPromise = new Promise((r) => { resolveSlowOwner = r; });
+  const slowOwnerPromise = new Promise((r) => {
+    resolveSlowOwner = r;
+  });
 
   // First request: Owner (slow)
   const pSlow = executeSessionVerification(tracker9, async () => {
@@ -734,15 +986,31 @@ test('V0.2 ISSUES-09: Behavioral - Production session verification, login naviga
 
   const fastRes = await pFast;
   assert.equal(fastRes, true);
-  assert.equal(tracker9.role, 'staff', 'T9: State must reflect faster Staff response');
+  assert.equal(
+    tracker9.role,
+    'staff',
+    'T9: State must reflect faster Staff response',
+  );
   assert.equal(tracker9.verifiedOwnerSession, false);
 
   // Now slow Owner response resolves late
   resolveSlowOwner();
   const slowRes = await pSlow;
-  assert.equal(slowRes, false, 'T9: Stale Owner response must be rejected by authEpoch');
-  assert.equal(tracker9.role, 'staff', 'T9: Role must remain staff, not overwritten by stale owner response');
-  assert.equal(tracker9.verifiedOwnerSession, false, 'T9: verifiedOwnerSession must remain false');
+  assert.equal(
+    slowRes,
+    false,
+    'T9: Stale Owner response must be rejected by authEpoch',
+  );
+  assert.equal(
+    tracker9.role,
+    'staff',
+    'T9: Role must remain staff, not overwritten by stale owner response',
+  );
+  assert.equal(
+    tracker9.verifiedOwnerSession,
+    false,
+    'T9: verifiedOwnerSession must remain false',
+  );
 });
 
 test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortController, sequence guard, and stale response rejection', async () => {
@@ -771,9 +1039,12 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
       this.state.error = null;
 
       try {
-        const res = await mockFetch(`/api/v1/issues/${encodeURIComponent(issueId)}`, {
-          signal: controller.signal,
-        });
+        const res = await mockFetch(
+          `/api/v1/issues/${encodeURIComponent(issueId)}`,
+          {
+            signal: controller.signal,
+          },
+        );
 
         if (currentSeq !== this.requestSeq) return;
 
@@ -800,7 +1071,9 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
           this.state.issue = json.data.issue;
           this.state.activities = json.data.activities || [];
         } else {
-          throw new Error('Định dạng dữ liệu phản hồi từ máy chủ không hợp lệ.');
+          throw new Error(
+            'Định dạng dữ liệu phản hồi từ máy chủ không hợp lệ.',
+          );
         }
       } catch (err) {
         if (err?.name === 'AbortError') return;
@@ -828,11 +1101,15 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
   const controller = new IssueDetailFetchController();
 
   let resolveIssueA;
-  const issueAPromise = new Promise((r) => { resolveIssueA = r; });
+  const issueAPromise = new Promise((r) => {
+    resolveIssueA = r;
+  });
 
   let signalAWasAborted = false;
   const pA = controller.fetchDetail('issue-A', async (_url, { signal }) => {
-    signal.addEventListener('abort', () => { signalAWasAborted = true; });
+    signal.addEventListener('abort', () => {
+      signalAWasAborted = true;
+    });
     await issueAPromise;
     if (signal.aborted) {
       const err = new Error('The operation was aborted');
@@ -845,7 +1122,12 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
       json: async () => ({
         success: true,
         data: {
-          issue: { id: 'issue-A', title: 'Issue A Title', status: 'open', version: 1 },
+          issue: {
+            id: 'issue-A',
+            title: 'Issue A Title',
+            status: 'open',
+            version: 1,
+          },
           activities: [{ id: 'act-A', action: 'create' }],
         },
       }),
@@ -859,7 +1141,12 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
     json: async () => ({
       success: true,
       data: {
-        issue: { id: 'issue-B', title: 'Issue B Title', status: 'in_progress', version: 2 },
+        issue: {
+          id: 'issue-B',
+          title: 'Issue B Title',
+          status: 'in_progress',
+          version: 2,
+        },
         activities: [{ id: 'act-B', action: 'status_change' }],
       },
     }),
@@ -867,7 +1154,11 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
 
   // Request B completes first
   await pB;
-  assert.equal(signalAWasAborted, true, 'AbortController must have aborted Request A');
+  assert.equal(
+    signalAWasAborted,
+    true,
+    'AbortController must have aborted Request A',
+  );
   assert.equal(controller.state.loading, false);
   assert.equal(controller.state.issue?.id, 'issue-B');
   assert.equal(controller.state.issue?.title, 'Issue B Title');
@@ -878,7 +1169,11 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
   await pA;
 
   // Verify Issue B content is preserved and Issue A is completely discarded
-  assert.equal(controller.state.issue?.id, 'issue-B', 'UI MUST show Issue B only, never stale Issue A');
+  assert.equal(
+    controller.state.issue?.id,
+    'issue-B',
+    'UI MUST show Issue B only, never stale Issue A',
+  );
   assert.equal(controller.state.issue?.title, 'Issue B Title');
   assert.equal(controller.state.activities[0]?.id, 'act-B');
   assert.equal(controller.state.loading, false);
@@ -887,21 +1182,26 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
   // 2. 404 arriving after a newer successful request
   const controller2 = new IssueDetailFetchController();
   let resolveA404;
-  const a404Promise = new Promise((r) => { resolveA404 = r; });
-
-  const p404 = controller2.fetchDetail('deleted-issue', async (_url, { signal }) => {
-    await a404Promise;
-    if (signal.aborted) {
-      const err = new Error('The operation was aborted');
-      err.name = 'AbortError';
-      throw err;
-    }
-    return {
-      ok: false,
-      status: 404,
-      json: async () => ({ success: false, error: { message: 'Not found' } }),
-    };
+  const a404Promise = new Promise((r) => {
+    resolveA404 = r;
   });
+
+  const p404 = controller2.fetchDetail(
+    'deleted-issue',
+    async (_url, { signal }) => {
+      await a404Promise;
+      if (signal.aborted) {
+        const err = new Error('The operation was aborted');
+        err.name = 'AbortError';
+        throw err;
+      }
+      return {
+        ok: false,
+        status: 404,
+        json: async () => ({ success: false, error: { message: 'Not found' } }),
+      };
+    },
+  );
 
   const pValid = controller2.fetchDetail('valid-issue', async () => ({
     ok: true,
@@ -909,7 +1209,12 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
     json: async () => ({
       success: true,
       data: {
-        issue: { id: 'valid-issue', title: 'Valid Issue', status: 'open', version: 1 },
+        issue: {
+          id: 'valid-issue',
+          title: 'Valid Issue',
+          status: 'open',
+          version: 1,
+        },
         activities: [],
       },
     }),
@@ -925,30 +1230,50 @@ test('V0.2 ISSUES-10: Behavioral - IssueDetailScreen async fetch, AbortControlle
 
   // Stale 404 must NOT overwrite valid issue
   assert.equal(controller2.state.issue?.id, 'valid-issue');
-  assert.equal(controller2.state.error, null, 'Stale 404 must NOT overwrite valid issue state');
+  assert.equal(
+    controller2.state.error,
+    null,
+    'Stale 404 must NOT overwrite valid issue state',
+  );
 
   // 3. Unmount during fetch: aborts pending request and prevents state updates
   const controller3 = new IssueDetailFetchController();
   let unmountSignalAborted = false;
-  const pUnmount = controller3.fetchDetail('issue-unmount', async (_url, { signal }) => {
-    signal.addEventListener('abort', () => { unmountSignalAborted = true; });
-    await new Promise((r) => setTimeout(r, 20));
-    if (signal.aborted) {
-      const err = new Error('The operation was aborted');
-      err.name = 'AbortError';
-      throw err;
-    }
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ success: true, data: { issue: { id: 'issue-unmount' } } }),
-    };
-  });
+  const pUnmount = controller3.fetchDetail(
+    'issue-unmount',
+    async (_url, { signal }) => {
+      signal.addEventListener('abort', () => {
+        unmountSignalAborted = true;
+      });
+      await new Promise((r) => setTimeout(r, 20));
+      if (signal.aborted) {
+        const err = new Error('The operation was aborted');
+        err.name = 'AbortError';
+        throw err;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: { issue: { id: 'issue-unmount' } },
+        }),
+      };
+    },
+  );
 
   controller3.unmount();
-  assert.equal(unmountSignalAborted, true, 'Unmount must abort active in-flight request');
+  assert.equal(
+    unmountSignalAborted,
+    true,
+    'Unmount must abort active in-flight request',
+  );
   await pUnmount;
-  assert.equal(controller3.state.issue, null, 'State must remain unmodified after unmount');
+  assert.equal(
+    controller3.state.issue,
+    null,
+    'State must remain unmodified after unmount',
+  );
 });
 
 test('V0.2 ISSUES-11: Behavioral - IssuesScreen async list, filter transition, double-click load more guard, and error states', async () => {
@@ -990,15 +1315,21 @@ test('V0.2 ISSUES-11: Behavioral - IssuesScreen async list, filter transition, d
       this.fetchCallCount++;
 
       try {
-        const res = await mockFetch('/api/v1/issues', { signal: controller.signal });
+        const res = await mockFetch('/api/v1/issues', {
+          signal: controller.signal,
+        });
         if (currentSeq !== this.requestSeq) return;
 
         if (res.status === 400) {
-          this.state.error = { title: 'Yêu cầu không hợp lệ (400 Bad Request)' };
+          this.state.error = {
+            title: 'Yêu cầu không hợp lệ (400 Bad Request)',
+          };
           return;
         }
         if (res.status === 401) {
-          this.state.error = { title: 'Phiên đăng nhập đã hết hạn (401 Unauthorized)' };
+          this.state.error = {
+            title: 'Phiên đăng nhập đã hết hạn (401 Unauthorized)',
+          };
           return;
         }
         if (res.status === 403) {
@@ -1039,7 +1370,11 @@ test('V0.2 ISSUES-11: Behavioral - IssuesScreen async list, filter transition, d
     }
 
     handleLoadMore(mockFetch) {
-      if (this.state.nextCursor && !this.state.loadingMore && !this.state.loading) {
+      if (
+        this.state.nextCursor &&
+        !this.state.loadingMore &&
+        !this.state.loading
+      ) {
         return this.fetchIssues({}, this.state.nextCursor, true, mockFetch);
       }
       return null;
@@ -1052,7 +1387,9 @@ test('V0.2 ISSUES-11: Behavioral - IssuesScreen async list, filter transition, d
   listCtrl.state.hasMore = true;
 
   let resolvePage2;
-  const page2Promise = new Promise((r) => { resolvePage2 = r; });
+  const page2Promise = new Promise((r) => {
+    resolvePage2 = r;
+  });
 
   const firstClick = listCtrl.handleLoadMore(async () => {
     await page2Promise;
@@ -1076,8 +1413,16 @@ test('V0.2 ISSUES-11: Behavioral - IssuesScreen async list, filter transition, d
   const secondClick = listCtrl.handleLoadMore(async () => {
     assert.fail('Second click fetch must NOT be invoked');
   });
-  assert.equal(secondClick, null, 'Second Load More click must be guarded and return null');
-  assert.equal(listCtrl.fetchCallCount, 1, 'Only one fetch request must be made');
+  assert.equal(
+    secondClick,
+    null,
+    'Second Load More click must be guarded and return null',
+  );
+  assert.equal(
+    listCtrl.fetchCallCount,
+    1,
+    'Only one fetch request must be made',
+  );
 
   resolvePage2();
   await firstClick;
@@ -1091,7 +1436,9 @@ test('V0.2 ISSUES-11: Behavioral - IssuesScreen async list, filter transition, d
   listCtrl2.state.hasMore = true;
 
   let resolvePendingLoadMore;
-  const pendingLoadMorePromise = new Promise((r) => { resolvePendingLoadMore = r; });
+  const pendingLoadMorePromise = new Promise((r) => {
+    resolvePendingLoadMore = r;
+  });
 
   const loadMorePending = listCtrl2.handleLoadMore(async () => {
     await pendingLoadMorePromise;
@@ -1110,21 +1457,30 @@ test('V0.2 ISSUES-11: Behavioral - IssuesScreen async list, filter transition, d
   });
 
   // User changes status filter immediately
-  const freshFilterFetch = listCtrl2.fetchIssues({ status: 'open' }, undefined, false, async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({
-      success: true,
-      data: {
-        items: [{ id: 'new-filter-open-issue' }],
-        next_cursor: null,
-        has_more: false,
-      },
+  const freshFilterFetch = listCtrl2.fetchIssues(
+    { status: 'open' },
+    undefined,
+    false,
+    async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        data: {
+          items: [{ id: 'new-filter-open-issue' }],
+          next_cursor: null,
+          has_more: false,
+        },
+      }),
     }),
-  }));
+  );
 
   // Notice: previous items are cleared immediately
-  assert.equal(listCtrl2.state.issues.length, 0, 'Previous filter items must be cleared immediately');
+  assert.equal(
+    listCtrl2.state.issues.length,
+    0,
+    'Previous filter items must be cleared immediately',
+  );
 
   await freshFilterFetch;
   assert.equal(listCtrl2.state.issues.length, 1);
@@ -1146,7 +1502,10 @@ test('V0.2 ISSUES-11: Behavioral - IssuesScreen async list, filter transition, d
   // 3. Error code handling (400, 401, 403, 429, 500, network error)
   const errorCases = [
     { status: 400, expectedTitle: 'Yêu cầu không hợp lệ (400 Bad Request)' },
-    { status: 401, expectedTitle: 'Phiên đăng nhập đã hết hạn (401 Unauthorized)' },
+    {
+      status: 401,
+      expectedTitle: 'Phiên đăng nhập đã hết hạn (401 Unauthorized)',
+    },
     { status: 403, expectedTitle: 'Truy cập bị từ chối (403 Forbidden)' },
     { status: 429, expectedTitle: 'Quá nhiều yêu cầu (429 Rate Limit)' },
     { status: 500, expectedTitle: 'Máy chủ gặp sự cố (500 Server Error)' },
@@ -1186,21 +1545,33 @@ test('V0.2 ISSUES-12: Behavioral - Static markup rendering and accessibility of 
   const issuesHtml = renderToStaticMarkup(
     React.createElement(IssuesScreen, {
       onNavigate: () => {},
-    })
+    }),
   );
-  assert.ok(issuesHtml.includes('Tất cả trạng thái'), 'Must render status filter dropdown');
-  assert.ok(issuesHtml.includes('Tất cả loại'), 'Must render type filter dropdown');
+  assert.ok(
+    issuesHtml.includes('Tất cả trạng thái'),
+    'Must render status filter dropdown',
+  );
+  assert.ok(
+    issuesHtml.includes('Tất cả loại'),
+    'Must render type filter dropdown',
+  );
   assert.ok(issuesHtml.includes('Làm mới'), 'Must render refresh button');
-  assert.ok(issuesHtml.includes('min-height:44px'), 'Interactive buttons must enforce 44px min touch height');
+  assert.ok(
+    issuesHtml.includes('min-height:44px'),
+    'Interactive buttons must enforce 44px min touch height',
+  );
 
   // 2. IssueDetailScreen initial markup rendering
   const detailHtml = renderToStaticMarkup(
     React.createElement(IssueDetailScreen, {
       issueId: 'test-issue-uuid',
       onNavigate: () => {},
-    })
+    }),
   );
-  assert.ok(detailHtml.includes('Đang tải chi tiết vấn đề…'), 'Initial render must show loading indicator');
+  assert.ok(
+    detailHtml.includes('Đang tải chi tiết vấn đề…'),
+    'Initial render must show loading indicator',
+  );
 });
 
 test('V0.2 ISSUES-13: Behavioral - Production App component runtime static rendering (T13)', async () => {
@@ -1289,6 +1660,3 @@ test('ISSUES-002: IssuesScreen search input, filter controls, and empty search s
     'Must support resetting search query',
   );
 });
-
-
-

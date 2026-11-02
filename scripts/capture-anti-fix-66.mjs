@@ -17,7 +17,9 @@ const runId = Math.random().toString(36).substring(2, 8);
 const targetUrl = loadQaEndpoint(process.env.QA_WEB_BASE);
 
 async function run() {
-  console.log('=== STARTING ANTI-FIX-66 BROWSER HIT-TEST & EVIDENCE CAPTURE ===\n');
+  console.log(
+    '=== STARTING ANTI-FIX-66 BROWSER HIT-TEST & EVIDENCE CAPTURE ===\n',
+  );
 
   const chrome = spawn(
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -34,9 +36,12 @@ async function run() {
   try {
     await new Promise((r) => setTimeout(r, 1500));
 
-    const newTab = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${port}/json/new?about:blank`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -47,7 +52,9 @@ async function run() {
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.method === 'Runtime.consoleAPICalled') {
-        const text = msg.params.args.map((a) => a.value || a.description).join(' ');
+        const text = msg.params.args
+          .map((a) => a.value || a.description)
+          .join(' ');
         // Privacy guard: never log sensitive amounts
         if (!text.includes('vnd') && !text.includes('password')) {
           console.log('[BROWSER CONSOLE]', msg.params.type, text);
@@ -81,7 +88,7 @@ async function run() {
         throw new Error(
           r.exceptionDetails.text +
             ': ' +
-            (r.exceptionDetails.exception?.description || '')
+            (r.exceptionDetails.exception?.description || ''),
         );
       }
       return r.result?.value;
@@ -388,7 +395,10 @@ async function run() {
 
     const takeScreenshot = async (filename) => {
       const { data } = await send('Page.captureScreenshot', { format: 'png' });
-      writeFileSync(resolve(screenshotsDir, filename), Buffer.from(data, 'base64'));
+      writeFileSync(
+        resolve(screenshotsDir, filename),
+        Buffer.from(data, 'base64'),
+      );
       console.log(`Saved screenshot: ${filename}`);
     };
 
@@ -460,11 +470,19 @@ async function run() {
         allLoadMoreHits: result.allLoadMoreHits,
         overlaps: result.overlaps,
         horizontalGap: result.horizontalGap + 'px',
-        topRightHit: result.pointResults?.find(p => p.name === 'top-right'),
+        topRightHit: result.pointResults?.find((p) => p.name === 'top-right'),
       });
 
-      assert.equal(result.ok, true, `Hit test must NEVER hit the bug widget at scroll ${scrollFraction} (${label})`);
-      assert.equal(result.overlaps, false, `Button must never geometrically overlap with bug widget (${label})`);
+      assert.equal(
+        result.ok,
+        true,
+        `Hit test must NEVER hit the bug widget at scroll ${scrollFraction} (${label})`,
+      );
+      assert.equal(
+        result.overlaps,
+        false,
+        `Button must never geometrically overlap with bug widget (${label})`,
+      );
       return result;
     };
 
@@ -516,7 +534,9 @@ async function run() {
     // ==========================================
     // 5-7. Mobile 390px: Employees List Clearance Across Scroll Range
     // ==========================================
-    console.log('\n--- 5-7. Mobile 390px: Employees List Clearance Across Scroll Range ---');
+    console.log(
+      '\n--- 5-7. Mobile 390px: Employees List Clearance Across Scroll Range ---',
+    );
     await setViewport(390, 844);
     await navigateTo('/employees', 'owner');
 
@@ -539,7 +559,9 @@ async function run() {
     // ==========================================
     // 8-10. Mobile 360px: Employees List Clearance Across Scroll Range
     // ==========================================
-    console.log('\n--- 8-10. Mobile 360px: Employees List Clearance Across Scroll Range ---');
+    console.log(
+      '\n--- 8-10. Mobile 360px: Employees List Clearance Across Scroll Range ---',
+    );
     await setViewport(360, 640);
     await navigateTo('/employees', 'owner');
 
@@ -573,7 +595,9 @@ async function run() {
     await navigateTo('/reports', 'staff');
     await takeScreenshot('12_mobile_360_staff_reports.png');
 
-    console.log('\n=== ALL BROWSER HIT-TESTS PASSED & 12 SCREENSHOTS CAPTURED FOR ANTI-FIX-66 ===');
+    console.log(
+      '\n=== ALL BROWSER HIT-TESTS PASSED & 12 SCREENSHOTS CAPTURED FOR ANTI-FIX-66 ===',
+    );
   } finally {
     chrome.kill();
   }

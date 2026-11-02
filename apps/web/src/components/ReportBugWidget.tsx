@@ -350,23 +350,28 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
     useState<BugReportSnapshotPayload | null>(null);
 
   // Draggable floating button state (mouse + touch pointer events)
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const raw = localStorage.getItem('mglite_bug_btn_pos');
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown };
-      if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
-        const maxX = Math.max(8, window.innerWidth - 116);
-        const maxY = Math.max(52, window.innerHeight - (window.innerWidth <= 768 ? 112 : 56));
-        return {
-          x: Math.min(Math.max(8, parsed.x), maxX),
-          y: Math.min(Math.max(52, parsed.y), maxY),
-        };
-      }
-    } catch {}
-    return null;
-  });
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(
+    () => {
+      if (typeof window === 'undefined') return null;
+      try {
+        const raw = localStorage.getItem('mglite_bug_btn_pos');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown };
+        if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+          const maxX = Math.max(8, window.innerWidth - 116);
+          const maxY = Math.max(
+            52,
+            window.innerHeight - (window.innerWidth <= 768 ? 112 : 56),
+          );
+          return {
+            x: Math.min(Math.max(8, parsed.x), maxX),
+            y: Math.min(Math.max(52, parsed.y), maxY),
+          };
+        }
+      } catch {}
+      return null;
+    },
+  );
   const [isDraggingBtn, setIsDraggingBtn] = useState(false);
   const dragStateRef = useRef<{
     pointerId: number;
@@ -386,7 +391,10 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
       setDragPos((prev) => {
         if (!prev) return null;
         const maxX = Math.max(8, window.innerWidth - 116);
-        const maxY = Math.max(52, window.innerHeight - (window.innerWidth <= 768 ? 112 : 56));
+        const maxY = Math.max(
+          52,
+          window.innerHeight - (window.innerWidth <= 768 ? 112 : 56),
+        );
         return {
           x: Math.min(Math.max(8, prev.x), maxX),
           y: Math.min(Math.max(52, prev.y), maxY),
@@ -426,8 +434,14 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
     const bottomInset = vw <= 768 ? 68 : 12;
-    const nextX = Math.min(Math.max(8, Math.round(st.origX + dx)), Math.max(8, vw - st.width - 8));
-    const nextY = Math.min(Math.max(52, Math.round(st.origY + dy)), Math.max(52, vh - st.height - bottomInset));
+    const nextX = Math.min(
+      Math.max(8, Math.round(st.origX + dx)),
+      Math.max(8, vw - st.width - 8),
+    );
+    const nextY = Math.min(
+      Math.max(52, Math.round(st.origY + dy)),
+      Math.max(52, vh - st.height - bottomInset),
+    );
     setDragPos({ x: nextX, y: nextY });
   };
 
@@ -990,14 +1004,19 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
         onPointerUp={handleBtnPointerUp}
         onPointerCancel={handleBtnPointerUp}
         data-testid="btn-open-report-bug"
-        data-dragged={dragPos ? "true" : "false"}
+        data-dragged={dragPos ? 'true' : 'false'}
         aria-label="Báo lỗi hệ thống (có thể kéo để di chuyển)"
         title="Bấm để báo lỗi • Giữ và kéo để di chuyển vị trí nút"
         className="btn-floating-report-bug"
         style={{
           position: 'fixed',
           ...(dragPos
-            ? { left: `${dragPos.x}px`, top: `${dragPos.y}px`, right: 'auto', bottom: 'auto' }
+            ? {
+                left: `${dragPos.x}px`,
+                top: `${dragPos.y}px`,
+                right: 'auto',
+                bottom: 'auto',
+              }
             : { bottom: TOKENS.spacing[6], right: TOKENS.spacing[6] }),
           zIndex: 900,
           display: 'flex',
@@ -1075,7 +1094,10 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                 <div
                   style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                  <AlertTriangleIcon size={20} style={{ color: 'var(--danger-text)' }} />
+                  <AlertTriangleIcon
+                    size={20}
+                    style={{ color: 'var(--danger-text)' }}
+                  />
                   <h3
                     id="report-modal-title"
                     style={{
@@ -1136,14 +1158,20 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
               }}
             >
               <div>
-                <strong style={{ color: 'var(--text-secondary)' }}>Hệ thống Web:</strong>{' '}
+                <strong style={{ color: 'var(--text-secondary)' }}>
+                  Hệ thống Web:
+                </strong>{' '}
                 <span style={{ color: 'var(--accent-text)', fontWeight: 600 }}>
                   ql.hoaiphuong.click
                 </span>
               </div>
               <div>
-                <strong style={{ color: 'var(--text-secondary)' }}>Vị trí phát sinh:</strong>{' '}
-                <span style={{ color: 'var(--info-text)' }}>{currentDisplayModule}</span>
+                <strong style={{ color: 'var(--text-secondary)' }}>
+                  Vị trí phát sinh:
+                </strong>{' '}
+                <span style={{ color: 'var(--info-text)' }}>
+                  {currentDisplayModule}
+                </span>
                 {isUnknownOutcome &&
                   currentDisplayModule !==
                     getModuleNameFromPath(currentPath) && (
@@ -1159,8 +1187,12 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                   )}
               </div>
               <div>
-                <strong style={{ color: 'var(--text-secondary)' }}>Đường dẫn:</strong>{' '}
-                <code style={{ color: 'var(--text-color)' }}>{currentDisplayRoute}</code>
+                <strong style={{ color: 'var(--text-secondary)' }}>
+                  Đường dẫn:
+                </strong>{' '}
+                <code style={{ color: 'var(--text-color)' }}>
+                  {currentDisplayRoute}
+                </code>
                 {isUnknownOutcome &&
                   currentDisplayRoute !== (currentPath || '/') && (
                     <span
@@ -1253,8 +1285,12 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     padding: '8px 12px',
                     borderRadius: '8px',
                     border: '1px solid var(--border-color)',
-                    backgroundColor: isFormLocked ? 'var(--surface-hover)' : 'var(--bg-color)',
-                    color: isFormLocked ? 'var(--muted-color)' : 'var(--text-color)',
+                    backgroundColor: isFormLocked
+                      ? 'var(--surface-hover)'
+                      : 'var(--bg-color)',
+                    color: isFormLocked
+                      ? 'var(--muted-color)'
+                      : 'var(--text-color)',
                     cursor: isFormLocked ? 'not-allowed' : 'text',
                     fontSize: '14px',
                     outline: 'none',
@@ -1283,7 +1319,9 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     Mô tả chi tiết lỗi{' '}
                     <span style={{ color: 'var(--danger-text)' }}>*</span>
                   </label>
-                  <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <span
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
                     {description.length}/2000
                   </span>
                 </div>
@@ -1302,8 +1340,12 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                     padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1px solid var(--border-color)',
-                    backgroundColor: isFormLocked ? 'var(--surface-hover)' : 'var(--bg-color)',
-                    color: isFormLocked ? 'var(--muted-color)' : 'var(--text-color)',
+                    backgroundColor: isFormLocked
+                      ? 'var(--surface-hover)'
+                      : 'var(--bg-color)',
+                    color: isFormLocked
+                      ? 'var(--muted-color)'
+                      : 'var(--text-color)',
                     cursor: isFormLocked ? 'not-allowed' : 'text',
                     fontSize: '14px',
                     outline: 'none',
@@ -1329,10 +1371,22 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                 </label>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {[
-                    { id: 'P0', label: 'P0 - Khẩn cấp', color: 'var(--danger-text)' },
+                    {
+                      id: 'P0',
+                      label: 'P0 - Khẩn cấp',
+                      color: 'var(--danger-text)',
+                    },
                     { id: 'P1', label: 'P1 - Cao', color: '#F97316' },
-                    { id: 'P2', label: 'P2 - Bình thường', color: 'var(--info-text)' },
-                    { id: 'P3', label: 'P3 - Thấp', color: 'var(--muted-color)' },
+                    {
+                      id: 'P2',
+                      label: 'P2 - Bình thường',
+                      color: 'var(--info-text)',
+                    },
+                    {
+                      id: 'P3',
+                      label: 'P3 - Thấp',
+                      color: 'var(--muted-color)',
+                    },
                   ].map((item) => {
                     const isSelected = severity === item.id;
                     return (

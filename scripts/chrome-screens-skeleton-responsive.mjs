@@ -36,7 +36,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 function record(step, pass, detail = '') {
   results.push({ step, pass, detail });
-  console.log(`  ${pass ? '✔ PASS' : '✖ FAIL'}: ${step}${detail ? ` (${detail})` : ''}`);
+  console.log(
+    `  ${pass ? '✔ PASS' : '✖ FAIL'}: ${step}${detail ? ` (${detail})` : ''}`,
+  );
 }
 
 async function run() {
@@ -63,9 +65,12 @@ async function run() {
   try {
     await wait(1800);
 
-    const newTab = await fetch(`http://127.0.0.1:${cdpPort}/json/new?${encodeURIComponent(webBase + '/login')}`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${cdpPort}/json/new?${encodeURIComponent(webBase + '/login')}`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -91,7 +96,10 @@ async function run() {
 
     const evaluate = async (exp, timeout = 10000) => {
       const timer = new Promise((_, rej) =>
-        setTimeout(() => rej(new Error('Browser evaluation timed out')), timeout),
+        setTimeout(
+          () => rej(new Error('Browser evaluation timed out')),
+          timeout,
+        ),
       );
       const evalPromise = send('Runtime.evaluate', {
         expression: exp,
@@ -108,7 +116,9 @@ async function run() {
     // 1. Wait for Login Page & Authenticate
     let ready = false;
     for (let i = 0; i < 20; i++) {
-      const formExists = await evaluate(`Boolean(document.querySelector('input[type="password"]'))`);
+      const formExists = await evaluate(
+        `Boolean(document.querySelector('input[type="password"]'))`,
+      );
       if (formExists) {
         ready = true;
         break;
@@ -139,7 +149,9 @@ async function run() {
     `);
     await wait(2000);
 
-    const isLoggedIn = await evaluate(`Boolean(document.querySelector('header')?.textContent?.includes('Management Lite'))`);
+    const isLoggedIn = await evaluate(
+      `Boolean(document.querySelector('header')?.textContent?.includes('Management Lite'))`,
+    );
     record('Owner Authenticated', isLoggedIn);
 
     // 2. Test Screens at multiple Viewports: 360px (mobile), 768px (tablet), 1440px (desktop)
@@ -157,10 +169,14 @@ async function run() {
 
     for (const screen of screens) {
       console.log(`\n--- Testing ${screen.name} ---`);
-      await evaluate(`window.history.pushState(null, '', '${screen.path}'); window.dispatchEvent(new Event('popstate'));`);
+      await evaluate(
+        `window.history.pushState(null, '', '${screen.path}'); window.dispatchEvent(new Event('popstate'));`,
+      );
       await wait(1200);
 
-      const isMounted = await evaluate(`Boolean(document.querySelector('main') || document.body.textContent.length > 50)`);
+      const isMounted = await evaluate(
+        `Boolean(document.querySelector('main') || document.body.textContent.length > 50)`,
+      );
       record(`${screen.name} Mounted Successfully`, isMounted);
 
       for (const vp of viewports) {
@@ -190,7 +206,6 @@ async function run() {
         );
       }
     }
-
   } finally {
     try {
       chrome.kill('SIGTERM');
@@ -199,7 +214,9 @@ async function run() {
 
   const allPass = results.every((r) => r.pass);
   console.log('\n======================================================');
-  console.log(`TOTAL CHECKS: ${results.length} | PASS: ${results.filter(r => r.pass).length} | FAIL: ${results.filter(r => !r.pass).length}`);
+  console.log(
+    `TOTAL CHECKS: ${results.length} | PASS: ${results.filter((r) => r.pass).length} | FAIL: ${results.filter((r) => !r.pass).length}`,
+  );
   console.log(`OVERALL RESULT: ${allPass ? '✔ ALL PASS' : '✖ SOME FAILED'}`);
   console.log('======================================================\n');
   process.exit(allPass ? 0 : 1);

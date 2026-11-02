@@ -172,9 +172,7 @@ async function main() {
     console.log(
       `Cơ sở dữ liệu : ${dbName} (${dbHost || '127.0.0.1'}:${dbPort || 55432})`,
     );
-    console.log(
-      `Tài khoản     : owner & admin (DEV Owner Accounts)`,
-    );
+    console.log(`Tài khoản     : owner & admin (DEV Owner Accounts)`);
     console.log(`Workspace     : ${ACCEPTANCE_WORKSPACE_ID} (Role: owner)`);
     console.log('======================================================\n');
 
@@ -246,7 +244,11 @@ async function main() {
 
       // Ensure baseline owner and admin identities exist in DEV DB
       for (const [uname, uemail, fallbackId] of [
-        ['owner', 'owner@management-lite.local', '84ae7867-9bbe-4443-87b5-12cd01d50b73'],
+        [
+          'owner',
+          'owner@management-lite.local',
+          '84ae7867-9bbe-4443-87b5-12cd01d50b73',
+        ],
         ['admin', 'admin@management-lite.local', ACCEPTANCE_ADMIN_ID],
       ]) {
         const checkRes = await client.query(
@@ -376,7 +378,11 @@ async function main() {
       currentContent = fs.readFileSync(CREDENTIAL_FILE, 'utf8');
     }
 
-    const keysToSync = ['ADMIN_PASSWORD', 'OWNER_PASSWORD', 'QA_OWNER_PASSWORD'];
+    const keysToSync = [
+      'ADMIN_PASSWORD',
+      'OWNER_PASSWORD',
+      'QA_OWNER_PASSWORD',
+    ];
     const lines = currentContent
       .split('\n')
       .filter((line) => line.trim().length > 0);

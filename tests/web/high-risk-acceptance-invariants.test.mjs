@@ -24,7 +24,11 @@ test('[Unit Test] ATT-009 / ATT-010: Client-side cross-midnight shift duration c
 
   // 1. Total duration must strictly equal 8 hours (28,800 seconds) regardless of calendar date change
   const durationSec = Math.floor((endTime - startTime) / 1000);
-  assert.equal(durationSec, 28800, 'Cross-midnight shift duration must equal 28800s (8h)');
+  assert.equal(
+    durationSec,
+    28800,
+    'Cross-midnight shift duration must equal 28800s (8h)',
+  );
 
   // 2. Midnight boundary split verification (Day 1: 2 hours = 7200s, Day 2: 6 hours = 21600s)
   const midnightIso = '2026-10-13T00:00:00+07:00';
@@ -35,7 +39,11 @@ test('[Unit Test] ATT-009 / ATT-010: Client-side cross-midnight shift duration c
 
   assert.equal(day1Sec, 7200, 'Pre-midnight segment must equal 7200s (2h)');
   assert.equal(day2Sec, 21600, 'Post-midnight segment must equal 21600s (6h)');
-  assert.equal(day1Sec + day2Sec, durationSec, 'Partition sum must match total shift duration exactly');
+  assert.equal(
+    day1Sec + day2Sec,
+    durationSec,
+    'Partition sum must match total shift duration exactly',
+  );
 });
 
 test('[Source Invariant] PAY-C04 / Client RBAC: Verifies Web ROUTE_REGISTRY client navigation guards (Backend RBAC requires Codex integration testing)', async () => {
@@ -64,7 +72,9 @@ test('[Source Invariant] AUTH-006 / Client Session Guard: Web login and session 
 
   // Verifies login form enforces credential sanitization and handles unauthenticated redirect
   assert.ok(
-    shellSrc.includes("setErrorMessage('Tài khoản hoặc mật khẩu không chính xác')") ||
+    shellSrc.includes(
+      "setErrorMessage('Tài khoản hoặc mật khẩu không chính xác')",
+    ) ||
       shellSrc.includes('error') ||
       shellSrc.includes('UNAUTHENTICATED'),
     'Login screen must gracefully handle 401 without crashing',

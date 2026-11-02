@@ -398,7 +398,8 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 color: 'var(--muted-color)',
               }}
             >
-              Chức vụ / Phân quyền: <span style={{ color: 'var(--danger-text)' }}>*</span>
+              Chức vụ / Phân quyền:{' '}
+              <span style={{ color: 'var(--danger-text)' }}>*</span>
             </label>
             <select
               id="empRole"
@@ -436,7 +437,8 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 color: 'var(--muted-color)',
               }}
             >
-              Họ và tên nhân viên: <span style={{ color: 'var(--danger-text)' }}>*</span>
+              Họ và tên nhân viên:{' '}
+              <span style={{ color: 'var(--danger-text)' }}>*</span>
             </label>
             <input
               id="fullName"
@@ -471,7 +473,8 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 color: 'var(--muted-color)',
               }}
             >
-              Email đăng nhập: <span style={{ color: 'var(--danger-text)' }}>*</span>
+              Email đăng nhập:{' '}
+              <span style={{ color: 'var(--danger-text)' }}>*</span>
             </label>
             <input
               id="email"
@@ -922,9 +925,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               type="submit"
               disabled={isLoading}
             >
-              {isLoading
-                ? 'Đang tạo hồ sơ…'
-                : 'Tạo nhân sự & Tạo liên kết mời'}
+              {isLoading ? 'Đang tạo hồ sơ…' : 'Tạo nhân sự & Tạo liên kết mời'}
             </AppButton>
             <AppButton
               variant="secondary"

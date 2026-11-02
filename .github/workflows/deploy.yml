@@ -108,6 +108,7 @@ jobs:
 
       - name: Lint & Typecheck
         run: |
+          npm run format:check
           npm run lint
           npm run typecheck
 
@@ -115,6 +116,9 @@ jobs:
         run: |
           npm run build
           npm run build:web
+          npm run check:bundle
+          npm run test:security
+          npm run test:web
 
       - name: Run Isolated Database Regression, Contract, Web & CI/CD Policy Tests
         run: |

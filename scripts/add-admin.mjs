@@ -158,12 +158,18 @@ export async function addAdminAccount(options = {}) {
         `SELECT to_regclass('public.employees') AS exists;`,
       );
       if (tableCheck.rows[0]?.exists) {
-        const empCode = usernameNormalized === 'admin' ? 'ADMIN' : `ADM_${adminUserId.slice(0, 4).toUpperCase()}`;
+        const empCode =
+          usernameNormalized === 'admin'
+            ? 'ADMIN'
+            : `ADM_${adminUserId.slice(0, 4).toUpperCase()}`;
         const existingEmp = await client.query(
           `SELECT id FROM employees WHERE workspace_id = $1 AND employee_code = $2;`,
           [workspace.id, empCode],
         );
-        const finalCode = existingEmp.rows.length > 0 ? `ADM_${adminUserId.slice(0, 4).toUpperCase()}` : empCode;
+        const finalCode =
+          existingEmp.rows.length > 0
+            ? `ADM_${adminUserId.slice(0, 4).toUpperCase()}`
+            : empCode;
         await client.query(
           `INSERT INTO employees (workspace_id, user_id, employee_code, full_name, employment_status, is_payroll_eligible)
            VALUES ($1, $2, $3, $4, 'active', false)

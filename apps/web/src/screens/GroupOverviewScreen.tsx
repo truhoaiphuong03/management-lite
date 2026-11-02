@@ -98,7 +98,11 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
           }}
         >
           <p
-            style={{ color: 'var(--muted-color)', fontSize: '14px', marginBottom: '20px' }}
+            style={{
+              color: 'var(--muted-color)',
+              fontSize: '14px',
+              marginBottom: '20px',
+            }}
           >
             Vui lòng chọn một nhóm chức năng hợp lệ từ thanh điều hướng.
           </p>

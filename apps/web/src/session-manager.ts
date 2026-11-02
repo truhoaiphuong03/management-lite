@@ -44,7 +44,8 @@ export function parseSessionPayload(body: unknown): ParsedSessionData | null {
       ? b.data.user.id
       : undefined;
   const userEmail =
-    typeof b.data.user?.email === 'string' && b.data.user.email.trim().length > 0
+    typeof b.data.user?.email === 'string' &&
+    b.data.user.email.trim().length > 0
       ? b.data.user.email.trim()
       : undefined;
   const emailVerified =

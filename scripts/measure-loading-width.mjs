@@ -24,32 +24,47 @@ const htmlContent = `
     ${renderToStaticMarkup(React.createElement(AppButton, { size: 'sm', id: 'btn-adjacent-1' }, 'Hủy'))}
   </div>
   <div class="row" id="loading-container">
-    ${renderToStaticMarkup(React.createElement(AppButton, {
-      size: 'sm',
-      id: 'btn-loading',
-      isLoading: true,
-      loadingText: 'Đang gửi thông tin xác thực lên máy chủ bảo mật và hoàn tất phiên giao dịch...',
-    }, 'Lưu'))}
+    ${renderToStaticMarkup(
+      React.createElement(
+        AppButton,
+        {
+          size: 'sm',
+          id: 'btn-loading',
+          isLoading: true,
+          loadingText:
+            'Đang gửi thông tin xác thực lên máy chủ bảo mật và hoàn tất phiên giao dịch...',
+        },
+        'Lưu',
+      ),
+    )}
     ${renderToStaticMarkup(React.createElement(AppButton, { size: 'sm', id: 'btn-adjacent-2' }, 'Hủy'))}
   </div>
   <div class="row" id="icon-before-container">
     ${renderToStaticMarkup(React.createElement(AppButton, { size: 'sm', id: 'btn-icon-before', icon: React.createElement('span', null, 'X') }))}
   </div>
   <div class="row" id="icon-loading-container">
-    ${renderToStaticMarkup(React.createElement(AppButton, {
-      size: 'sm',
-      id: 'btn-icon-loading',
-      isLoading: true,
-      loadingText: 'Đang gửi thông tin...',
-      icon: React.createElement('span', null, 'X'),
-    }))}
+    ${renderToStaticMarkup(
+      React.createElement(AppButton, {
+        size: 'sm',
+        id: 'btn-icon-loading',
+        isLoading: true,
+        loadingText: 'Đang gửi thông tin...',
+        icon: React.createElement('span', null, 'X'),
+      }),
+    )}
   </div>
   <div class="row" id="notext-loading-container">
-    ${renderToStaticMarkup(React.createElement(AppButton, {
-      size: 'sm',
-      id: 'btn-notext-loading',
-      isLoading: true,
-    }, 'Lưu'))}
+    ${renderToStaticMarkup(
+      React.createElement(
+        AppButton,
+        {
+          size: 'sm',
+          id: 'btn-notext-loading',
+          isLoading: true,
+        },
+        'Lưu',
+      ),
+    )}
   </div>
 </body>
 </html>
@@ -73,9 +88,12 @@ async function measure() {
     const encodedHtml = Buffer.from(htmlContent).toString('base64');
     const targetUrl = `data:text/html;base64,${encodedHtml}`;
 
-    const newTab = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(targetUrl)}`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${port}/json/new?${encodeURIComponent(targetUrl)}`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -100,7 +118,10 @@ async function measure() {
       });
 
     const evaluate = async (exp) => {
-      const r = await send('Runtime.evaluate', { expression: exp, returnByValue: true });
+      const r = await send('Runtime.evaluate', {
+        expression: exp,
+        returnByValue: true,
+      });
       return r.result.value;
     };
 

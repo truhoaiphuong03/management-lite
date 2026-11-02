@@ -20,9 +20,8 @@ const tick = () =>
     await new Promise((r) => setTimeout(r, 5));
   });
 
-const { PayrollScreen } = await import(
-  '../../dist/apps/web/src/screens/PayrollScreen.js'
-);
+const { PayrollScreen } =
+  await import('../../dist/apps/web/src/screens/PayrollScreen.js');
 
 test('Mounted PAY Round4: unresolved employee A survives operation B', async () => {
   const sent = [];
@@ -54,7 +53,15 @@ test('Mounted PAY Round4: unresolved employee A survives operation B', async () 
     if (url.includes('/payroll/periods'))
       return response({
         period: { id: 'p1', month: '2026-10', status: 'draft', version: 1 },
-        items: [item, {...item,id:'pay2',employee_id:'emp2',full_name:'Synthetic B'}],
+        items: [
+          item,
+          {
+            ...item,
+            id: 'pay2',
+            employee_id: 'emp2',
+            full_name: 'Synthetic B',
+          },
+        ],
       });
     return response({ items: [] });
   };
@@ -80,7 +87,11 @@ test('Mounted PAY Round4: unresolved employee A survives operation B', async () 
     await act(async () => dom.props(byId('adjustment-submit-btn')).onClick());
     await act(async () => dom.props(byId('adjustment-cancel-btn')).onClick());
     await act(async () => dom.props(byId('btn-add-adjustment-emp2')).onClick());
-    await act(async () => dom.props(byId('adjustment-reason-input')).onChange({target:{value:'Synthetic B leave'}}));
+    await act(async () =>
+      dom
+        .props(byId('adjustment-reason-input'))
+        .onChange({ target: { value: 'Synthetic B leave' } }),
+    );
     await act(async () => dom.props(byId('adjustment-submit-btn')).onClick());
     await act(async () => dom.props(byId('adjustment-cancel-btn')).onClick());
     await act(async () => dom.props(byId('btn-add-adjustment-emp1')).onClick());

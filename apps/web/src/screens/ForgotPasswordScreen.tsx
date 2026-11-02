@@ -203,10 +203,17 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   }}
                 >
                   <strong>Trạng thái gửi thư:</strong>{' '}
-                  <span style={{ color: 'var(--danger-text)', fontWeight: 600 }}>
+                  <span
+                    style={{ color: 'var(--danger-text)', fontWeight: 600 }}
+                  >
                     {successData.deliveryStatus}
                   </span>
-                  <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)' }}>
+                  <p
+                    style={{
+                      margin: '6px 0 0 0',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
                     Dịch vụ email chưa được cấu hình hoặc người gửi chưa xác
                     minh. Chưa có email nào được gửi đi. Vui lòng liên hệ quản
                     trị viên hoặc sử dụng công cụ khôi phục cục bộ trên máy chủ.

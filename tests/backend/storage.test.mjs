@@ -717,10 +717,7 @@ test('FILE-01 Storage Backend: 8 API endpoints, contracts, revisions, receipts, 
           },
         );
         assert.equal(wideScopeRes.status, 400);
-        assert.equal(
-          wideScopeRes.data.error.code,
-          'FORBIDDEN_DRIVE_SCOPE',
-        );
+        assert.equal(wideScopeRes.data.error.code, 'FORBIDDEN_DRIVE_SCOPE');
 
         // Missing OAuth state rejected -> 400 INVALID_OAUTH_STATE
         const missingStateRes = await request(
@@ -732,10 +729,7 @@ test('FILE-01 Storage Backend: 8 API endpoints, contracts, revisions, receipts, 
           },
         );
         assert.equal(missingStateRes.status, 400);
-        assert.equal(
-          missingStateRes.data.error.code,
-          'INVALID_OAUTH_STATE',
-        );
+        assert.equal(missingStateRes.data.error.code, 'INVALID_OAUTH_STATE');
 
         // Tampered OAuth state rejected -> 400 INVALID_OAUTH_STATE
         const tamperedStateRes = await request(
@@ -748,10 +742,7 @@ test('FILE-01 Storage Backend: 8 API endpoints, contracts, revisions, receipts, 
           },
         );
         assert.equal(tamperedStateRes.status, 400);
-        assert.equal(
-          tamperedStateRes.data.error.code,
-          'INVALID_OAUTH_STATE',
-        );
+        assert.equal(tamperedStateRes.data.error.code, 'INVALID_OAUTH_STATE');
 
         // OAuth callback endpoint returns code & state when Accept: application/json
         const callbackRes = await request(
@@ -1048,9 +1039,8 @@ test('FILE-01 Storage Backend: 8 API endpoints, contracts, revisions, receipts, 
         );
 
         // Simulate Google Drive API HTTP 403 on revokePermission -> must fail closed (502) and NOT mark revoked_at in DB
-        const { MockGoogleDriveProvider } = await import(
-          '../../dist/apps/api/src/storage/provider.js'
-        );
+        const { MockGoogleDriveProvider } =
+          await import('../../dist/apps/api/src/storage/provider.js');
         const origRevokePermission =
           MockGoogleDriveProvider.prototype.revokePermission;
         MockGoogleDriveProvider.prototype.revokePermission = async () => {
@@ -1293,13 +1283,7 @@ test('FILE-01 Storage Backend: 8 API endpoints, contracts, revisions, receipts, 
         // Second separate Node process (simulating full API server restart) replaying the same state
         const secondProc = spawnSync(
           process.execPath,
-          [
-            '--input-type=module',
-            '-e',
-            workerScript,
-            'second',
-            firstOut.state,
-          ],
+          ['--input-type=module', '-e', workerScript, 'second', firstOut.state],
           { encoding: 'utf8' },
         );
         assert.equal(secondProc.status, 0, secondProc.stderr);
@@ -1318,14 +1302,14 @@ test('FILE-01 Storage Backend: 8 API endpoints, contracts, revisions, receipts, 
         );
 
         // Verify chunk buffer retry idempotency at non-zero offset
-        const { MockGoogleDriveProvider } = await import(
-          '../../dist/apps/api/src/storage/provider.js'
-        );
+        const { MockGoogleDriveProvider } =
+          await import('../../dist/apps/api/src/storage/provider.js');
         const mockProvider = new MockGoogleDriveProvider();
         const chunk0 = Buffer.from('AAAA', 'utf8').toString('base64');
         const chunk1 = Buffer.from('BBBB', 'utf8').toString('base64');
         await mockProvider.uploadResumableChunk({
-          sessionUri: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=test_buf',
+          sessionUri:
+            'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=test_buf',
           providerFileId: 'gdrive_buf_test',
           offsetBytes: 0,
           chunkSizeBytes: 4,
@@ -1334,7 +1318,8 @@ test('FILE-01 Storage Backend: 8 API endpoints, contracts, revisions, receipts, 
           retry: false,
         });
         await mockProvider.uploadResumableChunk({
-          sessionUri: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=test_buf',
+          sessionUri:
+            'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=test_buf',
           providerFileId: 'gdrive_buf_test',
           offsetBytes: 4,
           chunkSizeBytes: 4,
@@ -1344,7 +1329,8 @@ test('FILE-01 Storage Backend: 8 API endpoints, contracts, revisions, receipts, 
         });
         // Retry same offset 4
         await mockProvider.uploadResumableChunk({
-          sessionUri: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=test_buf',
+          sessionUri:
+            'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=test_buf',
           providerFileId: 'gdrive_buf_test',
           offsetBytes: 4,
           chunkSizeBytes: 4,

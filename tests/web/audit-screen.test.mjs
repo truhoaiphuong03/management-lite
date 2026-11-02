@@ -21,7 +21,11 @@ test('V0.2 AUDIT-01: route registry, navigation binding, and AuditScreen UI19 in
   assert.ok(auditRoute, 'Audit route must exist in ROUTE_REGISTRY');
   assert.equal(auditRoute.id, 'UI19');
   assert.equal(auditRoute.path, '/audit');
-  assert.equal(auditRoute.implemented, true, 'Audit route must be marked implemented');
+  assert.equal(
+    auditRoute.implemented,
+    true,
+    'Audit route must be marked implemented',
+  );
   assert.equal(auditRoute.ownerOnly, true, 'Audit route must be Owner-only');
   assert.equal(auditRoute.category, 'audit');
 
@@ -38,45 +42,114 @@ test('V0.2 AUDIT-02: AuditScreen.tsx security redaction, Q3-OPS-003, Q3-ACC-006,
   const content = readFileSync(auditPath, 'utf-8');
 
   // 1. Invariants: Security assurance and canonical references
-  assert.ok(content.includes('Q3-OPS-003'), 'Must reference Q3-OPS-003 log redaction standard');
-  assert.ok(content.includes('Q3-ACC-006'), 'Must reference Q3-ACC-006 secret protection standard');
+  assert.ok(
+    content.includes('Q3-OPS-003'),
+    'Must reference Q3-OPS-003 log redaction standard',
+  );
+  assert.ok(
+    content.includes('Q3-ACC-006'),
+    'Must reference Q3-ACC-006 secret protection standard',
+  );
   assert.ok(content.includes('UI19'), 'Must identify as UI19');
-  assert.ok(content.includes('Nhật ký kiểm toán hệ thống'), 'Must include Vietnamese screen title');
+  assert.ok(
+    content.includes('Nhật ký kiểm toán hệ thống'),
+    'Must include Vietnamese screen title',
+  );
 
   // 2. Invariants: Owner-only RBAC guard
-  assert.ok(content.includes("role !== 'owner'"), 'Must enforce client-side Owner-only access guard');
-  assert.ok(content.includes('Truy cập bị từ chối (403 Forbidden)'), 'Must render 403 Forbidden when accessed by non-owner');
+  assert.ok(
+    content.includes("role !== 'owner'"),
+    'Must enforce client-side Owner-only access guard',
+  );
+  assert.ok(
+    content.includes('Truy cập bị từ chối (403 Forbidden)'),
+    'Must render 403 Forbidden when accessed by non-owner',
+  );
 
   // 3. Invariants: API Endpoint and parameters
-  assert.ok(content.includes('/api/v1/audit'), 'Must query canonical /api/v1/audit endpoint');
-  assert.ok(content.includes('cursor'), 'Must support cursor pagination parameter');
+  assert.ok(
+    content.includes('/api/v1/audit'),
+    'Must query canonical /api/v1/audit endpoint',
+  );
+  assert.ok(
+    content.includes('cursor'),
+    'Must support cursor pagination parameter',
+  );
   assert.ok(content.includes('action'), 'Must support action filter parameter');
-  assert.ok(content.includes('entity_type'), 'Must support entity_type filter parameter');
-  assert.ok(content.includes("credentials: 'include'"), 'Must send session credentials');
+  assert.ok(
+    content.includes('entity_type'),
+    'Must support entity_type filter parameter',
+  );
+  assert.ok(
+    content.includes("credentials: 'include'"),
+    'Must send session credentials',
+  );
 
   // 4. Invariants: Action mapping and metadata sanitization
   assert.ok(content.includes('auth.login'), 'Must handle auth.login action');
-  assert.ok(content.includes('auth.password_change'), 'Must handle auth.password_change action');
+  assert.ok(
+    content.includes('auth.password_change'),
+    'Must handle auth.password_change action',
+  );
   assert.ok(content.includes('work.create'), 'Must handle work.create action');
-  assert.ok(content.includes('storage.trash_confirm'), 'Must handle storage actions');
-  assert.ok(content.includes('account.secret_reveal'), 'Must handle account.secret_reveal action');
-  assert.ok(content.includes('SANITIZED METADATA'), 'Must explicitly display sanitized metadata notice');
-  assert.ok(content.includes('Không chứa mã băm, token hay secret'), 'Must confirm zero secrets leaked');
+  assert.ok(
+    content.includes('storage.trash_confirm'),
+    'Must handle storage actions',
+  );
+  assert.ok(
+    content.includes('account.secret_reveal'),
+    'Must handle account.secret_reveal action',
+  );
+  assert.ok(
+    content.includes('SANITIZED METADATA'),
+    'Must explicitly display sanitized metadata notice',
+  );
+  assert.ok(
+    content.includes('Không chứa mã băm, token hay secret'),
+    'Must confirm zero secrets leaked',
+  );
 
   // 5. Invariants: Pagination
-  assert.ok(content.includes('nextCursor'), 'Must handle nextCursor for cursor pagination');
-  assert.ok(content.includes('Tải thêm sự kiện cũ hơn'), 'Must provide load more button for pagination');
+  assert.ok(
+    content.includes('nextCursor'),
+    'Must handle nextCursor for cursor pagination',
+  );
+  assert.ok(
+    content.includes('Tải thêm sự kiện cũ hơn'),
+    'Must provide load more button for pagination',
+  );
 });
 
 test('AUDIT-003: AuditScreen implements cursor-based pagination with shared Pagination component', () => {
   const auditPath = resolve(root, 'apps/web/src/screens/AuditScreen.tsx');
   const content = readFileSync(auditPath, 'utf-8');
 
-  assert.ok(content.includes('<Pagination'), 'Must render shared Pagination component');
-  assert.ok(content.includes('testId="audit-pager"'), 'Must define testId="audit-pager"');
-  assert.ok(content.includes('cursorHistory'), 'Must maintain cursorHistory for prev/next navigation');
-  assert.ok(content.includes('handleNextPage'), 'Must implement handleNextPage');
-  assert.ok(content.includes('handlePrevPage'), 'Must implement handlePrevPage');
-  assert.ok(content.includes('PAGINATION_PAGE_SIZES'), 'Must bind PAGINATION_PAGE_SIZES [10, 20, 50, 100]');
-  assert.ok(content.includes('hasNext={Boolean(nextCursor)}'), 'Must pass hasNext cursor status to Pagination');
+  assert.ok(
+    content.includes('<Pagination'),
+    'Must render shared Pagination component',
+  );
+  assert.ok(
+    content.includes('testId="audit-pager"'),
+    'Must define testId="audit-pager"',
+  );
+  assert.ok(
+    content.includes('cursorHistory'),
+    'Must maintain cursorHistory for prev/next navigation',
+  );
+  assert.ok(
+    content.includes('handleNextPage'),
+    'Must implement handleNextPage',
+  );
+  assert.ok(
+    content.includes('handlePrevPage'),
+    'Must implement handlePrevPage',
+  );
+  assert.ok(
+    content.includes('PAGINATION_PAGE_SIZES'),
+    'Must bind PAGINATION_PAGE_SIZES [10, 20, 50, 100]',
+  );
+  assert.ok(
+    content.includes('hasNext={Boolean(nextCursor)}'),
+    'Must pass hasNext cursor status to Pagination',
+  );
 });

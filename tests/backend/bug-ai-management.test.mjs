@@ -129,15 +129,12 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
   // =========================================================================
   // PART 3: DATABASE SCHEMA & MIGRATION 21 VERIFICATION (ISOLATED TEST DB)
   // =========================================================================
-  const { loadTestDatabaseConfig, assertSafeTestDatabase } = await import(
-    '../../dist/packages/database/src/config.js'
-  );
-  const { runMigrations, loadMigrationFiles } = await import(
-    '../../dist/packages/database/src/migrator.js'
-  );
-  const { hashPassword } = await import(
-    '../../dist/packages/security/src/password.js'
-  );
+  const { loadTestDatabaseConfig, assertSafeTestDatabase } =
+    await import('../../dist/packages/database/src/config.js');
+  const { runMigrations, loadMigrationFiles } =
+    await import('../../dist/packages/database/src/migrator.js');
+  const { hashPassword } =
+    await import('../../dist/packages/security/src/password.js');
   const { resolve } = await import('node:path');
   const crypto = await import('node:crypto');
 
@@ -152,7 +149,10 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
     return;
   }
 
-  const pool = new pg.Pool({ connectionString: dbConfig.connectionString, max: 5 });
+  const pool = new pg.Pool({
+    connectionString: dbConfig.connectionString,
+    max: 5,
+  });
   t.after(async () => {
     await pool.end();
   });
@@ -209,9 +209,8 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
   // =========================================================================
   // PART 4: FULL LIFECYCLE API INTEGRATION TEST
   // =========================================================================
-  const { createRequestHandler } = await import(
-    '../../dist/apps/api/src/app.js'
-  );
+  const { createRequestHandler } =
+    await import('../../dist/apps/api/src/app.js');
   const handler = createRequestHandler({
     pool,
     csrfSecret: 'bug_management_test_csrf_secret_min_32_bytes!',
@@ -423,7 +422,11 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
       );
       assert.equal(data.test_result, 'passed');
       assert.equal(data.deploy_sha, deploySha);
-      assert.equal(data.closed_at, null, 'closed_at must be null while awaiting_owner');
+      assert.equal(
+        data.closed_at,
+        null,
+        'closed_at must be null while awaiting_owner',
+      );
       currentVersion = data.version;
 
       // Owner confirms and closes issue
@@ -440,8 +443,15 @@ test('BUG-AI-MANAGEMENT: Sanitization, Gemini Bug Analyzer, DB Schema M21, and F
       );
       assert.equal(confirmRes.status, 200, 'Owner confirm-fix must succeed');
       const confirmed = confirmRes.json?.data;
-      assert.equal(confirmed.status, 'fixed', 'Status only becomes fixed upon Owner confirmation');
-      assert.ok(confirmed.closed_at, 'closed_at must be populated after Owner confirms');
+      assert.equal(
+        confirmed.status,
+        'fixed',
+        'Status only becomes fixed upon Owner confirmation',
+      );
+      assert.ok(
+        confirmed.closed_at,
+        'closed_at must be populated after Owner confirms',
+      );
       currentVersion = confirmed.version;
     },
   );

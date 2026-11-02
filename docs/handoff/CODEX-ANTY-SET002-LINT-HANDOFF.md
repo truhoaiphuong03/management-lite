@@ -9,12 +9,12 @@ Anty tạo branch sửa riêng từ commit này, giữ nguyên branch nguồn v�
 
 Lệnh tái hiện: `npm run lint` sau `npm ci`, Node 22.14.0 / npm 10.9.2.
 
-| File | Dòng:cột | Rule |
-|---|---|---|
-| apps/web/src/screens/SettingsScreen.tsx | 34:44 | @typescript-eslint/no-explicit-any |
-| apps/web/src/screens/SettingsScreen.tsx | 35:28 | @typescript-eslint/no-explicit-any |
-| apps/web/src/screens/SettingsScreen.tsx | 99:32 | @typescript-eslint/no-explicit-any |
-| apps/web/src/screens/SettingsScreen.tsx | 100:16 | @typescript-eslint/no-explicit-any |
+| File                                    | Dòng:cột | Rule                               |
+| --------------------------------------- | -------- | ---------------------------------- |
+| apps/web/src/screens/SettingsScreen.tsx | 34:44    | @typescript-eslint/no-explicit-any |
+| apps/web/src/screens/SettingsScreen.tsx | 35:28    | @typescript-eslint/no-explicit-any |
+| apps/web/src/screens/SettingsScreen.tsx | 99:32    | @typescript-eslint/no-explicit-any |
+| apps/web/src/screens/SettingsScreen.tsx | 100:16   | @typescript-eslint/no-explicit-any |
 
 Nguyên nhân: ép `MediaQueryList` sang `any` ở fallback `removeListener`/`addListener`. Dùng API đã có kiểu hoặc khai báo interface fallback cụ thể; không tắt rule. Giữ nguyên cleanup và tương thích fallback.
 

@@ -20,9 +20,8 @@ const tick = () =>
     await new Promise((r) => setTimeout(r, 5));
   });
 
-const { PayrollScreen } = await import(
-  '../../dist/apps/web/src/screens/PayrollScreen.js'
-);
+const { PayrollScreen } =
+  await import('../../dist/apps/web/src/screens/PayrollScreen.js');
 
 test('Mounted PAY independent: concurrent submit does not issue a second logical operation', async () => {
   const sent = [];

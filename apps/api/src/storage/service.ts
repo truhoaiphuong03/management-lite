@@ -358,7 +358,9 @@ export class StorageService {
         [empRow.user_id],
       );
       if (uRes.rows.length > 0 && uRes.rows[0].email_normalized) {
-        const email = String(uRes.rows[0].email_normalized).trim().toLowerCase();
+        const email = String(uRes.rows[0].email_normalized)
+          .trim()
+          .toLowerCase();
         await c.query(
           'UPDATE employees SET google_email = $1 WHERE workspace_id = $2 AND id = $3',
           [email, workspaceId, empRow.id],
@@ -401,8 +403,12 @@ export class StorageService {
       resource_id: row.resource_id,
       employee_id: row.employee_id,
       employee_name: row.employee_name,
-      google_email: row.google_email ?? `${row.employee_id.slice(0, 8)}@hoaiphuong.click`,
-      drive_role: (row.drive_role ?? (row.access_level === 'write' ? 'writer' : 'reader')) as DrivePermissionRole,
+      google_email:
+        row.google_email ?? `${row.employee_id.slice(0, 8)}@hoaiphuong.click`,
+      drive_role: (row.drive_role ??
+        (row.access_level === 'write'
+          ? 'writer'
+          : 'reader')) as DrivePermissionRole,
       access_level: row.access_level,
       drive_permission_id: row.drive_permission_id ?? null,
       inherited_from_resource_id: row.inherited_from_resource_id ?? null,
@@ -642,8 +648,8 @@ export class StorageService {
         root_folder_url: row.root_folder_url,
         token_encrypted_at_rest: Boolean(
           row.refresh_token_ciphertext &&
-            row.refresh_token_nonce &&
-            row.refresh_token_auth_tag,
+          row.refresh_token_nonce &&
+          row.refresh_token_auth_tag,
         ),
         key_version: row.key_version ?? 1,
         status: row.status,
@@ -670,7 +676,9 @@ export class StorageService {
     requireRole(['owner'], auth);
 
     // Validate scopes — enforce least-privilege drive.file (Requirement 2)
-    const rawSingleScope = (body as unknown as Record<string, unknown>)['scope'];
+    const rawSingleScope = (body as unknown as Record<string, unknown>)[
+      'scope'
+    ];
     const requestedScopes =
       body.scopes && Array.isArray(body.scopes) && body.scopes.length > 0
         ? body.scopes
@@ -690,11 +698,7 @@ export class StorageService {
 
     const { key, keyVersion } = getDriveEncryptionKey(this.encryptionKey);
     if (!body.state || typeof body.state !== 'string' || !body.state.trim()) {
-      fail(
-        'INVALID_OAUTH_STATE',
-        'OAuth 2.0 state parameter is required',
-        400,
-      );
+      fail('INVALID_OAUTH_STATE', 'OAuth 2.0 state parameter is required', 400);
     }
 
     const stateStr = assertText(body.state, 200, true, 'state');
@@ -1045,8 +1049,12 @@ export class StorageService {
             resource_id: g.resource_id,
             employee_id: g.employee_id,
             employee_name: g.employee_name,
-            google_email: g.google_email ?? `${g.employee_id.slice(0, 8)}@hoaiphuong.click`,
-            drive_role: (g.drive_role ?? (g.access_level === 'write' ? 'writer' : 'reader')) as DrivePermissionRole,
+            google_email:
+              g.google_email ?? `${g.employee_id.slice(0, 8)}@hoaiphuong.click`,
+            drive_role: (g.drive_role ??
+              (g.access_level === 'write'
+                ? 'writer'
+                : 'reader')) as DrivePermissionRole,
             access_level: g.access_level,
             drive_permission_id: g.drive_permission_id ?? null,
             inherited_from_resource_id: g.inherited_from_resource_id ?? null,
@@ -2457,8 +2465,7 @@ export class StorageService {
         }
 
         const effectiveStatus =
-          providerRes.status ||
-          (providerRes.success ? 'completed' : 'failed');
+          providerRes.status || (providerRes.success ? 'completed' : 'failed');
 
         if (effectiveStatus === 'completed') {
           await c.query(
@@ -2996,7 +3003,10 @@ export class StorageService {
         nextStatus = 'interrupted';
         errorMsg =
           'Simulated network interruption during resumable video upload (HTTP 503 Service Unavailable). Client can resume from last committed byte offset.';
-      } else if (this.provider.uploadResumableChunk && fileRow.upload_session_id) {
+      } else if (
+        this.provider.uploadResumableChunk &&
+        fileRow.upload_session_id
+      ) {
         try {
           const chunkRes = await this.provider.uploadResumableChunk(
             {
@@ -3006,7 +3016,9 @@ export class StorageService {
               offsetBytes,
               totalBytes: totalSize,
               retry: isRetry,
-              ...(body.chunk_base64 ? { chunkDataBase64: body.chunk_base64 } : {}),
+              ...(body.chunk_base64
+                ? { chunkDataBase64: body.chunk_base64 }
+                : {}),
             },
             decryptedRefreshToken,
           );
@@ -3627,10 +3639,7 @@ export class StorageService {
       const gRow = grantRes.rows[0];
 
       // Fail closed if attempting to directly revoke an inherited file permission while parent folder grant is still active
-      if (
-        resourceType === 'storage_file' &&
-        gRow.inherited_from_resource_id
-      ) {
+      if (resourceType === 'storage_file' && gRow.inherited_from_resource_id) {
         const parentActiveRes = await c.query(
           `SELECT id FROM resource_access_grants
            WHERE workspace_id = $1
@@ -3638,7 +3647,11 @@ export class StorageService {
              AND resource_id = $2
              AND employee_id = $3
              AND revoked_at IS NULL`,
-          [auth.workspace.id, gRow.inherited_from_resource_id, gRow.employee_id],
+          [
+            auth.workspace.id,
+            gRow.inherited_from_resource_id,
+            gRow.employee_id,
+          ],
         );
         if (parentActiveRes.rows.length > 0) {
           fail(
@@ -4063,4 +4076,3 @@ export class StorageService {
     }
   }
 }
-

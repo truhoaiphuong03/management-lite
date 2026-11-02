@@ -50,8 +50,7 @@ export function auditEnvSecretsHygiene(envMap) {
       code: 'WEAK_CSRF_SECRET',
       severity: 'error',
       field: 'CSRF_SECRET',
-      recommendation:
-        'Rotate CSRF_SECRET to a >= 64-hex-char CSPRNG secret.',
+      recommendation: 'Rotate CSRF_SECRET to a >= 64-hex-char CSPRNG secret.',
     });
   }
 
@@ -84,7 +83,8 @@ export function generateRotationKeyBundle() {
 
 const isMain =
   process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+  path.resolve(process.argv[1]) ===
+    path.resolve(fileURLToPath(import.meta.url));
 
 if (isMain) {
   if (process.argv.includes('--generate-rotation-keys')) {

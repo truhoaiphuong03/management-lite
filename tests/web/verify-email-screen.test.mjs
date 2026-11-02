@@ -17,12 +17,10 @@ if (typeof window !== 'undefined' && !window.history) {
   window.history = { replaceState: () => {}, pushState: () => {} };
 }
 
-const { VerifyEmailScreen } = await import(
-  '../../dist/apps/web/src/screens/VerifyEmailScreen.js'
-);
-const { parseSessionPayload, determinePostVerificationRoute } = await import(
-  '../../dist/apps/web/src/session-manager.js'
-);
+const { VerifyEmailScreen } =
+  await import('../../dist/apps/web/src/screens/VerifyEmailScreen.js');
+const { parseSessionPayload, determinePostVerificationRoute } =
+  await import('../../dist/apps/web/src/session-manager.js');
 
 function getProps(element) {
   if (!element) return {};
@@ -345,6 +343,3 @@ test('VerifyEmailScreen UI: unverified notice, resend button, and confirmation s
     },
   );
 });
-
-
-

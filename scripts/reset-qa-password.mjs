@@ -39,7 +39,10 @@ async function main() {
       return fallback;
     };
 
-    if (args.includes('--password')) throw new Error('Use RESET_PASSWORD in the environment; password arguments are refused.');
+    if (args.includes('--password'))
+      throw new Error(
+        'Use RESET_PASSWORD in the environment; password arguments are refused.',
+      );
     const targetUser = getArg('--user', '')?.toLowerCase();
     if (!targetUser) throw new Error('Explicit --user is required.');
     const explicitPassword = process.env.RESET_PASSWORD || null;

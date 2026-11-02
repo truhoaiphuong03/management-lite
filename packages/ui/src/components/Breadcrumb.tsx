@@ -394,7 +394,9 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
                   aria-current={isLast ? 'page' : undefined}
                   style={{
                     padding: '4px 6px',
-                    color: isLast ? 'var(--muted-color)' : 'var(--text-secondary)',
+                    color: isLast
+                      ? 'var(--muted-color)'
+                      : 'var(--text-secondary)',
                     fontWeight: isLast ? 600 : 500,
                     lineHeight: 1.3,
                   }}

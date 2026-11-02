@@ -25,7 +25,12 @@ async function main() {
   );
 
   const creds = loadQaCredentials('.env.qa-credentials.local', {
-    requiredKeys: ['OWNER_PASSWORD', 'STAFF_PASSWORD', 'STAFF2_PASSWORD', 'ADMIN_PASSWORD'],
+    requiredKeys: [
+      'OWNER_PASSWORD',
+      'STAFF_PASSWORD',
+      'STAFF2_PASSWORD',
+      'ADMIN_PASSWORD',
+    ],
   });
 
   const ownerPassword = creds.OWNER_PASSWORD;
@@ -56,18 +61,28 @@ async function main() {
       );
       if (wsRes.rows.length > 0) {
         workspaceId = wsRes.rows[0].id;
-        console.log(`Using existing workspace: "${wsRes.rows[0].name}" (${workspaceId})`);
+        console.log(
+          `Using existing workspace: "${wsRes.rows[0].name}" (${workspaceId})`,
+        );
       } else {
         workspaceId = '5c3bb47c-7566-4784-a262-11ff6cd32cbd';
         await client.query(
           `INSERT INTO workspaces (id, name, timezone, status) VALUES ($1, 'Cửa hàng Management Lite - Staging', 'Asia/Ho_Chi_Minh', 'active');`,
           [workspaceId],
         );
-        console.log(`Created workspace: Cửa hàng Management Lite - Staging (${workspaceId})`);
+        console.log(
+          `Created workspace: Cửa hàng Management Lite - Staging (${workspaceId})`,
+        );
       }
 
       // Helper to upsert user
-      async function upsertUser(username, email, password, role, preferredId = null) {
+      async function upsertUser(
+        username,
+        email,
+        password,
+        role,
+        preferredId = null,
+      ) {
         const hash = await hashPassword(password);
         let userId;
         const uRes = await client.query(
@@ -112,15 +127,42 @@ async function main() {
         return userId;
       }
 
-      const ownerId = await upsertUser('owner', 'owner@management-lite.local', ownerPassword, 'owner');
-      const adminId = await upsertUser('admin', 'admin@management-lite.local', adminPassword, 'owner', '2a565b98-868c-4d8b-821e-fdd9da94dacc');
-      const staffId = await upsertUser('staff', 'staff@management-lite.local', staffPassword, 'staff', '13b98f3e-5292-4d9f-a91f-517d2b98c17d');
-      const staff2Id = await upsertUser('staff2', 'staff2@management-lite.local', staff2Password, 'staff');
+      const ownerId = await upsertUser(
+        'owner',
+        'owner@management-lite.local',
+        ownerPassword,
+        'owner',
+      );
+      const adminId = await upsertUser(
+        'admin',
+        'admin@management-lite.local',
+        adminPassword,
+        'owner',
+        '2a565b98-868c-4d8b-821e-fdd9da94dacc',
+      );
+      const staffId = await upsertUser(
+        'staff',
+        'staff@management-lite.local',
+        staffPassword,
+        'staff',
+        '13b98f3e-5292-4d9f-a91f-517d2b98c17d',
+      );
+      const staff2Id = await upsertUser(
+        'staff2',
+        'staff2@management-lite.local',
+        staff2Password,
+        'staff',
+      );
 
       console.log('Upserted users: owner, admin, staff, staff2');
 
       // Helper to upsert employee
-      async function upsertEmployee(code, fullName, userId, isPayrollEligible = true) {
+      async function upsertEmployee(
+        code,
+        fullName,
+        userId,
+        isPayrollEligible = true,
+      ) {
         let empId;
         const eRes = await client.query(
           `SELECT id FROM employees WHERE workspace_id = $1 AND employee_code = $2;`,
@@ -143,10 +185,25 @@ async function main() {
         return empId;
       }
 
-      const empOwnerId = await upsertEmployee('OWNER', 'Chủ cơ sở', ownerId, false);
+      const empOwnerId = await upsertEmployee(
+        'OWNER',
+        'Chủ cơ sở',
+        ownerId,
+        false,
+      );
       await upsertEmployee('ADMIN', 'Quản trị viên', adminId, false);
-      const empNV001Id = await upsertEmployee('NV001', 'Nguyễn Văn Một', staffId, true);
-      const empNV002Id = await upsertEmployee('NV002', 'Trần Thị Hai', staff2Id, true);
+      const empNV001Id = await upsertEmployee(
+        'NV001',
+        'Nguyễn Văn Một',
+        staffId,
+        true,
+      );
+      const empNV002Id = await upsertEmployee(
+        'NV002',
+        'Trần Thị Hai',
+        staff2Id,
+        true,
+      );
       const empNV003Id = await upsertEmployee('NV003', 'Lê Văn Ba', null, true);
 
       console.log('Upserted employees: OWNER, ADMIN, NV001, NV002, NV003');
@@ -234,11 +291,13 @@ async function main() {
           [workspaceId, shift2Id, v2Id, ownerId],
         );
 
-        console.log('Seeded attendance shifts with immutable versions and approvals');
+        console.log(
+          'Seeded attendance shifts with immutable versions and approvals',
+        );
       } else {
         // Fix existing shifts if current_version_id is null
         const unversioned = await client.query(
-          `SELECT id, workspace_id, clock_in_at, clock_out_at, review_state FROM attendance_shifts WHERE current_version_id IS NULL AND clock_out_at IS NOT NULL;`
+          `SELECT id, workspace_id, clock_in_at, clock_out_at, review_state FROM attendance_shifts WHERE current_version_id IS NULL AND clock_out_at IS NOT NULL;`,
         );
         for (const s of unversioned.rows) {
           const vId = crypto.randomUUID();
@@ -371,7 +430,11 @@ async function main() {
 
         if (vaultKey) {
           const aad1 = `${workspaceId}:${acc1Id}:password:1`;
-          const enc1 = encryptSecretAead('TikTokPass2026!Secure', vaultKey, aad1);
+          const enc1 = encryptSecretAead(
+            'TikTokPass2026!Secure',
+            vaultKey,
+            aad1,
+          );
           await client.query(
             `INSERT INTO account_secrets (workspace_id, account_id, secret_type, ciphertext, nonce, auth_tag, key_version, encryption_schema_version, secret_version)
              VALUES ($1, $2, 'password', $3, $4, $5, 'v1', 1, 1);`,
@@ -379,7 +442,11 @@ async function main() {
           );
 
           const aad2 = `${workspaceId}:${acc2Id}:password:1`;
-          const enc2 = encryptSecretAead('GmailPass2026!Secure', vaultKey, aad2);
+          const enc2 = encryptSecretAead(
+            'GmailPass2026!Secure',
+            vaultKey,
+            aad2,
+          );
           await client.query(
             `INSERT INTO account_secrets (workspace_id, account_id, secret_type, ciphertext, nonce, auth_tag, key_version, encryption_schema_version, secret_version)
              VALUES ($1, $2, 'password', $3, $4, $5, 'v1', 1, 1);`,
@@ -440,8 +507,12 @@ async function main() {
       console.log('\n=============================================');
       console.log('✅ SEED UNIFIED STAGING SUCCESSFUL');
       console.log('=============================================');
-      console.log(`Workspace: Cửa hàng Management Lite - Staging (${workspaceId})`);
-      console.log('Modules seeded: Users, Employees, Attendance, Schedules, Payroll, WORK, ACC, FILE');
+      console.log(
+        `Workspace: Cửa hàng Management Lite - Staging (${workspaceId})`,
+      );
+      console.log(
+        'Modules seeded: Users, Employees, Attendance, Schedules, Payroll, WORK, ACC, FILE',
+      );
       console.log('=============================================\n');
     } catch (err) {
       await client.query('ROLLBACK');

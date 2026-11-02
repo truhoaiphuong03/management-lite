@@ -121,7 +121,9 @@ export function formatVnReportDate(dateStr: string | null | undefined): string {
   return dateStr;
 }
 
-export function formatWorkTypeLabel(workType: string | null | undefined): string {
+export function formatWorkTypeLabel(
+  workType: string | null | undefined,
+): string {
   if (!workType) return 'Công việc chung';
   const map: Record<string, string> = {
     video_editing: 'Dựng video / Clip',
@@ -285,7 +287,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
 
   const baseReportsList = activeTab === 'all_reports' ? allReports : myReports;
   const availableReportMonths = useMemo(() => {
-    const map = new Map<string, { ym: string; label: string; count: number; totalOutput: number }>();
+    const map = new Map<
+      string,
+      { ym: string; label: string; count: number; totalOutput: number }
+    >();
     for (const r of baseReportsList) {
       const ym = (r.report_date || '').slice(0, 7);
       if (!/^\d{4}-\d{2}$/.test(ym)) continue;
@@ -1018,8 +1023,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               padding: '10px 16px',
               borderRadius: '6px',
               backgroundColor:
-                activeTab === 'all_reports' ? 'var(--primary-color)' : 'transparent',
-              color: activeTab === 'all_reports' ? 'var(--inverse-text, #0B1220)' : 'var(--muted-color)',
+                activeTab === 'all_reports'
+                  ? 'var(--primary-color)'
+                  : 'transparent',
+              color:
+                activeTab === 'all_reports'
+                  ? 'var(--inverse-text, #0B1220)'
+                  : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               border: 'none',
@@ -1041,8 +1051,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               padding: '10px 16px',
               borderRadius: '6px',
               backgroundColor:
-                activeTab === 'my_reports' ? 'var(--primary-color)' : 'transparent',
-              color: activeTab === 'my_reports' ? 'var(--inverse-text, #0B1220)' : 'var(--muted-color)',
+                activeTab === 'my_reports'
+                  ? 'var(--primary-color)'
+                  : 'transparent',
+              color:
+                activeTab === 'my_reports'
+                  ? 'var(--inverse-text, #0B1220)'
+                  : 'var(--muted-color)',
               fontWeight: 600,
               fontSize: '14px',
               border: 'none',
@@ -1269,204 +1284,206 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
 
           <div style={{ display: showAdvancedFilters ? 'block' : 'none' }}>
             <AppCard padding="16px" style={{ marginBottom: '12px' }}>
-          {employeesError && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 12px',
-                marginBottom: '12px',
-                backgroundColor: '#451A1A',
-                border: '1px solid #7F1D1D',
-                borderRadius: '6px',
-                color: 'var(--danger-text)',
-                fontSize: '12px',
-                gap: '8px',
-              }}
-            >
-              <span>⚠️ {employeesError}</span>
-              <button
-                type="button"
-                onClick={() => fetchEmployees()}
-                disabled={employeesLoading}
-                style={{
-                  backgroundColor: '#DC2626',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '4px 10px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  minHeight: '36px',
-                  minWidth: '44px',
-                }}
-              >
-                {employeesLoading ? 'Đang tải…' : 'Thử lại'}
-              </button>
-            </div>
-          )}
-          <div
-            style={{
-              display: 'flex',
-              gap: '12px',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-            }}
-          >
-            <div style={{ flex: '1 1 200px' }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '12px',
-                  color: 'var(--muted-color)',
-                  marginBottom: '4px',
-                }}
-              >
-                Nhân viên
-              </label>
-              <select
-                value={filterEmployeeId}
-                onChange={(e) => setFilterEmployeeId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  color: 'var(--text-color)',
-                  fontSize: '14px',
-                  minHeight: '44px',
-                }}
-              >
-                <option value="all">Tất cả nhân viên</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.full_name} ({emp.employee_code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ flex: '1 1 150px' }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '12px',
-                  color: 'var(--muted-color)',
-                  marginBottom: '4px',
-                }}
-              >
-                Trạng thái
-              </label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  color: 'var(--text-color)',
-                  fontSize: '14px',
-                  minHeight: '44px',
-                }}
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="draft">Bản nháp (Draft)</option>
-                <option value="submitted">Đã nộp (Submitted)</option>
-              </select>
-            </div>
-
-            <div style={{ flex: '1 1 150px' }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '12px',
-                  color: 'var(--muted-color)',
-                  marginBottom: '4px',
-                }}
-              >
-                Ngày báo cáo
-              </label>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  color: 'var(--text-color)',
-                  fontSize: '14px',
-                  minHeight: '44px',
-                  boxSizing: 'border-box',
-                }}
-              />
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                <button
-                  type="button"
-                  data-testid="report-preset-today"
-                  onClick={() => {
-                    setFilterDate(getVietnamTodayString());
-                  }}
+              {employeesError && (
+                <div
                   style={{
-                    padding: '4px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    marginBottom: '12px',
+                    backgroundColor: '#451A1A',
+                    border: '1px solid #7F1D1D',
+                    borderRadius: '6px',
+                    color: 'var(--danger-text)',
                     fontSize: '12px',
-                    backgroundColor: 'var(--surface-hover)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '4px',
-                    color: 'var(--muted-color)',
-                    cursor: 'pointer',
+                    gap: '8px',
                   }}
                 >
-                  Hôm nay
-                </button>
-                <button
-                  type="button"
-                  data-testid="report-preset-yesterday"
-                  onClick={() => {
-                    setFilterDate(getVietnamYesterdayString());
-                  }}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '12px',
-                    backgroundColor: 'var(--surface-hover)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '4px',
-                    color: 'var(--muted-color)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Hôm qua
-                </button>
-              </div>
-            </div>
+                  <span>⚠️ {employeesError}</span>
+                  <button
+                    type="button"
+                    onClick={() => fetchEmployees()}
+                    disabled={employeesLoading}
+                    style={{
+                      backgroundColor: '#DC2626',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      minHeight: '36px',
+                      minWidth: '44px',
+                    }}
+                  >
+                    {employeesLoading ? 'Đang tải…' : 'Thử lại'}
+                  </button>
+                </div>
+              )}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ flex: '1 1 200px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    Nhân viên
+                  </label>
+                  <select
+                    value={filterEmployeeId}
+                    onChange={(e) => setFilterEmployeeId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                    }}
+                  >
+                    <option value="all">Tất cả nhân viên</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.full_name} ({emp.employee_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            {(filterEmployeeId !== 'all' ||
-              filterStatus !== 'all' ||
-              filterMonth !== 'all' ||
-              Boolean(filterDate)) && (
-              <div style={{ alignSelf: 'flex-end' }}>
-                <AppButton
-                  variant="secondary"
-                  onClick={() => {
-                    setFilterEmployeeId('all');
-                    setFilterStatus('all');
-                    setFilterMonth('all');
-                    setFilterDate('');
-                  }}
-                  style={{ minHeight: '44px' }}
-                >
-                  Xóa tất cả bộ lọc
-                </AppButton>
+                <div style={{ flex: '1 1 150px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    Trạng thái
+                  </label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                    }}
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="draft">Bản nháp (Draft)</option>
+                    <option value="submitted">Đã nộp (Submitted)</option>
+                  </select>
+                </div>
+
+                <div style={{ flex: '1 1 150px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    Ngày báo cáo
+                  </label>
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <div
+                    style={{ display: 'flex', gap: '8px', marginTop: '6px' }}
+                  >
+                    <button
+                      type="button"
+                      data-testid="report-preset-today"
+                      onClick={() => {
+                        setFilterDate(getVietnamTodayString());
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '12px',
+                        backgroundColor: 'var(--surface-hover)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '4px',
+                        color: 'var(--muted-color)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Hôm nay
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="report-preset-yesterday"
+                      onClick={() => {
+                        setFilterDate(getVietnamYesterdayString());
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '12px',
+                        backgroundColor: 'var(--surface-hover)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '4px',
+                        color: 'var(--muted-color)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Hôm qua
+                    </button>
+                  </div>
+                </div>
+
+                {(filterEmployeeId !== 'all' ||
+                  filterStatus !== 'all' ||
+                  filterMonth !== 'all' ||
+                  Boolean(filterDate)) && (
+                  <div style={{ alignSelf: 'flex-end' }}>
+                    <AppButton
+                      variant="secondary"
+                      onClick={() => {
+                        setFilterEmployeeId('all');
+                        setFilterStatus('all');
+                        setFilterMonth('all');
+                        setFilterDate('');
+                      }}
+                      style={{ minHeight: '44px' }}
+                    >
+                      Xóa tất cả bộ lọc
+                    </AppButton>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
             </AppCard>
           </div>
         </div>
@@ -1685,7 +1702,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       >
                         {group.monthsBreakdown.map((mb) => (
                           <option key={mb.ym} value={mb.ym}>
-                            {mb.label} ({mb.count} báo cáo • {mb.totalOutput} SL)
+                            {mb.label} ({mb.count} báo cáo • {mb.totalOutput}{' '}
+                            SL)
                           </option>
                         ))}
                         <option value="all">
@@ -1890,8 +1908,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                           gap: '6px',
                         }}
                       >
-                        <CalendarIcon size={16} style={{ color: 'var(--accent-text)' }} />
-                        <span>Ngày {formatVnReportDate(report.report_date)}</span>
+                        <CalendarIcon
+                          size={16}
+                          style={{ color: 'var(--accent-text)' }}
+                        />
+                        <span>
+                          Ngày {formatVnReportDate(report.report_date)}
+                        </span>
                       </span>
 
                       <StatusBadge
@@ -2126,7 +2149,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 paddingBottom: '12px',
               }}
             >
-              <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-color)' }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '18px',
+                  color: 'var(--text-color)',
+                }}
+              >
                 Tạo báo cáo công việc ngày
               </h3>
               <button
@@ -2183,7 +2212,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   marginBottom: '8px',
                 }}
               >
-                <label style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
+                <label
+                  style={{ fontSize: '13px', color: 'var(--muted-color)' }}
+                >
                   Đầu mục công việc *
                 </label>
                 <button
@@ -2441,7 +2472,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 paddingBottom: '12px',
               }}
             >
-              <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-color)' }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '18px',
+                  color: 'var(--text-color)',
+                }}
+              >
                 Chỉnh sửa bản nháp ngày {editingReport.report_date}
               </h3>
               <button
@@ -2469,7 +2506,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   marginBottom: '8px',
                 }}
               >
-                <label style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
+                <label
+                  style={{ fontSize: '13px', color: 'var(--muted-color)' }}
+                >
                   Đầu mục công việc *
                 </label>
                 <button
@@ -2728,7 +2767,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               }}
             >
               <div>
-                <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-color)' }}>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    color: 'var(--text-color)',
+                  }}
+                >
                   Chỉnh sửa báo cáo đã nộp (Quy tắc C02)
                 </h3>
                 <div
@@ -2818,7 +2863,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   marginBottom: '8px',
                 }}
               >
-                <label style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
+                <label
+                  style={{ fontSize: '13px', color: 'var(--muted-color)' }}
+                >
                   Đầu mục công việc *
                 </label>
                 <button
@@ -3080,7 +3127,13 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               }}
             >
               <div>
-                <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-color)' }}>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    color: 'var(--text-color)',
+                  }}
+                >
                   Chi tiết báo cáo công việc
                 </h3>
                 {reportDetail && (
@@ -3149,7 +3202,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                     Phiên bản hiện tại: v{reportDetail.current_revision}
                   </span>
                   {reportDetail.submitted_at && (
-                    <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                    <span
+                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                    >
                       Nộp lúc:{' '}
                       {new Date(reportDetail.submitted_at).toLocaleString(
                         'vi-VN',
@@ -3232,7 +3287,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                               {entry.reported_count}
                             </td>
                             <td
-                              style={{ padding: '10px 12px', color: 'var(--muted-color)' }}
+                              style={{
+                                padding: '10px 12px',
+                                color: 'var(--muted-color)',
+                              }}
                             >
                               {entry.work_item_title && entry.work_item_id && (
                                 <a
@@ -3241,7 +3299,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                     ev.preventDefault();
                                     onNavigate?.(`/work/${entry.work_item_id}`);
                                   }}
-                                  style={{ color: 'var(--accent-text)', marginRight: 8 }}
+                                  style={{
+                                    color: 'var(--accent-text)',
+                                    marginRight: 8,
+                                  }}
                                 >
                                   🔗 {entry.work_item_title}
                                 </a>
@@ -3294,7 +3355,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       gap: '6px',
                     }}
                   >
-                    <RotateCcwIcon size={15} style={{ color: 'var(--accent-text)' }} />
+                    <RotateCcwIcon
+                      size={15}
+                      style={{ color: 'var(--accent-text)' }}
+                    />
                     <span>Lịch sử các phiên bản (C02 Revisions)</span>
                   </h4>
 
@@ -3355,13 +3419,19 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                   : '(Chỉnh sửa)'}
                               </span>
                               <span
-                                style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--muted-color)',
+                                }}
                               >
                                 Bởi {rev.edited_by_name || 'Nhân viên'}
                               </span>
                             </div>
                             <span
-                              style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                              style={{
+                                fontSize: '12px',
+                                color: 'var(--muted-color)',
+                              }}
                             >
                               {new Date(rev.edited_at).toLocaleString('vi-VN')}
                             </span>
@@ -3403,7 +3473,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                   }}
                                 >
                                   {formatWorkTypeLabel(item.work_type)}:{' '}
-                                  <strong style={{ color: 'var(--text-color)' }}>
+                                  <strong
+                                    style={{ color: 'var(--text-color)' }}
+                                  >
                                     {item.reported_count}
                                   </strong>
                                 </span>

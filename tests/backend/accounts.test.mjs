@@ -914,7 +914,10 @@ test('ACC-01 Managed Accounts & Secrets: security, crypto AEAD, reauth protocol,
         const enhAcc = createEnhancedRes.data.data;
         assert.equal(enhAcc.username, 'shop_flagship_vn');
         assert.equal(enhAcc.platform_account_id, 'UID-99887766');
-        assert.equal(enhAcc.recovery_email, 'recovery.flagship@hoaiphuong.click');
+        assert.equal(
+          enhAcc.recovery_email,
+          'recovery.flagship@hoaiphuong.click',
+        );
         assert.equal(enhAcc.account_group, 'Marketing');
         assert.equal(enhAcc.assigned_employee_id, empId);
         assert.equal(enhAcc.assigned_employee_name, 'Trần Phụ Trách Kênh');
@@ -933,8 +936,12 @@ test('ACC-01 Managed Accounts & Secrets: security, crypto AEAD, reauth protocol,
         assert.equal(enhDetailRes.status, 200);
         assert.equal(enhDetailRes.data.data.has_secret, true);
         assert.ok(enhDetailRes.data.data.secret_types.includes('password'));
-        assert.ok(enhDetailRes.data.data.secret_types.includes('two_fa_secret'));
-        assert.ok(enhDetailRes.data.data.secret_types.includes('email_password'));
+        assert.ok(
+          enhDetailRes.data.data.secret_types.includes('two_fa_secret'),
+        );
+        assert.ok(
+          enhDetailRes.data.data.secret_types.includes('email_password'),
+        );
         assert.equal(enhDetailRes.data.data.secret_value, undefined);
 
         // 3. Filter list by account_group and assigned_employee_id

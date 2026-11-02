@@ -4,9 +4,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import pg from 'pg';
 
-const DATABASE_URL =
-  process.env.TEST_DATABASE_URL ||
-  process.env.DATABASE_URL;
+const DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
   throw new Error(
@@ -86,9 +84,10 @@ async function runSessionExpiryE2E() {
 
     // Helper: Reset admin password to a known password
     const adminPassword = 'AdminSecretPass2026!#';
-    const baselineHash = await import('../../dist/packages/security/src/password.js').then((m) =>
-      m.hashPassword(adminPassword),
-    );
+    const baselineHash =
+      await import('../../dist/packages/security/src/password.js').then((m) =>
+        m.hashPassword(adminPassword),
+      );
     await pool.query(
       `UPDATE user_credentials SET password_hash = $1 WHERE user_id = (SELECT id FROM users WHERE username_normalized = 'admin');`,
       [baselineHash],
@@ -115,10 +114,14 @@ async function runSessionExpiryE2E() {
     let currentUrl = await evalJs('return window.location.pathname;');
     assert.equal(currentUrl, '/login', 'Must stay on /login');
     assert.ok(
-      bodyText.includes('không chính xác') || bodyText.includes('không đúng') || bodyText.includes('Đăng nhập'),
+      bodyText.includes('không chính xác') ||
+        bodyText.includes('không đúng') ||
+        bodyText.includes('Đăng nhập'),
       'Must display login error without reload loop',
     );
-    console.log('✓ Scenario 5 PASS: Wrong password showed error, no reload loop, stayed at /login.');
+    console.log(
+      '✓ Scenario 5 PASS: Wrong password showed error, no reload loop, stayed at /login.',
+    );
 
     // Login successfully as admin
     console.log('\nLogging in with valid admin credentials...');
@@ -143,15 +146,23 @@ async function runSessionExpiryE2E() {
     assert.equal(currentUrl, '/clock', 'Should be at /clock');
     bodyText = await evalJs('return document.body.innerText;');
     assert.ok(
-      bodyText.includes('Chấm công') || bodyText.includes('Clock') || bodyText.includes('Giờ làm'),
+      bodyText.includes('Chấm công') ||
+        bodyText.includes('Clock') ||
+        bodyText.includes('Giờ làm'),
       'Clock screen should render normally',
     );
-    console.log('✓ Scenario 1 PASS: Valid session does not redirect, stays on /clock.');
+    console.log(
+      '✓ Scenario 1 PASS: Valid session does not redirect, stays on /clock.',
+    );
 
     // SCENARIO 6: Multiple simultaneous 401s -> trigger redirect only once
-    console.log('\n--- Scenario 6: Multiple APIs returning 401 simultaneously ---');
+    console.log(
+      '\n--- Scenario 6: Multiple APIs returning 401 simultaneously ---',
+    );
     // Invalidate all active sessions in DB
-    await pool.query(`UPDATE auth_sessions SET revoked_at = now() WHERE revoked_at IS NULL;`);
+    await pool.query(
+      `UPDATE auth_sessions SET revoked_at = now() WHERE revoked_at IS NULL;`,
+    );
 
     // Fire 3 simultaneous fetch calls to authenticated endpoints from the browser
     await evalJs(`
@@ -178,11 +189,19 @@ async function runSessionExpiryE2E() {
     // Wait 1.8 seconds (banner displays for 1.5s, then redirects)
     await new Promise((r) => setTimeout(r, 1800));
     currentUrl = await evalJs('return window.location.pathname;');
-    assert.equal(currentUrl, '/login', 'Must redirect to /login after notice timeout');
-    console.log('✓ Scenario 6 PASS: Multiple simultaneous 401s resulted in exactly 1 redirect to /login.');
+    assert.equal(
+      currentUrl,
+      '/login',
+      'Must redirect to /login after notice timeout',
+    );
+    console.log(
+      '✓ Scenario 6 PASS: Multiple simultaneous 401s resulted in exactly 1 redirect to /login.',
+    );
 
     // SCENARIO 8 check: Post-login redirect returns user to previous route (/clock)
-    console.log('\n--- Scenario 8: Return to previous route (/clock) after re-login & Open Redirect Guard ---');
+    console.log(
+      '\n--- Scenario 8: Return to previous route (/clock) after re-login & Open Redirect Guard ---',
+    );
     await evalJs(`
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
       const inputs = document.querySelectorAll('input');
@@ -195,12 +214,19 @@ async function runSessionExpiryE2E() {
     `);
     await new Promise((r) => setTimeout(r, 2000));
     currentUrl = await evalJs('return window.location.pathname;');
-    assert.equal(currentUrl, '/clock', 'Should return to previous path (/clock) post-login');
+    assert.equal(
+      currentUrl,
+      '/clock',
+      'Should return to previous path (/clock) post-login',
+    );
     console.log('✓ Scenario 8 PASS: Returned to /clock after re-login.');
 
     // SCENARIO 2: Session expired during user action in ReportBugWidget -> does NOT store plaintext token
-    console.log('\n--- Scenario 2: Session expired in ReportBugWidget protects sensitive tokens ---');
-    const sampleSensitiveToken = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.sensitive_payload_123';
+    console.log(
+      '\n--- Scenario 2: Session expired in ReportBugWidget protects sensitive tokens ---',
+    );
+    const sampleSensitiveToken =
+      'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.sensitive_payload_123';
     const draftText = `Lỗi hệ thống nghiêm trọng kèm token: ${sampleSensitiveToken}`;
     await evalJs(`
       const openBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Báo lỗi'));
@@ -218,7 +244,9 @@ async function runSessionExpiryE2E() {
     `);
 
     // Invalidate session in DB
-    await pool.query(`UPDATE auth_sessions SET revoked_at = now() WHERE revoked_at IS NULL;`);
+    await pool.query(
+      `UPDATE auth_sessions SET revoked_at = now() WHERE revoked_at IS NULL;`,
+    );
 
     // Click submit in bug widget
     await evalJs(`
@@ -230,7 +258,10 @@ async function runSessionExpiryE2E() {
     hasBanner = await evalJs(`
       return Boolean(document.querySelector('[data-testid="session-expired-banner"]') || document.body.innerText.includes('hết hạn'));
     `);
-    assert.ok(hasBanner, 'Expiration banner must appear when ReportBugWidget detects 401');
+    assert.ok(
+      hasBanner,
+      'Expiration banner must appear when ReportBugWidget detects 401',
+    );
 
     // Wait for redirect to /login
     await new Promise((r) => setTimeout(r, 1800));
@@ -241,7 +272,11 @@ async function runSessionExpiryE2E() {
     const savedDraft = await evalJs(`
       return sessionStorage.getItem('mgmt_bug_report_draft');
     `);
-    assert.equal(savedDraft, null, 'Draft must NOT be saved in shared sessionStorage');
+    assert.equal(
+      savedDraft,
+      null,
+      'Draft must NOT be saved in shared sessionStorage',
+    );
 
     const allSessionStorage = await evalJs(`
       return JSON.stringify(sessionStorage);
@@ -251,7 +286,9 @@ async function runSessionExpiryE2E() {
       false,
       'Sample token must NOT be leaked or stored in plaintext in sessionStorage',
     );
-    console.log('✓ Scenario 2 PASS: Session expiry in ReportBugWidget redirected to /login without leaking plaintext tokens into sessionStorage.');
+    console.log(
+      '✓ Scenario 2 PASS: Session expiry in ReportBugWidget redirected to /login without leaking plaintext tokens into sessionStorage.',
+    );
 
     // SCENARIO 3: Session revoked after password reset -> automatically redirects
     console.log('\n--- Scenario 3: Session revoked after password reset ---');
@@ -272,13 +309,21 @@ async function runSessionExpiryE2E() {
     await new Promise((resolve, reject) => {
       const req = http.request(
         'http://127.0.0.1:3002/api/v1/auth/forgot-password',
-        { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'http://127.0.0.1:3001' } },
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Origin: 'http://127.0.0.1:3001',
+          },
+        },
         (res) => {
-          let d = ''; res.on('data', c => d += c); res.on('end', () => resolve(JSON.parse(d)));
-        }
+          let d = '';
+          res.on('data', (c) => (d += c));
+          res.on('end', () => resolve(JSON.parse(d)));
+        },
       );
       req.on('error', reject);
-      req.write(JSON.stringify({ email: 'truhoaiphuong02@gmail.com' }));
+      req.write(JSON.stringify({ email: 'admin-reset@example.test' }));
       req.end();
     });
 
@@ -300,10 +345,18 @@ async function runSessionExpiryE2E() {
     await new Promise((resolve, reject) => {
       const req = http.request(
         'http://127.0.0.1:3002/api/v1/auth/reset-password',
-        { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'http://127.0.0.1:3001' } },
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Origin: 'http://127.0.0.1:3001',
+          },
+        },
         (res) => {
-          let d = ''; res.on('data', c => d += c); res.on('end', () => resolve(JSON.parse(d)));
-        }
+          let d = '';
+          res.on('data', (c) => (d += c));
+          res.on('end', () => resolve(JSON.parse(d)));
+        },
       );
       req.on('error', reject);
       req.write(JSON.stringify({ token: rToken, new_password: newAdminPass }));
@@ -318,12 +371,21 @@ async function runSessionExpiryE2E() {
     hasBanner = await evalJs(`
       return Boolean(document.querySelector('[data-testid="session-expired-banner"]') || document.body.innerText.includes('hết hạn'));
     `);
-    assert.ok(hasBanner, 'Session revoked after password reset must show banner');
+    assert.ok(
+      hasBanner,
+      'Session revoked after password reset must show banner',
+    );
 
     await new Promise((r) => setTimeout(r, 1800));
     currentUrl = await evalJs('return window.location.pathname;');
-    assert.equal(currentUrl, '/login', 'Must redirect to /login after session revoked by password reset');
-    console.log('✓ Scenario 3 PASS: Session revoked after password reset transitioned to /login.');
+    assert.equal(
+      currentUrl,
+      '/login',
+      'Must redirect to /login after session revoked by password reset',
+    );
+    console.log(
+      '✓ Scenario 3 PASS: Session revoked after password reset transitioned to /login.',
+    );
 
     // SCENARIO 4: 403 Forbidden does not redirect
     console.log('\n--- Scenario 4: 403 Forbidden does NOT redirect ---');
@@ -353,8 +415,14 @@ async function runSessionExpiryE2E() {
     await new Promise((r) => setTimeout(r, 1000));
 
     currentUrl = await evalJs('return window.location.pathname;');
-    assert.notEqual(currentUrl, '/login', '403 Forbidden must NOT redirect to /login');
-    console.log('✓ Scenario 4 PASS: 403 Forbidden did not trigger redirect to /login.');
+    assert.notEqual(
+      currentUrl,
+      '/login',
+      '403 Forbidden must NOT redirect to /login',
+    );
+    console.log(
+      '✓ Scenario 4 PASS: 403 Forbidden did not trigger redirect to /login.',
+    );
 
     ws.close();
     console.log('\n=== CHROME CDP E2E: ALL 6 SCENARIOS PASSED 100%! ===\n');

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "attendance_shifts_keyset",
+    "description": "Owner attendance shifts list with keyset cursor pagination",
+    "executionTimeMs": 0.033,
+    "planningTimeMs": 4.463,
+    "nodeType": "Limit",
+    "indexName": null
+  },
+  {
+    "id": "work_items_v4_ref_lookup",
+    "description": "TikTok V4 Bridge deduplication lookup by [TIKTOK_V4_REF:...]",
+    "executionTimeMs": 0.032,
+    "planningTimeMs": 0.841,
+    "nodeType": "Limit",
+    "indexName": null
+  },
+  {
+    "id": "daily_reports_keyset",
+    "description": "Daily reports keyset cursor pagination",
+    "executionTimeMs": 0.04,
+    "planningTimeMs": 3.371,
+    "nodeType": "Limit",
+    "indexName": null
+  },
+  {
+    "id": "fin_entries_ledger",
+    "description": "Finance ledger date-ordered listing",
+    "executionTimeMs": 0.017,
+    "planningTimeMs": 1.48,
+    "nodeType": "Limit",
+    "indexName": null
+  },
+  {
+    "id": "storage_files_by_folder",
+    "description": "Storage files listing for a folder",
+    "executionTimeMs": 0.017,
+    "planningTimeMs": 2.654,
+    "nodeType": "Limit",
+    "indexName": null
+  }
+]

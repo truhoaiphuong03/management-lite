@@ -1,14 +1,16 @@
 # ĐỀ XUẤT THIẾT KẾ GIAO DIỆN VÀ HỢP ĐỒNG API CHO TÍNH NĂNG MỚI
+
 **Mã tài liệu:** `ANTY-PROPOSED-FEATURES-AND-API-REQUIREMENTS.md`  
 **Người lập:** Anty (Frontend Engineering)  
 **Thời gian:** 2026-10-12 20:25 ICT  
-**Trạng thái phát hành:** `QA_HOLD` / `RELEASE_HOLD` (Không deploy độc lập, phối hợp đồng bộ với Codex)  
+**Trạng thái phát hành:** `QA_HOLD` / `RELEASE_HOLD` (Không deploy độc lập, phối hợp đồng bộ với Codex)
 
 ---
 
 ## 1. MỤC TIÊU VÀ NGUYÊN TẮC
 
 Tài liệu này chuẩn bị thiết kế chi tiết phía Frontend và quy định hợp đồng API giao tiếp Backend cho 4 tính năng mở rộng có giá trị thực tiễn cao nhất theo yêu cầu của Owner:
+
 1. **Xuất báo cáo Excel / CSV (Tài chính & Lương).**
 2. **Xuất Nhật ký kiểm toán (Audit Log Export).**
 3. **Cấu hình bán kính định vị GPS khi Chấm công (Attendance Geofencing).**
@@ -24,6 +26,7 @@ Tài liệu này chuẩn bị thiết kế chi tiết phía Frontend và quy đ�
 ### 2.1. Tính năng 1: Xuất báo cáo Excel / CSV (Finance & Payroll)
 
 #### A. Trải nghiệm người dùng (UX Flow)
+
 1. Tại `FinanceHistoryScreen` và `PayrollScreen`, bổ sung nút hành động `Xuất dữ liệu` (kèm icon `DownloadIcon`).
 2. Khi người dùng click:
    - Hiển thị dialog lựa chọn định dạng (`CSV` hoặc `Excel .xlsx`).
@@ -33,10 +36,12 @@ Tài liệu này chuẩn bị thiết kế chi tiết phía Frontend và quy đ�
    - Sử dụng cơ chế streaming tải tệp `blob` qua `fetch`, tự động kích hoạt download trên trình duyệt và dọn dẹp blob URL bằng `URL.revokeObjectURL(url)`.
 
 #### B. Hợp đồng API đề xuất (Gửi Codex)
+
 ```http
 GET /api/v1/finance/export?format=csv|xlsx&from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&category_id=UUID
 GET /api/v1/payroll/export?format=csv|xlsx&period_id=UUID
 ```
+
 - **Headers:** `Cookie: session=...`, `Accept: text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 - **Response Headers:**
   - `Content-Type: text/csv; charset=utf-8` hoặc `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
@@ -50,6 +55,7 @@ GET /api/v1/payroll/export?format=csv|xlsx&period_id=UUID
 ### 2.2. Tính năng 2: Xuất Nhật ký kiểm toán (Audit Log Export)
 
 #### A. Trải nghiệm người dùng (UX Flow)
+
 1. Tại `AuditScreen` (chỉ dành riêng cho Owner - RBAC-01):
    - Thêm nút `Xuất nhật ký kiểm toán` trên thanh công cụ lọc.
    - Hộp thoại xuất cho phép chọn: Khoảng ngày, Loại hành động (AUTH, ACC, EMP, PAY, v.v.), Định dạng (`NDJSON` hoặc `CSV`).
@@ -57,9 +63,11 @@ GET /api/v1/payroll/export?format=csv|xlsx&period_id=UUID
 2. Tệp xuất được gắn mã băm SHA-256 trong header để bảo đảm tính toàn vẹn và bất biến theo tiêu chuẩn `AUDIT-005`.
 
 #### B. Hợp đồng API đề xuất (Gửi Codex)
+
 ```http
 GET /api/v1/audit/export?format=ndjson|csv&from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&action_type=AUTH
 ```
+
 - **Response Headers:**
   - `Content-Type: application/x-ndjson; charset=utf-8` hoặc `text/csv; charset=utf-8`
   - `X-Audit-Digest: sha256-...` (Checksum bảo đảm tính toàn vẹn)
@@ -71,6 +79,7 @@ GET /api/v1/audit/export?format=ndjson|csv&from_date=YYYY-MM-DD&to_date=YYYY-MM-
 ### 2.3. Tính năng 3: Cấu hình bán kính GPS Chấm công (Attendance Geofencing)
 
 #### A. Trải nghiệm người dùng (UX Flow)
+
 1. **Phía Quản trị (`SettingsScreen.tsx`):**
    - Bổ sung nhóm cài đặt `Địa điểm Chấm công & Geofence`:
      - Tọa độ GPS cửa hàng/văn phòng: `Vĩ độ (Latitude)` và `Kinh độ (Longitude)`.
@@ -85,11 +94,14 @@ GET /api/v1/audit/export?format=ndjson|csv&from_date=YYYY-MM-DD&to_date=YYYY-MM-
        - Nếu ngoài bán kính: Hiển thị cảnh báo đỏ `Ngoài phạm vi cho phép (~240m > 100m)` và chặn gửi request, hướng dẫn nhân viên đứng gần cửa hàng hơn.
 
 #### B. Hợp đồng API đề xuất (Gửi Codex)
+
 ```http
 GET /api/v1/settings/attendance-geofence
 PUT /api/v1/settings/attendance-geofence
 ```
+
 **Payload cấu hình:**
+
 ```json
 {
   "enabled": true,
@@ -98,7 +110,9 @@ PUT /api/v1/settings/attendance-geofence
   "radius_meters": 100
 }
 ```
+
 **Payload chấm công cập nhật:**
+
 ```json
 POST /api/v1/attendance/shifts/clock-in
 {
@@ -113,6 +127,7 @@ POST /api/v1/attendance/shifts/clock-in
 ### 2.4. Tính năng 4: Xác thực 2 yếu tố MFA / TOTP (Multi-Factor Authentication)
 
 #### A. Trải nghiệm người dùng (UX Flow)
+
 1. **Kích hoạt TOTP (`SettingsScreen.tsx`):**
    - Quản trị viên chọn `Bật xác thực 2 bước (2FA)`.
    - Bước 1: Nhập lại mật khẩu hiện tại.
@@ -125,6 +140,7 @@ POST /api/v1/attendance/shifts/clock-in
    - Tự động submit khi nhập đủ 6 số.
 
 #### B. Hợp đồng API đề xuất (Gửi Codex)
+
 ```http
 POST /api/v1/auth/mfa/totp/setup      -> Sinh secret tạm & QR code URI
 POST /api/v1/auth/mfa/totp/enable     -> Xác nhận mã 6 số để bật chính thức

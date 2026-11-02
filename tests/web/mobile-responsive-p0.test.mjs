@@ -58,8 +58,7 @@ test('MOBILE-P0-02: MobileBottomNav enforces iPhone safe-area padding, >=44px to
     'MobileBottomNav must maintain z-index:920 above scrolling content',
   );
   assert.ok(
-    html.includes('text-overflow:ellipsis') &&
-      html.includes('aria-label='),
+    html.includes('text-overflow:ellipsis') && html.includes('aria-label='),
     'MobileBottomNav labels must be single-line with an accessible aria-label per button',
   );
   assert.ok(
@@ -101,7 +100,8 @@ test('MOBILE-P0-03: AppShell docks ReportBugWidget in normal flow (.app-shell-re
   );
   assert.ok(
     html.includes('.app-shell-report-dock .btn-floating-report-bug') &&
-      html.includes('position:fixed') && html.includes('touch-action:none'),
+      html.includes('position:fixed') &&
+      html.includes('touch-action:none'),
     'AppShell must dock .btn-floating-report-bug in normal document flow so it cannot overlap primary buttons',
   );
 

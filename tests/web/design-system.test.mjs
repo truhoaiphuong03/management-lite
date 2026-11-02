@@ -71,7 +71,10 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppButton variants, sizes, icon-only and zero-jit
   const primaryMarkup = renderToStaticMarkup(
     React.createElement(AppButton, { variant: 'primary' }, 'Xác nhận'),
   );
-  assert.ok(primaryMarkup.includes('background-color:#14B8A6') || primaryMarkup.includes('#14B8A6'));
+  assert.ok(
+    primaryMarkup.includes('background-color:#14B8A6') ||
+      primaryMarkup.includes('#14B8A6'),
+  );
   assert.ok(primaryMarkup.includes('min-height:44px'));
   assert.ok(primaryMarkup.includes('Xác nhận'));
 
@@ -102,15 +105,34 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppButton variants, sizes, icon-only and zero-jit
   const loadingMarkup = renderToStaticMarkup(
     React.createElement(AppButton, { isLoading: true }, 'Lưu dữ liệu'),
   );
-  assert.ok(loadingMarkup.includes('visibility:hidden'), 'Must hide label without removing it from layout');
-  assert.ok(loadingMarkup.includes('Lưu dữ liệu'), 'Label must remain in DOM for layout stability');
-  assert.ok(loadingMarkup.includes('role="status"'), 'Spinner must be rendered with role="status"');
-  assert.ok(loadingMarkup.includes('position:absolute'), 'Spinner must be centered absolutely');
-  assert.ok(loadingMarkup.includes('disabled=""'), 'Loading button must be disabled');
+  assert.ok(
+    loadingMarkup.includes('visibility:hidden'),
+    'Must hide label without removing it from layout',
+  );
+  assert.ok(
+    loadingMarkup.includes('Lưu dữ liệu'),
+    'Label must remain in DOM for layout stability',
+  );
+  assert.ok(
+    loadingMarkup.includes('role="status"'),
+    'Spinner must be rendered with role="status"',
+  );
+  assert.ok(
+    loadingMarkup.includes('position:absolute'),
+    'Spinner must be centered absolutely',
+  );
+  assert.ok(
+    loadingMarkup.includes('disabled=""'),
+    'Loading button must be disabled',
+  );
 
   // 6. Explicit loadingText option
   const textLoadingMarkup = renderToStaticMarkup(
-    React.createElement(AppButton, { isLoading: true, loadingText: 'Đang gửi…' }, 'Gửi'),
+    React.createElement(
+      AppButton,
+      { isLoading: true, loadingText: 'Đang gửi…' },
+      'Gửi',
+    ),
   );
   assert.ok(textLoadingMarkup.includes('Đang gửi…'));
 });
@@ -147,7 +169,10 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppBadge and StatusBadge semantic consistency', a
 
   // 1. AppBadge variants
   const primaryBadge = renderToStaticMarkup(
-    React.createElement(AppBadge, { variant: 'primary', label: 'Primary Badge' }),
+    React.createElement(AppBadge, {
+      variant: 'primary',
+      label: 'Primary Badge',
+    }),
   );
   assert.ok(primaryBadge.includes('#14B8A6'));
   assert.ok(primaryBadge.includes('border-radius:9999px'));
@@ -185,7 +210,10 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppInput and form controls accessibility and touc
   assert.ok(inputMarkup.includes('Email không đúng định dạng'));
   assert.ok(inputMarkup.includes('role="alert"'));
   assert.ok(inputMarkup.includes('aria-invalid="true"'));
-  assert.ok(inputMarkup.includes('min-height:44px'), 'Input must meet 44px touch target');
+  assert.ok(
+    inputMarkup.includes('min-height:44px'),
+    'Input must meet 44px touch target',
+  );
 
   // 2. AppTextarea
   const textareaMarkup = renderToStaticMarkup(
@@ -267,24 +295,52 @@ test('MGL-UI-DS-FIX-33: FIX 1 — AppInput and AppTextarea unique ID generation 
   );
 
   // Extract all id="..." and for="..."
-  const idMatches = [...duplicateLabelMarkup.matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
-  const forMatches = [...duplicateLabelMarkup.matchAll(/for="([^"]+)"/g)].map((m) => m[1]);
+  const idMatches = [...duplicateLabelMarkup.matchAll(/id="([^"]+)"/g)].map(
+    (m) => m[1],
+  );
+  const forMatches = [...duplicateLabelMarkup.matchAll(/for="([^"]+)"/g)].map(
+    (m) => m[1],
+  );
 
   // There should be 2 labels and their for targets must be unique
-  assert.equal(forMatches.length, 2, 'Must have exactly 2 label for attributes');
-  assert.notEqual(forMatches[0], forMatches[1], 'Labels sharing the same text must target distinct input IDs');
+  assert.equal(
+    forMatches.length,
+    2,
+    'Must have exactly 2 label for attributes',
+  );
+  assert.notEqual(
+    forMatches[0],
+    forMatches[1],
+    'Labels sharing the same text must target distinct input IDs',
+  );
 
   // Input IDs must match their respective label htmlFor
-  assert.ok(idMatches.includes(forMatches[0]), 'First input ID must match first label htmlFor');
-  assert.ok(idMatches.includes(forMatches[1]), 'Second input ID must match second label htmlFor');
+  assert.ok(
+    idMatches.includes(forMatches[0]),
+    'First input ID must match first label htmlFor',
+  );
+  assert.ok(
+    idMatches.includes(forMatches[1]),
+    'Second input ID must match second label htmlFor',
+  );
 
   // Helper and error IDs must be scoped uniquely to their respective inputs
   const firstErrorId = `${forMatches[0]}-error`;
   const secondHelperId = `${forMatches[1]}-helper`;
 
-  assert.ok(idMatches.includes(firstErrorId), 'First error ID must exist in DOM');
-  assert.ok(idMatches.includes(secondHelperId), 'Second helper ID must exist in DOM');
-  assert.notEqual(firstErrorId, secondHelperId, 'Error and helper IDs must not collide');
+  assert.ok(
+    idMatches.includes(firstErrorId),
+    'First error ID must exist in DOM',
+  );
+  assert.ok(
+    idMatches.includes(secondHelperId),
+    'Second helper ID must exist in DOM',
+  );
+  assert.notEqual(
+    firstErrorId,
+    secondHelperId,
+    'Error and helper IDs must not collide',
+  );
 
   // 2. Explicit id prop behavior is strictly preserved
   const explicitMarkup = renderToStaticMarkup(
@@ -295,9 +351,18 @@ test('MGL-UI-DS-FIX-33: FIX 1 — AppInput and AppTextarea unique ID generation 
     }),
   );
 
-  assert.ok(explicitMarkup.includes('id="custom-auth-email"'), 'Explicit id must be preserved verbatim');
-  assert.ok(explicitMarkup.includes('for="custom-auth-email"'), 'Label htmlFor must match explicit id');
-  assert.ok(explicitMarkup.includes('id="custom-auth-email-helper"'), 'Helper ID must derive from explicit id');
+  assert.ok(
+    explicitMarkup.includes('id="custom-auth-email"'),
+    'Explicit id must be preserved verbatim',
+  );
+  assert.ok(
+    explicitMarkup.includes('for="custom-auth-email"'),
+    'Label htmlFor must match explicit id',
+  );
+  assert.ok(
+    explicitMarkup.includes('id="custom-auth-email-helper"'),
+    'Helper ID must derive from explicit id',
+  );
   assert.ok(
     explicitMarkup.includes('aria-describedby="custom-auth-email-helper"'),
     'aria-describedby must link helper ID',
@@ -312,9 +377,15 @@ test('MGL-UI-DS-FIX-33: FIX 1 — AppInput and AppTextarea unique ID generation 
       React.createElement(AppTextarea, { label: 'Mô tả' }),
     ),
   );
-  const taForMatches = [...textareaDuplicateMarkup.matchAll(/for="([^"]+)"/g)].map((m) => m[1]);
+  const taForMatches = [
+    ...textareaDuplicateMarkup.matchAll(/for="([^"]+)"/g),
+  ].map((m) => m[1]);
   assert.equal(taForMatches.length, 2);
-  assert.notEqual(taForMatches[0], taForMatches[1], 'Textareas with same label must have distinct IDs');
+  assert.notEqual(
+    taForMatches[0],
+    taForMatches[1],
+    'Textareas with same label must have distinct IDs',
+  );
 });
 
 test('MGL-UI-DS-FIX-33: FIX 2 — AppDialog focus isolation, container fallback, and loading trap', async () => {
@@ -337,10 +408,19 @@ test('MGL-UI-DS-FIX-33: FIX 2 — AppDialog focus isolation, container fallback,
     ),
   );
 
-  assert.ok(markup.includes('tabindex="-1"'), 'Dialog container must have tabIndex={-1} for fallback focus');
+  assert.ok(
+    markup.includes('tabindex="-1"'),
+    'Dialog container must have tabIndex={-1} for fallback focus',
+  );
   assert.ok(markup.includes('role="dialog"'), 'Must have role="dialog"');
-  assert.ok(markup.includes('aria-modal="true"'), 'Must have aria-modal="true"');
-  assert.ok(markup.includes('outline:none'), 'Dialog container must have outline:none');
+  assert.ok(
+    markup.includes('aria-modal="true"'),
+    'Must have aria-modal="true"',
+  );
+  assert.ok(
+    markup.includes('outline:none'),
+    'Dialog container must have outline:none',
+  );
 
   // 2. Loading state: close and action buttons are disabled, focus safely trapped
   const loadingMarkup = renderToStaticMarkup(
@@ -357,8 +437,14 @@ test('MGL-UI-DS-FIX-33: FIX 2 — AppDialog focus isolation, container fallback,
     ),
   );
 
-  assert.ok(loadingMarkup.includes('disabled=""'), 'Action buttons must be disabled during loading');
-  assert.ok(loadingMarkup.includes('tabindex="-1"'), 'Dialog container must retain fallback focus target when loading');
+  assert.ok(
+    loadingMarkup.includes('disabled=""'),
+    'Action buttons must be disabled during loading',
+  );
+  assert.ok(
+    loadingMarkup.includes('tabindex="-1"'),
+    'Dialog container must retain fallback focus target when loading',
+  );
 });
 
 test('MGL-UI-DS-TOUCH-FIX-37: Adjacent AppButton size="sm" with gap=0 zero overlap, 44x44px layout hit box, and click isolation', async () => {
@@ -381,26 +467,56 @@ test('MGL-UI-DS-TOUCH-FIX-37: Adjacent AppButton size="sm" with gap=0 zero overl
     }),
   );
 
-  assert.ok(dialogMarkup.includes('min-width:44px'), 'Dialog close button must have min-width: 44px');
-  assert.ok(dialogMarkup.includes('min-height:44px'), 'Dialog close button must have min-height: 44px');
-  assert.ok(dialogMarkup.includes('width:44px'), 'Dialog close button must have width: 44px');
-  assert.ok(dialogMarkup.includes('height:44px'), 'Dialog close button must have height: 44px');
+  assert.ok(
+    dialogMarkup.includes('min-width:44px'),
+    'Dialog close button must have min-width: 44px',
+  );
+  assert.ok(
+    dialogMarkup.includes('min-height:44px'),
+    'Dialog close button must have min-height: 44px',
+  );
+  assert.ok(
+    dialogMarkup.includes('width:44px'),
+    'Dialog close button must have width: 44px',
+  );
+  assert.ok(
+    dialogMarkup.includes('height:44px'),
+    'Dialog close button must have height: 44px',
+  );
 
   // 2. AppButton with size="sm" has actual layout box at least 44x44px (zero pseudo-element hit overlap)
   const smButtonMarkup = renderToStaticMarkup(
     React.createElement(AppButton, { size: 'sm' }, 'Nút nhỏ'),
   );
 
-  assert.ok(smButtonMarkup.includes('min-height:44px'), 'Small button must have min-height: 44px actual layout box');
-  assert.ok(smButtonMarkup.includes('min-width:44px'), 'Small button must have min-width: 44px actual layout box');
-  assert.ok(!smButtonMarkup.includes('touch-target-sm'), 'Small button must NOT use overflowing touch-target-sm pseudo-element');
+  assert.ok(
+    smButtonMarkup.includes('min-height:44px'),
+    'Small button must have min-height: 44px actual layout box',
+  );
+  assert.ok(
+    smButtonMarkup.includes('min-width:44px'),
+    'Small button must have min-width: 44px actual layout box',
+  );
+  assert.ok(
+    !smButtonMarkup.includes('touch-target-sm'),
+    'Small button must NOT use overflowing touch-target-sm pseudo-element',
+  );
 
   // 3. Icon-only small button also has 44x44px layout box
   const smIconOnlyMarkup = renderToStaticMarkup(
-    React.createElement(AppButton, { size: 'sm', icon: React.createElement('span', null, 'X') }),
+    React.createElement(AppButton, {
+      size: 'sm',
+      icon: React.createElement('span', null, 'X'),
+    }),
   );
-  assert.ok(smIconOnlyMarkup.includes('min-height:44px'), 'Icon-only small button must have min-height: 44px');
-  assert.ok(smIconOnlyMarkup.includes('min-width:44px'), 'Icon-only small button must have min-width: 44px');
+  assert.ok(
+    smIconOnlyMarkup.includes('min-height:44px'),
+    'Icon-only small button must have min-height: 44px',
+  );
+  assert.ok(
+    smIconOnlyMarkup.includes('min-width:44px'),
+    'Icon-only small button must have min-width: 44px',
+  );
 
   // 4. Adjacent small buttons at gap=0: no overlapping pseudo-elements, bounded within layout
   const adjacentMarkup = renderToStaticMarkup(
@@ -411,15 +527,22 @@ test('MGL-UI-DS-TOUCH-FIX-37: Adjacent AppButton size="sm" with gap=0 zero overl
       React.createElement(AppButton, { size: 'sm', id: 'btn-b' }, 'B'),
     ),
   );
-  assert.ok(!adjacentMarkup.includes('touch-target-sm'), 'Adjacent buttons must have zero pseudo-element overlap');
+  assert.ok(
+    !adjacentMarkup.includes('touch-target-sm'),
+    'Adjacent buttons must have zero pseudo-element overlap',
+  );
   assert.ok(adjacentMarkup.includes('id="btn-a"'));
   assert.ok(adjacentMarkup.includes('id="btn-b"'));
 
   // 5. Click isolation: Clicking A triggers A only; Clicking B triggers B only
   let aClicks = 0;
   let bClicks = 0;
-  const clickA = () => { aClicks++; };
-  const clickB = () => { bClicks++; };
+  const clickA = () => {
+    aClicks++;
+  };
+  const clickB = () => {
+    bClicks++;
+  };
 
   clickA();
   assert.equal(aClicks, 1);
@@ -433,25 +556,52 @@ test('MGL-UI-DS-TOUCH-FIX-37: Adjacent AppButton size="sm" with gap=0 zero overl
   const disabledMarkup = renderToStaticMarkup(
     React.createElement(AppButton, { size: 'sm', disabled: true }, 'Vô hiệu'),
   );
-  assert.ok(disabledMarkup.includes('disabled=""'), 'Disabled button must have disabled attribute');
-  assert.ok(disabledMarkup.includes('cursor:not-allowed'), 'Disabled button must show not-allowed cursor');
+  assert.ok(
+    disabledMarkup.includes('disabled=""'),
+    'Disabled button must have disabled attribute',
+  );
+  assert.ok(
+    disabledMarkup.includes('cursor:not-allowed'),
+    'Disabled button must show not-allowed cursor',
+  );
 
   const loadingMarkup = renderToStaticMarkup(
     React.createElement(AppButton, { size: 'sm', isLoading: true }, 'Đang lưu'),
   );
-  assert.ok(loadingMarkup.includes('disabled=""'), 'Loading button must be disabled to block clicks');
-  assert.ok(loadingMarkup.includes('aria-busy="true"'), 'Loading button must declare aria-busy');
-  assert.ok(loadingMarkup.includes('visibility:hidden'), 'Loading button keeps label hidden to preserve width');
-  assert.ok(loadingMarkup.includes('role="status"'), 'Loading button renders status spinner');
+  assert.ok(
+    loadingMarkup.includes('disabled=""'),
+    'Loading button must be disabled to block clicks',
+  );
+  assert.ok(
+    loadingMarkup.includes('aria-busy="true"'),
+    'Loading button must declare aria-busy',
+  );
+  assert.ok(
+    loadingMarkup.includes('visibility:hidden'),
+    'Loading button keeps label hidden to preserve width',
+  );
+  assert.ok(
+    loadingMarkup.includes('role="status"'),
+    'Loading button renders status spinner',
+  );
 
   // 7. AppInput with size="sm" preserves compact visual input (36px) with 44px touch target wrapper
   const smInputMarkup = renderToStaticMarkup(
     React.createElement(AppInput, { size: 'sm', placeholder: 'Tìm kiếm…' }),
   );
 
-  assert.ok(smInputMarkup.includes('min-height:36px'), 'Small input element must preserve compact visual height (36px)');
-  assert.ok(smInputMarkup.includes('min-height:44px'), 'Small input wrapper must provide 44px minimum touch target');
-  assert.ok(smInputMarkup.includes('data-touch-target="true"'), 'Small input wrapper must declare data-touch-target');
+  assert.ok(
+    smInputMarkup.includes('min-height:36px'),
+    'Small input element must preserve compact visual height (36px)',
+  );
+  assert.ok(
+    smInputMarkup.includes('min-height:44px'),
+    'Small input wrapper must provide 44px minimum touch target',
+  );
+  assert.ok(
+    smInputMarkup.includes('data-touch-target="true"'),
+    'Small input wrapper must declare data-touch-target',
+  );
 });
 
 test('MGL-UI-DS-LOADING-FIX-39: AppButton explicit loadingText width stability, zero overlap, and accessibility', async () => {
@@ -460,7 +610,8 @@ test('MGL-UI-DS-LOADING-FIX-39: AppButton explicit loadingText width stability, 
   );
 
   // 1. Small button with short original label ("Lưu") and long loadingText
-  const longText = 'Đang gửi thông tin xác thực lên máy chủ bảo mật và hoàn tất phiên giao dịch…';
+  const longText =
+    'Đang gửi thông tin xác thực lên máy chủ bảo mật và hoàn tất phiên giao dịch…';
   const loadingMarkup = renderToStaticMarkup(
     React.createElement(
       AppButton,
@@ -474,19 +625,46 @@ test('MGL-UI-DS-LOADING-FIX-39: AppButton explicit loadingText width stability, 
   );
 
   // Intrinsic width preservation: original label remains in DOM with visibility: hidden
-  assert.ok(loadingMarkup.includes('visibility:hidden'), 'Original label must remain in DOM with visibility: hidden');
-  assert.ok(loadingMarkup.includes('Lưu'), 'Original label text must remain in DOM');
+  assert.ok(
+    loadingMarkup.includes('visibility:hidden'),
+    'Original label must remain in DOM with visibility: hidden',
+  );
+  assert.ok(
+    loadingMarkup.includes('Lưu'),
+    'Original label text must remain in DOM',
+  );
 
   // Loading presentation in absolute overlay: cannot expand layout box
-  assert.ok(loadingMarkup.includes('position:absolute'), 'Loading overlay must be position: absolute');
-  assert.ok(loadingMarkup.includes('inset:0'), 'Loading overlay must be pinned with inset: 0');
-  assert.ok(loadingMarkup.includes('overflow:hidden'), 'Button and overlay must enforce overflow: hidden');
+  assert.ok(
+    loadingMarkup.includes('position:absolute'),
+    'Loading overlay must be position: absolute',
+  );
+  assert.ok(
+    loadingMarkup.includes('inset:0'),
+    'Loading overlay must be pinned with inset: 0',
+  );
+  assert.ok(
+    loadingMarkup.includes('overflow:hidden'),
+    'Button and overlay must enforce overflow: hidden',
+  );
 
   // Spinner visible and loading state accessible
-  assert.ok(loadingMarkup.includes('role="status"'), 'Must render role="status"');
-  assert.ok(loadingMarkup.includes('aria-live="polite"'), 'Must render aria-live="polite" for screen readers');
-  assert.ok(loadingMarkup.includes(longText), 'Accessible loading text must be present');
-  assert.ok(loadingMarkup.includes('disabled=""'), 'Loading button must be disabled to block duplicate clicks');
+  assert.ok(
+    loadingMarkup.includes('role="status"'),
+    'Must render role="status"',
+  );
+  assert.ok(
+    loadingMarkup.includes('aria-live="polite"'),
+    'Must render aria-live="polite" for screen readers',
+  );
+  assert.ok(
+    loadingMarkup.includes(longText),
+    'Accessible loading text must be present',
+  );
+  assert.ok(
+    loadingMarkup.includes('disabled=""'),
+    'Loading button must be disabled to block duplicate clicks',
+  );
 
   // 2. Adjacent small buttons with gap=0 during loading: long text cannot overflow or overlap Button B
   const adjacentLoadingMarkup = renderToStaticMarkup(
@@ -516,13 +694,20 @@ test('MGL-UI-DS-LOADING-FIX-39: AppButton explicit loadingText width stability, 
 
   assert.ok(adjacentLoadingMarkup.includes('id="btn-loading-a"'));
   assert.ok(adjacentLoadingMarkup.includes('id="btn-active-b"'));
-  assert.ok(adjacentLoadingMarkup.includes('overflow:hidden'), 'Loading button must have overflow: hidden to contain long loading text');
+  assert.ok(
+    adjacentLoadingMarkup.includes('overflow:hidden'),
+    'Loading button must have overflow: hidden to contain long loading text',
+  );
 
   // 3. Pointer and duplicate action guards
   let aClicks = 0;
   let bClicks = 0;
-  const onAClick = () => { aClicks++; };
-  const onBClick = () => { bClicks++; };
+  const onAClick = () => {
+    aClicks++;
+  };
+  const onBClick = () => {
+    bClicks++;
+  };
 
   // When A is loading / disabled: click is blocked
   const isADisabled = true;
@@ -531,7 +716,11 @@ test('MGL-UI-DS-LOADING-FIX-39: AppButton explicit loadingText width stability, 
 
   // B is active: click fires normally
   onBClick();
-  assert.equal(bClicks, 1, 'Adjacent active button B must fire click handler independently');
+  assert.equal(
+    bClicks,
+    1,
+    'Adjacent active button B must fire click handler independently',
+  );
 });
 
 test('MGL-UI-DS-A11Y-FIX-41: AppButton loading accessibility - exactly one accessible status, decorative spinner, and no duplicate announcements', async () => {
@@ -544,7 +733,8 @@ test('MGL-UI-DS-A11Y-FIX-41: AppButton loading accessibility - exactly one acces
   const countAccessibleStatuses = (markup) => {
     // Regex-based check for accessible role="status" in rendered HTML
     // 1. Check if hidden children have aria-hidden="true"
-    const hiddenOriginalHasAriaHidden = /<span aria-hidden="true"[^>]*visibility:\s*hidden/.test(markup);
+    const hiddenOriginalHasAriaHidden =
+      /<span aria-hidden="true"[^>]*visibility:\s*hidden/.test(markup);
 
     // 2. Count accessible role="status" elements (not contained within aria-hidden="true")
     // When loadingText is present:
@@ -553,9 +743,16 @@ test('MGL-UI-DS-A11Y-FIX-41: AppButton loading accessibility - exactly one acces
     // When loadingText is absent:
     // - Spinner is NOT inside <span aria-hidden="true"> (direct child of overlay)
     // - There is no loadingText element
-    const spinnerHasAriaHidden = /<span aria-hidden="true"[^>]*>\s*<span role="status" aria-label="Đang tải…"/.test(markup);
-    const hasLoadingTextStatus = /<span role="status" aria-live="polite"[^>]*>/.test(markup);
-    const hasDirectSpinnerStatus = /<span[^>]*style="position:absolute;[^"]*"[^>]*>\s*<span role="status" aria-label="Đang tải…"/.test(markup);
+    const spinnerHasAriaHidden =
+      /<span aria-hidden="true"[^>]*>\s*<span role="status" aria-label="Đang tải…"/.test(
+        markup,
+      );
+    const hasLoadingTextStatus =
+      /<span role="status" aria-live="polite"[^>]*>/.test(markup);
+    const hasDirectSpinnerStatus =
+      /<span[^>]*style="position:absolute;[^"]*"[^>]*>\s*<span role="status" aria-label="Đang tải…"/.test(
+        markup,
+      );
 
     let accessibleStatusCount = 0;
     if (hasLoadingTextStatus) accessibleStatusCount++;
@@ -584,10 +781,23 @@ test('MGL-UI-DS-A11Y-FIX-41: AppButton loading accessibility - exactly one acces
   );
 
   const res1 = countAccessibleStatuses(withTextMarkup);
-  assert.ok(res1.hiddenOriginalHasAriaHidden, 'Hidden original content must have aria-hidden="true" to prevent duplicate announcement');
-  assert.ok(res1.spinnerHasAriaHidden, 'Spinner must be wrapped in aria-hidden="true" (decorative for assistive technology) when loadingText exists');
-  assert.ok(res1.hasLoadingTextStatus, 'loadingText must carry role="status" and aria-live="polite"');
-  assert.equal(res1.accessibleStatusCount, 1, 'With loadingText, there must be EXACTLY ONE accessible role="status"');
+  assert.ok(
+    res1.hiddenOriginalHasAriaHidden,
+    'Hidden original content must have aria-hidden="true" to prevent duplicate announcement',
+  );
+  assert.ok(
+    res1.spinnerHasAriaHidden,
+    'Spinner must be wrapped in aria-hidden="true" (decorative for assistive technology) when loadingText exists',
+  );
+  assert.ok(
+    res1.hasLoadingTextStatus,
+    'loadingText must carry role="status" and aria-live="polite"',
+  );
+  assert.equal(
+    res1.accessibleStatusCount,
+    1,
+    'With loadingText, there must be EXACTLY ONE accessible role="status"',
+  );
 
   // Case 2: Without loadingText (Spinner provides the single accessible status)
   const withoutTextMarkup = renderToStaticMarkup(
@@ -602,25 +812,41 @@ test('MGL-UI-DS-A11Y-FIX-41: AppButton loading accessibility - exactly one acces
   );
 
   const res2 = countAccessibleStatuses(withoutTextMarkup);
-  assert.ok(res2.hiddenOriginalHasAriaHidden, 'Hidden original content must have aria-hidden="true"');
-  assert.ok(!res2.spinnerHasAriaHidden, 'Spinner must NOT be wrapped in aria-hidden when loadingText is absent');
-  assert.ok(res2.hasDirectSpinnerStatus, 'Spinner must provide the active accessible loading status');
-  assert.equal(res2.accessibleStatusCount, 1, 'Without loadingText, there must be EXACTLY ONE accessible loading status');
+  assert.ok(
+    res2.hiddenOriginalHasAriaHidden,
+    'Hidden original content must have aria-hidden="true"',
+  );
+  assert.ok(
+    !res2.spinnerHasAriaHidden,
+    'Spinner must NOT be wrapped in aria-hidden when loadingText is absent',
+  );
+  assert.ok(
+    res2.hasDirectSpinnerStatus,
+    'Spinner must provide the active accessible loading status',
+  );
+  assert.equal(
+    res2.accessibleStatusCount,
+    1,
+    'Without loadingText, there must be EXACTLY ONE accessible loading status',
+  );
 
   // Case 3: Narrow button spinner visibility & flex-shrink protection
   // In a narrow 44x44 icon button, long loadingText must not crush the Spinner
   const narrowMarkup = renderToStaticMarkup(
-    React.createElement(
-      AppButton,
-      {
-        size: 'sm',
-        isLoading: true,
-        loadingText: 'Nội dung loading rất dài vượt quá độ rộng của nút',
-        icon: React.createElement('span', null, '★'),
-      },
-    ),
+    React.createElement(AppButton, {
+      size: 'sm',
+      isLoading: true,
+      loadingText: 'Nội dung loading rất dài vượt quá độ rộng của nút',
+      icon: React.createElement('span', null, '★'),
+    }),
   );
 
-  assert.ok(narrowMarkup.includes('flex-shrink:0'), 'Spinner wrapper must declare flex-shrink: 0 to maintain visibility in narrow containers');
-  assert.ok(narrowMarkup.includes('text-overflow:ellipsis'), 'loadingText must truncate gracefully with ellipsis');
+  assert.ok(
+    narrowMarkup.includes('flex-shrink:0'),
+    'Spinner wrapper must declare flex-shrink: 0 to maintain visibility in narrow containers',
+  );
+  assert.ok(
+    narrowMarkup.includes('text-overflow:ellipsis'),
+    'loadingText must truncate gracefully with ellipsis',
+  );
 });

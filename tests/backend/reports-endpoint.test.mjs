@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import pg from 'pg';
-import { loadConfirmedTestConfig, loadQaEndpoint } from '../../scripts/explicit-database.mjs';
+import {
+  loadConfirmedTestConfig,
+  loadQaEndpoint,
+} from '../../scripts/explicit-database.mjs';
 
 import {
   getAcceptanceOwnerCredentials,
@@ -21,7 +24,14 @@ test('UI-REPORT-01: User Bug Reports Endpoint (POST /api/v1/reports) and RBAC', 
     await pool.end();
   });
 
-  async function apiRequest(path, method = 'GET', data = null, cookie = null, csrf = null, extraHeaders = {}) {
+  async function apiRequest(
+    path,
+    method = 'GET',
+    data = null,
+    cookie = null,
+    csrf = null,
+    extraHeaders = {},
+  ) {
     const headers = { ...extraHeaders };
     if (cookie) headers['cookie'] = cookie;
     if (csrf) headers['x-csrf-token'] = csrf;
@@ -61,7 +71,11 @@ test('UI-REPORT-01: User Bug Reports Endpoint (POST /api/v1/reports) and RBAC', 
   assert.ok(ownerCookie);
   assert.ok(ownerCsrf);
   assert.ok(ownerUserId);
-  assert.equal(ownerUserId, ownerCreds.id, 'Must be exact Acceptance Owner (admin)');
+  assert.equal(
+    ownerUserId,
+    ownerCreds.id,
+    'Must be exact Acceptance Owner (admin)',
+  );
 
   // 2. Authenticate Staff
   const staffLoginRes = await apiRequest('/api/v1/auth/login', 'POST', {
@@ -83,71 +97,110 @@ test('UI-REPORT-01: User Bug Reports Endpoint (POST /api/v1/reports) and RBAC', 
   // -------------------------------------------------------------------------
   // Test 1: Staff submits bug report via POST /api/v1/reports
   // -------------------------------------------------------------------------
-  await t.test('1. Staff submits bug report successfully (201 Created)', async () => {
-    const payload = {
-      title: 'Lỗi không tải được tài liệu đính kèm',
-      description: 'Khi bấm tải file trong màn hình công việc, thông báo lỗi xuất hiện liên tục.',
-      route_template: '/work',
-      module_name: 'Công việc (Work)',
-    };
+  await t.test(
+    '1. Staff submits bug report successfully (201 Created)',
+    async () => {
+      const payload = {
+        title: 'Lỗi không tải được tài liệu đính kèm',
+        description:
+          'Khi bấm tải file trong màn hình công việc, thông báo lỗi xuất hiện liên tục.',
+        route_template: '/work',
+        module_name: 'Công việc (Work)',
+      };
 
-    const res = await apiRequest('/api/v1/reports', 'POST', payload, staffCookie, staffCsrf);
-    assert.equal(res.status, 201, `Staff report should succeed: ${res.text}`);
-    assert.equal(res.json?.success, true);
-    assert.equal(res.json?.data?.type, 'bug');
-    assert.equal(res.json?.data?.title, payload.title);
-    assert.ok(res.json?.data?.description.includes(payload.description));
-    assert.equal(res.json?.data?.status, 'open');
-    assert.equal(res.json?.data?.reporter_user_id, staffUserId);
+      const res = await apiRequest(
+        '/api/v1/reports',
+        'POST',
+        payload,
+        staffCookie,
+        staffCsrf,
+      );
+      assert.equal(res.status, 201, `Staff report should succeed: ${res.text}`);
+      assert.equal(res.json?.success, true);
+      assert.equal(res.json?.data?.type, 'bug');
+      assert.equal(res.json?.data?.title, payload.title);
+      assert.ok(res.json?.data?.description.includes(payload.description));
+      assert.equal(res.json?.data?.status, 'open');
+      assert.equal(res.json?.data?.reporter_user_id, staffUserId);
 
-    staffReportId = res.json?.data?.id;
-    assert.ok(staffReportId);
+      staffReportId = res.json?.data?.id;
+      assert.ok(staffReportId);
 
-    // Verify durable storage in database
-    const dbRes = await pool.query('SELECT * FROM issues WHERE id = $1', [staffReportId]);
-    assert.equal(dbRes.rows.length, 1, 'Issue record must exist in PostgreSQL');
-    assert.equal(dbRes.rows[0].workspace_id, activeWorkspaceId);
-    assert.equal(dbRes.rows[0].reporter_user_id, staffUserId);
-    assert.equal(dbRes.rows[0].status, 'open');
+      // Verify durable storage in database
+      const dbRes = await pool.query('SELECT * FROM issues WHERE id = $1', [
+        staffReportId,
+      ]);
+      assert.equal(
+        dbRes.rows.length,
+        1,
+        'Issue record must exist in PostgreSQL',
+      );
+      assert.equal(dbRes.rows[0].workspace_id, activeWorkspaceId);
+      assert.equal(dbRes.rows[0].reporter_user_id, staffUserId);
+      assert.equal(dbRes.rows[0].status, 'open');
 
-    // Verify activity record in database
-    const actRes = await pool.query('SELECT * FROM issue_activity WHERE issue_id = $1', [staffReportId]);
-    assert.equal(actRes.rows.length, 1, 'Activity record must exist in PostgreSQL');
-    assert.equal(actRes.rows[0].action, 'created');
-    assert.equal(actRes.rows[0].actor_user_id, staffUserId);
-  });
+      // Verify activity record in database
+      const actRes = await pool.query(
+        'SELECT * FROM issue_activity WHERE issue_id = $1',
+        [staffReportId],
+      );
+      assert.equal(
+        actRes.rows.length,
+        1,
+        'Activity record must exist in PostgreSQL',
+      );
+      assert.equal(actRes.rows[0].action, 'created');
+      assert.equal(actRes.rows[0].actor_user_id, staffUserId);
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Test 2: Owner submits bug report via POST /api/v1/reports
   // -------------------------------------------------------------------------
-  await t.test('2. Owner submits bug report successfully (201 Created)', async () => {
-    const payload = {
-      title: 'Sai lệch số dư tài khoản sau giao dịch',
-      description: 'Số dư sau chuyển khoản chưa trừ đúng giá trị.',
-      route_template: '/accounts',
-      module_name: 'Tài khoản (Accounts)',
-    };
+  await t.test(
+    '2. Owner submits bug report successfully (201 Created)',
+    async () => {
+      const payload = {
+        title: 'Sai lệch số dư tài khoản sau giao dịch',
+        description: 'Số dư sau chuyển khoản chưa trừ đúng giá trị.',
+        route_template: '/accounts',
+        module_name: 'Tài khoản (Accounts)',
+      };
 
-    const res = await apiRequest('/api/v1/reports', 'POST', payload, ownerCookie, ownerCsrf);
-    assert.equal(res.status, 201, `Owner report should succeed: ${res.text}`);
-    assert.equal(res.json?.success, true);
-    assert.equal(res.json?.data?.reporter_user_id, ownerUserId);
+      const res = await apiRequest(
+        '/api/v1/reports',
+        'POST',
+        payload,
+        ownerCookie,
+        ownerCsrf,
+      );
+      assert.equal(res.status, 201, `Owner report should succeed: ${res.text}`);
+      assert.equal(res.json?.success, true);
+      assert.equal(res.json?.data?.reporter_user_id, ownerUserId);
 
-    ownerReportId = res.json?.data?.id;
-    assert.ok(ownerReportId);
-  });
+      ownerReportId = res.json?.data?.id;
+      assert.ok(ownerReportId);
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Test 3: Auto title generation when title is omitted
   // -------------------------------------------------------------------------
   await t.test('3. Auto title generation when title is omitted', async () => {
     const payload = {
-      description: 'Giao diện bảng lương bị tràn lề ngang trên màn hình điện thoại di động.',
+      description:
+        'Giao diện bảng lương bị tràn lề ngang trên màn hình điện thoại di động.',
       route_template: '/payroll',
       module_name: 'Bảng lương (Payroll)',
     };
 
-    const res = await apiRequest('/api/v1/reports', 'POST', payload, staffCookie, staffCsrf);
+    const res = await apiRequest(
+      '/api/v1/reports',
+      'POST',
+      payload,
+      staffCookie,
+      staffCsrf,
+    );
     assert.equal(res.status, 201);
     assert.ok(res.json?.data?.title.startsWith('[Báo lỗi]'));
     assert.ok(res.json?.data?.title.includes('Giao diện bảng lương'));
@@ -156,32 +209,56 @@ test('UI-REPORT-01: User Bug Reports Endpoint (POST /api/v1/reports) and RBAC', 
   // -------------------------------------------------------------------------
   // Test 4: Validation errors (empty description)
   // -------------------------------------------------------------------------
-  await t.test('4. Empty description returns 400 VALIDATION_ERROR', async () => {
-    const emptyPayload = {
-      description: '   ',
-      route_template: '/work',
-    };
+  await t.test(
+    '4. Empty description returns 400 VALIDATION_ERROR',
+    async () => {
+      const emptyPayload = {
+        description: '   ',
+        route_template: '/work',
+      };
 
-    const res = await apiRequest('/api/v1/reports', 'POST', emptyPayload, staffCookie, staffCsrf);
-    assert.equal(res.status, 400);
-    assert.equal(res.json?.error?.code, 'VALIDATION_ERROR');
-  });
+      const res = await apiRequest(
+        '/api/v1/reports',
+        'POST',
+        emptyPayload,
+        staffCookie,
+        staffCsrf,
+      );
+      assert.equal(res.status, 400);
+      assert.equal(res.json?.error?.code, 'VALIDATION_ERROR');
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Test 5: CSRF protection enforcement
   // -------------------------------------------------------------------------
-  await t.test('5. Missing or invalid CSRF token rejected with 403', async () => {
-    const payload = {
-      description: 'Valid error description',
-      route_template: '/work',
-    };
+  await t.test(
+    '5. Missing or invalid CSRF token rejected with 403',
+    async () => {
+      const payload = {
+        description: 'Valid error description',
+        route_template: '/work',
+      };
 
-    const missingCsrfRes = await apiRequest('/api/v1/reports', 'POST', payload, staffCookie, null);
-    assert.equal(missingCsrfRes.status, 403, 'Missing CSRF must be rejected');
+      const missingCsrfRes = await apiRequest(
+        '/api/v1/reports',
+        'POST',
+        payload,
+        staffCookie,
+        null,
+      );
+      assert.equal(missingCsrfRes.status, 403, 'Missing CSRF must be rejected');
 
-    const invalidCsrfRes = await apiRequest('/api/v1/reports', 'POST', payload, staffCookie, 'invalid-csrf-token');
-    assert.equal(invalidCsrfRes.status, 403, 'Invalid CSRF must be rejected');
-  });
+      const invalidCsrfRes = await apiRequest(
+        '/api/v1/reports',
+        'POST',
+        payload,
+        staffCookie,
+        'invalid-csrf-token',
+      );
+      assert.equal(invalidCsrfRes.status, 403, 'Invalid CSRF must be rejected');
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Test 6: Unauthenticated request enforcement
@@ -192,48 +269,84 @@ test('UI-REPORT-01: User Bug Reports Endpoint (POST /api/v1/reports) and RBAC', 
       route_template: '/work',
     };
 
-    const res = await apiRequest('/api/v1/reports', 'POST', payload, null, null);
+    const res = await apiRequest(
+      '/api/v1/reports',
+      'POST',
+      payload,
+      null,
+      null,
+    );
     assert.equal(res.status, 401, 'Unauthenticated request must be rejected');
   });
 
   // -------------------------------------------------------------------------
   // Test 7: Owner views both reports in existing Issues list
   // -------------------------------------------------------------------------
-  await t.test('7. Owner can view newly created reports in GET /api/v1/issues', async () => {
-    const res = await apiRequest('/api/v1/issues', 'GET', null, ownerCookie);
-    assert.equal(res.status, 200, 'Owner list issues must succeed');
-    assert.equal(res.json?.success, true);
+  await t.test(
+    '7. Owner can view newly created reports in GET /api/v1/issues',
+    async () => {
+      const res = await apiRequest('/api/v1/issues', 'GET', null, ownerCookie);
+      assert.equal(res.status, 200, 'Owner list issues must succeed');
+      assert.equal(res.json?.success, true);
 
-    const items = res.json?.data?.items || [];
-    const staffReport = items.find((i) => i.id === staffReportId);
-    const ownerReport = items.find((i) => i.id === ownerReportId);
+      const items = res.json?.data?.items || [];
+      const staffReport = items.find((i) => i.id === staffReportId);
+      const ownerReport = items.find((i) => i.id === ownerReportId);
 
-    assert.ok(staffReport, 'Staff-submitted report must appear in Owner issue list');
-    assert.ok(ownerReport, 'Owner-submitted report must appear in Owner issue list');
-    assert.equal(staffReport.reporter_user_id, staffUserId);
-    assert.equal(ownerReport.reporter_user_id, ownerUserId);
-  });
+      assert.ok(
+        staffReport,
+        'Staff-submitted report must appear in Owner issue list',
+      );
+      assert.ok(
+        ownerReport,
+        'Owner-submitted report must appear in Owner issue list',
+      );
+      assert.equal(staffReport.reporter_user_id, staffUserId);
+      assert.equal(ownerReport.reporter_user_id, ownerUserId);
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Test 8: Staff CANNOT list issues or view other users' reports
   // -------------------------------------------------------------------------
-  await t.test('8. Staff cannot access GET /api/v1/issues (403 FORBIDDEN)', async () => {
-    const res = await apiRequest('/api/v1/issues', 'GET', null, staffCookie);
-    assert.equal(res.status, 403, 'Staff must be forbidden from listing all issues');
-  });
+  await t.test(
+    '8. Staff cannot access GET /api/v1/issues (403 FORBIDDEN)',
+    async () => {
+      const res = await apiRequest('/api/v1/issues', 'GET', null, staffCookie);
+      assert.equal(
+        res.status,
+        403,
+        'Staff must be forbidden from listing all issues',
+      );
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Test 9: Existing POST /api/v1/issues contract remains locked
   // -------------------------------------------------------------------------
-  await t.test('9. Existing POST /api/v1/issues remains locked: Staff is 403 FORBIDDEN', async () => {
-    const payload = {
-      type: 'bug',
-      title: 'Staff direct issue creation attempt',
-      description: 'Should be rejected because POST /api/v1/issues is owner-only',
-      route_template: '/work',
-    };
+  await t.test(
+    '9. Existing POST /api/v1/issues remains locked: Staff is 403 FORBIDDEN',
+    async () => {
+      const payload = {
+        type: 'bug',
+        title: 'Staff direct issue creation attempt',
+        description:
+          'Should be rejected because POST /api/v1/issues is owner-only',
+        route_template: '/work',
+      };
 
-    const res = await apiRequest('/api/v1/issues', 'POST', payload, staffCookie, staffCsrf);
-    assert.equal(res.status, 403, 'POST /api/v1/issues must remain strictly owner-only');
-  });
+      const res = await apiRequest(
+        '/api/v1/issues',
+        'POST',
+        payload,
+        staffCookie,
+        staffCsrf,
+      );
+      assert.equal(
+        res.status,
+        403,
+        'POST /api/v1/issues must remain strictly owner-only',
+      );
+    },
+  );
 });

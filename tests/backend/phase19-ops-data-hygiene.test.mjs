@@ -27,7 +27,10 @@ test('Phase 19.4: normalizeDateOfBirth and normalizeBankAccountNumber enforce st
   );
 
   // Valid bank account numbers (with or without spaces/dashes) normalize to digits-only
-  assert.equal(normalizeBankAccountNumber('1903 4567 8901 23'), '19034567890123');
+  assert.equal(
+    normalizeBankAccountNumber('1903 4567 8901 23'),
+    '19034567890123',
+  );
   assert.equal(normalizeBankAccountNumber('0071001234567'), '0071001234567');
   assert.equal(normalizeBankAccountNumber(''), null);
 
@@ -54,16 +57,12 @@ test('Phase 19.4: normalizeDateOfBirth and normalizeBankAccountNumber enforce st
     isTestWorkspaceRecord({ name: 'SYNTHETIC BACKUP RESTORE WS' }),
     true,
   );
-  assert.equal(
-    isTestWorkspaceRecord({ name: 'TestWS_1791936671841' }),
-    true,
-  );
+  assert.equal(isTestWorkspaceRecord({ name: 'TestWS_1791936671841' }), true);
 });
 
 test('Phase 19.4: EmployeeService.updateEmployee binds SQL placeholders ($3, $4...) and normalizes profile fields', async () => {
-  const { EmployeeService } = await import(
-    '../../dist/apps/api/src/employees/service.js'
-  );
+  const { EmployeeService } =
+    await import('../../dist/apps/api/src/employees/service.js');
 
   const clientQueries = [];
   const mockPool = {
@@ -148,15 +147,12 @@ test('Phase 19.4: EmployeeService.updateEmployee binds SQL placeholders ($3, $4.
 });
 
 test('Phase 19.2 & 19.3: Secret hygiene auditor and isolated backup-restore drill work as expected', async () => {
-  const { auditEnvSecretsHygiene, generateRotationKeyBundle } = await import(
-    '../../scripts/ops/audit-secrets-hygiene.mjs'
-  );
-  const { runBackupRestoreDrill } = await import(
-    '../../scripts/ops/backup-restore-drill.mjs'
-  );
-  const { auditEmployeeProfileRows } = await import(
-    '../../scripts/ops/verify-profile-data.mjs'
-  );
+  const { auditEnvSecretsHygiene, generateRotationKeyBundle } =
+    await import('../../scripts/ops/audit-secrets-hygiene.mjs');
+  const { runBackupRestoreDrill } =
+    await import('../../scripts/ops/backup-restore-drill.mjs');
+  const { auditEmployeeProfileRows } =
+    await import('../../scripts/ops/verify-profile-data.mjs');
 
   const bundle = generateRotationKeyBundle();
   assert.match(bundle.CSRF_SECRET, /^[0-9a-f]{64}$/);

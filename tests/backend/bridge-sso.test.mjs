@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ManagementSsoIssuer } from '../../dist/apps/api/src/bridge/sso.js';
 const auth = {
-  user: { id: 'owner-id', email: 'truhoaiphuong03@gmail.com' },
+  user: { id: 'owner-id', email: 'owner-sso@example.test' },
   workspace: { id: 'workspace-id', role: 'owner' },
 };
 const cfg = {
   secret: 'test-secret-32-bytes-long-xxxxxxxxxxxx',
   ownerId: 'owner-id',
-  ownerEmail: 'truhoaiphuong03@gmail.com',
+  ownerEmail: 'owner-sso@example.test',
   workspaceId: 'workspace-id',
   callback: 'https://hoaiphuong.click/api/auth/management/callback',
 };

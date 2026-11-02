@@ -307,7 +307,11 @@ test('UI: PayrollScreen uses shared ActionIconButton and client-side Pagination'
       React.Fragment,
       null,
       ...['view', 'edit'].map((a) =>
-        React.createElement(ui.ActionIconButton, { key: a, action: a, target: 'NV01' }),
+        React.createElement(ui.ActionIconButton, {
+          key: a,
+          action: a,
+          target: 'NV01',
+        }),
       ),
       React.createElement(ui.Pagination, {
         testId: 'payroll-items-pagination',
@@ -411,7 +415,9 @@ test('ACCEPTANCE PAY-003 -> PAY-007: Staff payslip, Owner lockout, Clocked hours
     'Must render disburse-submit-btn for payout',
   );
   assert.ok(
-    screen.includes('/api/v1/payroll/items/${disburseEmployee.id}/disbursements'),
+    screen.includes(
+      '/api/v1/payroll/items/${disburseEmployee.id}/disbursements',
+    ),
     'Must call disbursements payout endpoint',
   );
 });
@@ -847,11 +853,20 @@ test('Mounted PAY: unmount and remount restores unresolved operation from scoped
   try {
     // Mount 1
     await act(async () =>
-      root1.render(React.createElement(PayrollScreen, { role: 'owner', onNavigate: () => {} })),
+      root1.render(
+        React.createElement(PayrollScreen, {
+          role: 'owner',
+          onNavigate: () => {},
+        }),
+      ),
     );
-    await act(async () => { await new Promise((r) => setTimeout(r, 5)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+    });
 
-    await act(async () => dom.props(byId1('btn-add-adjustment-emp1')).onClick());
+    await act(async () =>
+      dom.props(byId1('btn-add-adjustment-emp1')).onClick(),
+    );
     await act(async () =>
       dom.props(byId1('adjustment-reason-input')).onChange({
         target: { value: 'Persistent reason' },
@@ -871,11 +886,20 @@ test('Mounted PAY: unmount and remount restores unresolved operation from scoped
 
   try {
     await act(async () =>
-      root2.render(React.createElement(PayrollScreen, { role: 'owner', onNavigate: () => {} })),
+      root2.render(
+        React.createElement(PayrollScreen, {
+          role: 'owner',
+          onNavigate: () => {},
+        }),
+      ),
     );
-    await act(async () => { await new Promise((r) => setTimeout(r, 5)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+    });
 
-    await act(async () => dom.props(byId2('btn-add-adjustment-emp1')).onClick());
+    await act(async () =>
+      dom.props(byId2('btn-add-adjustment-emp1')).onClick(),
+    );
     await act(async () => dom.props(byId2('adjustment-submit-btn')).onClick());
 
     assert.equal(sent.length, 2);
@@ -922,7 +946,11 @@ test('Mounted PAY: workspace change isolates pending operations', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, opts = {}) => {
     if (url.includes('/adjustments')) {
-      sent.push({ ws: activeWs, key: opts.headers['Idempotency-Key'], body: opts.body });
+      sent.push({
+        ws: activeWs,
+        key: opts.headers['Idempotency-Key'],
+        body: opts.body,
+      });
       throw new Error('Synthetic network timeout');
     }
     if (url.includes('/auth/me'))
@@ -965,11 +993,20 @@ test('Mounted PAY: workspace change isolates pending operations', async () => {
 
   try {
     await act(async () =>
-      root1.render(React.createElement(PayrollScreen, { role: 'owner', onNavigate: () => {} })),
+      root1.render(
+        React.createElement(PayrollScreen, {
+          role: 'owner',
+          onNavigate: () => {},
+        }),
+      ),
     );
-    await act(async () => { await new Promise((r) => setTimeout(r, 5)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+    });
 
-    await act(async () => dom.props(byId1('btn-add-adjustment-emp1')).onClick());
+    await act(async () =>
+      dom.props(byId1('btn-add-adjustment-emp1')).onClick(),
+    );
     await act(async () =>
       dom.props(byId1('adjustment-reason-input')).onChange({
         target: { value: 'WS1 leave' },
@@ -992,11 +1029,20 @@ test('Mounted PAY: workspace change isolates pending operations', async () => {
 
   try {
     await act(async () =>
-      root2.render(React.createElement(PayrollScreen, { role: 'owner', onNavigate: () => {} })),
+      root2.render(
+        React.createElement(PayrollScreen, {
+          role: 'owner',
+          onNavigate: () => {},
+        }),
+      ),
     );
-    await act(async () => { await new Promise((r) => setTimeout(r, 5)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+    });
 
-    await act(async () => dom.props(byId2('btn-add-adjustment-emp1')).onClick());
+    await act(async () =>
+      dom.props(byId2('btn-add-adjustment-emp1')).onClick(),
+    );
     await act(async () =>
       dom.props(byId2('adjustment-reason-input')).onChange({
         target: { value: 'WS2 leave' },
@@ -1093,9 +1139,16 @@ test('Mounted PAY: session change while request is pending discards stale respon
 
   try {
     await act(async () =>
-      rootEl.render(React.createElement(PayrollScreen, { role: 'owner', onNavigate: () => {} })),
+      rootEl.render(
+        React.createElement(PayrollScreen, {
+          role: 'owner',
+          onNavigate: () => {},
+        }),
+      ),
     );
-    await act(async () => { await new Promise((r) => setTimeout(r, 5)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+    });
 
     await act(async () => dom.props(byId('btn-add-adjustment-emp1')).onClick());
     await act(async () =>
@@ -1114,7 +1167,9 @@ test('Mounted PAY: session change while request is pending discards stale respon
     activeActor = 'u2';
     // Trigger session update event
     globalThis.window.dispatchEvent(new Event('storage'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
 
     // Now resolve the old in-flight request
     await act(async () => {
@@ -1137,5 +1192,3 @@ test('Mounted PAY: session change while request is pending discards stale respon
     await act(async () => rootEl.unmount());
   }
 });
-
-

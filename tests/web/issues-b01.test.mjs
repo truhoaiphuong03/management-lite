@@ -65,7 +65,9 @@ test('ISSUES-B01: Contract and static source verification', () => {
   );
 
   // Zero mutation invariants preserved
-  const nonBulkPostCount = (screenContent.match(/method:\s*'POST'/g) || []).length - (screenContent.includes('/api/v1/issues/bulk-confirm') ? 1 : 0);
+  const nonBulkPostCount =
+    (screenContent.match(/method:\s*'POST'/g) || []).length -
+    (screenContent.includes('/api/v1/issues/bulk-confirm') ? 1 : 0);
   assert.equal(
     nonBulkPostCount,
     0,

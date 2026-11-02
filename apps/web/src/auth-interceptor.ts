@@ -29,7 +29,6 @@ export function resetSessionExpiredState(): void {
   isSessionExpiredActive = false;
 }
 
-
 /**
  * Evaluates whether an intercepted request URL is an internal authenticated API endpoint.
  * - Must match same-origin or configured API origin (e.g. 127.0.0.1:3002).

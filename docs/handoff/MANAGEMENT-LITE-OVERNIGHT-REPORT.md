@@ -4,33 +4,34 @@
 
 **Thời điểm lập:** 2026-10-12 01:18 (GMT+7)  
 **Nhánh Git:** `feat/ui-report-01-mvp` (commit gốc `ab7500c`)  
-**Kết luận tổng quan:** `GLOBAL-UI-PAGINATION-PHASE3A-READY` / `OVERNIGHT-READY` (Phạm vi: FIN + 5 Màn hình Nhóm A + Kế hoạch Nhóm B HOLD)  
+**Kết luận tổng quan:** `GLOBAL-UI-PAGINATION-PHASE3A-READY` / `OVERNIGHT-READY` (Phạm vi: FIN + 5 Màn hình Nhóm A + Kế hoạch Nhóm B HOLD)
 
 ---
 
 ## 1. TỔNG SỐ CHỨC NĂNG & MÀN HÌNH ĐÃ KIỂM KÊ (13/13)
 
-| STT | Module / Màn hình | Route | Nhóm | Hiện trạng Icon | Hiện trạng Phân trang | Kết luận |
-|:---:|---|---|:---:|:---:|:---:|:---:|
-| 1 | **Tài chính - Lịch sử** | `/finance/history` | FIN | `ActionIconButton` (view) | Server `Pagination` (10/20/50/100, def 20) | **HOÀN THÀNH** |
-| 2 | **Tài chính - Danh mục** | `/finance/categories` | FIN | `ActionIconButton` (edit, deact, react) | Server `Pagination` (10/20/50/100, def 20) | **HOÀN THÀNH** |
-| 3 | **Tài chính - Kế hoạch** | `/finance/plan` | FIN | `ActionIconButton` (edit, deact, react) | Client `Pagination` (10/20/50/100, def 20) | **HOÀN THÀNH** |
-| 4 | **Nhật ký kiểm toán** | `/audit` | Nhóm A | `ActionIconButton` (copy Request ID) | Server `Pagination` (10/20/50/100, def 20) | **HOÀN THÀNH** |
-| 5 | **Nhân sự** | `/employees` | Nhóm A | `ActionIconButton` (view, deact, react) | Cursor `ListFooter` + an toàn trần 50 | **HOÀN THÀNH** |
-| 6 | **Báo lỗi** | `/issues` | Nhóm A | `ActionIconButton` (view) | Cursor `ListFooter` + tải thêm | **HOÀN THÀNH** |
-| 7 | **Báo cáo** | `/reports` | Nhóm A | `ActionIconButton` (view, edit nháp) | Cursor `ListFooter` (my/all) | **HOÀN THÀNH** |
-| 8 | **Chấm công** | `/clock` | Nhóm A | Giữ nút nghiệp vụ duyệt/chấp thuận | Client `Pagination` danh sách ca làm việc | **HOÀN THÀNH** |
-| 9 | **Công việc** | `/work` | Nhóm B | Đã khảo sát UI | API trả toàn bộ + N+1; đã lập kế hoạch | **HOLD (Có kế hoạch)** |
-| 10 | **Lịch làm việc** | `/schedule` | Nhóm B | Đã khảo sát UI | Giới hạn theo tuần (bounded); đã lập kế hoạch | **HOLD (Có kế hoạch)** |
-| 11 | **Lương** | `/payroll` | Nhóm B | Đã khảo sát UI | Nghiệp vụ nhạy cảm; đã lập kế hoạch | **HOLD (Có kế hoạch)** |
-| 12 | **Tài khoản** | `/accounts` | Nhóm B | Đã khảo sát UI | Secret Owner-only; đã lập kế hoạch | **HOLD (Có kế hoạch)** |
-| 13 | **Lưu trữ** | `/storage` | Nhóm B | Đã khảo sát UI | Quyền thư mục phức tạp; đã lập kế hoạch | **HOLD (Có kế hoạch)** |
+| STT | Module / Màn hình        | Route                 |  Nhóm  |             Hiện trạng Icon             |             Hiện trạng Phân trang             |        Kết luận        |
+| :-: | ------------------------ | --------------------- | :----: | :-------------------------------------: | :-------------------------------------------: | :--------------------: |
+|  1  | **Tài chính - Lịch sử**  | `/finance/history`    |  FIN   |        `ActionIconButton` (view)        |  Server `Pagination` (10/20/50/100, def 20)   |     **HOÀN THÀNH**     |
+|  2  | **Tài chính - Danh mục** | `/finance/categories` |  FIN   | `ActionIconButton` (edit, deact, react) |  Server `Pagination` (10/20/50/100, def 20)   |     **HOÀN THÀNH**     |
+|  3  | **Tài chính - Kế hoạch** | `/finance/plan`       |  FIN   | `ActionIconButton` (edit, deact, react) |  Client `Pagination` (10/20/50/100, def 20)   |     **HOÀN THÀNH**     |
+|  4  | **Nhật ký kiểm toán**    | `/audit`              | Nhóm A |  `ActionIconButton` (copy Request ID)   |  Server `Pagination` (10/20/50/100, def 20)   |     **HOÀN THÀNH**     |
+|  5  | **Nhân sự**              | `/employees`          | Nhóm A | `ActionIconButton` (view, deact, react) |     Cursor `ListFooter` + an toàn trần 50     |     **HOÀN THÀNH**     |
+|  6  | **Báo lỗi**              | `/issues`             | Nhóm A |        `ActionIconButton` (view)        |        Cursor `ListFooter` + tải thêm         |     **HOÀN THÀNH**     |
+|  7  | **Báo cáo**              | `/reports`            | Nhóm A |  `ActionIconButton` (view, edit nháp)   |         Cursor `ListFooter` (my/all)          |     **HOÀN THÀNH**     |
+|  8  | **Chấm công**            | `/clock`              | Nhóm A |   Giữ nút nghiệp vụ duyệt/chấp thuận    |   Client `Pagination` danh sách ca làm việc   |     **HOÀN THÀNH**     |
+|  9  | **Công việc**            | `/work`               | Nhóm B |             Đã khảo sát UI              |    API trả toàn bộ + N+1; đã lập kế hoạch     | **HOLD (Có kế hoạch)** |
+| 10  | **Lịch làm việc**        | `/schedule`           | Nhóm B |             Đã khảo sát UI              | Giới hạn theo tuần (bounded); đã lập kế hoạch | **HOLD (Có kế hoạch)** |
+| 11  | **Lương**                | `/payroll`            | Nhóm B |             Đã khảo sát UI              |      Nghiệp vụ nhạy cảm; đã lập kế hoạch      | **HOLD (Có kế hoạch)** |
+| 12  | **Tài khoản**            | `/accounts`           | Nhóm B |             Đã khảo sát UI              |      Secret Owner-only; đã lập kế hoạch       | **HOLD (Có kế hoạch)** |
+| 13  | **Lưu trữ**              | `/storage`            | Nhóm B |             Đã khảo sát UI              |    Quyền thư mục phức tạp; đã lập kế hoạch    | **HOLD (Có kế hoạch)** |
 
 ---
 
 ## 2. KẾT QUẢ TRIỂN KHAI CHI TIẾT
 
 ### A. Giai đoạn 1: Hoàn thiện FIN
+
 1. **Chuẩn hóa Icon Button trên 4 màn hình FIN**:
    - Thay các nút chữ "Sửa", "Ngừng dùng", "Kích hoạt lại", "Xem chi tiết" thành `ActionIconButton`.
    - Tooltip tiếng Việt tự động, `aria-label`, kích thước chuẩn 40x40px, khoảng cách 8px không chồng lấn.
@@ -43,6 +44,7 @@
    - Tuyệt đối không chỉnh sửa 2 giao dịch và 7 khoản kế hoạch trong database live.
 
 ### B. Giai đoạn 2: Chuẩn hóa toàn hệ thống (Nhóm A & Kế hoạch Nhóm B)
+
 1. **Component dùng chung `Pagination.tsx`**:
    - Bổ sung **chế độ Cursor Mode**: hỗ trợ cả trường hợp API trả về tổng số (`total`) và trường hợp API cursor không có tổng số (`hasNext`, `itemCount`).
    - Tự động hiển thị `Hiển thị 1–20 / 55 mục` (khi biết total) hoặc `Hiển thị 1–20 mục` (khi cursor mode).

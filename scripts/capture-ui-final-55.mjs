@@ -17,7 +17,9 @@ const runId = Math.random().toString(36).substring(2, 8);
 const targetUrl = loadQaEndpoint(process.env.QA_WEB_BASE);
 
 async function run() {
-  console.log('=== STARTING UI-FINAL-55 AUTOMATED VERIFICATION & SCREENSHOT CAPTURE ===\n');
+  console.log(
+    '=== STARTING UI-FINAL-55 AUTOMATED VERIFICATION & SCREENSHOT CAPTURE ===\n',
+  );
 
   const chrome = spawn(
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -34,9 +36,12 @@ async function run() {
   try {
     await new Promise((r) => setTimeout(r, 1500));
 
-    const newTab = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${port}/json/new?about:blank`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -47,10 +52,18 @@ async function run() {
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.method === 'Runtime.consoleAPICalled') {
-        console.log('[BROWSER CONSOLE]', msg.params.type, msg.params.args.map(a => a.value || a.description).join(' '));
+        console.log(
+          '[BROWSER CONSOLE]',
+          msg.params.type,
+          msg.params.args.map((a) => a.value || a.description).join(' '),
+        );
       }
       if (msg.method === 'Runtime.exceptionThrown') {
-        console.log('[BROWSER EXCEPTION]', msg.params.exceptionDetails.text, msg.params.exceptionDetails.exception?.description);
+        console.log(
+          '[BROWSER EXCEPTION]',
+          msg.params.exceptionDetails.text,
+          msg.params.exceptionDetails.exception?.description,
+        );
       }
       if (msg.id && callbacks.has(msg.id)) {
         const { res, rej } = callbacks.get(msg.id);
@@ -77,7 +90,7 @@ async function run() {
         throw new Error(
           r.exceptionDetails.text +
             ': ' +
-            (r.exceptionDetails.exception?.description || '')
+            (r.exceptionDetails.exception?.description || ''),
         );
       }
       return r.result?.value;
@@ -279,7 +292,9 @@ async function run() {
 
     await send('Page.navigate', { url: targetUrl });
     for (let i = 0; i < 40; i++) {
-      const ready = await evaluate(`Boolean(document.querySelector('main') || document.querySelector('header'))`);
+      const ready = await evaluate(
+        `Boolean(document.querySelector('main') || document.querySelector('header'))`,
+      );
       if (ready) break;
       await new Promise((r) => setTimeout(r, 200));
     }
@@ -308,7 +323,9 @@ async function run() {
       await evaluate(`document.cookie = 'mock_role=${role}; path=/'`);
       await send('Page.reload');
       for (let i = 0; i < 40; i++) {
-        const ready = await evaluate(`Boolean(document.querySelector('main') || document.querySelector('header'))`);
+        const ready = await evaluate(
+          `Boolean(document.querySelector('main') || document.querySelector('header'))`,
+        );
         if (ready) break;
         await new Promise((r) => setTimeout(r, 200));
       }
@@ -340,8 +357,14 @@ async function run() {
         return nav ? nav.textContent : '';
       })()
     `);
-    assert.ok(issuesBreadcrumb.includes('Quản trị'), 'Issues list must have Quản trị in breadcrumb');
-    assert.ok(issuesBreadcrumb.includes('Sổ tay Issues'), 'Issues list must have Sổ tay Issues in breadcrumb');
+    assert.ok(
+      issuesBreadcrumb.includes('Quản trị'),
+      'Issues list must have Quản trị in breadcrumb',
+    );
+    assert.ok(
+      issuesBreadcrumb.includes('Sổ tay Issues'),
+      'Issues list must have Sổ tay Issues in breadcrumb',
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 2: Desktop 1440px Owner at /issues/ISS-001 (Detail)
@@ -356,17 +379,31 @@ async function run() {
         return nav ? nav.textContent : '';
       })()
     `);
-    assert.ok(detailBreadcrumb.includes('Quản trị'), 'Detail must include Quản trị');
-    assert.ok(detailBreadcrumb.includes('Sổ tay Issues'), 'Detail must include Sổ tay Issues');
-    assert.ok(detailBreadcrumb.includes('ISS-001'), 'Detail must include ISS-001');
+    assert.ok(
+      detailBreadcrumb.includes('Quản trị'),
+      'Detail must include Quản trị',
+    );
+    assert.ok(
+      detailBreadcrumb.includes('Sổ tay Issues'),
+      'Detail must include Sổ tay Issues',
+    );
+    assert.ok(
+      detailBreadcrumb.includes('ISS-001'),
+      'Detail must include ISS-001',
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 3: Desktop 1440px Owner at /audit (Exact Total ListFooter)
     // -------------------------------------------------------------
     await navigateSPA('/audit');
     await new Promise((r) => setTimeout(r, 800));
-    const mainHtml = await evaluate(`document.querySelector('main')?.innerText || ''`);
-    console.log('MAIN TEXT ON AUDIT:', mainHtml.slice(0, 200).replace(/\n/g, ' '));
+    const mainHtml = await evaluate(
+      `document.querySelector('main')?.innerText || ''`,
+    );
+    console.log(
+      'MAIN TEXT ON AUDIT:',
+      mainHtml.slice(0, 200).replace(/\n/g, ' '),
+    );
     await capture('03_desktop_1440_owner_audit_footer_exact_total.png');
 
     const auditFooterText = await evaluate(`
@@ -376,9 +413,20 @@ async function run() {
       })()
     `);
     console.log('AUDIT FOOTER TEXT IS:', JSON.stringify(auditFooterText));
-    assert.ok(auditFooterText.includes('2.653') || auditFooterText.includes('2,653') || auditFooterText.includes('2653'), 'Audit footer must show exact total 2.653');
-    assert.ok(auditFooterText.includes('Trước'), 'Audit footer must have Trước button');
-    assert.ok(auditFooterText.includes('Sau'), 'Audit footer must have Sau button');
+    assert.ok(
+      auditFooterText.includes('2.653') ||
+        auditFooterText.includes('2,653') ||
+        auditFooterText.includes('2653'),
+      'Audit footer must show exact total 2.653',
+    );
+    assert.ok(
+      auditFooterText.includes('Trước'),
+      'Audit footer must have Trước button',
+    );
+    assert.ok(
+      auditFooterText.includes('Sau'),
+      'Audit footer must have Sau button',
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 4: Desktop 1440px Owner at /reports (Load More Footer)
@@ -393,7 +441,10 @@ async function run() {
         return footer ? footer.textContent : '';
       })()
     `);
-    assert.ok(reportsFooterText.includes('Tải thêm'), 'Reports footer must have Tải thêm button');
+    assert.ok(
+      reportsFooterText.includes('Tải thêm'),
+      'Reports footer must have Tải thêm button',
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 5: Desktop 1440px Owner at /employees
@@ -416,8 +467,15 @@ async function run() {
         return main ? main.textContent : '';
       })()
     `);
-    assert.ok(staffHrText.includes('Lương cá nhân'), 'Staff must see Lương cá nhân in hr-payroll');
-    assert.equal(staffHrText.includes('Quản lý danh sách nhân sự'), false, 'Staff must NOT see employees in hr-payroll');
+    assert.ok(
+      staffHrText.includes('Lương cá nhân'),
+      'Staff must see Lương cá nhân in hr-payroll',
+    );
+    assert.equal(
+      staffHrText.includes('Quản lý danh sách nhân sự'),
+      false,
+      'Staff must NOT see employees in hr-payroll',
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 7: Desktop 1440px Staff at /groups/admin
@@ -432,9 +490,20 @@ async function run() {
         return main ? main.textContent : '';
       })()
     `);
-    assert.ok(staffAdminText.includes('Cài đặt'), 'Staff must see Cài đặt in admin');
-    assert.equal(staffAdminText.includes('Sổ tay Issues'), false, 'Staff must NOT see Issues');
-    assert.equal(staffAdminText.includes('Nhật ký hoạt động'), false, 'Staff must NOT see Audit');
+    assert.ok(
+      staffAdminText.includes('Cài đặt'),
+      'Staff must see Cài đặt in admin',
+    );
+    assert.equal(
+      staffAdminText.includes('Sổ tay Issues'),
+      false,
+      'Staff must NOT see Issues',
+    );
+    assert.equal(
+      staffAdminText.includes('Nhật ký hoạt động'),
+      false,
+      'Staff must NOT see Audit',
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 8: Tablet 768px Owner at /clock
@@ -467,14 +536,27 @@ async function run() {
       })()
     `);
     assert.ok(mobileBackButtonCheck.exists, 'Mobile back button must exist');
-    assert.equal(mobileBackButtonCheck.text, 'Sổ tay Issues', 'Mobile back button on issue detail must target Sổ tay Issues');
-    assert.ok(mobileBackButtonCheck.height >= 44, 'Mobile back button height must be >= 44px');
+    assert.equal(
+      mobileBackButtonCheck.text,
+      'Sổ tay Issues',
+      'Mobile back button on issue detail must target Sổ tay Issues',
+    );
+    assert.ok(
+      mobileBackButtonCheck.height >= 44,
+      'Mobile back button height must be >= 44px',
+    );
 
     // Test clicking back button in mobile
-    await evaluate(`document.querySelector('.mobile-breadcrumb-back button').click()`);
+    await evaluate(
+      `document.querySelector('.mobile-breadcrumb-back button').click()`,
+    );
     await new Promise((r) => setTimeout(r, 400));
     const currentPathAfterBack = await evaluate(`window.location.pathname`);
-    assert.equal(currentPathAfterBack, '/issues', 'Clicking mobile back button must navigate to /issues');
+    assert.equal(
+      currentPathAfterBack,
+      '/issues',
+      'Clicking mobile back button must navigate to /issues',
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 10: Mobile 390px Owner at /issues (Back to Admin group)
@@ -488,7 +570,11 @@ async function run() {
         return btn ? btn.textContent.trim() : '';
       })()
     `);
-    assert.equal(mobileBackToGroupCheck, 'Quản trị', 'Mobile back button on /issues must target Quản trị');
+    assert.equal(
+      mobileBackToGroupCheck,
+      'Quản trị',
+      'Mobile back button on /issues must target Quản trị',
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 11: Narrow Mobile 360px Owner at /reports
@@ -503,9 +589,15 @@ async function run() {
         return document.documentElement.scrollWidth > window.innerWidth;
       })()
     `);
-    assert.equal(overflow360, false, '360px must have zero horizontal overflow');
+    assert.equal(
+      overflow360,
+      false,
+      '360px must have zero horizontal overflow',
+    );
 
-    console.log('\n=== ALL 11 SCREENSHOTS CAPTURED & ALL VERIFICATIONS PASSED ===\n');
+    console.log(
+      '\n=== ALL 11 SCREENSHOTS CAPTURED & ALL VERIFICATIONS PASSED ===\n',
+    );
   } finally {
     chrome.kill('SIGTERM');
   }

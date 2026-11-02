@@ -13,11 +13,7 @@ export function resolveVietQrBankCode(
   if (raw.includes('vietinbank') || raw === 'icb' || raw === 'ctg')
     return 'ICB';
   if (raw.includes('bidv')) return 'BIDV';
-  if (
-    raw.includes('agribank') ||
-    raw.includes(' nông nghiệp') ||
-    raw === 'vba'
-  )
+  if (raw.includes('agribank') || raw.includes(' nông nghiệp') || raw === 'vba')
     return 'VBA';
   if (raw.includes('mb') || raw.includes('quân đội')) return 'MB';
   if (raw.includes('acb') || raw.includes('á châu')) return 'ACB';

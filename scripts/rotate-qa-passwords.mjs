@@ -14,8 +14,14 @@ async function rotateQaPasswords() {
   );
 
   const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl || !dbUrl.includes('mglite_mvp_v01_test') || !dbUrl.includes('127.0.0.1:55499')) {
-    throw new Error('Refused: Rotation script ONLY operates on isolated test database 127.0.0.1:55499/mglite_mvp_v01_test');
+  if (
+    !dbUrl ||
+    !dbUrl.includes('mglite_mvp_v01_test') ||
+    !dbUrl.includes('127.0.0.1:55499')
+  ) {
+    throw new Error(
+      'Refused: Rotation script ONLY operates on isolated test database 127.0.0.1:55499/mglite_mvp_v01_test',
+    );
   }
 
   const pool = new pg.Pool({ connectionString: dbUrl });
@@ -42,7 +48,7 @@ async function rotateQaPasswords() {
       `UPDATE user_credentials
        SET password_hash = $1, credential_version = credential_version + 1, password_changed_at = now()
        WHERE user_id = (SELECT id FROM users WHERE username_normalized = 'admin')`,
-      [adminHash]
+      [adminHash],
     );
 
     // 2. Update qa_owner
@@ -50,7 +56,7 @@ async function rotateQaPasswords() {
       `UPDATE user_credentials
        SET password_hash = $1, credential_version = credential_version + 1, password_changed_at = now()
        WHERE user_id = (SELECT id FROM users WHERE username_normalized = 'qa_owner')`,
-      [ownerHash]
+      [ownerHash],
     );
 
     // 3. Update qa_staff
@@ -58,11 +64,13 @@ async function rotateQaPasswords() {
       `UPDATE user_credentials
        SET password_hash = $1, credential_version = credential_version + 1, password_changed_at = now()
        WHERE user_id = (SELECT id FROM users WHERE username_normalized = 'qa_staff')`,
-      [staffHash]
+      [staffHash],
     );
 
     await client.query('COMMIT');
-    console.log('Database password hashes successfully rotated in isolated QA database.');
+    console.log(
+      'Database password hashes successfully rotated in isolated QA database.',
+    );
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -86,7 +94,9 @@ async function rotateQaPasswords() {
   ].join('\n');
 
   fs.writeFileSync(targetPath, content, { encoding: 'utf8', mode: 0o600 });
-  console.log(`Credentials saved securely to local file: ${targetPath} (mode 0600).`);
+  console.log(
+    `Credentials saved securely to local file: ${targetPath} (mode 0600).`,
+  );
 
   // Immediate self-verification
   const { verifyPassword } = await import(
@@ -100,10 +110,14 @@ async function rotateQaPasswords() {
   const adminOk = await verifyPassword(verifyEnv.ADMIN_PASSWORD, adminHash);
 
   if (!ownerOk || !staffOk || !adminOk) {
-    throw new Error('Self-verification failed: Rotated password did not verify against Argon2 hash!');
+    throw new Error(
+      'Self-verification failed: Rotated password did not verify against Argon2 hash!',
+    );
   }
   console.log('All 3 credentials verified against Argon2 hashes: PASS.');
-  console.log('NOTICE: Passwords are NOT printed to stdout/stderr in compliance with security guidelines.');
+  console.log(
+    'NOTICE: Passwords are NOT printed to stdout/stderr in compliance with security guidelines.',
+  );
 }
 
 rotateQaPasswords().catch((err) => {

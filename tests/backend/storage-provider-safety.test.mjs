@@ -110,7 +110,7 @@ test('FILE PROVIDER SAFETY: durable per-folder operations, partial failure, time
       return new Promise((resolveReq, rejectReq) => {
         const bodyStr = data ? JSON.stringify(data) : '';
         const reqHeaders = {
-          'Origin': 'http://127.0.0.1:3006',
+          Origin: 'http://127.0.0.1:3006',
           ...headers,
         };
         if (data) {
@@ -165,7 +165,8 @@ test('FILE PROVIDER SAFETY: durable per-folder operations, partial failure, time
       'POST',
       {
         name: 'Project Alpha Media',
-        drive_url: 'https://drive.google.com/drive/folders/alpha_root_provider_id',
+        drive_url:
+          'https://drive.google.com/drive/folders/alpha_root_provider_id',
         folder_type: 'source',
         assigned_employee_ids: [staff1EmpId, staff2EmpId],
       },
@@ -193,7 +194,8 @@ test('FILE PROVIDER SAFETY: durable per-folder operations, partial failure, time
       'POST',
       {
         name: 'Alpha Deliverable Staff 1',
-        drive_url: 'https://drive.google.com/drive/folders/alpha_deliv1_provider_id',
+        drive_url:
+          'https://drive.google.com/drive/folders/alpha_deliv1_provider_id',
         folder_type: 'deliverable',
         parent_folder_id: rootFolderId,
       },
@@ -206,7 +208,8 @@ test('FILE PROVIDER SAFETY: durable per-folder operations, partial failure, time
       'POST',
       {
         name: 'Alpha Deliverable Staff 2',
-        drive_url: 'https://drive.google.com/drive/folders/alpha_deliv2_provider_id',
+        drive_url:
+          'https://drive.google.com/drive/folders/alpha_deliv2_provider_id',
         folder_type: 'deliverable',
         parent_folder_id: rootFolderId,
       },
@@ -218,13 +221,21 @@ test('FILE PROVIDER SAFETY: durable per-folder operations, partial failure, time
     await request(
       `/api/v1/storage/folders/${rootFolderId}/receipts`,
       'POST',
-      { receipt_type: 'deliverable_approval', output_id: out1Id, revision_number: 1 },
+      {
+        receipt_type: 'deliverable_approval',
+        output_id: out1Id,
+        revision_number: 1,
+      },
       { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
     );
     await request(
       `/api/v1/storage/folders/${rootFolderId}/receipts`,
       'POST',
-      { receipt_type: 'deliverable_approval', output_id: out2Id, revision_number: 1 },
+      {
+        receipt_type: 'deliverable_approval',
+        output_id: out2Id,
+        revision_number: 1,
+      },
       { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
     );
 
@@ -236,7 +247,8 @@ test('FILE PROVIDER SAFETY: durable per-folder operations, partial failure, time
       { Cookie: ownerAuth.cookie },
     );
     assert.equal(detailRes.body.data.delete_readiness.is_ready, true);
-    const validSnapshotHash = detailRes.body.data.delete_readiness.group_snapshot_hash;
+    const validSnapshotHash =
+      detailRes.body.data.delete_readiness.group_snapshot_hash;
 
     // Step 1: Initiate Trash Request
     const trashReqRes = await request(
@@ -251,422 +263,521 @@ test('FILE PROVIDER SAFETY: durable per-folder operations, partial failure, time
     // =========================================================================
     // TEST CASE 1: Partial Failure (Deliverable 2 fails on Google Drive)
     // =========================================================================
-    await t.test('Scenario 1: Partial Provider Failure does not mark group trashed and persists durable progress', async () => {
-      // Configure mock provider: root and deliv1 succeed, but deliv2 fails with rate limit error
-      mockProvider.clearOverrides();
-      mockProvider.overrideFolderResult('alpha_deliv2_provider_id', {
-        success: false,
-        status: 'failed',
-        errorMessage: 'Google Drive API rateLimitExceeded on folder alpha_deliv2',
-      });
+    await t.test(
+      'Scenario 1: Partial Provider Failure does not mark group trashed and persists durable progress',
+      async () => {
+        // Configure mock provider: root and deliv1 succeed, but deliv2 fails with rate limit error
+        mockProvider.clearOverrides();
+        mockProvider.overrideFolderResult('alpha_deliv2_provider_id', {
+          success: false,
+          status: 'failed',
+          errorMessage:
+            'Google Drive API rateLimitExceeded on folder alpha_deliv2',
+        });
 
-      const confirmRes = await request(
-        `/api/v1/storage/trash-requests/${trashRequestId}/confirm`,
-        'POST',
-        {
-          acknowledged: true,
-          group_snapshot_hash: validSnapshotHash,
-        },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
+        const confirmRes = await request(
+          `/api/v1/storage/trash-requests/${trashRequestId}/confirm`,
+          'POST',
+          {
+            acknowledged: true,
+            group_snapshot_hash: validSnapshotHash,
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
 
-      // Must fail with HTTP 502 Bad Gateway
-      assert.equal(confirmRes.status, 502);
-      assert.equal(confirmRes.body.error.code, 'STORAGE_PROVIDER_PARTIAL_FAILURE');
-      assert.ok(confirmRes.body.error.details.length > 0);
+        // Must fail with HTTP 502 Bad Gateway
+        assert.equal(confirmRes.status, 502);
+        assert.equal(
+          confirmRes.body.error.code,
+          'STORAGE_PROVIDER_PARTIAL_FAILURE',
+        );
+        assert.ok(confirmRes.body.error.details.length > 0);
 
-      // Invariant: Root folder MUST NOT be marked trashed
-      const checkRoot = await pool.query('SELECT status FROM storage_folders WHERE id=$1', [rootFolderId]);
-      assert.notEqual(checkRoot.rows[0].status, 'trashed', 'Root folder must NOT be marked trashed');
+        // Invariant: Root folder MUST NOT be marked trashed
+        const checkRoot = await pool.query(
+          'SELECT status FROM storage_folders WHERE id=$1',
+          [rootFolderId],
+        );
+        assert.notEqual(
+          checkRoot.rows[0].status,
+          'trashed',
+          'Root folder must NOT be marked trashed',
+        );
 
-      // Invariant: Trash request MUST remain pending for retry
-      const checkTrashReq = await pool.query('SELECT status FROM storage_trash_requests WHERE id=$1', [trashRequestId]);
-      assert.equal(checkTrashReq.rows[0].status, 'pending', 'Trash request must remain pending');
+        // Invariant: Trash request MUST remain pending for retry
+        const checkTrashReq = await pool.query(
+          'SELECT status FROM storage_trash_requests WHERE id=$1',
+          [trashRequestId],
+        );
+        assert.equal(
+          checkTrashReq.rows[0].status,
+          'pending',
+          'Trash request must remain pending',
+        );
 
-      // Invariant: Deliverable 1 durable operation MUST be 'completed' (No PG rollback lost state)
-      const opDeliv1 = await pool.query(
-        "SELECT status FROM storage_operations WHERE folder_id=$1 AND operation_type='trash_group' ORDER BY created_at DESC LIMIT 1",
-        [out1Id],
-      );
-      assert.equal(opDeliv1.rows[0]?.status, 'completed', 'Deliverable 1 operation must be durably recorded as completed');
+        // Invariant: Deliverable 1 durable operation MUST be 'completed' (No PG rollback lost state)
+        const opDeliv1 = await pool.query(
+          "SELECT status FROM storage_operations WHERE folder_id=$1 AND operation_type='trash_group' ORDER BY created_at DESC LIMIT 1",
+          [out1Id],
+        );
+        assert.equal(
+          opDeliv1.rows[0]?.status,
+          'completed',
+          'Deliverable 1 operation must be durably recorded as completed',
+        );
 
-      // Invariant: Deliverable 2 durable operation MUST be 'failed'
-      const opDeliv2 = await pool.query(
-        "SELECT status FROM storage_operations WHERE folder_id=$1 AND operation_type='trash_group' ORDER BY created_at DESC LIMIT 1",
-        [out2Id],
-      );
-      assert.equal(opDeliv2.rows[0]?.status, 'failed', 'Deliverable 2 operation must be durably recorded as failed');
-    });
+        // Invariant: Deliverable 2 durable operation MUST be 'failed'
+        const opDeliv2 = await pool.query(
+          "SELECT status FROM storage_operations WHERE folder_id=$1 AND operation_type='trash_group' ORDER BY created_at DESC LIMIT 1",
+          [out2Id],
+        );
+        assert.equal(
+          opDeliv2.rows[0]?.status,
+          'failed',
+          'Deliverable 2 operation must be durably recorded as failed',
+        );
+      },
+    );
 
     // =========================================================================
     // TEST CASE 2: Provider Timeout / Unknown status
     // =========================================================================
-    await t.test('Scenario 2: Provider Timeout / Unknown status returns 504 without marking group trashed', async () => {
-      mockProvider.clearOverrides();
-      mockProvider.overrideFolderResult('alpha_deliv2_provider_id', {
-        success: false,
-        status: 'unknown',
-        errorMessage: 'ETIMEDOUT: Connection to Google Drive API timed out',
-      });
+    await t.test(
+      'Scenario 2: Provider Timeout / Unknown status returns 504 without marking group trashed',
+      async () => {
+        mockProvider.clearOverrides();
+        mockProvider.overrideFolderResult('alpha_deliv2_provider_id', {
+          success: false,
+          status: 'unknown',
+          errorMessage: 'ETIMEDOUT: Connection to Google Drive API timed out',
+        });
 
-      const confirmRes = await request(
-        `/api/v1/storage/trash-requests/${trashRequestId}/confirm`,
-        'POST',
-        {
-          acknowledged: true,
-          group_snapshot_hash: validSnapshotHash,
-        },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
+        const confirmRes = await request(
+          `/api/v1/storage/trash-requests/${trashRequestId}/confirm`,
+          'POST',
+          {
+            acknowledged: true,
+            group_snapshot_hash: validSnapshotHash,
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
 
-      // Must fail with HTTP 504 Gateway Timeout
-      assert.equal(confirmRes.status, 504);
-      assert.equal(confirmRes.body.error.code, 'STORAGE_PROVIDER_TIMEOUT');
+        // Must fail with HTTP 504 Gateway Timeout
+        assert.equal(confirmRes.status, 504);
+        assert.equal(confirmRes.body.error.code, 'STORAGE_PROVIDER_TIMEOUT');
 
-      const checkTrashReq = await pool.query('SELECT status FROM storage_trash_requests WHERE id=$1', [trashRequestId]);
-      assert.equal(checkTrashReq.rows[0].status, 'pending');
+        const checkTrashReq = await pool.query(
+          'SELECT status FROM storage_trash_requests WHERE id=$1',
+          [trashRequestId],
+        );
+        assert.equal(checkTrashReq.rows[0].status, 'pending');
 
-      const opDeliv2 = await pool.query(
-        "SELECT status FROM storage_operations WHERE folder_id=$1 AND operation_type='trash_group' ORDER BY created_at DESC LIMIT 1",
-        [out2Id],
-      );
-      assert.equal(opDeliv2.rows[0]?.status, 'unknown');
-    });
+        const opDeliv2 = await pool.query(
+          "SELECT status FROM storage_operations WHERE folder_id=$1 AND operation_type='trash_group' ORDER BY created_at DESC LIMIT 1",
+          [out2Id],
+        );
+        assert.equal(opDeliv2.rows[0]?.status, 'unknown');
+      },
+    );
 
     // =========================================================================
     // TEST CASE 3: Stale Snapshot Protection
     // =========================================================================
-    await t.test('Scenario 3: Stale Snapshot Hash rejects retry with 412 PRECONDITION_FAILED', async () => {
-      const confirmRes = await request(
-        `/api/v1/storage/trash-requests/${trashRequestId}/confirm`,
-        'POST',
-        {
-          acknowledged: true,
-          group_snapshot_hash: 'stale-outdated-hash-0123456789',
-        },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
+    await t.test(
+      'Scenario 3: Stale Snapshot Hash rejects retry with 412 PRECONDITION_FAILED',
+      async () => {
+        const confirmRes = await request(
+          `/api/v1/storage/trash-requests/${trashRequestId}/confirm`,
+          'POST',
+          {
+            acknowledged: true,
+            group_snapshot_hash: 'stale-outdated-hash-0123456789',
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
 
-      assert.equal(confirmRes.status, 412);
-      assert.equal(confirmRes.body.error.code, 'PRECONDITION_FAILED');
-    });
+        assert.equal(confirmRes.status, 412);
+        assert.equal(confirmRes.body.error.code, 'PRECONDITION_FAILED');
+      },
+    );
 
     // =========================================================================
     // TEST CASE 4: Idempotent Resumption / Crash Recovery
     // =========================================================================
-    await t.test('Scenario 4: Idempotent Retry skips already-completed folders and completes group trash', async () => {
-      // Clear failure override (simulating Google Drive outage resolved)
-      mockProvider.clearOverrides();
+    await t.test(
+      'Scenario 4: Idempotent Retry skips already-completed folders and completes group trash',
+      async () => {
+        // Clear failure override (simulating Google Drive outage resolved)
+        mockProvider.clearOverrides();
 
-      // Clear call tracker to verify which folders get called
-      mockProvider.trashedFolders.clear();
+        // Clear call tracker to verify which folders get called
+        mockProvider.trashedFolders.clear();
 
-      const confirmRes = await request(
-        `/api/v1/storage/trash-requests/${trashRequestId}/confirm`,
-        'POST',
-        {
-          acknowledged: true,
-          group_snapshot_hash: validSnapshotHash,
-        },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
+        const confirmRes = await request(
+          `/api/v1/storage/trash-requests/${trashRequestId}/confirm`,
+          'POST',
+          {
+            acknowledged: true,
+            group_snapshot_hash: validSnapshotHash,
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
 
-      // Succeeded!
-      assert.equal(confirmRes.status, 200);
-      assert.equal(confirmRes.body.data.status, 'trashed');
+        // Succeeded!
+        assert.equal(confirmRes.status, 200);
+        assert.equal(confirmRes.body.data.status, 'trashed');
 
-      // Idempotency verification:
-      // Root and Deliv1 were ALREADY completed, so only Deliv2 should have been called!
-      assert.ok(!mockProvider.trashedFolders.has('alpha_root_provider_id'), 'Root was already completed, must not re-call provider');
-      assert.ok(!mockProvider.trashedFolders.has('alpha_deliv1_provider_id'), 'Deliv 1 was already completed, must not re-call provider');
-      assert.ok(mockProvider.trashedFolders.has('alpha_deliv2_provider_id'), 'Deliv 2 was retried and called');
+        // Idempotency verification:
+        // Root and Deliv1 were ALREADY completed, so only Deliv2 should have been called!
+        assert.ok(
+          !mockProvider.trashedFolders.has('alpha_root_provider_id'),
+          'Root was already completed, must not re-call provider',
+        );
+        assert.ok(
+          !mockProvider.trashedFolders.has('alpha_deliv1_provider_id'),
+          'Deliv 1 was already completed, must not re-call provider',
+        );
+        assert.ok(
+          mockProvider.trashedFolders.has('alpha_deliv2_provider_id'),
+          'Deliv 2 was retried and called',
+        );
 
-      // Invariant: Entire group is now confirmed trashed
-      const checkRoot = await pool.query('SELECT status FROM storage_folders WHERE id=$1', [rootFolderId]);
-      assert.equal(checkRoot.rows[0].status, 'trashed');
+        // Invariant: Entire group is now confirmed trashed
+        const checkRoot = await pool.query(
+          'SELECT status FROM storage_folders WHERE id=$1',
+          [rootFolderId],
+        );
+        assert.equal(checkRoot.rows[0].status, 'trashed');
 
-      const checkDelivs = await pool.query('SELECT status FROM storage_folders WHERE parent_folder_id=$1', [rootFolderId]);
-      assert.equal(checkDelivs.rows.every((d) => d.status === 'trashed'), true);
+        const checkDelivs = await pool.query(
+          'SELECT status FROM storage_folders WHERE parent_folder_id=$1',
+          [rootFolderId],
+        );
+        assert.equal(
+          checkDelivs.rows.every((d) => d.status === 'trashed'),
+          true,
+        );
 
-      const checkTrashReq = await pool.query('SELECT status FROM storage_trash_requests WHERE id=$1', [trashRequestId]);
-      assert.equal(checkTrashReq.rows[0].status, 'confirmed');
-    });
+        const checkTrashReq = await pool.query(
+          'SELECT status FROM storage_trash_requests WHERE id=$1',
+          [trashRequestId],
+        );
+        assert.equal(checkTrashReq.rows[0].status, 'confirmed');
+      },
+    );
 
     // =========================================================================
     // TEST CASE 5: Unknown State Reconciliation with Provider before Retry
     // =========================================================================
-    await t.test('Scenario 5: Unknown status performs provider reconciliation before retry', async () => {
-      // Create a second group (Beta) to test reconciliation specifically
-      const createBetaRes = await request(
-        '/api/v1/storage/folders',
-        'POST',
-        {
-          name: 'Project Beta Media',
-          drive_url: 'https://drive.google.com/drive/folders/beta_root_provider_id',
-          folder_type: 'source',
-          assigned_employee_ids: [staff1EmpId],
-        },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
-      const betaRootId = createBetaRes.body.data.id;
+    await t.test(
+      'Scenario 5: Unknown status performs provider reconciliation before retry',
+      async () => {
+        // Create a second group (Beta) to test reconciliation specifically
+        const createBetaRes = await request(
+          '/api/v1/storage/folders',
+          'POST',
+          {
+            name: 'Project Beta Media',
+            drive_url:
+              'https://drive.google.com/drive/folders/beta_root_provider_id',
+            folder_type: 'source',
+            assigned_employee_ids: [staff1EmpId],
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
+        const betaRootId = createBetaRes.body.data.id;
 
-      // Staff download receipt
-      await request(
-        `/api/v1/storage/folders/${betaRootId}/receipts`,
-        'POST',
-        { receipt_type: 'download' },
-        { Cookie: staff1Auth.cookie, 'X-CSRF-Token': staff1Auth.csrf },
-      );
+        // Staff download receipt
+        await request(
+          `/api/v1/storage/folders/${betaRootId}/receipts`,
+          'POST',
+          { receipt_type: 'download' },
+          { Cookie: staff1Auth.cookie, 'X-CSRF-Token': staff1Auth.csrf },
+        );
 
-      // Staff deliverable
-      const betaOutRes = await request(
-        '/api/v1/storage/folders',
-        'POST',
-        {
-          name: 'Beta Deliverable 1',
-          drive_url: 'https://drive.google.com/drive/folders/beta_out1_provider_id',
-          folder_type: 'deliverable',
-          parent_folder_id: betaRootId,
-        },
-        { Cookie: staff1Auth.cookie, 'X-CSRF-Token': staff1Auth.csrf },
-      );
-      const betaOutId = betaOutRes.body.data.id;
+        // Staff deliverable
+        const betaOutRes = await request(
+          '/api/v1/storage/folders',
+          'POST',
+          {
+            name: 'Beta Deliverable 1',
+            drive_url:
+              'https://drive.google.com/drive/folders/beta_out1_provider_id',
+            folder_type: 'deliverable',
+            parent_folder_id: betaRootId,
+          },
+          { Cookie: staff1Auth.cookie, 'X-CSRF-Token': staff1Auth.csrf },
+        );
+        const betaOutId = betaOutRes.body.data.id;
 
-      // Owner deliverable receipt
-      await request(
-        `/api/v1/storage/folders/${betaRootId}/receipts`,
-        'POST',
-        { receipt_type: 'deliverable_approval', output_id: betaOutId, revision_number: 1 },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
+        // Owner deliverable receipt
+        await request(
+          `/api/v1/storage/folders/${betaRootId}/receipts`,
+          'POST',
+          {
+            receipt_type: 'deliverable_approval',
+            output_id: betaOutId,
+            revision_number: 1,
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
 
-      const betaDetail = await request(
-        `/api/v1/storage/folders/${betaRootId}`,
-        'GET',
-        null,
-        { Cookie: ownerAuth.cookie },
-      );
-      assert.equal(betaDetail.body.data.delete_readiness.is_ready, true);
-      const betaSnapshotHash = betaDetail.body.data.delete_readiness.group_snapshot_hash;
+        const betaDetail = await request(
+          `/api/v1/storage/folders/${betaRootId}`,
+          'GET',
+          null,
+          { Cookie: ownerAuth.cookie },
+        );
+        assert.equal(betaDetail.body.data.delete_readiness.is_ready, true);
+        const betaSnapshotHash =
+          betaDetail.body.data.delete_readiness.group_snapshot_hash;
 
-      // Create trash request
-      const betaTrashReq = await request(
-        `/api/v1/storage/folders/${betaRootId}/trash-requests`,
-        'POST',
-        { version: betaDetail.body.data.version },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
-      const betaTrashReqId = betaTrashReq.body.data.trash_request_id;
+        // Create trash request
+        const betaTrashReq = await request(
+          `/api/v1/storage/folders/${betaRootId}/trash-requests`,
+          'POST',
+          { version: betaDetail.body.data.version },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
+        const betaTrashReqId = betaTrashReq.body.data.trash_request_id;
 
-      // Step 1: Simulate provider timeout on betaOut1 (returns unknown)
-      mockProvider.clearOverrides();
-      mockProvider.overrideFolderResult('beta_out1_provider_id', {
-        success: false,
-        status: 'unknown',
-        errorMessage: 'ETIMEDOUT: Provider connection timeout',
-      });
+        // Step 1: Simulate provider timeout on betaOut1 (returns unknown)
+        mockProvider.clearOverrides();
+        mockProvider.overrideFolderResult('beta_out1_provider_id', {
+          success: false,
+          status: 'unknown',
+          errorMessage: 'ETIMEDOUT: Provider connection timeout',
+        });
 
-      const confirmRes1 = await request(
-        `/api/v1/storage/trash-requests/${betaTrashReqId}/confirm`,
-        'POST',
-        {
-          acknowledged: true,
-          group_snapshot_hash: betaSnapshotHash,
-        },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
-      assert.equal(confirmRes1.status, 504);
-      assert.equal(confirmRes1.body.error.code, 'STORAGE_PROVIDER_TIMEOUT');
+        const confirmRes1 = await request(
+          `/api/v1/storage/trash-requests/${betaTrashReqId}/confirm`,
+          'POST',
+          {
+            acknowledged: true,
+            group_snapshot_hash: betaSnapshotHash,
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
+        assert.equal(confirmRes1.status, 504);
+        assert.equal(confirmRes1.body.error.code, 'STORAGE_PROVIDER_TIMEOUT');
 
-      // Verify DB operation is in 'unknown' state
-      const opBetaOut = await pool.query(
-        "SELECT status FROM storage_operations WHERE folder_id=$1 AND operation_type='trash_group' ORDER BY created_at DESC LIMIT 1",
-        [betaOutId],
-      );
-      assert.equal(opBetaOut.rows[0].status, 'unknown');
+        // Verify DB operation is in 'unknown' state
+        const opBetaOut = await pool.query(
+          "SELECT status FROM storage_operations WHERE folder_id=$1 AND operation_type='trash_group' ORDER BY created_at DESC LIMIT 1",
+          [betaOutId],
+        );
+        assert.equal(opBetaOut.rows[0].status, 'unknown');
 
-      // Step 2: Now simulate that the provider actually DID complete the deletion during that timeout
-      mockProvider.clearOverrides();
-      mockProvider.trashedFolders.add('beta_out1_provider_id'); // Provider has it trashed
-      let trashFolderCalledForOut1 = false;
-      const originalTrash = mockProvider.trashFolder.bind(mockProvider);
-      mockProvider.trashFolder = async (id) => {
-        if (id === 'beta_out1_provider_id') trashFolderCalledForOut1 = true;
-        return originalTrash(id);
-      };
+        // Step 2: Now simulate that the provider actually DID complete the deletion during that timeout
+        mockProvider.clearOverrides();
+        mockProvider.trashedFolders.add('beta_out1_provider_id'); // Provider has it trashed
+        let trashFolderCalledForOut1 = false;
+        const originalTrash = mockProvider.trashFolder.bind(mockProvider);
+        mockProvider.trashFolder = async (id) => {
+          if (id === 'beta_out1_provider_id') trashFolderCalledForOut1 = true;
+          return originalTrash(id);
+        };
 
-      // Retry confirm trash
-      const confirmRes2 = await request(
-        `/api/v1/storage/trash-requests/${betaTrashReqId}/confirm`,
-        'POST',
-        {
-          acknowledged: true,
-          group_snapshot_hash: betaSnapshotHash,
-        },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
+        // Retry confirm trash
+        const confirmRes2 = await request(
+          `/api/v1/storage/trash-requests/${betaTrashReqId}/confirm`,
+          'POST',
+          {
+            acknowledged: true,
+            group_snapshot_hash: betaSnapshotHash,
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
 
-      // Must succeed!
-      assert.equal(confirmRes2.status, 200);
-      assert.equal(confirmRes2.body.data.status, 'trashed');
+        // Must succeed!
+        assert.equal(confirmRes2.status, 200);
+        assert.equal(confirmRes2.body.data.status, 'trashed');
 
-      // Invariant: reconciliation discovered it was already trashed, so trashFolder was NOT called again
-      assert.equal(trashFolderCalledForOut1, false, 'trashFolder must not be called when reconciliation confirms completed');
+        // Invariant: reconciliation discovered it was already trashed, so trashFolder was NOT called again
+        assert.equal(
+          trashFolderCalledForOut1,
+          false,
+          'trashFolder must not be called when reconciliation confirms completed',
+        );
 
-      // Invariant: group is now trashed
-      const betaRootCheck = await pool.query('SELECT status FROM storage_folders WHERE id=$1', [betaRootId]);
-      assert.equal(betaRootCheck.rows[0].status, 'trashed');
-    });
+        // Invariant: group is now trashed
+        const betaRootCheck = await pool.query(
+          'SELECT status FROM storage_folders WHERE id=$1',
+          [betaRootId],
+        );
+        assert.equal(betaRootCheck.rows[0].status, 'trashed');
+      },
+    );
 
     // =========================================================================
     // TEST CASE 6: Real Server Crash & Restart Recovery
     // =========================================================================
-    await t.test('Scenario 6: Real server crash and restart recovery with durable checkpointing', async () => {
-      // 1. Create Gamma group
-      const createGammaRes = await request(
-        '/api/v1/storage/folders',
-        'POST',
-        {
-          name: 'Project Gamma Media',
-          drive_url: 'https://drive.google.com/drive/folders/gamma_root_provider_id',
-          folder_type: 'source',
-          assigned_employee_ids: [staff1EmpId],
-        },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
-      const gammaRootId = createGammaRes.body.data.id;
+    await t.test(
+      'Scenario 6: Real server crash and restart recovery with durable checkpointing',
+      async () => {
+        // 1. Create Gamma group
+        const createGammaRes = await request(
+          '/api/v1/storage/folders',
+          'POST',
+          {
+            name: 'Project Gamma Media',
+            drive_url:
+              'https://drive.google.com/drive/folders/gamma_root_provider_id',
+            folder_type: 'source',
+            assigned_employee_ids: [staff1EmpId],
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
+        const gammaRootId = createGammaRes.body.data.id;
 
-      await request(
-        `/api/v1/storage/folders/${gammaRootId}/receipts`,
-        'POST',
-        { receipt_type: 'download' },
-        { Cookie: staff1Auth.cookie, 'X-CSRF-Token': staff1Auth.csrf },
-      );
+        await request(
+          `/api/v1/storage/folders/${gammaRootId}/receipts`,
+          'POST',
+          { receipt_type: 'download' },
+          { Cookie: staff1Auth.cookie, 'X-CSRF-Token': staff1Auth.csrf },
+        );
 
-      const gammaOutRes = await request(
-        '/api/v1/storage/folders',
-        'POST',
-        {
-          name: 'Gamma Deliverable 1',
-          drive_url: 'https://drive.google.com/drive/folders/gamma_out1_provider_id',
-          folder_type: 'deliverable',
-          parent_folder_id: gammaRootId,
-        },
-        { Cookie: staff1Auth.cookie, 'X-CSRF-Token': staff1Auth.csrf },
-      );
-      const gammaOutId = gammaOutRes.body.data.id;
+        const gammaOutRes = await request(
+          '/api/v1/storage/folders',
+          'POST',
+          {
+            name: 'Gamma Deliverable 1',
+            drive_url:
+              'https://drive.google.com/drive/folders/gamma_out1_provider_id',
+            folder_type: 'deliverable',
+            parent_folder_id: gammaRootId,
+          },
+          { Cookie: staff1Auth.cookie, 'X-CSRF-Token': staff1Auth.csrf },
+        );
+        const gammaOutId = gammaOutRes.body.data.id;
 
-      await request(
-        `/api/v1/storage/folders/${gammaRootId}/receipts`,
-        'POST',
-        { receipt_type: 'deliverable_approval', output_id: gammaOutId, revision_number: 1 },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
+        await request(
+          `/api/v1/storage/folders/${gammaRootId}/receipts`,
+          'POST',
+          {
+            receipt_type: 'deliverable_approval',
+            output_id: gammaOutId,
+            revision_number: 1,
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
 
-      const gammaDetail = await request(
-        `/api/v1/storage/folders/${gammaRootId}`,
-        'GET',
-        null,
-        { Cookie: ownerAuth.cookie },
-      );
-      const gammaSnapshotHash = gammaDetail.body.data.delete_readiness.group_snapshot_hash;
+        const gammaDetail = await request(
+          `/api/v1/storage/folders/${gammaRootId}`,
+          'GET',
+          null,
+          { Cookie: ownerAuth.cookie },
+        );
+        const gammaSnapshotHash =
+          gammaDetail.body.data.delete_readiness.group_snapshot_hash;
 
-      const gammaTrashReq = await request(
-        `/api/v1/storage/folders/${gammaRootId}/trash-requests`,
-        'POST',
-        { version: gammaDetail.body.data.version },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
-      const gammaTrashReqId = gammaTrashReq.body.data.trash_request_id;
+        const gammaTrashReq = await request(
+          `/api/v1/storage/folders/${gammaRootId}/trash-requests`,
+          'POST',
+          { version: gammaDetail.body.data.version },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
+        const gammaTrashReqId = gammaTrashReq.body.data.trash_request_id;
 
-      // 2. Simulate server crash mid-flight:
-      // Insert a durable operation into storage_operations with status 'unknown' simulating crash during execution
-      await pool.query(
-        `INSERT INTO storage_operations (workspace_id, folder_id, operation_type, status, requested_by, provider, error_message)
+        // 2. Simulate server crash mid-flight:
+        // Insert a durable operation into storage_operations with status 'unknown' simulating crash during execution
+        await pool.query(
+          `INSERT INTO storage_operations (workspace_id, folder_id, operation_type, status, requested_by, provider, error_message)
          VALUES ($1, $2, 'trash_group', 'unknown', $3, 'google_drive', 'Process crash / SIGKILL during operation');`,
-        [workspaceId, gammaOutId, ownerUserId],
-      );
+          [workspaceId, gammaOutId, ownerUserId],
+        );
 
-      // 3. Abruptly kill existing HTTP server to simulate crash
-      await new Promise((resolveClose) => server.close(resolveClose));
+        // 3. Abruptly kill existing HTTP server to simulate crash
+        await new Promise((resolveClose) => server.close(resolveClose));
 
-      // 4. Restart: instantiate new MockGoogleDriveProvider, new StorageService, new HTTP server
-      const newMockProvider = new MockGoogleDriveProvider();
-      // Ensure provider reflects that gammaOut1 was completed before crash
-      newMockProvider.trashedFolders.add('gamma_out1_provider_id');
+        // 4. Restart: instantiate new MockGoogleDriveProvider, new StorageService, new HTTP server
+        const newMockProvider = new MockGoogleDriveProvider();
+        // Ensure provider reflects that gammaOut1 was completed before crash
+        newMockProvider.trashedFolders.add('gamma_out1_provider_id');
 
-      const newStorageService = new StorageService(pool, newMockProvider);
-      const newAppHandler = createRequestHandler({
-        pool,
-        storageService: newStorageService,
-        csrfSecret: 'test-csrf-secret-01234567890123456789012345678901',
-        allowedOrigins: ['http://127.0.0.1:3006', 'http://localhost:3006'],
-        isProduction: false,
-      });
-
-      const newServer = http.createServer(newAppHandler);
-      await new Promise((resolveListen) => newServer.listen(0, '127.0.0.1', resolveListen));
-      const newPort = newServer.address().port;
-
-      const newRequest = (path, method = 'GET', data = null, headers = {}) => {
-        return new Promise((resolveReq, rejectReq) => {
-          const bodyStr = data ? JSON.stringify(data) : '';
-          const reqHeaders = {
-            'Origin': 'http://127.0.0.1:3006',
-            ...headers,
-          };
-          if (data) {
-            reqHeaders['Content-Type'] = 'application/json';
-            reqHeaders['Content-Length'] = Buffer.byteLength(bodyStr);
-          }
-          const reqObj = http.request(
-            {
-              hostname: '127.0.0.1',
-              port: newPort,
-              path,
-              method,
-              headers: reqHeaders,
-            },
-            (res) => {
-              let resBody = '';
-              res.on('data', (c) => (resBody += c));
-              res.on('end', () => {
-                const parsed = resBody ? JSON.parse(resBody) : null;
-                resolveReq({
-                  status: res.statusCode,
-                  headers: res.headers,
-                  body: parsed,
-                });
-              });
-            },
-          );
-          reqObj.on('error', rejectReq);
-          if (data) reqObj.write(bodyStr);
-          reqObj.end();
+        const newStorageService = new StorageService(pool, newMockProvider);
+        const newAppHandler = createRequestHandler({
+          pool,
+          storageService: newStorageService,
+          csrfSecret: 'test-csrf-secret-01234567890123456789012345678901',
+          allowedOrigins: ['http://127.0.0.1:3006', 'http://localhost:3006'],
+          isProduction: false,
         });
-      };
 
-      // 5. Post-restart retry: Owner confirms trash request on restarted server
-      const retryConfirmRes = await newRequest(
-        `/api/v1/storage/trash-requests/${gammaTrashReqId}/confirm`,
-        'POST',
-        {
-          acknowledged: true,
-          group_snapshot_hash: gammaSnapshotHash,
-        },
-        { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
-      );
+        const newServer = http.createServer(newAppHandler);
+        await new Promise((resolveListen) =>
+          newServer.listen(0, '127.0.0.1', resolveListen),
+        );
+        const newPort = newServer.address().port;
 
-      // The new server recovers, reconciles gammaOut1 as already trashed, trashes root, and completes!
-      assert.equal(retryConfirmRes.status, 200);
-      assert.equal(retryConfirmRes.body.data.status, 'trashed');
+        const newRequest = (
+          path,
+          method = 'GET',
+          data = null,
+          headers = {},
+        ) => {
+          return new Promise((resolveReq, rejectReq) => {
+            const bodyStr = data ? JSON.stringify(data) : '';
+            const reqHeaders = {
+              Origin: 'http://127.0.0.1:3006',
+              ...headers,
+            };
+            if (data) {
+              reqHeaders['Content-Type'] = 'application/json';
+              reqHeaders['Content-Length'] = Buffer.byteLength(bodyStr);
+            }
+            const reqObj = http.request(
+              {
+                hostname: '127.0.0.1',
+                port: newPort,
+                path,
+                method,
+                headers: reqHeaders,
+              },
+              (res) => {
+                let resBody = '';
+                res.on('data', (c) => (resBody += c));
+                res.on('end', () => {
+                  const parsed = resBody ? JSON.parse(resBody) : null;
+                  resolveReq({
+                    status: res.statusCode,
+                    headers: res.headers,
+                    body: parsed,
+                  });
+                });
+              },
+            );
+            reqObj.on('error', rejectReq);
+            if (data) reqObj.write(bodyStr);
+            reqObj.end();
+          });
+        };
 
-      const gammaRootCheck = await pool.query('SELECT status FROM storage_folders WHERE id=$1', [gammaRootId]);
-      assert.equal(gammaRootCheck.rows[0].status, 'trashed');
+        // 5. Post-restart retry: Owner confirms trash request on restarted server
+        const retryConfirmRes = await newRequest(
+          `/api/v1/storage/trash-requests/${gammaTrashReqId}/confirm`,
+          'POST',
+          {
+            acknowledged: true,
+            group_snapshot_hash: gammaSnapshotHash,
+          },
+          { Cookie: ownerAuth.cookie, 'X-CSRF-Token': ownerAuth.csrf },
+        );
 
-      await new Promise((resolveClose) => newServer.close(resolveClose));
-      server = null; // Prevent double close in finally
-    });
+        // The new server recovers, reconciles gammaOut1 as already trashed, trashes root, and completes!
+        assert.equal(retryConfirmRes.status, 200);
+        assert.equal(retryConfirmRes.body.data.status, 'trashed');
+
+        const gammaRootCheck = await pool.query(
+          'SELECT status FROM storage_folders WHERE id=$1',
+          [gammaRootId],
+        );
+        assert.equal(gammaRootCheck.rows[0].status, 'trashed');
+
+        await new Promise((resolveClose) => newServer.close(resolveClose));
+        server = null; // Prevent double close in finally
+      },
+    );
   } finally {
     if (server) {
       await new Promise((resolveClose) => server.close(resolveClose));

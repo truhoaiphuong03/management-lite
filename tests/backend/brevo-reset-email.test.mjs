@@ -160,4 +160,3 @@ test('Brevo HTTPS email verification: unique subject reference, timestamp, 15m e
     'Each send must have a distinct subject reference code so Gmail does not collapse repeated verification emails',
   );
 });
-

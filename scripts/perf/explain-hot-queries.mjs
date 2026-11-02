@@ -92,20 +92,19 @@ export async function runExplainBenchmark(pool, options = {}) {
 
 const isMain =
   process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+  path.resolve(process.argv[1]) ===
+    path.resolve(fileURLToPath(import.meta.url));
 
 if (isMain) {
   const applyIndexes = process.argv.includes('--apply-indexes');
-  const { createDatabasePool } = await import(
-    '../../dist/packages/database/src/pool.js'
-  );
-  const { loadDatabaseConfig } = await import(
-    '../../dist/packages/database/src/config.js'
-  );
+  const { createDatabasePool } =
+    await import('../../dist/packages/database/src/pool.js');
+  const { loadDatabaseConfig } =
+    await import('../../dist/packages/database/src/config.js');
   const config = loadDatabaseConfig(process.env);
   const pool = createDatabasePool(config);
   try {
-        const report = await runExplainBenchmark(pool, { applyIndexes });
+    const report = await runExplainBenchmark(pool, { applyIndexes });
     console.table(report);
   } finally {
     await pool.end?.();

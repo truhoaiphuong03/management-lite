@@ -6,15 +6,15 @@ Tích hợp không conflict. Typecheck/lint/build và90 file test đều hoàn t
 
 ## 1. Nguồn, SHA và ancestry
 
-|Nguồn|Branch|SHA đầy đủ|
-|---|---|---|
-|Anty frontend|fix/anty-codex-findings-remediation|b82e847cc56525018aa759a00319858eb7f9d76a|
-|Mốc nghiệm thu Anty cũ|feat/anty-acceptance-123, mốc lịch sử|01ece1804c848bfbecbbd088387ff712489a96ad|
-|Codex backend code|codex/backend-verification-final-20261012|447c47fa9733570fc059a5fc1e7884aababa7c5f|
-|Codex backend report|codex/backend-verification-final-20261012|2679c7c81831d131d566a8bb42d5510350a76156|
-|Merge-base hai nguồn|—|123893e328bb47ffa2df6b68ff1b4691defc834d|
-|Merge tích hợp QA|codex/integrated-qa-b82e847-447c47f|f2aefdcf65a778acc7eb84090ab50a3c332cf47f|
-|Candidate cuối đã test, cập nhật test ACC-005|codex/integrated-qa-b82e847-447c47f|1b22b49dfea08a2eb5b76fa4c2a9c98f2723027b|
+| Nguồn                                         | Branch                                    | SHA đầy đủ                               |
+| --------------------------------------------- | ----------------------------------------- | ---------------------------------------- |
+| Anty frontend                                 | fix/anty-codex-findings-remediation       | b82e847cc56525018aa759a00319858eb7f9d76a |
+| Mốc nghiệm thu Anty cũ                        | feat/anty-acceptance-123, mốc lịch sử     | 01ece1804c848bfbecbbd088387ff712489a96ad |
+| Codex backend code                            | codex/backend-verification-final-20261012 | 447c47fa9733570fc059a5fc1e7884aababa7c5f |
+| Codex backend report                          | codex/backend-verification-final-20261012 | 2679c7c81831d131d566a8bb42d5510350a76156 |
+| Merge-base hai nguồn                          | —                                         | 123893e328bb47ffa2df6b68ff1b4691defc834d |
+| Merge tích hợp QA                             | codex/integrated-qa-b82e847-447c47f       | f2aefdcf65a778acc7eb84090ab50a3c332cf47f |
+| Candidate cuối đã test, cập nhật test ACC-005 | codex/integrated-qa-b82e847-447c47f       | 1b22b49dfea08a2eb5b76fa4c2a9c98f2723027b |
 
 Worktree thứ ba: `/Users/duongbinh/Projects/management-lite-integrated-qa-b82e847`. Tạo từ2679c7c, merge --no-ff với exact SHA b82e847. Hai parent merge là2679c7c vàb82e847; merge-base123893e. Đã chạy is-ancestor:01ece18→b82e847,447c47f→2679c7c, cả hai nguồn→merge,merge→ tested candidate đều true.
 
@@ -24,15 +24,15 @@ apps/web, packages/ui và tests/web trong candidate khớp blob Anty b82e847; ap
 
 ## 2. Tương thích contract
 
-|Nhóm|Kết quả thực tế|Giới hạn|
-|---|---|---|
-|ATT-007|Anty đã sửa tài liệu thành accept/reject + reason + clock_out_at; UI dùng đúng payload. Staff request 201, Owner decision 200, Staff decide 403, lỗi input 400/rollback; browser gửi1pending vàoDB |Owner quyết định toàn luồng UI chưa được nâng Full E2E|
-|ATT-010|Ca23:30→01:30 VN qua tháng,20 phút unpaid break =6000 giây; snapshot append-only|Badge/device/mọi timezone UI chưa có đủacceptance|
-|PAY-003..007|Staff/me, Owner exclusion kểcảpromotedStaff; paid_leave/If-Match/finalize/payment/idempotency/concurrency/overpay tests PASS; browser Staff payslip vàOwner dashboard PASS|UIadjustment/finalize/payment đầyđủ chưa được nâng Full E2E|
-|REP-003/006|API revision/immutable history/cursor PASS. Chrome Owner reports tải được, pagination tiến/lùi, không trùng, previous khôi phục đúng cards; không tái phát hook exception|Không coi pagination5checks là toànmoduleFullE2E; revision UI write flow chưa chạy đầy đủ|
-|ACC-004/005|Detail reveal mởmodal; listserver step-up + visible secret + expiry 30 giây PASS; Owner/Staff/proof rollback tests PASS|Detail modal opening không đồng nghĩa mọi CRUD/detail flow đềuFullE2E|
-|FILE-004|Contract readiness/trash mock/RBAC/stale hash/idempotency tests PASS|BLOCKED provider Google Drive thật; không thử thao tác pháhủy Drive thật, không dùng credentialvận hành|
-|AUDIT-005|0018guard upgrade + rollback/replay/concurrenttampering tests PASS; restore DB vẫn chặn UPDATE/DELETE|Không áp migration vận hành hoặc tuyên bố chống DBA chủ động drop trigger|
+| Nhóm         | Kết quả thực tế                                                                                                                                                                                    | Giới hạn                                                                                                |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| ATT-007      | Anty đã sửa tài liệu thành accept/reject + reason + clock_out_at; UI dùng đúng payload. Staff request 201, Owner decision 200, Staff decide 403, lỗi input 400/rollback; browser gửi1pending vàoDB | Owner quyết định toàn luồng UI chưa được nâng Full E2E                                                  |
+| ATT-010      | Ca23:30→01:30 VN qua tháng,20 phút unpaid break =6000 giây; snapshot append-only                                                                                                                   | Badge/device/mọi timezone UI chưa có đủacceptance                                                       |
+| PAY-003..007 | Staff/me, Owner exclusion kểcảpromotedStaff; paid_leave/If-Match/finalize/payment/idempotency/concurrency/overpay tests PASS; browser Staff payslip vàOwner dashboard PASS                         | UIadjustment/finalize/payment đầyđủ chưa được nâng Full E2E                                             |
+| REP-003/006  | API revision/immutable history/cursor PASS. Chrome Owner reports tải được, pagination tiến/lùi, không trùng, previous khôi phục đúng cards; không tái phát hook exception                          | Không coi pagination5checks là toànmoduleFullE2E; revision UI write flow chưa chạy đầy đủ               |
+| ACC-004/005  | Detail reveal mởmodal; listserver step-up + visible secret + expiry 30 giây PASS; Owner/Staff/proof rollback tests PASS                                                                            | Detail modal opening không đồng nghĩa mọi CRUD/detail flow đềuFullE2E                                   |
+| FILE-004     | Contract readiness/trash mock/RBAC/stale hash/idempotency tests PASS                                                                                                                               | BLOCKED provider Google Drive thật; không thử thao tác pháhủy Drive thật, không dùng credentialvận hành |
+| AUDIT-005    | 0018guard upgrade + rollback/replay/concurrenttampering tests PASS; restore DB vẫn chặn UPDATE/DELETE                                                                                              | Không áp migration vận hành hoặc tuyên bố chống DBA chủ động drop trigger                               |
 
 Không đổi endpoint/request/response trong đợt tích hợp.
 
@@ -40,46 +40,46 @@ Không đổi endpoint/request/response trong đợt tích hợp.
 
 Đã chạy Chrome với select thật và đọc computed background/text/colorScheme, không chỉ localStorage:
 
-|Tình huống|Background|Text|Kết quả|
-|---|---|---|---|
-|Dark|rgb(11,18,32)|rgb(248,250,252)|PASS|
-|Light|rgb(248,250,252)|rgb(15,23,42)|PASS|
-|Light → Dark|Khôi phục Dark|Khôi phục Dark|PASS|
-|ChọnSystem khi OS light|Màu Light thật|Màu Light thật|PASS|
-|ChọnSystem khi OS dark|Màu Dark thật|Màu Dark thật|PASS|
-|Reload Light|Giữ màu Light thật|Giữ màu Light thật|PASS|
-|Đang System, OS dark→light khi trang vẫn mở|Body vẫnDark|Text vẫnDark|**FAIL**|
+| Tình huống                                  | Background         | Text               | Kết quả  |
+| ------------------------------------------- | ------------------ | ------------------ | -------- |
+| Dark                                        | rgb(11,18,32)      | rgb(248,250,252)   | PASS     |
+| Light                                       | rgb(248,250,252)   | rgb(15,23,42)      | PASS     |
+| Light → Dark                                | Khôi phục Dark     | Khôi phục Dark     | PASS     |
+| ChọnSystem khi OS light                     | Màu Light thật     | Màu Light thật     | PASS     |
+| ChọnSystem khi OS dark                      | Màu Dark thật      | Màu Dark thật      | PASS     |
+| Reload Light                                | Giữ màu Light thật | Giữ màu Light thật | PASS     |
+| Đang System, OS dark→light khi trang vẫn mở | Body vẫnDark       | Text vẫnDark       | **FAIL** |
 
 Nguyên nhân: applyTheme đọc matchMedia tại thời điểm gọi; không có listener change để cập nhật khi systemappearance đổi. Không sửa frontend. **P2 — Anty phụ trách**, tái hiện:Settings→System với OS dark→đổi OS light không reload; kiểm tra body/text vẫn dark. Cần listener có cleanup, chỉtheo OS khi đang System, giữLight/Dark manual; commit mới rồi Codex retest.
 
 ## 4. Kết quả kiểm thử
 
-|Bộ|Files|PASS|FAIL|SKIP|
-|---|---:|---:|---:|---:|
-|Backend|34|335|0|0|
-|Database|12|69|0|0|
-|Security|2|13|0|0|
-|Foundation|1|4|0|0|
-|Frontend|41|264|0|1|
-|**Tổng TAP**|**90**|**685**|**0**|**1**|
+| Bộ           |  Files |    PASS |  FAIL |  SKIP |
+| ------------ | -----: | ------: | ----: | ----: |
+| Backend      |     34 |     335 |     0 |     0 |
+| Database     |     12 |      69 |     0 |     0 |
+| Security     |      2 |      13 |     0 |     0 |
+| Foundation   |      1 |       4 |     0 |     0 |
+| Frontend     |     41 |     264 |     0 |     1 |
+| **Tổng TAP** | **90** | **685** | **0** | **1** |
 
 TAP gồm parent/subtest; không phải685 chức năng. Frontend có static/component và một số Chrome suite dùng mock response; không đổi classification56Component/API sangFullE2E. Không cộng số 652/413 cũ hoặc lần rerun.
 
-|Check khác|Kết quả|
-|---|---|
-|npm run typecheck|PASS|
-|npm run lint|PASS; targeted ACC test lint PASS|
-|npm run build|PASS; lỗi TS2742 trước đó đã được Anty sửa|
-|npm run build:web|PASS|
-|Chrome riêng ISSUES/ACC/SET|22PASS/0FAIL|
-|Chrome REP pagination|5PASS/0FAIL|
-|Chrome theme|7PASS/1FAIL|
-|Chrome focused ATT/PAY|10PASS/0FAIL|
-|Chrome AUTH expiry|2PASS/0FAIL|
-|**Tổng Chrome riêng**|**46PASS/1FAIL**; không cộng trùngChrome nằm trongfrontendTAP|
-|Backup/restore|58/58 bảng khớp count+sortedrowJSONdigest|
-|Auditguard sau restore|UPDATE/DELETEđềuREJECTED, row giữ nguyên|
-|npm ci --ignore-scripts|FAIL vì package-lock thiếu sharp và phụthuộc; chưa chứng minh cài đặt tái lập|
+| Check khác                  | Kết quả                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| npm run typecheck           | PASS                                                                          |
+| npm run lint                | PASS; targeted ACC test lint PASS                                             |
+| npm run build               | PASS; lỗi TS2742 trước đó đã được Anty sửa                                    |
+| npm run build:web           | PASS                                                                          |
+| Chrome riêng ISSUES/ACC/SET | 22PASS/0FAIL                                                                  |
+| Chrome REP pagination       | 5PASS/0FAIL                                                                   |
+| Chrome theme                | 7PASS/1FAIL                                                                   |
+| Chrome focused ATT/PAY      | 10PASS/0FAIL                                                                  |
+| Chrome AUTH expiry          | 2PASS/0FAIL                                                                   |
+| **Tổng Chrome riêng**       | **46PASS/1FAIL**; không cộng trùngChrome nằm trongfrontendTAP                 |
+| Backup/restore              | 58/58 bảng khớp count+sortedrowJSONdigest                                     |
+| Auditguard sau restore      | UPDATE/DELETEđềuREJECTED, row giữ nguyên                                      |
+| npm ci --ignore-scripts     | FAIL vì package-lock thiếu sharp và phụthuộc; chưa chứng minh cài đặt tái lập |
 
 Legacy `tests/web/issues-fix-03.test.mjs` vẫn SKIP vô điều kiện, giữ nguyên. Browser ISSUES riêng đã chứng minh response bị mất sau commit, retry giữ body/key vàDB 1 row; không đổi legacy SKIP thành PASS.
 
@@ -100,16 +100,16 @@ Không đổi credential thật; temporary synthetic credential file chuyển ra
 
 ## 6. Lỗi còn lại và release gates
 
-|Gate|Trạng thái|Phân công|
-|---|---|---|
-|SET-002System livemediachange|FAIL/P2; chặnQA_READY trong đợt này|Anty frontend, Codex retest SHA mới|
-|Lockfile/npm ci tái lập|HOLD|Người phụ trách package/release reconcile lock trong branch được giao; Codex chạy clean install lại|
-|685TAP + typecheck/lint/build|PASS có bằng chứng|Không đủđểđổi QA_HOLD thành QA_READY khi Chrome còn FAIL|
-|Legacy ISSUES SKIP|SKIP có lý do|Giữbằng chứngbrowser riêng, xử lý test legacy theo đúng scope|
-|Google Drive provider thật|BLOCKED|Backendadapter + authorized sandbox tương lai; không destructive test Drive vận hành|
-|Credential rotation vận hành|HOLD|Owner phê duyệt/thực hiện kế hoạch backup/cutover/rollback|
-|123/123 Full E2E|NOT VERIFIED|Giữ nguyên 56 Component/API; acceptance còn thiếu phải chạy theo ID|
-|Production/GitHubmain/Windows|RELEASE_HOLD|Owner phê duyệt gate riêng; chưa merge/push/deploy|
+| Gate                          | Trạng thái                          | Phân công                                                                                           |
+| ----------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| SET-002System livemediachange | FAIL/P2; chặnQA_READY trong đợt này | Anty frontend, Codex retest SHA mới                                                                 |
+| Lockfile/npm ci tái lập       | HOLD                                | Người phụ trách package/release reconcile lock trong branch được giao; Codex chạy clean install lại |
+| 685TAP + typecheck/lint/build | PASS có bằng chứng                  | Không đủđểđổi QA_HOLD thành QA_READY khi Chrome còn FAIL                                            |
+| Legacy ISSUES SKIP            | SKIP có lý do                       | Giữbằng chứngbrowser riêng, xử lý test legacy theo đúng scope                                       |
+| Google Drive provider thật    | BLOCKED                             | Backendadapter + authorized sandbox tương lai; không destructive test Drive vận hành                |
+| Credential rotation vận hành  | HOLD                                | Owner phê duyệt/thực hiện kế hoạch backup/cutover/rollback                                          |
+| 123/123 Full E2E              | NOT VERIFIED                        | Giữ nguyên 56 Component/API; acceptance còn thiếu phải chạy theo ID                                 |
+| Production/GitHubmain/Windows | RELEASE_HOLD                        | Owner phê duyệt gate riêng; chưa merge/push/deploy                                                  |
 
 Bản fix frontend tiếp theo chỉ được tích hợp vào QA worktree riêng sau xác minh SHA/ancestry; không ghi đè worktree nguồn.
 

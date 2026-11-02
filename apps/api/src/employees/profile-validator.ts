@@ -51,7 +51,12 @@ export function normalizeDateOfBirth(
       'VALIDATION_ERROR',
       `Ngày ${day}/${month}/${year} không tồn tại trên lịch`,
       400,
-      [{ field: 'date_of_birth', message: 'Ngày sinh không tồn tại trên lịch' }],
+      [
+        {
+          field: 'date_of_birth',
+          message: 'Ngày sinh không tồn tại trên lịch',
+        },
+      ],
     );
   }
 

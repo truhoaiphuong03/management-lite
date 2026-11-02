@@ -10,10 +10,14 @@ const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '../..');
 
 test('Phase 16.1: gen-build-info.mjs generates consistent dist/release-version.json and apps/web/dist/release-version.json', () => {
-  execFileSync(process.execPath, [path.join(root, 'scripts/gen-build-info.mjs')], {
-    cwd: root,
-    stdio: 'ignore',
-  });
+  execFileSync(
+    process.execPath,
+    [path.join(root, 'scripts/gen-build-info.mjs')],
+    {
+      cwd: root,
+      stdio: 'ignore',
+    },
+  );
 
   const pkg = JSON.parse(
     fs.readFileSync(path.join(root, 'package.json'), 'utf8'),

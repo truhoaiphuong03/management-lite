@@ -20,7 +20,7 @@ test('FIN authenticated HTTP/DB acceptance on exact FIN-only cluster', async (t)
     !url ||
     !process.env.FIN_TEST_SYSTEM_IDENTIFIER ||
     !process.env.FIN_TEST_DATA_DIRECTORY ||
-    !process.env.FIN_TEST_SOCKET ||
+    (process.platform !== 'win32' && !process.env.FIN_TEST_SOCKET) ||
     !process.env.FIN_TEST_PORT ||
     !process.env.FIN_TEST_DATABASE
   ) {
@@ -59,7 +59,7 @@ test('FIN authenticated HTTP/DB acceptance on exact FIN-only cluster', async (t)
       realpathSync(proof.directory),
       realpathSync(process.env.FIN_TEST_DATA_DIRECTORY),
     );
-    assert.equal(proof.socket, process.env.FIN_TEST_SOCKET);
+    assert.equal(proof.socket, process.env.FIN_TEST_SOCKET ?? '');
     assert.equal(proof.listen, '127.0.0.1');
     assert.equal(
       (

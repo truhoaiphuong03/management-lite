@@ -17,7 +17,8 @@ import {
   AppCard,
   AppDialog,
   ListFooter,
-  TOKENS, THEME_COLORS,
+  TOKENS,
+  THEME_COLORS,
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,

@@ -39,25 +39,25 @@ Node `22.14.0`, npm `10.9.2`, đúng engines của repository.
 
 ## Kiểm thử bắt buộc
 
-| Nhóm | Files | PASS | FAIL | SKIP |
-|---|---:|---:|---:|---:|
-| Backend | 34 | 335 | 0 | 0 |
-| Database | 12 | 69 | 0 | 0 |
-| Security | 2 | 13 | 0 | 0 |
-| Foundation | 1 | 4 | 0 | 0 |
-| Web | 41 | 265 | 0 | 1 |
-| Tổng kết quả cuối theo từng file | 90 | **686** | **0** | **1** |
+| Nhóm                             | Files |    PASS |  FAIL |  SKIP |
+| -------------------------------- | ----: | ------: | ----: | ----: |
+| Backend                          |    34 |     335 |     0 |     0 |
+| Database                         |    12 |      69 |     0 |     0 |
+| Security                         |     2 |      13 |     0 |     0 |
+| Foundation                       |     1 |       4 |     0 |     0 |
+| Web                              |    41 |     265 |     0 |     1 |
+| Tổng kết quả cuối theo từng file |    90 | **686** | **0** | **1** |
 
 Các số trên là TAP tests, có tính subtests; không phải số chức năng được nghiệm thu E2E. Mốc trước là 685 PASS / 0 FAIL / 1 SKIP.
 
-| Gate | Kết quả |
-|---|---|
-| Typecheck | PASS |
-| Lint | **FAIL — 4 errors / 0 warnings** |
-| Build TypeScript | PASS |
-| Build web Vite | PASS |
-| npm ci sau sửa | PASS |
-| Backup/restore | PASS — 58/58 bảng khớp số dòng và digest |
+| Gate                  | Kết quả                                            |
+| --------------------- | -------------------------------------------------- |
+| Typecheck             | PASS                                               |
+| Lint                  | **FAIL — 4 errors / 0 warnings**                   |
+| Build TypeScript      | PASS                                               |
+| Build web Vite        | PASS                                               |
+| npm ci sau sửa        | PASS                                               |
+| Backup/restore        | PASS — 58/58 bảng khớp số dòng và digest           |
 | AUDIT-005 sau restore | PASS — UPDATE/DELETE bị từ chối, dữ liệu không đổi |
 
 Một SKIP vẫn là `tests/web/issues-fix-03.test.mjs`: test chủ động `t.skip` vô điều kiện, không có biến môi trường bật lại. Không sửa guard để đổi thành PASS. Kịch bản ISSUES retry riêng dùng runtime/database binding đã xác minh và đạt trong Chrome, nhưng không thay thế trạng thái SKIP của file legacy.
@@ -83,14 +83,14 @@ Mốc Chrome cũ: **46 PASS / 1 FAIL**. Lỗi cũ: `SET-002 System follows subse
 
 Các batch Chrome hồi quy:
 
-| Batch | PASS | FAIL | Ghi chú |
-|---|---:|---:|---|
-| Theme gốc | 8 | 0 | Cùng kịch bản từng FAIL |
-| Settings / ISSUES / ACC | 20 | 2 | Hai assertion ACC expiry không đạt ở lần chạy đầy đủ đầu |
-| REP | 5 | 0 | Pagination thực, không lỗi React Hooks |
-| ATT / PAY | 10 | 0 | UI/API/database |
-| AUTH expiry | 2 | 0 | UI hết hạn session |
-| Tổng assertion chức năng của cohort | **45** | **2** | Thêm 1 harness-completion FAIL riêng do assertion ACC |
+| Batch                               |   PASS |  FAIL | Ghi chú                                                  |
+| ----------------------------------- | -----: | ----: | -------------------------------------------------------- |
+| Theme gốc                           |      8 |     0 | Cùng kịch bản từng FAIL                                  |
+| Settings / ISSUES / ACC             |     20 |     2 | Hai assertion ACC expiry không đạt ở lần chạy đầy đủ đầu |
+| REP                                 |      5 |     0 | Pagination thực, không lỗi React Hooks                   |
+| ATT / PAY                           |     10 |     0 | UI/API/database                                          |
+| AUTH expiry                         |      2 |     0 | UI hết hạn session                                       |
+| Tổng assertion chức năng của cohort | **45** | **2** | Thêm 1 harness-completion FAIL riêng do assertion ACC    |
 
 Không báo Chrome full regression toàn PASS. File raw batch Settings chứa 20 PASS / 3 FAIL nếu tính cả harness-completion; dòng tổng trên tách harness khỏi assertion chức năng.
 

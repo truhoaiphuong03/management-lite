@@ -726,7 +726,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     transform: 'translateY(-50%)',
                     background: 'transparent',
                     border: 'none',
-                    color: showPassword ? 'var(--accent-text)' : 'var(--muted-color)',
+                    color: showPassword
+                      ? 'var(--accent-text)'
+                      : 'var(--muted-color)',
                     cursor: 'pointer',
                     minWidth: '40px',
                     minHeight: '40px',
@@ -957,7 +959,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {/* Modal Body */}
             <div
               id="forgot-password-modal-desc"
-              style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}
+              style={{
+                fontSize: '13px',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.6,
+              }}
             >
               <p style={{ marginTop: 0, marginBottom: '14px' }}>
                 Vì lý do an toàn dữ liệu và tuân thủ chính sách bảo mật nội bộ,

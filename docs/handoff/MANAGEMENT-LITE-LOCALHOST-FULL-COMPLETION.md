@@ -5,7 +5,7 @@
 **Thời điểm lập:** 2026-10-12 01:25 (GMT+7)  
 **Nhánh Git:** `feat/ui-report-01-mvp` (commit gốc `ab7500c`)  
 **Môi trường:** Mac Localhost (Web 3017, API 3018, PostgreSQL 55499)  
-**Kết luận chính thức:** **`LOCALHOST_FULL_PASS`**  
+**Kết luận chính thức:** **`LOCALHOST_FULL_PASS`**
 
 ---
 
@@ -13,21 +13,21 @@
 
 Toàn bộ 13 màn hình danh sách, bảng dữ liệu và thẻ hành động trong hệ thống MANAGEMENT LITE đã được kiểm kê, phân loại và xử lý:
 
-| STT | Module | Route | Hiện trạng Icon | Hiện trạng Phân trang | Trạng thái Nghiệm thu |
-|:---:|---|---|---|---|:---:|
-| 1 | **Tài chính - Lịch sử** | `/finance/history` | `ActionIconButton` (view) | Server `Pagination` (10/20/50/100, def 20) | **HOÀN TẤT** |
-| 2 | **Tài chính - Danh mục** | `/finance/categories` | `ActionIconButton` (edit, deact, react) | Server `Pagination` (10/20/50/100, def 20) | **HOÀN TẤT** |
-| 3 | **Tài chính - Kế hoạch** | `/finance/plan` | `ActionIconButton` (edit, deact, react) | Client `Pagination` (10/20/50/100, def 20) | **HOÀN TẤT** |
-| 4 | **Nhật ký kiểm toán** | `/audit` | `ActionIconButton` (copy Request ID) | Server `Pagination` (10/20/50/100, def 20) | **HOÀN TẤT** |
-| 5 | **Nhân sự** | `/employees` | `ActionIconButton` (view, deact, react) | Cursor pagination + chốt trần `limit=50` an toàn | **HOÀN TẤT** |
-| 6 | **Báo lỗi** | `/issues` | `ActionIconButton` (view) | Cursor pagination + bảo vệ zero-mutation | **HOÀN TẤT** |
-| 7 | **Báo cáo** | `/reports` | `ActionIconButton` (view, edit nháp) | Cursor pagination (giữ nút chính "Nộp" dạng chữ) | **HOÀN TẤT** |
-| 8 | **Chấm công** | `/clock` | Nút chữ duyệt/từ chối nghiệp vụ | Client `Pagination` danh sách ca làm việc | **HOÀN TẤT** |
-| 9 | **Công việc** | `/work` | Đã rà soát UI | Kế hoạch API chi tiết sẵn sàng | **HOLD (Theo đặc tả)** |
-| 10 | **Lịch làm việc** | `/schedule` | Đã rà soát UI | Bounded theo tuần; kế hoạch API sẵn sàng | **HOLD (Theo đặc tả)** |
-| 11 | **Lương** | `/payroll` | Đã rà soát UI | Nghiệp vụ nhạy cảm; kế hoạch API sẵn sàng | **HOLD (Theo đặc tả)** |
-| 12 | **Tài khoản** | `/accounts` | Đã rà soát UI | Secret Owner-only; kế hoạch API sẵn sàng | **HOLD (Theo đặc tả)** |
-| 13 | **Lưu trữ** | `/storage` | Đã rà soát UI | Phân quyền thư mục; kế hoạch API sẵn sàng | **HOLD (Theo đặc tả)** |
+| STT | Module                   | Route                 | Hiện trạng Icon                         | Hiện trạng Phân trang                            | Trạng thái Nghiệm thu  |
+| :-: | ------------------------ | --------------------- | --------------------------------------- | ------------------------------------------------ | :--------------------: |
+|  1  | **Tài chính - Lịch sử**  | `/finance/history`    | `ActionIconButton` (view)               | Server `Pagination` (10/20/50/100, def 20)       |      **HOÀN TẤT**      |
+|  2  | **Tài chính - Danh mục** | `/finance/categories` | `ActionIconButton` (edit, deact, react) | Server `Pagination` (10/20/50/100, def 20)       |      **HOÀN TẤT**      |
+|  3  | **Tài chính - Kế hoạch** | `/finance/plan`       | `ActionIconButton` (edit, deact, react) | Client `Pagination` (10/20/50/100, def 20)       |      **HOÀN TẤT**      |
+|  4  | **Nhật ký kiểm toán**    | `/audit`              | `ActionIconButton` (copy Request ID)    | Server `Pagination` (10/20/50/100, def 20)       |      **HOÀN TẤT**      |
+|  5  | **Nhân sự**              | `/employees`          | `ActionIconButton` (view, deact, react) | Cursor pagination + chốt trần `limit=50` an toàn |      **HOÀN TẤT**      |
+|  6  | **Báo lỗi**              | `/issues`             | `ActionIconButton` (view)               | Cursor pagination + bảo vệ zero-mutation         |      **HOÀN TẤT**      |
+|  7  | **Báo cáo**              | `/reports`            | `ActionIconButton` (view, edit nháp)    | Cursor pagination (giữ nút chính "Nộp" dạng chữ) |      **HOÀN TẤT**      |
+|  8  | **Chấm công**            | `/clock`              | Nút chữ duyệt/từ chối nghiệp vụ         | Client `Pagination` danh sách ca làm việc        |      **HOÀN TẤT**      |
+|  9  | **Công việc**            | `/work`               | Đã rà soát UI                           | Kế hoạch API chi tiết sẵn sàng                   | **HOLD (Theo đặc tả)** |
+| 10  | **Lịch làm việc**        | `/schedule`           | Đã rà soát UI                           | Bounded theo tuần; kế hoạch API sẵn sàng         | **HOLD (Theo đặc tả)** |
+| 11  | **Lương**                | `/payroll`            | Đã rà soát UI                           | Nghiệp vụ nhạy cảm; kế hoạch API sẵn sàng        | **HOLD (Theo đặc tả)** |
+| 12  | **Tài khoản**            | `/accounts`           | Đã rà soát UI                           | Secret Owner-only; kế hoạch API sẵn sàng         | **HOLD (Theo đặc tả)** |
+| 13  | **Lưu trữ**              | `/storage`            | Đã rà soát UI                           | Phân quyền thư mục; kế hoạch API sẵn sàng        | **HOLD (Theo đặc tả)** |
 
 ---
 
@@ -79,20 +79,20 @@ Toàn bộ 13 màn hình danh sách, bảng dữ liệu và thẻ hành động 
 
 ## 4. KẾT QUẢ KIỂM THỬ TỪNG MODULE (QA RESULTS)
 
-| Bộ kiểm thử | Mục tiêu | Kết quả | Chi tiết |
-|---|---|:---:|---|
-| `chrome-fin-live-smoke.mjs` | Smoke test luồng FIN trên live 3017/3018 | **16/16 PASS** | Tổng hợp, Popup, Lịch sử, Danh mục, Kế hoạch, Mobile |
-| `chrome-fin-network-check.mjs` | Kiểm tra tải trang và reload mạng live | **ALL PASS** | Không có lỗi 4xx/5xx hay "Không tải được dữ liệu" |
-| `chrome-fin-icon-actions-qa.mjs` | Hit-test kích thước, gap, tooltip icon live | **ALL PASS** | 40x40px, gap >= 8px, desktop và mobile 390px |
-| `chrome-fin-pager-live-qa.mjs` | Kiểm tra phân trang 10/20/50/100 live | **ALL PASS** | Mặc định 20, chuyển trang, vô hiệu hóa nút đầu/cuối |
-| `chrome-fin-pagination-qa.mjs` | Kiểm tra phân trang nhiều trang trên DB QA | **36/36 PASS** | Phân trang danh mục, lịch sử, kế hoạch |
-| `chrome-fin-all-screens-qa.mjs` | Kiểm tra toàn bộ màn hình FIN trên DB QA | **30/30 PASS** | Danh mục, lịch sử, thêm thu chi, tổng hợp |
-| `chrome-fin-plan-qa.mjs` | Kiểm thử nghiệp vụ Kế hoạch thu chi cố định | **28/28 PASS** | Công thức KPI, chu kỳ ngày/tuần/tháng |
-| `node --test tests/backend/finance-*.test.mjs` | Backend API FIN (hóa đơn, tiền tệ, logic) | **73 PASS / 0 FAIL** | 1 test skipped (cần cluster chuyên dụng) |
-| `node --test tests/web/*.test.mjs` | Toàn bộ 243 test web unit & integration | **242 PASS / 0 FAIL** | 1 test skipped (chặn ghi DB live theo thiết kế) |
-| `chrome-live-phase3a-qa.mjs` | Kiểm tra Chrome trực tiếp 5 màn hình Nhóm A | **5/5 PASS** | `/audit`, `/employees`, `/issues`, `/reports`, `/clock` |
-| `npm run lint` | ESLint toàn bộ codebase | **PASS (0 errors)** | Không có lỗi cú pháp hoặc vi phạm lint |
-| `npm run build` | TypeScript compile (`tsc`) | **PASS (0 errors)** | `dist/` build thành công, type-safe 100% |
+| Bộ kiểm thử                                    | Mục tiêu                                    |        Kết quả        | Chi tiết                                                |
+| ---------------------------------------------- | ------------------------------------------- | :-------------------: | ------------------------------------------------------- |
+| `chrome-fin-live-smoke.mjs`                    | Smoke test luồng FIN trên live 3017/3018    |    **16/16 PASS**     | Tổng hợp, Popup, Lịch sử, Danh mục, Kế hoạch, Mobile    |
+| `chrome-fin-network-check.mjs`                 | Kiểm tra tải trang và reload mạng live      |     **ALL PASS**      | Không có lỗi 4xx/5xx hay "Không tải được dữ liệu"       |
+| `chrome-fin-icon-actions-qa.mjs`               | Hit-test kích thước, gap, tooltip icon live |     **ALL PASS**      | 40x40px, gap >= 8px, desktop và mobile 390px            |
+| `chrome-fin-pager-live-qa.mjs`                 | Kiểm tra phân trang 10/20/50/100 live       |     **ALL PASS**      | Mặc định 20, chuyển trang, vô hiệu hóa nút đầu/cuối     |
+| `chrome-fin-pagination-qa.mjs`                 | Kiểm tra phân trang nhiều trang trên DB QA  |    **36/36 PASS**     | Phân trang danh mục, lịch sử, kế hoạch                  |
+| `chrome-fin-all-screens-qa.mjs`                | Kiểm tra toàn bộ màn hình FIN trên DB QA    |    **30/30 PASS**     | Danh mục, lịch sử, thêm thu chi, tổng hợp               |
+| `chrome-fin-plan-qa.mjs`                       | Kiểm thử nghiệp vụ Kế hoạch thu chi cố định |    **28/28 PASS**     | Công thức KPI, chu kỳ ngày/tuần/tháng                   |
+| `node --test tests/backend/finance-*.test.mjs` | Backend API FIN (hóa đơn, tiền tệ, logic)   | **73 PASS / 0 FAIL**  | 1 test skipped (cần cluster chuyên dụng)                |
+| `node --test tests/web/*.test.mjs`             | Toàn bộ 243 test web unit & integration     | **242 PASS / 0 FAIL** | 1 test skipped (chặn ghi DB live theo thiết kế)         |
+| `chrome-live-phase3a-qa.mjs`                   | Kiểm tra Chrome trực tiếp 5 màn hình Nhóm A |     **5/5 PASS**      | `/audit`, `/employees`, `/issues`, `/reports`, `/clock` |
+| `npm run lint`                                 | ESLint toàn bộ codebase                     |  **PASS (0 errors)**  | Không có lỗi cú pháp hoặc vi phạm lint                  |
+| `npm run build`                                | TypeScript compile (`tsc`)                  |  **PASS (0 errors)**  | `dist/` build thành công, type-safe 100%                |
 
 ---
 
@@ -175,6 +175,7 @@ Toàn bộ 13 màn hình danh sách, bảng dữ liệu và thẻ hành động 
 ## 10. BẰNG CHỨNG CHROME SAU TRIỂN KHAI (SCREENSHOTS)
 
 Các ảnh chụp màn hình nghiệm thu thực tế đã được lưu trữ tại thư mục Artifact:
+
 1. `live-phase3a-audit-desktop.png`: Giao diện Nhật ký kiểm toán với icon Sao chép và phân trang chuẩn.
 2. `live-phase3a-employees-desktop.png`: Giao diện Nhân sự với icon Chi tiết, Tạm ngưng, Kích hoạt lại.
 3. `live-phase3a-issues-desktop.png`: Giao diện Báo lỗi với icon Xem chi tiết.
@@ -187,16 +188,16 @@ Các ảnh chụp màn hình nghiệm thu thực tế đã được lưu trữ t
 
 ## 11. ĐỐI CHIẾU DỮ LIỆU TRƯỚC / SAU TRIỂN KHAI
 
-| Bảng dữ liệu | Số lượng trước triển khai | Số lượng sau triển khai | Thay đổi |
-|---|:---:|:---:|:---:|
-| `fin_categories` | 26 | 26 | **0 (Nguyên vẹn)** |
-| `fin_entries` | 2 | 2 | **0 (Nguyên vẹn)** |
-| `fin_plan_items` | 7 | 7 | **0 (Nguyên vẹn, đúng 7 khoản Owner đã tạo)** |
-| `fin_receipts` | 1 | 1 | **0 (Nguyên vẹn)** |
-| `users` | 768 | 768 | **0 (Nguyên vẹn)** |
-| `employees` | 688 | 688 | **0 (Nguyên vẹn)** |
-| `workspaces` | 362 | 362 | **0 (Nguyên vẹn)** |
-| `issues` | 557 | 557 | **0 (Nguyên vẹn)** |
+| Bảng dữ liệu     | Số lượng trước triển khai | Số lượng sau triển khai |                   Thay đổi                    |
+| ---------------- | :-----------------------: | :---------------------: | :-------------------------------------------: |
+| `fin_categories` |            26             |           26            |              **0 (Nguyên vẹn)**               |
+| `fin_entries`    |             2             |            2            |              **0 (Nguyên vẹn)**               |
+| `fin_plan_items` |             7             |            7            | **0 (Nguyên vẹn, đúng 7 khoản Owner đã tạo)** |
+| `fin_receipts`   |             1             |            1            |              **0 (Nguyên vẹn)**               |
+| `users`          |            768            |           768           |              **0 (Nguyên vẹn)**               |
+| `employees`      |            688            |           688           |              **0 (Nguyên vẹn)**               |
+| `workspaces`     |            362            |           362           |              **0 (Nguyên vẹn)**               |
+| `issues`         |            557            |           557           |              **0 (Nguyên vẹn)**               |
 
 ---
 
@@ -222,6 +223,7 @@ Các ảnh chụp màn hình nghiệm thu thực tế đã được lưu trữ t
 # **`LOCALHOST_FULL_PASS`**
 
 Hệ thống MANAGEMENT LITE trên localhost Mac đã hoàn thiện toàn diện các hạng mục được phê duyệt:
+
 - FIN hoạt động ổn định 100%, không còn lỗi dữ liệu, đầy đủ icon và phân trang.
 - 5 màn hình Nhóm A đã áp dụng đồng bộ `ActionIconButton` và `Pagination`.
 - 100% test web (242/242), test backend FIN (73/73) và test Chrome live đều PASS.

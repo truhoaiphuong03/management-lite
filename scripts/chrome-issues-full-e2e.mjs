@@ -11,7 +11,10 @@ const __dirname = dirname(__filename);
 const root = resolve(__dirname, '..');
 
 // Read rotated QA credentials without printing them
-const credsRaw = readFileSync(resolve(root, '.env.qa-credentials.local'), 'utf8');
+const credsRaw = readFileSync(
+  resolve(root, '.env.qa-credentials.local'),
+  'utf8',
+);
 const qaCreds = parseEnv(credsRaw);
 const ownerPassword = qaCreds.QA_OWNER_PASSWORD || qaCreds.OWNER_PASSWORD;
 const staffPassword = qaCreds.QA_STAFF_PASSWORD || qaCreds.STAFF_PASSWORD;
@@ -27,10 +30,16 @@ const webBase = 'http://127.0.0.1:3001';
 const port = 9255;
 
 async function runFullE2e() {
-  console.log('======================================================================');
-  console.log('🌐 FULL CHROME E2E ACCEPTANCE — ISSUES LIFECYCLE & RBAC (CDP REAL UI)');
+  console.log(
+    '======================================================================',
+  );
+  console.log(
+    '🌐 FULL CHROME E2E ACCEPTANCE — ISSUES LIFECYCLE & RBAC (CDP REAL UI)',
+  );
   console.log(`Target: ${webBase}`);
-  console.log('======================================================================\n');
+  console.log(
+    '======================================================================\n',
+  );
 
   const chrome = spawn(
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -51,7 +60,9 @@ async function runFullE2e() {
   const steps = [];
   function record(name, pass, detail = '') {
     steps.push({ name, pass, detail });
-    console.log(`  ${pass ? '✔ PASS' : '✖ FAIL'}: ${name}${detail ? ` (${detail})` : ''}`);
+    console.log(
+      `  ${pass ? '✔ PASS' : '✖ FAIL'}: ${name}${detail ? ` (${detail})` : ''}`,
+    );
   }
 
   try {
@@ -70,9 +81,12 @@ async function runFullE2e() {
     assert.ok(versionRes, 'Chrome CDP failed to launch in 6s');
 
     // Create session tab
-    const tab = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(webBase + '/login')}`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const tab = await fetch(
+      `http://127.0.0.1:${port}/json/new?${encodeURIComponent(webBase + '/login')}`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(tab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -117,7 +131,9 @@ async function runFullE2e() {
     async function loginAs(username, password) {
       await navigate(`${webBase}/login`);
       for (let i = 0; i < 20; i++) {
-        const ready = await evaluate(`Boolean(document.querySelector('input[type="password"]'))`);
+        const ready = await evaluate(
+          `Boolean(document.querySelector('input[type="password"]'))`,
+        );
         if (ready) break;
         await new Promise((r) => setTimeout(r, 200));
       }
@@ -162,7 +178,9 @@ async function runFullE2e() {
     // ------------------------------------------------------------------
     // STEP 1: Owner login & Bug Report creation via Widget
     // ------------------------------------------------------------------
-    console.log('--- 1. OWNER FLOW: Đăng nhập & Tạo báo lỗi từ giao diện Web ---');
+    console.log(
+      '--- 1. OWNER FLOW: Đăng nhập & Tạo báo lỗi từ giao diện Web ---',
+    );
     const ownerLoggedIn = await loginAs('qa_owner', ownerPassword);
     record('1.1. Owner đăng nhập thành công', ownerLoggedIn);
     assert.ok(ownerLoggedIn, 'Owner login failed');
@@ -183,7 +201,8 @@ async function runFullE2e() {
 
     // Fill report form
     const issueTitle = `[E2E UI Test] Lỗi hiển thị giao diện Chrome - ${Date.now()}`;
-    const issueDesc = 'Kiểm thử luồng báo lỗi thực tế từ giao diện trình duyệt Chrome headless qua CDP.';
+    const issueDesc =
+      'Kiểm thử luồng báo lỗi thực tế từ giao diện trình duyệt Chrome headless qua CDP.';
     const fillReportRes = await evaluate(`
       (() => {
         const modal = document.querySelector('[data-testid="report-bug-modal-container"]');
@@ -207,20 +226,28 @@ async function runFullE2e() {
         return { success: true };
       })()
     `);
-    record('1.3. Nhập tiêu đề, mô tả và nhấn Gửi báo cáo', fillReportRes?.success);
+    record(
+      '1.3. Nhập tiêu đề, mô tả và nhấn Gửi báo cáo',
+      fillReportRes?.success,
+    );
     assert.ok(fillReportRes?.success, 'Failed to fill bug report form');
 
     // Wait for submission success alert
     let submissionSuccess = false;
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 200));
-      const alert = await evaluate(`Boolean(document.querySelector('[data-testid="report-success-alert"]'))`);
+      const alert = await evaluate(
+        `Boolean(document.querySelector('[data-testid="report-success-alert"]'))`,
+      );
       if (alert) {
         submissionSuccess = true;
         break;
       }
     }
-    record('1.4. Gửi báo cáo thành công (Hiển thị thông báo thành công)', submissionSuccess);
+    record(
+      '1.4. Gửi báo cáo thành công (Hiển thị thông báo thành công)',
+      submissionSuccess,
+    );
     assert.ok(submissionSuccess, 'Submission alert not shown');
 
     // Close modal
@@ -233,15 +260,24 @@ async function runFullE2e() {
     await new Promise((r) => setTimeout(r, 400));
 
     // Verify record in PostgreSQL database!
-    const dbOwnerIssue = await pool.query('SELECT * FROM issues WHERE title = $1', [issueTitle]);
-    record('1.5. Dữ liệu đã lưu thực tế trong PostgreSQL QA', dbOwnerIssue.rows.length === 1, `ID: ${dbOwnerIssue.rows[0]?.id}`);
+    const dbOwnerIssue = await pool.query(
+      'SELECT * FROM issues WHERE title = $1',
+      [issueTitle],
+    );
+    record(
+      '1.5. Dữ liệu đã lưu thực tế trong PostgreSQL QA',
+      dbOwnerIssue.rows.length === 1,
+      `ID: ${dbOwnerIssue.rows[0]?.id}`,
+    );
     assert.equal(dbOwnerIssue.rows.length, 1);
     const ownerIssueId = dbOwnerIssue.rows[0].id;
 
     // ------------------------------------------------------------------
     // STEP 2: Navigate to /issues, reload and verify persistence
     // ------------------------------------------------------------------
-    console.log('\n--- 2. OWNER FLOW: Xem danh sách /issues và tải lại trang ---');
+    console.log(
+      '\n--- 2. OWNER FLOW: Xem danh sách /issues và tải lại trang ---',
+    );
     await navigate(`${webBase}/issues`);
     await new Promise((r) => setTimeout(r, 800));
 
@@ -264,13 +300,18 @@ async function runFullE2e() {
         return text.includes(${JSON.stringify(issueTitle)});
       })()
     `);
-    record('2.2. Tải lại trang (F5/Reload): Dữ liệu vẫn được lưu nguyên vẹn', listPersisted);
+    record(
+      '2.2. Tải lại trang (F5/Reload): Dữ liệu vẫn được lưu nguyên vẹn',
+      listPersisted,
+    );
     assert.ok(listPersisted, 'Issue disappeared after page reload');
 
     // ------------------------------------------------------------------
     // STEP 3: Open Issue Detail, Confirm Fix, Reopen Issue
     // ------------------------------------------------------------------
-    console.log('\n--- 3. OWNER FLOW: Xem chi tiết, Đóng lỗi (Confirm Fix) & Mở lại (Reopen) ---');
+    console.log(
+      '\n--- 3. OWNER FLOW: Xem chi tiết, Đóng lỗi (Confirm Fix) & Mở lại (Reopen) ---',
+    );
     await navigate(`${webBase}/issues/${ownerIssueId}`);
     await new Promise((r) => setTimeout(r, 800));
 
@@ -281,7 +322,10 @@ async function runFullE2e() {
         return Boolean(descEl && document.body.innerText.includes(${JSON.stringify(issueTitle)}));
       })()
     `);
-    record('3.1. Trang chi tiết /issues/:id hiển thị đúng thông tin lỗi', detailRendered);
+    record(
+      '3.1. Trang chi tiết /issues/:id hiển thị đúng thông tin lỗi',
+      detailRendered,
+    );
     assert.ok(detailRendered, 'Issue detail failed to render');
 
     // 3.2. Confirm Fix (Close issue)
@@ -293,7 +337,10 @@ async function runFullE2e() {
         return true;
       })()
     `);
-    record('3.2. Mở hộp thoại Xác nhận đã sửa (btn-confirm-fix)', openConfirmModal);
+    record(
+      '3.2. Mở hộp thoại Xác nhận đã sửa (btn-confirm-fix)',
+      openConfirmModal,
+    );
     assert.ok(openConfirmModal, 'Confirm fix button not found');
 
     await new Promise((r) => setTimeout(r, 400));
@@ -315,17 +362,29 @@ async function runFullE2e() {
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 200));
       const statusText = await evaluate(`document.body.innerText`);
-      if (statusText.includes('Đã đóng') || statusText.includes('Xác nhận khắc phục thành công')) {
+      if (
+        statusText.includes('Đã đóng') ||
+        statusText.includes('Xác nhận khắc phục thành công')
+      ) {
         closedOnUi = true;
         break;
       }
     }
-    record('3.3. Xác nhận sửa lỗi thành công, trạng thái chuyển sang Đã đóng (closed)', closedOnUi);
+    record(
+      '3.3. Xác nhận sửa lỗi thành công, trạng thái chuyển sang Đã đóng (closed)',
+      closedOnUi,
+    );
     assert.ok(closedOnUi, 'Issue status did not update to closed on UI');
 
     // Verify in DB
-    const dbClosedCheck = await pool.query('SELECT status, closed_at FROM issues WHERE id = $1', [ownerIssueId]);
-    record('3.4. Database ghi nhận status = closed và closed_at', dbClosedCheck.rows[0]?.status === 'closed');
+    const dbClosedCheck = await pool.query(
+      'SELECT status, closed_at FROM issues WHERE id = $1',
+      [ownerIssueId],
+    );
+    record(
+      '3.4. Database ghi nhận status = closed và closed_at',
+      dbClosedCheck.rows[0]?.status === 'closed',
+    );
 
     // 3.5. Reopen Issue
     await new Promise((r) => setTimeout(r, 500));
@@ -337,7 +396,10 @@ async function runFullE2e() {
         return true;
       })()
     `);
-    record('3.5. Mở hộp thoại Mở lại vấn đề (btn-reopen-issue)', openReopenModal);
+    record(
+      '3.5. Mở hộp thoại Mở lại vấn đề (btn-reopen-issue)',
+      openReopenModal,
+    );
     assert.ok(openReopenModal, 'Reopen button not found');
 
     await new Promise((r) => setTimeout(r, 400));
@@ -364,18 +426,26 @@ async function runFullE2e() {
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 200));
       const statusText = await evaluate(`document.body.innerText`);
-      if (statusText.includes('Đã mở lại vấn đề thành công') || statusText.includes('Mở (Open)')) {
+      if (
+        statusText.includes('Đã mở lại vấn đề thành công') ||
+        statusText.includes('Mở (Open)')
+      ) {
         reopenedOnUi = true;
         break;
       }
     }
-    record('3.6. Mở lại lỗi thành công, trạng thái chuyển về Mở (Open)', reopenedOnUi);
+    record(
+      '3.6. Mở lại lỗi thành công, trạng thái chuyển về Mở (Open)',
+      reopenedOnUi,
+    );
     assert.ok(reopenedOnUi, 'Issue status did not revert to open on UI');
 
     // ------------------------------------------------------------------
     // STEP 4: Staff Bug Report via Widget
     // ------------------------------------------------------------------
-    console.log('\n--- 4. STAFF FLOW: Đăng nhập Staff & Gửi báo lỗi qua Widget ---');
+    console.log(
+      '\n--- 4. STAFF FLOW: Đăng nhập Staff & Gửi báo lỗi qua Widget ---',
+    );
     await logout();
 
     const staffLoggedIn = await loginAs('qa_staff', staffPassword);
@@ -416,7 +486,9 @@ async function runFullE2e() {
     let staffSubmitted = false;
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 200));
-      const alert = await evaluate(`Boolean(document.querySelector('[data-testid="report-success-alert"]'))`);
+      const alert = await evaluate(
+        `Boolean(document.querySelector('[data-testid="report-success-alert"]'))`,
+      );
       if (alert) {
         staffSubmitted = true;
         break;
@@ -426,14 +498,22 @@ async function runFullE2e() {
     assert.ok(staffSubmitted, 'Staff submission alert not shown');
 
     // Verify staff issue in DB
-    const dbStaffIssue = await pool.query('SELECT * FROM issues WHERE title = $1', [staffIssueTitle]);
-    record('4.4. Database ghi nhận báo lỗi của Staff với reporter_user_id của Staff', dbStaffIssue.rows.length === 1);
+    const dbStaffIssue = await pool.query(
+      'SELECT * FROM issues WHERE title = $1',
+      [staffIssueTitle],
+    );
+    record(
+      '4.4. Database ghi nhận báo lỗi của Staff với reporter_user_id của Staff',
+      dbStaffIssue.rows.length === 1,
+    );
     assert.equal(dbStaffIssue.rows.length, 1);
 
     // ------------------------------------------------------------------
     // STEP 5: Staff RBAC Block Enforcement
     // ------------------------------------------------------------------
-    console.log('\n--- 5. STAFF RBAC ENFORCEMENT: Chặn Staff khỏi phân hệ Sổ tay Lỗi ---');
+    console.log(
+      '\n--- 5. STAFF RBAC ENFORCEMENT: Chặn Staff khỏi phân hệ Sổ tay Lỗi ---',
+    );
 
     // 5.1. Sidebar hides issues
     const sidebarHasIssues = await evaluate(`
@@ -443,8 +523,15 @@ async function runFullE2e() {
         return Boolean(nav.querySelector('a[href="/issues"]') || nav.innerText.includes('Báo lỗi'));
       })()
     `);
-    record('5.1. Menu bên trái của Staff: Hoàn toàn ẩn tab Sổ tay Báo lỗi', !sidebarHasIssues);
-    assert.equal(sidebarHasIssues, false, 'Sidebar must not show issues link to staff');
+    record(
+      '5.1. Menu bên trái của Staff: Hoàn toàn ẩn tab Sổ tay Báo lỗi',
+      !sidebarHasIssues,
+    );
+    assert.equal(
+      sidebarHasIssues,
+      false,
+      'Sidebar must not show issues link to staff',
+    );
 
     // 5.2. Direct URL access /issues
     await navigate(`${webBase}/issues`);
@@ -459,9 +546,19 @@ async function runFullE2e() {
       })()
     `);
 
-    record('5.2. Staff truy cập trực tiếp /issues: Bị chặn với lỗi 403 Forbidden fail-closed', accessDeniedResult?.has403 && !accessDeniedResult?.hasList);
-    assert.ok(accessDeniedResult?.has403, 'Direct access did not show 403 access denied');
-    assert.equal(accessDeniedResult?.hasList, false, 'Issues list rendered for staff!');
+    record(
+      '5.2. Staff truy cập trực tiếp /issues: Bị chặn với lỗi 403 Forbidden fail-closed',
+      accessDeniedResult?.has403 && !accessDeniedResult?.hasList,
+    );
+    assert.ok(
+      accessDeniedResult?.has403,
+      'Direct access did not show 403 access denied',
+    );
+    assert.equal(
+      accessDeniedResult?.hasList,
+      false,
+      'Issues list rendered for staff!',
+    );
 
     // 5.3. Direct URL access /issues/:id
     await navigate(`${webBase}/issues/${ownerIssueId}`);
@@ -476,16 +573,32 @@ async function runFullE2e() {
       })()
     `);
 
-    record('5.3. Staff truy cập trực tiếp /issues/:id: Bị chặn tuyệt đối không xem được nội dung', detailDeniedResult?.has403 && !detailDeniedResult?.hasDetailCard);
-    assert.ok(detailDeniedResult?.has403, 'Direct detail access did not show 403');
-    assert.equal(detailDeniedResult?.hasDetailCard, false, 'Issue detail rendered for staff!');
+    record(
+      '5.3. Staff truy cập trực tiếp /issues/:id: Bị chặn tuyệt đối không xem được nội dung',
+      detailDeniedResult?.has403 && !detailDeniedResult?.hasDetailCard,
+    );
+    assert.ok(
+      detailDeniedResult?.has403,
+      'Direct detail access did not show 403',
+    );
+    assert.equal(
+      detailDeniedResult?.hasDetailCard,
+      false,
+      'Issue detail rendered for staff!',
+    );
 
     ws.close();
     chrome.kill('SIGTERM');
 
-    console.log('\n======================================================================');
-    console.log('🎉 TOÀN BỘ 13/13 BƯỚC CHROME E2E CHỨC NĂNG BÁO LỖI HOÀN TOÀN ĐẠT (PASS)!');
-    console.log('======================================================================\n');
+    console.log(
+      '\n======================================================================',
+    );
+    console.log(
+      '🎉 TOÀN BỘ 13/13 BƯỚC CHROME E2E CHỨC NĂNG BÁO LỖI HOÀN TOÀN ĐẠT (PASS)!',
+    );
+    console.log(
+      '======================================================================\n',
+    );
   } catch (err) {
     chrome.kill('SIGTERM');
     console.error('\n✖ CHROME E2E THẤT BẠI TẠI BƯỚC:', err.message || err);

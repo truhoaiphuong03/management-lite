@@ -153,14 +153,22 @@ function makeRequest(url, options = {}) {
 
 test('REGRESSION 1: Route HTTP /api/v1/qa/mock-reset-token must NOT exist (HTTP 404)', async () => {
   const getRes = await makeRequest(`${API_BASE}/api/v1/qa/mock-reset-token`);
-  assert.equal(getRes.status, 404, 'GET /api/v1/qa/mock-reset-token must return 404');
+  assert.equal(
+    getRes.status,
+    404,
+    'GET /api/v1/qa/mock-reset-token must return 404',
+  );
   assert.equal(getRes.body.success, false);
   assert.equal(getRes.body.error.code, 'NOT_FOUND');
 
   const getWithQuery = await makeRequest(
     `${API_BASE}/api/v1/qa/mock-reset-token?email=${encodeURIComponent(isolatedUnverifiedEmail)}`,
   );
-  assert.equal(getWithQuery.status, 404, 'Querying mock-reset-token with email must return 404');
+  assert.equal(
+    getWithQuery.status,
+    404,
+    'Querying mock-reset-token with email must return 404',
+  );
 
   const postRes = await makeRequest(`${API_BASE}/api/v1/qa/mock-reset-token`, {
     method: 'POST',
@@ -172,11 +180,14 @@ test('REGRESSION 1: Route HTTP /api/v1/qa/mock-reset-token must NOT exist (HTTP 
 test('REGRESSION 2: Anti-enumeration & zero token leakage across all email types', async () => {
   const randSubnet = Math.floor(Math.random() * 200) + 10;
   // Test unknown non-existent email
-  const resUnknown = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
-    method: 'POST',
-    body: { email: 'nonexistent-victim-xyz123@example.com' },
-    ip: `10.99.${randSubnet}.1`,
-  });
+  const resUnknown = await makeRequest(
+    `${API_BASE}/api/v1/auth/forgot-password`,
+    {
+      method: 'POST',
+      body: { email: 'nonexistent-victim-xyz123@example.com' },
+      ip: `10.99.${randSubnet}.1`,
+    },
+  );
   assert.equal(resUnknown.status, 200);
   assert.equal(resUnknown.body.success, true);
   assert.match(
@@ -188,11 +199,14 @@ test('REGRESSION 2: Anti-enumeration & zero token leakage across all email types
   assert.equal(resUnknown.body.data.dev_token, undefined);
 
   // Test isolated unverified admin email
-  const resAdmin = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
-    method: 'POST',
-    body: { email: isolatedUnverifiedEmail },
-    ip: `10.99.${randSubnet}.2`,
-  });
+  const resAdmin = await makeRequest(
+    `${API_BASE}/api/v1/auth/forgot-password`,
+    {
+      method: 'POST',
+      body: { email: isolatedUnverifiedEmail },
+      ip: `10.99.${randSubnet}.2`,
+    },
+  );
   assert.equal(resAdmin.status, 200);
   assert.equal(resAdmin.body.success, true);
   assert.equal(resAdmin.body.data.delivery_status, 'EMAIL_DELIVERY_BLOCKED');
@@ -227,11 +241,14 @@ test('REGRESSION 3: Cannot reset password knowing only email & unverified admin 
     );
 
     // Call forgot-password for unverified admin
-    const forgotRes = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
-      method: 'POST',
-      body: { email: isolatedUnverifiedEmail },
-      ip: `10.99.${randSubnet}.3`,
-    });
+    const forgotRes = await makeRequest(
+      `${API_BASE}/api/v1/auth/forgot-password`,
+      {
+        method: 'POST',
+        body: { email: isolatedUnverifiedEmail },
+        ip: `10.99.${randSubnet}.3`,
+      },
+    );
     assert.equal(forgotRes.status, 200);
     assert.equal(forgotRes.body.data.delivery_status, 'EMAIL_DELIVERY_BLOCKED');
 
@@ -247,18 +264,27 @@ test('REGRESSION 3: Cannot reset password knowing only email & unverified admin 
     );
 
     // Attacker attempts reset with victim email and fake/empty tokens
-    const emptyAttempt = await makeRequest(`${API_BASE}/api/v1/auth/reset-password`, {
-      method: 'POST',
-      body: { token: '', new_password: 'NewStrongPassword123!' },
-      ip: `10.99.${randSubnet}.4`,
-    });
+    const emptyAttempt = await makeRequest(
+      `${API_BASE}/api/v1/auth/reset-password`,
+      {
+        method: 'POST',
+        body: { token: '', new_password: 'NewStrongPassword123!' },
+        ip: `10.99.${randSubnet}.4`,
+      },
+    );
     assert.equal(emptyAttempt.status, 400);
 
-    const fakeAttempt = await makeRequest(`${API_BASE}/api/v1/auth/reset-password`, {
-      method: 'POST',
-      body: { token: 'attacker-guessed-token', new_password: 'NewStrongPassword123!' },
-      ip: `10.99.${randSubnet}.5`,
-    });
+    const fakeAttempt = await makeRequest(
+      `${API_BASE}/api/v1/auth/reset-password`,
+      {
+        method: 'POST',
+        body: {
+          token: 'attacker-guessed-token',
+          new_password: 'NewStrongPassword123!',
+        },
+        ip: `10.99.${randSubnet}.5`,
+      },
+    );
     assert.equal(fakeAttempt.status, 400);
   } finally {
     await pool.end();
@@ -372,7 +398,10 @@ test('REGRESSION 6: Valid reset succeeds ONLY with legitimate token from verifie
       [
         `qa_user_${Date.now()}`,
         verifiedEmail,
-        JSON.stringify({ proofType: 'manual_ownership_audit_proof', verifiedAt: new Date().toISOString() }),
+        JSON.stringify({
+          proofType: 'manual_ownership_audit_proof',
+          verifiedAt: new Date().toISOString(),
+        }),
       ],
     );
     testUserId = insertUserRes.rows[0].id;
@@ -394,9 +423,10 @@ test('REGRESSION 6: Valid reset succeeds ONLY with legitimate token from verifie
     );
 
     // Initial password
-    const initialHash = await import('../../dist/packages/security/src/password.js').then((m) =>
-      m.hashPassword('InitialPass123!'),
-    );
+    const initialHash =
+      await import('../../dist/packages/security/src/password.js').then((m) =>
+        m.hashPassword('InitialPass123!'),
+      );
     await pool.query(
       `INSERT INTO user_credentials (user_id, password_hash, credential_version)
        VALUES ($1, $2, 1);`,
@@ -412,39 +442,54 @@ test('REGRESSION 6: Valid reset succeeds ONLY with legitimate token from verifie
 
     // 3. Reset password using the valid token
     const newPassword = 'SecureVerifiedReset2026!';
-    const resetRes = await makeRequest(`${API_BASE}/api/v1/auth/reset-password`, {
-      method: 'POST',
-      body: {
-        token: rawToken,
-        new_password: newPassword,
+    const resetRes = await makeRequest(
+      `${API_BASE}/api/v1/auth/reset-password`,
+      {
+        method: 'POST',
+        body: {
+          token: rawToken,
+          new_password: newPassword,
+        },
+        ip: testIp,
       },
-      ip: testIp,
-    });
+    );
     assert.equal(resetRes.status, 200);
     assert.equal(resetRes.body.success, true);
-    assert.match(resetRes.body.data.message, /Mật khẩu đã được đặt lại thành công/);
+    assert.match(
+      resetRes.body.data.message,
+      /Mật khẩu đã được đặt lại thành công/,
+    );
 
     // 4. Verify single-use enforcement: Token is now consumed
     const tokenDb = await pool.query(
       `SELECT consumed_at FROM password_reset_tokens WHERE token_hash = $1;`,
       [tokenHash],
     );
-    assert.ok(tokenDb.rows[0].consumed_at !== null, 'Token must be marked consumed');
+    assert.ok(
+      tokenDb.rows[0].consumed_at !== null,
+      'Token must be marked consumed',
+    );
 
     // 5. Attempting to reuse the token must be rejected
-    const reuseRes = await makeRequest(`${API_BASE}/api/v1/auth/reset-password`, {
-      method: 'POST',
-      body: {
-        token: rawToken,
-        new_password: 'AnotherPassword999!',
+    const reuseRes = await makeRequest(
+      `${API_BASE}/api/v1/auth/reset-password`,
+      {
+        method: 'POST',
+        body: {
+          token: rawToken,
+          new_password: 'AnotherPassword999!',
+        },
+        ip: testIp,
       },
-      ip: testIp,
-    });
+    );
     assert.equal(reuseRes.status, 400);
     assert.equal(reuseRes.body.error.code, 'INVALID_TOKEN');
 
     // 6. Login with new password succeeds
-    const userRow = await pool.query(`SELECT username_normalized FROM users WHERE id = $1;`, [testUserId]);
+    const userRow = await pool.query(
+      `SELECT username_normalized FROM users WHERE id = $1;`,
+      [testUserId],
+    );
     const loginRes = await makeRequest(`${API_BASE}/api/v1/auth/login`, {
       method: 'POST',
       body: {
@@ -457,12 +502,30 @@ test('REGRESSION 6: Valid reset succeeds ONLY with legitimate token from verifie
     assert.equal(loginRes.body.success, true);
   } finally {
     if (testUserId) {
-      await pool.query(`DELETE FROM auth_sessions WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM user_credentials WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM user_workspace_bindings WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM workspace_memberships WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM users WHERE id = $1;`, [testUserId]).catch(() => {});
+      await pool
+        .query(`DELETE FROM auth_sessions WHERE user_id = $1;`, [testUserId])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM user_credentials WHERE user_id = $1;`, [testUserId])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM user_workspace_bindings WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM workspace_memberships WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM users WHERE id = $1;`, [testUserId])
+        .catch(() => {});
     }
     await pool.end();
   }
@@ -474,11 +537,14 @@ test('REGRESSION 7: Successful password reset invalidates ALL active recovery to
   const testSuffix = Math.floor(Math.random() * 900000) + 100000;
   const username = `test_inval_user_${testSuffix}`;
   const email = `inval_user_${testSuffix}@example.com`;
-  const initialPasswordHash = '$argon2id$v=19$m=65536,t=3,p=4$fakehashfakehashfakehashfakehashfakehashfakehash$fakehashfakehashfakehashfakehashfakehashfakehash';
+  const initialPasswordHash =
+    '$argon2id$v=19$m=65536,t=3,p=4$fakehashfakehashfakehashfakehashfakehashfakehash$fakehashfakehashfakehashfakehashfakehashfakehash';
   const testIp = `10.88.${Math.floor(Math.random() * 200) + 10}.1`;
 
   try {
-    const wsRes = await pool.query(`SELECT id FROM workspaces WHERE status = 'active' LIMIT 1;`);
+    const wsRes = await pool.query(
+      `SELECT id FROM workspaces WHERE status = 'active' LIMIT 1;`,
+    );
     const workspaceId = wsRes.rows[0].id;
 
     const userRes = await pool.query(
@@ -523,14 +589,17 @@ test('REGRESSION 7: Successful password reset invalidates ALL active recovery to
     );
 
     // Reset password using Token A
-    const resetResA = await makeRequest(`${API_BASE}/api/v1/auth/reset-password`, {
-      method: 'POST',
-      body: {
-        token: tokenA,
-        new_password: 'ValidPasswordResetA1!',
+    const resetResA = await makeRequest(
+      `${API_BASE}/api/v1/auth/reset-password`,
+      {
+        method: 'POST',
+        body: {
+          token: tokenA,
+          new_password: 'ValidPasswordResetA1!',
+        },
+        ip: testIp,
       },
-      ip: testIp,
-    });
+    );
     assert.equal(resetResA.status, 200, 'Reset with Token A must succeed');
     assert.equal(resetResA.body.success, true);
 
@@ -541,28 +610,56 @@ test('REGRESSION 7: Successful password reset invalidates ALL active recovery to
     );
     assert.equal(tokensInDb.rows.length, 2);
     for (const row of tokensInDb.rows) {
-      assert.ok(row.consumed_at !== null, 'Every token of the user must be invalidated');
+      assert.ok(
+        row.consumed_at !== null,
+        'Every token of the user must be invalidated',
+      );
     }
 
     // Attempt to use Token B must be rejected immediately
-    const resetResB = await makeRequest(`${API_BASE}/api/v1/auth/reset-password`, {
-      method: 'POST',
-      body: {
-        token: tokenB,
-        new_password: 'ValidPasswordResetB2!',
+    const resetResB = await makeRequest(
+      `${API_BASE}/api/v1/auth/reset-password`,
+      {
+        method: 'POST',
+        body: {
+          token: tokenB,
+          new_password: 'ValidPasswordResetB2!',
+        },
+        ip: testIp,
       },
-      ip: testIp,
-    });
-    assert.equal(resetResB.status, 400, 'Token B must be rejected as already consumed');
+    );
+    assert.equal(
+      resetResB.status,
+      400,
+      'Token B must be rejected as already consumed',
+    );
     assert.equal(resetResB.body.error.code, 'INVALID_TOKEN');
   } finally {
     if (testUserId) {
-      await pool.query(`DELETE FROM auth_sessions WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM user_credentials WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM user_workspace_bindings WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM workspace_memberships WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM users WHERE id = $1;`, [testUserId]).catch(() => {});
+      await pool
+        .query(`DELETE FROM auth_sessions WHERE user_id = $1;`, [testUserId])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM user_credentials WHERE user_id = $1;`, [testUserId])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM user_workspace_bindings WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM workspace_memberships WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM users WHERE id = $1;`, [testUserId])
+        .catch(() => {});
     }
     await pool.end();
   }
@@ -574,11 +671,14 @@ test('REGRESSION 8: Concurrency protection — two different tokens for the same
   const testSuffix = Math.floor(Math.random() * 900000) + 100000;
   const username = `test_conc_user_${testSuffix}`;
   const email = `conc_user_${testSuffix}@example.com`;
-  const initialPasswordHash = '$argon2id$v=19$m=65536,t=3,p=4$fakehashfakehashfakehashfakehashfakehashfakehash$fakehashfakehashfakehashfakehashfakehashfakehash';
+  const initialPasswordHash =
+    '$argon2id$v=19$m=65536,t=3,p=4$fakehashfakehashfakehashfakehashfakehashfakehash$fakehashfakehashfakehashfakehashfakehashfakehash';
   const testIp = `10.87.${Math.floor(Math.random() * 200) + 10}.1`;
 
   try {
-    const wsRes = await pool.query(`SELECT id FROM workspaces WHERE status = 'active' LIMIT 1;`);
+    const wsRes = await pool.query(
+      `SELECT id FROM workspaces WHERE status = 'active' LIMIT 1;`,
+    );
     const workspaceId = wsRes.rows[0].id;
 
     const userRes = await pool.query(
@@ -648,12 +748,30 @@ test('REGRESSION 8: Concurrency protection — two different tokens for the same
     assert.equal(failedRes.body.error.code, 'INVALID_TOKEN');
   } finally {
     if (testUserId) {
-      await pool.query(`DELETE FROM auth_sessions WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM user_credentials WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM user_workspace_bindings WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM workspace_memberships WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM users WHERE id = $1;`, [testUserId]).catch(() => {});
+      await pool
+        .query(`DELETE FROM auth_sessions WHERE user_id = $1;`, [testUserId])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM user_credentials WHERE user_id = $1;`, [testUserId])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM user_workspace_bindings WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM workspace_memberships WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM users WHERE id = $1;`, [testUserId])
+        .catch(() => {});
     }
     await pool.end();
   }
@@ -678,18 +796,24 @@ test('REGRESSION 9: Account-level rate limiting blocks distributed multi-IP atta
   }
 
   // 6th request from a completely fresh 6th IP targeting the SAME email must be blocked with HTTP 429
-  const resBlocked = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
-    method: 'POST',
-    body: { email: targetEmail },
-    ip: '10.77.6.1',
-  });
+  const resBlocked = await makeRequest(
+    `${API_BASE}/api/v1/auth/forgot-password`,
+    {
+      method: 'POST',
+      body: { email: targetEmail },
+      ip: '10.77.6.1',
+    },
+  );
   assert.equal(
     resBlocked.status,
     429,
     '6th request from fresh IP against same target email must be blocked with HTTP 429',
   );
   assert.equal(resBlocked.body.error.code, 'RATE_LIMITED');
-  assert.match(resBlocked.body.error.message, /Quá nhiều yêu cầu khôi phục mật khẩu/);
+  assert.match(
+    resBlocked.body.error.message,
+    /Quá nhiều yêu cầu khôi phục mật khẩu/,
+  );
 
   // Anti-enumeration verification: Ensure the error payload does not leak the target email
   assert.equal(
@@ -716,11 +840,14 @@ test('REGRESSION 10: Expired token returns TOKEN_EXPIRED and EMAIL_DELIVERY_BLOC
     testUserId = userRes.rows[0].id;
 
     // 1. When mailer is not configured (EMAIL_DELIVERY_BLOCKED), requesting reset for verified user must not leave an unconsumed token
-    const forgotRes = await makeRequest(`${API_BASE}/api/v1/auth/forgot-password`, {
-      method: 'POST',
-      body: { email },
-      ip: testIp,
-    });
+    const forgotRes = await makeRequest(
+      `${API_BASE}/api/v1/auth/forgot-password`,
+      {
+        method: 'POST',
+        body: { email },
+        ip: testIp,
+      },
+    );
     assert.equal(forgotRes.status, 200);
     assert.equal(forgotRes.body.data.delivery_status, 'EMAIL_DELIVERY_BLOCKED');
 
@@ -736,7 +863,10 @@ test('REGRESSION 10: Expired token returns TOKEN_EXPIRED and EMAIL_DELIVERY_BLOC
 
     // 2. Expired token must be rejected with 400 TOKEN_EXPIRED and marked consumed
     const expiredRaw = crypto.randomBytes(32).toString('hex');
-    const expiredHash = crypto.createHash('sha256').update(expiredRaw).digest('hex');
+    const expiredHash = crypto
+      .createHash('sha256')
+      .update(expiredRaw)
+      .digest('hex');
     await pool.query(
       `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, request_ip)
        VALUES ($1, $2, now() - interval '2 minutes', $3);`,
@@ -755,8 +885,14 @@ test('REGRESSION 10: Expired token returns TOKEN_EXPIRED and EMAIL_DELIVERY_BLOC
     assert.equal(expRes.body.error.code, 'TOKEN_EXPIRED');
   } finally {
     if (testUserId) {
-      await pool.query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [testUserId]).catch(() => {});
-      await pool.query(`DELETE FROM users WHERE id = $1;`, [testUserId]).catch(() => {});
+      await pool
+        .query(`DELETE FROM password_reset_tokens WHERE user_id = $1;`, [
+          testUserId,
+        ])
+        .catch(() => {});
+      await pool
+        .query(`DELETE FROM users WHERE id = $1;`, [testUserId])
+        .catch(() => {});
     }
     await pool.end();
   }

@@ -573,7 +573,11 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
 
       <AppCard padding="24px" style={{ marginBottom: '20px' }}>
         <h3
-          style={{ fontSize: '16px', color: 'var(--text-color)', marginBottom: '16px' }}
+          style={{
+            fontSize: '16px',
+            color: 'var(--text-color)',
+            marginBottom: '16px',
+          }}
         >
           Thông tin chi tiết
         </h3>
@@ -628,7 +632,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 <div
                   style={{
                     fontSize: '15px',
-                    color: employee.position_title ? 'var(--text-color)' : 'var(--muted-color)',
+                    color: employee.position_title
+                      ? 'var(--text-color)'
+                      : 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -643,7 +649,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 <div
                   style={{
                     fontSize: '15px',
-                    color: employee.phone ? 'var(--accent-text)' : 'var(--warning-text)',
+                    color: employee.phone
+                      ? 'var(--accent-text)'
+                      : 'var(--warning-text)',
                     fontWeight: 600,
                     marginTop: '2px',
                   }}
@@ -689,7 +697,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 <div
                   style={{
                     fontSize: '15px',
-                    color: employee.date_of_birth ? 'var(--text-color)' : 'var(--muted-color)',
+                    color: employee.date_of_birth
+                      ? 'var(--text-color)'
+                      : 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -704,7 +714,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 <div
                   style={{
                     fontSize: '15px',
-                    color: employee.gender ? 'var(--text-color)' : 'var(--muted-color)',
+                    color: employee.gender
+                      ? 'var(--text-color)'
+                      : 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -719,7 +731,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 <div
                   style={{
                     fontSize: '15px',
-                    color: employee.national_id ? 'var(--text-color)' : 'var(--muted-color)',
+                    color: employee.national_id
+                      ? 'var(--text-color)'
+                      : 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -766,7 +780,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 <div
                   style={{
                     fontSize: '15px',
-                    color: employee.emergency_contact ? 'var(--text-color)' : 'var(--muted-color)',
+                    color: employee.emergency_contact
+                      ? 'var(--text-color)'
+                      : 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -781,7 +797,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 <div
                   style={{
                     fontSize: '15px',
-                    color: employee.address ? 'var(--text-color)' : 'var(--muted-color)',
+                    color: employee.address
+                      ? 'var(--text-color)'
+                      : 'var(--muted-color)',
                     marginTop: '2px',
                   }}
                 >
@@ -820,14 +838,18 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
                     Ngân hàng
                   </div>
                   <div
                     style={{
                       fontSize: '15px',
                       fontWeight: 600,
-                      color: employee.bank_name ? 'var(--text-color)' : 'var(--muted-color)',
+                      color: employee.bank_name
+                        ? 'var(--text-color)'
+                        : 'var(--muted-color)',
                       marginTop: '2px',
                     }}
                   >
@@ -836,7 +858,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
                     Số tài khoản
                   </div>
                   <div
@@ -890,7 +914,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
                     Chủ tài khoản
                   </div>
                   <div
@@ -1411,7 +1437,13 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
           }}
         >
           <div>
-            <h3 style={{ fontSize: '16px', color: 'var(--text-color)', margin: 0 }}>
+            <h3
+              style={{
+                fontSize: '16px',
+                color: 'var(--text-color)',
+                margin: 0,
+              }}
+            >
               Mức lương theo giờ
             </h3>
             <p
@@ -1454,14 +1486,18 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                 style={{
                   fontSize: '24px',
                   fontWeight: 700,
-                  color: currentHourlyRate ? 'var(--success-text)' : 'var(--muted-color)',
+                  color: currentHourlyRate
+                    ? 'var(--success-text)'
+                    : 'var(--muted-color)',
                 }}
               >
                 {currentHourlyRate
                   ? `${currentHourlyRate.hourly_rate_vnd.toLocaleString('vi-VN')} ₫`
                   : 'Chưa thiết lập'}
               </div>
-              <span style={{ fontSize: '14px', color: 'var(--muted-color)' }}>/ giờ</span>
+              <span style={{ fontSize: '14px', color: 'var(--muted-color)' }}>
+                / giờ
+              </span>
             </div>
 
             {currentHourlyRate && (
@@ -1512,7 +1548,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                         border: '1px solid var(--border-subtle)',
                       }}
                     >
-                      <span style={{ color: 'var(--text-color)', fontWeight: 500 }}>
+                      <span
+                        style={{ color: 'var(--text-color)', fontWeight: 500 }}
+                      >
                         {r.hourly_rate_vnd.toLocaleString('vi-VN')} ₫/giờ
                       </span>
                       <span style={{ color: 'var(--muted-color)' }}>

@@ -7,9 +7,13 @@ import path from 'node:path';
 import test from 'node:test';
 
 const PRIMARY_BACKUP_DIR = 'C:\\ML-Test\\work\\hub-backup-oa20';
-const MIRROR_BACKUP_DIR = path.resolve(
-  'C:\\Projects\\management-lite-remediation\\docs\\remediation\\evidence\\oa20-hub-backup',
+const MIRROR_BACKUP_DIR = 'C:\\Projects-Dev\\hub-backup-oa20-mirror';
+const REPO_BACKUP_EVIDENCE_DIR = path.resolve(
+  import.meta.dirname,
+  '../../docs/remediation/evidence/oa20-hub-backup',
 );
+const IS_HOST_WITH_OA20_BACKUP =
+  process.platform === 'win32' && fs.existsSync(PRIMARY_BACKUP_DIR);
 
 function sha256File(filePath) {
   return crypto
@@ -19,7 +23,36 @@ function sha256File(filePath) {
     .toUpperCase();
 }
 
-test('OA-20.1: Dual permanent backups exist, match SHA-256 manifest, and pass Restore-OA20-HubState.ps1 -VerifyOnly while refusing accidental legacy restore', () => {
+test('OA-20.1: Dual permanent backups exist, match SHA-256 manifest, and pass Restore-OA20-HubState.ps1 -VerifyOnly while refusing accidental legacy restore', (t) => {
+  const repoManifestPath = path.join(
+    REPO_BACKUP_EVIDENCE_DIR,
+    'manifest-sha256.json',
+  );
+  const repoRestoreScript = path.join(
+    REPO_BACKUP_EVIDENCE_DIR,
+    'Restore-OA20-HubState.ps1',
+  );
+  assert.equal(fs.existsSync(repoManifestPath), true);
+  assert.equal(fs.existsSync(repoRestoreScript), true);
+  const repoManifest = JSON.parse(
+    fs.readFileSync(repoManifestPath, 'utf8').replace(/^\uFEFF/, ''),
+  );
+  assert.equal(repoManifest.length, 12);
+  for (const item of repoManifest) {
+    assert.match(item.sha256, /^[0-9A-F]{64}$/);
+  }
+  assert.match(
+    fs.readFileSync(repoRestoreScript, 'utf8'),
+    /REFUSED_LEGACY_AUTO_DEPLOY_RESTORE/,
+  );
+
+  if (!IS_HOST_WITH_OA20_BACKUP) {
+    t.diagnostic(
+      'Host-specific OA-20 backup directories not present on disposable CI runner; verified repo manifest & restore guard.',
+    );
+    return;
+  }
+
   for (const dir of [PRIMARY_BACKUP_DIR, MIRROR_BACKUP_DIR]) {
     const manifestPath = path.join(dir, 'manifest-sha256.json');
     assert.equal(
@@ -85,7 +118,11 @@ test('OA-20.1: Dual permanent backups exist, match SHA-256 manifest, and pass Re
   );
 });
 
-test('OA-20.2: All direct, indirect, and boot-scheduled legacy auto-deploy entrypoints fail closed with exit code 43/1 and do not recreate persistence vectors', async () => {
+test('OA-20.2: All direct, indirect, and boot-scheduled legacy auto-deploy entrypoints fail closed with exit code 43/1 and do not recreate persistence vectors', async (t) => {
+  if (!IS_HOST_WITH_OA20_BACKUP) {
+    t.skip('Windows server host-specific Hub directory check');
+    return;
+  }
   const nodeTriggers = [
     {
       file: 'C:\\Projects\\anty-remote-hub\\src\\server-daemon.mjs',
@@ -190,7 +227,11 @@ test('OA-20.2: All direct, indirect, and boot-scheduled legacy auto-deploy entry
   );
 });
 
-test('OA-20.3: Production services and isolated DEV Bot remain healthy while legacy preview port 4799 is released', () => {
+test('OA-20.3: Production services and isolated DEV Bot remain healthy while legacy preview port 4799 is released', (t) => {
+  if (!IS_HOST_WITH_OA20_BACKUP) {
+    t.skip('Windows server host-specific runtime check');
+    return;
+  }
   const lockFile = 'C:\\Projects-Dev\\anty-remote-hub\\.anty-poller.lock';
   assert.equal(fs.existsSync(lockFile), true, 'DEV Bot lock file must exist');
   const lockData = JSON.parse(fs.readFileSync(lockFile, 'utf8'));

@@ -193,7 +193,10 @@ async function runIsolatedHeadlessBrowserCycle(
       let loadTimeout;
       const pageLoaded = new Promise((res, rej) => {
         onPageLoaded = res;
-        loadTimeout = setTimeout(() => rej(new Error('Page load timed out')), 6000);
+        loadTimeout = setTimeout(
+          () => rej(new Error('Page load timed out')),
+          6000,
+        );
       });
       try {
         const navigation = await send('Page.navigate', {
@@ -395,30 +398,32 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
       );
 
       // Helper fetch bound to a specific cookie jar
-      const createCookieBoundFetch = (cookieState) => async (path, init = {}) => {
-        const res = await makeRequest(`${baseUrl}${path}`, {
-          method: init.method || 'GET',
-          headers: {
-            ...(cookieState.cookie ? { Cookie: cookieState.cookie } : {}),
-            ...(init.headers || {}),
-          },
-          body: init.body,
-        });
-        if (res.headers['set-cookie']) {
-          const parsed = parseSetCookieHeader(res.headers['set-cookie']);
-          cookieState.lastSetCookie = parsed;
-          if (parsed.attrs['max-age'] === '0' || !parsed.value) {
-            cookieState.cookie = '';
-          } else {
-            cookieState.cookie = parsed.cookiePair;
+      const createCookieBoundFetch =
+        (cookieState) =>
+        async (path, init = {}) => {
+          const res = await makeRequest(`${baseUrl}${path}`, {
+            method: init.method || 'GET',
+            headers: {
+              ...(cookieState.cookie ? { Cookie: cookieState.cookie } : {}),
+              ...(init.headers || {}),
+            },
+            body: init.body,
+          });
+          if (res.headers['set-cookie']) {
+            const parsed = parseSetCookieHeader(res.headers['set-cookie']);
+            cookieState.lastSetCookie = parsed;
+            if (parsed.attrs['max-age'] === '0' || !parsed.value) {
+              cookieState.cookie = '';
+            } else {
+              cookieState.cookie = parsed.cookiePair;
+            }
           }
-        }
-        return {
-          ok: res.status >= 200 && res.status < 300,
-          status: res.status,
-          json: async () => res.body,
+          return {
+            ok: res.status >= 200 && res.status < 300,
+            status: res.status,
+            json: async () => res.body,
+          };
         };
-      };
 
       // =========================================================================
       // TEST-01: Đăng nhập có chọn “Ghi nhớ đăng nhập” -> F5 giữ phiên
@@ -438,16 +443,37 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
             },
           });
 
-          assert.equal(loginRes.status, 200, 'Login with remember_me=true must return 200');
+          assert.equal(
+            loginRes.status,
+            200,
+            'Login with remember_me=true must return 200',
+          );
           assert.equal(loginRes.body.success, true);
           assert.equal(loginRes.body.data.remember_me, true);
-          assert.ok(loginRes.body.data.session_expires_at, 'Must return session_expires_at');
+          assert.ok(
+            loginRes.body.data.session_expires_at,
+            'Must return session_expires_at',
+          );
 
-          rememberedCookie = parseSetCookieHeader(loginRes.headers['set-cookie']);
+          rememberedCookie = parseSetCookieHeader(
+            loginRes.headers['set-cookie'],
+          );
           assert.equal(rememberedCookie.name, 'mglite_session');
-          assert.equal(rememberedCookie.attrs['httponly'], true, 'Cookie must be HttpOnly');
-          assert.equal(rememberedCookie.attrs['path'], '/', 'Cookie must have Path=/');
-          assert.equal(rememberedCookie.attrs['samesite'], 'Lax', 'Cookie must have SameSite=Lax');
+          assert.equal(
+            rememberedCookie.attrs['httponly'],
+            true,
+            'Cookie must be HttpOnly',
+          );
+          assert.equal(
+            rememberedCookie.attrs['path'],
+            '/',
+            'Cookie must have Path=/',
+          );
+          assert.equal(
+            rememberedCookie.attrs['samesite'],
+            'Lax',
+            'Cookie must have SameSite=Lax',
+          );
           assert.equal(
             rememberedCookie.attrs['max-age'],
             '2592000',
@@ -520,7 +546,11 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
             newTabTracker,
             createCookieBoundFetch(jar),
           );
-          assert.equal(verified, true, 'New tab must restore remembered session');
+          assert.equal(
+            verified,
+            true,
+            'New tab must restore remembered session',
+          );
           assert.equal(newTabTracker.role, 'owner');
           assert.equal(
             determinePostVerificationRoute('/employees', verified),
@@ -576,19 +606,24 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
       await t.test(
         'TEST-04: Đăng nhập KHÔNG chọn “Ghi nhớ đăng nhập” -> F5 giữ phiên ngắn hạn, không thành phiên dài hạn',
         async () => {
-          const stdLoginRes = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
-            method: 'POST',
-            body: {
-              identifier: ownerUser,
-              password: ownerPw,
-              remember_me: false,
+          const stdLoginRes = await makeRequest(
+            `${baseUrl}/api/v1/auth/login`,
+            {
+              method: 'POST',
+              body: {
+                identifier: ownerUser,
+                password: ownerPw,
+                remember_me: false,
+              },
             },
-          });
+          );
 
           assert.equal(stdLoginRes.status, 200);
           assert.equal(stdLoginRes.body.data.remember_me, false);
 
-          const stdCookie = parseSetCookieHeader(stdLoginRes.headers['set-cookie']);
+          const stdCookie = parseSetCookieHeader(
+            stdLoginRes.headers['set-cookie'],
+          );
           assert.equal(stdCookie.attrs['httponly'], true);
           assert.equal(
             stdCookie.attrs['max-age'],
@@ -633,7 +668,11 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
             stdTracker,
             createCookieBoundFetch(jar),
           );
-          assert.equal(verified, true, 'F5 during active browser session must succeed');
+          assert.equal(
+            verified,
+            true,
+            'F5 during active browser session must succeed',
+          );
         },
       );
 
@@ -652,9 +691,12 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
           );
 
           // Direct GET /api/v1/auth/me returns 401 before refresh
-          const meBeforeRefresh = await makeRequest(`${baseUrl}/api/v1/auth/me`, {
-            headers: { Cookie: rememberedCookie.cookiePair },
-          });
+          const meBeforeRefresh = await makeRequest(
+            `${baseUrl}/api/v1/auth/me`,
+            {
+              headers: { Cookie: rememberedCookie.cookiePair },
+            },
+          );
           assert.equal(
             meBeforeRefresh.status,
             401,
@@ -680,17 +722,27 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
             'executeSessionVerification must transparently refresh and restore the session',
           );
           assert.equal(refreshTracker.isLoggedIn, true);
-          assert.ok(refreshTracker.csrfToken.length > 10, 'Refreshed session must provide valid CSRF token');
+          assert.ok(
+            refreshTracker.csrfToken.length > 10,
+            'Refreshed session must provide valid CSRF token',
+          );
           assert.ok(
             Number(jar.lastSetCookie?.attrs['max-age']) >= 2591900,
             'Refreshed remembered session must preserve 30-day persistent cookie window',
           );
 
           // Subsequent GET /api/v1/auth/me now returns 200 OK
-          const meAfterRefresh = await makeRequest(`${baseUrl}/api/v1/auth/me`, {
-            headers: { Cookie: rememberedCookie.cookiePair },
-          });
-          assert.equal(meAfterRefresh.status, 200, 'GET /api/v1/auth/me must return 200 after refresh');
+          const meAfterRefresh = await makeRequest(
+            `${baseUrl}/api/v1/auth/me`,
+            {
+              headers: { Cookie: rememberedCookie.cookiePair },
+            },
+          );
+          assert.equal(
+            meAfterRefresh.status,
+            200,
+            'GET /api/v1/auth/me must return 200 after refresh',
+          );
         },
       );
 
@@ -703,9 +755,15 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
           // Create a separate remembered session and expire its absolute_expires_at
           const expLogin = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
             method: 'POST',
-            body: { identifier: ownerUser, password: ownerPw, remember_me: true },
+            body: {
+              identifier: ownerUser,
+              password: ownerPw,
+              remember_me: true,
+            },
           });
-          const expCookie = parseSetCookieHeader(expLogin.headers['set-cookie']);
+          const expCookie = parseSetCookieHeader(
+            expLogin.headers['set-cookie'],
+          );
 
           await pool.query(
             `UPDATE auth_sessions
@@ -729,7 +787,11 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
             expiredTracker,
             createCookieBoundFetch(jar),
           );
-          assert.equal(verified, false, 'Expired absolute session must fail verification');
+          assert.equal(
+            verified,
+            false,
+            'Expired absolute session must fail verification',
+          );
           assert.equal(expiredTracker.isLoggedIn, false);
           assert.equal(expiredTracker.verifiedOwnerSession, false);
           assert.equal(
@@ -765,21 +827,38 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
             },
             body: {},
           });
-          assert.equal(logoutRes.status, 204, 'Logout must succeed with 204 No Content');
-          const clearedCookie = parseSetCookieHeader(logoutRes.headers['set-cookie']);
-          assert.equal(clearedCookie.attrs['max-age'], '0', 'Logout must set Max-Age=0');
+          assert.equal(
+            logoutRes.status,
+            204,
+            'Logout must succeed with 204 No Content',
+          );
+          const clearedCookie = parseSetCookieHeader(
+            logoutRes.headers['set-cookie'],
+          );
+          assert.equal(
+            clearedCookie.attrs['max-age'],
+            '0',
+            'Logout must set Max-Age=0',
+          );
 
           // Even if an attacker or stale browser replays the old rememberedCookie:
           const replayMe = await makeRequest(`${baseUrl}/api/v1/auth/me`, {
             headers: { Cookie: rememberedCookie.cookiePair },
           });
-          assert.equal(replayMe.status, 401, 'Replayed cookie after logout must return 401 on /auth/me');
+          assert.equal(
+            replayMe.status,
+            401,
+            'Replayed cookie after logout must return 401 on /auth/me',
+          );
 
-          const replayRefresh = await makeRequest(`${baseUrl}/api/v1/auth/refresh`, {
-            method: 'POST',
-            headers: { Cookie: rememberedCookie.cookiePair },
-            body: {},
-          });
+          const replayRefresh = await makeRequest(
+            `${baseUrl}/api/v1/auth/refresh`,
+            {
+              method: 'POST',
+              headers: { Cookie: rememberedCookie.cookiePair },
+              body: {},
+            },
+          );
           assert.equal(
             replayRefresh.status,
             401,
@@ -816,9 +895,12 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
             [ownerId],
           );
 
-          const meAfterPwChange = await makeRequest(`${baseUrl}/api/v1/auth/me`, {
-            headers: { Cookie: prePwCookie.cookiePair },
-          });
+          const meAfterPwChange = await makeRequest(
+            `${baseUrl}/api/v1/auth/me`,
+            {
+              headers: { Cookie: prePwCookie.cookiePair },
+            },
+          );
           assert.equal(
             meAfterPwChange.status,
             401,
@@ -890,7 +972,9 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
               (c) => c.name === 'mglite_session',
             );
             assert.ok(
-              persistentCookie && persistentCookie.httpOnly && !persistentCookie.session,
+              persistentCookie &&
+                persistentCookie.httpOnly &&
+                !persistentCookie.session,
               `${browser.name}: mglite_session must be stored as a non-session persistent HttpOnly cookie`,
             );
             assert.equal(
@@ -911,7 +995,9 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
               (c) => c.name === 'mglite_session',
             );
             assert.ok(
-              sessionCookie && sessionCookie.httpOnly && sessionCookie.session === true,
+              sessionCookie &&
+                sessionCookie.httpOnly &&
+                sessionCookie.session === true,
               `${browser.name}: remember_me=false must produce a session-only cookie (session=true)`,
             );
           }
@@ -929,29 +1015,65 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
           try {
             const login = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
               method: 'POST',
-              body: { identifier: ownerUser, password: ownerPw, remember_me: true },
+              body: {
+                identifier: ownerUser,
+                password: ownerPw,
+                remember_me: true,
+              },
             });
             assert.equal(login.status, 200);
             const cookie = parseSetCookieHeader(login.headers['set-cookie']);
             assert.equal(cookie.attrs['max-age'], '86400');
-            const { hashToken } = await import(`file://${resolve(root, 'dist/packages/security/src/tokens.js')}`);
+            const { hashToken } = await import(
+              `file://${resolve(root, 'dist/packages/security/src/tokens.js')}`
+            );
             const tokenHash = hashToken(cookie.value);
-            const read = async () => (await pool.query('SELECT remember_me, created_at, idle_expires_at, absolute_expires_at FROM auth_sessions WHERE session_token_hash=$1', [tokenHash])).rows[0];
+            const read = async () =>
+              (
+                await pool.query(
+                  'SELECT remember_me, created_at, idle_expires_at, absolute_expires_at FROM auth_sessions WHERE session_token_hash=$1',
+                  [tokenHash],
+                )
+              ).rows[0];
             const issued = await read();
             assert.equal(issued.remember_me, true);
-            assert.equal(issued.absolute_expires_at - issued.created_at, 86400 * 1000);
-            const me = await makeRequest(`${baseUrl}/api/v1/auth/me`, { headers: { Cookie: cookie.cookiePair } });
+            assert.equal(
+              issued.absolute_expires_at - issued.created_at,
+              86400 * 1000,
+            );
+            const me = await makeRequest(`${baseUrl}/api/v1/auth/me`, {
+              headers: { Cookie: cookie.cookiePair },
+            });
             assert.equal(me.status, 200);
             assert.equal(me.body.data.remember_me, true);
-            assert.deepEqual((await read()).idle_expires_at, issued.absolute_expires_at);
-            await pool.query("UPDATE auth_sessions SET idle_expires_at=now()-interval '1 minute' WHERE session_token_hash=$1", [tokenHash]);
-            const refreshed = await makeRequest(`${baseUrl}/api/v1/auth/refresh`, { method: 'POST', headers: { Cookie: cookie.cookiePair } });
+            assert.deepEqual(
+              (await read()).idle_expires_at,
+              issued.absolute_expires_at,
+            );
+            await pool.query(
+              "UPDATE auth_sessions SET idle_expires_at=now()-interval '1 minute' WHERE session_token_hash=$1",
+              [tokenHash],
+            );
+            const refreshed = await makeRequest(
+              `${baseUrl}/api/v1/auth/refresh`,
+              { method: 'POST', headers: { Cookie: cookie.cookiePair } },
+            );
             assert.equal(refreshed.status, 200);
             assert.equal(refreshed.body.data.remember_me, true);
-            assert.ok(Number(parseSetCookieHeader(refreshed.headers['set-cookie']).attrs['max-age']) <= 86400);
-            assert.deepEqual((await read()).absolute_expires_at, issued.absolute_expires_at);
+            assert.ok(
+              Number(
+                parseSetCookieHeader(refreshed.headers['set-cookie']).attrs[
+                  'max-age'
+                ],
+              ) <= 86400,
+            );
+            assert.deepEqual(
+              (await read()).absolute_expires_at,
+              issued.absolute_expires_at,
+            );
           } finally {
-            if (previous === undefined) delete process.env.SESSION_REMEMBER_MAX_AGE_SECONDS;
+            if (previous === undefined)
+              delete process.env.SESSION_REMEMBER_MAX_AGE_SECONDS;
             else process.env.SESSION_REMEMBER_MAX_AGE_SECONDS = previous;
           }
         },
@@ -959,41 +1081,86 @@ test('HOTFIX AUTH-REMEMBER-01: Complete TEST-01 through TEST-10 verification sui
       await t.test(
         'Legacy session returns 401 without mutation; fresh login restores explicit standard or remembered intent',
         async () => {
-          const { hashToken } = await import(`file://${resolve(root, 'dist/packages/security/src/tokens.js')}`);
+          const { hashToken } = await import(
+            `file://${resolve(root, 'dist/packages/security/src/tokens.js')}`
+          );
           for (const rememberMe of [false, true]) {
             const login = async () => {
-              const response = await makeRequest(`${baseUrl}/api/v1/auth/login`, {
-                method: 'POST',
-                body: { identifier: ownerUser, password: ownerPw, remember_me: rememberMe },
-              });
+              const response = await makeRequest(
+                `${baseUrl}/api/v1/auth/login`,
+                {
+                  method: 'POST',
+                  body: {
+                    identifier: ownerUser,
+                    password: ownerPw,
+                    remember_me: rememberMe,
+                  },
+                },
+              );
               assert.equal(response.status, 200);
               return parseSetCookieHeader(response.headers['set-cookie']);
             };
             const legacyCookie = await login();
             const legacyHash = hashToken(legacyCookie.value);
-            await pool.query('UPDATE auth_sessions SET remember_me=NULL WHERE session_token_hash=$1', [legacyHash]);
-            const snapshot = async () => (await pool.query(
-              'SELECT id, workspace_id, user_id, credential_version_at_issue, created_at, last_seen_at, idle_expires_at, absolute_expires_at, revoked_at, remember_me FROM auth_sessions WHERE session_token_hash=$1',
+            await pool.query(
+              'UPDATE auth_sessions SET remember_me=NULL WHERE session_token_hash=$1',
               [legacyHash],
-            )).rows[0];
+            );
+            const snapshot = async () =>
+              (
+                await pool.query(
+                  'SELECT id, workspace_id, user_id, credential_version_at_issue, created_at, last_seen_at, idle_expires_at, absolute_expires_at, revoked_at, remember_me FROM auth_sessions WHERE session_token_hash=$1',
+                  [legacyHash],
+                )
+              ).rows[0];
             const before = await snapshot();
-            for (const [path, method] of [['me', 'GET'], ['refresh', 'POST']]) {
-              const response = await makeRequest(`${baseUrl}/api/v1/auth/${path}`, { method, headers: { Cookie: legacyCookie.cookiePair } });
+            for (const [path, method] of [
+              ['me', 'GET'],
+              ['refresh', 'POST'],
+            ]) {
+              const response = await makeRequest(
+                `${baseUrl}/api/v1/auth/${path}`,
+                { method, headers: { Cookie: legacyCookie.cookiePair } },
+              );
               assert.equal(response.status, 401);
-              if (path === 'refresh') assert.equal(parseSetCookieHeader(response.headers['set-cookie']).attrs['max-age'], '0');
+              if (path === 'refresh')
+                assert.equal(
+                  parseSetCookieHeader(response.headers['set-cookie']).attrs[
+                    'max-age'
+                  ],
+                  '0',
+                );
               assert.deepEqual(await snapshot(), before);
             }
             const freshCookie = await login();
-            const fresh = (await pool.query('SELECT id, remember_me FROM auth_sessions WHERE session_token_hash=$1', [hashToken(freshCookie.value)])).rows[0];
+            const fresh = (
+              await pool.query(
+                'SELECT id, remember_me FROM auth_sessions WHERE session_token_hash=$1',
+                [hashToken(freshCookie.value)],
+              )
+            ).rows[0];
             assert.notEqual(fresh.id, before.id);
             assert.equal(fresh.remember_me, rememberMe);
-            assert.equal(freshCookie.attrs['max-age'] !== undefined, rememberMe);
-            for (const [path, method] of [['me', 'GET'], ['refresh', 'POST']]) {
-              const response = await makeRequest(`${baseUrl}/api/v1/auth/${path}`, { method, headers: { Cookie: freshCookie.cookiePair } });
+            assert.equal(
+              freshCookie.attrs['max-age'] !== undefined,
+              rememberMe,
+            );
+            for (const [path, method] of [
+              ['me', 'GET'],
+              ['refresh', 'POST'],
+            ]) {
+              const response = await makeRequest(
+                `${baseUrl}/api/v1/auth/${path}`,
+                { method, headers: { Cookie: freshCookie.cookiePair } },
+              );
               assert.equal(response.status, 200);
               assert.equal(response.body.data.remember_me, rememberMe);
             }
-            assert.deepEqual(await snapshot(), before, 'Fresh login must not rewrite the legacy record');
+            assert.deepEqual(
+              await snapshot(),
+              before,
+              'Fresh login must not rewrite the legacy record',
+            );
           }
         },
       );

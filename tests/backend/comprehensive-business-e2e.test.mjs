@@ -1337,11 +1337,19 @@ test('COMPREHENSIVE BUSINESS LOGIC E2E: Deep verification of all 13 core domains
 
         // 14.3 Verify Owner and Staff sessions persist across restart
         const ownerMe = await apiRequest('/api/v1/auth/me', owner);
-        assert.equal(ownerMe.status, 200, 'Owner session persists across restart');
+        assert.equal(
+          ownerMe.status,
+          200,
+          'Owner session persists across restart',
+        );
         assert.equal(ownerMe.data.data.active_workspace.id, workspaceId);
 
         const staffMe = await apiRequest('/api/v1/auth/me', staffActive);
-        assert.equal(staffMe.status, 200, 'Staff session persists across restart');
+        assert.equal(
+          staffMe.status,
+          200,
+          'Staff session persists across restart',
+        );
         assert.equal(staffMe.data.data.active_workspace.role, 'staff');
 
         // 14.4 Verify Employees & Attendance persist
@@ -1351,7 +1359,10 @@ test('COMPREHENSIVE BUSINESS LOGIC E2E: Deep verification of all 13 core domains
 
         const attList = await apiRequest('/api/v1/attendance/shifts', owner);
         assert.equal(attList.status, 200);
-        assert.ok(attList.data.data.shifts.length >= 1, 'Attendance shifts persisted');
+        assert.ok(
+          attList.data.data.shifts.length >= 1,
+          'Attendance shifts persisted',
+        );
 
         // 14.5 Verify Schedules & Work Items persist
         const schedList = await apiRequest(
@@ -1391,18 +1402,28 @@ test('COMPREHENSIVE BUSINESS LOGIC E2E: Deep verification of all 13 core domains
         // 14.7 Verify Finance entries, summary balance, and audit logs persist
         const finRes = await apiRequest('/api/v1/fin/entries', owner);
         assert.equal(finRes.status, 200);
-        assert.ok(finRes.data.data.items.length >= 2, 'Finance entries persisted');
+        assert.ok(
+          finRes.data.data.items.length >= 2,
+          'Finance entries persisted',
+        );
 
         const finSumRes = await apiRequest(
           '/api/v1/fin/summary?period=month&anchor=2026-10-14',
           owner,
         );
         assert.equal(finSumRes.status, 200);
-        assert.equal(finSumRes.data.data.net_vnd, '6500000', 'Finance summary net balance persisted');
+        assert.equal(
+          finSumRes.data.data.net_vnd,
+          '6500000',
+          'Finance summary net balance persisted',
+        );
 
         const auditRes = await apiRequest('/api/v1/audit?limit=50', owner);
         assert.equal(auditRes.status, 200);
-        assert.ok(auditRes.data.data.items.length >= 10, 'Audit logs persisted');
+        assert.ok(
+          auditRes.data.data.items.length >= 10,
+          'Audit logs persisted',
+        );
       },
     );
   } finally {

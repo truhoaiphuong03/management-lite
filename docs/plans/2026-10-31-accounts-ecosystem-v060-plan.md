@@ -43,26 +43,28 @@
 
 ## 🗺️ Bản đồ File Phẫu thuật (`SURGICAL FILE MAP` — Chỉ đọc đúng các file & dòng này khi làm Phase 20)
 
-| File | Dòng cần đọc / sửa | Trách nhiệm trong Phase 20 (`v0.6.0`) |
-|---|---|---|
-| `packages/database/src/migrations/catalog.ts` | `1800–1963` | Thêm `ACCOUNTS_ECOSYSTEM_HIERARCHY_SQL` (`0031_accounts_ecosystem_hierarchy`) mở rộng `platform`, thêm `phone_number`, `phone_note`, `parent_account_id`, `recovery_account_id`, `authenticator_account_id`, `health_status` và bảng `account_secret_history`. |
-| `packages/contracts/src/accounts.ts` | `1–99` (toàn file ngắn) | Mở rộng `AccountPlatform` (`facebook`, `youtube`, `authenticator`, `recovery`), thêm `AccountHealthStatus`, mở rộng `ManagedAccountData`, `CreateAccountRequest`, `UpdateAccountRequest`, `PhoneClusterSummary`, `SecretHistoryEntry`. |
-| `apps/api/src/accounts/service.ts` | `35–120`, `415–1000`, `1200–1476` | Hỗ trợ các trường liên kết mới trong `listAccounts`, `getAccount`, `createAccount`, `updateAccount`; tự động lưu `account_secret_history` trong `putAccountSecret`; hỗ trợ giải mã lịch sử mật khẩu trong `revealAccountSecret` & tạo nhanh kênh con (`create_child_platforms`). |
-| `apps/api/src/routes/accounts-routes.ts` | `66–130`, `180–231` | Mở rộng `assertAllowedFields` cho `POST /api/v1/accounts`, `PATCH /api/v1/accounts/:id`, và `POST /api/v1/accounts/:id/secrets/reveal` (hỗ trợ `history_id` tùy chọn). |
-| `apps/web/src/screens/helpers/accounts-helpers.ts` | `1–56` (toàn file ngắn) | Thêm cấu hình màu/nhãn cho `facebook`, `youtube`, `authenticator`, `recovery`; thêm hàm chuẩn hóa SĐT `normalizeVnPhone`, bộ gom cụm & tra cứu 2 chiều 360° `filterAndBuildAccountEcosystem`, bộ tính thống kê SĐT `buildPhoneSummaries`, và hàm sinh mã 6 số 2FA `computeTotpCode`. |
-| `apps/web/src/screens/AccountsScreen.tsx` | `80–160`, `460–750`, `1010–1560`, `1650–2660` | Thiết kế lại giao diện `/accounts` (4 Tab góc nhìn: Cụm Gmail, Theo SĐT, Theo Authenticator/Khôi phục, Bảng phẳng; Thanh tra cứu 360°; Modal Thêm/Sửa thông minh + Tạo nhanh Cụm + Dán hàng loạt; Hiển thị mã 6 số 2FA trực tiếp & Lịch sử mật khẩu cũ). |
-| `tests/web/accounts-screen.test.mjs` | `1025–1064` | Thêm bộ test kiểm thử đầy đủ Phase 20 (`ACC-ECOSYSTEM-v060`). |
+| File                                               | Dòng cần đọc / sửa                            | Trách nhiệm trong Phase 20 (`v0.6.0`)                                                                                                                                                                                                                                                |
+| -------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/database/src/migrations/catalog.ts`      | `1800–1963`                                   | Thêm `ACCOUNTS_ECOSYSTEM_HIERARCHY_SQL` (`0031_accounts_ecosystem_hierarchy`) mở rộng `platform`, thêm `phone_number`, `phone_note`, `parent_account_id`, `recovery_account_id`, `authenticator_account_id`, `health_status` và bảng `account_secret_history`.                       |
+| `packages/contracts/src/accounts.ts`               | `1–99` (toàn file ngắn)                       | Mở rộng `AccountPlatform` (`facebook`, `youtube`, `authenticator`, `recovery`), thêm `AccountHealthStatus`, mở rộng `ManagedAccountData`, `CreateAccountRequest`, `UpdateAccountRequest`, `PhoneClusterSummary`, `SecretHistoryEntry`.                                               |
+| `apps/api/src/accounts/service.ts`                 | `35–120`, `415–1000`, `1200–1476`             | Hỗ trợ các trường liên kết mới trong `listAccounts`, `getAccount`, `createAccount`, `updateAccount`; tự động lưu `account_secret_history` trong `putAccountSecret`; hỗ trợ giải mã lịch sử mật khẩu trong `revealAccountSecret` & tạo nhanh kênh con (`create_child_platforms`).     |
+| `apps/api/src/routes/accounts-routes.ts`           | `66–130`, `180–231`                           | Mở rộng `assertAllowedFields` cho `POST /api/v1/accounts`, `PATCH /api/v1/accounts/:id`, và `POST /api/v1/accounts/:id/secrets/reveal` (hỗ trợ `history_id` tùy chọn).                                                                                                               |
+| `apps/web/src/screens/helpers/accounts-helpers.ts` | `1–56` (toàn file ngắn)                       | Thêm cấu hình màu/nhãn cho `facebook`, `youtube`, `authenticator`, `recovery`; thêm hàm chuẩn hóa SĐT `normalizeVnPhone`, bộ gom cụm & tra cứu 2 chiều 360° `filterAndBuildAccountEcosystem`, bộ tính thống kê SĐT `buildPhoneSummaries`, và hàm sinh mã 6 số 2FA `computeTotpCode`. |
+| `apps/web/src/screens/AccountsScreen.tsx`          | `80–160`, `460–750`, `1010–1560`, `1650–2660` | Thiết kế lại giao diện `/accounts` (4 Tab góc nhìn: Cụm Gmail, Theo SĐT, Theo Authenticator/Khôi phục, Bảng phẳng; Thanh tra cứu 360°; Modal Thêm/Sửa thông minh + Tạo nhanh Cụm + Dán hàng loạt; Hiển thị mã 6 số 2FA trực tiếp & Lịch sử mật khẩu cũ).                             |
+| `tests/web/accounts-screen.test.mjs`               | `1025–1064`                                   | Thêm bộ test kiểm thử đầy đủ Phase 20 (`ACC-ECOSYSTEM-v060`).                                                                                                                                                                                                                        |
 
 ---
 
 ### Task 20.1: Database Migration `0031` & Shared Contracts (`packages/database` + `packages/contracts`)
 
 **Files:**
+
 - Modify: `packages/database/src/migrations/catalog.ts:1800-1963`
 - Modify: `packages/contracts/src/accounts.ts:1-99`
 - Test: `tests/web/accounts-screen.test.mjs`
 
 **Interfaces:**
+
 - Produces in `packages/contracts/src/accounts.ts`:
   ```ts
   export type AccountPlatform =
@@ -149,11 +151,13 @@
 ### Task 20.2: Backend Accounts Service & Routes (`apps/api/src/accounts/service.ts` + `apps/api/src/routes/accounts-routes.ts`)
 
 **Files:**
+
 - Modify: `apps/api/src/accounts/service.ts:35-120`, `415-1000`, `1200-1476`
 - Modify: `apps/api/src/routes/accounts-routes.ts:66-130`, `180-231`
 - Test: `tests/backend/phase20-accounts-ecosystem.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `CreateAccountRequest`, `UpdateAccountRequest`, `ManagedAccountData`, `ManagedAccountDetailData` from Task 20.1.
 - Produces:
   - `normalizeAccountPhone(raw: unknown): string | null` in `apps/api/src/accounts/service.ts` (converts `+84...`, spaces, dots, dashes into canonical digits e.g. `0901234567`).
@@ -179,10 +183,12 @@
 ### Task 20.3: Frontend Ecosystem Helpers, 360° Bidirectional Lookup & Live 2FA TOTP (`apps/web/src/screens/helpers/accounts-helpers.ts`)
 
 **Files:**
+
 - Modify: `apps/web/src/screens/helpers/accounts-helpers.ts:1-56`
 - Test: `tests/web/accounts-screen.test.mjs`
 
 **Interfaces:**
+
 - Produces in `apps/web/src/screens/helpers/accounts-helpers.ts`:
   - `PLATFORM_CONFIG` updated with `facebook`, `youtube`, `authenticator`, `recovery`.
   - `normalizeVnPhone(input: string): string`
@@ -201,14 +207,16 @@
 ### Task 20.4: Redesign `AccountsScreen.tsx` (4 View Tabs, 360° Search, Smart Modal, Live 2FA & Bulk Paste)
 
 **Files:**
+
 - Modify: `apps/web/src/screens/AccountsScreen.tsx:80-160`, `460-750`, `1010-1560`, `1650-2660`
 - Test: `tests/web/accounts-screen.test.mjs`
 
 **Interfaces:**
+
 - Consumes: helpers from `apps/web/src/screens/helpers/accounts-helpers.ts`.
 - UI Features to deliver while keeping all existing `data-testid` and security guards intact:
   1. **Thanh Tìm kiếm Truy vết 2 chiều 360° (`data-testid="search-accounts-360"`):**
-     - Khi nhập `ID TikTok`, `UID`, `SĐT`, hoặc `Gmail`, hiển thị băng thông báo kết quả truy vết: *"🔍 Truy vết 360°: Tìm thấy X kết quả khớp trực tiếp — Đang hiển thị toàn bộ Y tài khoản trong cùng cụm liên kết (Gmail gốc, SĐT, Authenticator, Khôi phục & Kênh đi kèm)"*.
+     - Khi nhập `ID TikTok`, `UID`, `SĐT`, hoặc `Gmail`, hiển thị băng thông báo kết quả truy vết: _"🔍 Truy vết 360°: Tìm thấy X kết quả khớp trực tiếp — Đang hiển thị toàn bộ Y tài khoản trong cùng cụm liên kết (Gmail gốc, SĐT, Authenticator, Khôi phục & Kênh đi kèm)"_.
   2. **4 Tab Chế độ Xem (`data-testid="view-mode-tabs"`):**
      - `all` (**📋 Danh sách & Tra cứu** — mặc định tương thích mọi bộ test hiện hữu, nâng cấp cột hiển thị rõ `Gmail gốc`, `SĐT (X Gmail)`, `GG Authenticator`, `TK Khôi phục`, `Trạng thái sức khỏe`, `Nút +Kênh con` và `Copy 1 chạm`)
      - `clusters` (**🌳 Theo Cụm Gmail gốc**: Gom mỗi Gmail gốc thành 1 thẻ lớn, bên trong liệt kê các nhánh `🎵 TikTok`, `📘 Facebook`, `▶️ YouTube`, kèm SĐT, Authenticator, TK Khôi phục và nút **`+ Gắn TikTok / FB / YTB`**)
@@ -218,7 +226,7 @@
      - Thanh nút chọn nhanh Loại tài khoản bằng biểu tượng màu (`📧 Gmail`, `🎵 TikTok`, `📘 Facebook`, `▶️ YouTube`, `🔐 GG Authenticator`, `🛟 TK Khôi phục`, `🤖 AI/Khác`) + giữ `<select>` đồng bộ.
      - Khối **Liên kết Hệ sinh thái**:
        - Chọn **🔗 Tài khoản Gmail gốc** (khi tạo TikTok / FB / YTB — tự động kế thừa SĐT, Authenticator, TK khôi phục từ Gmail gốc).
-       - Nhập/chọn **📱 Số điện thoại liên kết** (kèm `datalist` gợi ý các SĐT đã có và hiện ngay badge *"SĐT này đang tạo X Gmail"* + ô **Vị trí SIM / Ghi chú SIM**).
+       - Nhập/chọn **📱 Số điện thoại liên kết** (kèm `datalist` gợi ý các SĐT đã có và hiện ngay badge _"SĐT này đang tạo X Gmail"_ + ô **Vị trí SIM / Ghi chú SIM**).
        - Chọn **🔐 Tài khoản Google Authenticator giữ 2FA** & **🛟 Tài khoản dùng để khôi phục**.
        - Khi tạo **Gmail mới**: có hàng checkbox **"⚡ Tạo kèm luôn kênh gắn với Gmail này: `[ ] TikTok` `[ ] Facebook` `[ ] YouTube`"** (`create_child_platforms`).
      - Chế độ chuyển đổi **"📋 Dán nhanh nhiều tài khoản (`email|pass|recovery|2fa|sdt`)"** ngay trong Modal Thêm mới để nhập hàng loạt.

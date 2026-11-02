@@ -92,7 +92,7 @@ async function run() {
         throw new Error(
           r.exceptionDetails.text +
             ': ' +
-            (r.exceptionDetails.exception?.description || '')
+            (r.exceptionDetails.exception?.description || ''),
         );
       }
       return r.result?.value;
@@ -169,9 +169,18 @@ async function run() {
     `);
     console.log('Controlled probe result:', JSON.stringify(probeResult));
     assert.equal(probeResult.blocked, true, 'Controlled probe must be blocked');
-    assert.ok(probeResult.errorMsg.includes('FAIL-CLOSED HARNESS'), 'Must throw fail-closed error');
-    assert.equal(probeResult.violationRecorded, true, 'Must record probe violation');
-    console.log('✔ Harness Safety Controlled Probe: PASS (Unmocked requests strictly blocked)');
+    assert.ok(
+      probeResult.errorMsg.includes('FAIL-CLOSED HARNESS'),
+      'Must throw fail-closed error',
+    );
+    assert.equal(
+      probeResult.violationRecorded,
+      true,
+      'Must record probe violation',
+    );
+    console.log(
+      '✔ Harness Safety Controlled Probe: PASS (Unmocked requests strictly blocked)',
+    );
     // Ledger is strictly append-only; violations are preserved throughout the suite run
 
     // Switch to test_suite phase: unmocked /auth/me outside startup is strictly forbidden
@@ -369,22 +378,57 @@ async function run() {
     `);
 
     if (staffReportsResult.error) {
-      throw new Error('Staff Reports test error: ' + staffReportsResult.error + '\n' + staffReportsResult.stack);
+      throw new Error(
+        'Staff Reports test error: ' +
+          staffReportsResult.error +
+          '\n' +
+          staffReportsResult.stack,
+      );
     }
     console.log('Staff Reports Result:', staffReportsResult);
-    assert.equal(staffReportsResult.hasB_BeforeAResolve, true, 'Request B must be rendered initially');
-    assert.equal(staffReportsResult.hasA_BeforeAResolve, false, 'Stale A must not be present');
-    assert.equal(staffReportsResult.hasB_AfterAResolve, true, 'Request B content must remain after A JSON resolves');
-    assert.equal(staffReportsResult.hasA_AfterAResolve, false, 'Stale Request A must NEVER overwrite Request B in Staff mode');
-    assert.equal(staffReportsResult.hasLoadMoreBtn, true, 'Cursor from Request B must be active');
-    assert.equal(staffReportsResult.hasLoadingIndicator, false, 'Loading must be false after Request B');
-    assert.equal(staffReportsResult.hasErrorBanner, false, 'Error must be null');
+    assert.equal(
+      staffReportsResult.hasB_BeforeAResolve,
+      true,
+      'Request B must be rendered initially',
+    );
+    assert.equal(
+      staffReportsResult.hasA_BeforeAResolve,
+      false,
+      'Stale A must not be present',
+    );
+    assert.equal(
+      staffReportsResult.hasB_AfterAResolve,
+      true,
+      'Request B content must remain after A JSON resolves',
+    );
+    assert.equal(
+      staffReportsResult.hasA_AfterAResolve,
+      false,
+      'Stale Request A must NEVER overwrite Request B in Staff mode',
+    );
+    assert.equal(
+      staffReportsResult.hasLoadMoreBtn,
+      true,
+      'Cursor from Request B must be active',
+    );
+    assert.equal(
+      staffReportsResult.hasLoadingIndicator,
+      false,
+      'Loading must be false after Request B',
+    );
+    assert.equal(
+      staffReportsResult.hasErrorBanner,
+      false,
+      'Error must be null',
+    );
     console.log('✔ ReportsScreen Staff Stale JSON Guard Verification: PASS');
 
     // =========================================================================
     // 2. EMPLOYEES TARGETED TESTS: UNMOUNT (INITIAL & LOAD-MORE), FILTER CLEANUP, RETRY
     // =========================================================================
-    console.log('\n--- 2. Testing EmployeesScreen Unmount (Initial & Load-More), Filter Cleanup & Retry ---');
+    console.log(
+      '\n--- 2. Testing EmployeesScreen Unmount (Initial & Load-More), Filter Cleanup & Retry ---',
+    );
     const employeesTargetedResult = await evaluate(`
       (async () => {
         try {
@@ -870,41 +914,132 @@ async function run() {
     `);
 
     if (employeesTargetedResult.error) {
-      throw new Error('Employees targeted test error: ' + employeesTargetedResult.error + '\n' + employeesTargetedResult.stack);
+      throw new Error(
+        'Employees targeted test error: ' +
+          employeesTargetedResult.error +
+          '\n' +
+          employeesTargetedResult.stack,
+      );
     }
 
     console.log('Employees Targeted Result:', employeesTargetedResult);
     // 2A Assertions: Initial load unmount
-    assert.equal(employeesTargetedResult.initialSignalBeforeUnmountAborted, false, 'Initial signal not aborted before unmount');
-    assert.equal(employeesTargetedResult.initialSignalAfterUnmountAborted, true, 'Initial signal MUST be aborted on unmount cleanup');
+    assert.equal(
+      employeesTargetedResult.initialSignalBeforeUnmountAborted,
+      false,
+      'Initial signal not aborted before unmount',
+    );
+    assert.equal(
+      employeesTargetedResult.initialSignalAfterUnmountAborted,
+      true,
+      'Initial signal MUST be aborted on unmount cleanup',
+    );
 
     // 2B Assertions: Load-more unmount
-    assert.equal(employeesTargetedResult.loadMoreSignalBeforeUnmountAborted, false, 'Load-more signal not aborted before unmount');
-    assert.equal(employeesTargetedResult.loadMoreSignalAfterUnmountAborted, true, 'Load-more signal MUST be aborted on unmount cleanup');
+    assert.equal(
+      employeesTargetedResult.loadMoreSignalBeforeUnmountAborted,
+      false,
+      'Load-more signal not aborted before unmount',
+    );
+    assert.equal(
+      employeesTargetedResult.loadMoreSignalAfterUnmountAborted,
+      true,
+      'Load-more signal MUST be aborted on unmount cleanup',
+    );
 
     // 2C Assertions: Filter change cleanup & guard
-    assert.equal(employeesTargetedResult.reqASignalBeforeCleanupAborted, false, 'Request A signal not aborted before filter change');
-    assert.equal(employeesTargetedResult.reqASignalAfterCleanupAborted, true, 'Request A signal MUST be aborted when filter changes');
-    assert.equal(employeesTargetedResult.hasActiveWinner, true, 'Request B data must be displayed');
-    assert.equal(employeesTargetedResult.hasActiveWinnerAfterDelayedA, true, 'Request B data remains after delayed A resolves');
-    assert.equal(employeesTargetedResult.hasStaleAAfterDelayedA, false, 'Stale Request A must NEVER overwrite Request B');
+    assert.equal(
+      employeesTargetedResult.reqASignalBeforeCleanupAborted,
+      false,
+      'Request A signal not aborted before filter change',
+    );
+    assert.equal(
+      employeesTargetedResult.reqASignalAfterCleanupAborted,
+      true,
+      'Request A signal MUST be aborted when filter changes',
+    );
+    assert.equal(
+      employeesTargetedResult.hasActiveWinner,
+      true,
+      'Request B data must be displayed',
+    );
+    assert.equal(
+      employeesTargetedResult.hasActiveWinnerAfterDelayedA,
+      true,
+      'Request B data remains after delayed A resolves',
+    );
+    assert.equal(
+      employeesTargetedResult.hasStaleAAfterDelayedA,
+      false,
+      'Stale Request A must NEVER overwrite Request B',
+    );
 
     // 2D Assertions: Load-more failure & retry
-    assert.equal(employeesTargetedResult.hasP1AfterFail, true, 'Page 1 items preserved on load-more error');
-    assert.equal(employeesTargetedResult.hasErrorBannerAfterFail, true, 'Pagination error banner displayed');
-    assert.equal(employeesTargetedResult.hasLoadMoreBtnAfterFail, true, 'Load-more button retained on error');
-    assert.equal(employeesTargetedResult.hasP1AfterSuccess, true, 'Page 1 items preserved after retry');
-    assert.equal(employeesTargetedResult.hasP2AfterSuccess, true, 'Page 2 items appended after retry');
-    assert.equal(employeesTargetedResult.hasErrorBannerAfterSuccess, false, 'Pagination error banner cleared on success');
+    assert.equal(
+      employeesTargetedResult.hasP1AfterFail,
+      true,
+      'Page 1 items preserved on load-more error',
+    );
+    assert.equal(
+      employeesTargetedResult.hasErrorBannerAfterFail,
+      true,
+      'Pagination error banner displayed',
+    );
+    assert.equal(
+      employeesTargetedResult.hasLoadMoreBtnAfterFail,
+      true,
+      'Load-more button retained on error',
+    );
+    assert.equal(
+      employeesTargetedResult.hasP1AfterSuccess,
+      true,
+      'Page 1 items preserved after retry',
+    );
+    assert.equal(
+      employeesTargetedResult.hasP2AfterSuccess,
+      true,
+      'Page 2 items appended after retry',
+    );
+    assert.equal(
+      employeesTargetedResult.hasErrorBannerAfterSuccess,
+      false,
+      'Pagination error banner cleared on success',
+    );
 
     // 2E Assertions: Delayed JSON continuation and late reject after unmount
-    assert.equal(employeesTargetedResult.unmountSignalBefore, false, 'Signal before unmount is active');
-    assert.equal(employeesTargetedResult.unmountSignalAfter, true, 'Signal after unmount is aborted');
-    assert.equal(employeesTargetedResult.continuationErrorThrown, false, 'Continuation resolves cleanly without unhandled rejection');
-    assert.equal(employeesTargetedResult.json6Executed, true, 'Pending JSON before unmount was resolved');
-    assert.equal(employeesTargetedResult.pendingJsonErrorThrown, false, 'Pending JSON resolving after unmount does not throw');
-    assert.equal(employeesTargetedResult.lateRejectHandledCleanly, true, 'Late reject after unmount is safely handled without uncaught errors');
-    console.log('✔ EmployeesScreen Targeted Lifecycle & Cleanup Verification: ALL PASS');
+    assert.equal(
+      employeesTargetedResult.unmountSignalBefore,
+      false,
+      'Signal before unmount is active',
+    );
+    assert.equal(
+      employeesTargetedResult.unmountSignalAfter,
+      true,
+      'Signal after unmount is aborted',
+    );
+    assert.equal(
+      employeesTargetedResult.continuationErrorThrown,
+      false,
+      'Continuation resolves cleanly without unhandled rejection',
+    );
+    assert.equal(
+      employeesTargetedResult.json6Executed,
+      true,
+      'Pending JSON before unmount was resolved',
+    );
+    assert.equal(
+      employeesTargetedResult.pendingJsonErrorThrown,
+      false,
+      'Pending JSON resolving after unmount does not throw',
+    );
+    assert.equal(
+      employeesTargetedResult.lateRejectHandledCleanly,
+      true,
+      'Late reject after unmount is safely handled without uncaught errors',
+    );
+    console.log(
+      '✔ EmployeesScreen Targeted Lifecycle & Cleanup Verification: ALL PASS',
+    );
     console.log('✔ EmployeesScreen Unmount Rigorous Verification: PASS');
 
     // =========================================================================
@@ -1001,14 +1136,36 @@ async function run() {
     `);
 
     if (fix41Result.error) {
-      throw new Error('FIX-41 test error: ' + fix41Result.error + '\n' + fix41Result.stack);
+      throw new Error(
+        'FIX-41 test error: ' + fix41Result.error + '\n' + fix41Result.stack,
+      );
     }
     console.log('FIX-41 Measurements:', fix41Result);
-    assert.equal(fix41Result.widthDiff, 0, 'Width difference must be exactly 0.000px');
-    assert.equal(fix41Result.adjShift, 0, 'Adjacent button position shift must be 0.000px');
-    assert.equal(fix41Result.statusWithLoadingText.accessibleCount, 1, 'Exactly one accessible status when loadingText present');
-    assert.equal(fix41Result.statusWithLoadingText.decorativeCount, 1, 'Spinner is decorative when loadingText present');
-    assert.equal(fix41Result.statusWithoutLoadingText.accessibleCount, 1, 'Exactly one accessible status when loadingText absent');
+    assert.equal(
+      fix41Result.widthDiff,
+      0,
+      'Width difference must be exactly 0.000px',
+    );
+    assert.equal(
+      fix41Result.adjShift,
+      0,
+      'Adjacent button position shift must be 0.000px',
+    );
+    assert.equal(
+      fix41Result.statusWithLoadingText.accessibleCount,
+      1,
+      'Exactly one accessible status when loadingText present',
+    );
+    assert.equal(
+      fix41Result.statusWithLoadingText.decorativeCount,
+      1,
+      'Spinner is decorative when loadingText present',
+    );
+    assert.equal(
+      fix41Result.statusWithoutLoadingText.accessibleCount,
+      1,
+      'Exactly one accessible status when loadingText absent',
+    );
     console.log('✔ FIX-41 Regression Verification: PASS');
 
     // =========================================================================
@@ -1281,27 +1438,82 @@ async function run() {
     `);
 
     if (issueRegressionResult.error) {
-      throw new Error('Issue regression test error: ' + issueRegressionResult.error + '\n' + issueRegressionResult.stack);
+      throw new Error(
+        'Issue regression test error: ' +
+          issueRegressionResult.error +
+          '\n' +
+          issueRegressionResult.stack,
+      );
     }
     console.log('Issue Regression Result:', issueRegressionResult);
-    assert.equal(issueRegressionResult.hasInitialError, true, 'Initial error state rendered');
-    assert.equal(issueRegressionResult.retryOccurred, true, 'Retry was executed');
-    assert.equal(issueRegressionResult.hasItemAfterRetry, true, 'Data rendered after retry');
-    assert.equal(issueRegressionResult.copiedPromptContainsId, true, 'Copied prompt contains ISS-001');
-    assert.equal(issueRegressionResult.copiedPromptContainsTitle, true, 'Copied prompt contains title');
-    assert.equal(issueRegressionResult.copiedPromptContainsGuidance, true, 'Copied prompt contains ChatGPT analysis guidance');
-    assert.ok(issueRegressionResult.btnTextAfterCopy && issueRegressionResult.btnTextAfterCopy.includes('Đã sao chép'), 'Button shows copied confirmation');
-    assert.equal(issueRegressionResult.bugSubmissionAttempts, 2, 'Two attempts made (1 fail, 1 retry)');
-    assert.equal(issueRegressionResult.hasUnknownOutcome, true, 'Unknown outcome state triggered on network drop');
-    assert.equal(issueRegressionResult.submitBtnTextAfterFailure, 'Gửi lại', 'Button switches to "Gửi lại"');
-    assert.equal(issueRegressionResult.hasSuccessConfirmed, true, 'Success confirmed after retry');
-    assert.equal(issueRegressionResult.failClosedBlockedCount, 0, 'Zero fail-closed network violations during test run');
+    assert.equal(
+      issueRegressionResult.hasInitialError,
+      true,
+      'Initial error state rendered',
+    );
+    assert.equal(
+      issueRegressionResult.retryOccurred,
+      true,
+      'Retry was executed',
+    );
+    assert.equal(
+      issueRegressionResult.hasItemAfterRetry,
+      true,
+      'Data rendered after retry',
+    );
+    assert.equal(
+      issueRegressionResult.copiedPromptContainsId,
+      true,
+      'Copied prompt contains ISS-001',
+    );
+    assert.equal(
+      issueRegressionResult.copiedPromptContainsTitle,
+      true,
+      'Copied prompt contains title',
+    );
+    assert.equal(
+      issueRegressionResult.copiedPromptContainsGuidance,
+      true,
+      'Copied prompt contains ChatGPT analysis guidance',
+    );
+    assert.ok(
+      issueRegressionResult.btnTextAfterCopy &&
+        issueRegressionResult.btnTextAfterCopy.includes('Đã sao chép'),
+      'Button shows copied confirmation',
+    );
+    assert.equal(
+      issueRegressionResult.bugSubmissionAttempts,
+      2,
+      'Two attempts made (1 fail, 1 retry)',
+    );
+    assert.equal(
+      issueRegressionResult.hasUnknownOutcome,
+      true,
+      'Unknown outcome state triggered on network drop',
+    );
+    assert.equal(
+      issueRegressionResult.submitBtnTextAfterFailure,
+      'Gửi lại',
+      'Button switches to "Gửi lại"',
+    );
+    assert.equal(
+      issueRegressionResult.hasSuccessConfirmed,
+      true,
+      'Success confirmed after retry',
+    );
+    assert.equal(
+      issueRegressionResult.failClosedBlockedCount,
+      0,
+      'Zero fail-closed network violations during test run',
+    );
     console.log('✔ Issue Retry & Copy Regression Verification: PASS');
     // =========================================================================
     // 5. FAIL-CLOSED LEDGER AUDIT & PROTOCOL SAFETY VERIFICATION
     // =========================================================================
     console.log('\n--- 5. Fail-Closed Ledger Audit & CDP Protocol Safety ---');
-    const finalViolations = await evaluate(`window.__FAIL_CLOSED_VIOLATIONS__ || []`);
+    const finalViolations = await evaluate(
+      `window.__FAIL_CLOSED_VIOLATIONS__ || []`,
+    );
     const startupAuthMe = finalViolations.filter(
       (v) => v.url?.includes('/api/v1/auth/me') && v.phase === 'startup',
     );
@@ -1328,9 +1540,21 @@ async function run() {
       cdpErrorsCount: cdpErrors.length,
     });
 
-    assert.equal(unexpectedViolations.length, 0, 'No unexpected network violations allowed in fail-closed ledger');
-    assert.equal(unmockedCdpBlocked.length, 0, 'No unmocked CDP requests allowed outside mock registry');
-    assert.equal(cdpErrors.length, 0, 'Zero CDP Fetch.failRequest errors allowed');
+    assert.equal(
+      unexpectedViolations.length,
+      0,
+      'No unexpected network violations allowed in fail-closed ledger',
+    );
+    assert.equal(
+      unmockedCdpBlocked.length,
+      0,
+      'No unmocked CDP requests allowed outside mock registry',
+    );
+    assert.equal(
+      cdpErrors.length,
+      0,
+      'Zero CDP Fetch.failRequest errors allowed',
+    );
     console.log('✔ Fail-Closed Ledger Audit & Protocol Safety: PASS');
 
     ws.close();

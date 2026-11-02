@@ -6,9 +6,8 @@ import { installFakeDom } from './helpers/fake-dom.mjs';
 
 installFakeDom();
 
-const { EmployeeDetailScreen } = await import(
-  '../../dist/apps/web/src/screens/EmployeeDetailScreen.js'
-);
+const { EmployeeDetailScreen } =
+  await import('../../dist/apps/web/src/screens/EmployeeDetailScreen.js');
 
 function getProps(element) {
   if (!element) return {};
@@ -78,7 +77,10 @@ test('EmployeeDetailScreen & EMP-009: Mounted lifecycle & hourly rate configurat
             status: 200,
             json: async () => ({
               success: true,
-              data: { csrf_token: 'test-csrf-token-123', user: { id: 'owner-01' } },
+              data: {
+                csrf_token: 'test-csrf-token-123',
+                user: { id: 'owner-01' },
+              },
             }),
           };
         }

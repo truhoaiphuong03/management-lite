@@ -5,13 +5,14 @@
 **Thời điểm thực hiện:** 2026-10-12T01:35:00+07:00  
 **Môi trường:** Mac Localhost (macOS Darwin 24.3.0)  
 **Tác vụ:** Full Independent System Audit, Auto-Fix & Complete Reporting  
-**Trạng thái chung:** COMPLETED — ALL CRITERIA VERIFIED  
+**Trạng thái chung:** COMPLETED — ALL CRITERIA VERIFIED
 
 ---
 
 ## 1. HẠ TẦNG VÀ CƠ CHẾ BẢO VỆ DỮ LIỆU
 
 ### A. Sao lưu & Điểm khôi phục (Backup Snapshot)
+
 - **Vị trí sao lưu:** `/Users/duongbinh/Backups/master-exec-20261012-011953`
 - **Tệp dump:** `db/mglite_unified_qa_test.dump` (SHA-256: `a8ebd099...`)
 - **Tệp SQL:** `db/mglite_unified_qa_test.sql` (SHA-256: `9e268806...`)
@@ -19,6 +20,7 @@
 - **Rehearsal Restore Test:** Khôi phục thành công vào database cô lập `mglite_restore_rehearsal_test`, đối chiếu 58 bảng khớp 100% số lượng dòng.
 
 ### B. Cơ chế chống đè Database (Fail-Closed Collision Guard)
+
 - **Tệp cài đặt:** `packages/database/src/config.ts`
 - **Quy tắc:** Hàm `assertSafeTestDatabase()` và `isSafeTestDatabase()` chặn đứng hoàn toàn nếu `TEST_DATABASE_URL` trỏ vào cùng cơ sở dữ liệu với `DATABASE_URL`.
 - **Cấu hình môi trường:**
@@ -30,20 +32,20 @@
 
 ## 2. KẾT QUẢ KIỂM THỬ TỰ ĐỘNG TOÀN DIỆN (AUTOMATED SUITES)
 
-| Bộ kiểm thử | Thư mục | Số test | Đạt (Pass) | Lỗi (Fail) | Bỏ qua (Skip) | Ghi chú |
-| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Backend Integration** | `tests/backend/*.test.mjs` | 60 | 60 | 0 | 0 | Chạy trên `mglite_ci_test` (Port 3008) |
-| **Database & Migration** | `tests/database/*.test.mjs` | 30 | 30 | 0 | 0 | Advisory lock, Idempotency, C06 binding |
-| **Security & Cryptography** | `tests/security/*.test.mjs` | 13 | 13 | 0 | 0 | Argon2id, CSRF, Session, RateLimiter |
-| **Foundation & Architecture** | `tests/foundation/*.test.mjs` | 4 | 4 | 0 | 0 | Typescript strict, canonical manifest |
-| **Web Screens & Router** | `tests/web/*.test.mjs` | 27 | 27 | 0 | 0 | RBAC navigation, V0.1/V0.2 routes |
-| **Audit Endpoint Suite** | `tests/backend/audit-endpoint.test.mjs` | 8 | 8 | 0 | 0 | Port 3008, RBAC Owner-only, Cursor |
-| **Issues Endpoint Suite** | `tests/backend/issues-endpoint.test.mjs` | 25 | 25 | 0 | 0 | Concurrency, If-Match, Idempotency-Key |
-| **Work Lifecycle Suite** | `tests/backend/work-e2e.test.mjs` | 12 | 12 | 0 | 0 | Staff workflow, review, audit trail |
-| **Owner Lockout Suite** | `tests/backend/owner-self-lockout.test.mjs` | 7 | 7 | 0 | 0 | Chống tự khóa Owner, Last-Owner guard |
-| **QA Credential Suite** | `tests/backend/qa-credentials-reader.test.mjs` | 10 | 10 | 0 | 0 | Parse an toàn, không rò rỉ credential |
-| **Finance Contracts Suite**| `tests/backend/finance-*.test.mjs` | 74 | 73 | 0 | 1 | 1 test cluster deduped; P1 receipts pass |
-| **TỔNG CỘNG** | — | **270** | **269** | **0** | **1** | **Tỷ lệ đạt: 99.63% (1 skipped do thiết kế)** |
+| Bộ kiểm thử                   | Thư mục                                        | Số test | Đạt (Pass) | Lỗi (Fail) | Bỏ qua (Skip) | Ghi chú                                       |
+| :---------------------------- | :--------------------------------------------- | :-----: | :--------: | :--------: | :-----------: | :-------------------------------------------- |
+| **Backend Integration**       | `tests/backend/*.test.mjs`                     |   60    |     60     |     0      |       0       | Chạy trên `mglite_ci_test` (Port 3008)        |
+| **Database & Migration**      | `tests/database/*.test.mjs`                    |   30    |     30     |     0      |       0       | Advisory lock, Idempotency, C06 binding       |
+| **Security & Cryptography**   | `tests/security/*.test.mjs`                    |   13    |     13     |     0      |       0       | Argon2id, CSRF, Session, RateLimiter          |
+| **Foundation & Architecture** | `tests/foundation/*.test.mjs`                  |    4    |     4      |     0      |       0       | Typescript strict, canonical manifest         |
+| **Web Screens & Router**      | `tests/web/*.test.mjs`                         |   27    |     27     |     0      |       0       | RBAC navigation, V0.1/V0.2 routes             |
+| **Audit Endpoint Suite**      | `tests/backend/audit-endpoint.test.mjs`        |    8    |     8      |     0      |       0       | Port 3008, RBAC Owner-only, Cursor            |
+| **Issues Endpoint Suite**     | `tests/backend/issues-endpoint.test.mjs`       |   25    |     25     |     0      |       0       | Concurrency, If-Match, Idempotency-Key        |
+| **Work Lifecycle Suite**      | `tests/backend/work-e2e.test.mjs`              |   12    |     12     |     0      |       0       | Staff workflow, review, audit trail           |
+| **Owner Lockout Suite**       | `tests/backend/owner-self-lockout.test.mjs`    |    7    |     7      |     0      |       0       | Chống tự khóa Owner, Last-Owner guard         |
+| **QA Credential Suite**       | `tests/backend/qa-credentials-reader.test.mjs` |   10    |     10     |     0      |       0       | Parse an toàn, không rò rỉ credential         |
+| **Finance Contracts Suite**   | `tests/backend/finance-*.test.mjs`             |   74    |     73     |     0      |       1       | 1 test cluster deduped; P1 receipts pass      |
+| **TỔNG CỘNG**                 | —                                              | **270** |  **269**   |   **0**    |     **1**     | **Tỷ lệ đạt: 99.63% (1 skipped do thiết kế)** |
 
 ---
 
@@ -52,6 +54,7 @@
 Thực hiện trên máy chủ `http://127.0.0.1:3017` kết nối API `http://127.0.0.1:3018`:
 
 ### A. Phiên Owner (`admin` / `[REDACTED — OWNER ROTATION REQUIRED]`)
+
 1. **DASHBOARD (`/`):** Tải thành công, 0 lỗi chết, giao diện gọn gàng.
 2. **FIN TỔNG HỢP (`/finance`):** Hiển thị thẻ tóm tắt, số dư, dòng tiền; 0 lỗi 500.
 3. **FIN DANH MỤC (`/finance/categories`):** Hiển thị đầy đủ danh mục, 18 `ActionIconButton` (Sửa: bút chì, Ngừng dùng: nguồn đỏ, Kích hoạt: xoay xanh), có thanh phân trang Pagination.
@@ -69,6 +72,7 @@ Thực hiện trên máy chủ `http://127.0.0.1:3017` kết nối API `http://1
 15. **CÀI ĐẶT (`/settings`):** Cấu hình hệ thống và hồ sơ hoạt động bình thường.
 
 ### B. Phiên Staff (`staff` / `[REDACTED — OWNER ROTATION REQUIRED]`)
+
 1. **Màn hình được phép truy cập:**
    - `/clock` (Chấm công cá nhân): PASS
    - `/reports` (Gửi báo cáo ca): PASS

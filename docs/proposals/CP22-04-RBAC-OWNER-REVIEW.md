@@ -6,18 +6,18 @@ Ngày: 14/10/2026. Chưa bật role admin trong runtime. SQL cùng thư mục l�
 
 Chức vụ (biên tập, kỹ thuật, trưởng nhóm...) là dữ liệu nhân sự theo workspace; không tự cấp quyền hệ thống. Vai trò owner/admin/staff thuộc membership. Không suy ra admin từ tên chức vụ, email, giao diện hoặc tài khoản Windows. Không tự nâng quyền người dùng hiện có.
 
-| Nghiệp vụ | Owner | Admin đề xuất | Staff |
-|---|---|---|---|
-| Nhân sự, chức vụ | Quản lý trong workspace | Quản lý hồ sơ nghiệp vụ; không cấp quyền hoặc xem bí mật | Xem hồ sơ mình |
-| Đăng ký/sửa lịch cá nhân | Có hồ sơ nhân viên mới được đăng ký | Có hồ sơ nhân viên mới được đăng ký | Chỉ lịch mình |
-| Xem lịch nhân viên, xếp công việc vào ca đã đăng ký | Có | Có, sau khi được duyệt | Chỉ xem phần việc/lịch mình |
-| Giao việc, duyệt bài | Có | Có trong workspace | Bắt đầu/nộp việc được giao |
-| Báo cáo/chấm công | Xem và duyệt theo nghiệp vụ | Xem và duyệt theo nghiệp vụ; không tự duyệt hồ sơ mình | Chỉ dữ liệu mình |
-| Lương, thu chi, tài khoản và kho bí mật | Có theo module | Chỉ dữ liệu cá nhân; không truy cập kho bí mật | Chỉ dữ liệu cá nhân |
-| Tạo tài khoản, đổi role, khóa tài khoản, cấp quyền | Có; bảo vệ Owner cuối cùng | Không | Không |
-| Đóng bug sau xác minh fix | Chỉ Owner | Không | Không |
-| Đổi mật khẩu | Mật khẩu mình và xác minh mật khẩu cũ | Như Owner | Như Owner |
-| Quên mật khẩu | Email đã xác minh, token dùng một lần | Như Owner | Như Owner |
+| Nghiệp vụ                                           | Owner                                 | Admin đề xuất                                            | Staff                       |
+| --------------------------------------------------- | ------------------------------------- | -------------------------------------------------------- | --------------------------- |
+| Nhân sự, chức vụ                                    | Quản lý trong workspace               | Quản lý hồ sơ nghiệp vụ; không cấp quyền hoặc xem bí mật | Xem hồ sơ mình              |
+| Đăng ký/sửa lịch cá nhân                            | Có hồ sơ nhân viên mới được đăng ký   | Có hồ sơ nhân viên mới được đăng ký                      | Chỉ lịch mình               |
+| Xem lịch nhân viên, xếp công việc vào ca đã đăng ký | Có                                    | Có, sau khi được duyệt                                   | Chỉ xem phần việc/lịch mình |
+| Giao việc, duyệt bài                                | Có                                    | Có trong workspace                                       | Bắt đầu/nộp việc được giao  |
+| Báo cáo/chấm công                                   | Xem và duyệt theo nghiệp vụ           | Xem và duyệt theo nghiệp vụ; không tự duyệt hồ sơ mình   | Chỉ dữ liệu mình            |
+| Lương, thu chi, tài khoản và kho bí mật             | Có theo module                        | Chỉ dữ liệu cá nhân; không truy cập kho bí mật           | Chỉ dữ liệu cá nhân         |
+| Tạo tài khoản, đổi role, khóa tài khoản, cấp quyền  | Có; bảo vệ Owner cuối cùng            | Không                                                    | Không                       |
+| Đóng bug sau xác minh fix                           | Chỉ Owner                             | Không                                                    | Không                       |
+| Đổi mật khẩu                                        | Mật khẩu mình và xác minh mật khẩu cũ | Như Owner                                                | Như Owner                   |
+| Quên mật khẩu                                       | Email đã xác minh, token dùng một lần | Như Owner                                                | Như Owner                   |
 
 ## Dữ liệu và migration đề xuất
 

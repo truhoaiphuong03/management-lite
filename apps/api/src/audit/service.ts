@@ -55,7 +55,9 @@ export class AuditService {
     // Cursor pagination (created_at DESC, id DESC)
     if (options.cursor) {
       try {
-        const decodedStr = Buffer.from(options.cursor, 'base64url').toString('utf8');
+        const decodedStr = Buffer.from(options.cursor, 'base64url').toString(
+          'utf8',
+        );
         const decoded = JSON.parse(decodedStr);
         if (
           !decoded ||
@@ -63,7 +65,9 @@ export class AuditService {
           typeof decoded.created_at !== 'string' ||
           typeof decoded.id !== 'string' ||
           isNaN(Date.parse(decoded.created_at)) ||
-          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded.id)
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            decoded.id,
+          )
         ) {
           throw new Error('Malformed cursor payload');
         }
@@ -142,14 +146,18 @@ export class AuditService {
     if (options.action) countParams.push(options.action);
     if (options.entity_type) countParams.push(options.entity_type);
 
-    const countRes = await this.pool.query<{ total: number }>(countQuery, countParams);
+    const countRes = await this.pool.query<{ total: number }>(
+      countQuery,
+      countParams,
+    );
     const totalCount = countRes.rows[0]?.total ?? 0;
 
     const items: AuditEventData[] = rows.map((r) => ({
       id: r.id,
       workspace_id: r.workspace_id,
       actor_user_id: r.actor_user_id,
-      actor_username: r.actor_username || (r.actor_user_id ? 'User' : 'Hệ thống (System)'),
+      actor_username:
+        r.actor_username || (r.actor_user_id ? 'User' : 'Hệ thống (System)'),
       action: r.action,
       entity_type: r.entity_type,
       entity_id: r.entity_id,

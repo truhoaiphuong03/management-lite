@@ -918,10 +918,11 @@ export class PayrollService {
               const refSuffix = body.reference_note
                 ? ` - ${String(body.reference_note).trim()}`
                 : '';
-              const noteText = `Chi trả lương kỳ ${empMeta.period_month} - ${empMeta.full_name} (${empMeta.employee_code})${refSuffix}`.slice(
-                0,
-                2000,
-              );
+              const noteText =
+                `Chi trả lương kỳ ${empMeta.period_month} - ${empMeta.full_name} (${empMeta.employee_code})${refSuffix}`.slice(
+                  0,
+                  2000,
+                );
               await c.query(
                 `INSERT INTO fin_entries (
                   id, root_entry_id, workspace_id, owner_user_id, revision_number,

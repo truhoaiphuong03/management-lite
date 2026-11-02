@@ -155,4 +155,3 @@ export const AppSkeleton: React.FC<AppSkeletonProps> = ({
     />
   );
 };
-

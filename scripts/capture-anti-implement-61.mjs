@@ -8,7 +8,10 @@ import assert from 'node:assert/strict';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const root = resolve(__dirname, '..');
-const screenshotsDir = resolve(root, 'docs/handoff/ANTI-IMPLEMENT-61/screenshots');
+const screenshotsDir = resolve(
+  root,
+  'docs/handoff/ANTI-IMPLEMENT-61/screenshots',
+);
 
 mkdirSync(screenshotsDir, { recursive: true });
 
@@ -17,7 +20,9 @@ const runId = Math.random().toString(36).substring(2, 8);
 const targetUrl = loadQaEndpoint(process.env.QA_WEB_BASE);
 
 async function run() {
-  console.log('=== STARTING ANTI-IMPLEMENT-61 BROWSER MATRIX & EVIDENCE CAPTURE ===\n');
+  console.log(
+    '=== STARTING ANTI-IMPLEMENT-61 BROWSER MATRIX & EVIDENCE CAPTURE ===\n',
+  );
 
   const chrome = spawn(
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -34,9 +39,12 @@ async function run() {
   try {
     await new Promise((r) => setTimeout(r, 1500));
 
-    const newTab = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${port}/json/new?about:blank`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -47,10 +55,18 @@ async function run() {
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.method === 'Runtime.consoleAPICalled') {
-        console.log('[BROWSER CONSOLE]', msg.params.type, msg.params.args.map(a => a.value || a.description).join(' '));
+        console.log(
+          '[BROWSER CONSOLE]',
+          msg.params.type,
+          msg.params.args.map((a) => a.value || a.description).join(' '),
+        );
       }
       if (msg.method === 'Runtime.exceptionThrown') {
-        console.log('[BROWSER EXCEPTION]', msg.params.exceptionDetails.text, msg.params.exceptionDetails.exception?.description);
+        console.log(
+          '[BROWSER EXCEPTION]',
+          msg.params.exceptionDetails.text,
+          msg.params.exceptionDetails.exception?.description,
+        );
       }
       if (msg.id && callbacks.has(msg.id)) {
         const { res, rej } = callbacks.get(msg.id);
@@ -77,7 +93,7 @@ async function run() {
         throw new Error(
           r.exceptionDetails.text +
             ': ' +
-            (r.exceptionDetails.exception?.description || '')
+            (r.exceptionDetails.exception?.description || ''),
         );
       }
       return r.result?.value;
@@ -466,15 +482,22 @@ async function run() {
 
     const takeScreenshot = async (filename) => {
       const { data } = await send('Page.captureScreenshot', { format: 'png' });
-      writeFileSync(resolve(screenshotsDir, filename), Buffer.from(data, 'base64'));
+      writeFileSync(
+        resolve(screenshotsDir, filename),
+        Buffer.from(data, 'base64'),
+      );
       console.log(`Saved screenshot: ${filename}`);
     };
 
     // Assert zero horizontal overflow
     const assertNoHorizontalOverflow = async (screenName, expectedWidth) => {
-      const scrollWidth = await evaluate('document.documentElement.scrollWidth');
+      const scrollWidth = await evaluate(
+        'document.documentElement.scrollWidth',
+      );
       const innerWidth = await evaluate('window.innerWidth');
-      console.log(`[OVERFLOW ASSERT] ${screenName}: scrollWidth=${scrollWidth}, innerWidth=${innerWidth} (Expected: <= ${expectedWidth})`);
+      console.log(
+        `[OVERFLOW ASSERT] ${screenName}: scrollWidth=${scrollWidth}, innerWidth=${innerWidth} (Expected: <= ${expectedWidth})`,
+      );
       assert.ok(
         scrollWidth <= innerWidth,
         `Horizontal overflow detected on ${screenName}! scrollWidth=${scrollWidth}, innerWidth=${innerWidth}`,
@@ -492,7 +515,9 @@ async function run() {
     // ==========================================
     // 2. Desktop 1440px: Owner Disburse Modal
     // ==========================================
-    console.log('\n--- 2. Desktop 1440px: Owner Disburse Modal with Idempotency Key ---');
+    console.log(
+      '\n--- 2. Desktop 1440px: Owner Disburse Modal with Idempotency Key ---',
+    );
     // Open disburse modal for first employee
     await evaluate(`
       (() => {
@@ -515,14 +540,18 @@ async function run() {
     // ==========================================
     // 3. Desktop 1440px: Staff /my-pay
     // ==========================================
-    console.log('\n--- 3. Desktop 1440px: Staff /my-pay (Payslip rendering with employee profile) ---');
+    console.log(
+      '\n--- 3. Desktop 1440px: Staff /my-pay (Payslip rendering with employee profile) ---',
+    );
     await navigateTo('/my-pay', 'staff');
     await takeScreenshot('03_desktop_1440_staff_mypay.png');
 
     // ==========================================
     // 4. Tablet 768px: Owner Schedule
     // ==========================================
-    console.log('\n--- 4. Tablet 768px: Owner Schedule & Multi-page Selector ---');
+    console.log(
+      '\n--- 4. Tablet 768px: Owner Schedule & Multi-page Selector ---',
+    );
     await setViewport(768, 1024);
     await navigateTo('/schedule', 'owner');
     await takeScreenshot('04_tablet_768_owner_schedule.png');
@@ -537,7 +566,9 @@ async function run() {
     // ==========================================
     // 6. Mobile 390px: Owner Employees List
     // ==========================================
-    console.log('\n--- 6. Mobile 390px: Owner Employees List & Touch Targets ---');
+    console.log(
+      '\n--- 6. Mobile 390px: Owner Employees List & Touch Targets ---',
+    );
     await setViewport(390, 844);
     await navigateTo('/employees', 'owner');
     await takeScreenshot('06_mobile_390_owner_employees.png');
@@ -576,12 +607,16 @@ async function run() {
     // ==========================================
     // 10. Mobile 360px: Owner Dashboard (Verified Workspace)
     // ==========================================
-    console.log('\n--- 10. Mobile 360px: Owner Dashboard Verified Workspace & Zero Overflow ---');
+    console.log(
+      '\n--- 10. Mobile 360px: Owner Dashboard Verified Workspace & Zero Overflow ---',
+    );
     await navigateTo('/', 'owner');
     await assertNoHorizontalOverflow('Owner Dashboard 360px', 360);
     await takeScreenshot('10_mobile_360_owner_dashboard.png');
 
-    console.log('\n=== ALL 10 SCREENSHOTS CAPTURED SUCCESSFULLY WITH ZERO REGRESSIONS ===');
+    console.log(
+      '\n=== ALL 10 SCREENSHOTS CAPTURED SUCCESSFULLY WITH ZERO REGRESSIONS ===',
+    );
   } finally {
     chrome.kill();
   }

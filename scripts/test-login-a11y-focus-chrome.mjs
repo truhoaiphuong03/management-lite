@@ -20,9 +20,12 @@ async function run() {
 
   try {
     await new Promise((r) => setTimeout(r, 1500));
-    const newTab = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(targetUrl)}`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${port}/json/new?${encodeURIComponent(targetUrl)}`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -47,7 +50,11 @@ async function run() {
       });
 
     const evaluate = async (exp) => {
-      const r = await send('Runtime.evaluate', { expression: exp, returnByValue: true, awaitPromise: true });
+      const r = await send('Runtime.evaluate', {
+        expression: exp,
+        returnByValue: true,
+        awaitPromise: true,
+      });
       return r.result?.value;
     };
 
@@ -130,7 +137,9 @@ async function run() {
       })()
     `);
 
-    console.log(JSON.stringify({ emptyTest, idOnlyTest, authErrorTest }, null, 2));
+    console.log(
+      JSON.stringify({ emptyTest, idOnlyTest, authErrorTest }, null, 2),
+    );
 
     ws.close();
   } finally {

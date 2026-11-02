@@ -23,6 +23,7 @@
 ## 2. KẾT QUẢ XỬ LÝ CHI TIẾT TỪNG LỖI DO CODEX PHÁT HIỆN
 
 ### 2.1. P1: REP-003 / REP-006 — Trắng trang Báo cáo do vi phạm React Rules of Hooks
+
 - **Tài liệu Codex:** `CODEX-TO-ANTY-BATCH2-FINDINGS.md` mục "P1 REP-003 / REP-006: trắng trang Báo cáo".
 - **Triệu chứng & Tái hiện:**
   - Khi mở `/reports`, màn hình bị trắng không hiển thị bảng hoặc phân trang.
@@ -38,6 +39,7 @@
 ---
 
 ### 2.2. P2: ACC-004 — Nút Xem mật khẩu trên trang Chi tiết Tài khoản không mở Modal
+
 - **Tài liệu Codex:** `CODEX-TO-ANTY-BATCH2-FINDINGS.md` mục "P2 ACC-004: detail reveal không mở modal" & `browser-bound-anty-settings-results.json` dòng 72.
 - **Triệu chứng & Tái hiện:**
   - Khi vào chi tiết một tài khoản tại `/accounts/:id` và nhấn "Xem mật khẩu", modal Re-auth xác thực lại không xuất hiện trên màn hình.
@@ -51,6 +53,7 @@
 ---
 
 ### 2.3. P2: SET-002 — Theme chỉ lưu Preference vào localStorage, chưa áp dụng Visual Theme
+
 - **Tài liệu Codex:** `CODEX-TO-ANTY-BATCH2-FINDINGS.md` mục "P2 SET-002: theme chỉ lưu preference" & `browser-bound-anty-settings-results.json` dòng 51.
 - **Triệu chứng & Tái hiện:**
   - Khi người dùng vào Cài đặt (`/settings`) và chọn giao diện Sáng, giá trị được lưu vào `localStorage.getItem('mglite_theme')`, nhưng màu nền `document.body` và thuộc tính `colorScheme` của `document.documentElement` không hề thay đổi.
@@ -70,6 +73,7 @@
 ---
 
 ### 2.4. ATT-007: Chuẩn hóa ví dụ hợp đồng API trong Tài liệu Bàn giao
+
 - **Tài liệu Codex:** `CODEX-TO-ANTY-BATCH2-FINDINGS.md` mục "ATT-007: sửa ví dụ contract, không đổi endpoint".
 - **Nội dung đối chiếu:**
   - Codex chỉ ra rằng trong tài liệu [`docs/handoff/ANTY-API-REQUIREMENTS.md`](file:///Users/duongbinh/Projects/management-lite-ui-report/docs/handoff/ANTY-API-REQUIREMENTS.md) mục 2.1 có ghi nhầm ví dụ payload là `decision: "approved" | "rejected"` và `reviewer_notes`.
@@ -79,7 +83,7 @@
       decision, // 'accept' | 'reject'
       reason: reason.trim(),
       clock_out_at: clockOutAt,
-    })
+    });
     ```
 - **Biện pháp khắc phục (Đã hoàn tất):**
   - Cập nhật mục 2.1 trong [`docs/handoff/ANTY-API-REQUIREMENTS.md`](file:///Users/duongbinh/Projects/management-lite-ui-report/docs/handoff/ANTY-API-REQUIREMENTS.md) khớp chính xác với mã nguồn và schema backend của Codex:
@@ -95,6 +99,7 @@
 ---
 
 ### 2.5. FILE-004: Tình trạng Xác minh Google Drive Provider thật
+
 - **Tài liệu Codex:** `CODEX-TO-ANTY-BATCH2-FINDINGS.md` mục "FILE-004: provider thật chưa được xác minh".
 - **Hiện trạng Frontend:**
   - Phía UI đã tích hợp và kiểm thử đạt chuẩn 100% đối với: Giao thức kiểm tra tính sẵn sàng dọn dẹp `delete-readiness`, kiểm tra khóa đồng thời `If-Match` / `group_snapshot_hash`, và hộp thoại xác nhận 2 bước fail-closed chuẩn Google Drive Trash.
@@ -104,6 +109,7 @@
 ---
 
 ### 2.6. Build & Typecheck: Khắc phục cảnh báo TS2742 tại `apps/web/src/finance/ui.tsx:342`
+
 - **Tài liệu Codex:** `CODEX-TO-ANTY-BATCH2-FINDINGS.md` mục "Build/lock: điều kiện tích hợp".
 - **Triệu chứng:** Hàm `useFinanceMutation` suy luận kiểu trả về phức tạp có thể gây lỗi TS2742 khi trình biên dịch TypeScript chạy ở chế độ xuất file định nghĩa (`declaration: true`).
 - **Biện pháp khắc phục (Đã hoàn tất):**
@@ -132,14 +138,14 @@
 
 ## 3. TỔNG HỢP DANH MỤC LỖI ĐÃ GIẢI QUYẾT & LỖI CÒN TỒN TẠI
 
-| Mã lỗi / Hạng mục | Mức độ | Phân loại | Trạng thái | Bằng chứng kiểm thử |
-|---|:---:|---|:---:|---|
-| **REP-003 / REP-006** (Trắng trang báo cáo) | P1 | Frontend | **ĐÃ GIẢI QUYẾT** | Sửa thứ tự Hook; `test-ui-fix-45-chrome` PASS, `reports-pagination.test` (10/10 PASS) |
-| **ACC-004** (Nút xem mật khẩu không mở modal) | P2 | Frontend | **ĐÃ GIẢI QUYẾT** | Tách `renderDetailView()`; `accounts-screen.test` (6/6 PASS) |
-| **SET-002** (Theme chỉ lưu preference) | P2 | Frontend | **ĐÃ GIẢI QUYẾT** | Thêm `applyTheme()`, cập nhật root/body & CSS tokens; `settings-screen.test` (4/4 PASS) |
-| **ATT-007** (Sai ví dụ contract trong tài liệu) | Info | Tài liệu | **ĐÃ GIẢI QUYẾT** | Cập nhật `ANTY-API-REQUIREMENTS.md` mục 2.1 khớp schema backend |
-| **TS2742** (Kiểu trả về `useFinanceMutation`) | Refactor | Frontend | **ĐÃ GIẢI QUYẾT** | Thêm interface `FinanceMutationResult`; `tsc --declaration` PASS (0 error) |
-| **FILE-004** (Google Drive Provider thật) | Hold | Tích hợp | **CHỜ SANDBOX** | UI 2-step fail-closed PASS; chờ Owner cấp quyền provider thật |
+| Mã lỗi / Hạng mục                               |  Mức độ  | Phân loại |    Trạng thái     | Bằng chứng kiểm thử                                                                     |
+| ----------------------------------------------- | :------: | --------- | :---------------: | --------------------------------------------------------------------------------------- |
+| **REP-003 / REP-006** (Trắng trang báo cáo)     |    P1    | Frontend  | **ĐÃ GIẢI QUYẾT** | Sửa thứ tự Hook; `test-ui-fix-45-chrome` PASS, `reports-pagination.test` (10/10 PASS)   |
+| **ACC-004** (Nút xem mật khẩu không mở modal)   |    P2    | Frontend  | **ĐÃ GIẢI QUYẾT** | Tách `renderDetailView()`; `accounts-screen.test` (6/6 PASS)                            |
+| **SET-002** (Theme chỉ lưu preference)          |    P2    | Frontend  | **ĐÃ GIẢI QUYẾT** | Thêm `applyTheme()`, cập nhật root/body & CSS tokens; `settings-screen.test` (4/4 PASS) |
+| **ATT-007** (Sai ví dụ contract trong tài liệu) |   Info   | Tài liệu  | **ĐÃ GIẢI QUYẾT** | Cập nhật `ANTY-API-REQUIREMENTS.md` mục 2.1 khớp schema backend                         |
+| **TS2742** (Kiểu trả về `useFinanceMutation`)   | Refactor | Frontend  | **ĐÃ GIẢI QUYẾT** | Thêm interface `FinanceMutationResult`; `tsc --declaration` PASS (0 error)              |
+| **FILE-004** (Google Drive Provider thật)       |   Hold   | Tích hợp  |  **CHỜ SANDBOX**  | UI 2-step fail-closed PASS; chờ Owner cấp quyền provider thật                           |
 
 ---
 

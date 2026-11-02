@@ -36,4 +36,3 @@ test('WorkScreen search, filters, and empty search state are wired', () => {
   assert.match(src, /data-testid="work-empty-search"/);
   assert.match(src, /<ErrorState message=\{errorMessage\}/);
 });
-

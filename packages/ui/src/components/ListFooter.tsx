@@ -209,7 +209,10 @@ export const ListFooter: React.FC<ListFooterProps> = ({
                   borderRadius: '8px',
                   border: '1px solid var(--border-color)',
                   backgroundColor: 'var(--surface-hover)',
-                  color: !hasPrevPage || loading ? 'var(--muted-color)' : 'var(--text-color)',
+                  color:
+                    !hasPrevPage || loading
+                      ? 'var(--muted-color)'
+                      : 'var(--text-color)',
                   fontSize: '13px',
                   fontWeight: 600,
                   cursor: !hasPrevPage || loading ? 'not-allowed' : 'pointer',
@@ -239,7 +242,10 @@ export const ListFooter: React.FC<ListFooterProps> = ({
                   borderRadius: '8px',
                   border: '1px solid var(--border-color)',
                   backgroundColor: 'var(--surface-hover)',
-                  color: !hasNextPage || loading ? 'var(--muted-color)' : 'var(--text-color)',
+                  color:
+                    !hasNextPage || loading
+                      ? 'var(--muted-color)'
+                      : 'var(--text-color)',
                   fontSize: '13px',
                   fontWeight: 600,
                   cursor: !hasNextPage || loading ? 'not-allowed' : 'pointer',

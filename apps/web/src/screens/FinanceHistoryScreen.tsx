@@ -9,7 +9,8 @@ import {
   AppCard,
   AppBadge,
   AppSkeleton,
-  TOKENS, THEME_COLORS,
+  TOKENS,
+  THEME_COLORS,
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,
@@ -449,19 +450,22 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
               Chưa có giao dịch.
             </p>
           )}
-          {!r.loading && !r.error && rows.length > 0 && displayedRows.length === 0 && (
-            <p
-              data-testid="history-empty-search"
-              style={{
-                margin: 0,
-                padding: '28px 16px',
-                textAlign: 'center',
-                color: THEME_COLORS.muted,
-              }}
-            >
-              Không tìm thấy giao dịch nào khớp với từ khóa "{searchQuery}".
-            </p>
-          )}
+          {!r.loading &&
+            !r.error &&
+            rows.length > 0 &&
+            displayedRows.length === 0 && (
+              <p
+                data-testid="history-empty-search"
+                style={{
+                  margin: 0,
+                  padding: '28px 16px',
+                  textAlign: 'center',
+                  color: THEME_COLORS.muted,
+                }}
+              >
+                Không tìm thấy giao dịch nào khớp với từ khóa "{searchQuery}".
+              </p>
+            )}
         </div>
       </AppCard>
       <FinancePager

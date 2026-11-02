@@ -282,20 +282,20 @@ export function isLiveGoogleDriveEnabled(): boolean {
 function isLiveRefreshToken(token?: string | null): token is string {
   return Boolean(
     token &&
-      typeof token === 'string' &&
-      token.trim().length > 0 &&
-      !token.startsWith('1//mock-') &&
-      !token.startsWith('1//0g-'),
+    typeof token === 'string' &&
+    token.trim().length > 0 &&
+    !token.startsWith('1//mock-') &&
+    !token.startsWith('1//0g-'),
   );
 }
 
 function isLiveAuthorizationCode(code?: string | null): code is string {
   return Boolean(
     code &&
-      typeof code === 'string' &&
-      code.trim().length > 0 &&
-      !code.startsWith('4/0AVGzR1-') &&
-      !code.startsWith('mock-'),
+    typeof code === 'string' &&
+    code.trim().length > 0 &&
+    !code.startsWith('4/0AVGzR1-') &&
+    !code.startsWith('mock-'),
   );
 }
 
@@ -1127,7 +1127,11 @@ export class MockGoogleDriveProvider implements IStorageProvider {
 
   hasRemoteResource(providerResourceId: string): boolean {
     const folder = this.folders.get(providerResourceId);
-    if (folder && !folder.trashed && !this.trashedFolders.has(providerResourceId)) {
+    if (
+      folder &&
+      !folder.trashed &&
+      !this.trashedFolders.has(providerResourceId)
+    ) {
       return true;
     }
     const file = this.files.get(providerResourceId);
@@ -1135,7 +1139,6 @@ export class MockGoogleDriveProvider implements IStorageProvider {
     return false;
   }
 }
-
 
 export function isValidDriveUrl(driveUrl: string): boolean {
   try {

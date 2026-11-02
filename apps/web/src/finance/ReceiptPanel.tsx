@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppButton, TOKENS, THEME_COLORS } from '../../../../packages/ui/src/index.js';
+import {
+  AppButton,
+  TOKENS,
+  THEME_COLORS,
+} from '../../../../packages/ui/src/index.js';
 import {
   checkReceiptBytes,
   receiptRejectionMessage,

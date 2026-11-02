@@ -34,9 +34,12 @@ async function run() {
   try {
     await new Promise((r) => setTimeout(r, 1500));
 
-    const newTab = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${port}/json/new?about:blank`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -47,10 +50,18 @@ async function run() {
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.method === 'Runtime.consoleAPICalled') {
-        console.log('[BROWSER CONSOLE]', msg.params.type, msg.params.args.map(a => a.value || a.description).join(' '));
+        console.log(
+          '[BROWSER CONSOLE]',
+          msg.params.type,
+          msg.params.args.map((a) => a.value || a.description).join(' '),
+        );
       }
       if (msg.method === 'Runtime.exceptionThrown') {
-        console.log('[BROWSER EXCEPTION]', msg.params.exceptionDetails.text, msg.params.exceptionDetails.exception?.description);
+        console.log(
+          '[BROWSER EXCEPTION]',
+          msg.params.exceptionDetails.text,
+          msg.params.exceptionDetails.exception?.description,
+        );
       }
       if (msg.id && callbacks.has(msg.id)) {
         const { res, rej } = callbacks.get(msg.id);
@@ -77,7 +88,7 @@ async function run() {
         throw new Error(
           r.exceptionDetails.text +
             ': ' +
-            (r.exceptionDetails.exception?.description || '')
+            (r.exceptionDetails.exception?.description || ''),
         );
       }
       return r.result?.value;
@@ -294,7 +305,9 @@ async function run() {
       await evaluate(`document.cookie = 'mock_role=${role}; path=/'`);
       await send('Page.reload');
       for (let i = 0; i < 40; i++) {
-        const ready = await evaluate(`Boolean(document.querySelector('main') || document.querySelector('header'))`);
+        const ready = await evaluate(
+          `Boolean(document.querySelector('main') || document.querySelector('header'))`,
+        );
         if (ready) break;
         await new Promise((r) => setTimeout(r, 200));
       }
@@ -314,7 +327,9 @@ async function run() {
     // Initial navigation
     await send('Page.navigate', { url: targetUrl });
     for (let i = 0; i < 40; i++) {
-      const ready = await evaluate(`Boolean(document.querySelector('main') || document.querySelector('header'))`);
+      const ready = await evaluate(
+        `Boolean(document.querySelector('main') || document.querySelector('header'))`,
+      );
       if (ready) break;
       await new Promise((r) => setTimeout(r, 200));
     }
@@ -349,7 +364,9 @@ async function run() {
     await new Promise((r) => setTimeout(r, 600));
     await capture('02_desktop_1440_owner_dialog_suspend.png');
 
-    const dialogRendered = await evaluate(`Boolean(document.querySelector('[role="dialog"]'))`);
+    const dialogRendered = await evaluate(
+      `Boolean(document.querySelector('[role="dialog"]'))`,
+    );
     assert.ok(dialogRendered, 'AppDialog must be open and rendered in the DOM');
 
     // -------------------------------------------------------------
@@ -370,7 +387,9 @@ async function run() {
     await new Promise((r) => setTimeout(r, 600));
     await capture('03_desktop_1440_owner_toast_action.png');
 
-    const toastRendered = await evaluate(`Boolean(document.querySelector('[role="status"], [role="alert"]'))`);
+    const toastRendered = await evaluate(
+      `Boolean(document.querySelector('[role="status"], [role="alert"]'))`,
+    );
     assert.ok(toastRendered, 'AppToast must be visible on screen');
 
     // -------------------------------------------------------------
@@ -390,7 +409,9 @@ async function run() {
         return rect.height > 0 && rect.width > 0;
       })()
     `);
-    console.log(`[768px BREAKPOINT NOTE] Mobile bottom nav visible at 768px: ${isMobileNavVisible768}`);
+    console.log(
+      `[768px BREAKPOINT NOTE] Mobile bottom nav visible at 768px: ${isMobileNavVisible768}`,
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 5: Mobile 390px Owner at /employees
@@ -416,8 +437,13 @@ async function run() {
         return { scrollW, innerW, hasOverflow: scrollW > innerW };
       })()
     `);
-    console.log(`[360px OVERFLOW CHECK] scrollWidth=${overflow360.scrollW}, innerWidth=${overflow360.innerW}`);
-    assert.ok(!overflow360.hasOverflow, '360px viewport must have ZERO horizontal overflow');
+    console.log(
+      `[360px OVERFLOW CHECK] scrollWidth=${overflow360.scrollW}, innerWidth=${overflow360.innerW}`,
+    );
+    assert.ok(
+      !overflow360.hasOverflow,
+      '360px viewport must have ZERO horizontal overflow',
+    );
 
     // -------------------------------------------------------------
     // CAPTURE 7: Mobile 360px Owner AppDialog for Clock-Out
@@ -439,7 +465,10 @@ async function run() {
         return { scrollW, innerW, hasOverflow: scrollW > innerW };
       })()
     `);
-    assert.ok(!dialogOverflow360.hasOverflow, 'AppDialog at 360px must have ZERO horizontal overflow');
+    assert.ok(
+      !dialogOverflow360.hasOverflow,
+      'AppDialog at 360px must have ZERO horizontal overflow',
+    );
 
     // Close dialog
     await evaluate(`
@@ -484,9 +513,14 @@ async function run() {
         return { scrollW, innerW, hasOverflow: scrollW > innerW };
       })()
     `);
-    assert.ok(!staffReportsOverflow.hasOverflow, 'Staff ReportsScreen at 360px must have ZERO horizontal overflow');
+    assert.ok(
+      !staffReportsOverflow.hasOverflow,
+      'Staff ReportsScreen at 360px must have ZERO horizontal overflow',
+    );
 
-    console.log('\n🎉 ALL 10 SCREENSHOTS CAPTURED AND VIEWPORT INVARIANTS VERIFIED SUCCESSFULLY!\n');
+    console.log(
+      '\n🎉 ALL 10 SCREENSHOTS CAPTURED AND VIEWPORT INVARIANTS VERIFIED SUCCESSFULLY!\n',
+    );
   } finally {
     chrome.kill('SIGKILL');
   }

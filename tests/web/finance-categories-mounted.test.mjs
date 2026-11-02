@@ -412,10 +412,7 @@ test('FinanceCategoriesScreen: category search and empty search state filter ite
     assert.match(emptyState.textContent, /Không tìm thấy danh mục phù hợp/);
 
     // 4. Click clear search
-    const resetBtn = dom.find(
-      emptyState,
-      (n) => n.nodeName === 'BUTTON',
-    )[0];
+    const resetBtn = dom.find(emptyState, (n) => n.nodeName === 'BUTTON')[0];
     assert.ok(resetBtn, 'Must render reset button in empty search state');
     await act(async () => dom.props(resetBtn).onClick());
     await flush();
@@ -426,4 +423,3 @@ test('FinanceCategoriesScreen: category search and empty search state filter ite
     await act(async () => root.unmount());
   }
 });
-

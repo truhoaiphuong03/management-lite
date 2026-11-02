@@ -9,9 +9,8 @@ if (typeof window !== 'undefined' && !window.location) {
   window.location = { search: '', origin: 'http://localhost:3000' };
 }
 
-const { ActivateScreen } = await import(
-  '../../dist/apps/web/src/screens/ActivateScreen.js'
-);
+const { ActivateScreen } =
+  await import('../../dist/apps/web/src/screens/ActivateScreen.js');
 
 function getProps(element) {
   if (!element) return {};
@@ -48,7 +47,10 @@ test('AUTH-011: ActivateScreen token parsing, form validation, and atomic submis
   await t.test(
     'Extracts invite token from URL query params and auto-populates token field',
     async () => {
-      window.location = { search: '?token=test-invite-token-123', origin: 'http://localhost:3000' };
+      window.location = {
+        search: '?token=test-invite-token-123',
+        origin: 'http://localhost:3000',
+      };
       const { container, root, flush, cleanup } = createTestContainer();
 
       try {
@@ -155,7 +157,10 @@ test('AUTH-011: ActivateScreen token parsing, form validation, and atomic submis
   await t.test(
     'Successful activation sends POST /api/v1/auth/activate and displays success state',
     async () => {
-      window.location = { search: '?token=valid-tok-789', origin: 'http://localhost:3000' };
+      window.location = {
+        search: '?token=valid-tok-789',
+        origin: 'http://localhost:3000',
+      };
       const { container, root, flush, cleanup } = createTestContainer();
 
       let postCalledWith = null;
@@ -193,8 +198,12 @@ test('AUTH-011: ActivateScreen token parsing, form validation, and atomic submis
         const form = container.querySelector('form');
 
         await act(async () => {
-          getProps(passInput).onChange({ target: { value: 'SuperSecret@2026' } });
-          getProps(confirmInput).onChange({ target: { value: 'SuperSecret@2026' } });
+          getProps(passInput).onChange({
+            target: { value: 'SuperSecret@2026' },
+          });
+          getProps(confirmInput).onChange({
+            target: { value: 'SuperSecret@2026' },
+          });
         });
         await flush();
 
@@ -221,7 +230,10 @@ test('AUTH-011: ActivateScreen token parsing, form validation, and atomic submis
   await t.test(
     'Server error (expired token / 410) displays error message from backend',
     async () => {
-      window.location = { search: '?token=expired-tok', origin: 'http://localhost:3000' };
+      window.location = {
+        search: '?token=expired-tok',
+        origin: 'http://localhost:3000',
+      };
       const { container, root, flush, cleanup } = createTestContainer();
 
       globalThis.fetch = async () => ({
@@ -229,7 +241,9 @@ test('AUTH-011: ActivateScreen token parsing, form validation, and atomic submis
         status: 410,
         json: async () => ({
           success: false,
-          error: { message: 'Liên kết kích hoạt đã hết hạn hoặc đã được sử dụng' },
+          error: {
+            message: 'Liên kết kích hoạt đã hết hạn hoặc đã được sử dụng',
+          },
         }),
       });
 
@@ -253,7 +267,9 @@ test('AUTH-011: ActivateScreen token parsing, form validation, and atomic submis
 
         await act(async () => {
           getProps(passInput).onChange({ target: { value: 'ValidPass123' } });
-          getProps(confirmInput).onChange({ target: { value: 'ValidPass123' } });
+          getProps(confirmInput).onChange({
+            target: { value: 'ValidPass123' },
+          });
         });
         await flush();
 
@@ -276,7 +292,10 @@ test('AUTH-011: ActivateScreen token parsing, form validation, and atomic submis
   await t.test(
     'Prevents concurrent double submission using synchronous lock ref',
     async () => {
-      window.location = { search: '?token=lock-test-token', origin: 'http://localhost:3000' };
+      window.location = {
+        search: '?token=lock-test-token',
+        origin: 'http://localhost:3000',
+      };
       const { container, root, flush, cleanup } = createTestContainer();
 
       let postCount = 0;
@@ -316,8 +335,12 @@ test('AUTH-011: ActivateScreen token parsing, form validation, and atomic submis
         const form = container.querySelector('form');
 
         await act(async () => {
-          getProps(passInput).onChange({ target: { value: 'ValidPassword123' } });
-          getProps(confirmInput).onChange({ target: { value: 'ValidPassword123' } });
+          getProps(passInput).onChange({
+            target: { value: 'ValidPassword123' },
+          });
+          getProps(confirmInput).onChange({
+            target: { value: 'ValidPassword123' },
+          });
         });
         await flush();
 

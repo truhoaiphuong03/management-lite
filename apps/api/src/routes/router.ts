@@ -34,7 +34,9 @@ export interface RouteRequestContext {
   issuesService?: IssuesService | undefined;
 }
 
-export type RouteHandler = (ctx: RouteRequestContext) => Promise<boolean | void>;
+export type RouteHandler = (
+  ctx: RouteRequestContext,
+) => Promise<boolean | void>;
 
 /**
  * Fast O(1) exact-route lookup table + prefix-scoped module dispatcher.
@@ -47,11 +49,7 @@ export class RouteTable {
     handler: RouteHandler;
   }> = [];
 
-  registerExact(
-    method: string,
-    pathname: string,
-    handler: RouteHandler,
-  ): this {
+  registerExact(method: string, pathname: string, handler: RouteHandler): this {
     this.exactRoutes.set(`${method.toUpperCase()} ${pathname}`, handler);
     return this;
   }

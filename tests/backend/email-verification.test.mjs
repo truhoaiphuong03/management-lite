@@ -32,7 +32,7 @@ test('Email Verification Official Flow & Password Recovery Integration (Isolated
   const snapBefore = await pool.query(
     `SELECT id, username_normalized, email_normalized, status, email_verified, email_verified_at
      FROM users
-     WHERE email_normalized IN ('admin@management-lite.local', 'truhoaiphuong02@gmail.com')
+     WHERE email_normalized IN ('admin@management-lite.local', 'owner-dev@example.test')
      ORDER BY email_normalized`,
   );
 
@@ -94,8 +94,12 @@ test('Email Verification Official Flow & Password Recovery Integration (Isolated
       const content = String(
         payload?.textContent || payload?.htmlContent || '',
       );
-      const verifyMatch = content.match(/\/verify-email#token=([A-Za-z0-9_-]+)/);
-      const resetMatch = content.match(/\/reset-password#token=([A-Za-z0-9_-]+)/);
+      const verifyMatch = content.match(
+        /\/verify-email#token=([A-Za-z0-9_-]+)/,
+      );
+      const resetMatch = content.match(
+        /\/reset-password#token=([A-Za-z0-9_-]+)/,
+      );
 
       if (verifyMatch) {
         brevoVerificationCalls.push({
@@ -420,7 +424,7 @@ test('Email Verification Official Flow & Password Recovery Integration (Isolated
   const snapAfter = await pool.query(
     `SELECT id, username_normalized, email_normalized, status, email_verified, email_verified_at
      FROM users
-     WHERE email_normalized IN ('admin@management-lite.local', 'truhoaiphuong02@gmail.com')
+     WHERE email_normalized IN ('admin@management-lite.local', 'owner-dev@example.test')
      ORDER BY email_normalized`,
   );
   assert.deepEqual(snapAfter.rows, snapBefore.rows);

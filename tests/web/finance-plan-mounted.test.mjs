@@ -122,11 +122,17 @@ function setupMockServer() {
       });
     }
 
-    if (url.includes('/fin/plan') && (options.method === 'GET' || !options.method)) {
+    if (
+      url.includes('/fin/plan') &&
+      (options.method === 'GET' || !options.method)
+    ) {
       return ok(state.plan);
     }
 
-    if (url.includes('/categories') && (options.method === 'GET' || !options.method)) {
+    if (
+      url.includes('/categories') &&
+      (options.method === 'GET' || !options.method)
+    ) {
       const u = new URL(url, 'http://localhost');
       const dir = u.searchParams.get('direction') || 'expense';
       const items = state.categories.filter((c) => c.direction === dir);
@@ -219,7 +225,10 @@ test('FinancePlanScreen: search filtering by category name and empty search stat
       container,
       (n) => n.getAttribute('data-testid') === 'plan-empty-search',
     );
-    assert.ok(emptyStates.length > 0, 'Must render plan-empty-search on no match');
+    assert.ok(
+      emptyStates.length > 0,
+      'Must render plan-empty-search on no match',
+    );
     assert.match(emptyStates[0].textContent, /Không tìm thấy khoản/);
 
     // 3. Reset search via clear button

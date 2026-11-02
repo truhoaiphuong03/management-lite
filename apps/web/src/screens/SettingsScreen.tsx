@@ -657,7 +657,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             Hồ sơ nhân sự của tôi
           </h3>
           <p
-            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
+            style={{
+              fontSize: '13px',
+              color: 'var(--muted-color)',
+              marginBottom: '16px',
+            }}
           >
             Thông tin nhân sự gắn liền với tài khoản của bạn trong không gian
             làm việc hiện tại.
@@ -762,7 +766,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             Không gian làm việc (Workspace Context — C06)
           </h3>
           <p
-            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
+            style={{
+              fontSize: '13px',
+              color: 'var(--muted-color)',
+              marginBottom: '16px',
+            }}
           >
             Quy tắc C06: Hệ thống ràng buộc ngữ cảnh không gian làm việc duy
             nhất trong phiên; không có bộ chuyển đổi workspace tự động.
@@ -825,7 +833,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             Chỉnh sửa thông tin cá nhân
           </h3>
           <p
-            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
+            style={{
+              fontSize: '13px',
+              color: 'var(--muted-color)',
+              marginBottom: '16px',
+            }}
           >
             Cập nhật họ tên, số điện thoại và email đăng nhập. Đổi mật khẩu ở
             mục bên dưới.
@@ -1240,7 +1252,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 (profile.user?.email || '').toLowerCase() && (
                 <>
                   <div style={{ height: '12px' }} />
-                  <label style={{ fontSize: '12px', color: 'var(--warning-text)' }}>
+                  <label
+                    style={{ fontSize: '12px', color: 'var(--warning-text)' }}
+                  >
                     Mật khẩu hiện tại (bắt buộc khi đổi email — email mới sẽ cần
                     xác minh lại)
                     <input
@@ -1270,7 +1284,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   style={{
                     marginTop: '12px',
                     fontSize: '13px',
-                    color: profileMsg.type === 'error' ? 'var(--danger-text)' : 'var(--success-text)',
+                    color:
+                      profileMsg.type === 'error'
+                        ? 'var(--danger-text)'
+                        : 'var(--success-text)',
                   }}
                 >
                   {profileMsg.text}
@@ -1382,7 +1399,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   color: 'var(--muted-color)',
                 }}
               >
-                Mật khẩu hiện tại <span style={{ color: 'var(--danger-text)' }}>*</span>
+                Mật khẩu hiện tại{' '}
+                <span style={{ color: 'var(--danger-text)' }}>*</span>
               </label>
               <input
                 id="currentPassword"
@@ -1709,7 +1727,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             />
           </div>
           <p
-            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
+            style={{
+              fontSize: '13px',
+              color: 'var(--muted-color)',
+              marginBottom: '16px',
+            }}
           >
             Thông tin phát hành và môi trường hoạt động thực tế của hệ thống
             Management Lite (tự động cập nhật từ bản dựng đang chạy).
@@ -2004,7 +2026,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               />
                             )}
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: 'var(--muted-color)',
+                            }}
+                          >
                             Phát hành:{' '}
                             <strong style={{ color: 'var(--text-color)' }}>
                               {formattedDate}
@@ -2163,7 +2190,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               }}
             >
               Vai trò hiện tại của tài khoản:{' '}
-              <strong style={{ color: 'var(--info-text)', textTransform: 'uppercase' }}>
+              <strong
+                style={{
+                  color: 'var(--info-text)',
+                  textTransform: 'uppercase',
+                }}
+              >
                 {role}
               </strong>{' '}
               — Ma trận quyền hạn theo chuẩn bảo mật Workspace:
@@ -2189,7 +2221,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <strong style={{ color: 'var(--success-text)' }}>
                   👑 OWNER (Chủ sở hữu)
                 </strong>
-                <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
+                <div
+                  style={{ color: 'var(--text-secondary)', marginTop: '4px' }}
+                >
                   Toàn quyền hệ thống, Kho bí mật ACC, Thu chi, Lương, Nhật ký
                   kiểm toán & Bảo vệ Owner cuối cùng.
                 </div>
@@ -2205,7 +2239,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <strong style={{ color: 'var(--info-text)' }}>
                   🛡️ ADMIN (Quản lý vận hành)
                 </strong>
-                <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
+                <div
+                  style={{ color: 'var(--text-secondary)', marginTop: '4px' }}
+                >
                   Đề xuất chưa bật trong hệ thống hiện tại. Quyền quản lý vận
                   hành đang chờ hoàn thiện và nghiệm thu; không tự cấp quyền từ
                   chức vụ.
@@ -2222,7 +2258,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <strong style={{ color: 'var(--text-color)' }}>
                   👤 STAFF (Nhân viên)
                 </strong>
-                <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
+                <div
+                  style={{ color: 'var(--text-secondary)', marginTop: '4px' }}
+                >
                   Chấm công cá nhân, đăng ký lịch ca, nhận & nộp báo cáo công
                   việc được giao.
                 </div>
@@ -2282,7 +2320,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             Phiên làm việc & Đăng xuất
           </h3>
           <p
-            style={{ fontSize: '13px', color: 'var(--muted-color)', marginBottom: '16px' }}
+            style={{
+              fontSize: '13px',
+              color: 'var(--muted-color)',
+              marginBottom: '16px',
+            }}
           >
             Đăng xuất sẽ hủy phiên làm việc hiện tại trên máy chủ và xóa cookie
             phiên bảo mật.

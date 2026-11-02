@@ -13,8 +13,12 @@ test('PHASE21-T1: app.ts & SystemLogService expose /api/v1/system/version, log d
     'app.ts must expose GET /api/v1/system/version alias to prevent 404 warnings',
   );
   assert.ok(
-    appSrc.includes("method === 'DELETE' && pathname === '/api/v1/system/logs'") &&
-      appSrc.includes("method === 'POST' && pathname === '/api/v1/system/logs/escalate'"),
+    appSrc.includes(
+      "method === 'DELETE' && pathname === '/api/v1/system/logs'",
+    ) &&
+      appSrc.includes(
+        "method === 'POST' && pathname === '/api/v1/system/logs/escalate'",
+      ),
     'app.ts must register DELETE /api/v1/system/logs and POST /api/v1/system/logs/escalate',
   );
 
@@ -52,7 +56,7 @@ test('PHASE21-T3: DashboardScreen surfaces proactive system error alert in Actio
   const src = read('apps/web/src/screens/DashboardScreen.tsx');
   assert.ok(
     src.includes("fetch('/api/v1/system/logs/summary?hours=24'") &&
-      src.includes('if (role !== \'owner\') return;') &&
+      src.includes("if (role !== 'owner') return;") &&
       src.includes('data-testid="action-center-system-errors"'),
     'DashboardScreen must poll 24h system log summary for Owner and render action-center-system-errors alert',
   );
@@ -92,10 +96,9 @@ test('PHASE21-T5: SystemLogService.escalate has valid SQL quotes & migration 003
   )
     .replace(/\r\n/g, '\n')
     .trim();
-  const catalogSrc = read('packages/database/src/migrations/catalog.ts').replace(
-    /\r\n/g,
-    '\n',
-  );
+  const catalogSrc = read(
+    'packages/database/src/migrations/catalog.ts',
+  ).replace(/\r\n/g, '\n');
   assert.ok(
     catalogSrc.includes(sql0031),
     '0031_accounts_ecosystem_hierarchy.sql must match catalog.ts byte-for-byte',

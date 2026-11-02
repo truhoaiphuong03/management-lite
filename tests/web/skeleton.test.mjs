@@ -91,8 +91,8 @@ test('AppSkeleton: verifies skeleton-shimmer keyframes and prefers-reduced-motio
     'AppSkeleton must query prefers-reduced-motion',
   );
   assert.ok(
-    skeletonSrc.includes("? 'none'") && skeletonSrc.includes('skeleton-shimmer 1.6s ease-in-out infinite'),
+    skeletonSrc.includes("? 'none'") &&
+      skeletonSrc.includes('skeleton-shimmer 1.6s ease-in-out infinite'),
     'AppSkeleton must disable animation when prefersReducedMotion is true',
   );
 });
-

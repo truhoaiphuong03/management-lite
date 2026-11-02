@@ -5,7 +5,8 @@ import {
   AppButton,
   AppToast,
   Pagination,
-  TOKENS, THEME_COLORS,
+  TOKENS,
+  THEME_COLORS,
   PAGINATION_PAGE_SIZES,
   pageCount as sharedPageCount,
   clampPage,
@@ -350,7 +351,9 @@ export interface FinanceMutationResult {
     method: 'POST' | 'PATCH',
     payload: Record<string, unknown>,
     version?: number | null,
-  ) => Promise<FinanceCategoryData | FinanceEntryData | FinancePlanItemData | null>;
+  ) => Promise<
+    FinanceCategoryData | FinanceEntryData | FinancePlanItemData | null
+  >;
 }
 
 export function useFinanceMutation(

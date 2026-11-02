@@ -283,12 +283,7 @@ export async function handleStorageRoutes(
   const subSubAction = storageRouteMatch[4];
 
   // 1. GET /api/v1/storage/folders
-  if (
-    resource === 'folders' &&
-    !resourceId &&
-    !subAction &&
-    method === 'GET'
-  ) {
+  if (resource === 'folders' && !resourceId && !subAction && method === 'GET') {
     const urlObj = new URL(req.url ?? '/', 'http://127.0.0.1');
     const folderType = urlObj.searchParams.get('folder_type') ?? undefined;
     const parentFolderId =
@@ -343,12 +338,7 @@ export async function handleStorageRoutes(
   }
 
   // 3. GET /api/v1/storage/folders/:id
-  if (
-    resource === 'folders' &&
-    resourceId &&
-    !subAction &&
-    method === 'GET'
-  ) {
+  if (resource === 'folders' && resourceId && !subAction && method === 'GET') {
     const { folder, etag } = await storageService.getFolder(
       sessionContext,
       resourceId,

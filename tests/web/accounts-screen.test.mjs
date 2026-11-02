@@ -615,7 +615,9 @@ test('Mounted ACC: Close modal while pending aborts request and discards respons
       'Closing modal must abort pending request',
     );
     await act(async () =>
-      s.pending.resolve(responseHelper({ secret_value: 'secret-closed-modal' })),
+      s.pending.resolve(
+        responseHelper({ secret_value: 'secret-closed-modal' }),
+      ),
     );
     await s.task();
     await tickHelper();
@@ -633,7 +635,9 @@ test('Mounted ACC: Close modal while pending aborts request and discards respons
 test('Mounted ACC: Escape aborts pending reveal and a reopened modal remains usable', async () => {
   const s = await setupMountedAccountsScreen();
   try {
-    await act(async () => window.dispatchEvent({ type: 'keydown', key: 'Escape' }));
+    await act(async () =>
+      window.dispatchEvent({ type: 'keydown', key: 'Escape' }),
+    );
     assert.equal(s.signal().aborted, true, 'Escape must abort request');
     await act(async () =>
       s.pending.resolve(responseHelper({ secret_value: 'secret-escape' })),
@@ -680,7 +684,9 @@ test('Mounted ACC: Superseded request ignores older response', async () => {
   const s = await setupMountedAccountsScreen();
   try {
     // Escape and reopen modal
-    await act(async () => window.dispatchEvent({ type: 'keydown', key: 'Escape' }));
+    await act(async () =>
+      window.dispatchEvent({ type: 'keydown', key: 'Escape' }),
+    );
     const btn = s.dom.find(
       s.c,
       (n) => n.nodeName === 'BUTTON' && n.textContent.includes('Xem pass'),
@@ -689,7 +695,9 @@ test('Mounted ACC: Superseded request ignores older response', async () => {
 
     // Resolve old generation 1 promise
     await act(async () =>
-      s.pending.resolve(responseHelper({ secret_value: 'superseded-old-secret' })),
+      s.pending.resolve(
+        responseHelper({ secret_value: 'superseded-old-secret' }),
+      ),
     );
     await s.task();
     await tickHelper();
@@ -707,7 +715,11 @@ test('Mounted ACC: Superseded request ignores older response', async () => {
 test('Mounted ACC: Unmount while reveal pending aborts controller cleanly', async () => {
   const s = await setupMountedAccountsScreen();
   await act(async () => s.root.unmount());
-  assert.equal(s.signal().aborted, true, 'Unmounting must abort in-flight reveal');
+  assert.equal(
+    s.signal().aborted,
+    true,
+    'Unmounting must abort in-flight reveal',
+  );
 });
 
 test('Mounted ACC: Navigation triggers onNavigate and cleans up modal state', async () => {
@@ -753,14 +765,20 @@ test('Mounted ACC: Open modal A -> request pending -> open modal B -> response A
       return {
         ok: true,
         status: 200,
-        json: async () => ({ success: true, data: { reauth_proof: 'proof-1' } }),
+        json: async () => ({
+          success: true,
+          data: { reauth_proof: 'proof-1' },
+        }),
       };
     if (url.includes('/accounts/a1/secrets/reveal')) return pendingA;
     if (url.includes('/accounts/a2/secrets/reveal'))
       return {
         ok: true,
         status: 200,
-        json: async () => ({ success: true, data: { secret_value: 'secret-b' } }),
+        json: async () => ({
+          success: true,
+          data: { secret_value: 'secret-b' },
+        }),
       };
     return {
       ok: true,
@@ -879,19 +897,28 @@ test('Mounted ACC: Switching accountId purges revealed secret and prevents cross
       return {
         ok: true,
         status: 200,
-        json: async () => ({ success: true, data: { reauth_proof: 'proof-1' } }),
+        json: async () => ({
+          success: true,
+          data: { reauth_proof: 'proof-1' },
+        }),
       };
     if (url.includes('/accounts/a1/secrets/reveal'))
       return {
         ok: true,
         status: 200,
-        json: async () => ({ success: true, data: { secret_value: 'secret-a1-sensitive' } }),
+        json: async () => ({
+          success: true,
+          data: { secret_value: 'secret-a1-sensitive' },
+        }),
       };
     if (url.includes('/accounts/a2/secrets/reveal'))
       return {
         ok: true,
         status: 200,
-        json: async () => ({ success: true, data: { secret_value: 'secret-a2-sensitive' } }),
+        json: async () => ({
+          success: true,
+          data: { secret_value: 'secret-a2-sensitive' },
+        }),
       };
     if (url.includes('/accounts/a1'))
       return {
@@ -953,7 +980,10 @@ test('Mounted ACC: Switching accountId purges revealed secret and prevents cross
       c,
       (n) => n.nodeName === 'BUTTON' && n.textContent.includes('Xem mật khẩu'),
     );
-    assert.ok(revealBtns.length > 0, 'Must have Xem mật khẩu button in detail view');
+    assert.ok(
+      revealBtns.length > 0,
+      'Must have Xem mật khẩu button in detail view',
+    );
     await reactAct(async () => dom.props(revealBtns[0]).onClick());
     await tickHelper();
 
@@ -1063,7 +1093,6 @@ test('ACC-ENHANCED-01: AccountsScreen supports recovery_email, account_group, as
   );
 });
 
-
 test('Phase 20 (v0.6.0): 4-Tier Account Ecosystem, 360° Bidirectional Lookup, Phone/Gmail Clusters, and Live 6-Digit TOTP', async () => {
   const {
     filterAccounts360,
@@ -1155,7 +1184,10 @@ test('Phase 20 (v0.6.0): 4-Tier Account Ecosystem, 360° Bidirectional Lookup, P
   assert.ok(foundIds.has('ytb-1'), 'Must discover sibling YouTube');
   assert.ok(foundIds.has('auth-1'), 'Must discover linked GG Authenticator');
   assert.ok(foundIds.has('rec-1'), 'Must discover linked Recovery account');
-  assert.ok(foundIds.has('gmail-2'), 'Must discover sibling Gmail on same phone');
+  assert.ok(
+    foundIds.has('gmail-2'),
+    'Must discover sibling Gmail on same phone',
+  );
 
   // 2. Forward Lookup: Search by Gmail -> finds Gmail + all child TikTok/FB/YTB + Authenticator + Recovery
   const resFromGmail = filterAccounts360(sampleAccounts, 'shop_main@gmail.com');

@@ -166,14 +166,15 @@ switch ($Action) {
         $outDir = "$Root\work\$run"
         New-Item -ItemType Directory -Force $outDir | Out-Null
         $env:PATH = "$Root\runtime\node;$env:PATH"
-        # Tests that must NOT run here (reported as BLOCKED, never executed):
-        #  - the *endpoint / staging-session tests need a running isolated QA API+web (QA_API_BASE / QA_WEB_BASE) = staging (Wave 2B).
-        $blocked = @{
-            'audit-endpoint.test.mjs' = 'BLOCKED: needs QA_API_BASE/QA_WEB_BASE (staging)'
-            'issues-endpoint.test.mjs' = 'BLOCKED: needs QA_API_BASE/QA_WEB_BASE (staging)'
-            'reports-endpoint.test.mjs' = 'BLOCKED: needs QA_API_BASE/QA_WEB_BASE (staging)'
-            'unified-staging-session.test.mjs' = 'BLOCKED: needs QA_API_BASE/QA_WEB_BASE (staging)'
-        }
+        $pgDataDir = (Psql 'postgres' "show data_directory" | Select-Object -First 1).Trim()
+        $pgSocketDir = (Psql 'postgres' "show unix_socket_directories" | Select-Object -First 1).Trim()
+        # Endpoint / staging-session tests that run against an isolated ephemeral QA API+Web stack backed by the per-file test DB:
+        $qaStackTests = @(
+            'audit-endpoint.test.mjs',
+            'issues-endpoint.test.mjs',
+            'reports-endpoint.test.mjs',
+            'unified-staging-session.test.mjs'
+        )
         # Suites that expect an already migrated database (CI list + the ones that failed with "relation does not exist")
         $premigrated = @('att-mvp.test.mjs', 'rep-mvp.test.mjs', 'work.test.mjs', 'schedule.test.mjs', 'acc-e2e.test.mjs', 'comprehensive-business-e2e.test.mjs', 'privileged-script-safety.test.mjs', 'recover-owner-access.test.mjs')
         New-Item -ItemType Directory -Force "$RepoPath\.local" | Out-Null
@@ -197,10 +198,6 @@ try { await runMigrations(pool, loadMigrationFiles('packages/database/src/migrat
             foreach ($file in $files) {
                 $i++
                 $tag = ('{0:D3}' -f $i)
-                if ($blocked.ContainsKey($file.Name)) {
-                    $summary.Add([pscustomobject]@{ file = "$($file.Directory.Name)/$($file.Name)"; exit = 'BLOCKED'; tests = 0; pass = 0; fail = 0; skipped = 0; secs = 0; log = $blocked[$file.Name] })
-                    continue
-                }
                 $db1 = "management_lite_test_$tag"
                 $db2 = "fin_qa_$tag"
                 Psql 'postgres' "drop database if exists $db1 with (force)" | Out-Null
@@ -212,6 +209,11 @@ try { await runMigrations(pool, loadMigrationFiles('packages/database/src/migrat
                 $env:CONFIRM_ISOLATED_TEST_DB = 'true'
                 $env:FIN_QA_DATABASE_URL = "postgresql://ml_test_admin:$pw@127.0.0.1:$Port/$db2"
                 $env:FIN_QA_CONFIRM_ISOLATED = 'yes'
+                $env:FIN_TEST_DATABASE_URL = $env:FIN_QA_DATABASE_URL
+                $env:FIN_TEST_PORT = "$Port"
+                $env:FIN_TEST_DATABASE = $db2
+                $env:FIN_TEST_DATA_DIRECTORY = $pgDataDir
+                $env:FIN_TEST_SOCKET = $pgSocketDir
                 $env:VERIFY_QA_SYSTEM_IDENTIFIER = $liveId
                 $env:FIN_TEST_SYSTEM_IDENTIFIER = $liveId
                 $env:DATABASE_URL = "postgresql://ml_test_admin:$pw@127.0.0.1:$Port/$sentinel"
@@ -226,15 +228,28 @@ try { await runMigrations(pool, loadMigrationFiles('packages/database/src/migrat
                     Remove-Item Env:MIG_URL -ErrorAction SilentlyContinue
                     if ($migCode -ne 0) { Write-Host "warn: premigration failed for $($file.Name)" }
                 }
+                if ($file.Name -eq 'finance-endpoint.test.mjs') {
+                    $env:MIG_URL = $env:FIN_TEST_DATABASE_URL
+                    $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+                    & $NodeExe $migScript 2>&1 | Out-Null
+                    $ErrorActionPreference = $prevEap
+                    Remove-Item Env:MIG_URL -ErrorAction SilentlyContinue
+                }
                 $log = "$outDir\$tag-$($file.BaseName).log"
                 $sw = [Diagnostics.Stopwatch]::StartNew()
-                & $NodeExe --test $file.FullName *> $log
+                $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+                if ($qaStackTests -contains $file.Name) {
+                    & $NodeExe "$RepoPath\scripts\test-env\run-with-isolated-qa-stack.mjs" $file.FullName *> $log
+                } else {
+                    & $NodeExe --test $file.FullName *> $log
+                }
                 $code = $LASTEXITCODE
+                $ErrorActionPreference = $prevEap
                 $sw.Stop()
                 $txt = Get-Content -LiteralPath $log -Raw
                 $get = { param($k) $mm = [regex]::Match($txt, "(?m)^#\s+$k\s+(\d+)"); if ($mm.Success) { [int]$mm.Groups[1].Value } else { $mm2 = [regex]::Match($txt, "(?m)^\S\s$k\s+(\d+)"); if ($mm2.Success) { [int]$mm2.Groups[1].Value } else { -1 } } }
                 $summary.Add([pscustomobject]@{ file = "$($file.Directory.Name)/$($file.Name)"; exit = $code; tests = (& $get 'tests'); pass = (& $get 'pass'); fail = (& $get 'fail'); skipped = (& $get 'skipped'); secs = [math]::Round($sw.Elapsed.TotalSeconds, 1); log = $log })
-                foreach ($n in 'TEST_DATABASE_URL', 'CONFIRM_ISOLATED_TEST_DB', 'FIN_QA_DATABASE_URL', 'FIN_QA_CONFIRM_ISOLATED', 'VERIFY_QA_SYSTEM_IDENTIFIER', 'FIN_TEST_SYSTEM_IDENTIFIER', 'NODE_ENV', 'DATABASE_URL', 'ACCOUNT_SECRET_KEY') { Remove-Item "Env:$n" -ErrorAction SilentlyContinue }
+                foreach ($n in 'TEST_DATABASE_URL', 'CONFIRM_ISOLATED_TEST_DB', 'FIN_QA_DATABASE_URL', 'FIN_QA_CONFIRM_ISOLATED', 'FIN_TEST_DATABASE_URL', 'FIN_TEST_PORT', 'FIN_TEST_DATABASE', 'FIN_TEST_DATA_DIRECTORY', 'FIN_TEST_SOCKET', 'VERIFY_QA_SYSTEM_IDENTIFIER', 'FIN_TEST_SYSTEM_IDENTIFIER', 'NODE_ENV', 'DATABASE_URL', 'ACCOUNT_SECRET_KEY') { Remove-Item "Env:$n" -ErrorAction SilentlyContinue }
                 foreach ($db in @($db1, $db2)) { try { Psql 'postgres' "drop database if exists $db with (force)" | Out-Null } catch { Write-Host "warn: could not drop $db" } }
             }
         } finally { Pop-Location }

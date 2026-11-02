@@ -4,9 +4,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import pg from 'pg';
 
-const DATABASE_URL =
-  process.env.TEST_DATABASE_URL ||
-  process.env.DATABASE_URL;
+const DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
   throw new Error(
@@ -115,8 +113,12 @@ async function runBrowserE2E() {
     console.log(`✓ Navigated to Forgot Password screen: "${screenTitle}"`);
 
     // Step 2a: Test direct navigation to /forgot-password URL
-    console.log('Step 2a: Navigating directly to http://127.0.0.1:3001/forgot-password...');
-    await send('Page.navigate', { url: 'http://127.0.0.1:3001/forgot-password' });
+    console.log(
+      'Step 2a: Navigating directly to http://127.0.0.1:3001/forgot-password...',
+    );
+    await send('Page.navigate', {
+      url: 'http://127.0.0.1:3001/forgot-password',
+    });
     await new Promise((r) => setTimeout(r, 1200));
 
     // Step 2b: Verify email field is strictly EMPTY by default, has correct placeholder, and no auto-filled admin email
@@ -128,31 +130,53 @@ async function runBrowserE2E() {
         autoComplete: input ? input.getAttribute('autocomplete') : null,
       };
     `);
-    assert.equal(initialEmailState.value, '', 'Forgot password email input MUST be strictly empty on initial render');
-    assert.equal(initialEmailState.placeholder, 'Nhập email đã đăng ký', 'Placeholder must strictly be "Nhập email đã đăng ký"');
-    assert.ok(!initialEmailState.placeholder.includes('@'), 'Placeholder must NOT contain any email address');
-    assert.equal(initialEmailState.autoComplete, 'off', 'Autocomplete must be set to off');
-    console.log('✓ Verified: Email field is strictly empty, placeholder is generic, and autocomplete is off.');
+    assert.equal(
+      initialEmailState.value,
+      '',
+      'Forgot password email input MUST be strictly empty on initial render',
+    );
+    assert.equal(
+      initialEmailState.placeholder,
+      'Nhập email đã đăng ký',
+      'Placeholder must strictly be "Nhập email đã đăng ký"',
+    );
+    assert.ok(
+      !initialEmailState.placeholder.includes('@'),
+      'Placeholder must NOT contain any email address',
+    );
+    assert.equal(
+      initialEmailState.autoComplete,
+      'off',
+      'Autocomplete must be set to off',
+    );
+    console.log(
+      '✓ Verified: Email field is strictly empty, placeholder is generic, and autocomplete is off.',
+    );
 
     // Step 2c: Verify empty submission fails with validation message
-    console.log('Step 2c: Submitting form with empty email to verify manual entry is required...');
+    console.log(
+      'Step 2c: Submitting form with empty email to verify manual entry is required...',
+    );
     await evalJs(`
       const submitBtn = Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Gửi yêu cầu khôi phục'));
       if (submitBtn) submitBtn.click();
     `);
     await new Promise((r) => setTimeout(r, 500));
     const validationError = await evalJs('return document.body.innerText;');
-    assert.ok(validationError.includes('Vui lòng nhập địa chỉ email.'), 'Validation error must appear on empty submit');
-    console.log('✓ Verified: Empty submit prevented, user must explicitly enter email.');
+    assert.ok(
+      validationError.includes('Vui lòng nhập địa chỉ email.'),
+      'Validation error must appear on empty submit',
+    );
+    console.log(
+      '✓ Verified: Empty submit prevented, user must explicitly enter email.',
+    );
 
     // Step 3: Fill Admin Email manually
-    console.log(
-      'Step 3: User manually enters admin email into email input...',
-    );
+    console.log('Step 3: User manually enters admin email into email input...');
     await evalJs(`
       const input = document.getElementById('forgot-email-input');
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-      setter.call(input, 'truhoaiphuong02@gmail.com');
+      setter.call(input, 'admin-reset@example.test');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     `);
 
@@ -201,7 +225,10 @@ async function runBrowserE2E() {
     const adminUserId = userRes.rows[0].id;
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     await pool.query(
@@ -211,7 +238,9 @@ async function runBrowserE2E() {
     );
     await pool.end();
 
-    console.log('Navigating to /reset-password with verified test fixture token...');
+    console.log(
+      'Navigating to /reset-password with verified test fixture token...',
+    );
     await send('Page.navigate', {
       url: `http://127.0.0.1:3001/reset-password?token=${resetToken}`,
     });

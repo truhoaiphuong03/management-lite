@@ -54,7 +54,10 @@ const contractsVersionPath = path.join(
   'packages/contracts/src/version.ts',
 );
 
-if (process.argv.includes('--sync-contracts') && fs.existsSync(contractsVersionPath)) {
+if (
+  process.argv.includes('--sync-contracts') &&
+  fs.existsSync(contractsVersionPath)
+) {
   let content = fs.readFileSync(contractsVersionPath, 'utf8');
   content = content.replace(
     /export const SYSTEM_VERSION = '[^']+';/,

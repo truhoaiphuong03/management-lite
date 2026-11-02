@@ -1,43 +1,43 @@
 ﻿{
-    "label":  "snapshot",
-    "at":  "2026-11-02T06:06:17",
-    "web_dist":  {
-                     "files":  989,
-                     "newest":  "2026-11-01T19:00:59",
-                     "listing_sha":  "9A7FA926A3517830"
-                 },
-    "api_dist":  {
-                     "files":  331,
-                     "newest":  "2026-11-01T19:00:47",
-                     "listing_sha":  "AEF81FC7AD4263C0"
-                 },
-    "release_files":  {
-                          "api_rv_sha":  "8ee37a2",
-                          "deploy_history_lines":  857,
-                          "deploy_history_mtime":  "2026-11-01T18:28:43",
-                          "live_sha_mtime":  "2026-11-01T18:28:43"
-                      },
-    "prod_db":  {
-                    "postmaster_pid":  "5656",
-                    "port":  "55432",
-                    "start_epoch":  "1793356181",
-                    "listener_pid_55432":  5656,
-                    "data_dir_top_mtime":  "2026-11-02T00:00:02"
-                },
-    "listening":  "3000,3001,3002,55432",
-    "listener_pids":  "3001:36112 3002:30436 55432:5656",
-    "backups":  {
-                    "newest_dump":  "postgres-20261101T200002Z-6c93d0e6be3148a9a341ee5ac87b7815.dump",
-                    "dumps":  46
-                },
-    "api_env_mtime":  "2026-10-30T19:35:28",
-    "release_gate_dir_mtime":  "2026-10-16T22:30:22",
-    "acl_dist_sha":  "97753418A7B25384",
-    "git":  {
-                "main":  "5806bdf",
-                "head":  "5806bdf",
-                "origin_main":  "d5693ef",
-                "dirty":  0,
-                "hooks":  0
-            }
+  "label": "snapshot",
+  "at": "2026-11-02T06:06:17",
+  "web_dist": {
+    "files": 989,
+    "newest": "2026-11-01T19:00:59",
+    "listing_sha": "9A7FA926A3517830"
+  },
+  "api_dist": {
+    "files": 331,
+    "newest": "2026-11-01T19:00:47",
+    "listing_sha": "AEF81FC7AD4263C0"
+  },
+  "release_files": {
+    "api_rv_sha": "8ee37a2",
+    "deploy_history_lines": 857,
+    "deploy_history_mtime": "2026-11-01T18:28:43",
+    "live_sha_mtime": "2026-11-01T18:28:43"
+  },
+  "prod_db": {
+    "postmaster_pid": "5656",
+    "port": "55432",
+    "start_epoch": "1793356181",
+    "listener_pid_55432": 5656,
+    "data_dir_top_mtime": "2026-11-02T00:00:02"
+  },
+  "listening": "3000,3001,3002,55432",
+  "listener_pids": "3001:36112 3002:30436 55432:5656",
+  "backups": {
+    "newest_dump": "postgres-20261101T200002Z-6c93d0e6be3148a9a341ee5ac87b7815.dump",
+    "dumps": 46
+  },
+  "api_env_mtime": "2026-10-30T19:35:28",
+  "release_gate_dir_mtime": "2026-10-16T22:30:22",
+  "acl_dist_sha": "97753418A7B25384",
+  "git": {
+    "main": "5806bdf",
+    "head": "5806bdf",
+    "origin_main": "d5693ef",
+    "dirty": 0,
+    "hooks": 0
+  }
 }

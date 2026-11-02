@@ -14,11 +14,11 @@ CPU snapshot đầu đợt còn 66,18% idle; RAM khoảng 15 GB dùng, 319 MB un
 
 **OPEN — P1: secret còn trong DOM quá thời hạn khi callback timer bị throttling.** Source `apps/web/src/screens/AccountsScreen.tsx:251` giảm countdown một đơn vị trên mỗi callback `setInterval(1000)` và khởi tạo lại effect theo countdown. Không tính deadline theo thời gian thực. Khi callback chậm, thời gian hiển thị bị kéo dài.
 
-| Ca ACC tập trung | Quan sát tại mốc gốc | Callback | Secret trong DOM | Kết quả |
-|---|---|---:|---|---|
-| Foreground | 31,007 giây, visible | 30 | Không | 8 PASS / 0 FAIL |
-| Background thật, kích hoạt tab trống khác | 31,003 giây, hidden | 15 | Có, countdown 15s | 7 PASS / 1 assertion FAIL |
-| Renderer pause 2,2 giây rồi resume | 31,005 giây, visible | 29 | Có, countdown 1s | 7 PASS / 1 assertion FAIL |
+| Ca ACC tập trung                          | Quan sát tại mốc gốc | Callback | Secret trong DOM  | Kết quả                   |
+| ----------------------------------------- | -------------------- | -------: | ----------------- | ------------------------- |
+| Foreground                                | 31,007 giây, visible |       30 | Không             | 8 PASS / 0 FAIL           |
+| Background thật, kích hoạt tab trống khác | 31,003 giây, hidden  |       15 | Có, countdown 15s | 7 PASS / 1 assertion FAIL |
+| Renderer pause 2,2 giây rồi resume        | 31,005 giây, visible |       29 | Có, countdown 1s  | 7 PASS / 1 assertion FAIL |
 
 Không tăng mốc chờ 31 giây của test cũ. Background trace ghi toàn bộ 15 callback ở trạng thái hidden, callback cách lịch hẹn tối đa 1993 ms. Ca pause dùng CDP Debugger pause/resume, không tạo busy loop hoặc sửa timer ứng dụng.
 

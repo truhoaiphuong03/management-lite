@@ -24,20 +24,20 @@ PAY tính seconds trước, approved_worked_minutes hiển thị floor; không d
 
 VERIFIED ghi rõ chiều bằng chứng; WAITING_FOR_UI không phải toàn chức năng PASS. IMPLEMENTED chỉ phần code đã có. BLOCKED không được đổi thành SKIP/PASS. API có prefix `/api/v1`.
 
-|ID|API/phạm vi|Backend|Nghiệm thu hiện tại|Bằng chứng / giới hạn|
-|---|---|---|---|---|
-|ATT-007|POST /attendance/shifts/:id/correction-requests; POST /attendance/correction-requests/:id/decide|VERIFIED|WAITING_FOR_UI|Staff request browser→API→DB1pending PASS; Staff decide403; claimed end sai400/rollback; accept200/snapshot6000s. Owner decision UI chưa chạy đủ; handoff payload docs400.|
-|ATT-010|GET /attendance/me; correction decide; payroll computation|VERIFIED|WAITING_FOR_UI|23:30→01:30 VN qua tháng, unpaid break20phút,6000s; immutable version UPDATE/DELETE reject. UI overnight badge/filters chưa chạy thực tế.|
-|PAY-003|GET /payroll/periods/:month/me|VERIFIED|VERIFIED (subset UI)|Staff own payslip API và browser render PASS. Chưa đủ mọi trạng thái trống/error/device.|
-|PAY-004|GET /payroll/periods/:month/me|VERIFIED|VERIFIED (subset E2E)|Owner403; formerStaff frozen history403; staleStaff context401; Owner dashboard không có personal payslip, browser PASS.|
-|PAY-005|GET /payroll/periods/:month; GET .../me|VERIFIED|WAITING_FOR_UI|Approved seconds/rates/rounding QA PASS; browser approved-hours có mặt. Chưa đối chiếu hết số tiền hiển thị với DB bằng browser.|
-|PAY-006|POST /payroll/periods/:month/adjustments|VERIFIED|WAITING_FOR_UI|paid_leave only, required date/amount/reason; unsupported kind400, stale If-Match rejected, finalized immutable. UI write flow chưa chạy.|
-|PAY-007|POST /payroll/periods/:month/finalize; POST /payroll/items/:id/disbursements|VERIFIED|WAITING_FOR_UI|Rollback/replay/mismatch, concurrent finalize1completion, concurrent payments/overpayment guards PASS; browser finalize/payment chưa chạy.|
-|REP-003|POST /reports/daily/:id/revisions; GET .../revisions|VERIFIED|WAITING_FOR_UI|Required reason, Staff own/Owner permissions, version/If-Match, immutable history backend QA PASS. Frontend fails load before revision flow.|
-|AUTH-006|GET /auth/me and authenticated endpoints|VERIFIED|VERIFIED (subset E2E)|Idle/absolute expired401, last_seen unchanged; browser expiredQA session→/login PASS.|
-|AUTH-010|POST /auth/login; global identity lookup|VERIFIED|WAITING_FOR_UI|RealDB case-insensitive username/email cross-namespace collision401/no session; registration/login error UI chưa thử riêng.|
-|FILE-004|Storage delete-readiness/trash request/confirm|IMPLEMENTED (mock)|BLOCKED|Mock protocol/RBAC/stale snapshot/idempotency QA PASS; no real GoogleDriveProvider adapter or authorized sandbox execution. Không công nhận provider thật.|
-|AUDIT-005|GET /audit; audit_events write guards|VERIFIED|VERIFIED (backend/DB)|Owner-only query/sanitization/cursor QA8PASS; migration18 restores missing guard, old rows unchanged, rollback/replay, parallel UPDATE+DELETE rejected, parallel append succeeds.|
+| ID        | API/phạm vi                                                                                      | Backend            | Nghiệm thu hiện tại   | Bằng chứng / giới hạn                                                                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------ | ------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ATT-007   | POST /attendance/shifts/:id/correction-requests; POST /attendance/correction-requests/:id/decide | VERIFIED           | WAITING_FOR_UI        | Staff request browser→API→DB1pending PASS; Staff decide403; claimed end sai400/rollback; accept200/snapshot6000s. Owner decision UI chưa chạy đủ; handoff payload docs400.        |
+| ATT-010   | GET /attendance/me; correction decide; payroll computation                                       | VERIFIED           | WAITING_FOR_UI        | 23:30→01:30 VN qua tháng, unpaid break20phút,6000s; immutable version UPDATE/DELETE reject. UI overnight badge/filters chưa chạy thực tế.                                         |
+| PAY-003   | GET /payroll/periods/:month/me                                                                   | VERIFIED           | VERIFIED (subset UI)  | Staff own payslip API và browser render PASS. Chưa đủ mọi trạng thái trống/error/device.                                                                                          |
+| PAY-004   | GET /payroll/periods/:month/me                                                                   | VERIFIED           | VERIFIED (subset E2E) | Owner403; formerStaff frozen history403; staleStaff context401; Owner dashboard không có personal payslip, browser PASS.                                                          |
+| PAY-005   | GET /payroll/periods/:month; GET .../me                                                          | VERIFIED           | WAITING_FOR_UI        | Approved seconds/rates/rounding QA PASS; browser approved-hours có mặt. Chưa đối chiếu hết số tiền hiển thị với DB bằng browser.                                                  |
+| PAY-006   | POST /payroll/periods/:month/adjustments                                                         | VERIFIED           | WAITING_FOR_UI        | paid_leave only, required date/amount/reason; unsupported kind400, stale If-Match rejected, finalized immutable. UI write flow chưa chạy.                                         |
+| PAY-007   | POST /payroll/periods/:month/finalize; POST /payroll/items/:id/disbursements                     | VERIFIED           | WAITING_FOR_UI        | Rollback/replay/mismatch, concurrent finalize1completion, concurrent payments/overpayment guards PASS; browser finalize/payment chưa chạy.                                        |
+| REP-003   | POST /reports/daily/:id/revisions; GET .../revisions                                             | VERIFIED           | WAITING_FOR_UI        | Required reason, Staff own/Owner permissions, version/If-Match, immutable history backend QA PASS. Frontend fails load before revision flow.                                      |
+| AUTH-006  | GET /auth/me and authenticated endpoints                                                         | VERIFIED           | VERIFIED (subset E2E) | Idle/absolute expired401, last_seen unchanged; browser expiredQA session→/login PASS.                                                                                             |
+| AUTH-010  | POST /auth/login; global identity lookup                                                         | VERIFIED           | WAITING_FOR_UI        | RealDB case-insensitive username/email cross-namespace collision401/no session; registration/login error UI chưa thử riêng.                                                       |
+| FILE-004  | Storage delete-readiness/trash request/confirm                                                   | IMPLEMENTED (mock) | BLOCKED               | Mock protocol/RBAC/stale snapshot/idempotency QA PASS; no real GoogleDriveProvider adapter or authorized sandbox execution. Không công nhận provider thật.                        |
+| AUDIT-005 | GET /audit; audit_events write guards                                                            | VERIFIED           | VERIFIED (backend/DB) | Owner-only query/sanitization/cursor QA8PASS; migration18 restores missing guard, old rows unchanged, rollback/replay, parallel UPDATE+DELETE rejected, parallel append succeeds. |
 
 ## 4. Migration và sửa backend
 
@@ -55,21 +55,21 @@ Rollback: chưa áp dụng vận hành. QA đã diễn tập DDL rollback; khi d
 
 ## 5. Kiểm thử thực chạy
 
-|Bộ kiểm tra|PASS|FAIL|SKIP|Giới hạn|
-|---|---:|---:|---:|---|
-|45 file backend/database/security trên cluster55923|401|0|0|API, DB, auth/roles, writes, rollback, concurrency; TAP gồm parent/subtest|
-|2 file ISSUES component/legacy|12|0|1|Legacy SKIP vô điều kiện, không sửa; component/source assertions không phải browser|
-|Tổng47file|413|0|1|Không cộng412/652 trước hoặc rerun|
-|3 file Anty Batch2, snapshot121612a|17|0|0|Static/component/service helper; không phải E2E UI|
-|Chrome121612a: focused ATT/PAY|10|0|0|Staff correction UI→API→1DBpending; payslip; Owner dashboard|
-|Chrome121612a: AUTH expiry|2|0|0|Login và expiredQA session→login|
-|Chrome121612a: ISSUES/ACC/SET|20|2|0|ISSUES lost-response retry giữkey/body và1issue; detail reveal/theme FAIL|
-|Chrome121612a: REP|1|1|0|Login PASS; report load FAIL hook order. Raw artifact thêm1harness-abort FAIL; không tính thành lỗi sản phẩm thứ hai|
-|Lint|1|0|0|Full và targeted lint qua|
-|Backend compiler riêng|1|0|0|API/packages qua|
-|Typecheck chuẩn toànrepo|0|1|0|TS2742 frontend finance/ui.tsx:342|
-|Build chuẩn toànrepo|0|1|0|CùngTS2742|
-|Backup/restore|58|0|0|Tablecount+sortedrowJSONdigest khớp|
+| Bộ kiểm tra                                         | PASS | FAIL | SKIP | Giới hạn                                                                                                             |
+| --------------------------------------------------- | ---: | ---: | ---: | -------------------------------------------------------------------------------------------------------------------- |
+| 45 file backend/database/security trên cluster55923 |  401 |    0 |    0 | API, DB, auth/roles, writes, rollback, concurrency; TAP gồm parent/subtest                                           |
+| 2 file ISSUES component/legacy                      |   12 |    0 |    1 | Legacy SKIP vô điều kiện, không sửa; component/source assertions không phải browser                                  |
+| Tổng47file                                          |  413 |    0 |    1 | Không cộng412/652 trước hoặc rerun                                                                                   |
+| 3 file Anty Batch2, snapshot121612a                 |   17 |    0 |    0 | Static/component/service helper; không phải E2E UI                                                                   |
+| Chrome121612a: focused ATT/PAY                      |   10 |    0 |    0 | Staff correction UI→API→1DBpending; payslip; Owner dashboard                                                         |
+| Chrome121612a: AUTH expiry                          |    2 |    0 |    0 | Login và expiredQA session→login                                                                                     |
+| Chrome121612a: ISSUES/ACC/SET                       |   20 |    2 |    0 | ISSUES lost-response retry giữkey/body và1issue; detail reveal/theme FAIL                                            |
+| Chrome121612a: REP                                  |    1 |    1 |    0 | Login PASS; report load FAIL hook order. Raw artifact thêm1harness-abort FAIL; không tính thành lỗi sản phẩm thứ hai |
+| Lint                                                |    1 |    0 |    0 | Full và targeted lint qua                                                                                            |
+| Backend compiler riêng                              |    1 |    0 |    0 | API/packages qua                                                                                                     |
+| Typecheck chuẩn toànrepo                            |    0 |    1 |    0 | TS2742 frontend finance/ui.tsx:342                                                                                   |
+| Build chuẩn toànrepo                                |    0 |    1 |    0 | CùngTS2742                                                                                                           |
+| Backup/restore                                      |   58 |    0 |    0 | Tablecount+sortedrowJSONdigest khớp                                                                                  |
 
 Runtime REP revision/pager tiếp theo NOT TESTED do trang trắng. ATT Owner quyết định UI; PAY adjustment/finalize/payout UI; overnight badge UI; collision UI chưa có đầy đủ browser proof. Không tuyên bố toàn12 ID end-to-end hoặc123/123 PASS.
 

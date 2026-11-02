@@ -6,15 +6,12 @@ import { installFakeDom } from './helpers/fake-dom.mjs';
 
 installFakeDom();
 
-const { EmployeesScreen } = await import(
-  '../../dist/apps/web/src/screens/EmployeesScreen.js'
-);
-const { FinanceHistoryScreen } = await import(
-  '../../dist/apps/web/src/screens/FinanceHistoryScreen.js'
-);
-const { PayrollScreen } = await import(
-  '../../dist/apps/web/src/screens/PayrollScreen.js'
-);
+const { EmployeesScreen } =
+  await import('../../dist/apps/web/src/screens/EmployeesScreen.js');
+const { FinanceHistoryScreen } =
+  await import('../../dist/apps/web/src/screens/FinanceHistoryScreen.js');
+const { PayrollScreen } =
+  await import('../../dist/apps/web/src/screens/PayrollScreen.js');
 
 function createTestContainer() {
   const container = document.createElement('div');
@@ -87,7 +84,10 @@ test('EmployeesScreen: Mounted component lifecycle tests (Loading, Success, Erro
         const skeleton = container.querySelector(
           '[data-testid="employees-skeleton-container"]',
         );
-        assert.ok(skeleton, 'Employees skeleton container must be rendered while loading');
+        assert.ok(
+          skeleton,
+          'Employees skeleton container must be rendered while loading',
+        );
         assert.equal(
           skeleton.getAttribute('aria-busy'),
           'true',
@@ -328,7 +328,9 @@ test('EmployeesScreen: Mounted component lifecycle tests (Loading, Success, Erro
             k.startsWith('__reactProps$'),
           );
           if (reactProps && searchInput[reactProps]?.onChange) {
-            searchInput[reactProps].onChange({ target: { value: 'NonExistentXYZ' } });
+            searchInput[reactProps].onChange({
+              target: { value: 'NonExistentXYZ' },
+            });
           }
         });
 
@@ -929,7 +931,11 @@ test('PayrollScreen: Mounted component lifecycle tests (Loading, Success, Error,
         const skeleton = container.querySelector(
           '[data-testid="payroll-skeleton-container"]',
         );
-        assert.equal(skeleton, null, 'Payroll skeleton must be removed on error');
+        assert.equal(
+          skeleton,
+          null,
+          'Payroll skeleton must be removed on error',
+        );
         assert.ok(
           container.textContent.includes('Lỗi tải dữ liệu kỳ tính lương'),
           'Error message must be present in DOM',
@@ -1002,7 +1008,11 @@ test('PayrollScreen: Mounted component lifecycle tests (Loading, Success, Error,
         const skeleton = container.querySelector(
           '[data-testid="payroll-skeleton-container"]',
         );
-        assert.equal(skeleton, null, 'Payroll skeleton must not be shown on empty');
+        assert.equal(
+          skeleton,
+          null,
+          'Payroll skeleton must not be shown on empty',
+        );
         assert.ok(
           container.textContent.includes(
             'Không có nhân sự nào trong danh sách',

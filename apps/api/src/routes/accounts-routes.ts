@@ -141,12 +141,7 @@ export async function handleAccountsRoutes(
   }
 
   // 5. POST /api/v1/accounts/:id/archive
-  if (
-    accountId &&
-    subResource === 'archive' &&
-    !subSub &&
-    method === 'POST'
-  ) {
+  if (accountId && subResource === 'archive' && !subSub && method === 'POST') {
     requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
     const body = await parseJsonBody<Record<string, unknown>>(req);
     assertAllowedFields(body, ['reason']);
@@ -166,12 +161,7 @@ export async function handleAccountsRoutes(
   }
 
   // 6. POST /api/v1/accounts/:id/restore
-  if (
-    accountId &&
-    subResource === 'restore' &&
-    !subSub &&
-    method === 'POST'
-  ) {
+  if (accountId && subResource === 'restore' && !subSub && method === 'POST') {
     requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
     const body = await parseJsonBody<Record<string, unknown>>(req);
     assertAllowedFields(body, []);
@@ -190,19 +180,10 @@ export async function handleAccountsRoutes(
   }
 
   // 7. PUT /api/v1/accounts/:id/secrets
-  if (
-    accountId &&
-    subResource === 'secrets' &&
-    !subSub &&
-    method === 'PUT'
-  ) {
+  if (accountId && subResource === 'secrets' && !subSub && method === 'PUT') {
     requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
     const body = await parseJsonBody<Record<string, unknown>>(req);
-    assertAllowedFields(body, [
-      'secret_type',
-      'secret_value',
-      'reauth_proof',
-    ]);
+    assertAllowedFields(body, ['secret_type', 'secret_value', 'reauth_proof']);
     const ifMatch =
       typeof req.headers['if-match'] === 'string'
         ? req.headers['if-match']

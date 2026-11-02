@@ -32,15 +32,11 @@ test('UI-FIX-47 — Finding 1: EmployeesScreen pagination error uses canonical d
     'Pagination error alert must use canonical TOKENS.radii.sm (8px), not arbitrary 6px',
   );
   assert.ok(
-    paginationErrorBlock.includes(
-      'backgroundColor: THEME_COLORS.dangerSubtle',
-    ),
+    paginationErrorBlock.includes('backgroundColor: THEME_COLORS.dangerSubtle'),
     'Pagination error alert must use canonical THEME_COLORS.dangerSubtle',
   );
   assert.ok(
-    paginationErrorBlock.includes(
-      'border: `1px solid ${THEME_COLORS.danger}`',
-    ),
+    paginationErrorBlock.includes('border: `1px solid ${THEME_COLORS.danger}`'),
     'Pagination error alert must use canonical THEME_COLORS.danger',
   );
   assert.ok(

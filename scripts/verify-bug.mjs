@@ -31,9 +31,15 @@ const testCmd = getArg(
 );
 const manualOnly = hasFlag('--manual');
 let adminPassword = process.env.ADMIN_PASSWORD;
-if (!adminPassword && existsSync('C:/HoaiPhuong-Server/config/test-secrets/api.env')) {
+if (
+  !adminPassword &&
+  existsSync('C:/HoaiPhuong-Server/config/test-secrets/api.env')
+) {
   try {
-    const envLines = readFileSync('C:/HoaiPhuong-Server/config/test-secrets/api.env', 'utf8').split('\n');
+    const envLines = readFileSync(
+      'C:/HoaiPhuong-Server/config/test-secrets/api.env',
+      'utf8',
+    ).split('\n');
     for (const line of envLines) {
       if (line.startsWith('ADMIN_PASSWORD=')) {
         adminPassword = line.substring('ADMIN_PASSWORD='.length).trim();

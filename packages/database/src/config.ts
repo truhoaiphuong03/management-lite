@@ -290,16 +290,29 @@ export function isSafeTestDatabase(
     }
   }
 
-  // Reject Windows production database `management_lite_test` on host port 55432
+  // Reject Windows production database user `hp_test_admin` unconditionally
+  const dbUser = decodeURIComponent(parsedUrl.username || '')
+    .trim()
+    .toLowerCase();
+  if (dbUser === 'hp_test_admin') {
+    return {
+      safe: false,
+      databaseName: dbName,
+      reason: `Prohibited: Target connection uses the Windows production database user "hp_test_admin". Integration tests must use an isolated test user (e.g. "ml_test").`,
+    };
+  }
+
+  // Reject Windows production database cluster on host port 55432 (for any DB outside Ubuntu GitHub Actions, or management_lite_test anywhere)
   const effectivePort = parsedUrl.port || '5432';
   if (
-    dbName.toLowerCase() === 'management_lite_test' &&
-    effectivePort === '55432'
+    effectivePort === '55432' &&
+    (dbName.toLowerCase() === 'management_lite_test' ||
+      env['GITHUB_ACTIONS'] !== 'true')
   ) {
     return {
       safe: false,
       databaseName: dbName,
-      reason: `Prohibited: Target database "${dbName}" on port 55432 is the active Windows production database. Integration tests must use "management_lite_integration_test" or an isolated sandbox database.`,
+      reason: `Prohibited: Target database "${dbName}" on port 55432 is on the active Windows production database cluster. Integration tests must use an isolated sandbox port (e.g. 55433).`,
     };
   }
 

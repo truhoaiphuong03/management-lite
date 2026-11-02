@@ -35,14 +35,19 @@ async function runChromeCategoryQA() {
   const steps = [];
   function record(name, pass, detail = '') {
     steps.push({ name, pass, detail });
-    console.log(`  ${pass ? '✔ PASS' : '✖ FAIL'}: ${name}${detail ? ` (${detail})` : ''}`);
+    console.log(
+      `  ${pass ? '✔ PASS' : '✖ FAIL'}: ${name}${detail ? ` (${detail})` : ''}`,
+    );
   }
 
   try {
     await new Promise((r) => setTimeout(r, 1500));
-    const newTab = await fetch(`http://127.0.0.1:${cdpPort}/json/new?${encodeURIComponent(webBase + '/login')}`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${cdpPort}/json/new?${encodeURIComponent(webBase + '/login')}`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -135,11 +140,17 @@ async function runChromeCategoryQA() {
         };
       })()
     `);
-    record('Heading "Danh mục thu chi" renders', pageInfo.h1Text.includes('Danh mục thu chi'), pageInfo.h1Text);
+    record(
+      'Heading "Danh mục thu chi" renders',
+      pageInfo.h1Text.includes('Danh mục thu chi'),
+      pageInfo.h1Text,
+    );
     record('FinanceNav renders', pageInfo.hasNav);
 
     // 3. Check Compact Row Layout & Buttons
-    console.log('\n3. Inspecting Category List layout, buttons, and spacing...');
+    console.log(
+      '\n3. Inspecting Category List layout, buttons, and spacing...',
+    );
     const catInspection = await evalExp(`
       (() => {
         const buttons = Array.from(document.querySelectorAll('button'));
@@ -176,11 +187,29 @@ async function runChromeCategoryQA() {
       })()
     `);
 
-    record('Category rows rendered (>0)', catInspection.renameCount > 0, `found ${catInspection.renameCount} categories`);
-    record('Buttons have spacing (>= 8px)', catInspection.buttonGap >= 8, `gap = ${catInspection.buttonGap}px`);
+    record(
+      'Category rows rendered (>0)',
+      catInspection.renameCount > 0,
+      `found ${catInspection.renameCount} categories`,
+    );
+    record(
+      'Buttons have spacing (>= 8px)',
+      catInspection.buttonGap >= 8,
+      `gap = ${catInspection.buttonGap}px`,
+    );
     record('Buttons do not overlap', !catInspection.buttonOverlap);
-    record('Đổi tên uses secondary/neutral styling', catInspection.firstRenameBg !== '', `bg: ${catInspection.firstRenameBg}`);
-    record('Ngừng dùng uses destructive/warning styling', catInspection.firstDeactivateBg.includes('239') || catInspection.firstDeactivateBg.includes('185') || catInspection.firstDeactivateBg.includes('rgb'), `bg: ${catInspection.firstDeactivateBg}`);
+    record(
+      'Đổi tên uses secondary/neutral styling',
+      catInspection.firstRenameBg !== '',
+      `bg: ${catInspection.firstRenameBg}`,
+    );
+    record(
+      'Ngừng dùng uses destructive/warning styling',
+      catInspection.firstDeactivateBg.includes('239') ||
+        catInspection.firstDeactivateBg.includes('185') ||
+        catInspection.firstDeactivateBg.includes('rgb'),
+      `bg: ${catInspection.firstDeactivateBg}`,
+    );
 
     // 4. Test Deactivate Confirmation Modal
     console.log('\n4. Testing Deactivate Confirmation Modal...');
@@ -210,17 +239,29 @@ async function runChromeCategoryQA() {
       })()
     `);
 
-    record('Confirmation dialog opens on "Ngừng dùng" click', dialogInspection.open, dialogInspection.titleText);
-    record('Confirmation dialog has destructive confirm button', dialogInspection.hasConfirm);
+    record(
+      'Confirmation dialog opens on "Ngừng dùng" click',
+      dialogInspection.open,
+      dialogInspection.titleText,
+    );
+    record(
+      'Confirmation dialog has destructive confirm button',
+      dialogInspection.hasConfirm,
+    );
     record('Confirmation dialog has cancel button', dialogInspection.hasCancel);
 
     // Capture Dialog Screenshot
     const dialogShot = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(
-      resolve(PROJECT_ROOT, 'docs/handoff/screenshots/categories-dialog-1280.png'),
+      resolve(
+        PROJECT_ROOT,
+        'docs/handoff/screenshots/categories-dialog-1280.png',
+      ),
       Buffer.from(dialogShot.data, 'base64'),
     );
-    console.log('  📸 Saved dialog screenshot: docs/handoff/screenshots/categories-dialog-1280.png');
+    console.log(
+      '  📸 Saved dialog screenshot: docs/handoff/screenshots/categories-dialog-1280.png',
+    );
 
     // Cancel the modal so no data is changed
     await evalExp(`
@@ -234,11 +275,15 @@ async function runChromeCategoryQA() {
     `);
     await wait(300);
 
-    const dialogClosed = await evalExp(`!document.querySelector('div[role="dialog"]')`);
+    const dialogClosed = await evalExp(
+      `!document.querySelector('div[role="dialog"]')`,
+    );
     record('Cancel button dismisses modal without action', dialogClosed);
 
     // 5. Test Direction Tabs (Khoản chi / Nguồn thu)
-    console.log('\n5. Testing Category Type Switcher (Khoản chi vs Nguồn thu)...');
+    console.log(
+      '\n5. Testing Category Type Switcher (Khoản chi vs Nguồn thu)...',
+    );
     await evalExp(`
       (() => {
         const tabs = Array.from(document.querySelectorAll('button'));
@@ -257,15 +302,23 @@ async function runChromeCategoryQA() {
         return { hasSalary };
       })()
     `);
-    record('Switch to Nguồn thu displays income categories', incomeInspection.hasSalary);
+    record(
+      'Switch to Nguồn thu displays income categories',
+      incomeInspection.hasSalary,
+    );
 
     // Capture Income Screenshot
     const incomeShot = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(
-      resolve(PROJECT_ROOT, 'docs/handoff/screenshots/categories-income-1280.png'),
+      resolve(
+        PROJECT_ROOT,
+        'docs/handoff/screenshots/categories-income-1280.png',
+      ),
       Buffer.from(incomeShot.data, 'base64'),
     );
-    console.log('  📸 Saved income screenshot: docs/handoff/screenshots/categories-income-1280.png');
+    console.log(
+      '  📸 Saved income screenshot: docs/handoff/screenshots/categories-income-1280.png',
+    );
 
     // Switch back to Khoản chi
     await evalExp(`
@@ -278,7 +331,9 @@ async function runChromeCategoryQA() {
     await wait(800);
 
     // 6. Test Responsive / Mobile Viewport
-    console.log('\n6. Testing Mobile Responsive Viewport (390px iPhone width)...');
+    console.log(
+      '\n6. Testing Mobile Responsive Viewport (390px iPhone width)...',
+    );
     await send('Emulation.setDeviceMetricsOverride', {
       width: 390,
       height: 844,
@@ -314,17 +369,31 @@ async function runChromeCategoryQA() {
       })()
     `);
 
-    record('Mobile viewport (390px) has no horizontal scroll overflow', !mobileInspection.hasHorizontalOverflow, `scroll: ${mobileInspection.scrollWidth}px, client: ${mobileInspection.clientWidth}px`);
-    record('Mobile action buttons fit cleanly within viewport', mobileInspection.buttonsFit);
+    record(
+      'Mobile viewport (390px) has no horizontal scroll overflow',
+      !mobileInspection.hasHorizontalOverflow,
+      `scroll: ${mobileInspection.scrollWidth}px, client: ${mobileInspection.clientWidth}px`,
+    );
+    record(
+      'Mobile action buttons fit cleanly within viewport',
+      mobileInspection.buttonsFit,
+    );
 
     // Capture Mobile Screenshot
     const mobileShot = await send('Page.captureScreenshot', { format: 'png' });
-    mkdirSync(resolve(PROJECT_ROOT, 'docs/handoff/screenshots'), { recursive: true });
+    mkdirSync(resolve(PROJECT_ROOT, 'docs/handoff/screenshots'), {
+      recursive: true,
+    });
     writeFileSync(
-      resolve(PROJECT_ROOT, 'docs/handoff/screenshots/categories-mobile-390.png'),
+      resolve(
+        PROJECT_ROOT,
+        'docs/handoff/screenshots/categories-mobile-390.png',
+      ),
       Buffer.from(mobileShot.data, 'base64'),
     );
-    console.log('  📸 Saved mobile screenshot: docs/handoff/screenshots/categories-mobile-390.png');
+    console.log(
+      '  📸 Saved mobile screenshot: docs/handoff/screenshots/categories-mobile-390.png',
+    );
 
     // Reset to Desktop & Capture Desktop Screenshot
     await send('Emulation.setDeviceMetricsOverride', {
@@ -337,18 +406,27 @@ async function runChromeCategoryQA() {
 
     const desktopShot = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(
-      resolve(PROJECT_ROOT, 'docs/handoff/screenshots/categories-desktop-1280.png'),
+      resolve(
+        PROJECT_ROOT,
+        'docs/handoff/screenshots/categories-desktop-1280.png',
+      ),
       Buffer.from(desktopShot.data, 'base64'),
     );
-    console.log('  📸 Saved desktop screenshot: docs/handoff/screenshots/categories-desktop-1280.png');
+    console.log(
+      '  📸 Saved desktop screenshot: docs/handoff/screenshots/categories-desktop-1280.png',
+    );
 
     ws.close();
     chrome.kill();
 
     const allPassed = steps.every((s) => s.pass);
     console.log('\n======================================================');
-    console.log(`TOTAL CHECKS: ${steps.length} | PASS: ${steps.filter((s) => s.pass).length} | FAIL: ${steps.filter((s) => !s.pass).length}`);
-    console.log(`CONCLUSION: ${allPassed ? 'ALL PASS (QA VERIFIED)' : 'FAILED'}`);
+    console.log(
+      `TOTAL CHECKS: ${steps.length} | PASS: ${steps.filter((s) => s.pass).length} | FAIL: ${steps.filter((s) => !s.pass).length}`,
+    );
+    console.log(
+      `CONCLUSION: ${allPassed ? 'ALL PASS (QA VERIFIED)' : 'FAILED'}`,
+    );
     console.log('======================================================');
 
     process.exit(allPassed ? 0 : 1);

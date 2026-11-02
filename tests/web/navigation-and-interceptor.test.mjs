@@ -13,7 +13,10 @@ test('NAVIGATION GUARD: Open redirect and malicious path rejection', () => {
 
   // Scheme injections
   assert.equal(sanitizePostLoginRedirect('javascript:alert(1)'), '/');
-  assert.equal(sanitizePostLoginRedirect('data:text/html,<script>alert(1)</script>'), '/');
+  assert.equal(
+    sanitizePostLoginRedirect('data:text/html,<script>alert(1)</script>'),
+    '/',
+  );
   assert.equal(sanitizePostLoginRedirect('https://evil.com'), '/');
   assert.equal(sanitizePostLoginRedirect('http://evil.com'), '/');
 
@@ -49,8 +52,14 @@ test('NAVIGATION GUARD: Open redirect and malicious path rejection', () => {
   // Legitimate internal routes (must be preserved!)
   assert.equal(sanitizePostLoginRedirect('/clock'), '/clock');
   assert.equal(sanitizePostLoginRedirect('/issues'), '/issues');
-  assert.equal(sanitizePostLoginRedirect('/employees?filter=active'), '/employees?filter=active');
-  assert.equal(sanitizePostLoginRedirect('/reports/payroll#section-1'), '/reports/payroll#section-1');
+  assert.equal(
+    sanitizePostLoginRedirect('/employees?filter=active'),
+    '/employees?filter=active',
+  );
+  assert.equal(
+    sanitizePostLoginRedirect('/reports/payroll#section-1'),
+    '/reports/payroll#section-1',
+  );
   assert.equal(sanitizePostLoginRedirect('/'), '/');
 });
 
@@ -59,7 +68,10 @@ test('AUTH INTERCEPTOR: URL evaluation security and precision', () => {
 
   // 1. External services must NEVER be intercepted (never redirect on 3rd party 401s)
   assert.equal(
-    isTargetAuthenticatedApiUrl('https://api.external-partner.com/api/v1/sync', localOrigin),
+    isTargetAuthenticatedApiUrl(
+      'https://api.external-partner.com/api/v1/sync',
+      localOrigin,
+    ),
     false,
     'External origins must be rejected',
   );
@@ -76,7 +88,10 @@ test('AUTH INTERCEPTOR: URL evaluation security and precision', () => {
     'POST /api/v1/auth/login must NOT be intercepted on wrong password',
   );
   assert.equal(
-    isTargetAuthenticatedApiUrl('http://127.0.0.1:3002/api/v1/auth/login', localOrigin),
+    isTargetAuthenticatedApiUrl(
+      'http://127.0.0.1:3002/api/v1/auth/login',
+      localOrigin,
+    ),
     false,
     'Full URL login endpoint must NOT be intercepted',
   );
@@ -103,12 +118,18 @@ test('AUTH INTERCEPTOR: URL evaluation security and precision', () => {
     'Audits API with query ?search=login MUST be intercepted',
   );
   assert.equal(
-    isTargetAuthenticatedApiUrl('/api/v1/issues?filter=login_issue', localOrigin),
+    isTargetAuthenticatedApiUrl(
+      '/api/v1/issues?filter=login_issue',
+      localOrigin,
+    ),
     true,
     'Issues API with query ?filter=login_issue MUST be intercepted',
   );
   assert.equal(
-    isTargetAuthenticatedApiUrl('http://127.0.0.1:3002/api/v1/reports?tag=login', localOrigin),
+    isTargetAuthenticatedApiUrl(
+      'http://127.0.0.1:3002/api/v1/reports?tag=login',
+      localOrigin,
+    ),
     true,
     'Reports API with tag=login MUST be intercepted',
   );
@@ -127,7 +148,10 @@ test('AUTH INTERCEPTOR: URL evaluation security and precision', () => {
     true,
   );
   assert.equal(
-    isTargetAuthenticatedApiUrl('http://127.0.0.1:3002/api/v1/issues', localOrigin),
+    isTargetAuthenticatedApiUrl(
+      'http://127.0.0.1:3002/api/v1/issues',
+      localOrigin,
+    ),
     true,
   );
 

@@ -1967,7 +1967,11 @@ export class IssuesService {
     const filterIds = Array.isArray(input.issue_ids)
       ? input.issue_ids
           .map((x) => String(x).trim().toLowerCase())
-          .filter((x) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(x))
+          .filter((x) =>
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+              x,
+            ),
+          )
       : [];
 
     const client = await this.pool.connect();
@@ -2009,7 +2013,11 @@ export class IssuesService {
             context.workspace.id,
             row.id,
             context.user.id,
-            JSON.stringify({ note: cleanNote, version: row.version, bulk: true }),
+            JSON.stringify({
+              note: cleanNote,
+              version: row.version,
+              bulk: true,
+            }),
           ],
         );
       }

@@ -89,7 +89,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
   const formatYearMonthLabel = (ym: string): string => {
     if (!ym || !/^\d{4}-\d{2}$/.test(ym)) return 'Tất cả các tháng';
     const [y, m] = ym.split('-');
-    return `Tháng ${ Number(m)}/${y}`;
+    return `Tháng ${Number(m)}/${y}`;
   };
 
   const myAvailableMonths = React.useMemo(() => {
@@ -1789,7 +1789,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     <span>
                       Tổng giờ:{' '}
                       <strong style={{ color: 'var(--accent-text)' }}>
-                        {formatHoursMinutes(myMonthlySummary.totalWorkedSeconds)}
+                        {formatHoursMinutes(
+                          myMonthlySummary.totalWorkedSeconds,
+                        )}
                       </strong>
                     </span>
                     <span>•</span>
@@ -1837,7 +1839,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     marginBottom: '10px',
                   }}
                 >
-                  <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <span
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
                     Chọn nhanh:
                   </span>
                   {[
@@ -2007,7 +2011,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     >
                       <option value="all">Tất cả trạng thái</option>
                       <option value="unreviewed">Chờ duyệt</option>
-                      <option value="needs_review">Cần xử lý / Giải trình</option>
+                      <option value="needs_review">
+                        Cần xử lý / Giải trình
+                      </option>
                       <option value="approved">Đã duyệt</option>
                       <option value="rejected">Bị từ chối</option>
                     </select>
@@ -2647,319 +2653,319 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
               data-testid="owner-shifts-filter-bar"
               style={{ marginBottom: '16px', padding: '14px' }}
             >
-            {employeesError && (
+              {employeesError && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    marginBottom: '12px',
+                    backgroundColor: '#451A1A',
+                    border: '1px solid #7F1D1D',
+                    borderRadius: '6px',
+                    color: 'var(--danger-text)',
+                    fontSize: '12px',
+                    gap: '8px',
+                  }}
+                >
+                  <span>⚠️ {employeesError}</span>
+                  <button
+                    type="button"
+                    onClick={() => fetchOwnerEmployees()}
+                    disabled={employeesLoading}
+                    style={{
+                      backgroundColor: '#DC2626',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      minHeight: '36px',
+                      minWidth: '44px',
+                    }}
+                  >
+                    {employeesLoading ? 'Đang tải…' : 'Thử lại'}
+                  </button>
+                </div>
+              )}
+              <div
+                data-testid="quick-date-range-bar"
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  marginBottom: '12px',
+                }}
+              >
+                <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  Chọn nhanh khoảng ngày:
+                </span>
+                {[
+                  { id: 'today' as const, label: '📅 Hôm nay' },
+                  { id: 'last7d' as const, label: '📆 7 ngày qua' },
+                  { id: 'month' as const, label: '🗓️ Tháng này' },
+                  { id: 'all' as const, label: '🔄 Toàn thời gian' },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => applyQuickDateRange(p.id, 'owner')}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-color)',
+                      color: 'var(--text-secondary)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
               <div
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  marginBottom: '12px',
-                  backgroundColor: '#451A1A',
-                  border: '1px solid #7F1D1D',
-                  borderRadius: '6px',
-                  color: 'var(--danger-text)',
-                  fontSize: '12px',
-                  gap: '8px',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  alignItems: 'flex-end',
                 }}
               >
-                <span>⚠️ {employeesError}</span>
-                <button
-                  type="button"
-                  onClick={() => fetchOwnerEmployees()}
-                  disabled={employeesLoading}
-                  style={{
-                    backgroundColor: '#DC2626',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '4px 10px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    minHeight: '36px',
-                    minWidth: '44px',
-                  }}
-                >
-                  {employeesLoading ? 'Đang tải…' : 'Thử lại'}
-                </button>
-              </div>
-            )}
-            <div
-              data-testid="quick-date-range-bar"
-              style={{
-                display: 'flex',
-                gap: '6px',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                marginBottom: '12px',
-              }}
-            >
-              <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Chọn nhanh khoảng ngày:
-              </span>
-              {[
-                { id: 'today' as const, label: '📅 Hôm nay' },
-                { id: 'last7d' as const, label: '📆 7 ngày qua' },
-                { id: 'month' as const, label: '🗓️ Tháng này' },
-                { id: 'all' as const, label: '🔄 Toàn thời gian' },
-              ].map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => applyQuickDateRange(p.id, 'owner')}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '999px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    color: 'var(--text-secondary)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                gap: '12px',
-                flexWrap: 'wrap',
-                alignItems: 'flex-end',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: '170px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--muted-color)',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Nhân viên
-                </label>
-                <select
-                  data-testid="filter-employee-select"
-                  value={selectedEmployeeId}
-                  onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-color)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    minHeight: '44px',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <option value="all">Tất cả nhân viên</option>
-                  {employeeOptions.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.full_name} ({emp.employee_code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ flex: 1, minWidth: '160px' }}>
-                <label
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--muted-color)',
-                    marginBottom: '6px',
-                  }}
-                >
-                  <span>Từ ngày (Ngày/Tháng/Năm)</span>
-                  <span
+                <div style={{ flex: 1, minWidth: '170px' }}>
+                  <label
                     style={{
-                      color: 'var(--accent-text)',
-                      fontWeight: 500,
-                      fontSize: '12px',
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--muted-color)',
+                      marginBottom: '6px',
                     }}
                   >
-                    {formatIsoToVnLabel(selectedDate)}
-                  </span>
-                </label>
-                <input
-                  data-testid="filter-from-date"
-                  type="date"
-                  value={selectedDate}
-                  onClick={(e) =>
-                    (
-                      e.currentTarget as HTMLInputElement & {
-                        showPicker?: () => void;
-                      }
-                    ).showPicker?.()
-                  }
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-color)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    minHeight: '44px',
-                    boxSizing: 'border-box',
-                    cursor: 'pointer',
-                  }}
-                />
-              </div>
-
-              <div style={{ flex: 1, minWidth: '160px' }}>
-                <label
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--muted-color)',
-                    marginBottom: '6px',
-                  }}
-                >
-                  <span>Đến ngày (Ngày/Tháng/Năm)</span>
-                  <span
+                    Nhân viên
+                  </label>
+                  <select
+                    data-testid="filter-employee-select"
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
                     style={{
-                      color: 'var(--accent-text)',
-                      fontWeight: 500,
-                      fontSize: '12px',
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
                     }}
                   >
-                    {formatIsoToVnLabel(selectedToDate)}
-                  </span>
-                </label>
-                <input
-                  data-testid="filter-to-date"
-                  type="date"
-                  value={selectedToDate}
-                  onClick={(e) =>
-                    (
-                      e.currentTarget as HTMLInputElement & {
-                        showPicker?: () => void;
-                      }
-                    ).showPicker?.()
-                  }
-                  onChange={(e) => setSelectedToDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-color)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    minHeight: '44px',
-                    boxSizing: 'border-box',
-                    cursor: 'pointer',
-                  }}
-                />
-              </div>
+                    <option value="all">Tất cả nhân viên</option>
+                    {employeeOptions.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.full_name} ({emp.employee_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div style={{ flex: 1, minWidth: '160px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--muted-color)',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Trạng thái duyệt
-                </label>
-                <select
-                  data-testid="filter-review-state"
-                  value={selectedReviewState}
-                  onChange={(e) => setSelectedReviewState(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-color)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    minHeight: '44px',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <option value="all">Tất cả trạng thái duyệt</option>
-                  <option value="pending_all">Chờ xử lý (Tất cả)</option>
-                  <option value="unreviewed">Chờ duyệt</option>
-                  <option value="needs_review">Cần giải trình</option>
-                  <option value="approved">Đã duyệt</option>
-                  <option value="rejected">Đã từ chối</option>
-                </select>
-              </div>
+                <div style={{ flex: 1, minWidth: '160px' }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--muted-color)',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    <span>Từ ngày (Ngày/Tháng/Năm)</span>
+                    <span
+                      style={{
+                        color: 'var(--accent-text)',
+                        fontWeight: 500,
+                        fontSize: '12px',
+                      }}
+                    >
+                      {formatIsoToVnLabel(selectedDate)}
+                    </span>
+                  </label>
+                  <input
+                    data-testid="filter-from-date"
+                    type="date"
+                    value={selectedDate}
+                    onClick={(e) =>
+                      (
+                        e.currentTarget as HTMLInputElement & {
+                          showPicker?: () => void;
+                        }
+                      ).showPicker?.()
+                    }
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer',
+                    }}
+                  />
+                </div>
 
-              <div style={{ flex: 1, minWidth: '150px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--muted-color)',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Trạng thái ca
-                </label>
-                <select
-                  data-testid="filter-run-state"
-                  value={selectedRunState}
-                  onChange={(e) => setSelectedRunState(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-color)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    minHeight: '44px',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <option value="all">Tất cả ca</option>
-                  <option value="completed">Đã đóng ca</option>
-                  <option value="working">Đang trong ca</option>
-                  <option value="paused">Đang tạm nghỉ</option>
-                </select>
-              </div>
+                <div style={{ flex: 1, minWidth: '160px' }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--muted-color)',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    <span>Đến ngày (Ngày/Tháng/Năm)</span>
+                    <span
+                      style={{
+                        color: 'var(--accent-text)',
+                        fontWeight: 500,
+                        fontSize: '12px',
+                      }}
+                    >
+                      {formatIsoToVnLabel(selectedToDate)}
+                    </span>
+                  </label>
+                  <input
+                    data-testid="filter-to-date"
+                    type="date"
+                    value={selectedToDate}
+                    onClick={(e) =>
+                      (
+                        e.currentTarget as HTMLInputElement & {
+                          showPicker?: () => void;
+                        }
+                      ).showPicker?.()
+                    }
+                    onChange={(e) => setSelectedToDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer',
+                    }}
+                  />
+                </div>
 
-              {(selectedEmployeeId !== 'all' ||
-                selectedDate ||
-                selectedToDate ||
-                selectedReviewState !== 'all' ||
-                selectedRunState !== 'all') && (
-                <AppButton
-                  variant="secondary"
-                  onClick={() => {
-                    setSelectedEmployeeId('all');
-                    setSelectedDate('');
-                    setSelectedToDate('');
-                    setSelectedReviewState('all');
-                    setSelectedRunState('all');
-                  }}
-                  style={{ minHeight: '44px' }}
-                >
-                  Đặt lại bộ lọc
-                </AppButton>
-              )}
-            </div>
+                <div style={{ flex: 1, minWidth: '160px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--muted-color)',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Trạng thái duyệt
+                  </label>
+                  <select
+                    data-testid="filter-review-state"
+                    value={selectedReviewState}
+                    onChange={(e) => setSelectedReviewState(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <option value="all">Tất cả trạng thái duyệt</option>
+                    <option value="pending_all">Chờ xử lý (Tất cả)</option>
+                    <option value="unreviewed">Chờ duyệt</option>
+                    <option value="needs_review">Cần giải trình</option>
+                    <option value="approved">Đã duyệt</option>
+                    <option value="rejected">Đã từ chối</option>
+                  </select>
+                </div>
+
+                <div style={{ flex: 1, minWidth: '150px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--muted-color)',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Trạng thái ca
+                  </label>
+                  <select
+                    data-testid="filter-run-state"
+                    value={selectedRunState}
+                    onChange={(e) => setSelectedRunState(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <option value="all">Tất cả ca</option>
+                    <option value="completed">Đã đóng ca</option>
+                    <option value="working">Đang trong ca</option>
+                    <option value="paused">Đang tạm nghỉ</option>
+                  </select>
+                </div>
+
+                {(selectedEmployeeId !== 'all' ||
+                  selectedDate ||
+                  selectedToDate ||
+                  selectedReviewState !== 'all' ||
+                  selectedRunState !== 'all') && (
+                  <AppButton
+                    variant="secondary"
+                    onClick={() => {
+                      setSelectedEmployeeId('all');
+                      setSelectedDate('');
+                      setSelectedToDate('');
+                      setSelectedReviewState('all');
+                      setSelectedRunState('all');
+                    }}
+                    style={{ minHeight: '44px' }}
+                  >
+                    Đặt lại bộ lọc
+                  </AppButton>
+                )}
+              </div>
             </AppCard>
           </div>
 
@@ -2989,14 +2995,16 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   empSelectedYm === 'all'
                     ? group.shifts
                     : group.shifts.filter(
-                        (s) => getShiftYearMonth(s.clock_in_at) === empSelectedYm,
+                        (s) =>
+                          getShiftYearMonth(s.clock_in_at) === empSelectedYm,
                       );
                 const empTotalWorkedSeconds = empActiveShifts.reduce(
                   (acc, s) => acc + (s.worked_seconds || 0),
                   0,
                 );
                 const empApprovedCount = empActiveShifts.filter(
-                  (s) => s.review_state === 'approved' || Boolean(s.is_self_shift),
+                  (s) =>
+                    s.review_state === 'approved' || Boolean(s.is_self_shift),
                 ).length;
                 const isExpandedAllShifts = expandedShiftListEmployeeIds.has(
                   group.employeeId,
@@ -3194,11 +3202,15 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                             label={`${group.pendingCount} chờ xử lý`}
                           />
                         )}
-                        {group.shifts.some((s) => isActionableUnreviewed(s)) && (
+                        {group.shifts.some((s) =>
+                          isActionableUnreviewed(s),
+                        ) && (
                           <button
                             type="button"
                             data-testid={`approve-all-employee-shifts-${group.employeeId}`}
-                            onClick={() => handleApproveAllEmployeeShifts(group)}
+                            onClick={() =>
+                              handleApproveAllEmployeeShifts(group)
+                            }
                             disabled={ownerLoading}
                             style={{
                               padding: '5px 10px',
@@ -3436,7 +3448,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                                             fontSize: '12px',
                                           }}
                                         >
-                                          <CheckIcon size={13} /> Đóng & Xác nhận
+                                          <CheckIcon size={13} /> Đóng & Xác
+                                          nhận
                                         </AppButton>
                                       )}
                                     {shift.run_state === 'completed' &&
@@ -3482,27 +3495,32 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                                   </div>
                                 </div>
 
-                                {shift.review_reason && !isImportedTimesheet && (
-                                  <div
-                                    style={{
-                                      fontSize: '12px',
-                                      color: 'var(--muted-color)',
-                                      marginTop: '6px',
-                                      lineHeight: 1.45,
-                                      whiteSpace: 'normal',
-                                      overflowWrap: 'anywhere',
-                                      wordBreak: 'break-word',
-                                    }}
-                                  >
-                                    Ghi chú duyệt:{' '}
-                                    <em>
-                                      "{formatReviewNoteLabel(shift.review_reason)}"
-                                    </em>
-                                    {shift.reviewed_at
-                                      ? ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTimeShort(shift.reviewed_at)}`
-                                      : ''}
-                                  </div>
-                                )}
+                                {shift.review_reason &&
+                                  !isImportedTimesheet && (
+                                    <div
+                                      style={{
+                                        fontSize: '12px',
+                                        color: 'var(--muted-color)',
+                                        marginTop: '6px',
+                                        lineHeight: 1.45,
+                                        whiteSpace: 'normal',
+                                        overflowWrap: 'anywhere',
+                                        wordBreak: 'break-word',
+                                      }}
+                                    >
+                                      Ghi chú duyệt:{' '}
+                                      <em>
+                                        "
+                                        {formatReviewNoteLabel(
+                                          shift.review_reason,
+                                        )}
+                                        "
+                                      </em>
+                                      {shift.reviewed_at
+                                        ? ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTimeShort(shift.reviewed_at)}`
+                                        : ''}
+                                    </div>
+                                  )}
                               </div>
                             );
                           })}

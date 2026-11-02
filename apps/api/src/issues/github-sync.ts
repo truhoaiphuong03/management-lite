@@ -44,10 +44,19 @@ export class GitHubSyncService {
 
     // Forward web bug report to Telegram Remote Hub (.anty-bug-inbox.json) if running on a managed machine
     try {
-      const hubInboxPath = path.resolve(process.cwd(), '../anty-remote-hub/.anty-bug-inbox.json');
-      const altInboxPath = '/Users/duongbinh/Projects/anty-remote-hub/.anty-bug-inbox.json';
-      const targetInbox = fs.existsSync(path.dirname(altInboxPath)) ? altInboxPath : hubInboxPath;
-      if (fs.existsSync(path.dirname(targetInbox)) && !process.env.NODE_TEST_CONTEXT) {
+      const hubInboxPath = path.resolve(
+        process.cwd(),
+        '../anty-remote-hub/.anty-bug-inbox.json',
+      );
+      const altInboxPath =
+        '/Users/duongbinh/Projects/anty-remote-hub/.anty-bug-inbox.json';
+      const targetInbox = fs.existsSync(path.dirname(altInboxPath))
+        ? altInboxPath
+        : hubInboxPath;
+      if (
+        fs.existsSync(path.dirname(targetInbox)) &&
+        !process.env.NODE_TEST_CONTEXT
+      ) {
         let inbox: unknown[] = [];
         if (fs.existsSync(targetInbox)) {
           inbox = JSON.parse(fs.readFileSync(targetInbox, 'utf8'));
@@ -65,7 +74,11 @@ export class GitHubSyncService {
           createdAt: new Date().toISOString(),
           notified: false,
         });
-        fs.writeFileSync(targetInbox, JSON.stringify(inbox.slice(-50), null, 2), 'utf8');
+        fs.writeFileSync(
+          targetInbox,
+          JSON.stringify(inbox.slice(-50), null, 2),
+          'utf8',
+        );
       }
     } catch {
       // Never block web bug submission if hub folder is absent

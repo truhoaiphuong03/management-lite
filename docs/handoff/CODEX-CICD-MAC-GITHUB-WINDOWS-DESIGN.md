@@ -10,18 +10,18 @@ Push source chỉ chạy CI. Windows tự cập nhật sau khi Owner chọn rele
 
 ## Khảo sát hiện tại và giới hạn bằng chứng
 
-| Hạng mục | Kết quả hiện tại |
-|---|---|
-| Repository local | Remote URL đúng repository Owner cung cấp; private là thông tin Owner xác nhận, chưa đọc được settings private |
-| GitHub owner | Public API xác nhận `truhoaiphuong03` là **User**, không phải Organization |
-| GitHub plan / reviewer / runner policy | NOT VERIFIED; không thay đổi settings |
-| Windows Services / service wrapper / application root | NOT VERIFIED — chưa có phiên Windows/SSH/WinRM được cung cấp |
-| Node / PostgreSQL trên Windows | NOT VERIFIED; project yêu cầu Node 22.14.0 / npm 10.9.2 |
-| Backup / restore Windows | NOT TESTED; bằng chứng MacBook 58/58 đợt trước không thay thế Windows |
-| Firewall / reverse proxy / origin HTTPS | NOT VERIFIED; không cài hoặc thay cấu hình |
-| DNS public | `ql.hoaiphuong.click` A: 172.67.205.124, 104.21.42.108; AAAA thuộc Cloudflare; NS: dara.ns.cloudflare.com, guy.ns.cloudflare.com |
-| Public HTTPS HEAD | 403 từ Cloudflare; không chứng minh origin app khỏe |
-| Cloudflare origin / TLS mode / origin IP | NOT VERIFIED; IP public proxy không xác nhận origin Windows |
+| Hạng mục                                              | Kết quả hiện tại                                                                                                                 |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Repository local                                      | Remote URL đúng repository Owner cung cấp; private là thông tin Owner xác nhận, chưa đọc được settings private                   |
+| GitHub owner                                          | Public API xác nhận `truhoaiphuong03` là **User**, không phải Organization                                                       |
+| GitHub plan / reviewer / runner policy                | NOT VERIFIED; không thay đổi settings                                                                                            |
+| Windows Services / service wrapper / application root | NOT VERIFIED — chưa có phiên Windows/SSH/WinRM được cung cấp                                                                     |
+| Node / PostgreSQL trên Windows                        | NOT VERIFIED; project yêu cầu Node 22.14.0 / npm 10.9.2                                                                          |
+| Backup / restore Windows                              | NOT TESTED; bằng chứng MacBook 58/58 đợt trước không thay thế Windows                                                            |
+| Firewall / reverse proxy / origin HTTPS               | NOT VERIFIED; không cài hoặc thay cấu hình                                                                                       |
+| DNS public                                            | `ql.hoaiphuong.click` A: 172.67.205.124, 104.21.42.108; AAAA thuộc Cloudflare; NS: dara.ns.cloudflare.com, guy.ns.cloudflare.com |
+| Public HTTPS HEAD                                     | 403 từ Cloudflare; không chứng minh origin app khỏe                                                                              |
+| Cloudflare origin / TLS mode / origin IP              | NOT VERIFIED; IP public proxy không xác nhận origin Windows                                                                      |
 
 Không suy đoán IIS/NSSM/WinSW đang được sử dụng. `Get-WindowsInventory.ps1` đã chuẩn bị để operator chạy read-only sau khi có quyền; cố ý không xuất command line, file .env hoặc credential. Operator xác minh đường dẫn wrapper/DB/runtime và backup riêng, chỉ bàn giao metadata đã làm sạch.
 

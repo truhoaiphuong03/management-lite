@@ -39,14 +39,18 @@ export const ALLOWED_QA_PORTS = new Set(
  */
 export function validateQaTarget(rawUrl) {
   if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) {
-    throw new Error('Explicit isolated QA_WEB_BASE is required. Refusing to run without verified QA target.');
+    throw new Error(
+      'Explicit isolated QA_WEB_BASE is required. Refusing to run without verified QA target.',
+    );
   }
 
   let url;
   try {
     url = new URL(rawUrl.trim());
   } catch {
-    throw new Error('Invalid QA_WEB_BASE URL format: must be a well-formed HTTP URL.');
+    throw new Error(
+      'Invalid QA_WEB_BASE URL format: must be a well-formed HTTP URL.',
+    );
   }
 
   // 1. Reject URLs with embedded credentials (e.g., http://user:pass@127.0.0.1:3037)
@@ -56,12 +60,17 @@ export function validateQaTarget(rawUrl) {
 
   // 2. Reject non-HTTP protocols (no https, ftp, file, etc. for isolated loopback test harnesses)
   if (url.protocol !== 'http:') {
-    throw new Error(`QA_WEB_BASE must use http protocol for isolated loopback QA, got: ${url.protocol}`);
+    throw new Error(
+      `QA_WEB_BASE must use http protocol for isolated loopback QA, got: ${url.protocol}`,
+    );
   }
 
   // 3. Strictly restrict hostname to IPv4 loopback 127.0.0.1 or IPv6 [::1]
   // Reject production domains, public internet IPs, and RFC 1918 private LAN IPs
-  const isLoopback = url.hostname === '127.0.0.1' || url.hostname === '[::1]' || url.hostname === '::1';
+  const isLoopback =
+    url.hostname === '127.0.0.1' ||
+    url.hostname === '[::1]' ||
+    url.hostname === '::1';
   if (!isLoopback) {
     throw new Error(
       `Non-loopback QA target refused: ${url.hostname}. Only isolated 127.0.0.1 loopback is permitted.`,
@@ -70,7 +79,9 @@ export function validateQaTarget(rawUrl) {
 
   // 4. Must specify an explicit port
   if (!url.port) {
-    throw new Error('QA_WEB_BASE must specify an explicit non-operational port; default port 80/443 is refused.');
+    throw new Error(
+      'QA_WEB_BASE must specify an explicit non-operational port; default port 80/443 is refused.',
+    );
   }
 
   // 5. Strictly forbid operational ports
@@ -99,14 +110,29 @@ export function sanitizeErrorMessage(input) {
   let str = typeof input === 'string' ? input : input.message || String(input);
 
   // Redact raw CDP evaluation failures, unexpected responses, and protocol error dumps
-  str = str.replace(/Unexpected response:\s*.+/gi, 'Unexpected response: [REDACTED]');
-  str = str.replace(/Evaluation failed:\s*.+/gi, 'Browser evaluation failed: [REDACTED]');
-  str = str.replace(/Protocol error\s*\([^)]*\):\s*.+/gi, 'Protocol error: [REDACTED]');
-  str = str.replace(/Runtime\.evaluate.+/gi, 'Runtime.evaluate failed: [REDACTED]');
+  str = str.replace(
+    /Unexpected response:\s*.+/gi,
+    'Unexpected response: [REDACTED]',
+  );
+  str = str.replace(
+    /Evaluation failed:\s*.+/gi,
+    'Browser evaluation failed: [REDACTED]',
+  );
+  str = str.replace(
+    /Protocol error\s*\([^)]*\):\s*.+/gi,
+    'Protocol error: [REDACTED]',
+  );
+  str = str.replace(
+    /Runtime\.evaluate.+/gi,
+    'Runtime.evaluate failed: [REDACTED]',
+  );
   str = str.replace(/Timeout:\s*.+/gi, 'Browser evaluation timed out');
 
   // Redact potential secret/token/password values
-  str = str.replace(/(?:password|secret|token|reauth|proof|key|credential)["']?\s*[:=]\s*["']?[^"'\s,}]+/gi, '[REDACTED]');
+  str = str.replace(
+    /(?:password|secret|token|reauth|proof|key|credential)["']?\s*[:=]\s*["']?[^"'\s,}]+/gi,
+    '[REDACTED]',
+  );
   str = str.replace(/[a-f0-9]{32,64}/gi, '[REDACTED_HASH]');
 
   return str;
@@ -139,7 +165,9 @@ export async function verifyIsolatedQaService(webBase) {
     if ([301, 302, 303, 307, 308].includes(res.status)) {
       const loc = res.headers.get('location');
       if (!loc) {
-        throw new Error(`QA target redirect missing Location header with status ${res.status}`);
+        throw new Error(
+          `QA target redirect missing Location header with status ${res.status}`,
+        );
       }
       const redirected = new URL(loc, validatedOrigin);
       if (redirected.origin !== validatedOrigin) {
@@ -154,14 +182,18 @@ export async function verifyIsolatedQaService(webBase) {
       }
       hops++;
       if (hops >= MAX_HOPS) {
-        throw new Error(`QA target redirect chain exceeded maximum allowed hops (${MAX_HOPS})`);
+        throw new Error(
+          `QA target redirect chain exceeded maximum allowed hops (${MAX_HOPS})`,
+        );
       }
       currentUrl = redirected.href;
       continue;
     }
 
     if (res.status >= 400) {
-      throw new Error(`QA target preflight check failed: server returned status ${res.status}`);
+      throw new Error(
+        `QA target preflight check failed: server returned status ${res.status}`,
+      );
     }
 
     // Verify instance, build, and backend QA identity (not just HTTP 200)

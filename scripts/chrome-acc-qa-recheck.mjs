@@ -36,12 +36,16 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 function record(step, pass, detail = '') {
   results.push({ step, pass, detail });
-  console.log(`  ${pass ? '✔ PASS' : '✖ FAIL'}: ${step}${detail ? ` (${detail})` : ''}`);
+  console.log(
+    `  ${pass ? '✔ PASS' : '✖ FAIL'}: ${step}${detail ? ` (${detail})` : ''}`,
+  );
 }
 
 async function run() {
   console.log('======================================================');
-  console.log('🌐 CHROME CDP QA: ACC-005 BACKGROUND EXPIRY & ACC-006 ESCAPE KEY');
+  console.log(
+    '🌐 CHROME CDP QA: ACC-005 BACKGROUND EXPIRY & ACC-006 ESCAPE KEY',
+  );
   console.log(`Target: ${webBase}`);
   console.log('======================================================\n');
 
@@ -63,9 +67,12 @@ async function run() {
   try {
     await wait(1800);
 
-    const newTab = await fetch(`http://127.0.0.1:${cdpPort}/json/new?${encodeURIComponent(webBase + '/login')}`, {
-      method: 'PUT',
-    }).then((r) => r.json());
+    const newTab = await fetch(
+      `http://127.0.0.1:${cdpPort}/json/new?${encodeURIComponent(webBase + '/login')}`,
+      {
+        method: 'PUT',
+      },
+    ).then((r) => r.json());
 
     const ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
@@ -91,7 +98,10 @@ async function run() {
 
     const evaluate = async (exp, timeout = 10000) => {
       const timer = new Promise((_, rej) =>
-        setTimeout(() => rej(new Error('Browser evaluation timed out')), timeout),
+        setTimeout(
+          () => rej(new Error('Browser evaluation timed out')),
+          timeout,
+        ),
       );
       const evalPromise = send('Runtime.evaluate', {
         expression: exp,
@@ -108,7 +118,9 @@ async function run() {
     // 1. Wait for Login Page
     let ready = false;
     for (let i = 0; i < 20; i++) {
-      const formExists = await evaluate(`Boolean(document.querySelector('input[type="password"]'))`);
+      const formExists = await evaluate(
+        `Boolean(document.querySelector('input[type="password"]'))`,
+      );
       if (formExists) {
         ready = true;
         break;
@@ -140,18 +152,26 @@ async function run() {
     `);
     await wait(2000);
 
-    const isLoggedIn = await evaluate(`Boolean(document.querySelector('header')?.textContent?.includes('Management Lite'))`);
+    const isLoggedIn = await evaluate(
+      `Boolean(document.querySelector('header')?.textContent?.includes('Management Lite'))`,
+    );
     record('Owner Authenticated & AppShell Mounted', isLoggedIn);
 
     // 3. Navigate to /accounts
-    await evaluate(`window.history.pushState(null, '', '/accounts'); window.dispatchEvent(new Event('popstate'));`);
+    await evaluate(
+      `window.history.pushState(null, '', '/accounts'); window.dispatchEvent(new Event('popstate'));`,
+    );
     await wait(1500);
 
-    const accountsPageMounted = await evaluate(`Boolean(document.body.textContent.includes('Tài khoản') || document.body.textContent.includes('ACC'))`);
+    const accountsPageMounted = await evaluate(
+      `Boolean(document.body.textContent.includes('Tài khoản') || document.body.textContent.includes('ACC'))`,
+    );
     record('Accounts Screen (/accounts) Mounted', accountsPageMounted);
 
     // Ensure at least one account exists
-    let hasAccount = await evaluate(`Boolean(document.querySelector('tr button, [data-action="view"]'))`);
+    let hasAccount = await evaluate(
+      `Boolean(document.querySelector('tr button, [data-action="view"]'))`,
+    );
     if (!hasAccount) {
       // Create a test account
       await evaluate(`
@@ -176,7 +196,9 @@ async function run() {
         })()
       `);
       await wait(2000);
-      hasAccount = await evaluate(`Boolean(document.querySelector('tr button, [data-action="view"]'))`);
+      hasAccount = await evaluate(
+        `Boolean(document.querySelector('tr button, [data-action="view"]'))`,
+      );
     }
     record('Managed Accounts List Populated', hasAccount);
 
@@ -216,8 +238,13 @@ async function run() {
     `);
     await wait(800);
 
-    const reauthModalOpen = await evaluate(`Boolean(document.querySelector('form input[type="password"]'))`);
-    record('ACC-005: Step-up Reauth Modal Opened', Boolean(opened && reauthModalOpen));
+    const reauthModalOpen = await evaluate(
+      `Boolean(document.querySelector('form input[type="password"]'))`,
+    );
+    record(
+      'ACC-005: Step-up Reauth Modal Opened',
+      Boolean(opened && reauthModalOpen),
+    );
 
     // Fill reauth password and submit
     await evaluate(`
@@ -243,10 +270,16 @@ async function run() {
       const countdownPresent = document.body.textContent.includes('30 giây') || document.body.textContent.includes('tự động ẩn');
       return Boolean(hasCode && countdownPresent);
     })()`);
-    record('ACC-005: Secret Decrypted and Visible in DOM', Boolean(secretRevealed), 'secret verified non-empty in browser DOM [REDACTED]');
+    record(
+      'ACC-005: Secret Decrypted and Visible in DOM',
+      Boolean(secretRevealed),
+      'secret verified non-empty in browser DOM [REDACTED]',
+    );
 
     // Trigger background tab state (visibilitychange: hidden)
-    console.log('  Simulating background tab transition (visibilitychange -> hidden)...');
+    console.log(
+      '  Simulating background tab transition (visibilitychange -> hidden)...',
+    );
     await evaluate(`
       (() => {
         Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true, configurable: true });
@@ -260,7 +293,11 @@ async function run() {
       const codeEl = document.querySelector('code');
       return !codeEl;
     })()`);
-    record('ACC-005: Secret Immediately Purged from DOM on Background State', Boolean(backgroundPurged), 'DOM purged [REDACTED]');
+    record(
+      'ACC-005: Secret Immediately Purged from DOM on Background State',
+      Boolean(backgroundPurged),
+      'DOM purged [REDACTED]',
+    );
 
     // Simulate returning to tab after expiration (> 30s elapsed)
     console.log('  Simulating returning to tab in foreground after expiry...');
@@ -278,7 +315,10 @@ async function run() {
       const codeEl = document.querySelector('code');
       return !codeEl;
     })()`);
-    record('ACC-005: Secret Never Reappears in DOM After Expiry / Return', Boolean(secretNeverReappeared));
+    record(
+      'ACC-005: Secret Never Reappears in DOM After Expiry / Return',
+      Boolean(secretNeverReappeared),
+    );
 
     // Close any lingering modal before next test
     await evaluate(`
@@ -307,7 +347,9 @@ async function run() {
     `);
     await wait(800);
 
-    const reauthOpenedAgain = await evaluate(`Boolean(document.querySelector('form input[type="password"]'))`);
+    const reauthOpenedAgain = await evaluate(
+      `Boolean(document.querySelector('form input[type="password"]'))`,
+    );
     record('ACC-006: Reauth Modal Reopened for Escape Test', reauthOpenedAgain);
 
     // Dispatch Escape key event
@@ -325,17 +367,26 @@ async function run() {
       windowsVirtualKeyCode: 27,
     });
     // Also trigger window keydown for full browser compatibility
-    await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));`);
+    await evaluate(
+      `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));`,
+    );
     await wait(500);
 
     // Verify modal is closed
-    const modalAfterEscape = await evaluate(`Boolean(document.body.textContent.includes('Xác thực lại để xem mật khẩu'))`);
-    record('ACC-006: Modal Closed Immediately on Escape Key', !modalAfterEscape);
+    const modalAfterEscape = await evaluate(
+      `Boolean(document.body.textContent.includes('Xác thực lại để xem mật khẩu'))`,
+    );
+    record(
+      'ACC-006: Modal Closed Immediately on Escape Key',
+      !modalAfterEscape,
+    );
 
     // Verify no secret leak in DOM
     const noSecretLeak = await evaluate(`!document.querySelector('code')`);
-    record('ACC-006: No Secret State or Leak in DOM After Escape', noSecretLeak);
-
+    record(
+      'ACC-006: No Secret State or Leak in DOM After Escape',
+      noSecretLeak,
+    );
   } finally {
     try {
       chrome.kill('SIGTERM');
@@ -344,7 +395,9 @@ async function run() {
 
   const allPass = results.every((r) => r.pass);
   console.log('\n======================================================');
-  console.log(`TOTAL CHECKS: ${results.length} | PASS: ${results.filter(r => r.pass).length} | FAIL: ${results.filter(r => !r.pass).length}`);
+  console.log(
+    `TOTAL CHECKS: ${results.length} | PASS: ${results.filter((r) => r.pass).length} | FAIL: ${results.filter((r) => !r.pass).length}`,
+  );
   console.log(`OVERALL RESULT: ${allPass ? '✔ ALL PASS' : '✖ SOME FAILED'}`);
   console.log('======================================================\n');
   process.exit(allPass ? 0 : 1);

@@ -13,7 +13,6 @@ if (
 )
   throw new Error('Operational/nonlocal browser endpoint refused');
 
-
 async function run() {
   console.log('=== STARTING UI-FIX-45 LIVE CHROME MOUNTED TESTS ===');
   const chrome = spawn(
@@ -86,7 +85,7 @@ async function run() {
         throw new Error(
           r.exceptionDetails.text +
             ': ' +
-            (r.exceptionDetails.exception?.description || '')
+            (r.exceptionDetails.exception?.description || ''),
         );
       }
       return r.result?.value;
@@ -128,7 +127,9 @@ async function run() {
     // ==========================================
     // 1. LOGIN SCREEN FOCUS TESTS
     // ==========================================
-    console.log('\n--- 1. Testing LoginScreen Focus on 401, 429, and Network Error ---');
+    console.log(
+      '\n--- 1. Testing LoginScreen Focus on 401, 429, and Network Error ---',
+    );
     const loginResults = await evaluate(`
       (async () => {
         try {
@@ -255,7 +256,12 @@ async function run() {
     `);
 
     if (loginResults.error) {
-      throw new Error('Login screen test error: ' + loginResults.error + '\n' + loginResults.stack);
+      throw new Error(
+        'Login screen test error: ' +
+          loginResults.error +
+          '\n' +
+          loginResults.stack,
+      );
     }
 
     console.log('Login 401 Result:', loginResults.res401);
@@ -282,7 +288,9 @@ async function run() {
     // ==========================================
     // 2. EMPLOYEES SCREEN MOUNTED RUNTIME TESTS
     // ==========================================
-    console.log('\n--- 2. Testing EmployeesScreen Mounted Runtime Paging & Guards ---');
+    console.log(
+      '\n--- 2. Testing EmployeesScreen Mounted Runtime Paging & Guards ---',
+    );
     const employeesResults = await evaluate(`
       (async () => {
         try {
@@ -535,34 +543,72 @@ async function run() {
     `);
 
     if (employeesResults.error) {
-      throw new Error('Employees screen test error: ' + employeesResults.error + '\n' + employeesResults.stack);
+      throw new Error(
+        'Employees screen test error: ' +
+          employeesResults.error +
+          '\n' +
+          employeesResults.stack,
+      );
     }
 
     console.log('Employees Page 1 Names:', employeesResults.page1Names);
-    assert.deepEqual(employeesResults.page1Names, ['Nguyen Van A', 'Tran Thi B']);
+    assert.deepEqual(employeesResults.page1Names, [
+      'Nguyen Van A',
+      'Tran Thi B',
+    ]);
     assert.equal(employeesResults.hasLoadMore1, true);
 
-    console.log('Employees Page 2 Names (Deduplicated):', employeesResults.page2Names);
-    assert.deepEqual(employeesResults.page2Names, ['Nguyen Van A', 'Tran Thi B', 'Le Van C']);
+    console.log(
+      'Employees Page 2 Names (Deduplicated):',
+      employeesResults.page2Names,
+    );
+    assert.deepEqual(employeesResults.page2Names, [
+      'Nguyen Van A',
+      'Tran Thi B',
+      'Le Van C',
+    ]);
     assert.equal(employeesResults.hasLoadMore2, false);
 
     console.log('Employees Filtered Names:', employeesResults.filteredNames);
-    assert.deepEqual(employeesResults.filteredNames, ['Pham Van D (Suspended)']);
+    assert.deepEqual(employeesResults.filteredNames, [
+      'Pham Van D (Suspended)',
+    ]);
     assert.equal(employeesResults.hasLoadMoreFiltered, true);
 
     console.log('Employees Stale Guard Result:');
     console.log(' - After Request B:', employeesResults.afterBNames);
-    console.log(' - After Stale Request A resolved:', employeesResults.afterStaleANames);
+    console.log(
+      ' - After Stale Request A resolved:',
+      employeesResults.afterStaleANames,
+    );
     assert.deepEqual(employeesResults.afterBNames, ['Winner Request B']);
-    assert.deepEqual(employeesResults.afterStaleANames, ['Winner Request B'], 'Stale Request A must NOT overwrite Request B');
+    assert.deepEqual(
+      employeesResults.afterStaleANames,
+      ['Winner Request B'],
+      'Stale Request A must NOT overwrite Request B',
+    );
 
     console.log('Employees Error Retry Result:');
     assert.deepEqual(employeesResults.baseNames, ['Base 1']);
-    assert.deepEqual(employeesResults.namesAfterError, ['Base 1'], 'Page 1 data must be retained on next page failure');
-    assert.deepEqual(employeesResults.namesAfterRetry, ['Base 1', 'Base 2'], 'Data appends correctly on retry');
-    assert.equal(employeesResults.signalAbortedOnUnmount, true, 'Signal must be aborted upon unmount cleanup');
+    assert.deepEqual(
+      employeesResults.namesAfterError,
+      ['Base 1'],
+      'Page 1 data must be retained on next page failure',
+    );
+    assert.deepEqual(
+      employeesResults.namesAfterRetry,
+      ['Base 1', 'Base 2'],
+      'Data appends correctly on retry',
+    );
+    assert.equal(
+      employeesResults.signalAbortedOnUnmount,
+      true,
+      'Signal must be aborted upon unmount cleanup',
+    );
     assert.equal(employeesResults.unmountError, null);
-    console.log('✔ EmployeesScreen Mounted Runtime Verification: ALL 6 CHECKS PASS');
+    console.log(
+      '✔ EmployeesScreen Mounted Runtime Verification: ALL 6 CHECKS PASS',
+    );
 
     // ==========================================
     // 3. REPORTS SCREEN STALE JSON GUARD TESTS
@@ -757,27 +803,52 @@ async function run() {
     `);
 
     if (reportsResults.error) {
-      throw new Error('Reports screen test error: ' + reportsResults.error + '\n' + reportsResults.stack);
+      throw new Error(
+        'Reports screen test error: ' +
+          reportsResults.error +
+          '\n' +
+          reportsResults.stack,
+      );
     }
 
     console.log('Reports Stale JSON Guard Result:', reportsResults);
     assert.equal(reportsResults.hasWinnerB, true, 'Request B must be rendered');
     assert.equal(reportsResults.hasStaleABeforeResolve, false);
-    assert.equal(reportsResults.hasWinnerBAfterA, true, 'Request B content must remain after Request A JSON resolves');
-    assert.equal(reportsResults.hasStaleAAfterResolve, false, 'Stale Request A must NEVER overwrite Request B');
-    assert.equal(reportsResults.hasLoadMoreBtn, true, 'Load more button is rendered for Request B cursor');
+    assert.equal(
+      reportsResults.hasWinnerBAfterA,
+      true,
+      'Request B content must remain after Request A JSON resolves',
+    );
+    assert.equal(
+      reportsResults.hasStaleAAfterResolve,
+      false,
+      'Stale Request A must NEVER overwrite Request B',
+    );
+    assert.equal(
+      reportsResults.hasLoadMoreBtn,
+      true,
+      'Load more button is rendered for Request B cursor',
+    );
     console.log('✔ ReportsScreen Stale JSON Guard Verification: PASS');
 
     // =========================================================================
     // FAIL-CLOSED LEDGER AUDIT & PROTOCOL SAFETY VERIFICATION
     // =========================================================================
     console.log('\n--- Fail-Closed Ledger Audit & CDP Protocol Safety ---');
-    const finalViolations = await evaluate(`window.__FAIL_CLOSED_VIOLATIONS__ || []`);
+    const finalViolations = await evaluate(
+      `window.__FAIL_CLOSED_VIOLATIONS__ || []`,
+    );
     const startupAuthMe = finalViolations.filter(
-      (v) => (typeof v === 'string' ? v : v?.url)?.includes('/api/v1/auth/me') && v?.phase === 'startup',
+      (v) =>
+        (typeof v === 'string' ? v : v?.url)?.includes('/api/v1/auth/me') &&
+        v?.phase === 'startup',
     );
     const unexpectedViolations = finalViolations.filter(
-      (v) => !((typeof v === 'string' ? v : v?.url)?.includes('/api/v1/auth/me') && v?.phase === 'startup'),
+      (v) =>
+        !(
+          (typeof v === 'string' ? v : v?.url)?.includes('/api/v1/auth/me') &&
+          v?.phase === 'startup'
+        ),
     );
 
     console.log('Ledger Audit Result (FIX-45):', {
@@ -788,9 +859,21 @@ async function run() {
       cdpErrorsCount: cdpErrors.length,
     });
 
-    assert.equal(unexpectedViolations.length, 0, 'No unexpected network violations allowed in fail-closed ledger');
-    assert.equal(unmockedCdpBlocked.length, 0, 'No unmocked CDP requests allowed outside mock registry');
-    assert.equal(cdpErrors.length, 0, 'Zero CDP Fetch.failRequest errors allowed');
+    assert.equal(
+      unexpectedViolations.length,
+      0,
+      'No unexpected network violations allowed in fail-closed ledger',
+    );
+    assert.equal(
+      unmockedCdpBlocked.length,
+      0,
+      'No unmocked CDP requests allowed outside mock registry',
+    );
+    assert.equal(
+      cdpErrors.length,
+      0,
+      'Zero CDP Fetch.failRequest errors allowed',
+    );
     console.log('✔ Fail-Closed Ledger Audit & Protocol Safety: PASS');
 
     ws.close();

@@ -31,16 +31,13 @@ for (const [k, v] of Object.entries(envMap)) {
 
 const secretsAudit = auditEnvSecretsHygiene(envMap);
 
-const { createDatabasePool } = await import(
-  '../../dist/packages/database/src/pool.js'
-);
-const { loadDatabaseConfig } = await import(
-  '../../dist/packages/database/src/config.js'
-);
+const { createDatabasePool } =
+  await import('../../dist/packages/database/src/pool.js');
+const { loadDatabaseConfig } =
+  await import('../../dist/packages/database/src/config.js');
 
 const pool = createDatabasePool(loadDatabaseConfig(process.env));
 try {
-  
   const workspacesAudit = await auditWorkspaces(pool);
   const backupDrill = await runBackupRestoreDrill(pool);
 
