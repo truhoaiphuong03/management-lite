@@ -60,6 +60,48 @@ function formatVnd(amount: number | null | undefined): string {
   return `${formatNumberVn(amount)} ₫`;
 }
 
+function formatExactVnd(amount: number | null | undefined): string {
+  const safe =
+    typeof amount === 'number' && Number.isFinite(amount) ? amount : 0;
+  const rounded2 = Math.round(safe * 100) / 100;
+  return `${rounded2.toLocaleString('vi-VN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })} ₫`;
+}
+
+function formatCustomerLinePriceDisplay(
+  lineTotal: number,
+  quantity: number,
+  unitLabel?: string | null,
+): { unitPriceDisplay: string; priceSubNote: string | null; isExact: boolean } {
+  const qty = Math.max(1, Math.round(quantity || 1));
+  const total = Math.round(lineTotal || 0);
+  const unit = (unitLabel || 'sp').trim() || 'sp';
+
+  if (total % qty === 0) {
+    return {
+      unitPriceDisplay: formatVnd(total / qty),
+      priceSubNote: null,
+      isExact: true,
+    };
+  }
+
+  if ((total * 100) % qty === 0) {
+    return {
+      unitPriceDisplay: formatExactVnd(total / qty),
+      priceSubNote: null,
+      isExact: true,
+    };
+  }
+
+  return {
+    unitPriceDisplay: `~${formatVnd(Math.round(total / qty))}`,
+    priceSubNote: `Tính trọn gói ${formatNumberVn(qty)} ${unit}`,
+    isExact: false,
+  };
+}
+
 function formatDateVn(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';
   const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -188,11 +230,16 @@ export function buildServerA4Html(
       const specText = item.specification
         ? `<div class="item-spec">Quy cách: ${escapeHtml(item.specification)}</div>`
         : '';
-      const unitLabel = escapeHtml(item.unit || 'sp');
-      const adjNote =
-        item.roundingAdjustment !== 0
-          ? `<div class="item-split-note">Đơn giá làm tròn: ${formatVnd(item.unitPrice)} × ${formatNumberVn(item.quantity)} = ${formatVnd(item.billedSubtotal)} (Hiệu chỉnh làm tròn: ${item.roundingAdjustment > 0 ? '+' : ''}${formatVnd(item.roundingAdjustment)})</div>`
-          : '';
+      const rawUnit = item.unit || 'sp';
+      const unitLabel = escapeHtml(rawUnit);
+      const pricePresentation = formatCustomerLinePriceDisplay(
+        item.lineTotal,
+        item.quantity,
+        rawUnit,
+      );
+      const priceNoteHtml = pricePresentation.priceSubNote
+        ? `<div class="item-split-note">(${escapeHtml(pricePresentation.priceSubNote)})</div>`
+        : '';
 
       return `
         <tr>
@@ -200,30 +247,23 @@ export function buildServerA4Html(
           <td class="col-name">
             <div class="item-title">${escapeHtml(item.name)}</div>
             ${specText}
-            ${adjNote}
           </td>
           <td class="col-unit">${unitLabel}</td>
           <td class="col-qty">${formatNumberVn(item.quantity)}</td>
-          <td class="col-price">${formatVnd(item.unitPrice)}</td>
+          <td class="col-price">
+            <div>${escapeHtml(pricePresentation.unitPriceDisplay)}</div>
+            ${priceNoteHtml}
+          </td>
           <td class="col-total">${formatVnd(item.lineTotal)}</td>
         </tr>
       `;
     })
     .join('\n');
 
-  const roundingSummaryRowsHtml =
-    pdfPayload.totalRoundingAdjustment !== 0
-      ? `
-      <tr class="summary-row">
-        <td colspan="5" class="summary-label">Tạm tính theo đơn giá làm tròn:</td>
-        <td class="summary-val">${formatVnd(pdfPayload.subtotalFromLines)}</td>
-      </tr>
-      <tr class="summary-row">
-        <td colspan="5" class="summary-label">Hiệu chỉnh làm tròn đơn giá:</td>
-        <td class="summary-val">${pdfPayload.totalRoundingAdjustment > 0 ? '+' : ''}${formatVnd(pdfPayload.totalRoundingAdjustment)}</td>
-      </tr>
-    `
-      : '';
+  const reconciledLinesSubtotal = pdfPayload.lines.reduce(
+    (sum, item) => sum + item.lineTotal,
+    0,
+  );
 
   const shippingRowHtml = pdfPayload.includeShippingInUnitPrice
     ? `
@@ -505,7 +545,10 @@ export function buildServerA4Html(
       </thead>
       <tbody>
         ${rowsHtml}
-        ${roundingSummaryRowsHtml}
+        <tr class="summary-row">
+          <td colspan="5" class="summary-label">Cộng tiền hàng:</td>
+          <td class="summary-val">${formatVnd(reconciledLinesSubtotal)}</td>
+        </tr>
         ${shippingRowHtml}
         <tr class="grand-total-row">
           <td colspan="5" style="text-align: right;">TỔNG CỘNG THANH TOÁN:</td>

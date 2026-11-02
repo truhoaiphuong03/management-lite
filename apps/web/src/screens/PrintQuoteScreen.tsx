@@ -1,25 +1,16 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import {
-  PageHeader,
-  StatusBadge,
-} from '../../../../packages/ui/src/components/index.js';
+import { PageHeader } from '../../../../packages/ui/src/components/index.js';
 import {
   ProfitMode,
   ProfitScope,
   VendorCostMode,
   ShippingAllocationStrategy,
   RoundingMode,
-  PrintProductionStatus,
-  PrintDeliveryStatus,
   calculatePrintQuote,
   buildCustomerSafePdfPayload,
-  type ProfitModeType,
-  type ProfitScopeType,
   type VendorCostModeType,
   type ShippingAllocationStrategyType,
   type RoundingModeType,
-  type PrintProductionStatusType,
-  type PrintDeliveryStatusType,
   type PrintVendorData,
   type PrintVendorPriceItemData,
   type PrintCustomerData,
@@ -28,21 +19,24 @@ import {
   type PrintQuoteDashboardStats,
   type QuoteLineInput,
 } from '../../../../packages/contracts/src/printquote.js';
-import {
-  formatVnd,
-  formatNumberVn,
-  formatDateVn,
-  numberToVietnameseWords,
-  QUOTE_STATUS_LABELS,
-  PRODUCTION_STATUS_LABELS,
-  DELIVERY_STATUS_LABELS,
-  PAYMENT_STATUS_LABELS,
-  buildPrintQuoteA4Html,
-} from './helpers/printquote-helpers.js';
+import { buildPrintQuoteA4Html } from './helpers/printquote-helpers.js';
 import type { UserRole } from '../types.js';
+import {
+  DEFAULT_DRAFT_LINE,
+  cardStyle,
+  type PrintQuoteTabId,
+  type DraftLineState,
+} from './printquote/types.js';
+import { PrintQuoteNavHeader } from './printquote/PrintQuoteNavHeader.js';
+import { CreateQuoteTab } from './printquote/CreateQuoteTab.js';
+import { QuotesListTab } from './printquote/QuotesListTab.js';
+import { VendorsCatalogTab } from './printquote/VendorsCatalogTab.js';
+import { CustomersTab } from './printquote/CustomersTab.js';
+import { OrdersTab } from './printquote/OrdersTab.js';
+import { AnalyticsTab } from './printquote/AnalyticsTab.js';
+import { PdfPreviewModal } from './printquote/PdfPreviewModal.js';
 
-export type PrintQuoteTabId =
-  'create' | 'quotes' | 'vendors' | 'customers' | 'orders' | 'analytics';
+export type { PrintQuoteTabId } from './printquote/types.js';
 
 export interface PrintQuoteScreenProps {
   role: UserRole;
@@ -56,64 +50,6 @@ export interface PrintQuoteScreenProps {
   initialOrders?: PrintOrderData[] | undefined;
   initialStats?: PrintQuoteDashboardStats | undefined;
 }
-
-interface DraftLineState {
-  id: string;
-  vendorPriceItemId: string;
-  name: string;
-  specification: string;
-  unit: string;
-  quantity: number;
-  vendorCostMode: VendorCostModeType;
-  vendorCostValue: number;
-  profitMode: ProfitModeType;
-  profitScope: ProfitScopeType;
-  profitValue: number;
-}
-
-const DEFAULT_DRAFT_LINE = (index: number): DraftLineState => ({
-  id: `ITEM-${index}`,
-  vendorPriceItemId: '',
-  name:
-    index === 1 ? 'Tờ rơi A5 Couche 150gsm (In 2 mặt)' : `Ấn phẩm #${index}`,
-  specification:
-    index === 1 ? 'In Offset 4 màu, cán bóng 2 mặt, cắt thành phẩm' : '',
-  unit: 'tờ',
-  quantity: 100,
-  vendorCostMode: VendorCostMode.PER_UNIT,
-  vendorCostValue: 300,
-  profitMode: ProfitMode.FIXED_AMOUNT,
-  profitScope: ProfitScope.PER_UNIT,
-  profitValue: 200,
-});
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  minHeight: '38px',
-  padding: '7px 10px',
-  borderRadius: '8px',
-  border: '1px solid var(--border-color)',
-  backgroundColor: 'var(--bg-color)',
-  color: 'var(--text-color)',
-  fontSize: '13px',
-  boxSizing: 'border-box',
-};
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '12px',
-  fontWeight: 600,
-  color: 'var(--muted-color)',
-  marginBottom: '4px',
-};
-
-const cardStyle: React.CSSProperties = {
-  backgroundColor: 'var(--surface-color)',
-  border: '1px solid var(--border-color)',
-  borderRadius: '12px',
-  padding: '16px',
-  boxSizing: 'border-box',
-};
 
 export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   role,
@@ -830,6 +766,56 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     }
   };
 
+  // Requirement 4: Inline quick-add customer directly inside Create Quote
+  const handleInlineCreateCustomer = async (input: {
+    name: string;
+    phone: string;
+    company: string;
+  }): Promise<PrintCustomerData | null> => {
+    try {
+      const csrf = await getCsrfToken();
+      const res = await fetch('/api/v1/print-quotes/customers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf,
+          'Idempotency-Key': `cust-inline-${Date.now()}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: input.name.trim(),
+          phone: input.phone.trim() || null,
+          company_name: input.company.trim() || null,
+          address: null,
+        }),
+      });
+      if (!res.ok) {
+        setBannerMessage({
+          type: 'error',
+          text: 'Không thể tạo khách hàng mới.',
+        });
+        return null;
+      }
+      const json = await res.json();
+      const created: PrintCustomerData | null = json?.data || null;
+      if (created) {
+        setCustomers((prev) => [created, ...prev]);
+        setSelectedCustomerId(created.id);
+        setBannerMessage({
+          type: 'success',
+          text: `Đã tạo và chọn khách hàng ${created.name}!`,
+        });
+      }
+      return created;
+    } catch {
+      setBannerMessage({
+        type: 'error',
+        text: 'Lỗi kết nối khi tạo khách hàng mới.',
+      });
+      return null;
+    }
+  };
+
   const handleUpdateOrderField = async (
     orderId: string,
     patch: Record<string, unknown>,
@@ -899,108 +885,32 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     );
   }
 
-  const tabs: Array<{ id: PrintQuoteTabId; label: string; testId: string }> = [
-    { id: 'create', label: '1. Tạo báo giá', testId: 'tab-create-quote' },
-    {
-      id: 'quotes',
-      label: `2. Danh sách báo giá (${quotes.length})`,
-      testId: 'tab-quotes-list',
-    },
-    {
-      id: 'vendors',
-      label: `3. Nhà in & Bảng giá (${priceItems.length})`,
-      testId: 'tab-vendors-catalog',
-    },
-    {
-      id: 'customers',
-      label: `4. Khách hàng (${customers.length})`,
-      testId: 'tab-customers',
-    },
-    {
-      id: 'orders',
-      label: `5. Đơn hàng (${orders.length})`,
-      testId: 'tab-orders',
-    },
-    {
-      id: 'analytics',
-      label: '6. Lợi nhuận & Công nợ',
-      testId: 'tab-profit-debt',
-    },
-  ];
-
-  const ordersInProdCount = stats?.orders_by_production_status
-    ? (stats.orders_by_production_status.PENDING || 0) +
-      (stats.orders_by_production_status.PREPRESS || 0) +
-      (stats.orders_by_production_status.PRINTING || 0) +
-      (stats.orders_by_production_status.FINISHING || 0)
-    : 0;
-  const ordersPendingDeliveryCount = stats?.orders_by_delivery_status
-    ? (stats.orders_by_delivery_status.NOT_SHIPPED || 0) +
-      (stats.orders_by_delivery_status.PACKING || 0) +
-      (stats.orders_by_delivery_status.SHIPPING || 0)
-    : 0;
-
   return (
     <div
       data-testid="printquote-screen"
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
+        gap: '14px',
         width: '100%',
         maxWidth: '100%',
+        paddingBottom: '96px',
         boxSizing: 'border-box',
       }}
     >
       <PageHeader
         title="Báo giá in ấn & Quản lý đơn in"
-        subtitle="Tính giá in tự động (đơn vị/lô, lợi nhuận VNĐ/%, phân bổ ship 1 lần), lưu lịch sử phiên bản, xuất PDF A4 tiếng Việt ẩn giá vốn và theo dõi công nợ."
+        subtitle="Tạo báo giá nhanh cho khách, tự tính lời trên từng sản phẩm, xuất file PDF A4 ẩn giá vốn và theo dõi công nợ."
       />
 
-      {/* 6-Tab Sub-Navigation Bar */}
-      <div
-        role="tablist"
-        aria-label="Chức năng Báo giá in ấn"
-        style={{
-          display: 'flex',
-          gap: '6px',
-          overflowX: 'auto',
-          paddingBottom: '4px',
-          borderBottom: '1px solid var(--border-color)',
-        }}
-      >
-        {tabs.map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              data-testid={tab.testId}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: '9px 14px',
-                borderRadius: '8px',
-                border: active
-                  ? '1px solid var(--accent-text)'
-                  : '1px solid transparent',
-                backgroundColor: active
-                  ? 'var(--accent-soft)'
-                  : 'var(--surface-color)',
-                color: active ? 'var(--accent-text)' : 'var(--text-color)',
-                fontWeight: active ? 700 : 500,
-                fontSize: '13px',
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <PrintQuoteNavHeader
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        quotesCount={quotes.length}
+        priceItemsCount={priceItems.length}
+        customersCount={customers.length}
+        ordersCount={orders.length}
+      />
 
       {bannerMessage && (
         <div
@@ -1046,2545 +956,172 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         </div>
       )}
 
-      {/* TAB 1: TẠO BÁO GIÁ */}
+      {/* TAB 1: TẠO BÁO GIÁ (4 NHÓM THU GỌN TRÊN 1 MÀN HÌNH) */}
       {activeTab === 'create' && (
-        <div
-          data-testid="panel-create-quote"
-          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
-        >
-          {/* Quote General Info & Shipping Config */}
-          <div style={cardStyle}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '8px',
-                marginBottom: '12px',
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
-                {editingQuoteId
-                  ? `Đang chỉnh sửa Báo giá ${editingQuoteCode} (Lưu sẽ tạo Phiên bản v${editingQuoteVersion + 1})`
-                  : '1. Thông tin chung & Cấu hình vận chuyển'}
-              </h2>
-              {editingQuoteId && (
-                <button
-                  type="button"
-                  onClick={handleResetNewQuote}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'transparent',
-                    color: 'var(--text-color)',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  + Tạo báo giá mới tinh
-                </button>
-              )}
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
-                gap: '12px',
-              }}
-            >
-              <div>
-                <label style={labelStyle} htmlFor="pq-title-input">
-                  Tiêu đề báo giá *
-                </label>
-                <input
-                  id="pq-title-input"
-                  data-testid="pq-title-input"
-                  style={inputStyle}
-                  value={quoteTitle}
-                  onChange={(e) => setQuoteTitle(e.target.value)}
-                  placeholder="VD: Báo giá in tờ rơi & hộp giấy"
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle} htmlFor="pq-customer-select">
-                  Khách hàng nhận báo giá
-                </label>
-                <select
-                  id="pq-customer-select"
-                  data-testid="pq-customer-select"
-                  style={inputStyle}
-                  value={selectedCustomerId}
-                  onChange={(e) => setSelectedCustomerId(e.target.value)}
-                >
-                  <option value="">-- Khách lẻ / Chọn khách hàng --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code} — {c.name}{' '}
-                      {c.company_name ? `(${c.company_name})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle} htmlFor="pq-shipping-input">
-                  Cước vận chuyển toàn đơn (VNĐ — tính 1 lần)
-                </label>
-                <input
-                  id="pq-shipping-input"
-                  data-testid="pq-shipping-input"
-                  type="number"
-                  min={0}
-                  step={1000}
-                  style={inputStyle}
-                  value={shippingFee}
-                  onChange={(e) =>
-                    setShippingFee(Math.max(0, Number(e.target.value) || 0))
-                  }
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle} htmlFor="pq-valid-until">
-                  Hiệu lực báo giá đến ngày
-                </label>
-                <input
-                  id="pq-valid-until"
-                  type="date"
-                  style={inputStyle}
-                  value={validUntil}
-                  onChange={(e) => setValidUntil(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
-                gap: '12px',
-                marginTop: '12px',
-                paddingTop: '12px',
-                borderTop: '1px solid var(--border-color)',
-              }}
-            >
-              <div
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                <input
-                  id="pq-merge-ship-checkbox"
-                  data-testid="pq-merge-ship-checkbox"
-                  type="checkbox"
-                  checked={includeShippingInUnitPrice}
-                  onChange={(e) =>
-                    setIncludeShippingInUnitPrice(e.target.checked)
-                  }
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                />
-                <label
-                  htmlFor="pq-merge-ship-checkbox"
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--text-color)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Gộp cước vận chuyển vào đơn giá khách (Ẩn dòng ship trên PDF)
-                </label>
-              </div>
-
-              <div>
-                <label style={labelStyle} htmlFor="pq-ship-alloc-select">
-                  Chiến lược phân bổ ship (khi có nhiều sản phẩm)
-                </label>
-                <select
-                  id="pq-ship-alloc-select"
-                  style={inputStyle}
-                  value={shippingAllocation}
-                  onChange={(e) =>
-                    setShippingAllocation(
-                      e.target.value as ShippingAllocationStrategyType,
-                    )
-                  }
-                >
-                  <option
-                    value={
-                      ShippingAllocationStrategy.PROPORTIONAL_BY_BASE_AMOUNT
-                    }
-                  >
-                    Theo tỷ trọng (Giá vốn + Lợi nhuận)
-                  </option>
-                  <option
-                    value={ShippingAllocationStrategy.PROPORTIONAL_BY_QUANTITY}
-                  >
-                    Theo tỷ lệ Số lượng đặt in
-                  </option>
-                  <option value={ShippingAllocationStrategy.EQUAL_SPLIT}>
-                    Chia đều cho từng dòng sản phẩm
-                  </option>
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle} htmlFor="pq-rounding-step-select">
-                  Chính sách làm tròn đơn giá khách
-                </label>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <select
-                    id="pq-rounding-step-select"
-                    aria-label="Kiểu làm tròn đơn giá"
-                    style={inputStyle}
-                    value={roundingMode}
-                    onChange={(e) =>
-                      setRoundingMode(e.target.value as RoundingModeType)
-                    }
-                  >
-                    <option value={RoundingMode.CEIL}>
-                      Làm tròn lên (Bảo vệ lợi nhuận)
-                    </option>
-                    <option value={RoundingMode.NEAREST}>
-                      Làm tròn chuẩn (Nearest)
-                    </option>
-                    <option value={RoundingMode.FLOOR}>Làm tròn xuống</option>
-                  </select>
-                  <select
-                    aria-label="Bước làm tròn VNĐ"
-                    style={{ ...inputStyle, maxWidth: '115px' }}
-                    value={roundingStep}
-                    onChange={(e) =>
-                      setRoundingStep(Number(e.target.value) || 1)
-                    }
-                  >
-                    <option value={1}>1 ₫ (Chính xác)</option>
-                    <option value={100}>100 ₫</option>
-                    <option value={1000}>1.000 ₫</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Product Lines Editor */}
-          <div style={cardStyle}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '8px',
-                marginBottom: '12px',
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
-                2. Danh mục sản phẩm đặt in ({draftLines.length} hạng mục)
-              </h2>
-              <button
-                type="button"
-                data-testid="pq-add-line-btn"
-                onClick={() =>
-                  setDraftLines((prev) => [
-                    ...prev,
-                    DEFAULT_DRAFT_LINE(prev.length + 1),
-                  ])
-                }
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--accent-text)',
-                  backgroundColor: 'var(--accent-soft)',
-                  color: 'var(--accent-text)',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                + Thêm sản phẩm in
-              </button>
-            </div>
-
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-            >
-              {draftLines.map((line, idx) => (
-                <div
-                  key={line.id}
-                  data-testid={`pq-line-card-${idx}`}
-                  style={{
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '10px',
-                    padding: '12px',
-                    backgroundColor: 'var(--bg-color)',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '10px',
-                      gap: '8px',
-                    }}
-                  >
-                    <strong
-                      style={{
-                        fontSize: '13.5px',
-                        color: 'var(--accent-text)',
-                      }}
-                    >
-                      Sản phẩm #{idx + 1}
-                    </strong>
-                    {draftLines.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDraftLines((prev) =>
-                            prev.filter((_, i) => i !== idx),
-                          )
-                        }
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--danger-text)',
-                          backgroundColor: 'transparent',
-                          color: 'var(--danger-text)',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Xóa dòng
-                      </button>
-                    )}
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns:
-                        'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-                      gap: '10px',
-                    }}
-                  >
-                    <div>
-                      <label style={labelStyle}>
-                        Nạp nhanh từ Bảng giá Nhà in
-                      </label>
-                      <select
-                        aria-label={`Chọn bảng giá nhà in dòng ${idx + 1}`}
-                        style={inputStyle}
-                        value={line.vendorPriceItemId}
-                        onChange={(e) =>
-                          handleSelectCatalogItem(idx, e.target.value)
-                        }
-                      >
-                        <option value="">
-                          -- Tự nhập thông số bên dưới --
-                        </option>
-                        {priceItems.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.code} — {p.name} (
-                            {p.pricing_mode === 'TOTAL_BATCH'
-                              ? `Lô: ${formatVnd(p.batch_total_cost)}`
-                              : `${formatVnd(p.unit_cost)}/${p.unit}`}
-                            )
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={labelStyle}>Tên sản phẩm in *</label>
-                      <input
-                        aria-label={`Tên sản phẩm dòng ${idx + 1}`}
-                        style={inputStyle}
-                        value={line.name}
-                        onChange={(e) =>
-                          setDraftLines((prev) =>
-                            prev.map((l, i) =>
-                              i === idx ? { ...l, name: e.target.value } : l,
-                            ),
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <label style={labelStyle}>Quy cách / Chất liệu</label>
-                      <input
-                        aria-label={`Quy cách dòng ${idx + 1}`}
-                        style={inputStyle}
-                        value={line.specification}
-                        onChange={(e) =>
-                          setDraftLines((prev) =>
-                            prev.map((l, i) =>
-                              i === idx
-                                ? { ...l, specification: e.target.value }
-                                : l,
-                            ),
-                          )
-                        }
-                        placeholder="VD: C150, in 2 mặt, cán mờ"
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <div style={{ flex: 2 }}>
-                        <label style={labelStyle}>Số lượng *</label>
-                        <input
-                          aria-label={`Số lượng dòng ${idx + 1}`}
-                          type="number"
-                          min={1}
-                          style={inputStyle}
-                          value={line.quantity}
-                          onChange={(e) =>
-                            setDraftLines((prev) =>
-                              prev.map((l, i) =>
-                                i === idx
-                                  ? {
-                                      ...l,
-                                      quantity: Math.max(
-                                        1,
-                                        Math.round(Number(e.target.value) || 1),
-                                      ),
-                                    }
-                                  : l,
-                              ),
-                            )
-                          }
-                        />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <label style={labelStyle}>ĐVT</label>
-                        <input
-                          aria-label={`Đơn vị tính dòng ${idx + 1}`}
-                          style={inputStyle}
-                          value={line.unit}
-                          onChange={(e) =>
-                            setDraftLines((prev) =>
-                              prev.map((l, i) =>
-                                i === idx ? { ...l, unit: e.target.value } : l,
-                              ),
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Vendor Cost & Profit Row */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns:
-                        'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-                      gap: '10px',
-                      marginTop: '10px',
-                      paddingTop: '10px',
-                      borderTop: '1px dashed var(--border-color)',
-                    }}
-                  >
-                    <div>
-                      <label style={labelStyle}>Kiểu tính Giá vốn Nhà in</label>
-                      <select
-                        aria-label={`Kiểu giá vốn dòng ${idx + 1}`}
-                        style={inputStyle}
-                        value={line.vendorCostMode}
-                        onChange={(e) =>
-                          setDraftLines((prev) =>
-                            prev.map((l, i) =>
-                              i === idx
-                                ? {
-                                    ...l,
-                                    vendorCostMode: e.target
-                                      .value as VendorCostModeType,
-                                  }
-                                : l,
-                            ),
-                          )
-                        }
-                      >
-                        <option value={VendorCostMode.PER_UNIT}>
-                          Theo 1 đơn vị ({line.unit || 'sp'})
-                        </option>
-                        <option value={VendorCostMode.TOTAL_BATCH}>
-                          Trọn gói cả lô ({line.quantity} {line.unit || 'sp'})
-                        </option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={labelStyle}>
-                        {line.vendorCostMode === VendorCostMode.PER_UNIT
-                          ? `Giá nhà in / 1 ${line.unit || 'sp'} (VNĐ)`
-                          : 'Tổng giá nhà in cả lô (VNĐ)'}
-                      </label>
-                      <input
-                        aria-label={`Giá trị giá vốn dòng ${idx + 1}`}
-                        type="number"
-                        min={0}
-                        style={inputStyle}
-                        value={line.vendorCostValue}
-                        onChange={(e) =>
-                          setDraftLines((prev) =>
-                            prev.map((l, i) =>
-                              i === idx
-                                ? {
-                                    ...l,
-                                    vendorCostValue: Math.max(
-                                      0,
-                                      Number(e.target.value) || 0,
-                                    ),
-                                  }
-                                : l,
-                            ),
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <label style={labelStyle}>Cách tính Lợi nhuận</label>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <select
-                          aria-label={`Kiểu lợi nhuận dòng ${idx + 1}`}
-                          style={inputStyle}
-                          value={line.profitMode}
-                          onChange={(e) =>
-                            setDraftLines((prev) =>
-                              prev.map((l, i) =>
-                                i === idx
-                                  ? {
-                                      ...l,
-                                      profitMode: e.target
-                                        .value as ProfitModeType,
-                                    }
-                                  : l,
-                              ),
-                            )
-                          }
-                        >
-                          <option value={ProfitMode.FIXED_AMOUNT}>
-                            Số tiền (VNĐ)
-                          </option>
-                          <option value={ProfitMode.PERCENTAGE}>
-                            Phần trăm (%)
-                          </option>
-                        </select>
-                        {line.profitMode === ProfitMode.FIXED_AMOUNT && (
-                          <select
-                            aria-label={`Phạm vi lợi nhuận dòng ${idx + 1}`}
-                            style={inputStyle}
-                            value={line.profitScope}
-                            onChange={(e) =>
-                              setDraftLines((prev) =>
-                                prev.map((l, i) =>
-                                  i === idx
-                                    ? {
-                                        ...l,
-                                        profitScope: e.target
-                                          .value as ProfitScopeType,
-                                      }
-                                    : l,
-                                ),
-                              )
-                            }
-                          >
-                            <option value={ProfitScope.PER_UNIT}>
-                              / 1 {line.unit || 'sp'}
-                            </option>
-                            <option value={ProfitScope.TOTAL_BATCH}>
-                              Trọn lô
-                            </option>
-                          </select>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label style={labelStyle}>
-                        {line.profitMode === ProfitMode.PERCENTAGE
-                          ? 'Mức lợi nhuận (% trên giá vốn)'
-                          : line.profitScope === ProfitScope.PER_UNIT
-                            ? `Lợi nhuận / 1 ${line.unit || 'sp'} (VNĐ)`
-                            : 'Tổng lợi nhuận cả lô (VNĐ)'}
-                      </label>
-                      <input
-                        aria-label={`Giá trị lợi nhuận dòng ${idx + 1}`}
-                        type="number"
-                        min={0}
-                        style={inputStyle}
-                        value={line.profitValue}
-                        onChange={(e) =>
-                          setDraftLines((prev) =>
-                            prev.map((l, i) =>
-                              i === idx
-                                ? {
-                                    ...l,
-                                    profitValue: Math.max(
-                                      0,
-                                      Number(e.target.value) || 0,
-                                    ),
-                                  }
-                                : l,
-                            ),
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Live Calculation Breakdown: Internal vs Customer PDF */}
-          {livePricingResult.calc && livePricingResult.customerPdf && (
-            <div
-              data-testid="pq-live-breakdown"
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
-                gap: '16px',
-              }}
-            >
-              {/* Internal Breakdown Card (Owner Only) */}
-              <div
-                style={{
-                  ...cardStyle,
-                  border: '1px solid var(--accent-text)',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '12px',
-                  }}
-                >
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
-                    🔒 Bóc tách Nội bộ (Giá vốn & Lợi nhuận — Chỉ Owner thấy)
-                  </h3>
-                  <StatusBadge status="neutral" label="Nội bộ" />
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
-                    gap: '10px',
-                    marginBottom: '12px',
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--bg-color)',
-                    }}
-                  >
-                    <div
-                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                    >
-                      Tổng giá vốn nhà in
-                    </div>
-                    <div
-                      data-testid="pq-summary-vendor-cost"
-                      style={{ fontSize: '16px', fontWeight: 700 }}
-                    >
-                      {formatVnd(livePricingResult.calc.totalVendorCost)}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--bg-color)',
-                    }}
-                  >
-                    <div
-                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                    >
-                      Tổng lợi nhuận ròng
-                    </div>
-                    <div
-                      data-testid="pq-summary-profit"
-                      style={{
-                        fontSize: '16px',
-                        fontWeight: 700,
-                        color: 'var(--success-text)',
-                      }}
-                    >
-                      +{formatVnd(livePricingResult.calc.totalProfit)}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--bg-color)',
-                    }}
-                  >
-                    <div
-                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                    >
-                      Cước ship (1 lần)
-                    </div>
-                    <div
-                      data-testid="pq-summary-shipping"
-                      style={{ fontSize: '16px', fontWeight: 700 }}
-                    >
-                      {formatVnd(livePricingResult.calc.shippingFee)}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--accent-soft)',
-                    }}
-                  >
-                    <div
-                      style={{ fontSize: '12px', color: 'var(--accent-text)' }}
-                    >
-                      Tổng báo giá khách
-                    </div>
-                    <div
-                      data-testid="pq-summary-total"
-                      style={{
-                        fontSize: '17px',
-                        fontWeight: 800,
-                        color: 'var(--accent-text)',
-                      }}
-                    >
-                      {formatVnd(livePricingResult.calc.totalQuoteAmount)}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ overflowX: 'auto' }}>
-                  <table
-                    style={{
-                      width: '100%',
-                      borderCollapse: 'collapse',
-                      fontSize: '12.5px',
-                    }}
-                  >
-                    <thead>
-                      <tr
-                        style={{
-                          borderBottom: '1px solid var(--border-color)',
-                          color: 'var(--muted-color)',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <th style={{ padding: '6px' }}>Sản phẩm</th>
-                        <th style={{ padding: '6px', textAlign: 'right' }}>
-                          Vốn
-                        </th>
-                        <th style={{ padding: '6px', textAlign: 'right' }}>
-                          Lời
-                        </th>
-                        <th style={{ padding: '6px', textAlign: 'right' }}>
-                          Ship phân bổ
-                        </th>
-                        <th style={{ padding: '6px', textAlign: 'right' }}>
-                          Đơn giá khách
-                        </th>
-                        <th style={{ padding: '6px', textAlign: 'right' }}>
-                          Thành tiền
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {livePricingResult.calc.lines.map((item) => (
-                        <tr
-                          key={item.id}
-                          style={{
-                            borderBottom: '1px solid var(--border-color)',
-                          }}
-                        >
-                          <td style={{ padding: '6px', fontWeight: 600 }}>
-                            {item.name} ({formatNumberVn(item.quantity)})
-                          </td>
-                          <td style={{ padding: '6px', textAlign: 'right' }}>
-                            {formatVnd(item.totalVendorCost)}
-                          </td>
-                          <td
-                            style={{
-                              padding: '6px',
-                              textAlign: 'right',
-                              color: 'var(--success-text)',
-                            }}
-                          >
-                            +{formatVnd(item.totalProfit)}
-                          </td>
-                          <td style={{ padding: '6px', textAlign: 'right' }}>
-                            {formatVnd(item.allocatedShippingFee)}
-                          </td>
-                          <td
-                            style={{
-                              padding: '6px',
-                              textAlign: 'right',
-                              fontWeight: 700,
-                            }}
-                          >
-                            {formatVnd(item.finalUnitPrice)}
-                          </td>
-                          <td
-                            style={{
-                              padding: '6px',
-                              textAlign: 'right',
-                              fontWeight: 700,
-                              color: 'var(--accent-text)',
-                            }}
-                          >
-                            {formatVnd(item.reconciledLineTotal)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Customer-Safe PDF Preview Card */}
-              <div style={cardStyle} data-testid="pq-customer-safe-card">
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '12px',
-                  }}
-                >
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
-                    📄 Chế độ Hiển thị PDF A4 Khách hàng (Ẩn 100% giá vốn & lời)
-                  </h3>
-                  <StatusBadge status="success" label="An toàn gửi khách" />
-                </div>
-
-                <div style={{ overflowX: 'auto', marginBottom: '12px' }}>
-                  <table
-                    style={{
-                      width: '100%',
-                      borderCollapse: 'collapse',
-                      fontSize: '12.5px',
-                    }}
-                  >
-                    <thead>
-                      <tr
-                        style={{
-                          borderBottom: '1px solid var(--border-color)',
-                          color: 'var(--muted-color)',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <th style={{ padding: '6px' }}>Hạng mục in</th>
-                        <th style={{ padding: '6px', textAlign: 'right' }}>
-                          SL
-                        </th>
-                        <th style={{ padding: '6px', textAlign: 'right' }}>
-                          Đơn giá bán
-                        </th>
-                        <th style={{ padding: '6px', textAlign: 'right' }}>
-                          Thành tiền
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {livePricingResult.customerPdf.lines.map((item) => (
-                        <tr
-                          key={item.id}
-                          style={{
-                            borderBottom: '1px solid var(--border-color)',
-                          }}
-                        >
-                          <td style={{ padding: '6px', fontWeight: 600 }}>
-                            {item.name}
-                          </td>
-                          <td style={{ padding: '6px', textAlign: 'right' }}>
-                            {formatNumberVn(item.quantity)}
-                          </td>
-                          <td style={{ padding: '6px', textAlign: 'right' }}>
-                            {formatVnd(item.unitPrice)}
-                          </td>
-                          <td
-                            style={{
-                              padding: '6px',
-                              textAlign: 'right',
-                              fontWeight: 700,
-                            }}
-                          >
-                            {formatVnd(item.lineTotal)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div
-                  style={{
-                    fontSize: '13px',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-color)',
-                    marginBottom: '12px',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      marginBottom: '4px',
-                    }}
-                  >
-                    <span>Cước vận chuyển hiển thị trên PDF:</span>
-                    <strong>
-                      {livePricingResult.customerPdf.includeShippingInUnitPrice
-                        ? 'Đã gộp vào đơn giá (0 ₫ phụ thu)'
-                        : formatVnd(
-                            livePricingResult.customerPdf
-                              .shippingAmountToAddOnPdfFooter,
-                          )}
-                    </strong>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: '15px',
-                      fontWeight: 800,
-                      color: 'var(--accent-text)',
-                    }}
-                  >
-                    <span>TỔNG THANH TOÁN:</span>
-                    <span>
-                      {formatVnd(
-                        livePricingResult.customerPdf.grandTotalPayable,
-                      )}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '4px',
-                      fontStyle: 'italic',
-                    }}
-                  >
-                    Bằng chữ:{' '}
-                    {numberToVietnameseWords(
-                      livePricingResult.customerPdf.grandTotalPayable,
-                    )}
-                    .
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
-                    gap: '10px',
-                    marginBottom: '12px',
-                  }}
-                >
-                  <div>
-                    <label style={labelStyle} htmlFor="pq-customer-notes">
-                      Ghi chú in trên PDF gửi khách
-                    </label>
-                    <textarea
-                      id="pq-customer-notes"
-                      rows={2}
-                      style={inputStyle}
-                      value={customerNotes}
-                      onChange={(e) => setCustomerNotes(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label style={labelStyle} htmlFor="pq-internal-notes">
-                      Ghi chú nội bộ (Không in lên PDF)
-                    </label>
-                    <textarea
-                      id="pq-internal-notes"
-                      rows={2}
-                      style={inputStyle}
-                      value={internalNotes}
-                      onChange={(e) => setInternalNotes(e.target.value)}
-                      placeholder="VD: Đặt nhà in Sài Gòn, cọc trước 50%"
-                    />
-                  </div>
-                </div>
-
-                {editingQuoteId && (
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={labelStyle} htmlFor="pq-version-note">
-                      Lý do cập nhật phiên bản mới (v{editingQuoteVersion + 1})
-                    </label>
-                    <input
-                      id="pq-version-note"
-                      style={inputStyle}
-                      value={versionChangeNote}
-                      onChange={(e) => setVersionChangeNote(e.target.value)}
-                      placeholder="VD: Khách tăng số lượng lên 500 tờ"
-                    />
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                  <button
-                    type="button"
-                    data-testid="pq-save-quote-btn"
-                    onClick={handleSaveQuote}
-                    style={{
-                      flex: 1,
-                      minWidth: '180px',
-                      padding: '10px 16px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      backgroundColor: 'var(--accent-text)',
-                      color: '#0F172A',
-                      fontWeight: 800,
-                      fontSize: '13.5px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {editingQuoteId
-                      ? `💾 Lưu Phiên bản v${editingQuoteVersion + 1}`
-                      : '💾 Lưu Báo giá (v1)'}
-                  </button>
-
-                  <button
-                    type="button"
-                    data-testid="pq-download-pdf-btn"
-                    onClick={handleDownloadLivePdfFile}
-                    style={{
-                      flex: 1,
-                      minWidth: '180px',
-                      padding: '10px 16px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--accent-text)',
-                      backgroundColor: 'var(--accent-soft)',
-                      color: 'var(--accent-text)',
-                      fontWeight: 700,
-                      fontSize: '13.5px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ⬇️ Tải PDF A4 ({editingQuoteCode || 'BG-DRAFT'}.pdf)
-                  </button>
-
-                  <button
-                    type="button"
-                    data-testid="pq-preview-pdf-btn"
-                    onClick={handleOpenLiveA4Preview}
-                    style={{
-                      flex: 1,
-                      minWidth: '160px',
-                      padding: '10px 16px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
-                      backgroundColor: 'var(--surface-color)',
-                      color: 'var(--text-color)',
-                      fontWeight: 700,
-                      fontSize: '13.5px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    👁️ Xem trước PDF A4
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <CreateQuoteTab
+          editingQuoteId={editingQuoteId}
+          editingQuoteCode={editingQuoteCode}
+          editingQuoteVersion={editingQuoteVersion}
+          quoteTitle={quoteTitle}
+          onChangeQuoteTitle={setQuoteTitle}
+          selectedCustomerId={selectedCustomerId}
+          onChangeSelectedCustomerId={setSelectedCustomerId}
+          validUntil={validUntil}
+          onChangeValidUntil={setValidUntil}
+          shippingFee={shippingFee}
+          onChangeShippingFee={setShippingFee}
+          includeShippingInUnitPrice={includeShippingInUnitPrice}
+          onChangeIncludeShippingInUnitPrice={setIncludeShippingInUnitPrice}
+          shippingAllocation={shippingAllocation}
+          onChangeShippingAllocation={setShippingAllocation}
+          roundingMode={roundingMode}
+          onChangeRoundingMode={setRoundingMode}
+          roundingStep={roundingStep}
+          onChangeRoundingStep={setRoundingStep}
+          customerNotes={customerNotes}
+          onChangeCustomerNotes={setCustomerNotes}
+          internalNotes={internalNotes}
+          onChangeInternalNotes={setInternalNotes}
+          versionChangeNote={versionChangeNote}
+          onChangeVersionChangeNote={setVersionChangeNote}
+          draftLines={draftLines}
+          setDraftLines={setDraftLines}
+          customers={customers}
+          priceItems={priceItems}
+          livePricingResult={livePricingResult}
+          onSelectCatalogItem={handleSelectCatalogItem}
+          onResetNewQuote={handleResetNewQuote}
+          onSaveQuote={handleSaveQuote}
+          onDownloadLivePdf={handleDownloadLivePdfFile}
+          onOpenLivePreview={handleOpenLiveA4Preview}
+          onQuickCreateCustomer={handleInlineCreateCustomer}
+        />
       )}
 
-      {/* TAB 2: DANH SÁCH BÁO GIÁ & LỊCH SỬ PHIÊN BẢN */}
+      {/* TAB 2: DANH SÁCH BÁO GIÁ */}
       {activeTab === 'quotes' && (
-        <div style={cardStyle} data-testid="panel-quotes-list">
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '12px',
-              flexWrap: 'wrap',
-              gap: '8px',
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
-              Danh sách Báo giá & Lịch sử Phiên bản ({quotes.length})
-            </h2>
-            <button
-              type="button"
-              onClick={() => {
-                handleResetNewQuote();
-                setActiveTab('create');
-              }}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: 'var(--accent-text)',
-                color: '#0F172A',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              + Tạo báo giá mới
-            </button>
-          </div>
-
-          {quotes.length === 0 ? (
-            <div
-              style={{
-                padding: '24px',
-                textAlign: 'center',
-                color: 'var(--muted-color)',
-                fontSize: '13.5px',
-              }}
-            >
-              Chưa có báo giá nào. Hãy bấm <strong>1. Tạo báo giá</strong> để
-              tính giá và xuất PDF A4 đầu tiên.
-            </div>
-          ) : (
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-            >
-              {quotes.map((q) => {
-                const isHistoryOpen = expandedQuoteHistoryId === q.id;
-                return (
-                  <div
-                    key={q.id}
-                    data-testid={`quote-row-${q.quote_code}`}
-                    style={{
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '10px',
-                      padding: '14px',
-                      backgroundColor: 'var(--bg-color)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        flexWrap: 'wrap',
-                        gap: '10px',
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <strong
-                            style={{
-                              fontSize: '14.5px',
-                              color: 'var(--accent-text)',
-                            }}
-                          >
-                            {q.quote_code}
-                          </strong>
-                          <StatusBadge
-                            status="neutral"
-                            label={`v${q.current_version}`}
-                          />
-                          <StatusBadge
-                            status={
-                              q.status === 'CONVERTED'
-                                ? 'success'
-                                : q.status === 'FINALIZED'
-                                  ? 'warning'
-                                  : 'muted'
-                            }
-                            label={QUOTE_STATUS_LABELS[q.status] || q.status}
-                          />
-                          <span style={{ fontWeight: 700, fontSize: '14px' }}>
-                            {q.title}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '12.5px',
-                            color: 'var(--muted-color)',
-                            marginTop: '4px',
-                          }}
-                        >
-                          Khách hàng:{' '}
-                          <strong>{q.customer_name || 'Khách lẻ'}</strong> •
-                          Ngày tạo: {formatDateVn(q.created_at)}
-                        </div>
-                      </div>
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: '14px',
-                          flexWrap: 'wrap',
-                          fontSize: '12.5px',
-                        }}
-                      >
-                        <div>
-                          <div style={{ color: 'var(--muted-color)' }}>
-                            Giá vốn
-                          </div>
-                          <strong>{formatVnd(q.total_vendor_cost)}</strong>
-                        </div>
-                        <div>
-                          <div style={{ color: 'var(--muted-color)' }}>
-                            Lợi nhuận
-                          </div>
-                          <strong style={{ color: 'var(--success-text)' }}>
-                            +{formatVnd(q.total_profit)}
-                          </strong>
-                        </div>
-                        <div>
-                          <div style={{ color: 'var(--muted-color)' }}>
-                            Ship (1 lần)
-                          </div>
-                          <strong>{formatVnd(q.shipping_fee)}</strong>
-                        </div>
-                        <div>
-                          <div style={{ color: 'var(--muted-color)' }}>
-                            Tổng báo khách
-                          </div>
-                          <strong
-                            style={{
-                              fontSize: '14px',
-                              color: 'var(--accent-text)',
-                            }}
-                          >
-                            {formatVnd(q.total_quote_amount)}
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                        marginTop: '12px',
-                        paddingTop: '10px',
-                        borderTop: '1px solid var(--border-color)',
-                      }}
-                    >
-                      <button
-                        type="button"
-                        data-testid={`pq-quote-download-pdf-${q.quote_code}`}
-                        onClick={() =>
-                          handleDownloadSavedQuotePdfFile(q.id, q.quote_code)
-                        }
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--accent-text)',
-                          backgroundColor: 'var(--accent-soft)',
-                          color: 'var(--accent-text)',
-                          fontWeight: 700,
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ⬇️ Tải PDF ({q.quote_code}.pdf)
-                      </button>
-
-                      <button
-                        type="button"
-                        data-testid={`pq-quote-preview-pdf-${q.quote_code}`}
-                        onClick={() => handleOpenSavedQuotePdf(q)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-color)',
-                          backgroundColor: 'var(--surface-color)',
-                          color: 'var(--text-color)',
-                          fontWeight: 600,
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        👁️ Xem PDF A4
-                      </button>
-
-                      {q.status === 'DRAFT' && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleLoadQuoteForEdit(q)}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: 'var(--surface-color)',
-                              color: 'var(--text-color)',
-                              fontSize: '12.5px',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            ✏️ Sửa / Tạo phiên bản v{q.current_version + 1}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleFinalizeQuote(q.id)}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: 'var(--surface-color)',
-                              color: 'var(--text-color)',
-                              fontSize: '12.5px',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            🔒 Chốt báo giá
-                          </button>
-                        </>
-                      )}
-
-                      {q.status !== 'CONVERTED' && q.status !== 'CANCELLED' ? (
-                        <button
-                          type="button"
-                          data-testid={`pq-convert-order-btn-${q.quote_code}`}
-                          onClick={() => handleConvertQuoteToOrder(q)}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            backgroundColor: 'var(--accent-text)',
-                            color: '#0F172A',
-                            fontWeight: 700,
-                            fontSize: '12.5px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          📦 Chuyển thành Đơn đặt in
-                        </button>
-                      ) : q.status === 'CONVERTED' ? (
-                        <span
-                          data-testid={`pq-quote-converted-badge-${q.quote_code}`}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-color)',
-                            backgroundColor: 'var(--surface-color)',
-                            color: 'var(--success-text)',
-                            fontWeight: 700,
-                            fontSize: '12px',
-                          }}
-                        >
-                          ✓ Đã chuyển đơn in
-                        </span>
-                      ) : null}
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedQuoteHistoryId(isHistoryOpen ? null : q.id)
-                        }
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-color)',
-                          backgroundColor: 'transparent',
-                          color: 'var(--muted-color)',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        📜 Lịch sử phiên bản (
-                        {q.versions?.length || q.current_version})
-                      </button>
-                    </div>
-
-                    {isHistoryOpen && q.versions && q.versions.length > 0 && (
-                      <div
-                        style={{
-                          marginTop: '10px',
-                          padding: '10px',
-                          borderRadius: '8px',
-                          backgroundColor: 'var(--surface-color)',
-                          fontSize: '12px',
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, marginBottom: '6px' }}>
-                          Nhật ký các phiên bản báo giá (Bất biến theo SHA-256):
-                        </div>
-                        {q.versions.map((ver) => (
-                          <div
-                            key={ver.id}
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              flexWrap: 'wrap',
-                              gap: '8px',
-                              padding: '6px 0',
-                              borderBottom: '1px dashed var(--border-color)',
-                            }}
-                          >
-                            <span>
-                              <strong>v{ver.version_number}</strong> —{' '}
-                              {ver.change_note || 'Lưu phiên bản'} (
-                              {formatDateVn(ver.created_at)})
-                            </span>
-                            <span>
-                              Vốn: {formatVnd(ver.total_vendor_cost)} | Lời: +
-                              {formatVnd(ver.total_profit)} | Tổng:{' '}
-                              <strong>
-                                {formatVnd(ver.total_quote_amount)}
-                              </strong>{' '}
-                              <code style={{ color: 'var(--muted-color)' }}>
-                                #{ver.integrity_hash.slice(0, 10)}
-                              </code>
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <QuotesListTab
+          quotes={quotes}
+          expandedQuoteHistoryId={expandedQuoteHistoryId}
+          setExpandedQuoteHistoryId={setExpandedQuoteHistoryId}
+          onStartNewQuote={() => {
+            handleResetNewQuote();
+            setActiveTab('create');
+          }}
+          onDownloadSavedQuotePdfFile={handleDownloadSavedQuotePdfFile}
+          onOpenSavedQuotePdf={handleOpenSavedQuotePdf}
+          onLoadQuoteForEdit={handleLoadQuoteForEdit}
+          onFinalizeQuote={handleFinalizeQuote}
+          onConvertQuoteToOrder={handleConvertQuoteToOrder}
+        />
       )}
 
       {/* TAB 3: NHÀ IN & BẢNG GIÁ */}
       {activeTab === 'vendors' && (
-        <div
-          data-testid="panel-vendors-catalog"
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
-            gap: '16px',
+        <VendorsCatalogTab
+          vendors={vendors}
+          priceItems={priceItems}
+          vendorName={vendorName}
+          setVendorName={setVendorName}
+          vendorPhone={vendorPhone}
+          setVendorPhone={setVendorPhone}
+          vendorBankName={vendorBankName}
+          setVendorBankName={setVendorBankName}
+          vendorBankAccount={vendorBankAccount}
+          setVendorBankAccount={setVendorBankAccount}
+          onCreateVendor={handleCreateVendor}
+          priceVendorId={priceVendorId}
+          setPriceVendorId={setPriceVendorId}
+          priceItemName={priceItemName}
+          setPriceItemName={setPriceItemName}
+          priceSpec={priceSpec}
+          setPriceSpec={setPriceSpec}
+          priceCostMode={priceCostMode}
+          setPriceCostMode={setPriceCostMode}
+          priceUnitCost={priceUnitCost}
+          setPriceUnitCost={setPriceUnitCost}
+          priceBatchCost={priceBatchCost}
+          setPriceBatchCost={setPriceBatchCost}
+          priceDefaultProfitVal={priceDefaultProfitVal}
+          setPriceDefaultProfitVal={setPriceDefaultProfitVal}
+          onCreatePriceItem={handleCreatePriceItem}
+          onQuickQuotePriceItem={(item) => {
+            setDraftLines([
+              {
+                id: 'ITEM-1',
+                vendorPriceItemId: item.id,
+                name: item.name,
+                specification: item.specification || '',
+                unit: item.unit || 'tờ',
+                quantity: 100,
+                vendorCostMode: item.pricing_mode,
+                vendorCostValue:
+                  item.pricing_mode === VendorCostMode.TOTAL_BATCH
+                    ? item.batch_total_cost
+                    : item.unit_cost,
+                profitMode: item.default_profit_mode,
+                profitScope: item.default_profit_scope,
+                profitValue: item.default_profit_value,
+              },
+            ]);
+            setActiveTab('create');
           }}
-        >
-          {/* Vendors Management */}
-          <div style={cardStyle}>
-            <h2
-              style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700 }}
-            >
-              Danh sách Nhà in đối tác ({vendors.length})
-            </h2>
-            <form
-              onSubmit={handleCreateVendor}
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 160px), 1fr))',
-                gap: '8px',
-                marginBottom: '14px',
-              }}
-            >
-              <input
-                aria-label="Tên nhà in"
-                style={inputStyle}
-                placeholder="Tên nhà in *"
-                value={vendorName}
-                onChange={(e) => setVendorName(e.target.value)}
-                required
-              />
-              <input
-                aria-label="Số điện thoại nhà in"
-                style={inputStyle}
-                placeholder="Số điện thoại"
-                value={vendorPhone}
-                onChange={(e) => setVendorPhone(e.target.value)}
-              />
-              <input
-                aria-label="Ngân hàng nhà in"
-                style={inputStyle}
-                placeholder="Ngân hàng (VD: VCB)"
-                value={vendorBankName}
-                onChange={(e) => setVendorBankName(e.target.value)}
-              />
-              <input
-                aria-label="Số tài khoản nhà in"
-                style={inputStyle}
-                placeholder="Số tài khoản"
-                value={vendorBankAccount}
-                onChange={(e) => setVendorBankAccount(e.target.value)}
-              />
-              <button
-                type="submit"
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: 'var(--accent-text)',
-                  color: '#0F172A',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                + Thêm Nhà in
-              </button>
-            </form>
-
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-            >
-              {vendors.map((v) => (
-                <div
-                  key={v.id}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    fontSize: '13px',
-                  }}
-                >
-                  <div style={{ fontWeight: 700 }}>
-                    <span style={{ color: 'var(--accent-text)' }}>
-                      {v.code}
-                    </span>{' '}
-                    — {v.name}
-                  </div>
-                  <div
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                  >
-                    SĐT: {v.phone || '—'} • NH: {v.bank_name || '—'}{' '}
-                    {v.bank_account_number ? `(${v.bank_account_number})` : ''}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Vendor Price Catalog Management */}
-          <div style={cardStyle}>
-            <h2
-              style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 700 }}
-            >
-              Bảng giá gốc Nhà in ({priceItems.length})
-            </h2>
-            <p
-              style={{
-                margin: '0 0 12px',
-                fontSize: '12px',
-                color: 'var(--muted-color)',
-              }}
-            >
-              🔒 Bảo vệ lịch sử: Khi cập nhật bảng giá nhà in tại đây, toàn bộ
-              báo giá và đơn hàng cũ đã tạo trước đó được giữ nguyên 100%, không
-              tự động bị đổi giá.
-            </p>
-
-            <form
-              onSubmit={handleCreatePriceItem}
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
-                gap: '8px',
-                marginBottom: '14px',
-              }}
-            >
-              <select
-                aria-label="Chọn nhà in cho bảng giá"
-                style={inputStyle}
-                value={priceVendorId}
-                onChange={(e) => setPriceVendorId(e.target.value)}
-              >
-                <option value="">-- Chọn Nhà in --</option>
-                {vendors.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.code} — {v.name}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                aria-label="Tên hạng mục bảng giá"
-                style={inputStyle}
-                placeholder="Tên ấn phẩm (VD: Tờ rơi A5) *"
-                value={priceItemName}
-                onChange={(e) => setPriceItemName(e.target.value)}
-                required
-              />
-
-              <input
-                aria-label="Quy cách in bảng giá"
-                style={inputStyle}
-                placeholder="Quy cách (VD: C150 2 mặt)"
-                value={priceSpec}
-                onChange={(e) => setPriceSpec(e.target.value)}
-              />
-
-              <select
-                aria-label="Kiểu tính giá nhà in"
-                style={inputStyle}
-                value={priceCostMode}
-                onChange={(e) =>
-                  setPriceCostMode(e.target.value as VendorCostModeType)
-                }
-              >
-                <option value={VendorCostMode.PER_UNIT}>
-                  Giá theo 1 đơn vị
-                </option>
-                <option value={VendorCostMode.TOTAL_BATCH}>Giá trọn lô</option>
-              </select>
-
-              {priceCostMode === VendorCostMode.PER_UNIT ? (
-                <input
-                  aria-label="Đơn giá vốn nhà in"
-                  type="number"
-                  min={0}
-                  style={inputStyle}
-                  placeholder="Giá vốn / 1 ĐVT"
-                  value={priceUnitCost}
-                  onChange={(e) =>
-                    setPriceUnitCost(Math.max(0, Number(e.target.value) || 0))
-                  }
-                />
-              ) : (
-                <input
-                  aria-label="Giá vốn trọn lô nhà in"
-                  type="number"
-                  min={0}
-                  style={inputStyle}
-                  placeholder="Giá vốn trọn lô"
-                  value={priceBatchCost}
-                  onChange={(e) =>
-                    setPriceBatchCost(Math.max(0, Number(e.target.value) || 0))
-                  }
-                />
-              )}
-
-              <input
-                aria-label="Lợi nhuận mặc định"
-                type="number"
-                min={0}
-                style={inputStyle}
-                placeholder="Lợi nhuận mặc định"
-                value={priceDefaultProfitVal}
-                onChange={(e) =>
-                  setPriceDefaultProfitVal(
-                    Math.max(0, Number(e.target.value) || 0),
-                  )
-                }
-              />
-
-              <button
-                type="submit"
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: 'var(--accent-text)',
-                  color: '#0F172A',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                + Lưu vào Bảng giá
-              </button>
-            </form>
-
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-            >
-              {priceItems.map((p) => (
-                <div
-                  key={p.id}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    fontSize: '12.5px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '8px',
-                  }}
-                >
-                  <div>
-                    <strong>
-                      {p.code} — {p.name}
-                    </strong>{' '}
-                    <span style={{ color: 'var(--muted-color)' }}>
-                      ({p.vendor_name || 'Nhà in'}) • v{p.version}
-                    </span>
-                    {p.specification && (
-                      <div style={{ color: 'var(--muted-color)' }}>
-                        Quy cách: {p.specification}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div>
-                      Giá vốn:{' '}
-                      <strong>
-                        {p.pricing_mode === 'TOTAL_BATCH'
-                          ? `${formatVnd(p.batch_total_cost)} / lô`
-                          : `${formatVnd(p.unit_cost)} / ${p.unit}`}
-                      </strong>
-                    </div>
-                    <div style={{ color: 'var(--success-text)' }}>
-                      Lời mặc định:{' '}
-                      {p.default_profit_mode === 'PERCENTAGE'
-                        ? `${p.default_profit_value}%`
-                        : `${formatVnd(p.default_profit_value)}`}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        />
       )}
 
       {/* TAB 4: KHÁCH HÀNG */}
       {activeTab === 'customers' && (
-        <div style={cardStyle} data-testid="panel-customers">
-          <h2 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700 }}>
-            Danh bạ Khách hàng đặt in ({customers.length})
-          </h2>
-
-          <form
-            onSubmit={handleCreateCustomer}
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-              gap: '8px',
-              marginBottom: '16px',
-            }}
-          >
-            <input
-              aria-label="Tên khách hàng"
-              style={inputStyle}
-              placeholder="Tên khách hàng *"
-              value={custName}
-              onChange={(e) => setCustName(e.target.value)}
-              required
-            />
-            <input
-              aria-label="Tên công ty khách hàng"
-              style={inputStyle}
-              placeholder="Công ty / Thương hiệu"
-              value={custCompany}
-              onChange={(e) => setCustCompany(e.target.value)}
-            />
-            <input
-              aria-label="Số điện thoại khách hàng"
-              style={inputStyle}
-              placeholder="Số điện thoại"
-              value={custPhone}
-              onChange={(e) => setCustPhone(e.target.value)}
-            />
-            <input
-              aria-label="Địa chỉ giao hàng"
-              style={inputStyle}
-              placeholder="Địa chỉ nhận hàng"
-              value={custAddress}
-              onChange={(e) => setCustAddress(e.target.value)}
-            />
-            <button
-              type="submit"
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: 'var(--accent-text)',
-                color: '#0F172A',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              + Thêm Khách hàng
-            </button>
-          </form>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
-              gap: '10px',
-            }}
-          >
-            {customers.map((c) => (
-              <div
-                key={c.id}
-                style={{
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-color)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '13.5px' }}>
-                    <span style={{ color: 'var(--accent-text)' }}>
-                      {c.code}
-                    </span>{' '}
-                    — {c.name}
-                  </div>
-                  <div
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                  >
-                    {c.company_name ? `${c.company_name} • ` : ''}SĐT:{' '}
-                    {c.phone || '—'}
-                  </div>
-                  {c.address && (
-                    <div
-                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                    >
-                      Đ/c: {c.address}
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCustomerId(c.id);
-                    setActiveTab('create');
-                  }}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--accent-text)',
-                    backgroundColor: 'var(--accent-soft)',
-                    color: 'var(--accent-text)',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  + Báo giá
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <CustomersTab
+          customers={customers}
+          custName={custName}
+          setCustName={setCustName}
+          custCompany={custCompany}
+          setCustCompany={setCustCompany}
+          custPhone={custPhone}
+          setCustPhone={setCustPhone}
+          custAddress={custAddress}
+          setCustAddress={setCustAddress}
+          onCreateCustomer={handleCreateCustomer}
+          onSelectCustomerForQuote={(customerId) => {
+            setSelectedCustomerId(customerId);
+            setActiveTab('create');
+          }}
+        />
       )}
 
-      {/* TAB 5: ĐƠN HÀNG (NGÀY ĐẶT IN, SẢN XUẤT & GIAO HÀNG ĐỘC LẬP, CỌC & THANH TOÁN) */}
+      {/* TAB 5: ĐƠN HÀNG */}
       {activeTab === 'orders' && (
-        <div style={cardStyle} data-testid="panel-orders">
-          <h2 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700 }}>
-            Quản lý Đơn hàng In ấn, Tiến độ Sản xuất / Giao hàng & Thanh toán (
-            {orders.length})
-          </h2>
-
-          {orders.length === 0 ? (
-            <div
-              style={{
-                padding: '24px',
-                textAlign: 'center',
-                color: 'var(--muted-color)',
-              }}
-            >
-              Chưa có đơn hàng đặt in nào. Hãy chuyển từ mục{' '}
-              <strong>2. Danh sách báo giá</strong> sang Đơn đặt in.
-            </div>
-          ) : (
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
-            >
-              {orders.map((ord) => (
-                <div
-                  key={ord.id}
-                  data-testid={`order-card-${ord.order_code}`}
-                  style={{
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '10px',
-                    padding: '14px',
-                    backgroundColor: 'var(--bg-color)',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      flexWrap: 'wrap',
-                      gap: '10px',
-                      marginBottom: '12px',
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <strong
-                          style={{
-                            fontSize: '15px',
-                            color: 'var(--accent-text)',
-                          }}
-                        >
-                          {ord.order_code}
-                        </strong>
-                        <StatusBadge
-                          status={
-                            ord.production_status === 'COMPLETED'
-                              ? 'success'
-                              : 'neutral'
-                          }
-                          label={`SX: ${PRODUCTION_STATUS_LABELS[ord.production_status]}`}
-                        />
-                        <StatusBadge
-                          status={
-                            ord.delivery_status === 'DELIVERED'
-                              ? 'success'
-                              : 'warning'
-                          }
-                          label={`Giao: ${DELIVERY_STATUS_LABELS[ord.delivery_status]}`}
-                        />
-                        <StatusBadge
-                          status={
-                            ord.payment_status === 'PAID'
-                              ? 'success'
-                              : ord.remaining_debt_amount > 0
-                                ? 'error'
-                                : 'muted'
-                          }
-                          label={PAYMENT_STATUS_LABELS[ord.payment_status]}
-                        />
-                      </div>
-                      <div
-                        style={{
-                          fontSize: '12.5px',
-                          color: 'var(--muted-color)',
-                          marginTop: '4px',
-                        }}
-                      >
-                        Khách hàng:{' '}
-                        <strong>{ord.customer_name || 'Khách lẻ'}</strong> • Mã
-                        báo giá gốc: {ord.quote_code || '—'} (v
-                        {ord.quote_version})
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: '14px',
-                        flexWrap: 'wrap',
-                        fontSize: '12.5px',
-                      }}
-                    >
-                      <div>
-                        <div style={{ color: 'var(--muted-color)' }}>
-                          Tổng tiền đơn
-                        </div>
-                        <strong>{formatVnd(ord.total_quote_amount)}</strong>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--muted-color)' }}>
-                          Đã thanh toán
-                        </div>
-                        <strong style={{ color: 'var(--success-text)' }}>
-                          {formatVnd(ord.total_paid_amount)}
-                        </strong>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--muted-color)' }}>
-                          Công nợ còn lại
-                        </div>
-                        <strong
-                          style={{
-                            color:
-                              ord.remaining_debt_amount > 0
-                                ? 'var(--danger-text)'
-                                : 'var(--success-text)',
-                          }}
-                        >
-                          {formatVnd(ord.remaining_debt_amount)}
-                        </strong>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--muted-color)' }}>
-                          Lời dự kiến / Thực tế
-                        </div>
-                        <strong>
-                          {formatVnd(ord.expected_profit)} /{' '}
-                          <span style={{ color: 'var(--accent-text)' }}>
-                            {formatVnd(ord.actual_profit)}
-                          </span>
-                        </strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Independent Production & Delivery Status Controls + Dates */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns:
-                        'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-                      gap: '10px',
-                      paddingTop: '10px',
-                      borderTop: '1px solid var(--border-color)',
-                    }}
-                  >
-                    <div>
-                      <label style={labelStyle}>Ngày đặt in nhà in</label>
-                      <input
-                        aria-label={`Ngày đặt in ${ord.order_code}`}
-                        type="date"
-                        style={inputStyle}
-                        value={ord.print_ordered_at || ''}
-                        onChange={(e) =>
-                          handleUpdateOrderField(ord.id, {
-                            print_ordered_at: e.target.value || null,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <label style={labelStyle}>
-                        Trạng thái Sản xuất (Độc lập)
-                      </label>
-                      <select
-                        aria-label={`Trạng thái sản xuất ${ord.order_code}`}
-                        style={inputStyle}
-                        value={ord.production_status}
-                        onChange={(e) =>
-                          handleUpdateOrderField(ord.id, {
-                            production_status: e.target
-                              .value as PrintProductionStatusType,
-                          })
-                        }
-                      >
-                        {Object.entries(PrintProductionStatus).map(
-                          ([, val]) => (
-                            <option key={val} value={val}>
-                              {PRODUCTION_STATUS_LABELS[val]}
-                            </option>
-                          ),
-                        )}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={labelStyle}>
-                        Trạng thái Giao hàng (Độc lập)
-                      </label>
-                      <select
-                        aria-label={`Trạng thái giao hàng ${ord.order_code}`}
-                        style={inputStyle}
-                        value={ord.delivery_status}
-                        onChange={(e) =>
-                          handleUpdateOrderField(ord.id, {
-                            delivery_status: e.target
-                              .value as PrintDeliveryStatusType,
-                          })
-                        }
-                      >
-                        {Object.entries(PrintDeliveryStatus).map(([, val]) => (
-                          <option key={val} value={val}>
-                            {DELIVERY_STATUS_LABELS[val]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-end',
-                      }}
-                    >
-                      <button
-                        type="button"
-                        data-testid={`pq-order-record-payment-${ord.order_code}`}
-                        onClick={() => {
-                          setPaymentOrderTarget(ord);
-                          setPaymentAmount(ord.remaining_debt_amount || 0);
-                          setPaymentType(
-                            ord.total_paid_amount === 0 ? 'DEPOSIT' : 'FINAL',
-                          );
-                        }}
-                        style={{
-                          width: '100%',
-                          minHeight: '38px',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          backgroundColor: 'var(--accent-text)',
-                          color: '#0F172A',
-                          fontWeight: 700,
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        💰 Ghi nhận Cọc / Thanh toán
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Record Payment Modal */}
-          {paymentOrderTarget && (
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Ghi nhận thanh toán đơn hàng"
-              style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 1100,
-                backgroundColor: 'rgba(2, 6, 23, 0.75)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '16px',
-              }}
-            >
-              <form
-                onSubmit={handleRecordPayment}
-                style={{
-                  ...cardStyle,
-                  width: '100%',
-                  maxWidth: '440px',
-                }}
-              >
-                <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>
-                  Thu tiền / Đặt cọc — Đơn {paymentOrderTarget.order_code}
-                </h3>
-                <div style={{ marginBottom: '10px' }}>
-                  <label style={labelStyle}>Loại thanh toán</label>
-                  <select
-                    aria-label="Loại thanh toán"
-                    style={inputStyle}
-                    value={paymentType}
-                    onChange={(e) =>
-                      setPaymentType(
-                        e.target.value as
-                          'DEPOSIT' | 'INSTALLMENT' | 'FINAL' | 'REFUND',
-                      )
-                    }
-                  >
-                    <option value="DEPOSIT">Tiền đặt cọc (Deposit)</option>
-                    <option value="INSTALLMENT">Thanh toán đợt</option>
-                    <option value="FINAL">Tất toán công nợ cuối</option>
-                    <option value="REFUND">Hoàn tiền (Refund)</option>
-                  </select>
-                </div>
-                <div style={{ marginBottom: '10px' }}>
-                  <label style={labelStyle}>Số tiền thu (VNĐ) *</label>
-                  <input
-                    aria-label="Số tiền thanh toán"
-                    type="number"
-                    min={1}
-                    style={inputStyle}
-                    value={paymentAmount}
-                    onChange={(e) =>
-                      setPaymentAmount(Math.max(0, Number(e.target.value) || 0))
-                    }
-                    required
-                  />
-                </div>
-                <div style={{ marginBottom: '10px' }}>
-                  <label style={labelStyle}>Phương thức</label>
-                  <select
-                    aria-label="Phương thức thanh toán"
-                    style={inputStyle}
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  >
-                    <option value="BANK_TRANSFER">
-                      Chuyển khoản Ngân hàng
-                    </option>
-                    <option value="QR_VIETQR">Quét mã VietQR</option>
-                    <option value="CASH">Tiền mặt</option>
-                  </select>
-                </div>
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={labelStyle}>Ghi chú giao dịch</label>
-                  <input
-                    aria-label="Ghi chú thanh toán"
-                    style={inputStyle}
-                    value={paymentNote}
-                    onChange={(e) => setPaymentNote(e.target.value)}
-                    placeholder="VD: Khách CK cọc 50% đơn in"
-                  />
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    gap: '8px',
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setPaymentOrderTarget(null)}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
-                      backgroundColor: 'transparent',
-                      color: 'var(--text-color)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      backgroundColor: 'var(--accent-text)',
-                      color: '#0F172A',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Xác nhận thu tiền
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-        </div>
+        <OrdersTab
+          orders={orders}
+          onUpdateOrderField={handleUpdateOrderField}
+          paymentOrderTarget={paymentOrderTarget}
+          setPaymentOrderTarget={setPaymentOrderTarget}
+          paymentAmount={paymentAmount}
+          setPaymentAmount={setPaymentAmount}
+          paymentType={paymentType}
+          setPaymentType={setPaymentType}
+          paymentMethod={paymentMethod}
+          setPaymentMethod={setPaymentMethod}
+          paymentNote={paymentNote}
+          setPaymentNote={setPaymentNote}
+          onRecordPayment={handleRecordPayment}
+        />
       )}
 
-      {/* TAB 6: LỢI NHUẬN & CÔNG NỢ (DASHBOARD THỐNG KÊ) */}
+      {/* TAB 6: LỢI NHUẬN & CÔNG NỢ */}
       {activeTab === 'analytics' && (
-        <div
-          data-testid="panel-profit-debt"
-          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
-        >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
-              gap: '12px',
-            }}
-          >
-            <div style={cardStyle}>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Tổng doanh thu đơn in
-              </div>
-              <div
-                style={{ fontSize: '20px', fontWeight: 800, marginTop: '4px' }}
-              >
-                {formatVnd(stats?.total_order_revenue ?? 0)}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                {stats?.total_orders ?? orders.length} đơn hàng /{' '}
-                {stats?.total_quotes ?? quotes.length} báo giá
-              </div>
-            </div>
-
-            <div style={cardStyle}>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Lợi nhuận Dự kiến vs Thực tế
-              </div>
-              <div
-                style={{
-                  fontSize: '18px',
-                  fontWeight: 800,
-                  color: 'var(--success-text)',
-                  marginTop: '4px',
-                }}
-              >
-                {formatVnd(stats?.total_expected_profit ?? 0)} /{' '}
-                {formatVnd(stats?.total_actual_profit ?? 0)}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Tự động đối soát chênh lệch giá nhà in
-              </div>
-            </div>
-
-            <div style={cardStyle}>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Tổng tiền đã thu (Cọc + Đợt)
-              </div>
-              <div
-                style={{
-                  fontSize: '20px',
-                  fontWeight: 800,
-                  color: 'var(--accent-text)',
-                  marginTop: '4px',
-                }}
-              >
-                {formatVnd(stats?.total_paid_amount ?? 0)}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Đã đối soát phiếu thu
-              </div>
-            </div>
-
-            <div style={cardStyle}>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Tổng Công nợ Khách hàng còn nợ
-              </div>
-              <div
-                style={{
-                  fontSize: '20px',
-                  fontWeight: 800,
-                  color: 'var(--danger-text)',
-                  marginTop: '4px',
-                }}
-              >
-                {formatVnd(stats?.total_remaining_debt ?? 0)}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                {ordersInProdCount} đơn đang SX • {ordersPendingDeliveryCount}{' '}
-                đơn chờ giao
-              </div>
-            </div>
-          </div>
-
-          <div style={cardStyle}>
-            <h3
-              style={{ margin: '0 0 12px', fontSize: '15px', fontWeight: 700 }}
-            >
-              Sổ theo dõi Lợi nhuận & Công nợ chi tiết theo Đơn hàng
-            </h3>
-            <div style={{ overflowX: 'auto' }}>
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '12.5px',
-                }}
-              >
-                <thead>
-                  <tr
-                    style={{
-                      borderBottom: '1px solid var(--border-color)',
-                      color: 'var(--muted-color)',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <th style={{ padding: '8px' }}>Mã đơn</th>
-                    <th style={{ padding: '8px' }}>Khách hàng</th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>
-                      Doanh thu
-                    </th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>
-                      Lời dự kiến
-                    </th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>
-                      Lời thực tế
-                    </th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>
-                      Đã thu
-                    </th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>
-                      Còn nợ
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((o) => (
-                    <tr
-                      key={o.id}
-                      style={{ borderBottom: '1px solid var(--border-color)' }}
-                    >
-                      <td style={{ padding: '8px', fontWeight: 700 }}>
-                        {o.order_code}
-                      </td>
-                      <td style={{ padding: '8px' }}>
-                        {o.customer_name || 'Khách lẻ'}
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>
-                        {formatVnd(o.total_quote_amount)}
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>
-                        {formatVnd(o.expected_profit)}
-                      </td>
-                      <td
-                        style={{
-                          padding: '8px',
-                          textAlign: 'right',
-                          fontWeight: 700,
-                          color: 'var(--success-text)',
-                        }}
-                      >
-                        {formatVnd(o.actual_profit)}
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>
-                        {formatVnd(o.total_paid_amount)}
-                      </td>
-                      <td
-                        style={{
-                          padding: '8px',
-                          textAlign: 'right',
-                          fontWeight: 700,
-                          color:
-                            o.remaining_debt_amount > 0
-                              ? 'var(--danger-text)'
-                              : 'var(--success-text)',
-                        }}
-                      >
-                        {formatVnd(o.remaining_debt_amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <AnalyticsTab stats={stats} orders={orders} quotes={quotes} />
       )}
 
       {/* A4 PDF Preview & Print Modal */}
       {pdfPreviewState && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={pdfPreviewState.title}
-          data-testid="pq-pdf-modal"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1200,
-            backgroundColor: 'rgba(2, 6, 23, 0.82)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '12px',
-          }}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '900px',
-              maxHeight: 'calc(100dvh - 24px)',
-              backgroundColor: 'var(--surface-color)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid var(--border-color)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <strong style={{ fontSize: '14px' }}>
-                {pdfPreviewState.title} (Chỉ hiển thị giá bán — Ẩn 100% giá nhà
-                in & lợi nhuận)
-              </strong>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  data-testid="pq-modal-download-pdf-btn"
-                  onClick={() => {
-                    if (pdfPreviewState.quoteId) {
-                      void handleDownloadSavedQuotePdfFile(
-                        pdfPreviewState.quoteId,
-                        pdfPreviewState.quoteCode,
-                      );
-                    } else {
-                      void handleDownloadLivePdfFile();
-                    }
-                  }}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: 'var(--accent-text)',
-                    color: '#0F172A',
-                    fontWeight: 700,
-                    fontSize: '12.5px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  ⬇️ Tải file .PDF ({pdfPreviewState.quoteCode}.pdf)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePrintA4Window(pdfPreviewState.html)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--accent-text)',
-                    backgroundColor: 'var(--accent-soft)',
-                    color: 'var(--accent-text)',
-                    fontWeight: 700,
-                    fontSize: '12.5px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  🖨️ Mở cửa sổ In A4
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPdfPreviewState(null)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'transparent',
-                    color: 'var(--text-color)',
-                    fontSize: '12.5px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-
-            <iframe
-              title="Xem trước PDF A4 Báo giá in ấn"
-              srcDoc={pdfPreviewState.html}
-              style={{
-                width: '100%',
-                height: '75vh',
-                border: 'none',
-                backgroundColor: '#FFFFFF',
-              }}
-            />
-          </div>
-        </div>
+        <PdfPreviewModal
+          previewState={pdfPreviewState}
+          onClose={() => setPdfPreviewState(null)}
+          onDownloadSavedPdf={handleDownloadSavedQuotePdfFile}
+          onDownloadLivePdf={handleDownloadLivePdfFile}
+          onPrintWindow={handlePrintA4Window}
+        />
       )}
 
       {loading && (

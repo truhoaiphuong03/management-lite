@@ -9,6 +9,7 @@ import {
 import { PrintQuoteScreen } from '../../dist/apps/web/src/screens/PrintQuoteScreen.js';
 import {
   buildPrintQuoteA4Html,
+  formatCustomerLinePriceDisplay,
   numberToVietnameseWords,
 } from '../../dist/apps/web/src/screens/helpers/printquote-helpers.js';
 import {
@@ -16,6 +17,7 @@ import {
   buildCustomerSafePdfPayload,
   ProfitMode,
   ProfitScope,
+  RoundingMode,
 } from '../../dist/packages/contracts/src/printquote.js';
 
 describe('MGL-PRINTQUOTE V1 — Phase 3 Web UI & Vietnamese A4 PDF Tests', () => {
@@ -71,7 +73,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 3 Web UI & Vietnamese A4 PDF Tests', () =>
     assert.equal(adminMobile.includes('Báo giá'), false);
   });
 
-  it('2. PrintQuoteScreen hiển thị đầy đủ 6 tab chức năng và tính trực tiếp bài toán chuẩn trên Tab 1 (Tạo báo giá)', () => {
+  it('2. PrintQuoteScreen hiển thị 4 nhóm điều hướng chính, chỉ hiện tab con của nhóm đang chọn và tính trực tiếp bài toán chuẩn trên Tab 1 (Tạo báo giá)', () => {
     const html = renderToStaticMarkup(
       React.createElement(PrintQuoteScreen, {
         role: 'owner',
@@ -80,12 +82,29 @@ describe('MGL-PRINTQUOTE V1 — Phase 3 Web UI & Vietnamese A4 PDF Tests', () =>
       }),
     );
 
+    // 4 nhóm chính luôn hiện
+    assert.equal(html.includes('Báo giá'), true);
+    assert.equal(html.includes('Đơn hàng'), true);
+    assert.equal(html.includes('Danh mục'), true);
+    assert.equal(html.includes('Báo cáo'), true);
+
+    // Khi đang ở nhóm Báo giá: chỉ hiện 2 màn hình con thuộc nhóm Báo giá, không hiện đồng thời 6 tab gây rối
     assert.equal(html.includes('1. Tạo báo giá'), true);
     assert.equal(html.includes('2. Danh sách báo giá'), true);
-    assert.equal(html.includes('3. Nhà in &amp; Bảng giá'), true);
-    assert.equal(html.includes('4. Khách hàng'), true);
-    assert.equal(html.includes('5. Đơn hàng'), true);
-    assert.equal(html.includes('6. Lợi nhuận &amp; Công nợ'), true);
+    assert.equal(html.includes('3. Nhà in &amp; Bảng giá'), false);
+    assert.equal(html.includes('6. Lợi nhuận &amp; Công nợ'), false);
+
+    // Khi chuyển sang nhóm Danh mục (initialTab: 'vendors'): chỉ hiện 2 màn hình con thuộc Danh mục
+    const catalogHtml = renderToStaticMarkup(
+      React.createElement(PrintQuoteScreen, {
+        role: 'owner',
+        workspaceName: 'Hoài Phương Media',
+        initialTab: 'vendors',
+      }),
+    );
+    assert.equal(catalogHtml.includes('3. Nhà in &amp; Bảng giá'), true);
+    assert.equal(catalogHtml.includes('4. Khách hàng'), true);
+    assert.equal(catalogHtml.includes('1. Tạo báo giá'), false);
 
     // Default draft line: 100 tờ x (300đ vốn + 200đ lời) + 50.000đ ship = 100.000đ
     assert.equal(html.includes('30.000 ₫'), true);
@@ -308,5 +327,142 @@ describe('MGL-PRINTQUOTE V1 — Phase 3 Web UI & Vietnamese A4 PDF Tests', () =>
     assert.equal(a4Html.includes('2.223'), false);
     assert.equal(a4Html.includes('222.300'), false);
     assert.equal(a4Html.includes('>50.000 ₫<'), false);
+  });
+
+  it('5. PrintQuote v0.8.1 UX/UI Redesign: 4 nhóm điều hướng, 4 khối thu gọn linh hoạt trên Tab Tạo báo giá, thêm khách nhanh inline, bảng tổng kết chuyển đổi và tùy chọn nâng cao thu gọn', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(PrintQuoteScreen, {
+        role: 'owner',
+        workspaceName: 'Hoài Phương Media',
+        initialTab: 'create',
+      }),
+    );
+
+    // 4 nhóm điều hướng rõ ràng: Báo giá, Đơn hàng, Danh mục, Báo cáo
+    assert.equal(html.includes('pq-nav-group-quotes'), true);
+    assert.equal(html.includes('pq-nav-group-orders'), true);
+    assert.equal(html.includes('pq-nav-group-catalog'), true);
+    assert.equal(html.includes('pq-nav-group-analytics'), true);
+
+    // Thanh nhảy nhanh và 4 nhóm thông tin có thể thu gọn trên 1 màn hình
+    assert.equal(html.includes('pq-section-jump-bar'), true);
+    assert.equal(html.includes('pq-sec-customer'), true);
+    assert.equal(html.includes('pq-sec-products'), true);
+    assert.equal(html.includes('pq-sec-summary'), true);
+    assert.equal(html.includes('pq-sec-actions'), true);
+    assert.equal(html.includes('pq-jump-customer'), true);
+    assert.equal(html.includes('pq-jump-products'), true);
+    assert.equal(html.includes('pq-jump-summary'), true);
+    assert.equal(html.includes('pq-jump-actions'), true);
+
+    // Nút thêm khách hàng mới ngay trong màn hình Tạo báo giá
+    assert.equal(html.includes('pq-inline-new-customer-btn'), true);
+
+    // Một bảng tổng kết duy nhất có nút chuyển đổi Bản gửi khách / Bóc tách nội bộ
+    assert.equal(html.includes('pq-view-mode-customer'), true);
+    assert.equal(html.includes('pq-view-mode-internal'), true);
+
+    // Tùy chọn nâng cao mặc định thu gọn
+    assert.equal(html.includes('pq-advanced-options-toggle'), true);
+    assert.equal(html.includes('pq-advanced-options-panel'), false);
+
+    // Thanh hành động Lưu / Xuất PDF luôn dễ truy cập
+    assert.equal(html.includes('pq-action-bar'), true);
+  });
+
+  it('6. Hiển thị đơn giá gửi khách trên PDF A4 & Bản gửi khách: Khớp 763,16 ₫ × 100 tờ = 76.316 ₫, xử lý số thập phân vô hạn (~22.895 ₫ Tính trọn gói 3 tờ), không dùng thuật ngữ kỹ thuật "Hiệu chỉnh làm tròn" và không lộ giá vốn/lợi nhuận', () => {
+    // 6a. Kiểm tra hàm formatCustomerLinePriceDisplay cho 3 trường hợp
+    const exactInt = formatCustomerLinePriceDisplay(100000, 100, 'tờ');
+    assert.deepEqual(exactInt, {
+      unitPriceDisplay: '1.000 ₫',
+      priceSubNote: null,
+      isExact: true,
+    });
+
+    const exactDec2 = formatCustomerLinePriceDisplay(76316, 100, 'tờ');
+    assert.deepEqual(exactDec2, {
+      unitPriceDisplay: '763,16 ₫',
+      priceSubNote: null,
+      isExact: true,
+    });
+
+    const repeatingDec = formatCustomerLinePriceDisplay(68684, 3, 'tờ');
+    assert.deepEqual(repeatingDec, {
+      unitPriceDisplay: '~22.895 ₫',
+      priceSubNote: 'Tính trọn gói 3 tờ',
+      isExact: false,
+    });
+
+    // 6b. Kiểm tra báo giá đa sản phẩm thực tế:
+    // Dòng 1: 100 tờ (vốn 30.000đ + lời 20.000đ = 50.000đ) + phân bổ ship 26.316đ = 76.316đ (đơn giá chính xác 763,16 đ/tờ, làm tròn nguyên 764đ, lệch -84đ)
+    // Dòng 2: 3 tờ (vốn 30.000đ + lời 15.000đ = 45.000đ) + phân bổ ship 23.684đ = 68.684đ (đơn giá vô hạn tuần hoàn 22.894,666... đ/tờ)
+    // Tổng thanh toán = 145.000 ₫
+    const multiCalc = calculatePrintQuote({
+      items: [
+        {
+          id: 'LINE-100',
+          name: 'Tờ rơi A5 Couche 150gsm',
+          unit: 'tờ',
+          quantity: 100,
+          unitVendorCost: 300,
+          profit: {
+            mode: ProfitMode.FIXED_AMOUNT,
+            scope: ProfitScope.PER_UNIT,
+            value: 200,
+          },
+        },
+        {
+          id: 'LINE-3',
+          name: 'Voucher giảm giá 20%',
+          unit: 'tờ',
+          quantity: 3,
+          unitVendorCost: 10000,
+          profit: {
+            mode: ProfitMode.FIXED_AMOUNT,
+            scope: ProfitScope.PER_UNIT,
+            value: 5000,
+          },
+        },
+      ],
+      shippingFee: 50000,
+      includeShippingInUnitPrice: true,
+      roundingPolicy: { mode: RoundingMode.CEIL, step: 1 },
+    });
+
+    // Pricing engine giữ nguyên 100% logic gốc
+    assert.equal(multiCalc.lines[0].reconciledLineTotal, 76316);
+    assert.equal(multiCalc.lines[0].finalUnitPrice, 764);
+    assert.equal(multiCalc.lines[0].roundingAdjustment, -84);
+    assert.equal(multiCalc.lines[1].reconciledLineTotal, 68684);
+    assert.equal(multiCalc.totalQuoteAmount, 145000);
+
+    const safePdf = buildCustomerSafePdfPayload(multiCalc);
+    const a4Html = buildPrintQuoteA4Html(safePdf, {
+      quoteCode: 'BG-2026-0763',
+      quoteTitle: 'Báo giá Tờ rơi & Voucher khai trương',
+      workspaceName: 'Hoài Phương Media',
+      customerName: 'Chuỗi Trà Sữa Sài Gòn',
+    });
+
+    // Hiển thị rõ 763,16 ₫ × 100 = 76.316 ₫ và ~22.895 ₫ (Tính trọn gói 3 tờ) = 68.684 ₫
+    assert.equal(a4Html.includes('763,16 ₫'), true);
+    assert.equal(a4Html.includes('76.316 ₫'), true);
+    assert.equal(a4Html.includes('~22.895 ₫'), true);
+    assert.equal(a4Html.includes('(Tính trọn gói 3 tờ)'), true);
+    assert.equal(a4Html.includes('68.684 ₫'), true);
+    assert.equal(a4Html.includes('145.000 ₫'), true);
+
+    // Tuyệt đối KHÔNG xuất hiện thuật ngữ kỹ thuật gây khó hiểu cho khách hàng
+    assert.equal(a4Html.includes('Hiệu chỉnh làm tròn'), false);
+    assert.equal(a4Html.includes('Tạm tính theo đơn giá làm tròn'), false);
+    assert.equal(a4Html.includes('-84 ₫'), false);
+    assert.equal(a4Html.includes('76.400 ₫'), false);
+
+    // Tuyệt đối KHÔNG lộ giá vốn (30.000 / 60.000) hay lợi nhuận (20.000 / 15.000 / 35.000)
+    assert.equal(a4Html.includes('30.000'), false);
+    assert.equal(a4Html.includes('60.000'), false);
+    assert.equal(a4Html.includes('20.000'), false);
+    assert.equal(a4Html.includes('15.000'), false);
+    assert.equal(a4Html.includes('35.000'), false);
   });
 });
