@@ -29,8 +29,8 @@
 
 - **Nhánh thực hiện:** `docs/governance-management-lite-v1` (tách trực tiếp từ `origin/main` @ `bcdb36c` / `v0.7.2`).
 - **Phạm vi:**
-  - `GOV-08.1.1` → `GOV-08.1.5` (`DONE` @ `04284c9`, đã được Owner phê duyệt tiếp tục): Thiết lập bộ 6 tài liệu cốt lõi (`PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`).
-  - `GOV-08.1.6` → `GOV-08.1.8` (`PASS`): Đồng bộ 11 commit mới từ `origin/main` (`bcdb36c` / `v0.7.2`), bảo toàn nguyên vẹn 100% khối `REMEDIATION_FREEZE` (`AGENTS.md §0`) & `Owner-Locked Release Gate`, cập nhật `Phase REM` (`PREM-T01..T06`) + `Phase 32` (`P32-T01..T02`), và chuẩn hóa toàn bộ cột `Approval` (Git tag/PR không thay thế bằng chứng Owner `APPROVED`).
+  - `GOV-08.1.1` → `GOV-08.1.5` (`PASS` @ `04284c9`, `Approval: PENDING` — giữ nguyên kết quả thực thi, không làm lại): Thiết lập bộ 6 tài liệu cốt lõi (`PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`).
+  - `GOV-08.1.6` → `GOV-08.1.8` (`PASS`, `Approval: PENDING`): Đồng bộ 11 commit mới từ `origin/main` (`bcdb36c` / `v0.7.2`), bảo toàn nguyên vẹn 100% khối `REMEDIATION_FREEZE` (`AGENTS.md §0`) & `Owner-Locked Release Gate`, cập nhật `Phase REM` (`PREM-T01..T06`) + `Phase 32` (`P32-T01..T02`), và chuẩn hóa toàn bộ cột `Approval` (Git tag/PR hay lệnh không làm lại Task không thay thế bằng chứng Owner `APPROVED`).
 - **`NEXT_ACTION`:** Trình Owner nghiệm thu (`APPROVED`) nhánh `docs/governance-management-lite-v1`. Tuyệt đối không tự merge vào `main` và không tác động Production.
 
 ---
@@ -40,7 +40,7 @@
 > **Quy tắc bắt buộc (`AGENTS.md §0`):** Tuyệt đối không tự ý thực thi bất kỳ hạng mục nào dưới đây khi chưa có lệnh phê duyệt tường minh bằng văn bản của Owner.
 
 1. **`REL-GATE-072` — Phát Hành Chính Thức `v0.7.2` Qua Cổng `Owner-Locked Release Gate` Khi Owner Gỡ `REMEDIATION_FREEZE` (`PENDING OWNER GATE`):**
-   - **Mô tả:** Máy chủ Production (`https://ql.hoaiphuong.click`) hiện đang được khóa bảo vệ bởi `REMEDIATION_FREEZE` (`AGENTS.md §0`) ở mốc `v0.7.0` (`8ee37a2`). Khi Owner quyết định phát hành `v0.7.2` (`bcdb36c`, bao gồm `migration 0032` và các bản vá bảo mật/hiệu năng), chỉ chính Owner ký duyệt bằng `Sign-Release-Owner.ps1` và chạy `Deploy-SemiAutoWindows.ps1` theo [`docs/deployment/OWNER-RELEASE-RUNBOOK.md`](./deployment/OWNER-RELEASE-RUNBOOK.md).
+   - **Mô tả:** Máy chủ Production (`https://ql.hoaiphuong.click`) hiện đang được khóa bảo vệ bởi `REMEDIATION_FREEZE` (`AGENTS.md §0`); mốc xác minh gần nhất theo bằng chứng `W1.5` (`2026-11-01T12:49:24Z`) & `W2B` (`2026-11-02T07:39:18+07:00`) là `v0.7.0` (`8ee37a2`), còn phiên bản live hiện tại chưa kiểm tra trực tiếp (`UNKNOWN`). Khi Owner quyết định phát hành `v0.7.2` (`bcdb36c`, bao gồm `migration 0032` và các bản vá bảo mật/hiệu năng), chỉ chính Owner ký duyệt bằng `Sign-Release-Owner.ps1` và chạy `Deploy-SemiAutoWindows.ps1` theo [`docs/deployment/OWNER-RELEASE-RUNBOOK.md`](./deployment/OWNER-RELEASE-RUNBOOK.md).
 2. **`PROP-PAGINATION-HOLD` — Kế hoạch Phân Trang Mở Rộng Toàn Cục (`BACKLOG`):**
    - **Nguồn:** [`docs/handoff/GLOBAL-PAGINATION-HOLD-API-PLAN.md`](./handoff/GLOBAL-PAGINATION-HOLD-API-PLAN.md).
    - **Trạng thái:** Đã áp dụng keyset pagination cho `/attendance` ở Phase 18 (`v0.5.5`); các phân hệ còn lại chỉ mở khi có yêu cầu mới của Owner.

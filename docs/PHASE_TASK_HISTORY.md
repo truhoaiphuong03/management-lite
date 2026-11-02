@@ -11,15 +11,15 @@
 
 ## 1. Tổng Hợp Thống Kê & Phân Loại Bằng Chứng (`TASK GOV-08.1.3` → `GOV-08.1.8`)
 
-| Chỉ số thống kê                                          | Giá trị xác minh                                          | Ghi chú chi tiết                                                                                                                                                                                                                                                                                                                                                                                          |
-| :------------------------------------------------------- | :-------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Project ID**                                           | `management-lite`                                         | Monorepo (`@hp/contracts`, `@hp/database`, `@hp/ui`, `@hp/api`, `@hp/web`)                                                                                                                                                                                                                                                                                                                                |
-| **Baseline HEAD (`main`)**                               | `bcdb36c4af3888e3b1a0919d704a600d44b36248` (`bcdb36c`)    | Tag `v0.7.2` (`2026-11-02 09:49:15 +0700` — tiến thêm 11 commit so với `d5693ef` / `v0.7.1`)                                                                                                                                                                                                                                                                                                              |
-| **Tổng số Phase đã ghi nhận**                            | `36` Phase                                                | Gồm `35` Phase sản phẩm & remediation trên `main` (`Phase 0` Foundation, `Phase 1` → `Phase 32`, cụm `Phase UI-0 → UI-5`, `Phase REM` Waves `W1–W2B`) + `1` Phase quản trị `Phase GOV-08.1`                                                                                                                                                                                                               |
-| **Tổng số Task định danh duy nhất**                      | `103` Task                                                | Gồm `95` Task sản phẩm & remediation trên `main` (`P00-T01` → `P31-T01`, `PREM-T01` → `PREM-T06`, `P32-T01` → `P32-T02`) + `8` Task quản trị `GOV-08.1.1` → `GOV-08.1.8`                                                                                                                                                                                                                                  |
-| **Số Task `VERIFIED`**                                   | `101 / 103` Task (`93/95` trên `main` + `8/8` `GOV-08.1`) | Có commit SHA, git tag (`v0.1.4` → `v0.7.2`), migration SQL (`0001` → `0032`), bằng chứng `docs/remediation/evidence/*` và bộ test cô lập (`71/71 PASS` trên `:55433`)                                                                                                                                                                                                                                    |
-| **Số Task `REPORTED`**                                   | `2 / 103` Task (`P01-T02`, `P08-T01`)                     | Phần code trong Git đã `VERIFIED` (`96d3d1e`, `cedb252`), nhưng thao tác cập nhật file môi trường `C:\HoaiPhuong-Server\config\test-secrets\api.env` nằm ngoài Git nên phân loại là `REPORTED`                                                                                                                                                                                                            |
-| **Hạng mục Truy vết Production (`OPS-PROD-PROVENANCE`)** | `VERIFIED` _(Baseline `W1.5` & `W2B`)_                    | Theo [`docs/remediation/evidence/W1.5-prod-provenance-baseline.json`](./remediation/evidence/W1.5-prod-provenance-baseline.json) và [`W2B-prod-fingerprint-after.json`](./remediation/evidence/W2B-prod-fingerprint-after.json): Production đang ở `v0.7.0` (`8ee37a2`, kèm `DRIFT` 219 file dist trước khi khóa `OA-20`), **chưa** nhận `v0.7.2` và đang khóa bởi `REMEDIATION_FREEZE` (`AGENTS.md §0`). |
+| Chỉ số thống kê                                          | Giá trị xác minh                                                | Ghi chú chi tiết                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| :------------------------------------------------------- | :-------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Project ID**                                           | `management-lite`                                               | Monorepo (`@hp/contracts`, `@hp/database`, `@hp/ui`, `@hp/api`, `@hp/web`)                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Baseline HEAD (`main`)**                               | `bcdb36c4af3888e3b1a0919d704a600d44b36248` (`bcdb36c`)          | Tag `v0.7.2` (`2026-11-02 09:49:15 +0700` — tiến thêm 11 commit so với `d5693ef` / `v0.7.1`)                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Tổng số Phase đã ghi nhận**                            | `36` Phase                                                      | Gồm `35` Phase sản phẩm & remediation trên `main` (`Phase 0` Foundation, `Phase 1` → `Phase 32`, cụm `Phase UI-0 → UI-5`, `Phase REM` Waves `W1–W2B`) + `1` Phase quản trị `Phase GOV-08.1`                                                                                                                                                                                                                                                                                                                      |
+| **Tổng số Task định danh duy nhất**                      | `103` Task                                                      | Gồm `95` Task sản phẩm & remediation trên `main` (`P00-T01` → `P31-T01`, `PREM-T01` → `PREM-T06`, `P32-T01` → `P32-T02`) + `8` Task quản trị `GOV-08.1.1` → `GOV-08.1.8`                                                                                                                                                                                                                                                                                                                                         |
+| **Số Task `VERIFIED`**                                   | `101 / 103` Task (`93/95` trên `main` + `8/8` `GOV-08.1`)       | Có commit SHA, git tag (`v0.1.4` → `v0.7.2`), migration SQL (`0001` → `0032`), bằng chứng `docs/remediation/evidence/*` và bộ test cô lập (`71/71 PASS` trên `:55433`)                                                                                                                                                                                                                                                                                                                                           |
+| **Số Task `REPORTED`**                                   | `2 / 103` Task (`P01-T02`, `P08-T01`)                           | Phần code trong Git đã `VERIFIED` (`96d3d1e`, `cedb252`), nhưng thao tác cập nhật file môi trường `C:\HoaiPhuong-Server\config\test-secrets\api.env` nằm ngoài Git nên phân loại là `REPORTED`                                                                                                                                                                                                                                                                                                                   |
+| **Hạng mục Truy vết Production (`OPS-PROD-PROVENANCE`)** | `VERIFIED` _(mốc `W1.5` & `W2B`)_ / `UNKNOWN` _(live hiện tại)_ | Mốc xác minh theo bằng chứng [`W1.5-prod-provenance-baseline.json`](./remediation/evidence/W1.5-prod-provenance-baseline.json) (`2026-11-01T12:49:24Z`) & [`W2B-prod-fingerprint-after.json`](./remediation/evidence/W2B-prod-fingerprint-after.json) (`2026-11-02T07:39:18+07:00`) là `v0.7.0` (`8ee37a2`, kèm `DRIFT` 219 file dist trước khi khóa `OA-20`). Phiên bản live hiện tại chưa được kiểm tra trực tiếp trong phiên này (`UNKNOWN`); Production đang khóa bởi `REMEDIATION_FREEZE` (`AGENTS.md §0`). |
 
 ---
 
@@ -133,9 +133,9 @@
 
 ## 3. Hạng Mục Truy Vết Vận Hành Production (`OPS-PROD-PROVENANCE` — Cập Nhật Từ Bằng Chứng `W1.5` & `W2B`)
 
-| Hạng mục ID           | Mô tả                                                                                                                                                | Phân loại Bằng chứng | Trạng thái | Nguồn đối chiếu (`VERIFIED` trong Git)                                                                                                                                                                                                                                                                                                                       | Việc còn thiếu                                                                                                                                       | `NEXT_ACTION`                                                                                                                                  |
-| :-------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------- | :--------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OPS-PROD-PROVENANCE` | Phiên bản runtime & trạng thái toàn vẹn của máy chủ Windows Production (`https://ql.hoaiphuong.click` / `C:\HoaiPhuong-Server\apps\management-lite`) | `VERIFIED`           | `FROZEN`   | [`docs/remediation/evidence/W1.5-prod-provenance-baseline.json`](./remediation/evidence/W1.5-prod-provenance-baseline.json) & [`W2B-prod-fingerprint-after.json`](./remediation/evidence/W2B-prod-fingerprint-after.json): `release-version.json` ghi `v0.7.0` (`8ee37a2`), có `DRIFT` 219 file dist ghi ngoài cổng trước khi `OA-20` khóa `anty-remote-hub` | Khi Owner gỡ `REMEDIATION_FREEZE` và quyết định phát hành `v0.7.2`, ký và chạy `Sign-Release-Owner.ps1` để đồng bộ sạch Production về đúng gói chuẩn | Tuân thủ tuyệt đối `AGENTS.md §0` (`REMEDIATION_FREEZE`) & [`docs/deployment/OWNER-RELEASE-RUNBOOK.md`](./deployment/OWNER-RELEASE-RUNBOOK.md) |
+| Hạng mục ID           | Mô tả                                                                                                                                                | Phân loại Bằng chứng                                          | Trạng thái | Nguồn đối chiếu (`VERIFIED` trong Git)                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Việc còn thiếu                                                                                                                                       | `NEXT_ACTION`                                                                                                                                  |
+| :-------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------ | :--------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPS-PROD-PROVENANCE` | Phiên bản runtime & trạng thái toàn vẹn của máy chủ Windows Production (`https://ql.hoaiphuong.click` / `C:\HoaiPhuong-Server\apps\management-lite`) | `VERIFIED` _(mốc `W1.5`/`W2B`)_ / `UNKNOWN` _(live hiện tại)_ | `FROZEN`   | Mốc xác minh theo [`docs/remediation/evidence/W1.5-prod-provenance-baseline.json`](./remediation/evidence/W1.5-prod-provenance-baseline.json) (`2026-11-01T12:49:24Z`) & [`W2B-prod-fingerprint-after.json`](./remediation/evidence/W2B-prod-fingerprint-after.json) (`2026-11-02T07:39:18+07:00`): `release-version.json` ghi `v0.7.0` (`8ee37a2`), có `DRIFT` 219 file dist trước khi `OA-20` khóa `anty-remote-hub`. Phiên bản live hiện tại chưa có bằng chứng kiểm tra mới (`UNKNOWN`). | Khi Owner gỡ `REMEDIATION_FREEZE` và quyết định phát hành `v0.7.2`, ký và chạy `Sign-Release-Owner.ps1` để đồng bộ sạch Production về đúng gói chuẩn | Tuân thủ tuyệt đối `AGENTS.md §0` (`REMEDIATION_FREEZE`) & [`docs/deployment/OWNER-RELEASE-RUNBOOK.md`](./deployment/OWNER-RELEASE-RUNBOOK.md) |
 
 ---
 
@@ -149,13 +149,13 @@
 4. **Mô tả:** Đọc tài liệu hiện có (`AGENTS.md`, `README.md`, `package.json`, `packages/contracts/src/version.ts`, `docs/plans/*`, `docs/deployment/OWNER-RELEASE-RUNBOOK.md`), xác minh `remote HEAD`, nhánh, version và working tree thực tế tại thời điểm mở Phase (`d5693ef` — `v0.7.1`) và tách nhánh riêng `docs/governance-management-lite-v1`.
 5. **Phụ thuộc:** `GOV-07` (`APPROVED` bởi Owner).
 6. **Acceptance Criteria:** Xác định chính xác `remote HEAD`, bảo toàn working tree sạch và không chạy lại các Task đã nghiệm thu.
-7. **Trạng thái:** `DONE`
+7. **Trạng thái:** `PASS`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Đã fast-forward sạch và kiểm tra `npm run canonical:verify` (`Canonical PASS: 0.1.0-doc.21, 59 document hashes`).
 10. **Evidence (`VERIFIED`):** Log `git fetch origin`, `git status -sb`, `node scripts/verify-canonical.mjs`.
 11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `APPROVED` _(Owner chỉ thị tiếp tục từ `04284c9`, không làm lại `GOV-08.1.1` → `GOV-08.1.5`)_
-13. **NEXT_ACTION:** `Zero-Recheck` (Đã hoàn thành).
+12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
+13. **NEXT_ACTION:** Chờ Owner nghiệm thu `GOV-08.1` (Không làm lại theo lệnh Owner).
 
 ---
 
@@ -165,15 +165,15 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.2`
 4. **Mô tả:** Tạo mới và cập nhật có kiểm soát bộ 6 tài liệu cốt lõi (`PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`) theo đúng mẫu của `ai-project-governance`, bảo toàn 100% lịch sử Phase/Task trong `AGENTS.md` và `docs/plans/`, không xóa tài liệu cũ.
-5. **Phụ thuộc:** `GOV-08.1.1` (`DONE`).
+5. **Phụ thuộc:** `GOV-08.1.1` (`PASS`).
 6. **Acceptance Criteria:** Đủ 6 file tài liệu cốt lõi; liên kết chéo chính xác; giữ nguyên toàn bộ bảng `LIVE_CHECKPOINT`, `PHASE_TASK_TRACKER`, `MODULE_FILE_MAP` trong `AGENTS.md` và toàn bộ 59 file trong `docs/canonical/`.
-7. **Trạng thái:** `DONE`
+7. **Trạng thái:** `PASS`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Đã tạo `PROJECT_STATUS.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md` và cập nhật `README.md` + `AGENTS.md` mà không xóa bất kỳ tài liệu lịch sử nào.
 10. **Evidence (`VERIFIED`):** `PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`.
 11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `APPROVED` _(Owner chỉ thị tiếp tục từ `04284c9`, không làm lại `GOV-08.1.1` → `GOV-08.1.5`)_
-13. **NEXT_ACTION:** `Zero-Recheck` (Đã hoàn thành).
+12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
+13. **NEXT_ACTION:** Chờ Owner nghiệm thu `GOV-08.1` (Không làm lại theo lệnh Owner).
 
 ---
 
@@ -183,15 +183,15 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.3`
 4. **Mô tả:** Đối chiếu toàn bộ Phase/Task của `management-lite` với lịch sử Git commit, git tag, file migration và file test để phân loại rõ `VERIFIED`, `REPORTED` và `UNKNOWN`.
-5. **Phụ thuộc:** `GOV-08.1.2` (`DONE`).
+5. **Phụ thuộc:** `GOV-08.1.2` (`PASS`).
 6. **Acceptance Criteria:** Mỗi Task có đủ thông tin `VERIFIED/REPORTED/UNKNOWN`, `PASS/FAIL/SKIP`, `DONE/APPROVED/PENDING`, commit/báo cáo nguồn, việc còn thiếu và `NEXT_ACTION`.
-7. **Trạng thái:** `DONE`
+7. **Trạng thái:** `PASS`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Hoàn tất phân loại đầy đủ trong Mục 1, 2, 3 của `docs/PHASE_TASK_HISTORY.md`.
 10. **Evidence (`VERIFIED`):** Bảng sổ cái tại `docs/PHASE_TASK_HISTORY.md`.
 11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `APPROVED` _(Owner chỉ thị tiếp tục từ `04284c9`, không làm lại `GOV-08.1.1` → `GOV-08.1.5`)_
-13. **NEXT_ACTION:** `Zero-Recheck` (Đã hoàn thành).
+12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
+13. **NEXT_ACTION:** Chờ Owner nghiệm thu `GOV-08.1` (Không làm lại theo lệnh Owner).
 
 ---
 
@@ -201,15 +201,15 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.4`
 4. **Mô tả:** Kiểm tra 7 tiêu chí nhất quán: khử trùng mã `Task 10.1` trong `AGENTS.md`, bảo toàn 100% lịch sử, không suy đoán version Production, không làm lại Phase đã nghiệm thu, quét Zero-Secret trước khi commit, giữ nguyên cổng khóa phát hành Production (`Owner-Locked Release Gate`), và báo cáo đầy đủ các mâu thuẫn giữa tài liệu hiện có.
-5. **Phụ thuộc:** `GOV-08.1.3` (`DONE`).
+5. **Phụ thuộc:** `GOV-08.1.3` (`PASS`).
 6. **Acceptance Criteria:** Không còn Task ID trùng lặp; `npm run canonical:verify` đạt `PASS`; quét secret trên các file thay đổi đạt `0` vi phạm.
-7. **Trạng thái:** `DONE`
+7. **Trạng thái:** `PASS`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Đã điều hòa mã `Task 10.0` vs `Task 10.1–10.3`, đồng bộ với `docs/deployment/OWNER-RELEASE-RUNBOOK.md`, và xác nhận `0` secret trong toàn bộ diff.
 10. **Evidence (`VERIFIED`):** Mục 2 `PROJECT_STATUS.md`, `AGENTS.md`, `docs/PHASE_TASK_HISTORY.md`.
 11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `APPROVED` _(Owner chỉ thị tiếp tục từ `04284c9`, không làm lại `GOV-08.1.1` → `GOV-08.1.5`)_
-13. **NEXT_ACTION:** `Zero-Recheck` (Đã hoàn thành).
+12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
+13. **NEXT_ACTION:** Chờ Owner nghiệm thu `GOV-08.1` (Không làm lại theo lệnh Owner).
 
 ---
 
@@ -219,14 +219,14 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.5`
 4. **Mô tả:** Kiểm tra `git status` và `git diff` đảm bảo chỉ tác động phạm vi 6 tài liệu quản trị, xác minh `npm run canonical:verify` và quét Zero-Secret, tạo commit `04284c9` trên nhánh riêng `docs/governance-management-lite-v1` và push lên GitHub.
-5. **Phụ thuộc:** `GOV-08.1.4` (`DONE`).
+5. **Phụ thuộc:** `GOV-08.1.4` (`PASS`).
 6. **Acceptance Criteria:** Nhánh `docs/governance-management-lite-v1` được push lên `origin` tại `04284c9`; `0` file code/database/config bị chạm tới.
-7. **Trạng thái:** `DONE`
+7. **Trạng thái:** `PASS`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Commit `04284c92dd1d62024286dac71a2a9f5267b00974` vượt qua kiểm tra `canonical:verify` (`59/59`) và quét bảo mật.
 10. **Evidence (`VERIFIED`):** Commit `04284c9` (lưu nhánh sao lưu cục bộ `backup/docs-governance-v1-04284c9`).
 11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `APPROVED` _(Owner chỉ thị tiếp tục từ `04284c9`, không làm lại `GOV-08.1.1` → `GOV-08.1.5`)_
+12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
 13. **NEXT_ACTION:** Chuyển sang `GOV-08.1.6` (Đối chiếu và đồng bộ 11 commit mới trên `origin/main` @ `bcdb36c`).
 
 ---
@@ -237,7 +237,7 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.6`
 4. **Mô tả:** Fetch và xác minh `HEAD` mới nhất của `origin/main` (`bcdb36c4af3888e3b1a0919d704a600d44b36248`, tag `v0.7.2`); đối chiếu 11 commit mới giữa `d5693ef` và `bcdb36c` (`W1`, `W2A`, `OA-21/OA-23`, `OA-20`, `W2B`, `Phase 32`); tái tạo nhánh tài liệu `docs/governance-management-lite-v1` trực tiếp từ `bcdb36c`, chuyển có chọn lọc 6 tài liệu Governance sang đó mà **không ghi đè `AGENTS.md` mới** trên `bcdb36c` (bảo toàn tuyệt đối khối `<!-- REMEDIATION_FREEZE_START --> ... <!-- REMEDIATION_FREEZE_END -->` / `§0`, `Owner-Locked Release Gate` và `§4`).
-5. **Phụ thuộc:** `GOV-08.1.5` (`DONE`).
+5. **Phụ thuộc:** `GOV-08.1.5` (`PASS`).
 6. **Acceptance Criteria:** Nhánh `docs/governance-management-lite-v1` đặt trực tiếp trên `bcdb36c`; khối `REMEDIATION_FREEZE` (`§0`) trong `AGENTS.md` khớp 100% nguyên bản của `bcdb36c`; không mất bất kỳ dòng nào của `AGENTS.md` mới.
 7. **Trạng thái:** `PASS`
 8. **Người/AI thực hiện:** `Antigravity`
