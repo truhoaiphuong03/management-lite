@@ -139,7 +139,9 @@
 
 ---
 
-## 4. Sổ Cái Chi Tiết Phase `GOV-08.1` — Chuẩn Hóa & Đồng Bộ Quản Trị Dự Án `management-lite` (13 Trường Chuẩn)
+## 4. Sổ Cái Chi Tiết Phase `GOV-08.1` — Chuẩn Hóa & Đồng Bộ Quản Trị Dự Án `management-lite` (13 Trường Chuẩn — `APPROVED` Bởi Owner)
+
+> **Căn cứ nghiệm thu Phase `GOV-08.1`:** Đã được Owner phê duyệt nghiệm thu chính thức (`APPROVED`) trong lệnh **`# OWNER APPROVAL — GOV-08.1`** (`2026-11-02T10:57:16+07:00`) đối với kết quả tại commit `9565c3e` và Draft PR [#21](https://github.com/truhoaiphuong03/management-lite/pull/21) (bao gồm bộ 6 tài liệu Governance V1, kết quả kiểm tra `36` Phase / `103` Task, đối chiếu bảo toàn `REMEDIATION_FREEZE` và kiểm tra merge thử trong sandbox với `origin/main` @ `71b5310`). Tuân thủ lệnh Owner: **không làm lại 8 Task đã `PASS`, chưa merge PR #21 vào `main`, giữ nguyên `REMEDIATION_FREEZE`, và giữ `GOV-08.2` / `GOV-09` ở trạng thái chưa được phép triển khai.**
 
 ### Task `GOV-08.1.1` — Preflight & Xác Minh Trạng Thái Thực Tế Của `management-lite`
 
@@ -149,13 +151,13 @@
 4. **Mô tả:** Đọc tài liệu hiện có (`AGENTS.md`, `README.md`, `package.json`, `packages/contracts/src/version.ts`, `docs/plans/*`, `docs/deployment/OWNER-RELEASE-RUNBOOK.md`), xác minh `remote HEAD`, nhánh, version và working tree thực tế tại thời điểm mở Phase (`d5693ef` — `v0.7.1`) và tách nhánh riêng `docs/governance-management-lite-v1`.
 5. **Phụ thuộc:** `GOV-07` (`APPROVED` bởi Owner).
 6. **Acceptance Criteria:** Xác định chính xác `remote HEAD`, bảo toàn working tree sạch và không chạy lại các Task đã nghiệm thu.
-7. **Trạng thái:** `PASS`
+7. **Trạng thái:** `APPROVED`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Đã fast-forward sạch và kiểm tra `npm run canonical:verify` (`Canonical PASS: 0.1.0-doc.21, 59 document hashes`).
 10. **Evidence (`VERIFIED`):** Log `git fetch origin`, `git status -sb`, `node scripts/verify-canonical.mjs`.
-11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
-13. **NEXT_ACTION:** Chờ Owner nghiệm thu `GOV-08.1` (Không làm lại theo lệnh Owner).
+11. **Commit / PR:** `04284c9`, `9565c3e` (Draft PR #21)
+12. **Approval:** `APPROVED` _(Theo lệnh `# OWNER APPROVAL — GOV-08.1` ngày `2026-11-02` đối với commit `9565c3e` & Draft PR #21)_
+13. **NEXT_ACTION:** `Zero-Recheck` (Giữ nguyên kết quả đã nghiệm thu, không làm lại).
 
 ---
 
@@ -165,15 +167,15 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.2`
 4. **Mô tả:** Tạo mới và cập nhật có kiểm soát bộ 6 tài liệu cốt lõi (`PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`) theo đúng mẫu của `ai-project-governance`, bảo toàn 100% lịch sử Phase/Task trong `AGENTS.md` và `docs/plans/`, không xóa tài liệu cũ.
-5. **Phụ thuộc:** `GOV-08.1.1` (`PASS`).
+5. **Phụ thuộc:** `GOV-08.1.1` (`APPROVED`).
 6. **Acceptance Criteria:** Đủ 6 file tài liệu cốt lõi; liên kết chéo chính xác; giữ nguyên toàn bộ bảng `LIVE_CHECKPOINT`, `PHASE_TASK_TRACKER`, `MODULE_FILE_MAP` trong `AGENTS.md` và toàn bộ 59 file trong `docs/canonical/`.
-7. **Trạng thái:** `PASS`
+7. **Trạng thái:** `APPROVED`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Đã tạo `PROJECT_STATUS.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md` và cập nhật `README.md` + `AGENTS.md` mà không xóa bất kỳ tài liệu lịch sử nào.
 10. **Evidence (`VERIFIED`):** `PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`.
-11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
-13. **NEXT_ACTION:** Chờ Owner nghiệm thu `GOV-08.1` (Không làm lại theo lệnh Owner).
+11. **Commit / PR:** `04284c9`, `9565c3e` (Draft PR #21)
+12. **Approval:** `APPROVED` _(Theo lệnh `# OWNER APPROVAL — GOV-08.1` ngày `2026-11-02` đối với commit `9565c3e` & Draft PR #21)_
+13. **NEXT_ACTION:** `Zero-Recheck` (Giữ nguyên kết quả đã nghiệm thu, không làm lại).
 
 ---
 
@@ -183,15 +185,15 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.3`
 4. **Mô tả:** Đối chiếu toàn bộ Phase/Task của `management-lite` với lịch sử Git commit, git tag, file migration và file test để phân loại rõ `VERIFIED`, `REPORTED` và `UNKNOWN`.
-5. **Phụ thuộc:** `GOV-08.1.2` (`PASS`).
+5. **Phụ thuộc:** `GOV-08.1.2` (`APPROVED`).
 6. **Acceptance Criteria:** Mỗi Task có đủ thông tin `VERIFIED/REPORTED/UNKNOWN`, `PASS/FAIL/SKIP`, `DONE/APPROVED/PENDING`, commit/báo cáo nguồn, việc còn thiếu và `NEXT_ACTION`.
-7. **Trạng thái:** `PASS`
+7. **Trạng thái:** `APPROVED`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Hoàn tất phân loại đầy đủ trong Mục 1, 2, 3 của `docs/PHASE_TASK_HISTORY.md`.
 10. **Evidence (`VERIFIED`):** Bảng sổ cái tại `docs/PHASE_TASK_HISTORY.md`.
-11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
-13. **NEXT_ACTION:** Chờ Owner nghiệm thu `GOV-08.1` (Không làm lại theo lệnh Owner).
+11. **Commit / PR:** `04284c9`, `9565c3e` (Draft PR #21)
+12. **Approval:** `APPROVED` _(Theo lệnh `# OWNER APPROVAL — GOV-08.1` ngày `2026-11-02` đối với commit `9565c3e` & Draft PR #21)_
+13. **NEXT_ACTION:** `Zero-Recheck` (Giữ nguyên kết quả đã nghiệm thu, không làm lại).
 
 ---
 
@@ -201,15 +203,15 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.4`
 4. **Mô tả:** Kiểm tra 7 tiêu chí nhất quán: khử trùng mã `Task 10.1` trong `AGENTS.md`, bảo toàn 100% lịch sử, không suy đoán version Production, không làm lại Phase đã nghiệm thu, quét Zero-Secret trước khi commit, giữ nguyên cổng khóa phát hành Production (`Owner-Locked Release Gate`), và báo cáo đầy đủ các mâu thuẫn giữa tài liệu hiện có.
-5. **Phụ thuộc:** `GOV-08.1.3` (`PASS`).
+5. **Phụ thuộc:** `GOV-08.1.3` (`APPROVED`).
 6. **Acceptance Criteria:** Không còn Task ID trùng lặp; `npm run canonical:verify` đạt `PASS`; quét secret trên các file thay đổi đạt `0` vi phạm.
-7. **Trạng thái:** `PASS`
+7. **Trạng thái:** `APPROVED`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Đã điều hòa mã `Task 10.0` vs `Task 10.1–10.3`, đồng bộ với `docs/deployment/OWNER-RELEASE-RUNBOOK.md`, và xác nhận `0` secret trong toàn bộ diff.
 10. **Evidence (`VERIFIED`):** Mục 2 `PROJECT_STATUS.md`, `AGENTS.md`, `docs/PHASE_TASK_HISTORY.md`.
-11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
-13. **NEXT_ACTION:** Chờ Owner nghiệm thu `GOV-08.1` (Không làm lại theo lệnh Owner).
+11. **Commit / PR:** `04284c9`, `9565c3e` (Draft PR #21)
+12. **Approval:** `APPROVED` _(Theo lệnh `# OWNER APPROVAL — GOV-08.1` ngày `2026-11-02` đối với commit `9565c3e` & Draft PR #21)_
+13. **NEXT_ACTION:** `Zero-Recheck` (Giữ nguyên kết quả đã nghiệm thu, không làm lại).
 
 ---
 
@@ -219,15 +221,15 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.5`
 4. **Mô tả:** Kiểm tra `git status` và `git diff` đảm bảo chỉ tác động phạm vi 6 tài liệu quản trị, xác minh `npm run canonical:verify` và quét Zero-Secret, tạo commit `04284c9` trên nhánh riêng `docs/governance-management-lite-v1` và push lên GitHub.
-5. **Phụ thuộc:** `GOV-08.1.4` (`PASS`).
+5. **Phụ thuộc:** `GOV-08.1.4` (`APPROVED`).
 6. **Acceptance Criteria:** Nhánh `docs/governance-management-lite-v1` được push lên `origin` tại `04284c9`; `0` file code/database/config bị chạm tới.
-7. **Trạng thái:** `PASS`
+7. **Trạng thái:** `APPROVED`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Commit `04284c92dd1d62024286dac71a2a9f5267b00974` vượt qua kiểm tra `canonical:verify` (`59/59`) và quét bảo mật.
 10. **Evidence (`VERIFIED`):** Commit `04284c9` (lưu nhánh sao lưu cục bộ `backup/docs-governance-v1-04284c9`).
-11. **Commit / PR:** `04284c9` (`docs/governance-management-lite-v1`)
-12. **Approval:** `PENDING` _(Chưa có phê duyệt nghiệm thu tường minh từ Owner; chỉ thị "Không làm lại GOV-08.1.1 → GOV-08.1.5" không thay thế căn cứ `APPROVED`)_
-13. **NEXT_ACTION:** Chuyển sang `GOV-08.1.6` (Đối chiếu và đồng bộ 11 commit mới trên `origin/main` @ `bcdb36c`).
+11. **Commit / PR:** `04284c9`, `9565c3e` (Draft PR #21)
+12. **Approval:** `APPROVED` _(Theo lệnh `# OWNER APPROVAL — GOV-08.1` ngày `2026-11-02` đối với commit `9565c3e` & Draft PR #21)_
+13. **NEXT_ACTION:** `Zero-Recheck` (Giữ nguyên kết quả đã nghiệm thu, không làm lại).
 
 ---
 
@@ -237,15 +239,15 @@
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.6`
 4. **Mô tả:** Fetch và xác minh `HEAD` mới nhất của `origin/main` (`bcdb36c4af3888e3b1a0919d704a600d44b36248`, tag `v0.7.2`); đối chiếu 11 commit mới giữa `d5693ef` và `bcdb36c` (`W1`, `W2A`, `OA-21/OA-23`, `OA-20`, `W2B`, `Phase 32`); tái tạo nhánh tài liệu `docs/governance-management-lite-v1` trực tiếp từ `bcdb36c`, chuyển có chọn lọc 6 tài liệu Governance sang đó mà **không ghi đè `AGENTS.md` mới** trên `bcdb36c` (bảo toàn tuyệt đối khối `<!-- REMEDIATION_FREEZE_START --> ... <!-- REMEDIATION_FREEZE_END -->` / `§0`, `Owner-Locked Release Gate` và `§4`).
-5. **Phụ thuộc:** `GOV-08.1.5` (`PASS`).
+5. **Phụ thuộc:** `GOV-08.1.5` (`APPROVED`).
 6. **Acceptance Criteria:** Nhánh `docs/governance-management-lite-v1` đặt trực tiếp trên `bcdb36c`; khối `REMEDIATION_FREEZE` (`§0`) trong `AGENTS.md` khớp 100% nguyên bản của `bcdb36c`; không mất bất kỳ dòng nào của `AGENTS.md` mới.
-7. **Trạng thái:** `PASS`
+7. **Trạng thái:** `APPROVED`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Đã lưu ref sao lưu `backup/docs-governance-v1-04284c9`, fast-forward `main` lên `bcdb36c`, đặt `docs/governance-management-lite-v1` lên `bcdb36c` và kiểm tra `git diff origin/main -- AGENTS.md` xác nhận khối `REMEDIATION_FREEZE` (`lines 3–15` của `origin/main:AGENTS.md`) có `0` dòng bị sửa đổi.
 10. **Evidence (`VERIFIED`):** `git log d5693ef..bcdb36c`, `git diff origin/main -- AGENTS.md`.
-11. **Commit / PR:** Branch `docs/governance-management-lite-v1` (rebased onto `bcdb36c`)
-12. **Approval:** `PENDING` _(Chờ Owner nghiệm thu)_
-13. **NEXT_ACTION:** Chuyển sang `GOV-08.1.7` (Cập nhật version `v0.7.2`, lịch sử Phase/Task `PREM` + `P32`, bằng chứng và chuẩn hóa nhãn `Approval`).
+11. **Commit / PR:** `607ced8`, `9565c3e` (Draft PR #21)
+12. **Approval:** `APPROVED` _(Theo lệnh `# OWNER APPROVAL — GOV-08.1` ngày `2026-11-02` đối với commit `9565c3e` & Draft PR #21)_
+13. **NEXT_ACTION:** `Zero-Recheck` (Giữ nguyên kết quả đã nghiệm thu, không làm lại).
 
 ---
 
@@ -254,31 +256,31 @@
 1. **Project ID:** `management-lite`
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.7`
-4. **Mô tả:** Cập nhật version mã nguồn (`v0.7.2` / `bcdb36c`), bổ sung 6 Task thuộc `Phase REM` (`PREM-T01` → `PREM-T06`: `W1`, `W2A`, `OA-21/OA-23`, `OA-20`, `W2B`, `CI/CD Guard`) và 2 Task thuộc `Phase 32` (`P32-T01` → `P32-T02`: đổi vai trò `staff ↔ admin ↔ owner` & 6 nhóm quyền phụ `sub_permissions` trong `migration 0032`), cập nhật bằng chứng truy vết Production (`W1.5-prod-provenance-baseline.json`, `W2B-prod-fingerprint-after.json`), bổ sung `ADR-007` vào `docs/DECISIONS.md`, và chuẩn hóa toàn bộ cột `Approval` trong `docs/PHASE_TASK_HISTORY.md` theo nguyên tắc **Git tag hoặc PR không thay thế bằng chứng Owner phê duyệt**.
-5. **Phụ thuộc:** `GOV-08.1.6` (`PASS`).
+4. **Mô tả:** Cập nhật version mã nguồn (`v0.7.2` / `bcdb36c`), bổ sung 6 Task thuộc `Phase REM` (`PREM-T01` → `PREM-T06`: `W1`, `W2A`, `OA-21/OA-23`, `OA-20`, `W2B`, `CI/CD Guard`) và 2 Task thuộc `Phase 32` (`P32-T01` → `P32-T02`: đổi vai trò `staff ↔ admin ↔ owner` & 6 nhóm quyền phụ `sub_permissions` trong `migration 0032`), cập nhật bằng chứng truy vết Production (`W1.5-prod-provenance-baseline.json`, `W2B-prod-fingerprint-after.json` tách biệt với trạng thái live hiện tại `UNKNOWN`), bổ sung `ADR-007` vào `docs/DECISIONS.md`, và chuẩn hóa toàn bộ cột `Approval` trong `docs/PHASE_TASK_HISTORY.md` theo nguyên tắc **Git tag hoặc PR không thay thế bằng chứng Owner phê duyệt**.
+5. **Phụ thuộc:** `GOV-08.1.6` (`APPROVED`).
 6. **Acceptance Criteria:** Đầy đủ `36` Phase / `103` Task định danh duy nhất; không còn dòng nào đánh đồng Git tag/PR với `APPROVED`; cập nhật đúng `NEXT_ACTION` và liên kết tới `docs/remediation/*` + `docs/deployment/STAGING-ISOLATION-RUNBOOK.md`.
-7. **Trạng thái:** `PASS`
+7. **Trạng thái:** `APPROVED`
 8. **Người/AI thực hiện:** `Antigravity`
 9. **Kết quả test:** `PASS` — Toàn bộ 95 Task lịch sử trên `main` đã được chuẩn hóa cột `Approval` thành `UNRECORDED_ON_GIT (Tag/PR không thay thế Owner APPROVED)` trong khi vẫn giữ trạng thái kỹ thuật `DONE` (`Zero-Recheck`); bổ sung đầy đủ `PREM-T01..T06`, `P32-T01..T02` và `GOV-08.1.6..08.1.8`.
 10. **Evidence (`VERIFIED`):** `PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`.
-11. **Commit / PR:** Branch `docs/governance-management-lite-v1`
-12. **Approval:** `PENDING` _(Chờ Owner nghiệm thu)_
-13. **NEXT_ACTION:** Chuyển sang `GOV-08.1.8` (Kiểm tra toàn vẹn cuối cùng, commit & push nhánh tài liệu).
+11. **Commit / PR:** `607ced8`, `9565c3e` (Draft PR #21)
+12. **Approval:** `APPROVED` _(Theo lệnh `# OWNER APPROVAL — GOV-08.1` ngày `2026-11-02` đối với commit `9565c3e` & Draft PR #21)_
+13. **NEXT_ACTION:** `Zero-Recheck` (Giữ nguyên kết quả đã nghiệm thu, không làm lại).
 
 ---
 
-### Task `GOV-08.1.8` — Kiểm Tra Toàn Vẹn Cuối Cùng, Commit & Push Nhánh `docs/governance-management-lite-v1` Lên `origin`
+### Task `GOV-08.1.8` — Kiểm Tra Toàn Vẹn Cuối Cùng, Merge-Readiness Sandbox & Tạo Draft PR #21
 
 1. **Project ID:** `management-lite`
 2. **Phase ID:** `GOV-08.1`
 3. **Task ID:** `GOV-08.1.8`
-4. **Mô tả:** Kiểm tra không mất lịch sử, không trùng Task ID (`103` Task ID duy nhất), không có secret (`0` kết quả nhạy cảm), không thay đổi source code hoặc Production (`git diff origin/main --name-only` chỉ gồm đúng 6 file tài liệu quản trị), chạy `npx prettier --check` và `npm run canonical:verify` (`59/59 PASS`), commit và push nhánh `docs/governance-management-lite-v1` lên `origin` (không merge vào `main`, không deploy), và xuất báo cáo `GOV-08.1 FINAL RECONCILIATION REPORT`.
-5. **Phụ thuộc:** `GOV-08.1.7` (`PASS`).
-6. **Acceptance Criteria:** `git diff origin/main --name-only` chỉ chứa đúng 6 file tài liệu; khối `REMEDIATION_FREEZE` nguyên vẹn 100%; `canonical:verify` và `prettier --check` đạt `PASS`; push thành công nhánh `docs/governance-management-lite-v1`.
-7. **Trạng thái:** `PASS`
+4. **Mô tả:** Kiểm tra không mất lịch sử, không trùng Task ID (`103` Task ID duy nhất), không có secret (`0` kết quả nhạy cảm), không thay đổi source code hoặc Production (`git diff bcdb36c --name-only` chỉ gồm đúng 6 file tài liệu quản trị), chạy `npx prettier --check` và `npm run canonical:verify` (`59/59 PASS`), kiểm tra merge sạch với `origin/main` (`71b5310`) trong worktree sandbox (`Merge conflict: NO`), kiểm tra an toàn chỉ đọc đối với `Invoke-OwnerReleaseToWeb.ps1` + test `OA-20` (`PASS`), và tạo Draft PR #21.
+5. **Phụ thuộc:** `GOV-08.1.7` (`APPROVED`).
+6. **Acceptance Criteria:** Chỉ chứa đúng 6 file tài liệu; khối `REMEDIATION_FREEZE` nguyên vẹn 100%; `canonical:verify` và `prettier --check` đạt `PASS`; merge sạch trên sandbox; tạo thành công Draft PR #21 mà không tự merge vào `main`.
+7. **Trạng thái:** `APPROVED`
 8. **Người/AI thực hiện:** `Antigravity`
-9. **Kết quả test:** `PASS` — Đã xác minh 6 file tài liệu, `0` trùng Task ID, `0` secret, `59/59` canonical hashes `PASS`, `0` thay đổi mã nguồn/database/Production.
-10. **Evidence (`VERIFIED`):** Commit SHA mới nhất trên `origin/docs/governance-management-lite-v1`.
-11. **Commit / PR:** Branch `docs/governance-management-lite-v1`
-12. **Approval:** `PENDING` _(Chờ Owner nghiệm thu — tuyệt đối không tự merge vào `main`)_
-13. **NEXT_ACTION:** Dừng chờ Owner nghiệm thu (`APPROVED`) `GOV-08.1`.
+9. **Kết quả test:** `PASS` — Đã xác minh 6 file tài liệu, `0` trùng Task ID, `0` secret, `59/59` canonical hashes `PASS`, `0` xung đột merge trên sandbox với `origin/main` (`71b5310`), `0` thay đổi mã nguồn/database/Production.
+10. **Evidence (`VERIFIED`):** Commit `607ced8`, `9565c3e` và Draft PR [#21](https://github.com/truhoaiphuong03/management-lite/pull/21) trên `origin/docs/governance-management-lite-v1`.
+11. **Commit / PR:** `607ced8`, `9565c3e` (Draft PR #21)
+12. **Approval:** `APPROVED` _(Theo lệnh `# OWNER APPROVAL — GOV-08.1` ngày `2026-11-02` đối với commit `9565c3e` & Draft PR #21 — chưa merge vào `main` theo lệnh Owner)_
+13. **NEXT_ACTION:** Giữ nguyên Draft PR #21 (chưa merge vào `main`), giữ nguyên `REMEDIATION_FREEZE` và giữ `GOV-08.2` / `GOV-09` ở trạng thái chưa được phép triển khai cho đến khi có lệnh mới của Owner.

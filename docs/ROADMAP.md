@@ -23,15 +23,16 @@
 
 ---
 
-## 2. Phase Quản Trị Hiện Tại (`PASS` — Chờ Owner Nghiệm Thu)
+## 2. Phase Quản Trị Đã Được Owner Nghiệm Thu (`APPROVED` — Nhánh Riêng, Chưa Merge `main`)
 
-### Phase `GOV-08.1` — Chuẩn Hóa & Đồng Bộ Tài Liệu Quản Trị Dự Án `management-lite` Lên `v0.7.2` (`PASS` — `Approval: PENDING`)
+### Phase `GOV-08.1` — Chuẩn Hóa & Đồng Bộ Tài Liệu Quản Trị Dự Án `management-lite` Lên `v0.7.2` (`APPROVED` / `DONE` trên nhánh tài liệu)
 
-- **Nhánh thực hiện:** `docs/governance-management-lite-v1` (tách trực tiếp từ `origin/main` @ `bcdb36c` / `v0.7.2`).
-- **Phạm vi:**
-  - `GOV-08.1.1` → `GOV-08.1.5` (`PASS` @ `04284c9`, `Approval: PENDING` — giữ nguyên kết quả thực thi, không làm lại): Thiết lập bộ 6 tài liệu cốt lõi (`PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`).
-  - `GOV-08.1.6` → `GOV-08.1.8` (`PASS`, `Approval: PENDING`): Đồng bộ 11 commit mới từ `origin/main` (`bcdb36c` / `v0.7.2`), bảo toàn nguyên vẹn 100% khối `REMEDIATION_FREEZE` (`AGENTS.md §0`) & `Owner-Locked Release Gate`, cập nhật `Phase REM` (`PREM-T01..T06`) + `Phase 32` (`P32-T01..T02`), và chuẩn hóa toàn bộ cột `Approval` (Git tag/PR hay lệnh không làm lại Task không thay thế bằng chứng Owner `APPROVED`).
-- **`NEXT_ACTION`:** Trình Owner nghiệm thu (`APPROVED`) nhánh `docs/governance-management-lite-v1`. Tuyệt đối không tự merge vào `main` và không tác động Production.
+- **Nhánh thực hiện & PR:** `docs/governance-management-lite-v1` — Draft PR [#21](https://github.com/truhoaiphuong03/management-lite/pull/21) (đã kiểm tra merge sạch với `origin/main` @ `71b5310` trong worktree sandbox; **chưa merge vào `main`** theo lệnh Owner).
+- **Căn cứ phê duyệt (`Approval`):** **`APPROVED` bởi Owner** theo lệnh `# OWNER APPROVAL — GOV-08.1` (`2026-11-02T10:57:16+07:00`) đối với kết quả tại commit `9565c3e` và Draft PR #21 (bao gồm bộ 6 tài liệu Governance V1, kết quả kiểm tra `36` Phase / `103` Task, đối chiếu bảo toàn `REMEDIATION_FREEZE` và kiểm tra merge thử trong sandbox).
+- **Phạm vi đã nghiệm thu (`Zero-Recheck` — Không làm lại):**
+  - `GOV-08.1.1` → `GOV-08.1.5` (`APPROVED` @ `04284c9` / `9565c3e`): Thiết lập bộ 6 tài liệu cốt lõi (`PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`).
+  - `GOV-08.1.6` → `GOV-08.1.8` (`APPROVED` @ `607ced8` / `9565c3e`): Đồng bộ 11 commit từ `origin/main` (`v0.7.2`), bảo toàn nguyên vẹn 100% khối `REMEDIATION_FREEZE` (`AGENTS.md §0`) & `Owner-Locked Release Gate`, cập nhật `Phase REM` (`PREM-T01..T06`) + `Phase 32` (`P32-T01..T02`), chuẩn hóa cột `Approval` và đối chiếu an toàn với `71b5310`.
+- **`NEXT_ACTION`:** **Giữ nguyên Draft PR #21 (chưa merge vào `main`), giữ nguyên `REMEDIATION_FREEZE` (không gỡ khóa Production) và giữ `GOV-08.2` / `GOV-09` ở trạng thái chưa được phép triển khai cho đến khi có lệnh mới của Owner.**
 
 ---
 

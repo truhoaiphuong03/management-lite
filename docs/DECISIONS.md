@@ -80,7 +80,7 @@
 ## ADR-007: Áp Dụng Chuẩn Quản Trị `Universal AI Project Governance V1` & Tách Bạch `DONE` Với `APPROVED` (`Phase GOV-08.1`)
 
 - **Ngày:** 2026-11-02 (`GOV-08.1.1` → `GOV-08.1.8`)
-- **Trạng thái:** `ACCEPTED` (`PASS` — chờ Owner `APPROVED`)
+- **Trạng thái:** `ACCEPTED` (`APPROVED` bởi Owner theo lệnh `# OWNER APPROVAL — GOV-08.1` ngày `2026-11-02` tại commit `9565c3e` & Draft PR #21; giữ ở nhánh riêng, chưa merge vào `main`)
 - **Bối cảnh:** Dự án có lịch sử phát triển dày đặc (`36` Phase / `103` Task, `59` tài liệu Canonical, bộ hồ sơ `docs/remediation/`, `docs/plans/` và bảng `LIVE_CHECKPOINT` trong `AGENTS.md`), cần một cấu trúc hồ sơ chuẩn hóa để `ChatGPT`, `Antigravity` và `Codex` phối hợp đa máy mà không bao giờ quét lại toàn bộ source code hay làm lại các Phase đã nghiệm thu.
 - **Quyết định:**
   1. Bổ sung và đồng bộ bộ 6 tài liệu cốt lõi (`PROJECT_STATUS.md`, `AGENTS.md`, `README.md`, `docs/PHASE_TASK_HISTORY.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`) trực tiếp trên `HEAD` mới nhất (`bcdb36c` / `v0.7.2`) theo cơ chế **Non-Destructive Overlay** (bảo toàn 100% khối `REMEDIATION_FREEZE` trong `AGENTS.md` và toàn bộ tài liệu lịch sử).
