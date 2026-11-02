@@ -360,3 +360,39 @@
 11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
 12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
 13. **NEXT_ACTION:** Bắt đầu `Phase PQ-1` (`PQ1-T01` — Tích hợp Pricing Engine vào `packages/contracts/src/printquote.ts`).
+
+---
+
+### Task `PQ1-T01` — Tích Hợp Pricing Engine & Hợp Đồng Dữ Liệu Vào `@management-lite/contracts`
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-1`
+3. **Task ID:** `PQ1-T01`
+4. **Mô tả:** Tích hợp Pricing Engine từ `printquote-v1` vào `packages/contracts/src/printquote.ts` (dùng chung cho cả Backend và Web UI), bổ sung hàm băm chuẩn FIPS 180-4 `sha256Hex` chạy đa môi trường, hàm lọc bảo mật PDF khách hàng `buildCustomerSafePdfPayload` / `assertCustomerSafePdfPayload`, hàm tách giá danh mục nhà in `buildQuoteLineFromVendorCatalogItem` và toàn bộ hợp đồng kiểu dữ liệu cho Nhà in, Bảng giá, Khách hàng, Báo giá, Phiên bản báo giá, Đơn hàng & Thanh toán công nợ.
+5. **Phụ thuộc:** `PQ0-T04` (`PASS`).
+6. **Acceptance Criteria:** Hỗ trợ đầy đủ giá vốn nhà in theo 1 đơn vị / toàn lô, lợi nhuận VND / % theo đơn vị / tổng lô, cước vận chuyển cộng 1 lần, gộp ship vào đơn giá khách, phân bổ ship đa sản phẩm chính xác 100%, lưu riêng giá vốn / giá bán / lợi nhuận, khóa bất biến không đổi giá đơn cũ khi bảng giá nhà in cập nhật; vượt qua `npm run typecheck` và `npm run build`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — Biên dịch TypeScript nghiêm ngặt (`exactOptionalPropertyTypes: true`) đạt `0` lỗi.
+10. **Evidence (`VERIFIED`):** `packages/contracts/src/printquote.ts`, `packages/contracts/src/index.ts`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Chuyển sang `PQ1-T02`.
+
+---
+
+### Task `PQ1-T02` — Kiểm Thử Đơn Vị (`Unit Tests`) Cho Pricing Engine Tích Hợp
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-1`
+3. **Task ID:** `PQ1-T02`
+4. **Mô tả:** Viết và thực thi bộ unit test `tests/backend/printquote-pricing-engine.test.mjs` kiểm chứng: (1) `sha256Hex` khớp 100% `node:crypto`, (2) bài toán chuẩn `100 tờ × (300đ vốn + 200đ lời) + 50.000đ ship = 100.000đ (1.000đ/tờ)`, (3) giá vốn đơn vị/lô & lợi nhuận VND/% theo đơn vị/lô, (4) bảo mật PDF khách hàng `buildCustomerSafePdfPayload` / `assertCustomerSafePdfPayload` không lộ giá vốn/lợi nhuận/nhà in, (5) phân bổ ship đa sản phẩm Largest Remainder & làm tròn đơn giá lẻ, (6) bất biến giá đơn cũ khi bảng giá nhà in tăng gấp đôi.
+5. **Phụ thuộc:** `PQ1-T01` (`PASS`).
+6. **Acceptance Criteria:** `7/7` kịch bản kiểm thử trong `tests/backend/printquote-pricing-engine.test.mjs` đạt `PASS` (`0 fail`).
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity`
+9. **Kết quả test:** `PASS` — `7/7` tests `PASS` (`duration_ms: 57.67ms`).
+10. **Evidence (`VERIFIED`):** `node --test tests/backend/printquote-pricing-engine.test.mjs`.
+11. **Commit / PR:** Nhánh `feature/printquote-module-v1`
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner phê duyệt triển khai; chờ nghiệm thu cuối)_
+13. **NEXT_ACTION:** Bắt đầu `Phase PQ-2` (`PQ2-T01` — Migration `0033_printquote_v1.sql` & Backend API).
