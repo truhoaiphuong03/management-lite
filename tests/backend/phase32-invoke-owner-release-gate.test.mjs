@@ -368,6 +368,144 @@ exit 0
     /SECURITY_VIOLATION_NON_ELEVATED_TOKEN/,
   );
 
+  // 1b. Native Win32 TokenIntegrityLevel (GetTokenInformation class 25) verification across all 5 mandatory cases:
+  // Case (a): Administrator with High (S-1-16-12288) / System (S-1-16-16384) Integrity -> PASS
+  const realAdminHighRes = await runPsScript([
+    '-SandboxMode',
+    '-DryRunPreflightOnly',
+    '-ServerRoot',
+    sandboxRoot,
+    '-ArtifactsDir',
+    artifactsDir,
+    '-CommitSha',
+    commitSha,
+    '-ExpectedControllerSha256',
+    mockControllerSha,
+    '-GitHubApiBaseUrl',
+    ghApiBase,
+    '-SandboxSimulatedIsAdmin',
+    'true',
+    '-SandboxSimulatedIntegritySid',
+    'S-1-16-12288',
+  ]);
+  assert.equal(
+    realAdminHighRes.status,
+    0,
+    `Expected Real Admin + S-1-16-12288 to PASS preflight, got: ${realAdminHighRes.stderr}\n${realAdminHighRes.stdout}`,
+  );
+  assert.match(realAdminHighRes.stdout, /\[PREFLIGHT-PASS\]/);
+
+  // Case (b): Non-elevated Administrator (IsAdmin = true, Medium Integrity S-1-16-8192) -> BLOCK
+  const nonElevatedAdminRes = await runPsScript([
+    '-SandboxMode',
+    '-DryRunPreflightOnly',
+    '-ServerRoot',
+    sandboxRoot,
+    '-ArtifactsDir',
+    artifactsDir,
+    '-CommitSha',
+    commitSha,
+    '-SandboxSimulatedIsAdmin',
+    'true',
+    '-SandboxSimulatedIntegritySid',
+    'S-1-16-8192',
+  ]);
+  assert.notEqual(nonElevatedAdminRes.status, 0);
+  assert.match(
+    nonElevatedAdminRes.stderr + nonElevatedAdminRes.stdout,
+    /SECURITY_VIOLATION_NON_ELEVATED_TOKEN/,
+  );
+
+  // Case (c): Standard User (IsAdmin = false, even if Integrity SID is Medium S-1-16-8192 or High S-1-16-12288) -> BLOCK
+  const standardUserRes = await runPsScript([
+    '-SandboxMode',
+    '-DryRunPreflightOnly',
+    '-ServerRoot',
+    sandboxRoot,
+    '-ArtifactsDir',
+    artifactsDir,
+    '-CommitSha',
+    commitSha,
+    '-SandboxSimulatedIsAdmin',
+    'false',
+    '-SandboxSimulatedIntegritySid',
+    'S-1-16-12288',
+  ]);
+  assert.notEqual(standardUserRes.status, 0);
+  assert.match(
+    standardUserRes.stderr + standardUserRes.stdout,
+    /SECURITY_VIOLATION_NON_ELEVATED_TOKEN/,
+  );
+
+  // Case (d): Unknown / Null / Invalid Token Integrity -> BLOCK
+  const unknownIntegrityRes = await runPsScript([
+    '-SandboxMode',
+    '-DryRunPreflightOnly',
+    '-ServerRoot',
+    sandboxRoot,
+    '-ArtifactsDir',
+    artifactsDir,
+    '-CommitSha',
+    commitSha,
+    '-SandboxSimulatedIsAdmin',
+    'true',
+    '-SandboxSimulatedIntegritySid',
+    'UNKNOWN_OR_INVALID_SID',
+  ]);
+  assert.notEqual(unknownIntegrityRes.status, 0);
+  assert.match(
+    unknownIntegrityRes.stderr + unknownIntegrityRes.stdout,
+    /SECURITY_VIOLATION_NON_ELEVATED_TOKEN/,
+  );
+
+  // Case (e): Window title spoofing ("Administrator: Windows PowerShell") on non-elevated token -> BLOCK
+  // Also verifies GetTokenIntegritySid([IntPtr]::Zero) -> null and live Win32 GetTokenInformation(TokenIntegrityLevel) returns S-1-16-*
+  const windowTitleSpoofRes = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      `
+        $Host.UI.RawUI.WindowTitle = 'Administrator: Windows PowerShell'
+        try {
+          & '${scriptPath.replace(/'/g, "''")}' -SandboxMode -DryRunPreflightOnly -ServerRoot '${sandboxRoot.replace(/'/g, "''")}' -ArtifactsDir '${artifactsDir.replace(/'/g, "''")}' -CommitSha '${commitSha}' -SandboxSimulatedIsAdmin 'true' -SandboxSimulatedIntegritySid 'S-1-16-8192'
+          exit 0
+        } catch {
+          $liveId = [Security.Principal.WindowsIdentity]::GetCurrent()
+          $liveSid = [ManagementLiteTokenSecurity]::GetTokenIntegritySid($liveId.Token)
+          $zeroSid = [ManagementLiteTokenSecurity]::GetTokenIntegritySid([IntPtr]::Zero)
+          $evalHigh = [ManagementLiteTokenSecurity]::EvaluateKernelElevation($true, 'S-1-16-12288')
+          $evalSys = [ManagementLiteTokenSecurity]::EvaluateKernelElevation($true, 'S-1-16-16384')
+          $evalMed = [ManagementLiteTokenSecurity]::EvaluateKernelElevation($true, 'S-1-16-8192')
+          $evalStd = [ManagementLiteTokenSecurity]::EvaluateKernelElevation($false, 'S-1-16-12288')
+          $evalNull = [ManagementLiteTokenSecurity]::EvaluateKernelElevation($true, $null)
+          Write-Output ("SPOOF_BLOCKED_ERR=" + $_.Exception.Message)
+          Write-Output ("LIVE_SID=" + $liveSid)
+          Write-Output ("ZERO_SID_IS_NULL=" + ($null -eq $zeroSid))
+          Write-Output ("EVAL_MATRIX=$evalHigh,$evalSys,$evalMed,$evalStd,$evalNull")
+          exit 42
+        }
+      `,
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.equal(windowTitleSpoofRes.status, 42);
+  assert.match(
+    windowTitleSpoofRes.stdout,
+    /SPOOF_BLOCKED_ERR=SECURITY_VIOLATION_NON_ELEVATED_TOKEN/,
+  );
+  assert.match(
+    windowTitleSpoofRes.stdout,
+    /LIVE_SID=S-1-16-(4096|8192|12288|16384)/,
+  );
+  assert.match(windowTitleSpoofRes.stdout, /ZERO_SID_IS_NULL=True/);
+  assert.match(
+    windowTitleSpoofRes.stdout,
+    /EVAL_MATRIX=True,True,False,False,False/,
+  );
+
   // 2. Test controller SHA-256 mismatch
   const badCtrlRes = await runPsScript([
     '-SandboxMode',

@@ -29,6 +29,8 @@ param(
   [string]$SandboxHealthUrl = '',
   [string]$SandboxReadyUrl = '',
   [string]$SandboxWebUrl = '',
+  [string]$SandboxSimulatedIsAdmin = '',
+  [string]$SandboxSimulatedIntegritySid = '',
   [switch]$SimulateNonElevatedCaller,
   [switch]$SimulateSigningFailureAfterPolicyWrite,
   [switch]$SimulateBackupFailure,
@@ -38,6 +40,64 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if (-not ('ManagementLiteTokenSecurity' -as [type])) {
+  Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+
+public static class ManagementLiteTokenSecurity {
+  private const int TokenIntegrityLevel = 25;
+  private const uint SE_GROUP_INTEGRITY = 0x00000020;
+
+  [DllImport("advapi32.dll", SetLastError = true)]
+  private static extern bool GetTokenInformation(
+    IntPtr TokenHandle,
+    int TokenInformationClass,
+    IntPtr TokenInformation,
+    int TokenInformationLength,
+    out int ReturnLength
+  );
+
+  [DllImport("advapi32.dll", SetLastError = true)]
+  private static extern bool IsValidSid(IntPtr pSid);
+
+  public static string GetTokenIntegritySid(IntPtr tokenHandle) {
+    if (tokenHandle == IntPtr.Zero) return null;
+    int returnLength = 0;
+    GetTokenInformation(tokenHandle, TokenIntegrityLevel, IntPtr.Zero, 0, out returnLength);
+    if (returnLength <= 0) return null;
+    IntPtr buffer = Marshal.AllocHGlobal(returnLength);
+    try {
+      if (!GetTokenInformation(tokenHandle, TokenIntegrityLevel, buffer, returnLength, out returnLength)) {
+        return null;
+      }
+      IntPtr pSid = Marshal.ReadIntPtr(buffer);
+      if (pSid == IntPtr.Zero || !IsValidSid(pSid)) {
+        return null;
+      }
+      uint attributes = (uint)Marshal.ReadInt32(buffer, IntPtr.Size);
+      if ((attributes & SE_GROUP_INTEGRITY) == 0) {
+        return null;
+      }
+      return new SecurityIdentifier(pSid).Value;
+    } catch {
+      return null;
+    } finally {
+      Marshal.FreeHGlobal(buffer);
+    }
+  }
+
+  public static bool EvaluateKernelElevation(bool isAdminMember, string integritySid) {
+    if (!isAdminMember) return false;
+    if (string.IsNullOrWhiteSpace(integritySid)) return false;
+    string normalized = integritySid.Trim().ToUpperInvariant();
+    return normalized == "S-1-16-12288" || normalized == "S-1-16-16384";
+  }
+}
+"@
+}
 
 $realProdServerPrefix = [IO.Path]::GetFullPath('C:\HoaiPhuong-Server').TrimEnd('\', '/')
 $normServerRoot = [IO.Path]::GetFullPath($ServerRoot).TrimEnd('\', '/')
@@ -55,13 +115,27 @@ if (-not (Test-Path -LiteralPath $node)) {
   $node = 'node'
 }
 
-# 1. OS KERNEL HIGH-INTEGRITY ELEVATED TOKEN CHECK
+# 1. OS KERNEL HIGH-INTEGRITY ELEVATED TOKEN CHECK (WIN32 GetTokenInformation(TokenIntegrityLevel))
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 $isElevatedAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-$hasHighIntegrity = @($identity.Groups | Where-Object { $_.Value -in @('S-1-16-12288', 'S-1-16-16384') }).Count -gt 0
+$tokenIntegritySid = [ManagementLiteTokenSecurity]::GetTokenIntegritySid($identity.Token)
+$hasHighIntegrity = [ManagementLiteTokenSecurity]::EvaluateKernelElevation($isElevatedAdmin, $tokenIntegritySid)
 
-if ($SimulateNonElevatedCaller -or ($targetsProductionHost -and (-not ($isElevatedAdmin -and $hasHighIntegrity)))) {
+$sandboxTokenSimulationFailed = $false
+if ($SandboxMode -and (-not $targetsProductionHost) -and ((-not [string]::IsNullOrWhiteSpace($SandboxSimulatedIsAdmin)) -or $PSBoundParameters.ContainsKey('SandboxSimulatedIntegritySid'))) {
+  $simAdmin = if (-not [string]::IsNullOrWhiteSpace($SandboxSimulatedIsAdmin)) {
+    $SandboxSimulatedIsAdmin.Trim().ToLowerInvariant() -in @('true', '1', '$true')
+  } else {
+    $isElevatedAdmin
+  }
+  $simSid = if ($PSBoundParameters.ContainsKey('SandboxSimulatedIntegritySid')) { $SandboxSimulatedIntegritySid } else { $tokenIntegritySid }
+  if (-not [ManagementLiteTokenSecurity]::EvaluateKernelElevation($simAdmin, $simSid)) {
+    $sandboxTokenSimulationFailed = $true
+  }
+}
+
+if ($SimulateNonElevatedCaller -or $sandboxTokenSimulationFailed -or ($targetsProductionHost -and (-not $hasHighIntegrity))) {
   throw 'SECURITY_VIOLATION_NON_ELEVATED_TOKEN: Invoke-OwnerReleaseToWeb.ps1 requires an OS Kernel High-Integrity Elevated Administrator token (Run as Administrator). Non-elevated sessions are blocked fail-closed.'
 }
 
