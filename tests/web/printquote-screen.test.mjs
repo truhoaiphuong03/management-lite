@@ -412,7 +412,10 @@ describe('MGL-PRINTQUOTE UX V2 — Web Routes, RBAC, Modal Catalogs, Honest KPIs
     );
     assert.equal(pricesCatalogHtml.includes('pq-catalog-tabs'), true);
     assert.equal(pricesCatalogHtml.includes('pq-open-price-dialog-btn'), true);
-    assert.equal(pricesCatalogHtml.includes('pq-open-vendor-dialog-btn'), false);
+    assert.equal(
+      pricesCatalogHtml.includes('pq-open-vendor-dialog-btn'),
+      false,
+    );
     assert.equal(pricesCatalogHtml.includes('<form'), false);
 
     const customersCatalogHtml = renderToStaticMarkup(
@@ -1152,7 +1155,8 @@ describe('MGL-PRINTQUOTE UX V2 — Web Routes, RBAC, Modal Catalogs, Honest KPIs
           expectVerified: false,
         },
         {
-          label: 'Phản hồi Owner thiếu userId (không thể chứng minh cùng chủ sở hữu)',
+          label:
+            'Phản hồi Owner thiếu userId (không thể chứng minh cùng chủ sở hữu)',
           nextPayload: {
             success: true,
             data: {
@@ -1169,7 +1173,9 @@ describe('MGL-PRINTQUOTE UX V2 — Web Routes, RBAC, Modal Catalogs, Honest KPIs
         await executeSessionVerification(t, async () =>
           makeJsonResponse(200, makeAuthEnvelope()),
         );
-        setPrintQuoteRamDraft(makeDirtyDraft(`Nháp Bí Mật — ${scenario.label}`));
+        setPrintQuoteRamDraft(
+          makeDirtyDraft(`Nháp Bí Mật — ${scenario.label}`),
+        );
         assert.equal(isPrintQuoteDraftDirty(), true);
 
         // Giả lập lỗi 500 làm t.userId = undefined trước khi người tiếp theo đăng nhập
@@ -1370,11 +1376,25 @@ describe('MGL-PRINTQUOTE UX V2 — Web Routes, RBAC, Modal Catalogs, Honest KPIs
         '/reset-password?token=abc',
         '/verify-email/xyz',
       ]) {
-        assert.equal(isPublicAuthRoute(pub), true, `${pub} phải là public auth`);
+        assert.equal(
+          isPublicAuthRoute(pub),
+          true,
+          `${pub} phải là public auth`,
+        );
         assert.equal(determinePostVerificationRoute(pub, false), null);
       }
-      for (const priv of ['/', '/work', '/clock', '/print-quotes', '/print-quotes/new']) {
-        assert.equal(isPublicAuthRoute(priv), false, `${priv} phải là route bảo vệ`);
+      for (const priv of [
+        '/',
+        '/work',
+        '/clock',
+        '/print-quotes',
+        '/print-quotes/new',
+      ]) {
+        assert.equal(
+          isPublicAuthRoute(priv),
+          false,
+          `${priv} phải là route bảo vệ`,
+        );
         assert.equal(determinePostVerificationRoute(priv, false), '/login');
       }
 
@@ -1397,7 +1417,11 @@ describe('MGL-PRINTQUOTE UX V2 — Web Routes, RBAC, Modal Catalogs, Honest KPIs
         json: async () => ({
           success: true,
           data: {
-            user: { id: 'u-owner-1', email: 'owner1@local', email_verified: true },
+            user: {
+              id: 'u-owner-1',
+              email: 'owner1@local',
+              email_verified: true,
+            },
             active_workspace: { id: 'ws-1', name: 'WS', role: 'owner' },
             csrf_token: 'tok',
           },

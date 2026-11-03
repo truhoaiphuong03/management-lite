@@ -334,9 +334,8 @@ async function startInMemoryPrintQuoteWebServer() {
       return;
     }
 
-    const singleQuoteGetMatch = /^\/api\/v1\/print-quotes\/quotes\/([^/]+)$/.exec(
-      cleanPath,
-    );
+    const singleQuoteGetMatch =
+      /^\/api\/v1\/print-quotes\/quotes\/([^/]+)$/.exec(cleanPath);
     if (singleQuoteGetMatch && req.method === 'GET') {
       const targetId = decodeURIComponent(singleQuoteGetMatch[1]);
       const found = savedQuotes.find(
@@ -1602,7 +1601,9 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           await page.waitForSelector('[data-testid="pq-ram-draft-banner"]');
 
           await page.click('[data-testid="pq-nav-group-catalog"]');
-          await page.waitForSelector('[data-testid="pq-open-price-dialog-btn"]');
+          await page.waitForSelector(
+            '[data-testid="pq-open-price-dialog-btn"]',
+          );
           assert.ok(page.url().endsWith('/print-quotes/catalog/prices'));
           await page.waitForSelector('[data-testid="pq-ram-draft-banner"]');
 
@@ -1622,7 +1623,9 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           await page.goBack();
           await page.waitForSelector('[data-testid="panel-customers"]');
           await page.goBack();
-          await page.waitForSelector('[data-testid="pq-open-price-dialog-btn"]');
+          await page.waitForSelector(
+            '[data-testid="pq-open-price-dialog-btn"]',
+          );
           await page.goBack();
           await page.waitForSelector('[data-testid="panel-quotes-list"]');
           await page.goBack();
@@ -1651,7 +1654,9 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           await page.goForward();
           await page.waitForSelector('[data-testid="panel-quotes-list"]');
           await page.goForward();
-          await page.waitForSelector('[data-testid="pq-open-price-dialog-btn"]');
+          await page.waitForSelector(
+            '[data-testid="pq-open-price-dialog-btn"]',
+          );
           assert.ok(page.url().endsWith('/print-quotes/catalog/prices'));
           await page.click('[data-testid="pq-resume-draft-btn"]');
           await page.waitForSelector('[data-testid="panel-create-quote"]');
@@ -1701,7 +1706,9 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           await page.click('[data-testid="pq-editor-back-btn"]');
           await page.waitForSelector('[data-testid="panel-quotes-list"]');
 
-          await page.click('nav.mobile-bottom-nav button:has-text("Chấm công")');
+          await page.click(
+            'nav.mobile-bottom-nav button:has-text("Chấm công")',
+          );
           await page.waitForSelector('[data-testid="pq-leave-draft-dialog"]');
           assert.ok(
             page.url().endsWith('/print-quotes'),
@@ -1721,7 +1728,9 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           );
 
           // Chọn "Rời trang & xóa nháp" -> chuyển sang /clock và xóa sạch nháp trong RAM
-          await page.click('nav.mobile-bottom-nav button:has-text("Chấm công")');
+          await page.click(
+            'nav.mobile-bottom-nav button:has-text("Chấm công")',
+          );
           await page.waitForSelector('[data-testid="pq-leave-draft-dialog"]');
           await page.click('[data-testid="pq-leave-discard-btn"]');
           await page.waitForFunction(() =>
@@ -1831,7 +1840,10 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
             await titleInput.inputValue(),
             'Báo giá Hộp Cứng Fail-Closed',
           );
-          assert.equal(await prodNameInput.inputValue(), 'Hộp nam châm cao cấp');
+          assert.equal(
+            await prodNameInput.inputValue(),
+            'Hộp nam châm cao cấp',
+          );
           assert.equal(await qtyInput.inputValue(), '120');
           assert.match(
             await page.textContent('[data-testid="pq-summary-total"]'),

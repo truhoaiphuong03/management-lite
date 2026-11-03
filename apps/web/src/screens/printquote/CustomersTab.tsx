@@ -165,7 +165,9 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                   {c.phone || '—'}
                 </div>
                 {c.address && (
-                  <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
                     Đ/c: {c.address}
                   </div>
                 )}

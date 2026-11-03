@@ -43,7 +43,8 @@ export interface VendorsCatalogTabProps {
   priceDefaultProfitVal: number;
   setPriceDefaultProfitVal: (v: number) => void;
   onCreatePriceItem: (e: React.FormEvent) => Promise<boolean> | void;
-  onQuickQuotePriceItem?: ((item: PrintVendorPriceItemData) => void) | undefined;
+  onQuickQuotePriceItem?:
+    ((item: PrintVendorPriceItemData) => void) | undefined;
   onNavigateCatalogSubPage?: ((sub: 'prices' | 'vendors') => void) | undefined;
 }
 
@@ -200,7 +201,9 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
           }}
         >
           <div>
-            <h2 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700 }}>
+            <h2
+              style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700 }}
+            >
               Danh sách Nhà in đối tác ({vendors.length})
             </h2>
             <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
@@ -685,7 +688,9 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
         onClose={() => setIsPriceDialogOpen(false)}
       >
         {vendors.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          >
             <div style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
               Bạn cần thêm ít nhất 1 Nhà in đối tác trước khi tạo hạng mục bảng
               giá.

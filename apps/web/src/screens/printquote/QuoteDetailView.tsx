@@ -44,9 +44,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
 }) => {
   const customer = useMemo(
     () =>
-      quote
-        ? customers.find((c) => c.id === quote.customer_id) || null
-        : null,
+      quote ? customers.find((c) => c.id === quote.customer_id) || null : null,
     [customers, quote],
   );
 
@@ -91,7 +89,8 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
             color: 'var(--muted-color)',
           }}
         >
-          Mã báo giá không tồn tại hoặc không thuộc không gian làm việc hiện tại.
+          Mã báo giá không tồn tại hoặc không thuộc không gian làm việc hiện
+          tại.
         </p>
         <button
           type="button"
@@ -164,9 +163,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
                 marginTop: '4px',
               }}
             >
-              <strong
-                style={{ fontSize: '17px', color: 'var(--accent-text)' }}
-              >
+              <strong style={{ fontSize: '17px', color: 'var(--accent-text)' }}>
                 {quote.quote_code}
               </strong>
               <StatusBadge
@@ -401,7 +398,8 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
         className="pq-detail-split-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
           gap: '14px',
           alignItems: 'start',
         }}
@@ -609,7 +607,11 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
           {/* Version History */}
           <div style={cardStyle}>
             <h3
-              style={{ margin: '0 0 10px', fontSize: '14.5px', fontWeight: 700 }}
+              style={{
+                margin: '0 0 10px',
+                fontSize: '14.5px',
+                fontWeight: 700,
+              }}
             >
               📜 Lịch sử phiên bản bất biến (
               {quote.versions?.length || quote.current_version})

@@ -273,8 +273,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
     shippingFeeInput !== undefined ? shippingFeeInput : String(shippingFee);
   const isQuoteIncomplete = Boolean(
     livePricingResult.error ||
-      !livePricingResult.calc ||
-      !livePricingResult.customerPdf,
+    !livePricingResult.calc ||
+    !livePricingResult.customerPdf,
   );
   const showValidationState = Boolean(editingQuoteId || hasTouchedFields);
 
@@ -422,7 +422,14 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
       {/* Desktop 2-Column / Mobile 1-Column Responsive Grid */}
       <div className="pq-editor-grid">
         {/* LEFT COLUMN: Customer + Product Lines + Shipping/Notes */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minWidth: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            minWidth: 0,
+          }}
+        >
           {/* 1. Customer & Quote Title */}
           <div id="pq-sec-customer" style={cardStyle}>
             <div
@@ -596,7 +603,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+            >
               {draftLines.map((line, idx) => {
                 const isCollapsed =
                   draftLines.length > 1 && Boolean(collapsedLineIds[line.id]);
@@ -613,7 +622,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                   line.profitInput !== undefined
                     ? line.profitInput
                     : String(line.profitValue);
-                const costAllowDecimal = !Number.isInteger(line.vendorCostValue);
+                const costAllowDecimal = !Number.isInteger(
+                  line.vendorCostValue,
+                );
                 const profitAllowDecimal =
                   line.profitMode === ProfitMode.PERCENTAGE;
                 const lineErr = livePricingResult.lineErrors?.[line.id];
@@ -690,7 +701,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                   {formatExactVnd(calcLine.rawFinalUnitPrice)}/
                                   {line.unit || 'tờ'} (làm tròn{' '}
                                   {formatVnd(calcLine.finalUnitPrice)}) • Thành
-                                  tiền: {formatVnd(calcLine.reconciledLineTotal)}
+                                  tiền:{' '}
+                                  {formatVnd(calcLine.reconciledLineTotal)}
                                 </>
                               ) : (
                                 <>
@@ -1493,7 +1505,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+            >
               <div
                 style={{
                   display: 'grid',

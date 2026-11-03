@@ -10,12 +10,7 @@ import {
 import type { AmbiguousLegacyCostState } from '../helpers/printquote-helpers.js';
 
 export type PrintQuoteTabId =
-  | 'create'
-  | 'quotes'
-  | 'vendors'
-  | 'customers'
-  | 'orders'
-  | 'analytics';
+  'create' | 'quotes' | 'vendors' | 'customers' | 'orders' | 'analytics';
 
 export type PrintQuoteViewMode =
   | 'quotes'
@@ -31,16 +26,10 @@ export type PrintQuoteViewMode =
 export type CatalogSubPageId = 'prices' | 'customers' | 'vendors';
 
 export type PrintQuoteNavGroupId =
-  | 'quotes_group'
-  | 'orders_group'
-  | 'catalog_group'
-  | 'analytics_group';
+  'quotes_group' | 'orders_group' | 'catalog_group' | 'analytics_group';
 
 export type CreateQuoteSectionId =
-  | 'customer'
-  | 'products'
-  | 'summary'
-  | 'actions';
+  'customer' | 'products' | 'summary' | 'actions';
 
 export type SummaryViewMode = 'customer' | 'internal';
 

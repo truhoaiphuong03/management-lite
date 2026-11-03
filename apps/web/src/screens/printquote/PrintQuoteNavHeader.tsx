@@ -21,11 +21,7 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
   vendorsCount,
 }) => {
   // Focused editor / detail screens never render module subnav to keep 100% focus
-  if (
-    viewMode === 'new' ||
-    viewMode === 'detail' ||
-    viewMode === 'edit'
-  ) {
+  if (viewMode === 'new' || viewMode === 'detail' || viewMode === 'edit') {
     return null;
   }
 

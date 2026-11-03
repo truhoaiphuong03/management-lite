@@ -261,7 +261,11 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     implemented: true,
     category: 'accounts',
   },
-  '/print-quotes': pqRoute('UI-PRINTQUOTE-01', '/print-quotes', 'Báo giá in ấn'),
+  '/print-quotes': pqRoute(
+    'UI-PRINTQUOTE-01',
+    '/print-quotes',
+    'Báo giá in ấn',
+  ),
   '/print-quotes/new': pqRoute(
     'UI-PRINTQUOTE-02',
     '/print-quotes/new',

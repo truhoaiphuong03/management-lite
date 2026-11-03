@@ -59,7 +59,10 @@ import { AnalyticsTab } from './printquote/AnalyticsTab.js';
 import { PdfPreviewModal } from './printquote/PdfPreviewModal.js';
 import { CatalogModalDialog } from './printquote/CatalogModalDialog.js';
 
-export type { PrintQuoteTabId, PrintQuoteViewMode } from './printquote/types.js';
+export type {
+  PrintQuoteTabId,
+  PrintQuoteViewMode,
+} from './printquote/types.js';
 
 const DEFAULT_CUSTOMER_NOTES =
   '1. Đơn giá trên đã tính theo đúng quy cách và số lượng đặt in.\n2. Thời gian giao hàng dự kiến: 2–4 ngày làm việc kể từ khi chốt file in và đặt cọc.';
@@ -87,10 +90,9 @@ function resolveViewAndQuoteId(
   routePattern?: string | undefined,
   routeParams?: Record<string, string> | undefined,
 ): { viewMode: PrintQuoteViewMode; quoteId: string | null } {
-  const clean = (path.split(/[?#]/, 1)[0] || '/print-quotes').replace(
-    /\/+$/,
-    '',
-  ) || '/print-quotes';
+  const clean =
+    (path.split(/[?#]/, 1)[0] || '/print-quotes').replace(/\/+$/, '') ||
+    '/print-quotes';
 
   if (clean === '/print-quotes') {
     return { viewMode: 'quotes', quoteId: null };
@@ -212,8 +214,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   initialOrders = [],
   initialStats = null,
 }) => {
-  const [fallbackPath, setFallbackPath] = useState<string>(() =>
-    currentPath || mapLegacyTabToPath(initialTab),
+  const [fallbackPath, setFallbackPath] = useState<string>(
+    () => currentPath || mapLegacyTabToPath(initialTab),
   );
   const effectivePath = currentPath || fallbackPath;
 
@@ -343,8 +345,9 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   const [versionChangeNote, setVersionChangeNote] = useState<string>(
     initialDraft?.versionChangeNote ?? '',
   );
-  const [draftLines, setDraftLines] = useState<DraftLineState[]>(() =>
-    initialDraft?.draftLines ??
+  const [draftLines, setDraftLines] = useState<DraftLineState[]>(
+    () =>
+      initialDraft?.draftLines ??
       (initialEditableQuote
         ? mapQuoteLinesToDraftLines(initialEditableQuote)
         : [EMPTY_DRAFT_LINE(1)]),
@@ -1363,9 +1366,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     return true;
   };
 
-  const handleCreateCustomer = async (
-    e: React.FormEvent,
-  ): Promise<boolean> => {
+  const handleCreateCustomer = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault();
     if (!custName.trim()) return false;
     const csrf = await getCsrfToken();
@@ -1734,13 +1735,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           <CreateQuoteTab
             editingQuoteId={viewMode === 'edit' ? editingQuoteId : null}
             editingQuoteCode={viewMode === 'edit' ? editingQuoteCode : null}
-            editingQuoteVersion={
-              viewMode === 'edit' ? editingQuoteVersion : 1
-            }
+            editingQuoteVersion={viewMode === 'edit' ? editingQuoteVersion : 1}
             isLockedQuoteForEdit={Boolean(
               viewMode === 'edit' &&
-                activeQuote &&
-                !isQuoteStatusEditable(activeQuote.status),
+              activeQuote &&
+              !isQuoteStatusEditable(activeQuote.status),
             )}
             lockedQuoteStatusLabel={
               activeQuote

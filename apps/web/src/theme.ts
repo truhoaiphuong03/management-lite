@@ -1,7 +1,6 @@
 let activeMediaQuery: MediaQueryList | null = null;
 let activeMediaListener:
-  | ((e: MediaQueryListEvent | MediaQueryList) => void)
-  | null = null;
+  ((e: MediaQueryListEvent | MediaQueryList) => void) | null = null;
 
 export function removeThemeListener(): void {
   if (activeMediaQuery && activeMediaListener) {

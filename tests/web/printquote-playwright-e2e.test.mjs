@@ -1036,10 +1036,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
 
     await quoteRow.locator('button:has-text("Sửa / Tạo phiên bản")').click();
     await page.waitForSelector('[data-testid="panel-create-quote"]');
-    assert.match(
-      new URL(page.url()).pathname,
-      /^\/print-quotes\/[^/]+\/edit$/,
-    );
+    assert.match(new URL(page.url()).pathname, /^\/print-quotes\/[^/]+\/edit$/);
     assert.equal(
       await page.inputValue('[data-testid="pq-title-input"]'),
       'Báo giá in Tờ rơi A5 khai trương Chuỗi Trà Sữa Sài Gòn',

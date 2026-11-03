@@ -61,7 +61,9 @@ export const CatalogModalDialog: React.FC<CatalogModalDialogProps> = ({
       if (e.key === 'Tab' && container) {
         const nodes = Array.from(
           container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-        ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+        ).filter(
+          (el) => el.offsetParent !== null || el === document.activeElement,
+        );
         if (nodes.length === 0) return;
         const first = nodes[0];
         const last = nodes[nodes.length - 1];

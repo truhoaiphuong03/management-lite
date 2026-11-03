@@ -198,9 +198,8 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
               }}
             >
               <div>
-                Chưa có báo giá nào. Hãy bấm{' '}
-                <strong>+ Tạo báo giá mới</strong> để tính giá và xuất file PDF
-                A4 đầu tiên.
+                Chưa có báo giá nào. Hãy bấm <strong>+ Tạo báo giá mới</strong>{' '}
+                để tính giá và xuất file PDF A4 đầu tiên.
               </div>
               <button
                 type="button"

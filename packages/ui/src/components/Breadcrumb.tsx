@@ -202,7 +202,10 @@ export function resolveNavigationBreadcrumbs(
   }
 
   // 2H. Báo giá in ấn (PrintQuote UX V2)
-  if (currentPath === '/print-quotes' || currentPath.startsWith('/print-quotes/')) {
+  if (
+    currentPath === '/print-quotes' ||
+    currentPath.startsWith('/print-quotes/')
+  ) {
     const pqLabels: Record<string, string> = {
       '/print-quotes/new': 'Tạo báo giá mới',
       '/print-quotes/orders': 'Đơn hàng in ấn',
@@ -240,8 +243,7 @@ export function resolveNavigationBreadcrumbs(
           : isEdit
             ? 'Chi tiết báo giá'
             : 'Báo giá in ấn',
-      parentPath:
-        currentPath === '/print-quotes' ? '/' : editParentPath,
+      parentPath: currentPath === '/print-quotes' ? '/' : editParentPath,
     };
   }
 
