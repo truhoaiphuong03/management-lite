@@ -379,7 +379,9 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                         className="pq-btn pq-btn-secondary"
                       >
                         <PqEditIcon size={14} />
-                        <span>Sửa (v{q.current_version + 1})</span>
+                        <span>
+                          Sửa / Tạo phiên bản (v{q.current_version + 1})
+                        </span>
                       </button>
                     ) : (
                       <button

@@ -4,6 +4,7 @@ export interface CatalogModalDialogProps {
   open: boolean;
   title: string;
   subtitle?: string | undefined;
+  ariaLabel?: string | undefined;
   testId?: string | undefined;
   maxWidth?: string | undefined;
   onClose: () => void;
@@ -17,6 +18,7 @@ export const CatalogModalDialog: React.FC<CatalogModalDialogProps> = ({
   open,
   title,
   subtitle,
+  ariaLabel,
   testId,
   maxWidth = '540px',
   onClose,
@@ -102,7 +104,8 @@ export const CatalogModalDialog: React.FC<CatalogModalDialogProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby={titleId}
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabel ? undefined : titleId}
       data-testid={testId}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {

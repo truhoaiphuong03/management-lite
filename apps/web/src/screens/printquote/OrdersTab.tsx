@@ -423,6 +423,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
       {/* Record Payment Modal */}
       <CatalogModalDialog
         open={paymentOrderTarget !== null}
+        ariaLabel="Ghi nhận thanh toán đơn hàng"
         title={
           paymentOrderTarget
             ? `Thu tiền / Đặt cọc — Đơn ${paymentOrderTarget.order_code}`

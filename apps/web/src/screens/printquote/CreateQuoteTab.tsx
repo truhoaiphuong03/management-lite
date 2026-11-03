@@ -738,7 +738,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             className="pq-btn pq-btn-danger-ghost pq-btn-sm"
                           >
                             <PqTrashIcon size={13} />
-                            <span>Xóa</span>
+                            <span>Xóa dòng</span>
                           </button>
                         )}
                       </div>
