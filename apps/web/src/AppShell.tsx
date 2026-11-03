@@ -31,6 +31,33 @@ export interface AppShellProps {
   children: React.ReactNode;
 }
 
+const NON_KEYBOARD_INPUT_TYPES = new Set([
+  'checkbox',
+  'radio',
+  'button',
+  'submit',
+  'reset',
+  'file',
+  'hidden',
+  'range',
+  'color',
+  'image',
+]);
+
+function isMobileKeyboardEditableTarget(el: Element | null): el is HTMLElement {
+  if (!el || !(el instanceof HTMLElement)) return false;
+  if (el instanceof HTMLTextAreaElement) {
+    return !el.disabled && !el.readOnly;
+  }
+  if (el instanceof HTMLInputElement) {
+    const inputType = (el.type || 'text').toLowerCase();
+    return (
+      !NON_KEYBOARD_INPUT_TYPES.has(inputType) && !el.disabled && !el.readOnly
+    );
+  }
+  return el.isContentEditable;
+}
+
 export const AppShell: React.FC<AppShellProps> = ({
   currentPath,
   onNavigate,
@@ -43,6 +70,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   children,
 }) => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [isMobileKeyboardOpen, setIsMobileKeyboardOpen] = useState(false);
 
   useEffect(
     () => enableResponsiveTables(document.getElementById('main-content')),
@@ -53,6 +81,155 @@ export const AppShell: React.FC<AppShellProps> = ({
     () => enableFormLabelling(document.getElementById('main-content')),
     [],
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    let blurTimer: ReturnType<typeof setTimeout> | null = null;
+    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+    let hadNativeVvShrink = false;
+
+    const isCompactMobileScreen = () =>
+      window.innerWidth <= 768 ||
+      (window.innerWidth <= 932 && window.innerHeight <= 520);
+
+    const scrollFocusedInputIntoVisibleArea = () => {
+      const active = document.activeElement;
+      if (!isCompactMobileScreen() || !isMobileKeyboardEditableTarget(active)) {
+        return;
+      }
+      const vv = window.visualViewport;
+      const viewTop = vv ? vv.offsetTop : 0;
+      const viewHeight = vv ? vv.height : window.innerHeight;
+      const safeTop = viewTop + 52;
+      const safeBottom = viewTop + viewHeight - 16;
+      if (safeBottom <= safeTop) return;
+
+      const computeDelta = (r: DOMRect): number => {
+        if (r.bottom > safeBottom) return r.bottom - safeBottom;
+        if (r.top < safeTop) return r.top - safeTop;
+        return 0;
+      };
+
+      const initialDelta = computeDelta(active.getBoundingClientRect());
+      if (initialDelta === 0) return;
+
+      // Tier 1: Window scroll (handles iOS visualViewport + standard root scroller)
+      window.scrollBy(0, initialDelta);
+
+      // Tier 2: Scrollable ancestor container (handles body overflow-x:hidden & modal containers)
+      const remDelta = computeDelta(active.getBoundingClientRect());
+      if (remDelta !== 0) {
+        let node: HTMLElement | null = active.parentElement;
+        while (node) {
+          if (node.scrollHeight > node.clientHeight) {
+            const prevTop = node.scrollTop;
+            node.scrollTop += remDelta;
+            if (node.scrollTop !== prevTop) break;
+          }
+          node = node.parentElement;
+        }
+      }
+
+      // Tier 3: Native scrollIntoView fallback if still outside visible band
+      if (
+        computeDelta(active.getBoundingClientRect()) !== 0 &&
+        typeof active.scrollIntoView === 'function'
+      ) {
+        active.scrollIntoView({ block: 'center', inline: 'nearest' });
+      }
+    };
+
+    const syncKeyboardState = (shouldEnsureScroll: boolean) => {
+      const mobile = isCompactMobileScreen();
+      const editableFocused = isMobileKeyboardEditableTarget(
+        document.activeElement,
+      );
+      const vv = window.visualViewport;
+      const vvShrink = vv ? window.innerHeight - vv.height : 0;
+
+      if (mobile && editableFocused && vvShrink >= 100) {
+        hadNativeVvShrink = true;
+      }
+      if (!editableFocused || !mobile) {
+        hadNativeVvShrink = false;
+      }
+
+      const dismissedViaAccessoryBar =
+        hadNativeVvShrink && vv !== null && vvShrink < 60;
+      const nextOpen = mobile && editableFocused && !dismissedViaAccessoryBar;
+
+      document.documentElement.setAttribute(
+        'data-mobile-keyboard',
+        nextOpen ? 'open' : 'closed',
+      );
+      setIsMobileKeyboardOpen(nextOpen);
+
+      if (nextOpen && shouldEnsureScroll) {
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(() => {
+            scrollFocusedInputIntoVisibleArea();
+          });
+        } else {
+          scrollFocusedInputIntoVisibleArea();
+        }
+        if (scrollTimer) clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+          scrollFocusedInputIntoVisibleArea();
+        }, 60);
+      }
+    };
+
+    const handleFocusIn = () => {
+      if (blurTimer) {
+        clearTimeout(blurTimer);
+        blurTimer = null;
+      }
+      syncKeyboardState(true);
+    };
+
+    const handleFocusOut = () => {
+      if (blurTimer) clearTimeout(blurTimer);
+      blurTimer = setTimeout(() => {
+        syncKeyboardState(false);
+      }, 80);
+    };
+
+    const handleViewportChange = () => {
+      syncKeyboardState(true);
+    };
+
+    const handleOrientationChange = () => {
+      hadNativeVvShrink = false;
+      syncKeyboardState(true);
+    };
+
+    document.addEventListener('focusin', handleFocusIn, true);
+    document.addEventListener('focusout', handleFocusOut, true);
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('orientationchange', handleOrientationChange);
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', handleViewportChange);
+    }
+
+    syncKeyboardState(false);
+
+    return () => {
+      if (blurTimer) clearTimeout(blurTimer);
+      if (scrollTimer) clearTimeout(scrollTimer);
+      document.removeEventListener('focusin', handleFocusIn, true);
+      document.removeEventListener('focusout', handleFocusOut, true);
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      if (vv) {
+        vv.removeEventListener('resize', handleViewportChange);
+      }
+      document.documentElement.removeAttribute('data-mobile-keyboard');
+    };
+  }, []);
 
   const handleMobileNav = (path: string) => {
     setIsMoreOpen(false);
@@ -129,6 +306,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   return (
     <div
       className="app-shell-root"
+      data-mobile-keyboard={isMobileKeyboardOpen ? 'open' : 'closed'}
       style={{
         display: 'flex',
         minHeight: '100vh',
@@ -641,6 +819,17 @@ export const AppShell: React.FC<AppShellProps> = ({
         .app-shell-report-dock .btn-floating-report-bug {
           position: fixed;
           z-index: 900;
+        }
+        html[data-mobile-keyboard="open"] .mobile-bottom-nav-wrapper,
+        .app-shell-root[data-mobile-keyboard="open"] .mobile-bottom-nav-wrapper,
+        html[data-mobile-keyboard="open"] .app-shell-report-dock .btn-floating-report-bug,
+        .app-shell-root[data-mobile-keyboard="open"] .app-shell-report-dock .btn-floating-report-bug,
+        html[data-mobile-keyboard="open"] .btn-floating-report-bug {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          transition: none !important;
         }
         @media (min-width: 769px) {
           .mobile-bottom-nav-wrapper {

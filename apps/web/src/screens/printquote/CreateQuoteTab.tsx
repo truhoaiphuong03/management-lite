@@ -22,6 +22,8 @@ import {
   formatCustomerLinePriceDisplay,
   formatNumberVn,
   numberToVietnameseWords,
+  parseNumericDraftValue,
+  type DraftLineValidationError,
 } from '../helpers/printquote-helpers.js';
 import {
   DEFAULT_DRAFT_LINE,
@@ -32,6 +34,7 @@ import {
   type DraftLineState,
   type SummaryViewMode,
 } from './types.js';
+import { NumericDraftInput } from './NumericDraftInput.js';
 
 export interface CreateQuoteTabProps {
   editingQuoteId: string | null;
@@ -47,6 +50,8 @@ export interface CreateQuoteTabProps {
   onChangeValidUntil: (val: string) => void;
   shippingFee: number;
   onChangeShippingFee: (val: number) => void;
+  shippingFeeInput?: string | undefined;
+  onChangeShippingFeeInput?: ((val: string) => void) | undefined;
   includeShippingInUnitPrice: boolean;
   onChangeIncludeShippingInUnitPrice: (val: boolean) => void;
   shippingAllocation: ShippingAllocationStrategyType;
@@ -68,6 +73,9 @@ export interface CreateQuoteTabProps {
     calc: QuoteCalculationResult | null;
     customerPdf: CustomerSafePdfPayload | null;
     error: string | null;
+    validationErrors?: string[] | undefined;
+    lineErrors?: Record<string, DraftLineValidationError> | undefined;
+    shippingError?: string | null | undefined;
   };
   onResetNewQuote: () => void;
   onSaveQuote: () => void;
@@ -94,6 +102,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
   onChangeValidUntil,
   shippingFee,
   onChangeShippingFee,
+  shippingFeeInput,
+  onChangeShippingFeeInput,
   includeShippingInUnitPrice,
   onChangeIncludeShippingInUnitPrice,
   shippingAllocation,
@@ -244,6 +254,13 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
 
   const selectedCustomerObj =
     customers.find((c) => c.id === selectedCustomerId) || null;
+  const resolvedShippingFeeInput =
+    shippingFeeInput !== undefined ? shippingFeeInput : String(shippingFee);
+  const isQuoteIncomplete = Boolean(
+    livePricingResult.error ||
+    !livePricingResult.calc ||
+    !livePricingResult.customerPdf,
+  );
 
   return (
     <div
@@ -662,6 +679,22 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               const isCollapsed =
                 draftLines.length > 1 && Boolean(collapsedLineIds[line.id]);
               const calcLine = livePricingResult.calc?.lines[idx];
+              const rawQtyInput =
+                line.quantityInput !== undefined
+                  ? line.quantityInput
+                  : String(line.quantity);
+              const rawCostInput =
+                line.vendorCostInput !== undefined
+                  ? line.vendorCostInput
+                  : String(line.vendorCostValue);
+              const rawProfitInput =
+                line.profitInput !== undefined
+                  ? line.profitInput
+                  : String(line.profitValue);
+              const costAllowDecimal = !Number.isInteger(line.vendorCostValue);
+              const profitAllowDecimal =
+                line.profitMode === ProfitMode.PERCENTAGE;
+              const lineErr = livePricingResult.lineErrors?.[line.id];
 
               return (
                 <div
@@ -716,7 +749,11 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             color: 'var(--muted-color)',
                           }}
                         >
-                          ({formatNumberVn(line.quantity)} {line.unit || 'tờ'})
+                          (
+                          {rawQtyInput === ''
+                            ? 'Chưa nhập SL'
+                            : `${formatNumberVn(line.quantity)} ${line.unit || 'tờ'}`}
+                          )
                         </span>
                         {calcLine && (
                           <span
@@ -949,29 +986,34 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <div style={{ flex: 2 }}>
                             <label style={labelStyle}>Số lượng *</label>
-                            <input
-                              aria-label={`Số lượng dòng ${idx + 1}`}
-                              type="number"
-                              min={1}
+                            <NumericDraftInput
+                              ariaLabel={`Số lượng dòng ${idx + 1}`}
+                              allowDecimal={false}
+                              placeholder="VD: 500"
                               style={inputStyle}
-                              value={line.quantity}
-                              onChange={(e) =>
+                              invalid={Boolean(lineErr?.quantity)}
+                              value={rawQtyInput}
+                              onValueChange={(nextRaw) => {
+                                const parsed = parseNumericDraftValue(nextRaw, {
+                                  allowDecimal: false,
+                                  min: 1,
+                                  integerOnly: true,
+                                });
                                 setDraftLines((prev) =>
                                   prev.map((l, i) =>
                                     i === idx
                                       ? {
                                           ...l,
-                                          quantity: Math.max(
-                                            1,
-                                            Math.round(
-                                              Number(e.target.value) || 1,
-                                            ),
-                                          ),
+                                          quantityInput: nextRaw,
+                                          ...(parsed.isValid &&
+                                          parsed.value !== null
+                                            ? { quantity: parsed.value }
+                                            : {}),
                                         }
                                       : l,
                                   ),
-                                )
-                              }
+                                );
+                              }}
                             />
                           </div>
                           <div style={{ flex: 1 }}>
@@ -1034,7 +1076,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                               Từng {line.unit || 'cái'} (1 đơn vị)
                             </option>
                             <option value={VendorCostMode.TOTAL_BATCH}>
-                              Trọn lô ({line.quantity} {line.unit || 'cái'})
+                              Trọn lô (
+                              {rawQtyInput === '' ? '?' : line.quantity}{' '}
+                              {line.unit || 'cái'})
                             </option>
                           </select>
                         </div>
@@ -1045,27 +1089,34 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                               ? `Giá nhà in / 1 ${line.unit || 'cái'} (đ)`
                               : 'Tổng giá nhà in cả lô (đ)'}
                           </label>
-                          <input
-                            aria-label={`Giá trị giá vốn dòng ${idx + 1}`}
-                            type="number"
-                            min={0}
+                          <NumericDraftInput
+                            ariaLabel={`Giá trị giá vốn dòng ${idx + 1}`}
+                            allowDecimal={costAllowDecimal}
+                            placeholder="Nhập 0 nếu miễn phí"
                             style={inputStyle}
-                            value={line.vendorCostValue}
-                            onChange={(e) =>
+                            invalid={Boolean(lineErr?.vendorCost)}
+                            value={rawCostInput}
+                            onValueChange={(nextRaw) => {
+                              const parsed = parseNumericDraftValue(nextRaw, {
+                                allowDecimal: costAllowDecimal,
+                                min: 0,
+                                integerOnly: !costAllowDecimal,
+                              });
                               setDraftLines((prev) =>
                                 prev.map((l, i) =>
                                   i === idx
                                     ? {
                                         ...l,
-                                        vendorCostValue: Math.max(
-                                          0,
-                                          Number(e.target.value) || 0,
-                                        ),
+                                        vendorCostInput: nextRaw,
+                                        ...(parsed.isValid &&
+                                        parsed.value !== null
+                                          ? { vendorCostValue: parsed.value }
+                                          : {}),
                                       }
                                     : l,
                                 ),
-                              )
-                            }
+                              );
+                            }}
                           />
                         </div>
 
@@ -1078,19 +1129,37 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                               aria-label={`Kiểu lợi nhuận dòng ${idx + 1}`}
                               style={inputStyle}
                               value={line.profitMode}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                const nextMode = e.target
+                                  .value as ProfitModeType;
                                 setDraftLines((prev) =>
-                                  prev.map((l, i) =>
-                                    i === idx
-                                      ? {
-                                          ...l,
-                                          profitMode: e.target
-                                            .value as ProfitModeType,
-                                        }
-                                      : l,
-                                  ),
-                                )
-                              }
+                                  prev.map((l, i) => {
+                                    if (i !== idx) return l;
+                                    let nextProfitInput = l.profitInput;
+                                    let nextProfitValue = l.profitValue;
+                                    if (
+                                      nextMode === ProfitMode.FIXED_AMOUNT &&
+                                      nextProfitInput !== undefined &&
+                                      nextProfitInput.includes('.')
+                                    ) {
+                                      const rounded = Math.max(
+                                        0,
+                                        Math.round(
+                                          Number(nextProfitInput) || 0,
+                                        ),
+                                      );
+                                      nextProfitValue = rounded;
+                                      nextProfitInput = String(rounded);
+                                    }
+                                    return {
+                                      ...l,
+                                      profitMode: nextMode,
+                                      profitValue: nextProfitValue,
+                                      profitInput: nextProfitInput,
+                                    };
+                                  }),
+                                );
+                              }}
                             >
                               <option value={ProfitMode.FIXED_AMOUNT}>
                                 Số tiền (đ)
@@ -1137,27 +1206,38 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                 ? `Tiền lời / 1 ${line.unit || 'cái'} (đ)`
                                 : 'Tổng tiền lời cả lô (đ)'}
                           </label>
-                          <input
-                            aria-label={`Giá trị lợi nhuận dòng ${idx + 1}`}
-                            type="number"
-                            min={0}
+                          <NumericDraftInput
+                            ariaLabel={`Giá trị lợi nhuận dòng ${idx + 1}`}
+                            allowDecimal={profitAllowDecimal}
+                            placeholder={
+                              profitAllowDecimal
+                                ? 'VD: 15 hoặc 12.5'
+                                : 'Nhập 0 nếu không lời'
+                            }
                             style={inputStyle}
-                            value={line.profitValue}
-                            onChange={(e) =>
+                            invalid={Boolean(lineErr?.profit)}
+                            value={rawProfitInput}
+                            onValueChange={(nextRaw) => {
+                              const parsed = parseNumericDraftValue(nextRaw, {
+                                allowDecimal: profitAllowDecimal,
+                                min: 0,
+                                integerOnly: !profitAllowDecimal,
+                              });
                               setDraftLines((prev) =>
                                 prev.map((l, i) =>
                                   i === idx
                                     ? {
                                         ...l,
-                                        profitValue: Math.max(
-                                          0,
-                                          Number(e.target.value) || 0,
-                                        ),
+                                        profitInput: nextRaw,
+                                        ...(parsed.isValid &&
+                                        parsed.value !== null
+                                          ? { profitValue: parsed.value }
+                                          : {}),
                                       }
                                     : l,
                                 ),
-                              )
-                            }
+                              );
+                            }}
                           />
                         </div>
                       </div>
@@ -1255,19 +1335,25 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 <label style={labelStyle} htmlFor="pq-shipping-input">
                   Phí giao hàng toàn đơn (đ — tính 1 lần)
                 </label>
-                <input
+                <NumericDraftInput
                   id="pq-shipping-input"
-                  data-testid="pq-shipping-input"
-                  type="number"
-                  min={0}
-                  step={1000}
+                  dataTestId="pq-shipping-input"
+                  allowDecimal={false}
+                  placeholder="Nhập 0 nếu miễn phí giao hàng"
                   style={inputStyle}
-                  value={shippingFee}
-                  onChange={(e) =>
-                    onChangeShippingFee(
-                      Math.max(0, Number(e.target.value) || 0),
-                    )
-                  }
+                  invalid={Boolean(livePricingResult.shippingError)}
+                  value={resolvedShippingFeeInput}
+                  onValueChange={(nextRaw) => {
+                    onChangeShippingFeeInput?.(nextRaw);
+                    const parsed = parseNumericDraftValue(nextRaw, {
+                      allowDecimal: false,
+                      min: 0,
+                      integerOnly: true,
+                    });
+                    if (parsed.isValid && parsed.value !== null) {
+                      onChangeShippingFee(parsed.value);
+                    }
+                  }}
                 />
               </div>
 
@@ -1418,8 +1504,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               </div>
             )}
 
-            {/* 4 thẻ số liệu tổng hợp (Luôn hiển thị rõ ràng cho Owner) */}
-            {livePricingResult.calc && livePricingResult.customerPdf && (
+            {/* 4 thẻ số liệu tổng hợp (Luôn hiển thị rõ ràng cho Owner khi dữ liệu hợp lệ) */}
+            {livePricingResult.calc && livePricingResult.customerPdf ? (
               <div
                 data-testid="pq-live-breakdown"
                 style={{
@@ -1926,6 +2012,42 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                   </div>
                 )}
               </div>
+            ) : (
+              <div
+                role="alert"
+                data-testid="pq-incomplete-pricing-notice"
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--danger-text)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  color: 'var(--text-color)',
+                  fontSize: '12.5px',
+                  lineHeight: 1.5,
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: 'var(--danger-text)',
+                    marginBottom: '4px',
+                  }}
+                >
+                  Chưa đủ dữ liệu hợp lệ để tính tổng tiền báo giá:
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  {(livePricingResult.validationErrors &&
+                  livePricingResult.validationErrors.length > 0
+                    ? livePricingResult.validationErrors
+                    : [
+                        livePricingResult.error ||
+                          'Vui lòng nhập đầy đủ số lượng (từ 1 trở lên) và đơn giá hợp lệ.',
+                      ]
+                  ).map((errText, errIdx) => (
+                    <li key={errIdx}>{errText}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}
@@ -1955,7 +2077,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
             4. Hoàn tất & Xuất báo giá PDF A4
           </div>
           <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            (Lưu vào hệ thống hoặc tải file PDF A4 gửi khách ngay)
+            {isQuoteIncomplete
+              ? '(Nhập đủ Số lượng, Giá nhà in và Tiền lời hợp lệ để mở khóa Lưu & Xuất PDF)'
+              : '(Lưu vào hệ thống hoặc tải file PDF A4 gửi khách ngay)'}
           </span>
         </div>
 
@@ -1963,6 +2087,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
           <button
             type="button"
             data-testid="pq-save-quote-btn"
+            disabled={isQuoteIncomplete}
             onClick={onSaveQuote}
             style={{
               flex: '1 1 170px',
@@ -1974,7 +2099,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               color: '#0F172A',
               fontWeight: 800,
               fontSize: '13.5px',
-              cursor: 'pointer',
+              opacity: isQuoteIncomplete ? 0.55 : 1,
+              cursor: isQuoteIncomplete ? 'not-allowed' : 'pointer',
             }}
           >
             {editingQuoteId
@@ -1985,6 +2111,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
           <button
             type="button"
             data-testid="pq-download-pdf-btn"
+            disabled={isQuoteIncomplete}
             onClick={onDownloadLivePdf}
             style={{
               flex: '1 1 170px',
@@ -1996,7 +2123,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               color: 'var(--accent-text)',
               fontWeight: 700,
               fontSize: '13.5px',
-              cursor: 'pointer',
+              opacity: isQuoteIncomplete ? 0.55 : 1,
+              cursor: isQuoteIncomplete ? 'not-allowed' : 'pointer',
             }}
           >
             ⬇️ Tải PDF A4 ({editingQuoteCode || 'BG-DRAFT'}.pdf)
@@ -2005,6 +2133,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
           <button
             type="button"
             data-testid="pq-preview-pdf-btn"
+            disabled={isQuoteIncomplete}
             onClick={onOpenLivePreview}
             style={{
               flex: '1 1 150px',
@@ -2016,7 +2145,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               color: 'var(--text-color)',
               fontWeight: 700,
               fontSize: '13.5px',
-              cursor: 'pointer',
+              opacity: isQuoteIncomplete ? 0.55 : 1,
+              cursor: isQuoteIncomplete ? 'not-allowed' : 'pointer',
             }}
           >
             👁️ Xem trước PDF A4

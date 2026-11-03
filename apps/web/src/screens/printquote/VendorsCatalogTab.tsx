@@ -1,12 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   VendorCostMode,
   type VendorCostModeType,
   type PrintVendorData,
   type PrintVendorPriceItemData,
 } from '../../../../../packages/contracts/src/printquote.js';
-import { formatVnd } from '../helpers/printquote-helpers.js';
+import {
+  formatVnd,
+  parseNumericDraftValue,
+} from '../helpers/printquote-helpers.js';
 import { cardStyle, inputStyle } from './types.js';
+import { NumericDraftInput } from './NumericDraftInput.js';
 
 export interface VendorsCatalogTabProps {
   vendors: PrintVendorData[];
@@ -69,6 +73,45 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
 }) => {
   const [filterVendorId, setFilterVendorId] = useState<string>('ALL');
   const [catalogSearch, setCatalogSearch] = useState<string>('');
+  const [unitCostInput, setUnitCostInput] = useState<string>(
+    String(priceUnitCost),
+  );
+  const [batchCostInput, setBatchCostInput] = useState<string>(
+    String(priceBatchCost),
+  );
+  const [defaultProfitInput, setDefaultProfitInput] = useState<string>(
+    String(priceDefaultProfitVal),
+  );
+
+  useEffect(() => {
+    setUnitCostInput((prev) =>
+      prev === ''
+        ? prev
+        : Number(prev) === priceUnitCost
+          ? prev
+          : String(priceUnitCost),
+    );
+  }, [priceUnitCost]);
+
+  useEffect(() => {
+    setBatchCostInput((prev) =>
+      prev === ''
+        ? prev
+        : Number(prev) === priceBatchCost
+          ? prev
+          : String(priceBatchCost),
+    );
+  }, [priceBatchCost]);
+
+  useEffect(() => {
+    setDefaultProfitInput((prev) =>
+      prev === ''
+        ? prev
+        : Number(prev) === priceDefaultProfitVal
+          ? prev
+          : String(priceDefaultProfitVal),
+    );
+  }, [priceDefaultProfitVal]);
 
   const filteredPriceItems = useMemo(() => {
     const q = catalogSearch.trim().toLowerCase();
@@ -300,41 +343,62 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
           </select>
 
           {priceCostMode === VendorCostMode.PER_UNIT ? (
-            <input
-              aria-label="Đơn giá vốn nhà in"
-              type="number"
-              min={0}
+            <NumericDraftInput
+              ariaLabel="Đơn giá vốn nhà in"
+              allowDecimal={false}
               style={inputStyle}
               placeholder="Giá vốn / 1 cái"
-              value={priceUnitCost}
-              onChange={(e) =>
-                setPriceUnitCost(Math.max(0, Number(e.target.value) || 0))
-              }
+              value={unitCostInput}
+              onValueChange={(nextRaw) => {
+                setUnitCostInput(nextRaw);
+                const parsed = parseNumericDraftValue(nextRaw, {
+                  allowDecimal: false,
+                  min: 0,
+                  integerOnly: true,
+                });
+                if (parsed.isValid && parsed.value !== null) {
+                  setPriceUnitCost(parsed.value);
+                }
+              }}
             />
           ) : (
-            <input
-              aria-label="Giá vốn trọn lô nhà in"
-              type="number"
-              min={0}
+            <NumericDraftInput
+              ariaLabel="Giá vốn trọn lô nhà in"
+              allowDecimal={false}
               style={inputStyle}
               placeholder="Giá vốn trọn lô"
-              value={priceBatchCost}
-              onChange={(e) =>
-                setPriceBatchCost(Math.max(0, Number(e.target.value) || 0))
-              }
+              value={batchCostInput}
+              onValueChange={(nextRaw) => {
+                setBatchCostInput(nextRaw);
+                const parsed = parseNumericDraftValue(nextRaw, {
+                  allowDecimal: false,
+                  min: 0,
+                  integerOnly: true,
+                });
+                if (parsed.isValid && parsed.value !== null) {
+                  setPriceBatchCost(parsed.value);
+                }
+              }}
             />
           )}
 
-          <input
-            aria-label="Lợi nhuận mặc định"
-            type="number"
-            min={0}
+          <NumericDraftInput
+            ariaLabel="Lợi nhuận mặc định"
+            allowDecimal={false}
             style={inputStyle}
             placeholder="Lời mặc định"
-            value={priceDefaultProfitVal}
-            onChange={(e) =>
-              setPriceDefaultProfitVal(Math.max(0, Number(e.target.value) || 0))
-            }
+            value={defaultProfitInput}
+            onValueChange={(nextRaw) => {
+              setDefaultProfitInput(nextRaw);
+              const parsed = parseNumericDraftValue(nextRaw, {
+                allowDecimal: false,
+                min: 0,
+                integerOnly: true,
+              });
+              if (parsed.isValid && parsed.value !== null) {
+                setPriceDefaultProfitVal(parsed.value);
+              }
+            }}
           />
 
           <button

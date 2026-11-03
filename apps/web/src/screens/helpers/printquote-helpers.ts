@@ -1,11 +1,255 @@
 import {
   assertCustomerSafePdfPayload,
+  ProfitMode,
+  type ProfitModeType,
+  type ProfitScopeType,
+  type VendorCostModeType,
   type CustomerSafePdfPayload,
   type QuoteOrderStatusType,
   type PrintProductionStatusType,
   type PrintDeliveryStatusType,
   type PrintPaymentStatusType,
 } from '../../../../../packages/contracts/src/printquote.js';
+
+/**
+ * Sanitizes raw text entered/pasted into a numeric draft input WITHOUT forcing
+ * empty strings to "0" or "1" and WITHOUT stripping leading zeros mid-typing
+ * (so cursor offsets never jump while editing digits in the middle of a number).
+ */
+export function sanitizeNumericDraftInput(
+  raw: string | null | undefined,
+  allowDecimal = false,
+): string {
+  if (raw === null || raw === undefined || raw === '') return '';
+  const str = String(raw);
+  if (!allowDecimal) {
+    return str.replace(/[^0-9]/g, '');
+  }
+  const normalizedSep = str.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+  const dotIdx = normalizedSep.indexOf('.');
+  if (dotIdx === -1) return normalizedSep;
+  const beforeDot = normalizedSep.slice(0, dotIdx);
+  const afterDot = normalizedSep.slice(dotIdx + 1).replace(/\./g, '');
+  return `${beforeDot}.${afterDot}`;
+}
+
+/**
+ * Normalizes a numeric draft string AFTER completion (onBlur / before save):
+ * - Preserves empty string "" as "" (never turns unentered fields into "0" or "1").
+ * - Normalizes "05000" -> "5000", "0500" -> "500", "000" -> "0", "0" -> "0".
+ * - In decimal mode: "012,50" -> "12.5", ".5" -> "0.5", "50." -> "50".
+ */
+export function normalizeNumericDraftOnBlur(
+  raw: string | null | undefined,
+  allowDecimal = false,
+): string {
+  const sanitized = sanitizeNumericDraftInput(raw, allowDecimal);
+  if (sanitized === '' || sanitized === '.') return '';
+
+  if (!allowDecimal) {
+    return sanitized.replace(/^0+(?=\d)/, '');
+  }
+
+  const withLeadingZero = sanitized.startsWith('.')
+    ? `0${sanitized}`
+    : sanitized;
+  const [rawInt = '0', rawDec] = withLeadingZero.split('.');
+  const cleanInt = (rawInt || '0').replace(/^0+(?=\d)/, '');
+  if (rawDec === undefined) return cleanInt;
+  const cleanDec = rawDec.replace(/0+$/, '');
+  return cleanDec.length > 0 ? `${cleanInt}.${cleanDec}` : cleanInt;
+}
+
+export interface ParsedDraftNumberResult {
+  isEmpty: boolean;
+  isValid: boolean;
+  value: number | null;
+}
+
+export function parseNumericDraftValue(
+  raw: string | null | undefined,
+  options: { allowDecimal?: boolean; min?: number; integerOnly?: boolean } = {},
+): ParsedDraftNumberResult {
+  const allowDecimal = Boolean(options.allowDecimal);
+  const min = options.min ?? 0;
+  const integerOnly = options.integerOnly ?? !allowDecimal;
+
+  const trimmed = raw === null || raw === undefined ? '' : String(raw).trim();
+  if (trimmed === '') {
+    return { isEmpty: true, isValid: false, value: null };
+  }
+
+  const normalized = normalizeNumericDraftOnBlur(trimmed, allowDecimal);
+  if (normalized === '') {
+    return { isEmpty: false, isValid: false, value: null };
+  }
+
+  const num = Number(normalized);
+  if (!Number.isFinite(num) || num < min) {
+    return { isEmpty: false, isValid: false, value: null };
+  }
+  if (integerOnly && !Number.isInteger(num)) {
+    return { isEmpty: false, isValid: false, value: null };
+  }
+  return { isEmpty: false, isValid: true, value: num };
+}
+
+export interface ValidatableDraftLine {
+  id: string;
+  name: string;
+  specification?: string | undefined;
+  unit: string;
+  quantity: number;
+  quantityInput?: string | undefined;
+  vendorCostMode: VendorCostModeType;
+  vendorCostValue: number;
+  vendorCostInput?: string | undefined;
+  profitMode: ProfitModeType;
+  profitScope: ProfitScopeType;
+  profitValue: number;
+  profitInput?: string | undefined;
+}
+
+export interface ValidatedQuoteLineNumbers {
+  quantity: number;
+  vendorCostValue: number;
+  profitValue: number;
+}
+
+export interface DraftLineValidationError {
+  quantity?: string | undefined;
+  vendorCost?: string | undefined;
+  profit?: string | undefined;
+}
+
+export interface QuoteDraftValidationResult {
+  isValid: boolean;
+  errors: string[];
+  lineErrors: Record<string, DraftLineValidationError>;
+  shippingError: string | null;
+  shippingFee: number;
+  lines: ValidatedQuoteLineNumbers[];
+}
+
+/**
+ * Strictly validates all required numeric inputs in CreateQuoteTab so that:
+ * - Empty ("") fields are distinguished from explicit "0".
+ * - Empty or invalid required fields block calculation of fake totals and block Save/PDF export.
+ */
+export function validateQuoteDraftInputs(
+  draftLines: ValidatableDraftLine[],
+  shippingFeeInput?: string | number | null,
+): QuoteDraftValidationResult {
+  const errors: string[] = [];
+  const lineErrors: QuoteDraftValidationResult['lineErrors'] = {};
+  const validatedLines: ValidatedQuoteLineNumbers[] = [];
+
+  if (!draftLines || draftLines.length === 0) {
+    errors.push('Cần ít nhất 1 sản phẩm đặt in trong báo giá.');
+  }
+
+  draftLines.forEach((line, idx) => {
+    const labelPrefix = `Sản phẩm #${idx + 1}`;
+    const currentLineErr: {
+      quantity?: string | undefined;
+      vendorCost?: string | undefined;
+      profit?: string | undefined;
+    } = {};
+
+    const rawQty =
+      line.quantityInput !== undefined
+        ? line.quantityInput
+        : String(line.quantity);
+    const qtyRes = parseNumericDraftValue(rawQty, {
+      allowDecimal: false,
+      min: 1,
+      integerOnly: true,
+    });
+    if (!qtyRes.isValid || qtyRes.value === null) {
+      const msg = qtyRes.isEmpty
+        ? `${labelPrefix}: Chưa nhập Số lượng.`
+        : `${labelPrefix}: Số lượng phải từ 1 trở lên.`;
+      currentLineErr.quantity = msg;
+      errors.push(msg);
+    }
+
+    const rawCost =
+      line.vendorCostInput !== undefined
+        ? line.vendorCostInput
+        : String(line.vendorCostValue);
+    const costAllowDecimal = !Number.isInteger(line.vendorCostValue);
+    const costRes = parseNumericDraftValue(rawCost, {
+      allowDecimal: costAllowDecimal,
+      min: 0,
+      integerOnly: !costAllowDecimal,
+    });
+    if (!costRes.isValid || costRes.value === null) {
+      const msg = costRes.isEmpty
+        ? `${labelPrefix}: Chưa nhập Giá nhà in (nhập 0 nếu miễn phí).`
+        : `${labelPrefix}: Giá nhà in không hợp lệ.`;
+      currentLineErr.vendorCost = msg;
+      errors.push(msg);
+    }
+
+    const rawProfit =
+      line.profitInput !== undefined
+        ? line.profitInput
+        : String(line.profitValue);
+    const profitAllowDecimal = line.profitMode === ProfitMode.PERCENTAGE;
+    const profitRes = parseNumericDraftValue(rawProfit, {
+      allowDecimal: profitAllowDecimal,
+      min: 0,
+      integerOnly: !profitAllowDecimal,
+    });
+    if (!profitRes.isValid || profitRes.value === null) {
+      const msg = profitRes.isEmpty
+        ? `${labelPrefix}: Chưa nhập Tiền lời (nhập 0 nếu không tính lời).`
+        : `${labelPrefix}: Tiền lời không hợp lệ.`;
+      currentLineErr.profit = msg;
+      errors.push(msg);
+    }
+
+    if (
+      currentLineErr.quantity ||
+      currentLineErr.vendorCost ||
+      currentLineErr.profit
+    ) {
+      lineErrors[line.id] = currentLineErr;
+    }
+
+    validatedLines.push({
+      quantity: qtyRes.value ?? 0,
+      vendorCostValue: costRes.value ?? 0,
+      profitValue: profitRes.value ?? 0,
+    });
+  });
+
+  const rawShip =
+    shippingFeeInput === undefined || shippingFeeInput === null
+      ? '0'
+      : String(shippingFeeInput);
+  const shipRes = parseNumericDraftValue(rawShip, {
+    allowDecimal: false,
+    min: 0,
+    integerOnly: true,
+  });
+  let shippingError: string | null = null;
+  if (!shipRes.isValid || shipRes.value === null) {
+    shippingError = shipRes.isEmpty
+      ? 'Chưa nhập Phí giao hàng toàn đơn (nhập 0 nếu miễn phí giao hàng).'
+      : 'Phí giao hàng không hợp lệ.';
+    errors.push(shippingError);
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    lineErrors,
+    shippingError,
+    shippingFee: shipRes.value ?? 0,
+    lines: validatedLines,
+  };
+}
 
 export function formatVnd(amount: number | null | undefined): string {
   const safe =
