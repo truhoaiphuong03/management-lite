@@ -760,4 +760,92 @@ test('EmployeeDetailScreen & EMP-009: Mounted lifecycle & hourly rate configurat
       }
     },
   );
+
+  await t.test(
+    'Sanitizes ?edit=1 query suffix on employeeId so API never calls /employees/<id>%3Fedit%3D1 and opens edit mode directly',
+    async () => {
+      const { container, root, flush, cleanup } = createTestContainer();
+      const targetUuid = 'aa1f9877-dc6b-4f8a-a4c2-593d251db34b';
+      const requestedUrls = [];
+
+      globalThis.fetch = async (url) => {
+        requestedUrls.push(String(url));
+        if (url.includes('/auth/me')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: { csrf_token: 'csrf-edit-1', user: { id: 'owner-01' } },
+            }),
+          };
+        }
+        if (url === `/api/v1/employees/${targetUuid}`) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: {
+                id: targetUuid,
+                full_name: 'Tran Thi Media',
+                employee_code: 'NV002',
+                employment_status: 'active',
+                is_payroll_eligible: true,
+                role: 'staff',
+                sub_permissions: [],
+                version: 1,
+                created_at: '2026-01-01T00:00:00Z',
+              },
+            }),
+          };
+        }
+        if (url.includes('/api/v1/payroll/hourly-rates')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true, data: [] }),
+          };
+        }
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({
+            success: false,
+            error: { message: `Endpoint GET ${url} not found` },
+          }),
+        };
+      };
+
+      try {
+        await act(async () => {
+          root.render(
+            React.createElement(EmployeeDetailScreen, {
+              employeeId: `${targetUuid}?edit=1`,
+              role: 'owner',
+              onNavigate: () => {},
+            }),
+          );
+        });
+        await flush();
+
+        assert.equal(
+          requestedUrls.some((u) => u.includes('%3Fedit%3D1')),
+          false,
+          `Must never encode ?edit=1 into employee API path, got: ${requestedUrls.join(', ')}`,
+        );
+        assert.equal(
+          requestedUrls.includes(`/api/v1/employees/${targetUuid}`),
+          true,
+          'Must fetch clean /api/v1/employees/<uuid>',
+        );
+        assert.ok(
+          container.querySelector('form'),
+          'Must automatically open edit form when ?edit=1 is passed',
+        );
+      } finally {
+        await cleanup();
+      }
+    },
+  );
 });

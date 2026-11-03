@@ -84,14 +84,19 @@ const DEFAULT_ADMIN_SUB_PERMS: EmployeeSubPermission[] = [
 export interface EmployeeDetailScreenProps {
   employeeId: string;
   role: UserRole;
+  initialEdit?: boolean;
   onNavigate: (path: string) => void;
 }
 
 export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
   employeeId,
   role,
+  initialEdit,
   onNavigate,
 }) => {
+  const cleanEmployeeId = (employeeId.split(/[?#]/, 1)[0] || '').trim();
+  const hasInlineEditQuery = /[?&]edit=1(?:&|#|$)/.test(employeeId);
+
   const [employee, setEmployee] = useState<EmployeeData | null>(null);
   const [hourlyRates, setHourlyRates] = useState<HourlyRateData[]>([]);
   const [currentHourlyRate, setCurrentHourlyRate] =
@@ -99,6 +104,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(() => {
+    if (initialEdit || hasInlineEditQuery) {
+      return true;
+    }
     if (
       typeof window !== 'undefined' &&
       window.location &&
@@ -195,12 +203,30 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
     return '';
   };
 
+  const clearEditQueryParam = () => {
+    if (
+      typeof window !== 'undefined' &&
+      window.history &&
+      typeof window.history.replaceState === 'function' &&
+      typeof window.location?.search === 'string' &&
+      window.location.search.includes('edit=')
+    ) {
+      window.history.replaceState(null, '', `/employees/${cleanEmployeeId}`);
+    }
+  };
+
+  useEffect(() => {
+    if (initialEdit || hasInlineEditQuery) {
+      setIsEditing(true);
+    }
+  }, [initialEdit, hasInlineEditQuery, cleanEmployeeId]);
+
   const fetchEmployee = async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(
-        `/api/v1/employees/${encodeURIComponent(employeeId)}`,
+        `/api/v1/employees/${encodeURIComponent(cleanEmployeeId)}`,
         {
           credentials: 'include',
         },
@@ -261,7 +287,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         const allRates: HourlyRateData[] = Array.isArray(body.data)
           ? body.data
           : [];
-        const empRates = allRates.filter((r) => r.employee_id === employeeId);
+        const empRates = allRates.filter(
+          (r) => r.employee_id === cleanEmployeeId,
+        );
         setHourlyRates(empRates);
         const active = empRates.find((r) => !r.effective_to);
         setCurrentHourlyRate(
@@ -278,7 +306,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
     if (role === 'owner') {
       fetchRates();
     }
-  }, [employeeId, role]);
+  }, [cleanEmployeeId, role]);
 
   const handleOpenRateModal = () => {
     rateIdempotencyKeyRef.current = null;
@@ -320,7 +348,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         headers,
         credentials: 'include',
         body: JSON.stringify({
-          employee_id: employeeId,
+          employee_id: cleanEmployeeId,
           hourly_rate_vnd: numericRate,
           effective_from: new Date().toISOString(),
         }),
@@ -409,6 +437,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
             : [];
       setSubPermissions(updatedPerms);
       setIsEditing(false);
+      clearEditQueryParam();
       setActionNotice('Đã cập nhật thông tin nhân viên thành công.');
       setToast({
         message: 'Đã cập nhật thông tin nhân viên thành công.',
@@ -1808,7 +1837,10 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
               <AppButton
                 variant="secondary"
                 type="button"
-                onClick={() => setIsEditing(false)}
+                onClick={() => {
+                  setIsEditing(false);
+                  clearEditQueryParam();
+                }}
               >
                 Hủy
               </AppButton>

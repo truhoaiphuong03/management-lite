@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.8.1';
-export const SYSTEM_COMMIT = '8bc67fc';
+export const SYSTEM_VERSION = '0.8.2';
+export const SYSTEM_COMMIT = 'e6d28cd';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -40,6 +40,22 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  * Bản 'latest' tự động gắn với commit thực tế của bản dựng mới nhất khi đóng gói và triển khai.
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
+  {
+    version: '0.8.2',
+    commit: 'latest',
+    released_at: '2026-11-03',
+    summary:
+      'Sửa lỗi điều hướng ?edit=1 khi bấm nút Phân quyền / Sửa trên danh sách nhân sự (/employees/:id?edit=1)',
+    added: [
+      'Bổ sung cơ chế tự động mở biểu mẫu chỉnh sửa & phân quyền thông qua thuộc tính initialEdit đồng bộ với tham số truy vấn ?edit=1 và tự động làm sạch URL sau khi lưu hoặc hủy.',
+    ],
+    improved: [
+      'Tách biệt sạch chuỗi truy vấn (?query) và neo (#hash) khỏi đường dẫn định tuyến trong bộ khớp route (router.ts) và trình điều hướng trung tâm (App.tsx).',
+    ],
+    fixed: [
+      'Khắc phục triệt để lỗi "Endpoint GET /api/v1/employees/<id>%3Fedit%3D1 not found" khi mở nhanh chế độ Phân quyền / Sửa từ màn hình Nhân sự (/employees).',
+    ],
+  },
   {
     version: '0.8.1',
     commit: 'latest',
