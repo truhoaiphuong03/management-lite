@@ -6,16 +6,18 @@ import {
   formatDateVn,
   QUOTE_STATUS_LABELS,
 } from '../helpers/printquote-helpers.js';
-import { cardStyle, inputStyle } from './types.js';
+import { cardStyle, inputStyle, isQuoteStatusEditable } from './types.js';
 
 export interface QuotesListTabProps {
   quotes: PrintQuoteData[];
   expandedQuoteHistoryId: string | null;
   setExpandedQuoteHistoryId: (id: string | null) => void;
   onStartNewQuote: () => void;
+  onOpenQuoteDetail: (quote: PrintQuoteData) => void;
   onDownloadSavedQuotePdfFile: (quoteId: string, quoteCode: string) => void;
   onOpenSavedQuotePdf: (quote: PrintQuoteData) => void;
   onLoadQuoteForEdit: (quote: PrintQuoteData) => void;
+  onCloneQuoteAsNew: (quote: PrintQuoteData) => void;
   onFinalizeQuote: (quoteId: string) => void;
   onConvertQuoteToOrder: (quote: PrintQuoteData) => void;
 }
@@ -25,9 +27,11 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
   expandedQuoteHistoryId,
   setExpandedQuoteHistoryId,
   onStartNewQuote,
+  onOpenQuoteDetail,
   onDownloadSavedQuotePdfFile,
   onOpenSavedQuotePdf,
   onLoadQuoteForEdit,
+  onCloneQuoteAsNew,
   onFinalizeQuote,
   onConvertQuoteToOrder,
 }) => {
@@ -78,24 +82,26 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
       >
         <div>
           <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
-            Danh sách Báo giá & Lịch sử Phiên bản ({quotes.length})
+            Danh sách Báo giá ({quotes.length})
           </h2>
           <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Tra cứu nhanh theo mã báo giá, tên khách hàng hoặc trạng thái chốt
-            đơn
+            Tra cứu nhanh theo mã báo giá, tên khách hàng hoặc mở chi tiết để
+            xuất PDF A4
           </div>
         </div>
         <button
           type="button"
+          data-testid="pq-new-quote-cta"
           onClick={onStartNewQuote}
           style={{
-            padding: '8px 14px',
+            minHeight: '44px',
+            padding: '10px 16px',
             borderRadius: '8px',
             border: 'none',
-            backgroundColor: 'var(--accent-text)',
-            color: '#0F172A',
-            fontWeight: 700,
-            fontSize: '13px',
+            backgroundColor: 'var(--primary-color)',
+            color: 'var(--inverse-text)',
+            fontWeight: 800,
+            fontSize: '13.5px',
             cursor: 'pointer',
           }}
         >
@@ -109,18 +115,32 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
           display: 'flex',
           flexWrap: 'wrap',
           gap: '8px',
-          alignItems: 'center',
+          alignItems: 'flex-end',
           marginBottom: '14px',
         }}
       >
-        <input
-          type="search"
-          aria-label="Tìm kiếm báo giá"
-          style={{ ...inputStyle, flex: '1 1 220px', maxWidth: '340px' }}
-          placeholder="Tìm mã BG, tên báo giá, tên hoặc SĐT khách…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <div style={{ flex: '1 1 220px', maxWidth: '360px' }}>
+          <label
+            htmlFor="pq-quotes-search-input"
+            style={{
+              display: 'block',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--muted-color)',
+              marginBottom: '4px',
+            }}
+          >
+            Tìm kiếm báo giá
+          </label>
+          <input
+            id="pq-quotes-search-input"
+            type="search"
+            style={inputStyle}
+            placeholder="Tìm mã BG, tên báo giá, tên hoặc SĐT khách…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
         <div
           style={{
             display: 'flex',
@@ -136,8 +156,8 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                 type="button"
                 onClick={() => setStatusFilter(tab.id)}
                 style={{
-                  minHeight: '38px',
-                  padding: '6px 12px',
+                  minHeight: '44px',
+                  padding: '8px 12px',
                   borderRadius: '999px',
                   border: active
                     ? '1px solid var(--accent-text)'
@@ -147,7 +167,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                     : 'var(--bg-color)',
                   color: active ? 'var(--accent-text)' : 'var(--muted-color)',
                   fontWeight: active ? 700 : 600,
-                  fontSize: '12px',
+                  fontSize: '12.5px',
                   whiteSpace: 'nowrap',
                   cursor: 'pointer',
                 }}
@@ -169,10 +189,37 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
           }}
         >
           {quotes.length === 0 ? (
-            <>
-              Chưa có báo giá nào. Hãy bấm <strong>1. Tạo báo giá</strong> để
-              tính giá và xuất PDF A4 đầu tiên.
-            </>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
+              <div>
+                Chưa có báo giá nào. Hãy bấm{' '}
+                <strong>+ Tạo báo giá mới</strong> để tính giá và xuất file PDF
+                A4 đầu tiên.
+              </div>
+              <button
+                type="button"
+                onClick={onStartNewQuote}
+                style={{
+                  minHeight: '44px',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--accent-text)',
+                  backgroundColor: 'var(--accent-soft)',
+                  color: 'var(--accent-text)',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                + Tạo báo giá mới ngay
+              </button>
+            </div>
           ) : (
             'Không tìm thấy báo giá phù hợp với bộ lọc hiện tại.'
           )}
@@ -181,6 +228,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {filteredQuotes.map((q) => {
             const isHistoryOpen = expandedQuoteHistoryId === q.id;
+            const editable = isQuoteStatusEditable(q.status);
             return (
               <div
                 key={q.id}
@@ -210,14 +258,23 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                         flexWrap: 'wrap',
                       }}
                     >
-                      <strong
+                      <button
+                        type="button"
+                        onClick={() => onOpenQuoteDetail(q)}
                         style={{
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          textAlign: 'left',
                           fontSize: '14.5px',
+                          fontWeight: 800,
                           color: 'var(--accent-text)',
+                          textDecoration: 'underline',
                         }}
                       >
                         {q.quote_code}
-                      </strong>
+                      </button>
                       <StatusBadge
                         status="neutral"
                         label={`v${q.current_version}`}
@@ -303,13 +360,33 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                 >
                   <button
                     type="button"
+                    data-testid={`pq-quote-open-detail-${q.quote_code}`}
+                    onClick={() => onOpenQuoteDetail(q)}
+                    style={{
+                      minHeight: '44px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--surface-color)',
+                      color: 'var(--text-color)',
+                      fontWeight: 700,
+                      fontSize: '12.5px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    📄 Xem chi tiết
+                  </button>
+
+                  <button
+                    type="button"
                     data-testid={`pq-quote-download-pdf-${q.quote_code}`}
                     onClick={() =>
                       onDownloadSavedQuotePdfFile(q.id, q.quote_code)
                     }
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: '6px',
+                      minHeight: '44px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
                       border: '1px solid var(--accent-text)',
                       backgroundColor: 'var(--accent-soft)',
                       color: 'var(--accent-text)',
@@ -326,8 +403,9 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                     data-testid={`pq-quote-preview-pdf-${q.quote_code}`}
                     onClick={() => onOpenSavedQuotePdf(q)}
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: '6px',
+                      minHeight: '44px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
                       border: '1px solid var(--border-color)',
                       backgroundColor: 'var(--surface-color)',
                       color: 'var(--text-color)',
@@ -339,39 +417,63 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                     👁️ Xem PDF A4
                   </button>
 
+                  {editable ? (
+                    <button
+                      type="button"
+                      data-testid={`pq-quote-edit-${q.quote_code}`}
+                      onClick={() => onLoadQuoteForEdit(q)}
+                      style={{
+                        minHeight: '44px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--surface-color)',
+                        color: 'var(--text-color)',
+                        fontSize: '12.5px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✏️ Sửa / Tạo phiên bản v{q.current_version + 1}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      data-testid={`pq-quote-clone-${q.quote_code}`}
+                      onClick={() => onCloneQuoteAsNew(q)}
+                      style={{
+                        minHeight: '44px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--accent-text)',
+                        backgroundColor: 'var(--surface-color)',
+                        color: 'var(--accent-text)',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      📋 Tạo bản mới
+                    </button>
+                  )}
+
                   {q.status === 'DRAFT' && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => onLoadQuoteForEdit(q)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-color)',
-                          backgroundColor: 'var(--surface-color)',
-                          color: 'var(--text-color)',
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✏️ Sửa / Tạo phiên bản v{q.current_version + 1}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onFinalizeQuote(q.id)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-color)',
-                          backgroundColor: 'var(--surface-color)',
-                          color: 'var(--text-color)',
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        🔒 Chốt báo giá
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() => onFinalizeQuote(q.id)}
+                      style={{
+                        minHeight: '44px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--surface-color)',
+                        color: 'var(--text-color)',
+                        fontSize: '12.5px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      🔒 Chốt báo giá
+                    </button>
                   )}
 
                   {q.status !== 'CONVERTED' && q.status !== 'CANCELLED' ? (
@@ -380,11 +482,12 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                       data-testid={`pq-convert-order-btn-${q.quote_code}`}
                       onClick={() => onConvertQuoteToOrder(q)}
                       style={{
-                        padding: '6px 12px',
-                        borderRadius: '6px',
+                        minHeight: '44px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
                         border: 'none',
-                        backgroundColor: 'var(--accent-text)',
-                        color: '#0F172A',
+                        backgroundColor: 'var(--primary-color)',
+                        color: 'var(--inverse-text)',
                         fontWeight: 700,
                         fontSize: '12.5px',
                         cursor: 'pointer',
@@ -396,8 +499,11 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                     <span
                       data-testid={`pq-quote-converted-badge-${q.quote_code}`}
                       style={{
-                        padding: '6px 12px',
-                        borderRadius: '6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        minHeight: '44px',
+                        padding: '0 12px',
+                        borderRadius: '8px',
                         border: '1px solid var(--border-color)',
                         backgroundColor: 'var(--surface-color)',
                         color: 'var(--success-text)',
@@ -415,8 +521,9 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                       setExpandedQuoteHistoryId(isHistoryOpen ? null : q.id)
                     }
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: '6px',
+                      minHeight: '44px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
                       border: '1px solid var(--border-color)',
                       backgroundColor: 'transparent',
                       color: 'var(--muted-color)',

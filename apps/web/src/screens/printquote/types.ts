@@ -10,13 +10,37 @@ import {
 import type { AmbiguousLegacyCostState } from '../helpers/printquote-helpers.js';
 
 export type PrintQuoteTabId =
-  'create' | 'quotes' | 'vendors' | 'customers' | 'orders' | 'analytics';
+  | 'create'
+  | 'quotes'
+  | 'vendors'
+  | 'customers'
+  | 'orders'
+  | 'analytics';
+
+export type PrintQuoteViewMode =
+  | 'quotes'
+  | 'new'
+  | 'detail'
+  | 'edit'
+  | 'orders'
+  | 'catalog-prices'
+  | 'catalog-customers'
+  | 'catalog-vendors'
+  | 'reports';
+
+export type CatalogSubPageId = 'prices' | 'customers' | 'vendors';
 
 export type PrintQuoteNavGroupId =
-  'quotes_group' | 'orders_group' | 'catalog_group' | 'analytics_group';
+  | 'quotes_group'
+  | 'orders_group'
+  | 'catalog_group'
+  | 'analytics_group';
 
 export type CreateQuoteSectionId =
-  'customer' | 'products' | 'summary' | 'actions';
+  | 'customer'
+  | 'products'
+  | 'summary'
+  | 'actions';
 
 export type SummaryViewMode = 'customer' | 'internal';
 
@@ -41,10 +65,34 @@ export interface DraftLineState {
 export interface PdfPreviewState {
   title: string;
   html: string;
-  quoteId?: string | null;
+  quoteId?: string | null | undefined;
   quoteCode: string;
 }
 
+/**
+ * UX V2 clean empty line for `/print-quotes/new` — zero fake demo numbers.
+ */
+export const EMPTY_DRAFT_LINE = (index: number): DraftLineState => ({
+  id: `ITEM-${index}`,
+  vendorPriceItemId: '',
+  name: '',
+  specification: '',
+  unit: 'tờ',
+  quantity: 0,
+  quantityInput: '',
+  vendorCostMode: VendorCostMode.PER_UNIT,
+  vendorCostValue: 0,
+  vendorCostInput: '',
+  ambiguousLegacyCost: null,
+  profitMode: ProfitMode.FIXED_AMOUNT,
+  profitScope: ProfitScope.PER_UNIT,
+  profitValue: 0,
+  profitInput: '',
+});
+
+/**
+ * Legacy helper retained for backwards compatibility with any standalone caller.
+ */
 export const DEFAULT_DRAFT_LINE = (index: number): DraftLineState => ({
   id: `ITEM-${index}`,
   vendorPriceItemId: '',
@@ -64,15 +112,19 @@ export const DEFAULT_DRAFT_LINE = (index: number): DraftLineState => ({
   profitInput: '200',
 });
 
+export function isQuoteStatusEditable(status: string): boolean {
+  return status === 'DRAFT' || status === 'SENT' || status === 'APPROVED';
+}
+
 export const inputStyle: React.CSSProperties = {
   width: '100%',
-  minHeight: '42px',
+  minHeight: '44px',
   padding: '8px 10px',
   borderRadius: '8px',
   border: '1px solid var(--border-color)',
   backgroundColor: 'var(--bg-color)',
   color: 'var(--text-color)',
-  fontSize: '13px',
+  fontSize: '13.5px',
   boxSizing: 'border-box',
 };
 

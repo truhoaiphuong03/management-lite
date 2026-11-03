@@ -88,8 +88,20 @@ export const AppShell: React.FC<AppShellProps> = ({
     }
 
     let blurTimer: ReturnType<typeof setTimeout> | null = null;
-    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+    let rafId: number | null = null;
+    const scrollTimers: Array<ReturnType<typeof setTimeout>> = [];
     let hadNativeVvShrink = false;
+
+    const clearPendingScrollWork = () => {
+      if (rafId !== null && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      while (scrollTimers.length > 0) {
+        const t = scrollTimers.pop();
+        if (t !== undefined) clearTimeout(t);
+      }
+    };
 
     const isCompactMobileScreen = () =>
       window.innerWidth <= 768 ||
@@ -102,7 +114,10 @@ export const AppShell: React.FC<AppShellProps> = ({
       }
       const vv = window.visualViewport;
       const viewTop = vv ? vv.offsetTop : 0;
-      const viewHeight = vv ? vv.height : window.innerHeight;
+      const viewHeight =
+        vv && vv.height > 0
+          ? Math.min(window.innerHeight, vv.height)
+          : window.innerHeight;
       const safeTop = viewTop + 52;
       const safeBottom = viewTop + viewHeight - 16;
       if (safeBottom <= safeTop) return;
@@ -116,8 +131,22 @@ export const AppShell: React.FC<AppShellProps> = ({
       const initialDelta = computeDelta(active.getBoundingClientRect());
       if (initialDelta === 0) return;
 
-      // Tier 1: Window scroll (handles iOS visualViewport + standard root scroller)
-      window.scrollBy(0, initialDelta);
+      // Tier 1: Instant window scroll (cancels any ongoing smooth scroll immediately)
+      try {
+        window.scrollBy({
+          top: initialDelta,
+          left: 0,
+          behavior: 'instant' as ScrollBehavior,
+        });
+      } catch {
+        window.scrollBy(0, initialDelta);
+      }
+
+      // Tier 1b: Explicit document.scrollingElement fallback
+      const rootDelta = computeDelta(active.getBoundingClientRect());
+      if (rootDelta !== 0 && document.scrollingElement) {
+        document.scrollingElement.scrollTop += rootDelta;
+      }
 
       // Tier 2: Scrollable ancestor container (handles body overflow-x:hidden & modal containers)
       const remDelta = computeDelta(active.getBoundingClientRect());
@@ -133,12 +162,38 @@ export const AppShell: React.FC<AppShellProps> = ({
         }
       }
 
-      // Tier 3: Native scrollIntoView fallback if still outside visible band
+      // Tier 3: Native instant scrollIntoView fallback if still outside visible band
       if (
         computeDelta(active.getBoundingClientRect()) !== 0 &&
         typeof active.scrollIntoView === 'function'
       ) {
-        active.scrollIntoView({ block: 'center', inline: 'nearest' });
+        try {
+          active.scrollIntoView({
+            block: 'center',
+            inline: 'nearest',
+            behavior: 'instant' as ScrollBehavior,
+          });
+        } catch {
+          active.scrollIntoView({ block: 'center', inline: 'nearest' });
+        }
+      }
+    };
+
+    const scheduleScrollIntoVisibleArea = () => {
+      clearPendingScrollWork();
+      scrollFocusedInputIntoVisibleArea();
+      if (typeof window.requestAnimationFrame === 'function') {
+        rafId = window.requestAnimationFrame(() => {
+          rafId = null;
+          scrollFocusedInputIntoVisibleArea();
+        });
+      }
+      for (const delayMs of [60, 180]) {
+        scrollTimers.push(
+          setTimeout(() => {
+            scrollFocusedInputIntoVisibleArea();
+          }, delayMs),
+        );
       }
     };
 
@@ -168,17 +223,9 @@ export const AppShell: React.FC<AppShellProps> = ({
       setIsMobileKeyboardOpen(nextOpen);
 
       if (nextOpen && shouldEnsureScroll) {
-        if (typeof window.requestAnimationFrame === 'function') {
-          window.requestAnimationFrame(() => {
-            scrollFocusedInputIntoVisibleArea();
-          });
-        } else {
-          scrollFocusedInputIntoVisibleArea();
-        }
-        if (scrollTimer) clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(() => {
-          scrollFocusedInputIntoVisibleArea();
-        }, 60);
+        scheduleScrollIntoVisibleArea();
+      } else if (!nextOpen) {
+        clearPendingScrollWork();
       }
     };
 
@@ -197,6 +244,15 @@ export const AppShell: React.FC<AppShellProps> = ({
       }, 80);
     };
 
+    const handleActiveInputInteraction = () => {
+      if (
+        isCompactMobileScreen() &&
+        isMobileKeyboardEditableTarget(document.activeElement)
+      ) {
+        scrollFocusedInputIntoVisibleArea();
+      }
+    };
+
     const handleViewportChange = () => {
       syncKeyboardState(true);
     };
@@ -208,6 +264,8 @@ export const AppShell: React.FC<AppShellProps> = ({
 
     document.addEventListener('focusin', handleFocusIn, true);
     document.addEventListener('focusout', handleFocusOut, true);
+    document.addEventListener('click', handleActiveInputInteraction, true);
+    document.addEventListener('input', handleActiveInputInteraction, true);
     window.addEventListener('resize', handleViewportChange);
     window.addEventListener('orientationchange', handleOrientationChange);
     const vv = window.visualViewport;
@@ -219,9 +277,11 @@ export const AppShell: React.FC<AppShellProps> = ({
 
     return () => {
       if (blurTimer) clearTimeout(blurTimer);
-      if (scrollTimer) clearTimeout(scrollTimer);
+      clearPendingScrollWork();
       document.removeEventListener('focusin', handleFocusIn, true);
       document.removeEventListener('focusout', handleFocusOut, true);
+      document.removeEventListener('click', handleActiveInputInteraction, true);
+      document.removeEventListener('input', handleActiveInputInteraction, true);
       window.removeEventListener('resize', handleViewportChange);
       window.removeEventListener('orientationchange', handleOrientationChange);
       if (vv) {
@@ -240,7 +300,9 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const isItemVisibleForRole = (item: (typeof NAV_ITEMS)[number]): boolean => {
     if (
-      (item.id === 'issues' || item.id === 'finance') &&
+      (item.id === 'issues' ||
+        item.id === 'finance' ||
+        item.id === 'print-quotes') &&
       (isOwnerVerified !== true || role !== 'owner')
     )
       return false;
@@ -303,10 +365,15 @@ export const AppShell: React.FC<AppShellProps> = ({
     };
   }).filter((group) => group.items.length > 0);
 
+  const isPrintQuoteEditor =
+    currentPath === '/print-quotes/new' ||
+    /^\/print-quotes\/[^/]+\/edit$/.test(currentPath);
+
   return (
     <div
       className="app-shell-root"
       data-mobile-keyboard={isMobileKeyboardOpen ? 'open' : 'closed'}
+      data-pq-editor={isPrintQuoteEditor ? 'true' : undefined}
       style={{
         display: 'flex',
         minHeight: '100vh',
@@ -845,8 +912,19 @@ export const AppShell: React.FC<AppShellProps> = ({
           .desktop-sidebar-wrapper {
             display: none !important;
           }
+          .app-shell-root[data-pq-editor="true"] .mobile-bottom-nav-wrapper,
+          .app-shell-root[data-pq-editor="true"] .app-shell-report-dock .btn-floating-report-bug,
+          .app-shell-root[data-pq-editor="true"] .btn-floating-report-bug {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+          }
           main {
             padding: 12px 12px calc(132px + env(safe-area-inset-bottom, 0px)) 12px !important;
+          }
+          .app-shell-root[data-pq-editor="true"] main {
+            padding: 12px 12px calc(32px + env(safe-area-inset-bottom, 0px)) 12px !important;
           }
           .app-shell-header {
             padding: 0 max(10px, env(safe-area-inset-right, 10px)) 0 max(10px, env(safe-area-inset-left, 10px)) !important;

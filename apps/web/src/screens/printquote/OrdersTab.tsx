@@ -212,7 +212,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           {orders.length === 0 ? (
             <>
               Chưa có đơn hàng đặt in nào. Hãy chuyển từ mục{' '}
-              <strong>2. Danh sách báo giá</strong> sang Đơn đặt in.
+              <strong>Danh sách báo giá</strong> sang Đơn đặt in.
             </>
           ) : (
             'Không có đơn hàng nào khớp bộ lọc hiện tại.'
@@ -333,13 +333,10 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                   </div>
                   <div>
                     <div style={{ color: 'var(--muted-color)' }}>
-                      Lời dự kiến / Thực tế
+                      Lời dự kiến (theo BG)
                     </div>
-                    <strong>
-                      {formatVnd(ord.expected_profit)} /{' '}
-                      <span style={{ color: 'var(--accent-text)' }}>
-                        {formatVnd(ord.actual_profit)}
-                      </span>
+                    <strong style={{ color: 'var(--success-text)' }}>
+                      {formatVnd(ord.expected_profit)}
                     </strong>
                   </div>
                 </div>
@@ -430,8 +427,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                       padding: '8px 12px',
                       borderRadius: '8px',
                       border: 'none',
-                      backgroundColor: 'var(--accent-text)',
-                      color: '#0F172A',
+                      backgroundColor: 'var(--primary-color)',
+                      color: 'var(--inverse-text)',
                       fontWeight: 700,
                       fontSize: '12.5px',
                       cursor: 'pointer',
@@ -565,8 +562,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                   padding: '8px 16px',
                   borderRadius: '8px',
                   border: 'none',
-                  backgroundColor: 'var(--accent-text)',
-                  color: '#0F172A',
+                  backgroundColor: 'var(--primary-color)',
+                  color: 'var(--inverse-text)',
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}

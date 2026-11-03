@@ -556,16 +556,43 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       'nav[aria-label="Desktop navigation"] button:has-text("Báo giá in ấn")';
     await page.waitForSelector(navPrintQuoteBtn, { timeout: 15000 });
 
-    // Step 2: Open menu "Báo giá in ấn"
+    // Step 2: Open menu "Báo giá in ấn" -> UX V2 defaults to Quotes List (/print-quotes) + Create CTA
     await page.click(navPrintQuoteBtn);
     await page.waitForSelector('[data-testid="printquote-screen"]', {
       timeout: 10000,
     });
+    await page.waitForSelector('[data-testid="panel-quotes-list"]');
+    await page.waitForSelector('[data-testid="pq-new-quote-cta"]');
+    assert.equal(new URL(page.url()).pathname, '/print-quotes');
+    assert.equal(
+      await page.locator('[data-testid="panel-create-quote"]').count(),
+      0,
+      'UX V2 default /print-quotes must show Quotes List rather than Create Quote form',
+    );
 
-    // Step 3: Create Vendor, Price Catalog Item, and Customer (under group Danh mục)
+    // Step 3: Navigate separated Catalog sub-pages & add Vendor, Price Item, Customer via Dialogs
     await page.click('[data-testid="pq-nav-group-catalog"]');
-    await page.waitForSelector('[data-testid="panel-vendors-catalog"]');
+    await page.waitForSelector('[data-testid="pq-catalog-tabs"]');
+    await page.waitForSelector('[data-testid="panel-catalog-prices"]');
+    assert.equal(new URL(page.url()).pathname, '/print-quotes/catalog/prices');
+    assert.equal(
+      await page.locator('[data-testid="pq-price-dialog"]').count(),
+      0,
+      'Price catalog form must only mount when dialog is opened',
+    );
 
+    // 3a. Separated Vendors sub-page (/print-quotes/catalog/vendors) + Add Vendor Dialog
+    await page.click('[data-testid="pq-catalog-tab-vendors"]');
+    await page.waitForSelector('[data-testid="panel-catalog-vendors"]');
+    assert.equal(new URL(page.url()).pathname, '/print-quotes/catalog/vendors');
+    assert.equal(
+      await page.locator('[data-testid="pq-vendor-dialog"]').count(),
+      0,
+      'Vendor form must only mount when dialog is opened',
+    );
+
+    await page.click('[data-testid="pq-open-vendor-dialog-btn"]');
+    await page.waitForSelector('[data-testid="pq-vendor-dialog"]');
     await page.fill(
       'input[aria-label="Tên nhà in"]',
       'Nhà in Offset Sài Gòn Chuẩn',
@@ -573,9 +600,31 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     await page.fill('input[aria-label="Số điện thoại nhà in"]', '0908111222');
     await page.fill('input[aria-label="Ngân hàng nhà in"]', 'Vietcombank');
     await page.fill('input[aria-label="Số tài khoản nhà in"]', '0071000888999');
-    await page.click('button:has-text("+ Thêm Nhà in")');
+    await page.click('[data-testid="pq-submit-vendor-btn"]');
+    await page.waitForSelector('[data-testid="pq-vendor-dialog"]', {
+      state: 'detached',
+    });
     await page.waitForSelector('text=Nhà in Offset Sài Gòn Chuẩn');
 
+    // 3b. Separated Price Catalog sub-page (/print-quotes/catalog/prices) + Add Price Item Dialog
+    await page.click('[data-testid="pq-catalog-tab-prices"]');
+    await page.waitForSelector('[data-testid="panel-catalog-prices"]');
+    assert.equal(new URL(page.url()).pathname, '/print-quotes/catalog/prices');
+
+    await page.click('[data-testid="pq-open-price-dialog-btn"]');
+    await page.waitForSelector('[data-testid="pq-price-dialog"]');
+    const priceVendorSelect = page.locator(
+      'select[aria-label="Chọn nhà in cho bảng giá"]',
+    );
+    const selectedVendorVal = await priceVendorSelect.inputValue();
+    if (!selectedVendorVal) {
+      const firstVendorVal = await priceVendorSelect
+        .locator('option')
+        .nth(1)
+        .getAttribute('value');
+      assert.ok(firstVendorVal, 'Vendor option must exist in price dialog');
+      await priceVendorSelect.selectOption(firstVendorVal);
+    }
     await page.fill(
       'input[aria-label="Tên hạng mục bảng giá"]',
       'Tờ rơi A5 Couche 150gsm',
@@ -586,7 +635,10 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     );
     await page.fill('input[aria-label="Đơn giá vốn nhà in"]', '300');
     await page.fill('input[aria-label="Lợi nhuận mặc định"]', '200');
-    await page.click('button:has-text("+ Lưu vào Bảng giá")');
+    await page.click('[data-testid="pq-submit-price-item-btn"]');
+    await page.waitForSelector('[data-testid="pq-price-dialog"]', {
+      state: 'detached',
+    });
     await page.waitForSelector('text=Tờ rơi A5 Couche 150gsm');
 
     await page.screenshot({
@@ -594,9 +646,21 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       fullPage: false,
     });
 
-    await page.click('[data-testid="tab-customers"]');
+    // 3c. Separated Customers sub-page (/print-quotes/catalog/customers) + Add Customer Dialog
+    await page.click('[data-testid="pq-catalog-tab-customers"]');
     await page.waitForSelector('[data-testid="panel-customers"]');
+    assert.equal(
+      new URL(page.url()).pathname,
+      '/print-quotes/catalog/customers',
+    );
+    assert.equal(
+      await page.locator('[data-testid="pq-customer-dialog"]').count(),
+      0,
+      'Customer form must only mount when dialog is opened',
+    );
 
+    await page.click('[data-testid="pq-open-customer-dialog-btn"]');
+    await page.waitForSelector('[data-testid="pq-customer-dialog"]');
     await page.fill(
       'input[aria-label="Tên khách hàng"]',
       'Anh Minh — Chuỗi Trà Sữa Sài Gòn',
@@ -613,7 +677,10 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       'input[aria-label="Địa chỉ giao hàng"]',
       '123 Nguyễn Huệ, Quận 1, TP.HCM',
     );
-    await page.click('button:has-text("+ Thêm Khách hàng")');
+    await page.click('[data-testid="pq-submit-customer-btn"]');
+    await page.waitForSelector('[data-testid="pq-customer-dialog"]', {
+      state: 'detached',
+    });
     await page.waitForSelector('text=Anh Minh — Chuỗi Trà Sữa Sài Gòn');
 
     await page.screenshot({
@@ -621,9 +688,18 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       fullPage: false,
     });
 
-    // Step 4 & 5: Create Quote 100 tờ (vốn 300đ/tờ, lời 200đ/tờ, ship toàn đơn 50.000đ) -> Verify 1.000đ/tờ & 100.000đ
+    // Step 4 & 5: Return to Quotes List -> click "+ Tạo báo giá mới" -> Focused Editor (/print-quotes/new)
     await page.click('[data-testid="pq-nav-group-quotes"]');
+    await page.waitForSelector('[data-testid="panel-quotes-list"]');
+    await page.click('[data-testid="pq-new-quote-cta"]');
     await page.waitForSelector('[data-testid="panel-create-quote"]');
+    assert.equal(new URL(page.url()).pathname, '/print-quotes/new');
+    assert.equal(
+      await page.locator('[data-testid="pq-grouped-nav"]').count(),
+      0,
+      'Focused Create Quote editor must hide module subnav',
+    );
+    await page.waitForSelector('[data-testid="pq-empty-guidance-notice"]');
 
     await page.fill(
       '[data-testid="pq-title-input"]',
@@ -801,19 +877,6 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     assert.match(customerCardText, /100\.000\s*₫/);
     assert.match(customerCardText, /Một trăm nghìn đồng chẵn/);
 
-    // Step 8: Save Quote (v1)
-    await page.click('[data-testid="pq-save-quote-btn"]');
-    await page.waitForSelector(
-      '[data-testid="printquote-banner"]:has-text("Đã lưu thành công báo giá")',
-    );
-
-    const bannerAfterSave = await page.textContent(
-      '[data-testid="printquote-banner"]',
-    );
-    const codeMatch = bannerAfterSave.match(/(BG-\d{6}-\d{3})/);
-    assert.ok(codeMatch, `Expected quote code in banner: ${bannerAfterSave}`);
-    const savedQuoteCode = codeMatch[1];
-
     await page.evaluate(() => {
       document
         .getElementById('pq-sec-products')
@@ -824,9 +887,52 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       fullPage: false,
     });
 
-    // Step 9 & PHASE WIN-4: Download direct .PDF file & verify Windows Chromium PDF A4 structure
+    // Step 8: Save Quote (v1) -> UX V2 automatically opens Quote Detail View (/print-quotes/:id)
+    await page.click('[data-testid="pq-save-quote-btn"]');
+    await page.waitForSelector(
+      '[data-testid="printquote-banner"]:has-text("Đã lưu thành công báo giá")',
+    );
+    await page.waitForSelector('[data-testid="panel-quote-detail"]');
+
+    const bannerAfterSave = await page.textContent(
+      '[data-testid="printquote-banner"]',
+    );
+    const codeMatch = bannerAfterSave.match(/(BG-\d{6}-\d{3})/);
+    assert.ok(codeMatch, `Expected quote code in banner: ${bannerAfterSave}`);
+    const savedQuoteCode = codeMatch[1];
+
+    const detailPathname = new URL(page.url()).pathname;
+    assert.match(detailPathname, /^\/print-quotes\/[^/]+$/);
+    assert.notEqual(detailPathname, '/print-quotes/new');
+    assert.match(
+      await page.textContent('[data-testid="pq-detail-total-quote"]'),
+      /100\.000\s*₫/,
+    );
+    const detailInternalText = await page.textContent(
+      '[data-testid="pq-detail-internal-card"]',
+    );
+    assert.match(detailInternalText, /30\.000\s*₫/);
+    assert.match(detailInternalText, /20\.000\s*₫/);
+    assert.match(detailInternalText, /50\.000\s*₫/);
+
+    const detailInlineSrcDoc =
+      (await page
+        .locator('[data-testid="pq-detail-a4-card"] iframe')
+        .getAttribute('srcdoc')) || '';
+    assert.match(detailInlineSrcDoc, /BẢNG BÁO GIÁ/);
+    assert.match(detailInlineSrcDoc, /Tờ rơi A5 Couche 150gsm/);
+    assert.match(detailInlineSrcDoc, /1\.000\s*₫/);
+    assert.match(detailInlineSrcDoc, /100\.000\s*₫/);
+    assert.match(detailInlineSrcDoc, /Một trăm nghìn đồng chẵn/);
+    assert.ok(
+      !detailInlineSrcDoc.includes('30.000') &&
+        !detailInlineSrcDoc.includes('20.000'),
+      'Quote detail inline A4 preview must not leak vendor cost (30.000) or profit (20.000)',
+    );
+
+    // Step 9 & PHASE WIN-4: Download direct .PDF file from Quote Detail View & verify Windows Chromium PDF A4 structure
     const downloadPromise = page.waitForEvent('download');
-    await page.click('[data-testid="pq-download-pdf-btn"]');
+    await page.click('[data-testid="pq-detail-download-pdf-btn"]');
     const download = await downloadPromise;
     const suggestedFilename = download.suggestedFilename();
     assert.equal(suggestedFilename, `${savedQuoteCode}.pdf`);
@@ -890,8 +996,8 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     });
     await pdfPage.close();
 
-    // Open PDF A4 Preview Modal & verify Vietnamese content + no leak + no overflow
-    await page.click('[data-testid="pq-preview-pdf-btn"]');
+    // Open PDF A4 Preview Modal from Quote Detail View & verify Vietnamese content + no leak + no overflow
+    await page.click('[data-testid="pq-detail-preview-modal-btn"]');
     await page.waitForSelector('[data-testid="pq-pdf-modal"]');
     const iframeSrcDoc =
       (await page
@@ -915,8 +1021,8 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       state: 'detached',
     });
 
-    // Step 8 (continued): Go to Tab 2 (Danh sách báo giá), reopen the saved quote into the editor, and verify fields
-    await page.click('[data-testid="tab-quotes-list"]');
+    // Step 8 (continued): Return to Quotes List (/print-quotes), reopen saved quote into Focused Edit (/print-quotes/:id/edit), and verify fields
+    await page.click('[data-testid="pq-detail-back-btn"]');
     await page.waitForSelector('[data-testid="panel-quotes-list"]');
     const quoteRow = page.locator(
       `[data-testid="quote-row-${savedQuoteCode}"]`,
@@ -930,6 +1036,10 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
 
     await quoteRow.locator('button:has-text("Sửa / Tạo phiên bản")').click();
     await page.waitForSelector('[data-testid="panel-create-quote"]');
+    assert.match(
+      new URL(page.url()).pathname,
+      /^\/print-quotes\/[^/]+\/edit$/,
+    );
     assert.equal(
       await page.inputValue('[data-testid="pq-title-input"]'),
       'Báo giá in Tờ rơi A5 khai trương Chuỗi Trà Sữa Sài Gòn',
@@ -939,13 +1049,16 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       '100',
     );
 
-    // Step 10: Return to Tab 2 & Convert Quote to Order (and verify duplicate conversion prevention)
-    await page.click('[data-testid="tab-quotes-list"]');
+    // Step 10: Return from Focused Edit -> Quote Detail -> Quotes List & Convert Quote to Order
+    await page.click('[data-testid="pq-editor-back-btn"]');
+    await page.waitForSelector('[data-testid="panel-quote-detail"]');
+    await page.click('[data-testid="pq-detail-back-btn"]');
     await page.waitForSelector(`[data-testid="quote-row-${savedQuoteCode}"]`);
     await page.click(`[data-testid="pq-convert-order-btn-${savedQuoteCode}"]`);
     await page.waitForSelector('[data-testid="panel-orders"]');
+    assert.equal(new URL(page.url()).pathname, '/print-quotes/orders');
 
-    // Step 11: On Tab 5 (Đơn hàng): Test Deposit (40.000 ₫), Installment (30.000 ₫), Final (30.000 ₫), Refund (10.000 ₫), and Final settlement (10.000 ₫ -> Debt 0 ₫)
+    // Step 11: On Orders (/print-quotes/orders): Test Deposit (40.000 ₫), Installment (30.000 ₫), Refund (10.000 ₫), Production/Delivery, and Final settlement (40.000 ₫ -> Debt 0 ₫)
     const orderCard = page.locator('[data-testid^="order-card-"]').first();
     await orderCard.waitFor({ state: 'visible' });
     const orderTestId = await orderCard.getAttribute('data-testid');
@@ -1074,22 +1187,28 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       fullPage: false,
     });
 
-    // Check Tab 6 (Lợi nhuận & Công nợ)
+    // Check Reports (/print-quotes/reports — Honest Expected Profit & Order Receivables)
     await page.click('[data-testid="pq-nav-group-analytics"]');
     await page.waitForSelector('[data-testid="panel-profit-debt"]');
+    assert.equal(new URL(page.url()).pathname, '/print-quotes/reports');
     const analyticsText = await page.textContent(
       '[data-testid="panel-profit-debt"]',
     );
     assert.match(analyticsText, /100\.000\s*₫/);
     assert.match(analyticsText, /20\.000\s*₫/);
     assert.match(analyticsText, /0\s*₫/);
+    assert.match(analyticsText, /lợi nhuận dự kiến/i);
+    assert.ok(
+      !analyticsText.toLowerCase().includes('đã đối soát'),
+      'Reports view must honestly label expected profit and never claim reconciled actual profit',
+    );
 
     await page.screenshot({
       path: path.join(artifactDir, 'qa03-07-desktop-analytics.png'),
       fullPage: false,
     });
 
-    // Logout & Login again -> Verify data persists and duplicate order conversion is blocked
+    // Logout & Login again -> Verify /print-quotes defaults to Quotes List, data persists, and duplicate order conversion is blocked
     await page.click('button[aria-label="Đăng xuất"]');
     await page.waitForSelector('#identifier', { timeout: 10000 });
 
@@ -1100,8 +1219,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
 
     await page.click(navPrintQuoteBtn);
     await page.waitForSelector('[data-testid="printquote-screen"]');
-
-    await page.click('[data-testid="tab-quotes-list"]');
+    await page.waitForSelector('[data-testid="panel-quotes-list"]');
     await page.waitForSelector(`[data-testid="quote-row-${savedQuoteCode}"]`);
     const convertedBadge = await page.textContent(
       `[data-testid="pq-quote-converted-badge-${savedQuoteCode}"]`,
@@ -1115,12 +1233,38 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       'Convert to Order button must be removed after quote is converted to prevent duplicates',
     );
 
+    // Also verify Quote Detail View reflects converted state without Convert button
+    await page.click(`[data-testid="pq-quote-open-detail-${savedQuoteCode}"]`);
+    await page.waitForSelector('[data-testid="panel-quote-detail"]');
+    await page.waitForSelector('[data-testid="pq-detail-converted-badge"]');
+    assert.equal(
+      await page.locator('[data-testid="pq-detail-convert-btn"]').count(),
+      0,
+      'Quote detail Convert button must be removed once quote is converted',
+    );
+    await page.click('[data-testid="pq-detail-back-btn"]');
+    await page.waitForSelector('[data-testid="panel-quotes-list"]');
+
     await page.click('[data-testid="pq-nav-group-orders"]');
     await page.waitForSelector(`[data-testid="order-card-${savedOrderCode}"]`);
 
-    // Step 12: Verify iPhone viewport (390x844) & no horizontal overflow
+    // Step 12: Verify iPhone viewport (390x844) & 320px compact viewport across UX V2 screens with zero horizontal overflow
     await page.setViewportSize({ width: 390, height: 844 });
     await page.click('[data-testid="pq-nav-group-quotes"]');
+    await page.waitForSelector('[data-testid="panel-quotes-list"]');
+    const mobileOverflowList = await page.evaluate(() => {
+      return (
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+      );
+    });
+    assert.equal(
+      mobileOverflowList,
+      false,
+      'Mobile iPhone 390px view on Quotes List must not overflow horizontally',
+    );
+
+    await page.click('[data-testid="pq-new-quote-cta"]');
     await page.waitForSelector('[data-testid="panel-create-quote"]');
 
     const mobileOverflowCreate = await page.evaluate(() => {
@@ -1138,6 +1282,45 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     await page.screenshot({
       path: path.join(artifactDir, 'qa03-08-iphone-create-quote.png'),
       fullPage: false,
+    });
+
+    await page.click('[data-testid="pq-editor-back-btn"]');
+    await page.waitForSelector('[data-testid="panel-quotes-list"]');
+
+    await page.click(`[data-testid="pq-quote-open-detail-${savedQuoteCode}"]`);
+    await page.waitForSelector('[data-testid="panel-quote-detail"]');
+    const mobileOverflowDetail = await page.evaluate(() => {
+      return (
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+      );
+    });
+    assert.equal(
+      mobileOverflowDetail,
+      false,
+      'Mobile iPhone 390px view on Quote Detail must not overflow horizontally',
+    );
+    await page.click('[data-testid="pq-detail-back-btn"]');
+    await page.waitForSelector('[data-testid="panel-quotes-list"]');
+
+    await page.click('[data-testid="pq-nav-group-catalog"]');
+    await page.waitForSelector('[data-testid="panel-catalog-prices"]');
+    await page.click('[data-testid="pq-open-price-dialog-btn"]');
+    await page.waitForSelector('[data-testid="pq-price-dialog"]');
+    const mobileOverflowCatalogDialog = await page.evaluate(() => {
+      return (
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+      );
+    });
+    assert.equal(
+      mobileOverflowCatalogDialog,
+      false,
+      'Mobile iPhone 390px view on Catalog Dialog must not overflow horizontally',
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="pq-price-dialog"]', {
+      state: 'detached',
     });
 
     await page.click('[data-testid="pq-nav-group-orders"]');
@@ -1163,6 +1346,20 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     // Also verify 320px ultra-compact mobile viewport has zero horizontal overflow
     await page.setViewportSize({ width: 320, height: 740 });
     await page.click('[data-testid="pq-nav-group-quotes"]');
+    await page.waitForSelector('[data-testid="panel-quotes-list"]');
+    const overflow320List = await page.evaluate(() => {
+      return (
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+      );
+    });
+    assert.equal(
+      overflow320List,
+      false,
+      '320px compact mobile view on Quotes List must not overflow horizontally',
+    );
+
+    await page.click('[data-testid="pq-new-quote-cta"]');
     await page.waitForSelector('[data-testid="panel-create-quote"]');
     const overflow320Create = await page.evaluate(() => {
       return (

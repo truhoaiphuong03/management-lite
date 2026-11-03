@@ -44,6 +44,27 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
     >
       <div
+        data-testid="pq-reports-scope-note"
+        style={{
+          padding: '10px 14px',
+          borderRadius: '10px',
+          backgroundColor: 'var(--surface-color)',
+          border: '1px solid var(--border-color)',
+          fontSize: '12.5px',
+          color: 'var(--muted-color)',
+          lineHeight: 1.5,
+        }}
+      >
+        <strong style={{ color: 'var(--text-color)' }}>
+          Phạm vi số liệu báo cáo:
+        </strong>{' '}
+        Lợi nhuận trên trang này là <strong>lợi nhuận dự kiến</strong> tính theo
+        giá vốn lúc lập báo giá (chưa bao gồm sổ đối soát hóa đơn thực tế với
+        xưởng in). Sổ Thu chi cá nhân (<code>/finance</code>) hoạt động độc lập
+        hoàn toàn.
+      </div>
+
+      <div
         style={{
           display: 'grid',
           gridTemplateColumns:
@@ -53,7 +74,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       >
         <div style={cardStyle}>
           <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Tổng doanh thu đơn in
+            Tổng giá trị đơn hàng (chưa hủy)
           </div>
           <div style={{ fontSize: '20px', fontWeight: 800, marginTop: '4px' }}>
             {formatVnd(stats?.total_order_revenue ?? 0)}
@@ -66,27 +87,26 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
         <div style={cardStyle}>
           <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Lợi nhuận Dự kiến vs Thực tế
+            Lợi nhuận dự kiến theo báo giá
           </div>
           <div
             style={{
-              fontSize: '18px',
+              fontSize: '20px',
               fontWeight: 800,
               color: 'var(--success-text)',
               marginTop: '4px',
             }}
           >
-            {formatVnd(stats?.total_expected_profit ?? 0)} /{' '}
-            {formatVnd(stats?.total_actual_profit ?? 0)}
+            {formatVnd(stats?.total_expected_profit ?? 0)}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Đối soát giá nhà in thực tế
+            Tính theo giá vốn báo giá ban đầu
           </div>
         </div>
 
         <div style={cardStyle}>
           <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Tổng tiền đã thu (Cọc + Đợt)
+            Đã ghi nhận thu trên đơn
           </div>
           <div
             style={{
@@ -99,13 +119,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             {formatVnd(stats?.total_paid_amount ?? 0)}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Đã đối soát phiếu thu
+            Tổng tiền cọc & các đợt thanh toán đã nhập
           </div>
         </div>
 
         <div style={cardStyle}>
           <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Tổng Công nợ Khách hàng còn nợ
+            Còn phải thu trên đơn
           </div>
           <div
             style={{
@@ -136,14 +156,15 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           }}
         >
           <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
-            Sổ theo dõi Lợi nhuận & Công nợ theo Đơn hàng
+            Theo dõi Lợi nhuận dự kiến & Phải thu khách theo Đơn hàng
           </h3>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => setOnlyDebt(false)}
               style={{
-                padding: '6px 11px',
+                minHeight: '44px',
+                padding: '8px 12px',
                 borderRadius: '999px',
                 border: !onlyDebt
                   ? '1px solid var(--accent-text)'
@@ -153,7 +174,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   : 'var(--bg-color)',
                 color: !onlyDebt ? 'var(--accent-text)' : 'var(--muted-color)',
                 fontWeight: !onlyDebt ? 700 : 600,
-                fontSize: '12px',
+                fontSize: '12.5px',
                 cursor: 'pointer',
               }}
             >
@@ -163,7 +184,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               type="button"
               onClick={() => setOnlyDebt(true)}
               style={{
-                padding: '6px 11px',
+                minHeight: '44px',
+                padding: '8px 12px',
                 borderRadius: '999px',
                 border: onlyDebt
                   ? '1px solid var(--danger-text)'
@@ -173,11 +195,11 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   : 'var(--bg-color)',
                 color: onlyDebt ? 'var(--danger-text)' : 'var(--muted-color)',
                 fontWeight: onlyDebt ? 700 : 600,
-                fontSize: '12px',
+                fontSize: '12.5px',
                 cursor: 'pointer',
               }}
             >
-              Chỉ xem đơn còn nợ (
+              Chỉ xem đơn còn phải thu (
               {orders.filter((o) => o.remaining_debt_amount > 0).length})
             </button>
           </div>
@@ -202,16 +224,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 <th style={{ padding: '8px' }}>Mã đơn</th>
                 <th style={{ padding: '8px' }}>Khách hàng</th>
                 <th style={{ padding: '8px', textAlign: 'right' }}>
-                  Doanh thu
+                  Giá trị đơn
                 </th>
                 <th style={{ padding: '8px', textAlign: 'right' }}>
-                  Lời dự kiến
+                  Lời dự kiến (theo BG)
                 </th>
                 <th style={{ padding: '8px', textAlign: 'right' }}>
-                  Lời thực tế
+                  Đã ghi nhận thu
                 </th>
-                <th style={{ padding: '8px', textAlign: 'right' }}>Đã thu</th>
-                <th style={{ padding: '8px', textAlign: 'right' }}>Còn nợ</th>
+                <th style={{ padding: '8px', textAlign: 'right' }}>
+                  Còn phải thu
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -229,9 +252,6 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   <td style={{ padding: '8px', textAlign: 'right' }}>
                     {formatVnd(o.total_quote_amount)}
                   </td>
-                  <td style={{ padding: '8px', textAlign: 'right' }}>
-                    {formatVnd(o.expected_profit)}
-                  </td>
                   <td
                     style={{
                       padding: '8px',
@@ -240,7 +260,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       color: 'var(--success-text)',
                     }}
                   >
-                    {formatVnd(o.actual_profit)}
+                    {formatVnd(o.expected_profit)}
                   </td>
                   <td style={{ padding: '8px', textAlign: 'right' }}>
                     {formatVnd(o.total_paid_amount)}

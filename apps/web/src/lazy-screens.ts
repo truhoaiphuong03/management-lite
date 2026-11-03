@@ -136,3 +136,8 @@ export const PrintQuoteScreen = lazy(() =>
     default: m.PrintQuoteScreen,
   })),
 );
+export const SettingsScreen = lazy(() =>
+  import('./screens/SettingsScreen.js').then((m) => ({
+    default: m.SettingsScreen,
+  })),
+);
