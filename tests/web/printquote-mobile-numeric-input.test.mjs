@@ -8,6 +8,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { chromium, webkit } from 'playwright-core';
 import { PrintQuoteScreen } from '../../dist/apps/web/src/screens/PrintQuoteScreen.js';
 import * as pqHelpers from '../../dist/apps/web/src/screens/helpers/printquote-helpers.js';
+import { PrintQuoteService } from '../../dist/apps/api/src/printquote/service.js';
+import { verifyQuoteSnapshotIntegrity } from '../../dist/packages/contracts/src/printquote.js';
 
 const MIME_BY_EXT = {
   '.html': 'text/html; charset=utf-8',
@@ -31,6 +33,7 @@ async function startInMemoryPrintQuoteWebServer() {
 
   let postQuotesCount = 0;
   let postPdfCount = 0;
+  let lastSavedPayload = null;
 
   const savedQuotes = [
     {
@@ -118,6 +121,177 @@ async function startInMemoryPrintQuoteWebServer() {
       created_at: '2026-11-03T00:00:00.000Z',
       updated_at: '2026-11-03T00:00:00.000Z',
     },
+    {
+      id: 'saved-quote-batch-30k-100',
+      workspace_id: 'ws-test-mobile',
+      quote_code: 'BG-202611-089',
+      title: 'Báo giá trọn lô 30.000đ / 100 tờ',
+      customer_id: 'cust-1',
+      customer_name: 'Anh Minh — Quán Cà Phê',
+      customer_phone: '0909333444',
+      customer_address: 'Quận 1, TP.HCM',
+      status: 'DRAFT',
+      current_version: 1,
+      include_shipping_in_unit_price: false,
+      shipping_allocation_strategy: 'PROPORTIONAL_BY_BASE_AMOUNT',
+      rounding_mode: 'CEIL',
+      rounding_step: 1,
+      total_quantity: 100,
+      total_vendor_cost: 30000,
+      total_profit: 10000,
+      shipping_fee: 0,
+      total_extra_cost: 0,
+      total_quote_amount: 40000,
+      total_rounding_adjustment: 0,
+      single_product_final_unit_price: 400,
+      lines_json: [
+        {
+          id: 'SAVED-BATCH-100',
+          name: 'Tờ rơi A5 trọn lô 30k',
+          specification: 'In nhanh KTS',
+          vendorId: null,
+          vendorName: null,
+          vendorPriceItemId: null,
+          unit: 'tờ',
+          quantity: 100,
+          unitVendorCost: 300,
+          totalVendorCost: 30000,
+          vendorCostMode: 'TOTAL_BATCH',
+          profitMode: 'FIXED_AMOUNT',
+          profitScope: 'TOTAL_BATCH',
+          profitInputValue: 10000,
+          unitProfit: 100,
+          totalProfit: 10000,
+          allocatedShippingFee: 0,
+          totalExtraCost: 0,
+          rawFinalUnitPrice: 400,
+          finalUnitPrice: 400,
+          billedLineSubtotal: 40000,
+          roundingAdjustment: 0,
+          reconciledLineTotal: 40000,
+        },
+      ],
+      snapshot_json: {},
+      customer_pdf_json: {
+        quoteId: 'saved-quote-batch-30k-100',
+        quoteCode: 'BG-202611-089',
+        customerName: 'Anh Minh — Quán Cà Phê',
+        generatedAt: '2026-11-03T00:00:00.000Z',
+        includeShippingInUnitPrice: false,
+        lines: [
+          {
+            index: 1,
+            id: 'SAVED-BATCH-100',
+            name: 'Tờ rơi A5 trọn lô 30k',
+            specification: 'In nhanh KTS',
+            unit: 'tờ',
+            quantity: 100,
+            unitPrice: 400,
+            billedSubtotal: 40000,
+            roundingAdjustment: 0,
+            lineTotal: 40000,
+            shippingIncludedInUnitPrice: false,
+          },
+        ],
+        subtotalFromLines: 40000,
+        totalRoundingAdjustment: 0,
+        shippingAmountToAddOnPdfFooter: 0,
+        shippingFooterNote: 'Miễn phí vận chuyển',
+        grandTotalPayable: 40000,
+      },
+      integrity_hash: 'hash-saved-quote-batch-30k-100',
+      valid_until: '2026-11-25',
+      notes: 'Giá nhà in trọn lô 30.000đ.',
+      created_by: 'user-owner-1',
+      finalized_at: null,
+      created_at: '2026-11-03T00:00:00.000Z',
+      updated_at: '2026-11-03T00:00:00.000Z',
+    },
+    {
+      id: 'saved-quote-legacy-ambiguous',
+      workspace_id: 'ws-test-mobile',
+      quote_code: 'BG-202611-090',
+      title: 'Báo giá cũ chưa lưu kiểu giá vốn (30.000đ / 100 tờ)',
+      customer_id: 'cust-1',
+      customer_name: 'Chị Lan — Thời trang',
+      customer_phone: '0909555666',
+      customer_address: 'Quận 7, TP.HCM',
+      status: 'DRAFT',
+      current_version: 1,
+      include_shipping_in_unit_price: false,
+      shipping_allocation_strategy: 'PROPORTIONAL_BY_BASE_AMOUNT',
+      rounding_mode: 'CEIL',
+      rounding_step: 1,
+      total_quantity: 100,
+      total_vendor_cost: 30000,
+      total_profit: 10000,
+      shipping_fee: 0,
+      total_extra_cost: 0,
+      total_quote_amount: 40000,
+      total_rounding_adjustment: 0,
+      single_product_final_unit_price: 400,
+      lines_json: [
+        {
+          id: 'SAVED-LEGACY-100',
+          name: 'Tag quần áo cũ chưa lưu mode',
+          specification: 'Giấy C300',
+          vendorId: null,
+          vendorName: null,
+          vendorPriceItemId: null,
+          unit: 'tờ',
+          quantity: 100,
+          unitVendorCost: 300,
+          totalVendorCost: 30000,
+          profitMode: 'FIXED_AMOUNT',
+          profitScope: 'TOTAL_BATCH',
+          profitInputValue: 10000,
+          unitProfit: 100,
+          totalProfit: 10000,
+          allocatedShippingFee: 0,
+          totalExtraCost: 0,
+          rawFinalUnitPrice: 400,
+          finalUnitPrice: 400,
+          billedLineSubtotal: 40000,
+          roundingAdjustment: 0,
+          reconciledLineTotal: 40000,
+        },
+      ],
+      snapshot_json: {},
+      customer_pdf_json: {
+        quoteId: 'saved-quote-legacy-ambiguous',
+        quoteCode: 'BG-202611-090',
+        customerName: 'Chị Lan — Thời trang',
+        generatedAt: '2026-11-03T00:00:00.000Z',
+        includeShippingInUnitPrice: false,
+        lines: [
+          {
+            index: 1,
+            id: 'SAVED-LEGACY-100',
+            name: 'Tag quần áo cũ chưa lưu mode',
+            specification: 'Giấy C300',
+            unit: 'tờ',
+            quantity: 100,
+            unitPrice: 400,
+            billedSubtotal: 40000,
+            roundingAdjustment: 0,
+            lineTotal: 40000,
+            shippingIncludedInUnitPrice: false,
+          },
+        ],
+        subtotalFromLines: 40000,
+        totalRoundingAdjustment: 0,
+        shippingAmountToAddOnPdfFooter: 0,
+        shippingFooterNote: 'Miễn phí vận chuyển',
+        grandTotalPayable: 40000,
+      },
+      integrity_hash: 'hash-saved-quote-legacy-ambiguous',
+      valid_until: '2026-11-25',
+      notes: 'Báo giá legacy trước v0.8.3.',
+      created_by: 'user-owner-1',
+      finalized_at: null,
+      created_at: '2026-11-03T00:00:00.000Z',
+      updated_at: '2026-11-03T00:00:00.000Z',
+    },
   ];
 
   const server = http.createServer((req, res) => {
@@ -169,6 +343,7 @@ async function startInMemoryPrintQuoteWebServer() {
       });
       req.on('end', () => {
         const parsed = JSON.parse(rawBody || '{}');
+        lastSavedPayload = parsed;
         res.writeHead(200, {
           'Content-Type': 'application/json; charset=utf-8',
         });
@@ -231,10 +406,11 @@ async function startInMemoryPrintQuoteWebServer() {
 
   return {
     webUrl: `http://127.0.0.1:${port}`,
-    getCounters: () => ({ postQuotesCount, postPdfCount }),
+    getCounters: () => ({ postQuotesCount, postPdfCount, lastSavedPayload }),
     resetCounters: () => {
       postQuotesCount = 0;
       postPdfCount = 0;
+      lastSavedPayload = null;
     },
     close: () => new Promise((resolve) => server.close(resolve)),
   };
@@ -318,6 +494,225 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
       }),
     );
     assert.equal(html.includes('inputMode="numeric"'), true);
+  });
+
+  it('1b. Regression TASK 1: Báo giá Trọn lô 30.000đ / 100 tờ lưu đúng vendorCostMode=TOTAL_BATCH, giữ nguyên 30.000đ khi đổi lên 200 tờ, và không suy đoán trên dữ liệu cũ mơ hồ', async () => {
+    let capturedInsertParams = null;
+    let capturedUpdateParams = null;
+    let storedRow = null;
+
+    const fakeClient = {
+      async query(sql, params) {
+        if (sql.includes('BEGIN') || sql.includes('COMMIT')) {
+          return { rows: [] };
+        }
+        if (sql.includes('print_code_counters')) {
+          return { rows: [{ last_value: 1 }] };
+        }
+        if (sql.includes('INSERT INTO print_quotes (')) {
+          capturedInsertParams = params;
+          storedRow = {
+            id: 'quote-db-batch-1',
+            workspace_id: params[0],
+            quote_code: params[1],
+            title: params[2],
+            customer_id: params[3],
+            customer_name: params[4],
+            customer_phone: params[5],
+            customer_address: params[6],
+            status: params[7],
+            current_version: 1,
+            include_shipping_in_unit_price: params[8],
+            shipping_allocation_strategy: params[9],
+            rounding_mode: params[10],
+            rounding_step: params[11],
+            total_quantity: params[12],
+            total_vendor_cost: params[13],
+            total_profit: params[14],
+            shipping_fee: params[15],
+            total_extra_cost: params[16],
+            total_quote_amount: params[17],
+            total_rounding_adjustment: params[18],
+            single_product_final_unit_price: params[19],
+            lines_json: JSON.parse(params[20]),
+            snapshot_json: JSON.parse(params[21]),
+            customer_pdf_json: JSON.parse(params[22]),
+            integrity_hash: params[23],
+            valid_until: params[24],
+            notes: params[25],
+            created_by: params[26],
+            finalized_at: params[27],
+            created_at: new Date(),
+            updated_at: new Date(),
+          };
+          return { rows: [storedRow] };
+        }
+        if (sql.includes('INSERT INTO print_quote_versions')) {
+          return {
+            rows: [
+              {
+                id: 'ver-1',
+                quote_id: 'quote-db-batch-1',
+                version_number: 1,
+                status: 'DRAFT',
+                total_quantity: 100,
+                total_vendor_cost: 30000,
+                total_profit: 10000,
+                shipping_fee: 0,
+                total_extra_cost: 0,
+                total_quote_amount: 40000,
+                total_rounding_adjustment: 0,
+                snapshot_json: storedRow.snapshot_json,
+                customer_pdf_json: storedRow.customer_pdf_json,
+                integrity_hash: storedRow.integrity_hash,
+                change_note: 'v1',
+                created_by: 'user-owner-1',
+                created_at: new Date(),
+              },
+            ],
+          };
+        }
+        if (sql.includes('SELECT * FROM print_quotes WHERE id = $1')) {
+          return { rows: [storedRow] };
+        }
+        if (sql.includes('UPDATE print_quotes')) {
+          capturedUpdateParams = params;
+          storedRow = {
+            ...storedRow,
+            lines_json: JSON.parse(params[18]),
+            snapshot_json: JSON.parse(params[19]),
+            integrity_hash: params[21],
+          };
+          return { rows: [storedRow] };
+        }
+        if (sql.includes('SELECT * FROM print_quote_versions')) {
+          return { rows: [] };
+        }
+        return { rows: [] };
+      },
+      release() {},
+    };
+
+    const service = new PrintQuoteService({
+      connect: async () => fakeClient,
+      query: (sql, params) => fakeClient.query(sql, params),
+    });
+    const ownerCtx = {
+      user: { id: 'user-owner-1', email: 'owner@test.local' },
+      workspace: { id: 'ws-test-1', name: 'Test WS', role: 'owner' },
+    };
+
+    const created = await service.createQuote(ownerCtx, {
+      title: 'Trọn lô 30.000đ / 100 tờ',
+      shipping_fee: 0,
+      include_shipping_in_unit_price: false,
+      items: [
+        {
+          id: 'ITEM-1',
+          name: 'Tờ rơi A5',
+          unit: 'tờ',
+          quantity: 100,
+          vendorCostMode: 'TOTAL_BATCH',
+          totalVendorCost: 30000,
+          profitMode: 'FIXED_AMOUNT',
+          profitScope: 'TOTAL_BATCH',
+          profitValue: 10000,
+        },
+      ],
+    });
+
+    assert.ok(capturedInsertParams, 'Phải thực hiện INSERT INTO print_quotes');
+    assert.equal(created.lines_json[0].unitVendorCost, 300);
+    assert.equal(created.lines_json[0].totalVendorCost, 30000);
+    assert.equal(
+      created.lines_json[0].vendorCostMode,
+      'TOTAL_BATCH',
+      'lines_json phải lưu tường minh vendorCostMode = TOTAL_BATCH',
+    );
+    assert.equal(
+      verifyQuoteSnapshotIntegrity(created.snapshot_json),
+      true,
+      'Snapshot integrityHash phải toàn vẹn 100% mà không sửa Pricing Engine',
+    );
+
+    const updatedTitleOnly = await service.updateQuote(ownerCtx, created.id, {
+      title: 'Trọn lô 30.000đ / 100 tờ (đổi tiêu đề)',
+    });
+    assert.ok(capturedUpdateParams);
+    assert.equal(updatedTitleOnly.lines_json[0].vendorCostMode, 'TOTAL_BATCH');
+    assert.equal(
+      verifyQuoteSnapshotIntegrity(updatedTitleOnly.snapshot_json),
+      true,
+    );
+
+    const resolvedExplicitBatch = pqHelpers.resolveSavedQuoteLineCostState({
+      quantity: 100,
+      unitVendorCost: 300,
+      totalVendorCost: 30000,
+      vendorCostMode: 'TOTAL_BATCH',
+    });
+    assert.equal(resolvedExplicitBatch.vendorCostMode, 'TOTAL_BATCH');
+    assert.equal(resolvedExplicitBatch.vendorCostValue, 30000);
+    assert.equal(resolvedExplicitBatch.ambiguousLegacyCost, null);
+
+    const resolvedLegacyAmbiguous = pqHelpers.resolveSavedQuoteLineCostState({
+      quantity: 100,
+      unitVendorCost: 300,
+      totalVendorCost: 30000,
+    });
+    assert.ok(
+      resolvedLegacyAmbiguous.ambiguousLegacyCost,
+      'Dữ liệu cũ không đủ căn cứ phân biệt 300đ/tờ hay 30.000đ/lô phải đánh dấu ambiguousLegacyCost',
+    );
+
+    const validAt100 = pqHelpers.validateQuoteDraftInputs(
+      [
+        {
+          id: 'L1',
+          name: 'Tag cũ',
+          unit: 'tờ',
+          quantity: 100,
+          quantityInput: '100',
+          vendorCostMode: resolvedLegacyAmbiguous.vendorCostMode,
+          vendorCostValue: resolvedLegacyAmbiguous.vendorCostValue,
+          vendorCostInput: resolvedLegacyAmbiguous.vendorCostInput,
+          ambiguousLegacyCost: resolvedLegacyAmbiguous.ambiguousLegacyCost,
+          profitMode: 'FIXED_AMOUNT',
+          profitScope: 'TOTAL_BATCH',
+          profitValue: 10000,
+          profitInput: '10000',
+        },
+      ],
+      '0',
+    );
+    assert.equal(validAt100.isValid, true);
+
+    const blockedAt200 = pqHelpers.validateQuoteDraftInputs(
+      [
+        {
+          id: 'L1',
+          name: 'Tag cũ',
+          unit: 'tờ',
+          quantity: 200,
+          quantityInput: '200',
+          vendorCostMode: resolvedLegacyAmbiguous.vendorCostMode,
+          vendorCostValue: resolvedLegacyAmbiguous.vendorCostValue,
+          vendorCostInput: resolvedLegacyAmbiguous.vendorCostInput,
+          ambiguousLegacyCost: resolvedLegacyAmbiguous.ambiguousLegacyCost,
+          profitMode: 'FIXED_AMOUNT',
+          profitScope: 'TOTAL_BATCH',
+          profitValue: 10000,
+          profitInput: '10000',
+        },
+      ],
+      '0',
+    );
+    assert.equal(
+      blockedAt200.isValid,
+      false,
+      'Không được tự ý suy đoán thành 60.000đ hay 30.000đ khi đổi số lượng trên báo giá cũ thiếu vendorCostMode',
+    );
+    assert.ok(blockedAt200.lineErrors.L1?.costMode);
   });
 
   it('2. Real Browser (Chrome + Playwright WebKit trên iPhone 390x844, 320x568 & Landscape): Kịch bản A–F, con trỏ sửa giữa chuỗi, dán số, ẩn MobileBottomNav/ReportBugWidget khi mở bàn phím', async () => {
@@ -679,6 +1074,93 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
             await page.textContent('[data-testid="pq-summary-total"]'),
             /40\.000\s*₫/,
           );
+
+          // --- SCENARIO G (TASK 1): Báo giá TRỌN LÔ 30.000đ / 100 tờ -> mở lại -> đổi SL thành 200 tờ -> giữ nguyên Trọn lô & 30.000đ (KHÔNG thành 60.000đ) ---
+          await page.click('[data-testid="tab-quotes-list"]');
+          await page.waitForSelector('[data-testid="quote-row-BG-202611-089"]');
+          await page
+            .locator('[data-testid="quote-row-BG-202611-089"]')
+            .locator('button:has-text("Sửa / Tạo phiên bản")')
+            .click();
+          await page.waitForSelector('[data-testid="panel-create-quote"]');
+
+          const costModeSelect = page.locator(
+            'select[aria-label="Kiểu giá vốn dòng 1"]',
+          );
+          assert.equal(
+            await costModeSelect.inputValue(),
+            'TOTAL_BATCH',
+            `[${target.label}] Mở lại báo giá Trọn lô 30.000đ / 100 tờ phải giữ đúng chế độ TOTAL_BATCH`,
+          );
+          assert.equal(await costInput.inputValue(), '30000');
+
+          // Đổi số lượng từ 100 -> 200 tờ
+          await qtyInput.fill('200');
+          assert.equal(
+            await costModeSelect.inputValue(),
+            'TOTAL_BATCH',
+            `[${target.label}] Đổi số lượng lên 200 tờ không được tự nhảy sang Theo từng tờ (PER_UNIT)`,
+          );
+          assert.match(
+            await page.textContent('[data-testid="pq-summary-vendor-cost"]'),
+            /^30\.000\s*₫$/,
+            `[${target.label}] Giá vốn trọn lô phải giữ nguyên 30.000 ₫ (tuyệt đối không tăng lên 60.000 ₫)`,
+          );
+          assert.match(
+            await page.textContent('[data-testid="pq-summary-total"]'),
+            /^40\.000\s*₫$/,
+          );
+
+          // Lưu phiên bản mới -> kiểm tra payload gửi lên API mang đúng vendorCostMode = TOTAL_BATCH và totalVendorCost = 30000
+          const saveBtn = page.locator('[data-testid="pq-save-quote-btn"]');
+          server.resetCounters();
+          await saveBtn.click();
+          await page.waitForTimeout(100);
+          assert.equal(server.getCounters().postQuotesCount, 1);
+          assert.equal(
+            server.getCounters().lastSavedPayload?.items?.[0]?.vendorCostMode,
+            'TOTAL_BATCH',
+          );
+          assert.equal(
+            server.getCounters().lastSavedPayload?.items?.[0]?.totalVendorCost,
+            30000,
+          );
+
+          // --- SCENARIO H (TASK 1): Báo giá CŨ (legacy) thiếu vendorCostMode (30.000đ / 100 tờ) -> đổi SL 200 tờ -> KHÔNG SUY ĐOÁN cho tới khi xác nhận ---
+          await page.click('[data-testid="tab-quotes-list"]');
+          await page.waitForSelector('[data-testid="quote-row-BG-202611-090"]');
+          await page
+            .locator('[data-testid="quote-row-BG-202611-090"]')
+            .locator('button:has-text("Sửa / Tạo phiên bản")')
+            .click();
+          await page.waitForSelector('[data-testid="panel-create-quote"]');
+
+          assert.equal(
+            await costModeSelect.inputValue(),
+            '',
+            `[${target.label}] Báo giá cũ mơ hồ không được tự gán sẵn PER_UNIT trên dropdown`,
+          );
+          // Đổi số lượng từ 100 -> 200 tờ trước khi xác nhận kiểu giá vốn
+          await qtyInput.fill('200');
+          assert.equal(
+            await saveBtn.isDisabled(),
+            true,
+            `[${target.label}] Khi đổi SL trên báo giá cũ chưa rõ kiểu giá vốn, phải khóa Lưu thay vì suy đoán`,
+          );
+          assert.equal(
+            await page.locator('[data-testid="pq-live-breakdown"]').count(),
+            0,
+            `[${target.label}] Không được hiển thị bảng tổng tiền suy đoán (60.000đ hay 30.000đ) khi chưa xác nhận`,
+          );
+
+          // Bấm xác nhận 1 chạm "Giữ trọn lô: 30.000 ₫" -> tính đúng 30.000 ₫ và mở khóa Lưu
+          await page.click('[data-testid="pq-confirm-legacy-batch-0"]');
+          assert.equal(await costModeSelect.inputValue(), 'TOTAL_BATCH');
+          assert.match(
+            await page.textContent('[data-testid="pq-summary-vendor-cost"]'),
+            /^30\.000\s*₫$/,
+          );
+          assert.equal(await saveBtn.isDisabled(), false);
 
           // Kiểm tra xoay ngang màn hình (Landscape 844x390) & iPhone SE 320x568 không tràn ngang
           await page.setViewportSize({ width: 844, height: 390 });

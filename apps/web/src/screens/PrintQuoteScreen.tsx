@@ -21,6 +21,7 @@ import {
 } from '../../../../packages/contracts/src/printquote.js';
 import {
   buildPrintQuoteA4Html,
+  resolveSavedQuoteLineCostState,
   validateQuoteDraftInputs,
   type DraftLineValidationError,
 } from './helpers/printquote-helpers.js';
@@ -339,6 +340,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           vendorCostMode: found.pricing_mode,
           vendorCostValue: resolvedCost,
           vendorCostInput: String(resolvedCost),
+          ambiguousLegacyCost: null,
           profitMode: found.default_profit_mode,
           profitScope: found.default_profit_scope,
           profitValue: found.default_profit_value,
@@ -601,6 +603,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           profitValue: line.profitValue,
         };
         const costVal = validLine.vendorCostValue;
+        const legacyAmbiguous = line.ambiguousLegacyCost;
         return {
           id: line.id || `ITEM-${i + 1}`,
           vendor_price_item_id: line.vendorPriceItemId || undefined,
@@ -608,12 +611,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           specification: line.specification.trim() || undefined,
           unit: line.unit.trim() || 'tờ',
           quantity: validLine.quantity,
-          unitVendorCost:
-            line.vendorCostMode === VendorCostMode.PER_UNIT
+          vendorCostMode: legacyAmbiguous ? undefined : line.vendorCostMode,
+          unitVendorCost: legacyAmbiguous
+            ? legacyAmbiguous.unitVendorCost
+            : line.vendorCostMode === VendorCostMode.PER_UNIT
               ? costVal
               : undefined,
-          totalVendorCost:
-            line.vendorCostMode === VendorCostMode.TOTAL_BATCH
+          totalVendorCost: legacyAmbiguous
+            ? legacyAmbiguous.totalVendorCost
+            : line.vendorCostMode === VendorCostMode.TOTAL_BATCH
               ? costVal
               : undefined,
           profitMode: line.profitMode,
@@ -682,16 +688,17 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     if (quote.lines_json && quote.lines_json.length > 0) {
       setDraftLines(
         quote.lines_json.map((item, idx) => {
-          const isExactPerUnit =
-            Number.isInteger(item.unitVendorCost) &&
-            Math.round(item.unitVendorCost * item.quantity) ===
-              Math.round(item.totalVendorCost);
-          const resolvedCostMode = isExactPerUnit
-            ? VendorCostMode.PER_UNIT
-            : VendorCostMode.TOTAL_BATCH;
-          const resolvedCostValue = isExactPerUnit
-            ? item.unitVendorCost
-            : item.totalVendorCost;
+          const explicitMode = (
+            item as typeof item & {
+              vendorCostMode?: VendorCostModeType | undefined;
+            }
+          ).vendorCostMode;
+          const resolvedCost = resolveSavedQuoteLineCostState({
+            quantity: item.quantity,
+            unitVendorCost: item.unitVendorCost,
+            totalVendorCost: item.totalVendorCost,
+            vendorCostMode: explicitMode,
+          });
 
           return {
             id: item.id || `ITEM-${idx + 1}`,
@@ -701,9 +708,10 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
             unit: item.unit || 'sp',
             quantity: item.quantity,
             quantityInput: String(item.quantity),
-            vendorCostMode: resolvedCostMode,
-            vendorCostValue: resolvedCostValue,
-            vendorCostInput: String(resolvedCostValue),
+            vendorCostMode: resolvedCost.vendorCostMode,
+            vendorCostValue: resolvedCost.vendorCostValue,
+            vendorCostInput: resolvedCost.vendorCostInput,
+            ambiguousLegacyCost: resolvedCost.ambiguousLegacyCost,
             profitMode: item.profitMode,
             profitScope: item.profitScope,
             profitValue: item.profitInputValue,

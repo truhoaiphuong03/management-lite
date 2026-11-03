@@ -7,6 +7,7 @@ import {
   type ProfitScopeType,
   type VendorCostModeType,
 } from '../../../../../packages/contracts/src/printquote.js';
+import type { AmbiguousLegacyCostState } from '../helpers/printquote-helpers.js';
 
 export type PrintQuoteTabId =
   'create' | 'quotes' | 'vendors' | 'customers' | 'orders' | 'analytics';
@@ -30,6 +31,7 @@ export interface DraftLineState {
   vendorCostMode: VendorCostModeType;
   vendorCostValue: number;
   vendorCostInput?: string | undefined;
+  ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;
   profitScope: ProfitScopeType;
   profitValue: number;

@@ -1055,23 +1055,70 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             🔒 Giá gốc nhà in tính theo
                           </label>
                           <select
-                            aria-label={`Kiểu giá vốn dòng ${idx + 1}`}
-                            style={inputStyle}
-                            value={line.vendorCostMode}
-                            onChange={(e) =>
-                              setDraftLines((prev) =>
-                                prev.map((l, i) =>
-                                  i === idx
-                                    ? {
-                                        ...l,
-                                        vendorCostMode: e.target
-                                          .value as VendorCostModeType,
-                                      }
-                                    : l,
-                                ),
-                              )
+                            key={
+                              line.ambiguousLegacyCost
+                                ? 'ambiguous'
+                                : 'confirmed'
                             }
+                            aria-label={`Kiểu giá vốn dòng ${idx + 1}`}
+                            style={{
+                              ...inputStyle,
+                              ...(lineErr?.costMode
+                                ? {
+                                    borderColor: 'var(--danger-text)',
+                                    boxShadow:
+                                      '0 0 0 1px var(--danger-text) inset',
+                                  }
+                                : {}),
+                            }}
+                            value={
+                              line.ambiguousLegacyCost
+                                ? ''
+                                : line.vendorCostMode
+                            }
+                            onChange={(e) => {
+                              const nextMode = e.target
+                                .value as VendorCostModeType;
+                              if (!nextMode) return;
+                              setDraftLines((prev) =>
+                                prev.map((l, i) => {
+                                  if (i !== idx) return l;
+                                  if (l.ambiguousLegacyCost) {
+                                    const editedManually =
+                                      l.vendorCostInput !== undefined &&
+                                      l.vendorCostInput !==
+                                        String(
+                                          l.ambiguousLegacyCost.totalVendorCost,
+                                        );
+                                    const resolvedVal = editedManually
+                                      ? l.vendorCostValue
+                                      : nextMode === VendorCostMode.PER_UNIT
+                                        ? l.ambiguousLegacyCost.unitVendorCost
+                                        : l.ambiguousLegacyCost.totalVendorCost;
+                                    return {
+                                      ...l,
+                                      vendorCostMode: nextMode,
+                                      vendorCostValue: resolvedVal,
+                                      vendorCostInput: editedManually
+                                        ? l.vendorCostInput
+                                        : String(resolvedVal),
+                                      ambiguousLegacyCost: null,
+                                    };
+                                  }
+                                  return {
+                                    ...l,
+                                    vendorCostMode: nextMode,
+                                    ambiguousLegacyCost: null,
+                                  };
+                                }),
+                              );
+                            }}
                           >
+                            {line.ambiguousLegacyCost && (
+                              <option value="" disabled>
+                                -- Chưa rõ (Chọn kiểu giá vốn) --
+                              </option>
+                            )}
                             <option value={VendorCostMode.PER_UNIT}>
                               Từng {line.unit || 'cái'} (1 đơn vị)
                             </option>
@@ -1085,9 +1132,11 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
 
                         <div>
                           <label style={labelStyle}>
-                            {line.vendorCostMode === VendorCostMode.PER_UNIT
-                              ? `Giá nhà in / 1 ${line.unit || 'cái'} (đ)`
-                              : 'Tổng giá nhà in cả lô (đ)'}
+                            {line.ambiguousLegacyCost
+                              ? `Giá vốn đã lưu (${line.ambiguousLegacyCost.originalQuantity} ${line.unit || 'cái'})`
+                              : line.vendorCostMode === VendorCostMode.PER_UNIT
+                                ? `Giá nhà in / 1 ${line.unit || 'cái'} (đ)`
+                                : 'Tổng giá nhà in cả lô (đ)'}
                           </label>
                           <NumericDraftInput
                             ariaLabel={`Giá trị giá vốn dòng ${idx + 1}`}
@@ -1119,6 +1168,125 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             }}
                           />
                         </div>
+
+                        {line.ambiguousLegacyCost && (
+                          <div
+                            data-testid={`pq-legacy-cost-confirm-${idx}`}
+                            style={{
+                              gridColumn: '1 / -1',
+                              padding: '10px 12px',
+                              borderRadius: '8px',
+                              border: lineErr?.costMode
+                                ? '1px solid var(--danger-text)'
+                                : '1px solid var(--border-color)',
+                              backgroundColor: 'var(--bg-color)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '8px',
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: '12.5px',
+                                fontWeight: 600,
+                                color: lineErr?.costMode
+                                  ? 'var(--danger-text)'
+                                  : 'var(--text-color)',
+                              }}
+                            >
+                              Báo giá cũ lưu giá vốn{' '}
+                              {formatVnd(
+                                line.ambiguousLegacyCost.totalVendorCost,
+                              )}{' '}
+                              cho {line.ambiguousLegacyCost.originalQuantity}{' '}
+                              {line.unit || 'tờ'} (chưa ghi rõ kiểu tính). Chọn
+                              xác nhận để tính đúng khi đổi số lượng:
+                            </div>
+                            <div
+                              style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '8px',
+                              }}
+                            >
+                              <button
+                                type="button"
+                                data-testid={`pq-confirm-legacy-batch-${idx}`}
+                                onClick={() =>
+                                  setDraftLines((prev) =>
+                                    prev.map((l, i) => {
+                                      if (i !== idx || !l.ambiguousLegacyCost)
+                                        return l;
+                                      const val =
+                                        l.ambiguousLegacyCost.totalVendorCost;
+                                      return {
+                                        ...l,
+                                        vendorCostMode:
+                                          VendorCostMode.TOTAL_BATCH,
+                                        vendorCostValue: val,
+                                        vendorCostInput: String(val),
+                                        ambiguousLegacyCost: null,
+                                      };
+                                    }),
+                                  )
+                                }
+                                style={{
+                                  minHeight: '40px',
+                                  padding: '6px 12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid var(--accent-text)',
+                                  backgroundColor: 'var(--accent-soft)',
+                                  color: 'var(--accent-text)',
+                                  fontSize: '12.5px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Giữ trọn lô:{' '}
+                                {formatVnd(
+                                  line.ambiguousLegacyCost.totalVendorCost,
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                data-testid={`pq-confirm-legacy-per-unit-${idx}`}
+                                onClick={() =>
+                                  setDraftLines((prev) =>
+                                    prev.map((l, i) => {
+                                      if (i !== idx || !l.ambiguousLegacyCost)
+                                        return l;
+                                      const val =
+                                        l.ambiguousLegacyCost.unitVendorCost;
+                                      return {
+                                        ...l,
+                                        vendorCostMode: VendorCostMode.PER_UNIT,
+                                        vendorCostValue: val,
+                                        vendorCostInput: String(val),
+                                        ambiguousLegacyCost: null,
+                                      };
+                                    }),
+                                  )
+                                }
+                                style={{
+                                  minHeight: '40px',
+                                  padding: '6px 12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid var(--border-color)',
+                                  backgroundColor: 'var(--surface-color)',
+                                  color: 'var(--text-color)',
+                                  fontSize: '12.5px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Tính theo 1 {line.unit || 'tờ'}:{' '}
+                                {formatExactVnd(
+                                  line.ambiguousLegacyCost.unitVendorCost,
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         <div>
                           <label style={labelStyle}>

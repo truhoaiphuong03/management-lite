@@ -1,6 +1,7 @@
 import {
   assertCustomerSafePdfPayload,
   ProfitMode,
+  VendorCostMode,
   type ProfitModeType,
   type ProfitScopeType,
   type VendorCostModeType,
@@ -94,6 +95,103 @@ export function parseNumericDraftValue(
   return { isEmpty: false, isValid: true, value: num };
 }
 
+export interface AmbiguousLegacyCostState {
+  originalQuantity: number;
+  unitVendorCost: number;
+  totalVendorCost: number;
+}
+
+export interface SavedQuoteLineForEdit {
+  quantity: number;
+  unitVendorCost: number;
+  totalVendorCost: number;
+  vendorCostMode?: VendorCostModeType | undefined;
+}
+
+export interface ResolvedSavedLineCostState {
+  vendorCostMode: VendorCostModeType;
+  vendorCostValue: number;
+  vendorCostInput: string;
+  ambiguousLegacyCost: AmbiguousLegacyCostState | null;
+}
+
+/**
+ * Resolves the vendor cost mode and input value when loading a saved quote for editing,
+ * strictly WITHOUT guessing when legacy persisted data is ambiguous:
+ * 1. Explicit `vendorCostMode` ('TOTAL_BATCH' | 'PER_UNIT') -> deterministic.
+ * 2. Legacy row without `vendorCostMode`:
+ *    - Both costs === 0 -> deterministic 0.
+ *    - `unitVendorCost` deviates from `totalVendorCost / quantity` -> deterministic PER_UNIT.
+ *    - `unitVendorCost` has repeating decimals (> 4 decimal places) -> deterministic TOTAL_BATCH.
+ *    - Otherwise (e.g. 30.000đ / 100 tờ where unitVendorCost = 300) -> marks `ambiguousLegacyCost`
+ *      so changing quantity refuses to guess until the user explicitly confirms PER_UNIT vs TOTAL_BATCH.
+ */
+export function resolveSavedQuoteLineCostState(
+  item: SavedQuoteLineForEdit,
+): ResolvedSavedLineCostState {
+  if (item.vendorCostMode === VendorCostMode.TOTAL_BATCH) {
+    return {
+      vendorCostMode: VendorCostMode.TOTAL_BATCH,
+      vendorCostValue: item.totalVendorCost,
+      vendorCostInput: String(item.totalVendorCost),
+      ambiguousLegacyCost: null,
+    };
+  }
+  if (item.vendorCostMode === VendorCostMode.PER_UNIT) {
+    return {
+      vendorCostMode: VendorCostMode.PER_UNIT,
+      vendorCostValue: item.unitVendorCost,
+      vendorCostInput: String(item.unitVendorCost),
+      ambiguousLegacyCost: null,
+    };
+  }
+
+  if (item.totalVendorCost === 0 && item.unitVendorCost === 0) {
+    return {
+      vendorCostMode: VendorCostMode.PER_UNIT,
+      vendorCostValue: 0,
+      vendorCostInput: '0',
+      ambiguousLegacyCost: null,
+    };
+  }
+
+  if (
+    item.quantity > 0 &&
+    Math.abs(item.unitVendorCost - item.totalVendorCost / item.quantity) > 1e-6
+  ) {
+    return {
+      vendorCostMode: VendorCostMode.PER_UNIT,
+      vendorCostValue: item.unitVendorCost,
+      vendorCostInput: String(item.unitVendorCost),
+      ambiguousLegacyCost: null,
+    };
+  }
+
+  if (
+    Math.abs(
+      Math.round(item.unitVendorCost * 10000) - item.unitVendorCost * 10000,
+    ) > 1e-6
+  ) {
+    return {
+      vendorCostMode: VendorCostMode.TOTAL_BATCH,
+      vendorCostValue: item.totalVendorCost,
+      vendorCostInput: String(item.totalVendorCost),
+      ambiguousLegacyCost: null,
+    };
+  }
+
+  return {
+    vendorCostMode: VendorCostMode.TOTAL_BATCH,
+    vendorCostValue: item.totalVendorCost,
+    vendorCostInput: String(item.totalVendorCost),
+    ambiguousLegacyCost: {
+      originalQuantity: item.quantity,
+      unitVendorCost: item.unitVendorCost,
+      totalVendorCost: item.totalVendorCost,
+    },
+  };
+}
+
 export interface ValidatableDraftLine {
   id: string;
   name: string;
@@ -104,6 +202,7 @@ export interface ValidatableDraftLine {
   vendorCostMode: VendorCostModeType;
   vendorCostValue: number;
   vendorCostInput?: string | undefined;
+  ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;
   profitScope: ProfitScopeType;
   profitValue: number;
@@ -119,6 +218,7 @@ export interface ValidatedQuoteLineNumbers {
 export interface DraftLineValidationError {
   quantity?: string | undefined;
   vendorCost?: string | undefined;
+  costMode?: string | undefined;
   profit?: string | undefined;
 }
 
@@ -150,11 +250,7 @@ export function validateQuoteDraftInputs(
 
   draftLines.forEach((line, idx) => {
     const labelPrefix = `Sản phẩm #${idx + 1}`;
-    const currentLineErr: {
-      quantity?: string | undefined;
-      vendorCost?: string | undefined;
-      profit?: string | undefined;
-    } = {};
+    const currentLineErr: DraftLineValidationError = {};
 
     const rawQty =
       line.quantityInput !== undefined
@@ -170,6 +266,14 @@ export function validateQuoteDraftInputs(
         ? `${labelPrefix}: Chưa nhập Số lượng.`
         : `${labelPrefix}: Số lượng phải từ 1 trở lên.`;
       currentLineErr.quantity = msg;
+      errors.push(msg);
+    } else if (
+      line.ambiguousLegacyCost &&
+      qtyRes.value !== line.ambiguousLegacyCost.originalQuantity
+    ) {
+      const unitLabel = line.unit?.trim() || 'sp';
+      const msg = `${labelPrefix}: Báo giá cũ chưa lưu rõ kiểu giá vốn — vui lòng chọn xác nhận 'Từng ${unitLabel}' hoặc 'Trọn lô' khi đổi số lượng.`;
+      currentLineErr.costMode = msg;
       errors.push(msg);
     }
 
@@ -212,6 +316,7 @@ export function validateQuoteDraftInputs(
     if (
       currentLineErr.quantity ||
       currentLineErr.vendorCost ||
+      currentLineErr.costMode ||
       currentLineErr.profit
     ) {
       lineErrors[line.id] = currentLineErr;
