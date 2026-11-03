@@ -1686,13 +1686,6 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                   >
                     {formatVnd(livePricingResult.calc.totalQuoteAmount)}
                   </div>
-                  <div className="pq-summary-hero-words">
-                    Bằng chữ:{' '}
-                    {numberToVietnameseWords(
-                      livePricingResult.customerPdf.grandTotalPayable,
-                    )}
-                    .
-                  </div>
                 </div>
 
                 {/* Compact 3-Metric Internal Breakdown */}
@@ -1957,6 +1950,21 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                               .shippingAmountToAddOnPdfFooter,
                           )}
                     </strong>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    Bằng chữ:{' '}
+                    {numberToVietnameseWords(
+                      livePricingResult.customerPdf.grandTotalPayable,
+                    )}
+                    .
                   </div>
                 </div>
               </div>
