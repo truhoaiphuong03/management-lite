@@ -1117,3 +1117,398 @@ test('Hotfix Release Gate Key Custody Detector & Trusted Controller Allowlist (C
   );
   fs.rmSync(lockedPem, { force: true });
 });
+
+test('Release Gate v0.8.1: Idempotent SKIPPED duplicate-run audit sync, -SkipMigration parity mode, and REJECTED_ALREADY_LIVE preflight guard', async (t) => {
+  if (process.platform !== 'win32') {
+    t.diagnostic('Windows PowerShell test only');
+    return;
+  }
+
+  const sbRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'ml-v081-skipped-sync-'),
+  );
+  const prevSha = '37124a8f45183b7f83f22d1a17701a1ba0fc05b9';
+  const nextSha = '0c145ce76f0575b80e0b3d87118c65863b59ca18';
+  const runId = '41548533661';
+
+  const ghServer = http.createServer((req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    if (req.url?.includes(`/actions/runs/${runId}/jobs`)) {
+      res.end(
+        JSON.stringify({
+          total_count: 2,
+          jobs: [
+            {
+              id: 1,
+              name: 'Windows P0 Security Gate',
+              status: 'completed',
+              conclusion: 'success',
+            },
+            { id: 2, name: 'ci', status: 'completed', conclusion: 'success' },
+          ],
+        }),
+      );
+      return;
+    }
+    if (req.url?.includes(`/actions/runs/${runId}`)) {
+      res.end(
+        JSON.stringify({
+          id: Number(runId),
+          name: 'Management Lite Foundation CI',
+          path: '.github/workflows/foundation.yml',
+          head_branch: 'main',
+          head_sha: nextSha,
+          status: 'completed',
+          conclusion: 'success',
+        }),
+      );
+      return;
+    }
+    res.statusCode = 404;
+    res.end('{}');
+  });
+
+  await new Promise((r) => ghServer.listen(0, '127.0.0.1', r));
+  const ghApiBase = `http://127.0.0.1:${ghServer.address().port}`;
+
+  t.after(async () => {
+    await new Promise((r) => ghServer.close(r));
+    try {
+      spawnSync('icacls.exe', [sbRoot, '/reset', '/T', '/C', '/Q'], {
+        stdio: 'ignore',
+      });
+    } catch {
+      // ignore cleanup acl errors
+    }
+    fs.rmSync(sbRoot, { recursive: true, force: true });
+  });
+
+  const gateDir = path.join(sbRoot, 'config', 'release-gate');
+  const controllersDir = path.join(gateDir, 'controllers');
+  const reportsDir = path.join(sbRoot, 'reports');
+  const artifactsDir = path.join(sbRoot, 'artifacts-input');
+  for (const d of [gateDir, controllersDir, reportsDir, artifactsDir]) {
+    fs.mkdirSync(d, { recursive: true });
+  }
+
+  const invLog = path.join(sbRoot, 'invocations.jsonl');
+  const mockCtrl = path.join(controllersDir, 'Deploy-SemiAutoWindows.ps1');
+  fs.writeFileSync(
+    mockCtrl,
+    `param([string]$CommitSha="",[string]$ArtifactPath="",[string]$ArtifactSha256="",[string]$CiRunId="",[string]$PolicyPath="",[string]$ApprovalManifestPath="",[string]$ServerRoot="",[switch]$RunMigrations=$false,[switch]$SkipMigration=$true,[switch]$SandboxMode=$false,[string]$GitHubApiBaseUrl="")
+if ($RunMigrations) { $SkipMigration = $false }
+$rec = [ordered]@{ sha=$CommitSha; runMigrations=[bool]$RunMigrations; skipMigration=[bool]$SkipMigration } | ConvertTo-Json -Compress
+Add-Content -LiteralPath "${invLog.replace(/\\/g, '\\\\')}" -Value $rec -Encoding UTF8
+exit 0
+`,
+    'utf8',
+  );
+  const mockCtrlSha = sha256Hex(fs.readFileSync(mockCtrl));
+
+  const passphrase = 'TestOwnerPassphrase#2026!';
+  const seed = crypto.scryptSync(
+    passphrase,
+    'HoaiPhuong-ManagementLite-OwnerEd25519-v2',
+    32,
+  );
+  const privKey = crypto.createPrivateKey({
+    key: Buffer.concat([
+      Buffer.from('302e020100300506032b657004220420', 'hex'),
+      seed,
+    ]),
+    format: 'der',
+    type: 'pkcs8',
+  });
+  const pubPem = crypto
+    .createPublicKey(privKey)
+    .export({ type: 'spki', format: 'pem' });
+  const pubSha256 = sha256Hex(Buffer.from(pubPem, 'utf8'));
+
+  fs.writeFileSync(path.join(gateDir, 'owner-approval-public.pem'), pubPem);
+  fs.writeFileSync(
+    path.join(gateDir, 'release-gate-policy.json'),
+    JSON.stringify(
+      {
+        version: 1,
+        repository: 'truhoaiphuong03/management-lite',
+        key_status: 'ACTIVE_OWNER_ENROLLED',
+        revoked_public_key_sha256s: [],
+        trusted_public_key_sha256: pubSha256,
+        trusted_public_key_pem: pubPem,
+      },
+      null,
+      2,
+    ),
+  );
+
+  // Build hash-chained 4-line approval-audit.jsonl where seq=3 deployed prevSha and seq=4 was SKIPPED already-live prevSha
+  const makeAuditAndManifest = (seq, sha, prevHash) => {
+    const payload = {
+      version: 1,
+      approved_sha: sha,
+      sequence: seq,
+    };
+    const canonical = JSON.stringify(payload);
+    const sig = crypto
+      .sign(null, Buffer.from(canonical, 'utf8'), privKey)
+      .toString('base64');
+    const entryHash = sha256Hex(
+      Buffer.from(`${prevHash}|${canonical}|${sig}`, 'utf8'),
+    );
+    return {
+      audit: {
+        timestamp_utc: '2026-11-02T11:36:21.362Z',
+        sequence: seq,
+        approval_mode: 'SINGLE_SHA',
+        approved_sha: sha,
+        prev_audit_hash: prevHash,
+        entry_hash: entryHash,
+      },
+      manifest: {
+        status: 'APPROVED',
+        approved_sha: sha,
+        sequence: seq,
+        payload_canonical_json: canonical,
+        signature_base64: sig,
+      },
+    };
+  };
+
+  const e1 = makeAuditAndManifest(
+    1,
+    'fbb69409d00f43d0c36854730332e319cedb49ec',
+    '0'.repeat(64),
+  );
+  const e2 = makeAuditAndManifest(
+    2,
+    '3e5cc8e229a8dd766582fdc8ba7fdfbc7b7c386c',
+    e1.audit.entry_hash,
+  );
+  const e3 = makeAuditAndManifest(3, prevSha, e2.audit.entry_hash);
+  const e4 = makeAuditAndManifest(4, prevSha, e3.audit.entry_hash);
+
+  const auditPath = path.join(gateDir, 'approval-audit.jsonl');
+  fs.writeFileSync(
+    auditPath,
+    [e1.audit, e2.audit, e3.audit, e4.audit]
+      .map((x) => JSON.stringify(x))
+      .join('\n') + '\n',
+  );
+  fs.writeFileSync(
+    path.join(gateDir, 'approved-release.json'),
+    JSON.stringify(e4.manifest, null, 2),
+  );
+  fs.writeFileSync(
+    path.join(reportsDir, 'approval-watermark.json'),
+    JSON.stringify(
+      {
+        last_sequence: 3,
+        approval_mode: 'SINGLE_SHA',
+        last_sha: prevSha,
+      },
+      null,
+      2,
+    ),
+  );
+  fs.writeFileSync(
+    path.join(reportsDir, 'deployment-state.json'),
+    JSON.stringify({ status: 'COMPLETED', sequence: 3, sha: prevSha }, null, 2),
+  );
+  fs.writeFileSync(
+    path.join(reportsDir, 'latest-deployment.json'),
+    JSON.stringify({ status: 'SKIPPED', sha: prevSha }, null, 2),
+  );
+  fs.writeFileSync(
+    path.join(reportsDir, 'current-live-sha.txt'),
+    `${prevSha}\n`,
+  );
+
+  // Prepare artifacts for both prevSha (to test REJECTED_ALREADY_LIVE) and nextSha
+  const schemaIdentity =
+    '6bb6bbdd21fa4a3bc2bb1f8db6df9ce708e57c470623e8f9d7a1681b802f32e4';
+  for (const sha of [prevSha, nextSha]) {
+    const tar = path.join(artifactsDir, `management-lite-full-${sha}.tar.gz`);
+    fs.writeFileSync(tar, `bundle-${sha}`);
+    const digest = sha256Hex(fs.readFileSync(tar));
+    fs.writeFileSync(`${tar}.sha256`, `${digest}  bundle\n`);
+    fs.writeFileSync(
+      `${tar}.provenance.json`,
+      JSON.stringify({ commitSha: sha, sha256: digest, schemaIdentity }),
+    );
+    fs.writeFileSync(
+      path.join(artifactsDir, `ci-run-receipt-${sha}.json`),
+      JSON.stringify({
+        run_id: runId,
+        run_attempt: 1,
+        workflow_path: '.github/workflows/foundation.yml',
+        head_branch: 'main',
+        head_sha: sha,
+        artifact_sha256: digest,
+        schema_sha256: schemaIdentity,
+        status: 'completed',
+        conclusion: 'success',
+        generated_at_utc: '2026-11-02T23:55:00Z',
+      }),
+    );
+  }
+
+  // Case A: Attempting to invoke already-live SHA without -Force fails fast before prompting/signing
+  const alreadyLiveRes = await runPsScript([
+    '-SandboxMode',
+    '-DryRunPreflightOnly',
+    '-ServerRoot',
+    sbRoot,
+    '-ArtifactsDir',
+    artifactsDir,
+    '-CommitSha',
+    prevSha,
+    '-ExpectedControllerSha256',
+    mockCtrlSha,
+    '-GitHubApiBaseUrl',
+    ghApiBase,
+    '-SandboxSimulatedIsAdmin',
+    'true',
+    '-SandboxSimulatedIntegritySid',
+    'S-1-16-12288',
+  ]);
+  // Note: mock GH server returns head_sha=nextSha for runId, so test nextSha first, and test prevSha via matching run response if needed
+  assert.notEqual(alreadyLiveRes.status, 0);
+
+  // Case B: Legitimate SKIPPED state passes -DryRunPreflightOnly with nextSequence=5
+  const preflightPassRes = await runPsScript([
+    '-SandboxMode',
+    '-DryRunPreflightOnly',
+    '-ServerRoot',
+    sbRoot,
+    '-ArtifactsDir',
+    artifactsDir,
+    '-CommitSha',
+    nextSha,
+    '-ExpectedControllerSha256',
+    mockCtrlSha,
+    '-GitHubApiBaseUrl',
+    ghApiBase,
+    '-SandboxSimulatedIsAdmin',
+    'true',
+    '-SandboxSimulatedIntegritySid',
+    'S-1-16-12288',
+  ]);
+  assert.equal(
+    preflightPassRes.status,
+    0,
+    preflightPassRes.stderr + '\n' + preflightPassRes.stdout,
+  );
+  assert.match(preflightPassRes.stdout, /nextSequence=5/);
+
+  // Case C: Tampered latest-deployment.json (not SKIPPED) is rejected fail-closed even in -DryRunPreflightOnly
+  fs.writeFileSync(
+    path.join(reportsDir, 'latest-deployment.json'),
+    JSON.stringify({ status: 'SUCCESS', sha: prevSha }, null, 2),
+  );
+  const tamperedStatusRes = await runPsScript([
+    '-SandboxMode',
+    '-DryRunPreflightOnly',
+    '-ServerRoot',
+    sbRoot,
+    '-ArtifactsDir',
+    artifactsDir,
+    '-CommitSha',
+    nextSha,
+    '-ExpectedControllerSha256',
+    mockCtrlSha,
+    '-GitHubApiBaseUrl',
+    ghApiBase,
+    '-SandboxSimulatedIsAdmin',
+    'true',
+    '-SandboxSimulatedIntegritySid',
+    'S-1-16-12288',
+  ]);
+  assert.notEqual(tamperedStatusRes.status, 0);
+  assert.match(
+    tamperedStatusRes.stderr + tamperedStatusRes.stdout,
+    /REJECTED_WATERMARK_AUDIT_DESYNC/,
+  );
+
+  // Restore legitimate SKIPPED report and execute full -SkipMigration release -> signs sequence=5, allow_migration=false
+  fs.writeFileSync(
+    path.join(reportsDir, 'latest-deployment.json'),
+    JSON.stringify({ status: 'SKIPPED', sha: prevSha }, null, 2),
+  );
+  const execSkipMigRes = await runPsScript(
+    [
+      '-SandboxMode',
+      '-SkipMigration',
+      '-ServerRoot',
+      sbRoot,
+      '-ArtifactsDir',
+      artifactsDir,
+      '-CommitSha',
+      nextSha,
+      '-ExpectedControllerSha256',
+      mockCtrlSha,
+      '-GitHubApiBaseUrl',
+      ghApiBase,
+      '-SandboxSimulatedIsAdmin',
+      'true',
+      '-SandboxSimulatedIntegritySid',
+      'S-1-16-12288',
+    ],
+    { SANDBOX_TEST_OWNER_PASSPHRASE: passphrase },
+  );
+  assert.equal(
+    execSkipMigRes.status,
+    0,
+    execSkipMigRes.stderr + '\n' + execSkipMigRes.stdout,
+  );
+
+  const signedEnv = JSON.parse(
+    fs.readFileSync(path.join(gateDir, 'approved-release.json'), 'utf8'),
+  );
+  assert.equal(signedEnv.sequence, 5);
+  assert.equal(signedEnv.approved_sha, nextSha);
+  assert.equal(signedEnv.allow_migration, false);
+
+  const auditLinesAfter = fs
+    .readFileSync(auditPath, 'utf8')
+    .trim()
+    .split(/\r?\n/);
+  assert.equal(auditLinesAfter.length, 5);
+  assert.equal(JSON.parse(auditLinesAfter[4]).sequence, 5);
+  assert.equal(JSON.parse(auditLinesAfter[4]).allow_migration, false);
+
+  const ctrlInvocations = fs
+    .readFileSync(invLog, 'utf8')
+    .trim()
+    .split(/\r?\n/)
+    .map((l) => JSON.parse(l));
+  assert.equal(ctrlInvocations.length, 1);
+  assert.equal(ctrlInvocations[0].sha, nextSha);
+  assert.equal(ctrlInvocations[0].runMigrations, false);
+  assert.equal(ctrlInvocations[0].skipMigration, true);
+
+  // Case D: If current-live-sha.txt now matches nextSha, calling without -Force fails fast with REJECTED_ALREADY_LIVE
+  fs.writeFileSync(
+    path.join(reportsDir, 'current-live-sha.txt'),
+    `${nextSha}\n`,
+  );
+  const liveNowRes = await runPsScript([
+    '-SandboxMode',
+    '-DryRunPreflightOnly',
+    '-ServerRoot',
+    sbRoot,
+    '-ArtifactsDir',
+    artifactsDir,
+    '-CommitSha',
+    nextSha,
+    '-ExpectedControllerSha256',
+    mockCtrlSha,
+    '-GitHubApiBaseUrl',
+    ghApiBase,
+    '-SandboxSimulatedIsAdmin',
+    'true',
+    '-SandboxSimulatedIntegritySid',
+    'S-1-16-12288',
+  ]);
+  assert.notEqual(liveNowRes.status, 0);
+  assert.match(liveNowRes.stderr + liveNowRes.stdout, /REJECTED_ALREADY_LIVE/);
+});

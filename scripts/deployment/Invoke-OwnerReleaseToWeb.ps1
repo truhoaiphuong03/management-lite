@@ -19,6 +19,7 @@ param(
   [string]$GitHubApiBaseUrl = 'https://api.github.com',
   [switch]$EnrollNewPublicKey,
   [switch]$Force,
+  [switch]$SkipMigration,
   [switch]$DryRunPreflightOnly,
   [switch]$SandboxMode,
   [int]$SandboxDbPort = 0,
@@ -330,10 +331,147 @@ try {
   throw "REJECTED_GITHUB_API_CI_VERIFICATION_FAILED: Failed to verify CI jobs for run ${CiRunId}: $($_.Exception.Message)"
 }
 
+$policyPath = Join-Path $gateDir 'release-gate-policy.json'
+$pubKeyPath = Join-Path $gateDir 'owner-approval-public.pem'
+$manifestPath = Join-Path $gateDir 'approved-release.json'
+$auditLogPath = Join-Path $gateDir 'approval-audit.jsonl'
+$gateReceiptPath = Join-Path $gateDir "ci-run-receipt-$CommitSha.json"
+$watermarkPath = Join-Path $ServerRoot 'reports\approval-watermark.json'
+$latestDeployPath = Join-Path $ServerRoot 'reports\latest-deployment.json'
+$currentLiveShaPath = Join-Path $ServerRoot 'reports\current-live-sha.txt'
+
+function Resolve-ReleaseGateAuditAndWatermarkState {
+  if (-not (Test-Path -LiteralPath $policyPath -PathType Leaf)) {
+    throw "REJECTED_NO_POLICY: Missing release-gate-policy.json at '$policyPath'."
+  }
+
+  $nextSequence = 1
+  $wmExists = Test-Path -LiteralPath $watermarkPath -PathType Leaf
+  $wmSeq = 0
+  $wmLastSha = ''
+  if ($wmExists) {
+    $wm = Get-Content -LiteralPath $watermarkPath -Raw | ConvertFrom-Json
+    if ($null -ne $wm.last_sequence) {
+      $wmSeq = [int]$wm.last_sequence
+      $nextSequence = $wmSeq + 1
+    }
+    if (($wm.PSObject.Properties.Name -contains 'last_sha') -and (-not [string]::IsNullOrWhiteSpace([string]$wm.last_sha))) {
+      $wmLastSha = [string]$wm.last_sha.Trim().ToLowerInvariant()
+    }
+  }
+
+  $resolvedPrevHash = '0' * 64
+  if (Test-Path -LiteralPath $auditLogPath -PathType Leaf) {
+    $lines = @(Get-Content -LiteralPath $auditLogPath | Where-Object { $_.Trim() -ne '' })
+    $parsedEntries = @()
+    if ($lines.Count -gt 0) {
+      $expectedPrevAudit = '0' * 64
+      for ($idx = 0; $idx -lt $lines.Count; $idx++) {
+        $entryObj = $lines[$idx] | ConvertFrom-Json
+        $parsedEntries += $entryObj
+        $hasSeqProp = ($entryObj.PSObject.Properties.Name -contains 'sequence') -and ($null -ne $entryObj.sequence)
+        $hasPrevProp = ($entryObj.PSObject.Properties.Name -contains 'prev_audit_hash') -and (-not [string]::IsNullOrWhiteSpace([string]$entryObj.prev_audit_hash))
+        $entryHashStr = if ($entryObj.PSObject.Properties.Name -contains 'entry_hash') { [string]$entryObj.entry_hash.Trim().ToLowerInvariant() } else { '' }
+        if ($entryHashStr -notmatch '^[0-9a-f]{64}$') {
+          throw 'AUDIT_CHAIN_LINK_BROKEN: Invalid entry_hash in approval-audit.jsonl.'
+        }
+        if ($hasSeqProp -and [int]$entryObj.sequence -ne ($idx + 1)) {
+          throw "AUDIT_CHAIN_LINK_BROKEN: Sequence mismatch at line $($idx + 1) in approval-audit.jsonl."
+        }
+        if ($hasPrevProp -and [string]$entryObj.prev_audit_hash.Trim().ToLowerInvariant() -ne $expectedPrevAudit) {
+          throw "AUDIT_CHAIN_LINK_BROKEN: Broken prev_audit_hash link at line $($idx + 1) in approval-audit.jsonl."
+        }
+        $expectedPrevAudit = $entryHashStr
+      }
+      $resolvedPrevHash = $expectedPrevAudit
+      if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
+        try {
+          $existingManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        } catch {
+          throw 'AUDIT_CHAIN_LINK_BROKEN: Existing approved-release.json is unreadable or invalid JSON.'
+        }
+        if ($existingManifest -and ($existingManifest.PSObject.Properties.Name -contains 'sequence') -and [int]$existingManifest.sequence -eq $lines.Count) {
+          $lastAuditObj = $parsedEntries[$lines.Count - 1]
+          $lastPrevStr = [string]$lastAuditObj.prev_audit_hash.Trim()
+          $lastCanonical = [string]$existingManifest.payload_canonical_json
+          $lastSig = [string]$existingManifest.signature_base64
+          $sha256Alg = [Security.Cryptography.SHA256]::Create()
+          try {
+            $rawBytes = [Text.Encoding]::UTF8.GetBytes("${lastPrevStr}|${lastCanonical}|${lastSig}")
+            $hashBytes = $sha256Alg.ComputeHash($rawBytes)
+            $computedTailHash = ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+          } finally {
+            $sha256Alg.Dispose()
+          }
+          if ($computedTailHash -ne $expectedPrevAudit) {
+            throw 'AUDIT_CHAIN_LINK_BROKEN: Last entry_hash in approval-audit.jsonl does not match approved-release.json manifest digest.'
+          }
+        }
+      }
+    }
+
+    if ($wmExists -and $wmSeq -gt 0 -and $lines.Count -ne $wmSeq) {
+      $isIdempotentSkippedTail = $false
+      if ($lines.Count -gt $wmSeq -and $wmLastSha -match '^[0-9a-f]{40}$' -and (Test-Path -LiteralPath $stateJournalPath -PathType Leaf) -and (Test-Path -LiteralPath $latestDeployPath -PathType Leaf)) {
+        $stateObj = Get-Content -LiteralPath $stateJournalPath -Raw | ConvertFrom-Json
+        $latestObj = Get-Content -LiteralPath $latestDeployPath -Raw | ConvertFrom-Json
+        $stateCompletedMatch = (
+          ($stateObj.PSObject.Properties.Name -contains 'status') -and ([string]$stateObj.status -eq 'COMPLETED') -and
+          ($stateObj.PSObject.Properties.Name -contains 'sequence') -and ([int]$stateObj.sequence -eq $wmSeq) -and
+          ($stateObj.PSObject.Properties.Name -contains 'sha') -and ([string]$stateObj.sha.Trim().ToLowerInvariant() -eq $wmLastSha)
+        )
+        $latestSkippedMatch = (
+          ($latestObj.PSObject.Properties.Name -contains 'status') -and ([string]$latestObj.status -eq 'SKIPPED') -and
+          ($latestObj.PSObject.Properties.Name -contains 'sha') -and ([string]$latestObj.sha.Trim().ToLowerInvariant() -eq $wmLastSha)
+        )
+        $baseEntryObj = $parsedEntries[$wmSeq - 1]
+        $baseShaMatch = ($baseEntryObj.PSObject.Properties.Name -contains 'approved_sha') -and ([string]$baseEntryObj.approved_sha.Trim().ToLowerInvariant() -eq $wmLastSha)
+        if ($stateCompletedMatch -and $latestSkippedMatch -and $baseShaMatch) {
+          $allTailMatch = $true
+          for ($tIdx = $wmSeq; $tIdx -lt $lines.Count; $tIdx++) {
+            $tailEntry = $parsedEntries[$tIdx]
+            $tailSha = if (($tailEntry.PSObject.Properties.Name -contains 'approved_sha') -and $tailEntry.approved_sha) { [string]$tailEntry.approved_sha.Trim().ToLowerInvariant() } else { '' }
+            $tailMode = if (($tailEntry.PSObject.Properties.Name -contains 'approval_mode') -and $tailEntry.approval_mode) { [string]$tailEntry.approval_mode.Trim() } else { 'SINGLE_SHA' }
+            if ($tailSha -ne $wmLastSha -or $tailMode -ne 'SINGLE_SHA') {
+              $allTailMatch = $false
+              break
+            }
+          }
+          $isIdempotentSkippedTail = $allTailMatch
+        }
+      }
+      if (-not $isIdempotentSkippedTail) {
+        throw "REJECTED_WATERMARK_AUDIT_DESYNC: approval-watermark.json (last_sequence=$wmSeq) does not match approval-audit.jsonl entry count ($($lines.Count)). Manual watermark or audit log tampering is forbidden."
+      }
+    }
+
+    if ($lines.Count + 1 -gt $nextSequence) {
+      $nextSequence = $lines.Count + 1
+    }
+  }
+
+  return @{
+    Sequence = $nextSequence
+    PrevHash = $resolvedPrevHash
+  }
+}
+
+if (-not $Force -and (Test-Path -LiteralPath $currentLiveShaPath -PathType Leaf)) {
+  $liveShaPreflight = (Get-Content -LiteralPath $currentLiveShaPath -Raw).Trim().ToLowerInvariant()
+  if ($liveShaPreflight -eq $CommitSha) {
+    throw "REJECTED_ALREADY_LIVE: CommitSha '$CommitSha' is already live on server (current-live-sha.txt). Pass -Force only if an explicit re-deploy is intended."
+  }
+}
+
+$preflightGateState = Resolve-ReleaseGateAuditAndWatermarkState
+
 if ($DryRunPreflightOnly) {
-  Write-Host "[PREFLIGHT-PASS] All controller, artifact, schema ($SchemaSha256), CI receipt, and live GitHub Run ($CiRunId) checks passed (Zero disk mutations)." -ForegroundColor Green
+  Write-Host "[PREFLIGHT-PASS] All controller, artifact, schema ($SchemaSha256), CI receipt, live GitHub Run ($CiRunId), and gate audit/watermark (nextSequence=$($preflightGateState.Sequence)) checks passed (Zero disk mutations)." -ForegroundColor Green
   return
 }
+
+$allowMigrationBool = (-not [bool]$SkipMigration)
+$modeMigrationDesc = if ($allowMigrationBool) { 'allow_migration = true, -RunMigrations = true' } else { 'allow_migration = false, -SkipMigration = true (schema parity verified)' }
 
 Write-Host '==================================================================' -ForegroundColor Cyan
 Write-Host ' MANAGEMENT LITE - OWNER ONE-STEP RELEASE & MIGRATION CEREMONY' -ForegroundColor Cyan
@@ -342,7 +480,7 @@ Write-Host " Target SHA      : $CommitSha" -ForegroundColor Yellow
 Write-Host " Artifact SHA256 : $actualTarSha" -ForegroundColor Yellow
 Write-Host " Schema SHA256   : $SchemaSha256" -ForegroundColor Yellow
 Write-Host " CI Run ID       : $CiRunId ($WorkflowPath on $SourceBranch)" -ForegroundColor Yellow
-Write-Host ' Mode            : SINGLE_SHA (allow_migration = true, -RunMigrations = true, Pre-Deploy Backup = ENABLED)' -ForegroundColor Yellow
+Write-Host " Mode            : SINGLE_SHA ($modeMigrationDesc, Pre-Deploy Backup = ENABLED)" -ForegroundColor Yellow
 Write-Host '==================================================================' -ForegroundColor Cyan
 
 $plainPass = ''
@@ -415,18 +553,6 @@ function Unlock-ReleaseGateDirectoryAcl {
   }
 }
 
-$policyPath = Join-Path $gateDir 'release-gate-policy.json'
-$pubKeyPath = Join-Path $gateDir 'owner-approval-public.pem'
-$manifestPath = Join-Path $gateDir 'approved-release.json'
-$auditLogPath = Join-Path $gateDir 'approval-audit.jsonl'
-$gateReceiptPath = Join-Path $gateDir "ci-run-receipt-$CommitSha.json"
-$watermarkPath = Join-Path $ServerRoot 'reports\approval-watermark.json'
-
-if (-not (Test-Path -LiteralPath $policyPath -PathType Leaf)) {
-  $plainPass = ''
-  throw "REJECTED_NO_POLICY: Missing release-gate-policy.json at '$policyPath'."
-}
-
 # 5. CAPTURE TRANSACTIONAL IN-MEMORY BACKUP OF GATE FILES BEFORE UNLOCKING OR MODIFYING ANYTHING
 $gateSnapshot = @{}
 foreach ($gf in @($policyPath, $pubKeyPath, $manifestPath, $auditLogPath, $gateReceiptPath)) {
@@ -490,75 +616,14 @@ try {
   $gateMutated = $true
   Copy-Item -LiteralPath $receiptSrc -Destination $gateReceiptPath -Force
 
-  $sequence = 1
-  $wmExists = Test-Path -LiteralPath $watermarkPath -PathType Leaf
-  $wmSeq = 0
-  if ($wmExists) {
-    $wm = Get-Content -LiteralPath $watermarkPath -Raw | ConvertFrom-Json
-    if ($null -ne $wm.last_sequence) {
-      $wmSeq = [int]$wm.last_sequence
-      $sequence = $wmSeq + 1
-    }
-  }
-
-  $prevHash = '0' * 64
-  if (Test-Path -LiteralPath $auditLogPath -PathType Leaf) {
-    $lines = @(Get-Content -LiteralPath $auditLogPath | Where-Object { $_.Trim() -ne '' })
-    if ($wmExists -and $wmSeq -gt 0 -and $lines.Count -ne $wmSeq) {
-      throw "REJECTED_WATERMARK_AUDIT_DESYNC: approval-watermark.json (last_sequence=$wmSeq) does not match approval-audit.jsonl entry count ($($lines.Count)). Manual watermark or audit log tampering is forbidden."
-    }
-    if ($lines.Count -gt 0) {
-      $expectedPrevAudit = '0' * 64
-      for ($idx = 0; $idx -lt $lines.Count; $idx++) {
-        $entryObj = $lines[$idx] | ConvertFrom-Json
-        $hasSeqProp = ($entryObj.PSObject.Properties.Name -contains 'sequence') -and ($null -ne $entryObj.sequence)
-        $hasPrevProp = ($entryObj.PSObject.Properties.Name -contains 'prev_audit_hash') -and (-not [string]::IsNullOrWhiteSpace([string]$entryObj.prev_audit_hash))
-        $entryHashStr = if ($entryObj.PSObject.Properties.Name -contains 'entry_hash') { [string]$entryObj.entry_hash.Trim().ToLowerInvariant() } else { '' }
-        if ($entryHashStr -notmatch '^[0-9a-f]{64}$') {
-          throw 'AUDIT_CHAIN_LINK_BROKEN: Invalid entry_hash in approval-audit.jsonl.'
-        }
-        if ($hasSeqProp -and [int]$entryObj.sequence -ne ($idx + 1)) {
-          throw "AUDIT_CHAIN_LINK_BROKEN: Sequence mismatch at line $($idx + 1) in approval-audit.jsonl."
-        }
-        if ($hasPrevProp -and [string]$entryObj.prev_audit_hash.Trim().ToLowerInvariant() -ne $expectedPrevAudit) {
-          throw "AUDIT_CHAIN_LINK_BROKEN: Broken prev_audit_hash link at line $($idx + 1) in approval-audit.jsonl."
-        }
-        $expectedPrevAudit = $entryHashStr
-      }
-      $prevHash = $expectedPrevAudit
-      if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
-        try {
-          $existingManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-        } catch {
-          throw 'AUDIT_CHAIN_LINK_BROKEN: Existing approved-release.json is unreadable or invalid JSON.'
-        }
-        if ($existingManifest -and ($existingManifest.PSObject.Properties.Name -contains 'sequence') -and [int]$existingManifest.sequence -eq $lines.Count) {
-          $lastAuditObj = $lines[$lines.Count - 1] | ConvertFrom-Json
-          $lastPrevStr = [string]$lastAuditObj.prev_audit_hash.Trim()
-          $lastCanonical = [string]$existingManifest.payload_canonical_json
-          $lastSig = [string]$existingManifest.signature_base64
-          $sha256Alg = [Security.Cryptography.SHA256]::Create()
-          try {
-            $rawBytes = [Text.Encoding]::UTF8.GetBytes("${lastPrevStr}|${lastCanonical}|${lastSig}")
-            $hashBytes = $sha256Alg.ComputeHash($rawBytes)
-            $computedTailHash = ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
-          } finally {
-            $sha256Alg.Dispose()
-          }
-          if ($computedTailHash -ne $expectedPrevAudit) {
-            throw 'AUDIT_CHAIN_LINK_BROKEN: Last entry_hash in approval-audit.jsonl does not match approved-release.json manifest digest.'
-          }
-        }
-      }
-      if ($lines.Count + 1 -gt $sequence) {
-        $sequence = $lines.Count + 1
-      }
-    }
-  }
+  $resolvedGateState = Resolve-ReleaseGateAuditAndWatermarkState
+  $sequence = [int]$resolvedGateState.Sequence
+  $prevHash = [string]$resolvedGateState.PrevHash
 
   $winPrincipal = $identity.Name
   $enrollFlag = if ($EnrollNewPublicKey) { 'true' } else { 'false' }
   $simSignFailFlag = if ($SimulateSigningFailureAfterPolicyWrite) { 'true' } else { 'false' }
+  $allowMigrationFlag = if ($allowMigrationBool) { 'true' } else { 'false' }
 
   $jsInline = @'
 const crypto = require('node:crypto');
@@ -583,7 +648,9 @@ const [
   ttlMinutesStr,
   enrollNewKeyStr,
   simFailAfterPolicyStr,
+  allowMigrationStr,
 ] = process.argv.slice(1);
+const allowMigration = allowMigrationStr !== 'false';
 
 const REVOKED_KEY_SHA256 = '2e92bb4a96b8f60da691d309399b494b20bdbe60aa3b39c2add7313e0441931e';
 const seed = crypto.scryptSync(passphrase, 'HoaiPhuong-ManagementLite-OwnerEd25519-v2', 32);
@@ -664,7 +731,7 @@ const payloadObj = {
   approved_by: 'Owner',
   windows_principal: winPrincipal,
   reason: `Owner Windows SINGLE_SHA release approval for ${commitSha.slice(0, 7)}`,
-  allow_migration: true,
+  allow_migration: allowMigration,
   approved_at_utc: approvedAt,
   expires_at_utc: expiresAt,
 };
@@ -685,7 +752,7 @@ const envelope = {
   sequence,
   approved_by: 'Owner',
   windows_principal: winPrincipal,
-  allow_migration: true,
+  allow_migration: allowMigration,
   approved_at_utc: approvedAt,
   expires_at_utc: expiresAt,
   payload_canonical_json: canonicalJson,
@@ -707,18 +774,18 @@ const auditEntry = {
   source_branch: sourceBranch,
   approved_by: 'Owner',
   windows_principal: winPrincipal,
-  allow_migration: true,
+  allow_migration: allowMigration,
   prev_audit_hash: prevHash,
   entry_hash: entryHash,
 };
 
 fs.writeFileSync(manifestPath, JSON.stringify(envelope, null, 2), 'utf8');
 fs.appendFileSync(auditLogPath, JSON.stringify(auditEntry) + '\n', 'utf8');
-console.log(`[OK] Signed SINGLE_SHA (sequence=${sequence}, allow_migration=true, pubKeySha256=${pubSha256.slice(0, 16)}..., entryHash=${entryHash.slice(0, 16)}...)`);
+console.log(`[OK] Signed SINGLE_SHA (sequence=${sequence}, allow_migration=${allowMigration}, pubKeySha256=${pubSha256.slice(0, 16)}..., entryHash=${entryHash.slice(0, 16)}...)`);
 '@
 
   try {
-    $plainPass | & $node -e $jsInline $policyPath $pubKeyPath $manifestPath $auditLogPath $CommitSha $actualTarSha $SchemaSha256 $CiRunId "$CiRunAttempt" $WorkflowPath $SourceBranch "$sequence" $winPrincipal $prevHash "$ExpiresInMinutes" $enrollFlag $simSignFailFlag
+    $plainPass | & $node -e $jsInline $policyPath $pubKeyPath $manifestPath $auditLogPath $CommitSha $actualTarSha $SchemaSha256 $CiRunId "$CiRunAttempt" $WorkflowPath $SourceBranch "$sequence" $winPrincipal $prevHash "$ExpiresInMinutes" $enrollFlag $simSignFailFlag $allowMigrationFlag
     if ($LASTEXITCODE -ne 0) { throw 'Signing engine exited with non-zero code.' }
   } finally {
     $plainPass = ''
@@ -735,7 +802,11 @@ console.log(`[OK] Signed SINGLE_SHA (sequence=${sequence}, allow_migration=true,
   }
 
   $artifactTar = Join-Path $stageDir "management-lite-full-$CommitSha.tar.gz"
-  Write-Host '[DEPLOY] Invoking locked Deploy-SemiAutoWindows.ps1 -RunMigrations (Pre-Deploy Backup ENABLED, Migration 0032 ENABLED)...' -ForegroundColor Cyan
+  if ($SkipMigration) {
+    Write-Host '[DEPLOY] Invoking locked Deploy-SemiAutoWindows.ps1 -SkipMigration (Pre-Deploy Backup ENABLED, Schema Parity Verified, Zero New Migrations)...' -ForegroundColor Cyan
+  } else {
+    Write-Host '[DEPLOY] Invoking locked Deploy-SemiAutoWindows.ps1 -RunMigrations (Pre-Deploy Backup ENABLED, Staged Migrations ENABLED)...' -ForegroundColor Cyan
+  }
 
   $env:GITHUB_READONLY_TOKEN = $ghToken
   try {
@@ -747,7 +818,11 @@ console.log(`[OK] Signed SINGLE_SHA (sequence=${sequence}, allow_migration=true,
       PolicyPath           = $policyPath
       ApprovalManifestPath = $manifestPath
       ServerRoot           = $ServerRoot
-      RunMigrations        = $true
+    }
+    if ($SkipMigration) {
+      $deployArgs['SkipMigration'] = $true
+    } else {
+      $deployArgs['RunMigrations'] = $true
     }
     if ($Force) {
       $deployArgs['Force'] = $true
