@@ -14,8 +14,14 @@ import {
   DELIVERY_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
 } from '../helpers/printquote-helpers.js';
-import { cardStyle, inputStyle, labelStyle } from './types.js';
+import { cardStyle, inputStyle, labelStyle, tabularNumStyle } from './types.js';
 import { NumericDraftInput } from './NumericDraftInput.js';
+import { CatalogModalDialog } from './CatalogModalDialog.js';
+import {
+  PqPackageIcon,
+  PqSearchIcon,
+  PqWalletIcon,
+} from './PrintQuoteIcons.js';
 
 export interface OrdersTabProps {
   orders: PrintOrderData[];
@@ -94,81 +100,65 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   const filterButtons: Array<{
     id: 'ALL' | 'IN_PROD' | 'PENDING_DELIVERY' | 'HAS_DEBT';
     label: string;
+    count: number;
   }> = [
-    { id: 'ALL', label: `Tất cả (${orders.length})` },
+    { id: 'ALL', label: 'Tất cả', count: orders.length },
     {
       id: 'IN_PROD',
-      label: `Đang in (${
-        orders.filter(
-          (o) =>
-            o.production_status !== 'COMPLETED' &&
-            o.production_status !== 'CANCELLED',
-        ).length
-      })`,
+      label: 'Đang in',
+      count: orders.filter(
+        (o) =>
+          o.production_status !== 'COMPLETED' &&
+          o.production_status !== 'CANCELLED',
+      ).length,
     },
     {
       id: 'PENDING_DELIVERY',
-      label: `Chờ giao (${
-        orders.filter(
-          (o) =>
-            o.delivery_status !== 'DELIVERED' &&
-            o.delivery_status !== 'RETURNED',
-        ).length
-      })`,
+      label: 'Chờ giao',
+      count: orders.filter(
+        (o) =>
+          o.delivery_status !== 'DELIVERED' && o.delivery_status !== 'RETURNED',
+      ).length,
     },
     {
       id: 'HAS_DEBT',
-      label: `Còn nợ (${orders.filter((o) => o.remaining_debt_amount > 0).length})`,
+      label: 'Còn nợ',
+      count: orders.filter((o) => o.remaining_debt_amount > 0).length,
     },
   ];
 
   return (
-    <div style={cardStyle} data-testid="panel-orders">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '8px',
-          marginBottom: '12px',
-        }}
-      >
+    <div
+      data-testid="panel-orders"
+      style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+    >
+      <div className="pq-page-head">
         <div>
-          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
-            Đơn hàng In ấn, Tiến độ & Thu tiền ({orders.length})
-          </h2>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Cập nhật trạng thái in ấn, giao hàng và ghi nhận tiền đặt cọc / tất
-            toán
-          </div>
+          <h1 className="pq-page-title">Đơn hàng đặt in ({orders.length})</h1>
+          <p className="pq-page-subtitle">
+            Theo dõi tiến độ xưởng in, giao hàng và thu tiền đặt cọc / tất toán
+          </p>
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '8px',
-          alignItems: 'center',
-          marginBottom: '14px',
-        }}
-      >
-        <input
-          type="search"
-          aria-label="Tìm kiếm đơn hàng"
-          style={{ ...inputStyle, flex: '1 1 200px', maxWidth: '320px' }}
-          placeholder="Tìm mã đơn, tên khách hoặc mã báo giá…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Unified Search & Filter Bar */}
+      <div className="pq-toolbar-card">
+        <div className="pq-search-wrap">
+          <PqSearchIcon size={15} className="pq-search-icon" />
+          <input
+            type="search"
+            aria-label="Tìm kiếm đơn hàng"
+            style={{ ...inputStyle, paddingLeft: '36px', minHeight: '40px' }}
+            placeholder="Tìm mã đơn, tên khách hoặc mã báo giá…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
         <div
-          style={{
-            display: 'flex',
-            gap: '6px',
-            flexWrap: 'wrap',
-          }}
+          className="pq-filter-pills"
+          role="group"
+          aria-label="Lọc trạng thái đơn hàng"
         >
           {filterButtons.map((btn) => {
             const active = filterMode === btn.id;
@@ -176,25 +166,13 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
               <button
                 key={btn.id}
                 type="button"
+                aria-pressed={active}
+                className="pq-filter-pill"
+                data-active={active ? 'true' : 'false'}
                 onClick={() => setFilterMode(btn.id)}
-                style={{
-                  minHeight: '38px',
-                  padding: '6px 12px',
-                  borderRadius: '999px',
-                  border: active
-                    ? '1px solid var(--accent-text)'
-                    : '1px solid var(--border-color)',
-                  backgroundColor: active
-                    ? 'var(--accent-soft)'
-                    : 'var(--bg-color)',
-                  color: active ? 'var(--accent-text)' : 'var(--muted-color)',
-                  fontWeight: active ? 700 : 600,
-                  fontSize: '12px',
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                }}
               >
-                {btn.label}
+                <span>{btn.label}</span>
+                <span className="pq-filter-pill-count">{btn.count}</span>
               </button>
             );
           })}
@@ -204,44 +182,50 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
       {filteredOrders.length === 0 ? (
         <div
           style={{
-            padding: '24px',
+            ...cardStyle,
+            padding: '40px 24px',
             textAlign: 'center',
-            color: 'var(--muted-color)',
           }}
         >
           {orders.length === 0 ? (
-            <>
-              Chưa có đơn hàng đặt in nào. Hãy chuyển từ mục{' '}
-              <strong>Danh sách báo giá</strong> sang Đơn đặt in.
-            </>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px',
+                maxWidth: '420px',
+                margin: '0 auto',
+              }}
+            >
+              <div className="pq-empty-icon-ring">
+                <PqPackageIcon size={24} />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '15px' }}>
+                Chưa có đơn hàng đặt in
+              </div>
+              <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
+                Khi khách chốt báo giá, hãy nhấn{' '}
+                <strong>Chuyển thành Đơn đặt in</strong> từ danh sách hoặc chi
+                tiết báo giá.
+              </div>
+            </div>
           ) : (
-            'Không có đơn hàng nào khớp bộ lọc hiện tại.'
+            <div style={{ color: 'var(--muted-color)', fontSize: '13.5px' }}>
+              Không có đơn hàng nào khớp bộ lọc hiện tại.
+            </div>
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {filteredOrders.map((ord) => (
-            <div
+            <article
               key={ord.id}
               data-testid={`order-card-${ord.order_code}`}
-              style={{
-                border: '1px solid var(--border-color)',
-                borderRadius: '10px',
-                padding: '14px',
-                backgroundColor: 'var(--bg-color)',
-              }}
+              className="pq-quote-card"
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                  marginBottom: '12px',
-                }}
-              >
-                <div>
+              <div className="pq-quote-card-top">
+                <div style={{ minWidth: 0, flex: '1 1 260px' }}>
                   <div
                     style={{
                       display: 'flex',
@@ -250,14 +234,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                       flexWrap: 'wrap',
                     }}
                   >
-                    <strong
-                      style={{
-                        fontSize: '15px',
-                        color: 'var(--accent-text)',
-                      }}
-                    >
-                      {ord.order_code}
-                    </strong>
+                    <span className="pq-code-pill">{ord.order_code}</span>
                     <StatusBadge
                       status={
                         ord.production_status === 'COMPLETED'
@@ -287,41 +264,45 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                   </div>
                   <div
                     style={{
-                      fontSize: '12.5px',
+                      fontSize: '13px',
                       color: 'var(--muted-color)',
-                      marginTop: '4px',
+                      marginTop: '6px',
                     }}
                   >
                     Khách hàng:{' '}
-                    <strong>{ord.customer_name || 'Khách lẻ'}</strong> • Mã báo
-                    giá gốc: {ord.quote_code || '—'} (v{ord.quote_version})
+                    <strong style={{ color: 'var(--text-color)' }}>
+                      {ord.customer_name || 'Khách lẻ'}
+                    </strong>{' '}
+                    • Báo giá gốc: {ord.quote_code || '—'} (v{ord.quote_version}
+                    )
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '14px',
-                    flexWrap: 'wrap',
-                    fontSize: '12.5px',
-                  }}
-                >
-                  <div>
-                    <div style={{ color: 'var(--muted-color)' }}>
-                      Tổng tiền đơn
-                    </div>
-                    <strong>{formatVnd(ord.total_quote_amount)}</strong>
+                <div className="pq-quote-metrics">
+                  <div className="pq-metric-cell">
+                    <span className="pq-metric-label">Tổng tiền đơn</span>
+                    <strong className="pq-metric-val" style={tabularNumStyle}>
+                      {formatVnd(ord.total_quote_amount)}
+                    </strong>
                   </div>
-                  <div>
-                    <div style={{ color: 'var(--muted-color)' }}>Đã thu</div>
-                    <strong style={{ color: 'var(--success-text)' }}>
+                  <div className="pq-metric-cell">
+                    <span className="pq-metric-label">Đã thu</span>
+                    <strong
+                      className="pq-metric-val"
+                      style={{
+                        ...tabularNumStyle,
+                        color: 'var(--success-text)',
+                      }}
+                    >
                       {formatVnd(ord.total_paid_amount)}
                     </strong>
                   </div>
-                  <div>
-                    <div style={{ color: 'var(--muted-color)' }}>Còn nợ</div>
+                  <div className="pq-metric-cell">
+                    <span className="pq-metric-label">Còn nợ</span>
                     <strong
+                      className="pq-metric-val"
                       style={{
+                        ...tabularNumStyle,
                         color:
                           ord.remaining_debt_amount > 0
                             ? 'var(--danger-text)'
@@ -331,25 +312,30 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                       {formatVnd(ord.remaining_debt_amount)}
                     </strong>
                   </div>
-                  <div>
-                    <div style={{ color: 'var(--muted-color)' }}>
-                      Lời dự kiến (theo BG)
-                    </div>
-                    <strong style={{ color: 'var(--success-text)' }}>
+                  <div className="pq-metric-cell pq-metric-cell-total">
+                    <span className="pq-metric-label">Lời dự kiến (BG)</span>
+                    <strong
+                      className="pq-metric-total-val"
+                      style={{
+                        ...tabularNumStyle,
+                        color: 'var(--success-text)',
+                      }}
+                    >
                       {formatVnd(ord.expected_profit)}
                     </strong>
                   </div>
                 </div>
               </div>
 
-              {/* Independent Production & Delivery Status Controls + Dates */}
+              {/* Independent Production & Delivery Status Controls */}
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns:
                     'repeat(auto-fit, minmax(min(100%, 185px), 1fr))',
-                  gap: '10px',
-                  paddingTop: '10px',
+                  gap: '12px',
+                  marginTop: '14px',
+                  paddingTop: '14px',
                   borderTop: '1px solid var(--border-color)',
                 }}
               >
@@ -421,159 +407,124 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                         ord.total_paid_amount === 0 ? 'DEPOSIT' : 'FINAL',
                       );
                     }}
-                    style={{
-                      width: '100%',
-                      minHeight: '42px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      backgroundColor: 'var(--primary-color)',
-                      color: 'var(--inverse-text)',
-                      fontWeight: 700,
-                      fontSize: '12.5px',
-                      cursor: 'pointer',
-                    }}
+                    className="pq-btn pq-btn-primary"
+                    style={{ width: '100%' }}
                   >
-                    💰 Ghi nhận Cọc / Thanh toán
+                    <PqWalletIcon size={15} />
+                    <span>Ghi nhận thanh toán</span>
                   </button>
                 </div>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}
 
       {/* Record Payment Modal */}
-      {paymentOrderTarget && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Ghi nhận thanh toán đơn hàng"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1100,
-            backgroundColor: 'rgba(2, 6, 23, 0.75)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-          }}
+      <CatalogModalDialog
+        open={paymentOrderTarget !== null}
+        title={
+          paymentOrderTarget
+            ? `Thu tiền / Đặt cọc — Đơn ${paymentOrderTarget.order_code}`
+            : 'Ghi nhận thanh toán đơn hàng'
+        }
+        subtitle="Ghi nhận tiền đặt cọc hoặc thanh toán từng đợt của khách hàng."
+        maxWidth="460px"
+        onClose={() => setPaymentOrderTarget(null)}
+      >
+        <form
+          onSubmit={onRecordPayment}
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
         >
-          <form
-            onSubmit={onRecordPayment}
+          <div>
+            <label style={labelStyle}>Loại thanh toán</label>
+            <select
+              aria-label="Loại thanh toán"
+              style={inputStyle}
+              value={paymentType}
+              onChange={(e) =>
+                setPaymentType(
+                  e.target.value as
+                    'DEPOSIT' | 'INSTALLMENT' | 'FINAL' | 'REFUND',
+                )
+              }
+            >
+              <option value="DEPOSIT">Tiền đặt cọc (Deposit)</option>
+              <option value="INSTALLMENT">Thanh toán đợt</option>
+              <option value="FINAL">Tất toán công nợ cuối</option>
+              <option value="REFUND">Hoàn tiền (Refund)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Số tiền thu (VNĐ) *</label>
+            <NumericDraftInput
+              ariaLabel="Số tiền thanh toán"
+              allowDecimal={false}
+              placeholder="VD: 50000"
+              style={inputStyle}
+              required
+              value={paymentAmountInput}
+              onValueChange={(nextRaw) => {
+                setPaymentAmountInput(nextRaw);
+                const parsed = parseNumericDraftValue(nextRaw, {
+                  allowDecimal: false,
+                  min: 0,
+                  integerOnly: true,
+                });
+                setPaymentAmount(
+                  parsed.isValid && parsed.value !== null ? parsed.value : 0,
+                );
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Phương thức</label>
+            <select
+              aria-label="Phương thức thanh toán"
+              style={inputStyle}
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+            >
+              <option value="BANK_TRANSFER">Chuyển khoản Ngân hàng</option>
+              <option value="QR_VIETQR">Quét mã VietQR</option>
+              <option value="CASH">Tiền mặt</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Ghi chú giao dịch</label>
+            <input
+              aria-label="Ghi chú thanh toán"
+              style={inputStyle}
+              value={paymentNote}
+              onChange={(e) => setPaymentNote(e.target.value)}
+              placeholder="VD: Khách CK cọc 50% đơn in…"
+            />
+          </div>
+
+          <div
             style={{
-              ...cardStyle,
-              width: '100%',
-              maxWidth: '440px',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '8px',
+              marginTop: '4px',
             }}
           >
-            <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>
-              Thu tiền / Đặt cọc — Đơn {paymentOrderTarget.order_code}
-            </h3>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={labelStyle}>Loại thanh toán</label>
-              <select
-                aria-label="Loại thanh toán"
-                style={inputStyle}
-                value={paymentType}
-                onChange={(e) =>
-                  setPaymentType(
-                    e.target.value as
-                      'DEPOSIT' | 'INSTALLMENT' | 'FINAL' | 'REFUND',
-                  )
-                }
-              >
-                <option value="DEPOSIT">Tiền đặt cọc (Deposit)</option>
-                <option value="INSTALLMENT">Thanh toán đợt</option>
-                <option value="FINAL">Tất toán công nợ cuối</option>
-                <option value="REFUND">Hoàn tiền (Refund)</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={labelStyle}>Số tiền thu (VNĐ) *</label>
-              <NumericDraftInput
-                ariaLabel="Số tiền thanh toán"
-                allowDecimal={false}
-                placeholder="VD: 50000"
-                style={inputStyle}
-                required
-                value={paymentAmountInput}
-                onValueChange={(nextRaw) => {
-                  setPaymentAmountInput(nextRaw);
-                  const parsed = parseNumericDraftValue(nextRaw, {
-                    allowDecimal: false,
-                    min: 0,
-                    integerOnly: true,
-                  });
-                  setPaymentAmount(
-                    parsed.isValid && parsed.value !== null ? parsed.value : 0,
-                  );
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={labelStyle}>Phương thức</label>
-              <select
-                aria-label="Phương thức thanh toán"
-                style={inputStyle}
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                <option value="BANK_TRANSFER">Chuyển khoản Ngân hàng</option>
-                <option value="QR_VIETQR">Quét mã VietQR</option>
-                <option value="CASH">Tiền mặt</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: '14px' }}>
-              <label style={labelStyle}>Ghi chú giao dịch</label>
-              <input
-                aria-label="Ghi chú thanh toán"
-                style={inputStyle}
-                value={paymentNote}
-                onChange={(e) => setPaymentNote(e.target.value)}
-                placeholder="VD: Khách CK cọc 50% đơn in"
-              />
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '8px',
-              }}
+            <button
+              type="button"
+              onClick={() => setPaymentOrderTarget(null)}
+              className="pq-btn pq-btn-secondary"
             >
-              <button
-                type="button"
-                onClick={() => setPaymentOrderTarget(null)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                }}
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: 'var(--primary-color)',
-                  color: 'var(--inverse-text)',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Xác nhận thu tiền
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+              Hủy
+            </button>
+            <button type="submit" className="pq-btn pq-btn-primary">
+              Xác nhận thu tiền
+            </button>
+          </div>
+        </form>
+      </CatalogModalDialog>
     </div>
   );
 };
