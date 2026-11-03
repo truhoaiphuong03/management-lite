@@ -11,7 +11,21 @@ import {
   formatVnd,
   QUOTE_STATUS_LABELS,
 } from '../helpers/printquote-helpers.js';
-import { cardStyle, isQuoteStatusEditable } from './types.js';
+import { cardStyle, isQuoteStatusEditable, tabularNumStyle } from './types.js';
+import {
+  PqArrowLeftIcon,
+  PqCheckIcon,
+  PqCopyIcon,
+  PqDownloadIcon,
+  PqEditIcon,
+  PqEyeIcon,
+  PqFileTextIcon,
+  PqHistoryIcon,
+  PqLockIcon,
+  PqPackageIcon,
+  PqPrinterIcon,
+  PqShieldIcon,
+} from './PrintQuoteIcons.js';
 
 export interface QuoteDetailViewProps {
   quote: PrintQuoteData | null;
@@ -79,9 +93,9 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
   if (!quote) {
     return (
       <div style={cardStyle} data-testid="pq-quote-not-found">
-        <h2 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700 }}>
+        <h1 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 700 }}>
           Không tìm thấy báo giá
-        </h2>
+        </h1>
         <p
           style={{
             margin: '0 0 14px',
@@ -96,19 +110,10 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
           type="button"
           data-testid="pq-detail-back-btn"
           onClick={onBackToList}
-          style={{
-            minHeight: '44px',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            border: '1px solid var(--border-color)',
-            backgroundColor: 'var(--bg-color)',
-            color: 'var(--text-color)',
-            fontWeight: 700,
-            fontSize: '13px',
-            cursor: 'pointer',
-          }}
+          className="pq-btn pq-btn-secondary"
         >
-          ← Quay lại Danh sách báo giá
+          <PqArrowLeftIcon size={15} />
+          <span>Quay lại Danh sách báo giá</span>
         </button>
       </div>
     );
@@ -119,9 +124,47 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
   return (
     <div
       data-testid="panel-quote-detail"
-      style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
     >
-      {/* Top Contextual Bar & Actions */}
+      {/* Top Contextual Navigation */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '8px',
+        }}
+      >
+        <button
+          type="button"
+          data-testid="pq-detail-back-btn"
+          onClick={onBackToList}
+          className="pq-btn pq-btn-secondary"
+        >
+          <PqArrowLeftIcon size={15} />
+          <span>Danh sách báo giá</span>
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <StatusBadge
+            status="neutral"
+            label={`Phiên bản v${quote.current_version}`}
+          />
+          <StatusBadge
+            status={
+              quote.status === 'CONVERTED'
+                ? 'success'
+                : quote.status === 'FINALIZED'
+                  ? 'warning'
+                  : 'muted'
+            }
+            label={QUOTE_STATUS_LABELS[quote.status] || quote.status}
+          />
+        </div>
+      </div>
+
+      {/* Executive Summary & Action Card */}
       <div style={cardStyle}>
         <div
           style={{
@@ -129,62 +172,40 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
             justifyContent: 'space-between',
             alignItems: 'flex-start',
             flexWrap: 'wrap',
-            gap: '10px',
-            marginBottom: '12px',
+            gap: '16px',
+            marginBottom: '16px',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div>
-              <button
-                type="button"
-                data-testid="pq-detail-back-btn"
-                onClick={onBackToList}
-                style={{
-                  minHeight: '44px',
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-color)',
-                  color: 'var(--text-color)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                ← Danh sách báo giá
-              </button>
-            </div>
+          <div style={{ flex: '1 1 280px', minWidth: 0 }}>
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                flexWrap: 'wrap',
-                marginTop: '4px',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                color: 'var(--accent-text)',
+                letterSpacing: '0.03em',
+                marginBottom: '4px',
               }}
             >
-              <strong style={{ fontSize: '17px', color: 'var(--accent-text)' }}>
-                {quote.quote_code}
-              </strong>
-              <StatusBadge
-                status="neutral"
-                label={`Phiên bản v${quote.current_version}`}
-              />
-              <StatusBadge
-                status={
-                  quote.status === 'CONVERTED'
-                    ? 'success'
-                    : quote.status === 'FINALIZED'
-                      ? 'warning'
-                      : 'muted'
-                }
-                label={QUOTE_STATUS_LABELS[quote.status] || quote.status}
-              />
-              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
-                {quote.title}
-              </h2>
+              {quote.quote_code}
             </div>
-            <div style={{ fontSize: '12.5px', color: 'var(--muted-color)' }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: '20px',
+                fontWeight: 800,
+                lineHeight: 1.3,
+              }}
+            >
+              {quote.title}
+            </h1>
+            <div
+              style={{
+                fontSize: '13px',
+                color: 'var(--muted-color)',
+                marginTop: '6px',
+                lineHeight: 1.5,
+              }}
+            >
               Khách hàng:{' '}
               <strong style={{ color: 'var(--text-color)' }}>
                 {quote.customer_name || customer?.name || 'Khách lẻ'}
@@ -199,212 +220,113 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
             </div>
           </div>
 
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: '10px',
-              backgroundColor: 'var(--accent-soft)',
-              border: '1px solid var(--accent-text)',
-              textAlign: 'right',
-            }}
-          >
-            <div style={{ fontSize: '12px', color: 'var(--accent-text)' }}>
-              Tổng báo khách
-            </div>
+          <div className="pq-hero-total-box">
+            <div className="pq-hero-total-label">Tổng thanh toán báo khách</div>
             <div
               data-testid="pq-detail-total-quote"
-              style={{
-                fontSize: '18px',
-                fontWeight: 800,
-                color: 'var(--accent-text)',
-              }}
+              className="pq-hero-total-amount"
+              style={tabularNumStyle}
             >
               {formatVnd(quote.total_quote_amount)}
             </div>
           </div>
         </div>
 
-        {/* Action Toolbar */}
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '8px',
-            paddingTop: '12px',
-            borderTop: '1px solid var(--border-color)',
-          }}
-        >
-          <button
-            type="button"
-            data-testid="pq-detail-download-pdf-btn"
-            onClick={() => onDownloadSavedPdf(quote.id, quote.quote_code)}
-            style={{
-              minHeight: '44px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: 'var(--primary-color)',
-              color: 'var(--inverse-text)',
-              fontWeight: 800,
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            ⬇️ Tải PDF ({quote.quote_code}.pdf)
-          </button>
-
-          <button
-            type="button"
-            data-testid="pq-detail-print-btn"
-            onClick={() => onPrintWindow(a4Html)}
-            style={{
-              minHeight: '44px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              border: '1px solid var(--accent-text)',
-              backgroundColor: 'var(--accent-soft)',
-              color: 'var(--accent-text)',
-              fontWeight: 700,
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            🖨️ Mở cửa sổ In A4
-          </button>
-
-          <button
-            type="button"
-            data-testid="pq-detail-preview-modal-btn"
-            onClick={() => onOpenFullPreview(quote)}
-            style={{
-              minHeight: '44px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--bg-color)',
-              color: 'var(--text-color)',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            👁️ Xem rộng PDF A4
-          </button>
-
-          {canEditInPlace ? (
+        {/* Structured Action Toolbar */}
+        <div className="pq-quote-card-actions">
+          <div className="pq-action-group-left">
             <button
               type="button"
-              data-testid="pq-detail-edit-btn"
-              onClick={() => onEditQuote(quote)}
-              style={{
-                minHeight: '44px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-color)',
-                color: 'var(--text-color)',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
+              data-testid="pq-detail-download-pdf-btn"
+              onClick={() => onDownloadSavedPdf(quote.id, quote.quote_code)}
+              className="pq-btn pq-btn-primary"
             >
-              ✏️ Sửa báo giá (Tạo v{quote.current_version + 1})
+              <PqDownloadIcon size={15} />
+              <span>Tải PDF ({quote.quote_code}.pdf)</span>
             </button>
-          ) : (
-            <button
-              type="button"
-              data-testid="pq-detail-clone-btn"
-              onClick={() => onCloneQuoteAsNew(quote)}
-              style={{
-                minHeight: '44px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--accent-text)',
-                backgroundColor: 'var(--bg-color)',
-                color: 'var(--accent-text)',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              📋 Tạo báo giá mới từ bản này
-            </button>
-          )}
 
-          {quote.status === 'DRAFT' && (
             <button
               type="button"
-              data-testid="pq-detail-finalize-btn"
-              onClick={() => onFinalizeQuote(quote.id)}
-              style={{
-                minHeight: '44px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-color)',
-                color: 'var(--text-color)',
-                fontWeight: 600,
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
+              data-testid="pq-detail-print-btn"
+              onClick={() => onPrintWindow(a4Html)}
+              className="pq-btn pq-btn-accent"
             >
-              🔒 Chốt báo giá
+              <PqPrinterIcon size={15} />
+              <span>In A4</span>
             </button>
-          )}
 
-          {quote.status !== 'CONVERTED' && quote.status !== 'CANCELLED' ? (
             <button
               type="button"
-              data-testid="pq-detail-convert-btn"
-              onClick={() => onConvertQuoteToOrder(quote)}
-              style={{
-                minHeight: '44px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: 'var(--success-color)',
-                color: 'var(--inverse-text)',
-                fontWeight: 800,
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
+              data-testid="pq-detail-preview-modal-btn"
+              onClick={() => onOpenFullPreview(quote)}
+              className="pq-btn pq-btn-secondary"
             >
-              📦 Chuyển thành Đơn đặt in
+              <PqEyeIcon size={15} />
+              <span>Xem rộng A4</span>
             </button>
-          ) : quote.status === 'CONVERTED' ? (
-            <span
-              data-testid="pq-detail-converted-badge"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                minHeight: '44px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-color)',
-                color: 'var(--success-text)',
-                fontWeight: 700,
-                fontSize: '12.5px',
-              }}
-            >
-              ✓ Đã chuyển sang Đơn đặt in
-            </span>
-          ) : null}
+
+            {canEditInPlace ? (
+              <button
+                type="button"
+                data-testid="pq-detail-edit-btn"
+                onClick={() => onEditQuote(quote)}
+                className="pq-btn pq-btn-secondary"
+              >
+                <PqEditIcon size={15} />
+                <span>Sửa báo giá (v{quote.current_version + 1})</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-testid="pq-detail-clone-btn"
+                onClick={() => onCloneQuoteAsNew(quote)}
+                className="pq-btn pq-btn-secondary"
+              >
+                <PqCopyIcon size={15} />
+                <span>Tạo báo giá mới từ bản này</span>
+              </button>
+            )}
+
+            {quote.status === 'DRAFT' && (
+              <button
+                type="button"
+                data-testid="pq-detail-finalize-btn"
+                onClick={() => onFinalizeQuote(quote.id)}
+                className="pq-btn pq-btn-ghost"
+              >
+                <PqLockIcon size={15} />
+                <span>Chốt báo giá</span>
+              </button>
+            )}
+          </div>
+
+          <div className="pq-action-group-right">
+            {quote.status !== 'CONVERTED' && quote.status !== 'CANCELLED' ? (
+              <button
+                type="button"
+                data-testid="pq-detail-convert-btn"
+                onClick={() => onConvertQuoteToOrder(quote)}
+                className="pq-btn pq-btn-success"
+              >
+                <PqPackageIcon size={15} />
+                <span>Chuyển thành Đơn đặt in</span>
+              </button>
+            ) : quote.status === 'CONVERTED' ? (
+              <span
+                data-testid="pq-detail-converted-badge"
+                className="pq-converted-pill"
+              >
+                <PqCheckIcon size={14} />
+                <span>Đã chuyển sang Đơn đặt in</span>
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      {/* Main Responsive Split: Customer-Safe A4 Preview + Owner Internal Breakdown */}
-      <div
-        className="pq-detail-split-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
-          gap: '14px',
-          alignItems: 'start',
-        }}
-      >
-        {/* Customer-Safe A4 Preview */}
+      {/* Main Split: Elevated A4 Paper Preview + Owner Internal Breakdown */}
+      <div className="pq-detail-split-layout">
+        {/* Customer-Safe A4 Preview Stage */}
         <div style={cardStyle} data-testid="pq-detail-a4-card">
           <div
             style={{
@@ -413,36 +335,41 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
               alignItems: 'center',
               flexWrap: 'wrap',
               gap: '8px',
-              marginBottom: '10px',
+              marginBottom: '12px',
             }}
           >
-            <div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
-                📄 Bản xem trước PDF A4 gửi khách
-              </h3>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                Ẩn tuyệt đối 100% giá gốc nhà in và lợi nhuận nội bộ
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <PqFileTextIcon
+                size={18}
+                style={{ color: 'var(--accent-text)' }}
+              />
+              <div>
+                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
+                  Bản xem trước PDF A4 gửi khách
+                </h2>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  Ẩn tuyệt đối 100% giá gốc nhà in và lợi nhuận nội bộ
+                </div>
               </div>
             </div>
-            <StatusBadge status="success" label="An toàn gửi khách" />
+            <span className="pq-safe-pill">
+              <PqShieldIcon size={13} />
+              <span>An toàn gửi khách</span>
+            </span>
           </div>
 
-          <iframe
-            title={`Bản xem trước A4 ${quote.quote_code}`}
-            srcDoc={a4Html}
-            style={{
-              width: '100%',
-              height: '580px',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              backgroundColor: '#FFFFFF',
-            }}
-          />
+          <div className="pq-a4-stage">
+            <iframe
+              title={`Bản xem trước A4 ${quote.quote_code}`}
+              srcDoc={a4Html}
+              className="pq-a4-iframe"
+            />
+          </div>
         </div>
 
         {/* Owner Internal Breakdown & Version History */}
         <div
-          style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
           data-testid="pq-detail-internal-card"
         >
           <div style={cardStyle}>
@@ -452,146 +379,102 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 gap: '8px',
-                marginBottom: '12px',
-              }}
-            >
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
-                🔒 Bóc tách nội bộ (Chỉ Chủ sở hữu thấy)
-              </h3>
-              <StatusBadge status="neutral" label="Nội bộ Owner" />
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 135px), 1fr))',
-                gap: '8px',
-                marginBottom: '12px',
+                marginBottom: '14px',
               }}
             >
               <div
-                style={{
-                  padding: '10px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--bg-color)',
-                  border: '1px solid var(--border-color)',
-                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '7px' }}
               >
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Giá vốn nhà in
-                </div>
-                <strong style={{ fontSize: '14.5px' }}>
+                <PqLockIcon size={16} style={{ color: 'var(--muted-color)' }} />
+                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
+                  Bóc tách nội bộ
+                </h2>
+              </div>
+              <StatusBadge status="neutral" label="Chỉ Chủ sở hữu" />
+            </div>
+
+            <div className="pq-internal-kpi-grid">
+              <div className="pq-kpi-mini-card">
+                <div className="pq-kpi-mini-label">Giá vốn nhà in</div>
+                <strong className="pq-kpi-mini-val" style={tabularNumStyle}>
                   {formatVnd(quote.total_vendor_cost)}
                 </strong>
               </div>
-              <div
-                style={{
-                  padding: '10px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--bg-color)',
-                  border: '1px solid var(--border-color)',
-                }}
-              >
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Lợi nhuận dự kiến
-                </div>
+              <div className="pq-kpi-mini-card">
+                <div className="pq-kpi-mini-label">Lợi nhuận dự kiến</div>
                 <strong
-                  style={{ fontSize: '14.5px', color: 'var(--success-text)' }}
+                  className="pq-kpi-mini-val"
+                  style={{ ...tabularNumStyle, color: 'var(--success-text)' }}
                 >
                   +{formatVnd(quote.total_profit)}
                 </strong>
               </div>
-              <div
-                style={{
-                  padding: '10px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--bg-color)',
-                  border: '1px solid var(--border-color)',
-                }}
-              >
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Phí giao hàng (1 lần)
-                </div>
-                <strong style={{ fontSize: '14.5px' }}>
+              <div className="pq-kpi-mini-card">
+                <div className="pq-kpi-mini-label">Phí giao hàng</div>
+                <strong className="pq-kpi-mini-val" style={tabularNumStyle}>
                   {formatVnd(quote.shipping_fee)}
                 </strong>
               </div>
             </div>
 
             {quote.lines_json && quote.lines_json.length > 0 && (
-              <div style={{ overflowX: 'auto' }}>
-                <table
-                  style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    fontSize: '12.5px',
-                  }}
-                >
+              <div style={{ overflowX: 'auto', marginTop: '14px' }}>
+                <table className="pq-table">
                   <thead>
-                    <tr
-                      style={{
-                        borderBottom: '1px solid var(--border-color)',
-                        color: 'var(--muted-color)',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <th style={{ padding: '6px' }}>Sản phẩm</th>
-                      <th style={{ padding: '6px', textAlign: 'right' }}>
-                        Giá vốn
-                      </th>
-                      <th style={{ padding: '6px', textAlign: 'right' }}>
-                        Lời
-                      </th>
-                      <th style={{ padding: '6px', textAlign: 'right' }}>
-                        Thành tiền khách
-                      </th>
+                    <tr>
+                      <th>Sản phẩm</th>
+                      <th style={{ textAlign: 'right' }}>Giá vốn</th>
+                      <th style={{ textAlign: 'right' }}>Tiền lời</th>
+                      <th style={{ textAlign: 'right' }}>Báo khách</th>
                     </tr>
                   </thead>
                   <tbody>
                     {quote.lines_json.map((line) => (
-                      <tr
-                        key={line.id}
-                        style={{
-                          borderBottom: '1px solid var(--border-color)',
-                        }}
-                      >
-                        <td style={{ padding: '6px', fontWeight: 600 }}>
-                          <div>
-                            {line.name} ({formatNumberVn(line.quantity)}{' '}
-                            {line.unit || 'tờ'})
+                      <tr key={line.id}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>
+                            {line.name}{' '}
+                            <span
+                              style={{
+                                color: 'var(--muted-color)',
+                                fontWeight: 500,
+                              }}
+                            >
+                              ({formatNumberVn(line.quantity)}{' '}
+                              {line.unit || 'tờ'})
+                            </span>
                           </div>
                           {line.specification && (
                             <div
                               style={{
                                 fontSize: '12px',
                                 color: 'var(--muted-color)',
-                                fontWeight: 400,
+                                marginTop: '2px',
                               }}
                             >
                               {line.specification}
                             </div>
                           )}
                         </td>
-                        <td style={{ padding: '6px', textAlign: 'right' }}>
+                        <td style={{ textAlign: 'right', ...tabularNumStyle }}>
                           {formatVnd(line.totalVendorCost)}
                         </td>
                         <td
                           style={{
-                            padding: '6px',
                             textAlign: 'right',
                             color: 'var(--success-text)',
                             fontWeight: 600,
+                            ...tabularNumStyle,
                           }}
                         >
                           +{formatVnd(line.totalProfit)}
                         </td>
                         <td
                           style={{
-                            padding: '6px',
                             textAlign: 'right',
                             fontWeight: 700,
                             color: 'var(--accent-text)',
+                            ...tabularNumStyle,
                           }}
                         >
                           {formatVnd(line.reconciledLineTotal)}
@@ -604,51 +487,53 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
             )}
           </div>
 
-          {/* Version History */}
+          {/* Immutable Version History */}
           <div style={cardStyle}>
-            <h3
+            <div
               style={{
-                margin: '0 0 10px',
-                fontSize: '14.5px',
-                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                marginBottom: '12px',
               }}
             >
-              📜 Lịch sử phiên bản bất biến (
-              {quote.versions?.length || quote.current_version})
-            </h3>
+              <PqHistoryIcon
+                size={16}
+                style={{ color: 'var(--muted-color)' }}
+              />
+              <h2 style={{ margin: 0, fontSize: '14.5px', fontWeight: 700 }}>
+                Lịch sử phiên bản bất biến (
+                {quote.versions?.length || quote.current_version})
+              </h2>
+            </div>
+
             {quote.versions && quote.versions.length > 0 ? (
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '8px',
-                  fontSize: '12.5px',
                 }}
               >
                 {quote.versions.map((ver) => (
-                  <div
-                    key={ver.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '8px',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--bg-color)',
-                      border: '1px solid var(--border-color)',
-                    }}
-                  >
-                    <span>
+                  <div key={ver.id} className="pq-version-card">
+                    <div>
                       <strong>v{ver.version_number}</strong> —{' '}
-                      {ver.change_note || 'Lưu phiên bản'} (
-                      {formatDateVn(ver.created_at)})
-                    </span>
-                    <span>
-                      Vốn: {formatVnd(ver.total_vendor_cost)} | Lời: +
-                      {formatVnd(ver.total_profit)} | Tổng:{' '}
-                      <strong>{formatVnd(ver.total_quote_amount)}</strong>
-                    </span>
+                      {ver.change_note || 'Lưu phiên bản'}{' '}
+                      <span style={{ color: 'var(--muted-color)' }}>
+                        ({formatDateVn(ver.created_at)})
+                      </span>
+                    </div>
+                    <div style={{ ...tabularNumStyle, fontSize: '12px' }}>
+                      Vốn: {formatVnd(ver.total_vendor_cost)} • Lời:{' '}
+                      <span style={{ color: 'var(--success-text)' }}>
+                        +{formatVnd(ver.total_profit)}
+                      </span>{' '}
+                      • Tổng:{' '}
+                      <strong style={{ color: 'var(--accent-text)' }}>
+                        {formatVnd(ver.total_quote_amount)}
+                      </strong>
+                    </div>
                   </div>
                 ))}
               </div>

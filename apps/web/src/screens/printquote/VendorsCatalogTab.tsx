@@ -9,9 +9,16 @@ import {
   formatVnd,
   parseNumericDraftValue,
 } from '../helpers/printquote-helpers.js';
-import { cardStyle, inputStyle, labelStyle } from './types.js';
+import { cardStyle, inputStyle, labelStyle, tabularNumStyle } from './types.js';
 import { NumericDraftInput } from './NumericDraftInput.js';
 import { CatalogModalDialog } from './CatalogModalDialog.js';
+import {
+  PqLockIcon,
+  PqPlusIcon,
+  PqSearchIcon,
+  PqStoreIcon,
+  PqTagIcon,
+} from './PrintQuoteIcons.js';
 
 export interface VendorsCatalogTabProps {
   mode: 'prices' | 'vendors';
@@ -189,78 +196,98 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
 
   if (mode === 'vendors') {
     return (
-      <div style={cardStyle} data-testid="panel-catalog-vendors">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '8px',
-            marginBottom: '12px',
-          }}
-        >
+      <div
+        data-testid="panel-catalog-vendors"
+        style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+      >
+        <div className="pq-page-head">
           <div>
-            <h2
-              style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700 }}
-            >
-              Danh sách Nhà in đối tác ({vendors.length})
-            </h2>
-            <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-              Lưu thông tin liên hệ và tài khoản thanh toán của các xưởng in đối
-              tác
-            </div>
+            <h1 className="pq-page-title">Nhà in đối tác ({vendors.length})</h1>
+            <p className="pq-page-subtitle">
+              Lưu thông tin liên hệ và tài khoản ngân hàng của các xưởng in gia
+              công
+            </p>
           </div>
 
           <button
             type="button"
             data-testid="pq-open-vendor-dialog-btn"
             onClick={() => setIsVendorDialogOpen(true)}
-            style={{
-              minHeight: '44px',
-              padding: '10px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: 'var(--primary-color)',
-              color: 'var(--inverse-text)',
-              fontWeight: 800,
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
+            className="pq-btn pq-btn-primary pq-btn-cta"
           >
-            + Thêm nhà in
+            <PqPlusIcon size={15} />
+            <span>Thêm nhà in</span>
           </button>
         </div>
 
-        <div style={{ marginBottom: '14px', maxWidth: '380px' }}>
-          <label htmlFor="pq-vendor-search-input" style={labelStyle}>
-            Tìm kiếm nhà in
-          </label>
-          <input
-            id="pq-vendor-search-input"
-            type="search"
-            style={inputStyle}
-            placeholder="Tìm mã, tên xưởng in, SĐT hoặc ngân hàng…"
-            value={vendorSearch}
-            onChange={(e) => setVendorSearch(e.target.value)}
-          />
+        <div className="pq-toolbar-card">
+          <div className="pq-search-wrap" style={{ maxWidth: '420px' }}>
+            <PqSearchIcon size={15} className="pq-search-icon" />
+            <input
+              id="pq-vendor-search-input"
+              type="search"
+              aria-label="Tìm kiếm nhà in"
+              style={{ ...inputStyle, paddingLeft: '36px', minHeight: '40px' }}
+              placeholder="Tìm mã, tên xưởng in, SĐT hoặc ngân hàng…"
+              value={vendorSearch}
+              onChange={(e) => setVendorSearch(e.target.value)}
+            />
+          </div>
         </div>
 
         {filteredVendors.length === 0 ? (
           <div
             style={{
-              padding: '24px',
+              ...cardStyle,
+              padding: '40px 24px',
               textAlign: 'center',
-              color: 'var(--muted-color)',
-              fontSize: '13.5px',
             }}
           >
-            {vendors.length === 0
-              ? 'Chưa có nhà in đối tác nào. Bấm "+ Thêm nhà in" để tạo hồ sơ xưởng in đầu tiên.'
-              : 'Không tìm thấy nhà in phù hợp với từ khóa.'}
+            {vendors.length === 0 ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '12px',
+                  maxWidth: '400px',
+                  margin: '0 auto',
+                }}
+              >
+                <div className="pq-empty-icon-ring">
+                  <PqStoreIcon size={24} />
+                </div>
+                <div style={{ fontWeight: 700, fontSize: '15px' }}>
+                  Chưa có nhà in đối tác
+                </div>
+                <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
+                  Tạo hồ sơ xưởng in để quản lý bảng giá gốc và thông tin thanh
+                  toán đơn hàng.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsVendorDialogOpen(true)}
+                  className="pq-btn pq-btn-primary"
+                >
+                  <PqPlusIcon size={15} />
+                  <span>Thêm nhà in đầu tiên</span>
+                </button>
+              </div>
+            ) : (
+              <div style={{ color: 'var(--muted-color)', fontSize: '13.5px' }}>
+                Không tìm thấy nhà in phù hợp với từ khóa.
+              </div>
+            )}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+              gap: '12px',
+            }}
+          >
             {filteredVendors.map((v) => {
               const vendorPriceCount = priceItems.filter(
                 (p) => p.vendor_id === v.id,
@@ -269,40 +296,45 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 <div
                   key={v.id}
                   data-testid={`vendor-row-${v.code}`}
+                  className="pq-quote-card"
                   style={{
-                    padding: '12px',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    fontSize: '13px',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    gap: '10px',
+                    gap: '12px',
                     flexWrap: 'wrap',
                   }}
                 >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '14px' }}>
-                      <span style={{ color: 'var(--accent-text)' }}>
-                        {v.code}
-                      </span>{' '}
-                      — {v.name}
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span className="pq-code-pill">{v.code}</span>
+                      <strong style={{ fontSize: '14.5px' }}>{v.name}</strong>
                     </div>
                     <div
                       style={{
                         fontSize: '12.5px',
                         color: 'var(--muted-color)',
-                        marginTop: '2px',
+                        marginTop: '5px',
                       }}
                     >
-                      SĐT: {v.phone || '—'} • NH: {v.bank_name || '—'}{' '}
+                      SĐT:{' '}
+                      <strong style={{ color: 'var(--text-color)' }}>
+                        {v.phone || '—'}
+                      </strong>{' '}
+                      • NH: {v.bank_name || '—'}{' '}
                       {v.bank_account_number
                         ? `(${v.bank_account_number})`
-                        : ''}{' '}
-                      • {vendorPriceCount} hạng mục giá
+                        : ''}
                     </div>
                   </div>
+
                   {onNavigateCatalogSubPage && (
                     <button
                       type="button"
@@ -310,19 +342,10 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                         setFilterVendorId(v.id);
                         onNavigateCatalogSubPage('prices');
                       }}
-                      style={{
-                        minHeight: '44px',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-color)',
-                        backgroundColor: 'var(--surface-color)',
-                        color: 'var(--text-color)',
-                        fontSize: '12.5px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
+                      className="pq-btn pq-btn-secondary"
                     >
-                      Xem bảng giá ({vendorPriceCount}) →
+                      <PqTagIcon size={14} />
+                      <span>Bảng giá ({vendorPriceCount})</span>
                     </button>
                   )}
                 </div>
@@ -340,7 +363,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
         >
           <form
             onSubmit={handleVendorDialogSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
           >
             <div>
               <label htmlFor="pq-dialog-vendor-name" style={labelStyle}>
@@ -350,7 +373,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 id="pq-dialog-vendor-name"
                 aria-label="Tên nhà in"
                 style={inputStyle}
-                placeholder="VD: Xưởng In Nhanh Sài Gòn"
+                placeholder="VD: Xưởng In Nhanh Sài Gòn…"
                 value={vendorName}
                 onChange={(e) => setVendorName(e.target.value)}
                 required
@@ -362,7 +385,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 display: 'grid',
                 gridTemplateColumns:
                   'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-                gap: '10px',
+                gap: '12px',
               }}
             >
               <div>
@@ -375,7 +398,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                   type="tel"
                   inputMode="tel"
                   style={inputStyle}
-                  placeholder="VD: 0909111222"
+                  placeholder="VD: 0909111222…"
                   value={vendorPhone}
                   onChange={(e) => setVendorPhone(e.target.value)}
                 />
@@ -389,7 +412,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                   id="pq-dialog-vendor-bank"
                   aria-label="Ngân hàng nhà in"
                   style={inputStyle}
-                  placeholder="VD: Vietcombank"
+                  placeholder="VD: Vietcombank…"
                   value={vendorBankName}
                   onChange={(e) => setVendorBankName(e.target.value)}
                 />
@@ -404,7 +427,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 id="pq-dialog-vendor-account"
                 aria-label="Số tài khoản nhà in"
                 style={inputStyle}
-                placeholder="VD: 0071000888999"
+                placeholder="VD: 0071000888999…"
                 value={vendorBankAccount}
                 onChange={(e) => setVendorBankAccount(e.target.value)}
               />
@@ -421,16 +444,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsVendorDialogOpen(false)}
-                style={{
-                  minHeight: '44px',
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-color)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="pq-btn pq-btn-secondary"
               >
                 Hủy
               </button>
@@ -438,18 +452,9 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 type="submit"
                 data-testid="pq-submit-vendor-btn"
                 disabled={submitting}
-                style={{
-                  minHeight: '44px',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: 'var(--primary-color)',
-                  color: 'var(--inverse-text)',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                }}
+                className="pq-btn pq-btn-primary"
               >
-                {submitting ? 'Đang lưu…' : '+ Lưu Nhà in'}
+                {submitting ? 'Đang lưu…' : 'Lưu nhà in'}
               </button>
             </div>
           </form>
@@ -459,30 +464,24 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
   }
 
   return (
-    <div style={cardStyle} data-testid="panel-catalog-prices">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '8px',
-          marginBottom: '8px',
-        }}
-      >
+    <div
+      data-testid="panel-catalog-prices"
+      style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+    >
+      <div className="pq-page-head">
         <div>
-          <h2 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700 }}>
-            Bảng giá gốc Nhà in ({priceItems.length})
-          </h2>
+          <h1 className="pq-page-title">
+            Bảng giá gốc nhà in ({priceItems.length})
+          </h1>
           <p
-            style={{
-              margin: 0,
-              fontSize: '12px',
-              color: 'var(--muted-color)',
-            }}
+            className="pq-page-subtitle"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            🔒 Khi thêm hoặc cập nhật bảng giá tại đây, các báo giá và đơn hàng
-            cũ đã lưu trước đó giữ nguyên 100%, không bị tự động đổi giá.
+            <PqLockIcon size={13} />
+            <span>
+              Cập nhật bảng giá tại đây không làm thay đổi các báo giá & đơn
+              hàng đã lưu trước đó
+            </span>
           </p>
         </div>
 
@@ -495,55 +494,45 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
             }
             setIsPriceDialogOpen(true);
           }}
-          style={{
-            minHeight: '44px',
-            padding: '10px 16px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: 'var(--primary-color)',
-            color: 'var(--inverse-text)',
-            fontWeight: 800,
-            fontSize: '13px',
-            cursor: 'pointer',
-          }}
+          className="pq-btn pq-btn-primary pq-btn-cta"
         >
-          + Thêm bảng giá
+          <PqPlusIcon size={15} />
+          <span>Thêm bảng giá</span>
         </button>
       </div>
 
-      {/* Search & Vendor Filter Bar */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '8px',
-          flexWrap: 'wrap',
-          alignItems: 'flex-end',
-          marginBottom: '14px',
-          marginTop: '12px',
-        }}
-      >
-        <div style={{ flex: '1 1 220px', maxWidth: '360px' }}>
-          <label htmlFor="pq-price-search-input" style={labelStyle}>
-            Tìm hạng mục bảng giá
-          </label>
+      {/* Unified Search & Vendor Filter Bar */}
+      <div className="pq-toolbar-card">
+        <div className="pq-search-wrap" style={{ flex: '1 1 240px' }}>
+          <PqSearchIcon size={15} className="pq-search-icon" />
           <input
             id="pq-price-search-input"
             type="search"
             aria-label="Tìm kiếm hạng mục bảng giá"
-            style={inputStyle}
+            style={{ ...inputStyle, paddingLeft: '36px', minHeight: '40px' }}
             placeholder="Tìm tên ấn phẩm, quy cách hoặc tên nhà in…"
             value={catalogSearch}
             onChange={(e) => setCatalogSearch(e.target.value)}
           />
         </div>
 
-        <div style={{ flex: '0 1 220px', minWidth: '170px' }}>
-          <label htmlFor="pq-price-vendor-filter" style={labelStyle}>
-            Lọc theo nhà in
-          </label>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+          }}
+        >
           <select
             id="pq-price-vendor-filter"
-            style={inputStyle}
+            aria-label="Lọc theo nhà in"
+            style={{
+              ...inputStyle,
+              minHeight: '40px',
+              width: 'auto',
+              minWidth: '190px',
+            }}
             value={filterVendorId}
             onChange={(e) => setFilterVendorId(e.target.value)}
           >
@@ -554,90 +543,121 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
               </option>
             ))}
           </select>
-        </div>
 
-        {filterVendorId !== 'ALL' && (
-          <button
-            type="button"
-            onClick={() => setFilterVendorId('ALL')}
-            style={{
-              minHeight: '44px',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--surface-color)',
-              color: 'var(--text-color)',
-              fontSize: '12.5px',
-              cursor: 'pointer',
-            }}
-          >
-            ✕ Bỏ lọc nhà in
-          </button>
-        )}
+          {filterVendorId !== 'ALL' && (
+            <button
+              type="button"
+              onClick={() => setFilterVendorId('ALL')}
+              className="pq-btn pq-btn-ghost"
+            >
+              Bỏ lọc
+            </button>
+          )}
+        </div>
       </div>
 
       {filteredPriceItems.length === 0 ? (
         <div
           style={{
-            padding: '24px',
+            ...cardStyle,
+            padding: '40px 24px',
             textAlign: 'center',
-            color: 'var(--muted-color)',
-            fontSize: '13.5px',
           }}
         >
-          {priceItems.length === 0
-            ? 'Chưa có hạng mục bảng giá nào. Bấm "+ Thêm bảng giá" để lưu đơn giá gốc của nhà in.'
-            : 'Không tìm thấy hạng mục bảng giá phù hợp.'}
+          {priceItems.length === 0 ? (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px',
+                maxWidth: '420px',
+                margin: '0 auto',
+              }}
+            >
+              <div className="pq-empty-icon-ring">
+                <PqTagIcon size={24} />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '15px' }}>
+                Chưa có hạng mục bảng giá
+              </div>
+              <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
+                Lưu đơn giá gốc của nhà in và mức lời mặc định để chọn 1 chạm
+                khi lập báo giá.
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!priceVendorId && vendors[0]) {
+                    setPriceVendorId(vendors[0].id);
+                  }
+                  setIsPriceDialogOpen(true);
+                }}
+                className="pq-btn pq-btn-primary"
+              >
+                <PqPlusIcon size={15} />
+                <span>Thêm hạng mục đầu tiên</span>
+              </button>
+            </div>
+          ) : (
+            <div style={{ color: 'var(--muted-color)', fontSize: '13.5px' }}>
+              Không tìm thấy hạng mục bảng giá phù hợp.
+            </div>
+          )}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {filteredPriceItems.map((p) => (
             <div
               key={p.id}
               data-testid={`price-item-row-${p.code}`}
+              className="pq-quote-card"
               style={{
-                padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-color)',
-                fontSize: '13px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: '10px',
+                gap: '12px',
               }}
             >
-              <div>
-                <strong>
-                  <span style={{ color: 'var(--accent-text)' }}>{p.code}</span>{' '}
-                  — {p.name}
-                </strong>{' '}
-                <span style={{ color: 'var(--muted-color)' }}>
-                  ({p.vendor_name || 'Nhà in'}) • v{p.version}
-                </span>
+              <div style={{ minWidth: 0, flex: '1 1 240px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span className="pq-code-pill">{p.code}</span>
+                  <strong style={{ fontSize: '14.5px' }}>{p.name}</strong>
+                  <span className="pq-version-pill">
+                    {p.vendor_name || 'Nhà in'} • v{p.version}
+                  </span>
+                </div>
                 {p.specification && (
                   <div
                     style={{
                       color: 'var(--muted-color)',
-                      fontSize: '12px',
-                      marginTop: '2px',
+                      fontSize: '12.5px',
+                      marginTop: '4px',
                     }}
                   >
                     Quy cách: {p.specification}
                   </div>
                 )}
               </div>
+
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
+                  gap: '14px',
                   flexWrap: 'wrap',
                 }}
               >
-                <div style={{ textAlign: 'right' }}>
-                  <div>
+                <div style={{ textAlign: 'right', ...tabularNumStyle }}>
+                  <div style={{ fontSize: '13.5px' }}>
                     Giá vốn:{' '}
                     <strong>
                       {p.pricing_mode === 'TOTAL_BATCH'
@@ -646,7 +666,12 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                     </strong>
                   </div>
                   <div
-                    style={{ color: 'var(--success-text)', fontSize: '12px' }}
+                    style={{
+                      color: 'var(--success-text)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      marginTop: '2px',
+                    }}
                   >
                     Lời mặc định:{' '}
                     {p.default_profit_mode === 'PERCENTAGE'
@@ -654,24 +679,16 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                       : formatVnd(p.default_profit_value)}
                   </div>
                 </div>
+
                 {onQuickQuotePriceItem && (
                   <button
                     type="button"
                     data-testid={`pq-quick-quote-price-${p.code}`}
                     onClick={() => onQuickQuotePriceItem(p)}
-                    style={{
-                      minHeight: '44px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--accent-text)',
-                      backgroundColor: 'var(--accent-soft)',
-                      color: 'var(--accent-text)',
-                      fontSize: '12.5px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
+                    className="pq-btn pq-btn-accent"
                   >
-                    + Báo giá
+                    <PqPlusIcon size={14} />
+                    <span>Báo giá</span>
                   </button>
                 )}
               </div>
@@ -689,9 +706,9 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
       >
         {vendors.length === 0 ? (
           <div
-            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
           >
-            <div style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
+            <div style={{ fontSize: '13.5px', color: 'var(--muted-color)' }}>
               Bạn cần thêm ít nhất 1 Nhà in đối tác trước khi tạo hạng mục bảng
               giá.
             </div>
@@ -702,26 +719,18 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                   setIsPriceDialogOpen(false);
                   onNavigateCatalogSubPage('vendors');
                 }}
-                style={{
-                  minHeight: '44px',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: 'var(--primary-color)',
-                  color: 'var(--inverse-text)',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  alignSelf: 'flex-start',
-                }}
+                className="pq-btn pq-btn-primary"
+                style={{ alignSelf: 'flex-start' }}
               >
-                Chuyển sang trang Nhà in đối tác →
+                <PqStoreIcon size={15} />
+                <span>Chuyển sang trang Nhà in đối tác</span>
               </button>
             )}
           </div>
         ) : (
           <form
             onSubmit={handlePriceDialogSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
           >
             <div>
               <label htmlFor="pq-dialog-price-vendor" style={labelStyle}>
@@ -749,7 +758,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 display: 'grid',
                 gridTemplateColumns:
                   'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-                gap: '10px',
+                gap: '12px',
               }}
             >
               <div>
@@ -760,7 +769,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                   id="pq-dialog-price-name"
                   aria-label="Tên hạng mục bảng giá"
                   style={inputStyle}
-                  placeholder="VD: Tờ rơi A5 Couche 150gsm"
+                  placeholder="VD: Tờ rơi A5 Couche 150gsm…"
                   value={priceItemName}
                   onChange={(e) => setPriceItemName(e.target.value)}
                   required
@@ -775,7 +784,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                   id="pq-dialog-price-unit"
                   aria-label="Đơn vị tính bảng giá"
                   style={inputStyle}
-                  placeholder="VD: tờ, hộp, cuốn"
+                  placeholder="VD: tờ, hộp, cuốn…"
                   value={priceUnit}
                   onChange={(e) => setPriceUnit?.(e.target.value)}
                 />
@@ -790,7 +799,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 id="pq-dialog-price-spec"
                 aria-label="Quy cách in bảng giá"
                 style={inputStyle}
-                placeholder="VD: In Offset 4 màu, 2 mặt, cán bóng"
+                placeholder="VD: In Offset 4 màu, 2 mặt, cán bóng…"
                 value={priceSpec}
                 onChange={(e) => setPriceSpec(e.target.value)}
               />
@@ -801,7 +810,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 display: 'grid',
                 gridTemplateColumns:
                   'repeat(auto-fit, minmax(min(100%, 160px), 1fr))',
-                gap: '10px',
+                gap: '12px',
               }}
             >
               <div>
@@ -918,16 +927,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsPriceDialogOpen(false)}
-                style={{
-                  minHeight: '44px',
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-color)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="pq-btn pq-btn-secondary"
               >
                 Hủy
               </button>
@@ -935,18 +935,9 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 type="submit"
                 data-testid="pq-submit-price-item-btn"
                 disabled={submitting}
-                style={{
-                  minHeight: '44px',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: 'var(--primary-color)',
-                  color: 'var(--inverse-text)',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                }}
+                className="pq-btn pq-btn-primary"
               >
-                {submitting ? 'Đang lưu…' : '+ Lưu vào Bảng giá'}
+                {submitting ? 'Đang lưu…' : 'Lưu vào Bảng giá'}
               </button>
             </div>
           </form>

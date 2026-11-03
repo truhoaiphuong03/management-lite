@@ -30,11 +30,32 @@ import {
   cardStyle,
   inputStyle,
   labelStyle,
+  tabularNumStyle,
   type DraftLineState,
   type SummaryViewMode,
 } from './types.js';
 import { NumericDraftInput } from './NumericDraftInput.js';
 import { CatalogModalDialog } from './CatalogModalDialog.js';
+import {
+  PqArrowLeftIcon,
+  PqCheckIcon,
+  PqChevronIcon,
+  PqCopyIcon,
+  PqDownloadIcon,
+  PqEditIcon,
+  PqEyeIcon,
+  PqFileTextIcon,
+  PqLockIcon,
+  PqPlusIcon,
+  PqSaveIcon,
+  PqSearchIcon,
+  PqShieldIcon,
+  PqSlidersIcon,
+  PqTagIcon,
+  PqTrashIcon,
+  PqTruckIcon,
+  PqUsersIcon,
+} from './PrintQuoteIcons.js';
 
 export interface CreateQuoteTabProps {
   editingQuoteId: string | null;
@@ -281,15 +302,25 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
   if (isLockedQuoteForEdit) {
     return (
       <div style={cardStyle} data-testid="pq-locked-quote-edit-card">
-        <h2 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700 }}>
-          Báo giá {editingQuoteCode || ''} đã khóa chỉnh sửa trực tiếp
-        </h2>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '8px',
+          }}
+        >
+          <PqLockIcon size={18} style={{ color: 'var(--accent-text)' }} />
+          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
+            Báo giá {editingQuoteCode || ''} đã khóa chỉnh sửa trực tiếp
+          </h1>
+        </div>
         <p
           style={{
-            margin: '0 0 14px',
-            fontSize: '13px',
+            margin: '0 0 16px',
+            fontSize: '13.5px',
             color: 'var(--muted-color)',
-            lineHeight: 1.5,
+            lineHeight: 1.55,
           }}
         >
           Báo giá đang ở trạng thái{' '}
@@ -303,38 +334,20 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               type="button"
               data-testid="pq-clone-locked-quote-btn"
               onClick={onCloneLockedQuote}
-              style={{
-                minHeight: '44px',
-                padding: '10px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: 'var(--primary-color)',
-                color: 'var(--inverse-text)',
-                fontWeight: 800,
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
+              className="pq-btn pq-btn-primary"
             >
-              📋 Tạo báo giá mới từ bản này
+              <PqCopyIcon size={15} />
+              <span>Tạo báo giá mới từ bản này</span>
             </button>
           )}
           <button
             type="button"
             data-testid="pq-editor-back-btn"
             onClick={onBackToQuotes}
-            style={{
-              minHeight: '44px',
-              padding: '10px 16px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              backgroundColor: 'transparent',
-              color: 'var(--text-color)',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
+            className="pq-btn pq-btn-secondary"
           >
-            ← Quay lại chi tiết báo giá
+            <PqArrowLeftIcon size={15} />
+            <span>Quay lại chi tiết báo giá</span>
           </button>
         </div>
       </div>
@@ -344,58 +357,54 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
   return (
     <div
       data-testid="panel-create-quote"
-      style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
     >
-      {/* Focused Editor Header Bar */}
-      <div
-        style={{
-          ...cardStyle,
-          padding: '12px 16px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '10px',
-        }}
-      >
+      {/* Clean Contextual Top Bar */}
+      <div className="pq-editor-topbar">
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
+            gap: '12px',
             flexWrap: 'wrap',
+            minWidth: 0,
           }}
         >
           <button
             type="button"
             data-testid="pq-editor-back-btn"
             onClick={onBackToQuotes}
-            style={{
-              minHeight: '44px',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--bg-color)',
-              color: 'var(--text-color)',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            className="pq-btn pq-btn-secondary"
           >
-            {editingQuoteId ? '← Chi tiết báo giá' : '← Báo giá'}
+            <PqArrowLeftIcon size={15} />
+            <span>{editingQuoteId ? 'Chi tiết báo giá' : 'Danh sách'}</span>
           </button>
 
-          <div>
-            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>
-              {editingQuoteId
-                ? `Sửa Báo giá ${editingQuoteCode || ''}`
-                : 'Tạo báo giá mới'}
-            </h2>
-            <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-              {editingQuoteId
-                ? `Lưu thay đổi sẽ tạo Phiên bản v${editingQuoteVersion + 1} và mở ngay trang Chi tiết báo giá`
-                : 'Sau khi lưu sẽ tự chuyển sang trang Chi tiết báo giá để kiểm tra A4 và tải PDF'}
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <h1 className="pq-page-title" style={{ fontSize: '19px' }}>
+                {editingQuoteId
+                  ? `Chỉnh sửa ${editingQuoteCode || ''}`
+                  : 'Tạo báo giá mới'}
+              </h1>
+              {editingQuoteId && (
+                <span className="pq-version-pill">
+                  Lên v{editingQuoteVersion + 1}
+                </span>
+              )}
             </div>
+            <p className="pq-page-subtitle">
+              {editingQuoteId
+                ? `Lưu thay đổi sẽ tạo phiên bản v${editingQuoteVersion + 1} và chuyển sang trang Chi tiết`
+                : 'Điền thông tin ấn phẩm bên dưới — Giá vốn & lợi nhuận được ẩn tuyệt đối trên PDF gửi khách'}
+            </p>
           </div>
         </div>
 
@@ -403,83 +412,43 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
           type="button"
           data-testid="pq-reset-draft-btn"
           onClick={onResetNewQuote}
-          style={{
-            minHeight: '44px',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            border: '1px solid var(--border-color)',
-            backgroundColor: 'transparent',
-            color: 'var(--muted-color)',
-            fontSize: '12.5px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
+          className="pq-btn pq-btn-ghost"
         >
-          {editingQuoteId ? '+ Chuyển sang Tạo mới' : '↺ Làm mới ô nhập'}
+          {editingQuoteId ? '+ Chuyển sang Tạo mới' : 'Làm mới ô nhập'}
         </button>
       </div>
 
       {/* Desktop 2-Column / Mobile 1-Column Responsive Grid */}
       <div className="pq-editor-grid">
-        {/* LEFT COLUMN: Customer + Product Lines + Shipping/Notes */}
+        {/* LEFT COLUMN: 3 Clean Numbered Cards */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '14px',
+            gap: '16px',
             minWidth: 0,
           }}
         >
           {/* 1. Customer & Quote Title */}
-          <div id="pq-sec-customer" style={cardStyle}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '8px',
-                marginBottom: '12px',
-              }}
-            >
-              <strong
-                style={{
-                  fontSize: '14px',
-                  fontWeight: 800,
-                  color: 'var(--accent-text)',
-                }}
-              >
-                1. Khách hàng & Tên báo giá
-              </strong>
+          <section id="pq-sec-customer" style={cardStyle}>
+            <div className="pq-step-header">
+              <div className="pq-step-title-group">
+                <span className="pq-step-badge">1</span>
+                <h2 className="pq-step-heading">Khách hàng & Tên báo giá</h2>
+              </div>
 
               <button
                 type="button"
                 data-testid="pq-inline-new-customer-btn"
                 onClick={() => setShowQuickCustomerModal(true)}
-                style={{
-                  minHeight: '44px',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--accent-text)',
-                  backgroundColor: 'var(--accent-soft)',
-                  color: 'var(--accent-text)',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
+                className="pq-btn pq-btn-accent"
               >
-                + Khách hàng mới
+                <PqUsersIcon size={14} />
+                <span>Thêm khách mới</span>
               </button>
             </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
-                gap: '12px',
-              }}
-            >
+            <div className="pq-customer-grid">
               <div>
                 <label style={labelStyle} htmlFor="pq-customer-select">
                   Khách hàng nhận báo giá
@@ -517,35 +486,23 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                     onMarkTouched?.();
                     onChangeQuoteTitle(e.target.value);
                   }}
-                  placeholder="VD: Báo giá in tờ rơi & hộp giấy"
+                  placeholder="VD: Báo giá in tờ rơi & hộp giấy…"
                 />
               </div>
             </div>
-          </div>
+          </section>
 
           {/* 2. Product Lines */}
-          <div id="pq-sec-products" style={cardStyle}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '8px',
-                marginBottom: '12px',
-              }}
-            >
-              <strong
-                style={{
-                  fontSize: '14px',
-                  fontWeight: 800,
-                  color: 'var(--accent-text)',
-                }}
-              >
-                2. Sản phẩm đặt in ({draftLines.length} món)
-              </strong>
+          <section id="pq-sec-products" style={cardStyle}>
+            <div className="pq-step-header">
+              <div className="pq-step-title-group">
+                <span className="pq-step-badge">2</span>
+                <h2 className="pq-step-heading">
+                  Sản phẩm đặt in ({draftLines.length} món)
+                </h2>
+              </div>
 
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {draftLines.length > 1 && (
                   <button
                     type="button"
@@ -564,21 +521,17 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                         setCollapsedLineIds(next);
                       }
                     }}
-                    style={{
-                      minHeight: '44px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
-                      backgroundColor: 'transparent',
-                      color: 'var(--muted-color)',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                    className="pq-btn pq-btn-ghost"
                   >
-                    {draftLines.every((l) => collapsedLineIds[l.id])
-                      ? '▾ Mở rộng tất cả'
-                      : '▴ Thu gọn tất cả'}
+                    <PqChevronIcon
+                      size={14}
+                      up={!draftLines.every((l) => collapsedLineIds[l.id])}
+                    />
+                    <span>
+                      {draftLines.every((l) => collapsedLineIds[l.id])
+                        ? 'Mở rộng tất cả'
+                        : 'Thu gọn tất cả'}
+                    </span>
                   </button>
                 )}
 
@@ -586,25 +539,16 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                   type="button"
                   data-testid="pq-add-line-btn"
                   onClick={handleAddProductLine}
-                  style={{
-                    minHeight: '44px',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--accent-text)',
-                    backgroundColor: 'var(--accent-soft)',
-                    color: 'var(--accent-text)',
-                    fontWeight: 700,
-                    fontSize: '12.5px',
-                    cursor: 'pointer',
-                  }}
+                  className="pq-btn pq-btn-accent"
                 >
-                  + Thêm sản phẩm in
+                  <PqPlusIcon size={14} />
+                  <span>Thêm sản phẩm</span>
                 </button>
               </div>
             </div>
 
             <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
             >
               {draftLines.map((line, idx) => {
                 const isCollapsed =
@@ -634,12 +578,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                     key={line.id}
                     data-testid={`pq-line-card-${idx}`}
                     data-collapsed={isCollapsed ? 'true' : 'false'}
-                    style={{
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '10px',
-                      padding: '12px',
-                      backgroundColor: 'var(--bg-color)',
-                    }}
+                    className="pq-product-card"
                   >
                     <div
                       data-testid={
@@ -647,14 +586,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                           ? `pq-line-collapsed-${idx}`
                           : `pq-line-header-${idx}`
                       }
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                        marginBottom: isCollapsed ? 0 : '10px',
-                      }}
+                      className="pq-product-card-head"
+                      style={{ marginBottom: isCollapsed ? 0 : '12px' }}
                     >
                       {isCollapsed ? (
                         <div
@@ -667,18 +600,15 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             minWidth: '180px',
                           }}
                         >
-                          <strong
-                            style={{
-                              fontSize: '13px',
-                              color: 'var(--accent-text)',
-                            }}
-                          >
-                            #{idx + 1}. {line.name || `Sản phẩm #${idx + 1}`}
+                          <span className="pq-code-pill">#{idx + 1}</span>
+                          <strong style={{ fontSize: '13.5px' }}>
+                            {line.name || `Sản phẩm #${idx + 1}`}
                           </strong>
                           <span
                             style={{
                               fontSize: '12px',
                               color: 'var(--muted-color)',
+                              ...tabularNumStyle,
                             }}
                           >
                             (
@@ -690,28 +620,13 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                           {calcLine && (
                             <span
                               style={{
-                                fontSize: '12px',
+                                fontSize: '12.5px',
                                 fontWeight: 700,
-                                color: 'var(--text-color)',
+                                color: 'var(--accent-text)',
+                                ...tabularNumStyle,
                               }}
                             >
-                              {calcLine.roundingAdjustment !== 0 ? (
-                                <>
-                                  • Đơn giá gộp ship:{' '}
-                                  {formatExactVnd(calcLine.rawFinalUnitPrice)}/
-                                  {line.unit || 'tờ'} (làm tròn{' '}
-                                  {formatVnd(calcLine.finalUnitPrice)}) • Thành
-                                  tiền:{' '}
-                                  {formatVnd(calcLine.reconciledLineTotal)}
-                                </>
-                              ) : (
-                                <>
-                                  • Báo khách:{' '}
-                                  {formatVnd(calcLine.finalUnitPrice)}/
-                                  {line.unit || 'tờ'} (Thành tiền:{' '}
-                                  {formatVnd(calcLine.reconciledLineTotal)})
-                                </>
-                              )}
+                              • {formatVnd(calcLine.reconciledLineTotal)}
                             </span>
                           )}
                           {calcLine && (
@@ -720,9 +635,10 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                 fontSize: '12px',
                                 fontWeight: 600,
                                 color: 'var(--success-text)',
+                                ...tabularNumStyle,
                               }}
                             >
-                              | 🔒 Lời: +{formatVnd(calcLine.totalProfit)}
+                              (Lời: +{formatVnd(calcLine.totalProfit)})
                             </span>
                           )}
                         </div>
@@ -735,30 +651,25 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             flexWrap: 'wrap',
                           }}
                         >
-                          <strong
-                            style={{
-                              fontSize: '13px',
-                              color: 'var(--accent-text)',
-                            }}
-                          >
+                          <span className="pq-code-pill">
                             Sản phẩm #{idx + 1}
-                          </strong>
+                          </span>
                           {calcLine && (
                             <span
                               style={{
-                                fontSize: '12px',
+                                fontSize: '12.5px',
                                 color: 'var(--muted-color)',
+                                ...tabularNumStyle,
                               }}
                             >
-                              • Thành tiền:{' '}
-                              <strong style={{ color: 'var(--text-color)' }}>
+                              Thành tiền:{' '}
+                              <strong style={{ color: 'var(--accent-text)' }}>
                                 {formatVnd(calcLine.reconciledLineTotal)}
                               </strong>{' '}
-                              (🔒 Lời:{' '}
+                              • Lời:{' '}
                               <strong style={{ color: 'var(--success-text)' }}>
                                 +{formatVnd(calcLine.totalProfit)}
                               </strong>
-                              )
                             </span>
                           )}
                         </div>
@@ -789,21 +700,23 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                 return { ...prev, [line.id]: true };
                               })
                             }
-                            style={{
-                              minHeight: '44px',
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              border: '1px solid var(--accent-text)',
-                              backgroundColor: isCollapsed
-                                ? 'var(--accent-soft)'
-                                : 'transparent',
-                              color: 'var(--accent-text)',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                            }}
+                            className={
+                              isCollapsed
+                                ? 'pq-btn pq-btn-accent pq-btn-sm'
+                                : 'pq-btn pq-btn-ghost pq-btn-sm'
+                            }
                           >
-                            {isCollapsed ? '✏️ Sửa' : '✓ Thu gọn'}
+                            {isCollapsed ? (
+                              <>
+                                <PqEditIcon size={13} />
+                                <span>Sửa</span>
+                              </>
+                            ) : (
+                              <>
+                                <PqChevronIcon size={13} up />
+                                <span>Thu gọn</span>
+                              </>
+                            )}
                           </button>
                         )}
 
@@ -811,19 +724,10 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                           type="button"
                           data-testid={`pq-line-duplicate-${idx}`}
                           onClick={() => handleDuplicateProductLine(idx)}
-                          style={{
-                            minHeight: '44px',
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            border: '1px solid var(--border-color)',
-                            backgroundColor: 'var(--surface-color)',
-                            color: 'var(--text-color)',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
+                          className="pq-btn pq-btn-ghost pq-btn-sm"
                         >
-                          📋 Nhân đôi
+                          <PqCopyIcon size={13} />
+                          <span>Nhân đôi</span>
                         </button>
 
                         {draftLines.length > 1 && (
@@ -831,74 +735,62 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             type="button"
                             data-testid={`pq-line-delete-${idx}`}
                             onClick={() => handleRemoveProductLine(idx)}
-                            style={{
-                              minHeight: '44px',
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              border: '1px solid var(--danger-text)',
-                              backgroundColor: 'transparent',
-                              color: 'var(--danger-text)',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                            }}
+                            className="pq-btn pq-btn-danger-ghost pq-btn-sm"
                           >
-                            Xóa dòng
+                            <PqTrashIcon size={13} />
+                            <span>Xóa dòng</span>
                           </button>
                         )}
                       </div>
                     </div>
 
                     {!isCollapsed && (
-                      <div>
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns:
-                              'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-                            gap: '10px',
-                          }}
-                        >
-                          <div>
-                            <div
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                marginBottom: '4px',
-                              }}
-                            >
-                              <label
-                                htmlFor={`pq-line-catalog-${idx}`}
-                                style={{ ...labelStyle, marginBottom: 0 }}
-                              >
-                                Chọn từ Bảng giá Nhà in
-                              </label>
-                              {priceItems.length > 0 && (
-                                <button
-                                  type="button"
-                                  data-testid={`pq-open-catalog-picker-${idx}`}
-                                  onClick={() => {
-                                    setCatalogSearchQuery('');
-                                    setCatalogPickerLineIdx(idx);
-                                  }}
-                                  style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    padding: '2px 4px',
-                                    color: 'var(--accent-text)',
-                                    fontSize: '12px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  🔍 Tìm nhanh
-                                </button>
-                              )}
-                            </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                        }}
+                      >
+                        {/* Dedicated Catalog Quick-Pick Bar (Never squeezes manual fields) */}
+                        <div className="pq-catalog-quickbar">
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              color: 'var(--muted-color)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <PqTagIcon
+                              size={14}
+                              style={{ color: 'var(--accent-text)' }}
+                            />
+                            <label htmlFor={`pq-line-catalog-${idx}`}>
+                              Bảng giá nhà in:
+                            </label>
+                          </div>
+
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: '8px',
+                              flex: '1 1 220px',
+                              minWidth: 0,
+                            }}
+                          >
                             <select
                               id={`pq-line-catalog-${idx}`}
                               aria-label={`Chọn bảng giá nhà in dòng ${idx + 1}`}
-                              style={inputStyle}
+                              style={{
+                                ...inputStyle,
+                                minHeight: '38px',
+                                padding: '6px 10px',
+                                fontSize: '13px',
+                              }}
                               value={line.vendorPriceItemId}
                               onChange={(e) => {
                                 onMarkTouched?.();
@@ -909,7 +801,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                               }}
                             >
                               <option value="">
-                                -- Tự nhập thông tin bên dưới --
+                                -- Tự nhập thông tin ấn phẩm bên dưới --
                               </option>
                               {priceItems.map((p) => (
                                 <option key={p.id} value={p.id}>
@@ -921,8 +813,27 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                 </option>
                               ))}
                             </select>
-                          </div>
 
+                            {priceItems.length > 0 && (
+                              <button
+                                type="button"
+                                data-testid={`pq-open-catalog-picker-${idx}`}
+                                onClick={() => {
+                                  setCatalogSearchQuery('');
+                                  setCatalogPickerLineIdx(idx);
+                                }}
+                                className="pq-btn pq-btn-secondary pq-btn-sm"
+                                style={{ flexShrink: 0 }}
+                              >
+                                <PqSearchIcon size={13} />
+                                <span>Tìm nhanh</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Row 1: Customer-Facing Product Details (Balanced 4-Column Grid) */}
+                        <div className="pq-product-info-grid">
                           <div>
                             <label
                               htmlFor={`pq-line-name-${idx}`}
@@ -934,7 +845,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                               id={`pq-line-name-${idx}`}
                               aria-label={`Tên sản phẩm dòng ${idx + 1}`}
                               style={inputStyle}
-                              placeholder="VD: Tờ rơi A5 Couche 150gsm"
+                              placeholder="VD: Tờ rơi A5 Couche 150gsm…"
                               value={line.name}
                               onChange={(e) => {
                                 onMarkTouched?.();
@@ -971,12 +882,12 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                   ),
                                 );
                               }}
-                              placeholder="VD: C150, in 2 mặt, cán mờ"
+                              placeholder="VD: C150, in 2 mặt, cán mờ…"
                             />
                           </div>
 
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <div style={{ flex: 2 }}>
+                          <div className="pq-qty-unit-pair">
+                            <div style={{ flex: '1.35 1 0', minWidth: 0 }}>
                               <label
                                 htmlFor={`pq-line-qty-${idx}`}
                                 style={labelStyle}
@@ -988,7 +899,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                 ariaLabel={`Số lượng dòng ${idx + 1}`}
                                 allowDecimal={false}
                                 placeholder="VD: 500"
-                                style={inputStyle}
+                                style={{ ...inputStyle, ...tabularNumStyle }}
                                 invalid={Boolean(
                                   showValidationState && lineErr?.quantity,
                                 )}
@@ -1020,7 +931,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                 }}
                               />
                             </div>
-                            <div style={{ flex: 1 }}>
+
+                            <div style={{ flex: '0.85 1 0', minWidth: 0 }}>
                               <label
                                 htmlFor={`pq-line-unit-${idx}`}
                                 style={labelStyle}
@@ -1047,408 +959,429 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                           </div>
                         </div>
 
-                        {/* Internal Vendor Cost & Profit Controls */}
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns:
-                              'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-                            gap: '10px',
-                            marginTop: '10px',
-                            padding: '10px',
-                            borderRadius: '8px',
-                            border: '1px dashed var(--border-color)',
-                            backgroundColor: 'var(--surface-color)',
-                          }}
-                        >
-                          <div>
-                            <label
-                              htmlFor={`pq-line-cost-mode-${idx}`}
-                              style={labelStyle}
-                            >
-                              🔒 Giá gốc nhà in tính theo
-                            </label>
-                            <select
-                              id={`pq-line-cost-mode-${idx}`}
-                              key={
-                                line.ambiguousLegacyCost
-                                  ? 'ambiguous'
-                                  : 'confirmed'
-                              }
-                              aria-label={`Kiểu giá vốn dòng ${idx + 1}`}
-                              style={{
-                                ...inputStyle,
-                                ...(lineErr?.costMode
-                                  ? {
-                                      borderColor: 'var(--danger-text)',
-                                      boxShadow:
-                                        '0 0 0 1px var(--danger-text) inset',
-                                    }
-                                  : {}),
-                              }}
-                              value={
-                                line.ambiguousLegacyCost
-                                  ? ''
-                                  : line.vendorCostMode
-                              }
-                              onChange={(e) => {
-                                const nextMode = e.target
-                                  .value as VendorCostModeType;
-                                if (!nextMode) return;
-                                onMarkTouched?.();
-                                setDraftLines((prev) =>
-                                  prev.map((l, i) => {
-                                    if (i !== idx) return l;
-                                    if (l.ambiguousLegacyCost) {
-                                      const editedManually =
-                                        l.vendorCostInput !== undefined &&
-                                        l.vendorCostInput !==
-                                          String(
-                                            l.ambiguousLegacyCost
-                                              .totalVendorCost,
-                                          );
-                                      const resolvedVal = editedManually
-                                        ? l.vendorCostValue
-                                        : nextMode === VendorCostMode.PER_UNIT
-                                          ? l.ambiguousLegacyCost.unitVendorCost
-                                          : l.ambiguousLegacyCost
-                                              .totalVendorCost;
-                                      return {
-                                        ...l,
-                                        vendorCostMode: nextMode,
-                                        vendorCostValue: resolvedVal,
-                                        vendorCostInput: editedManually
-                                          ? l.vendorCostInput
-                                          : String(resolvedVal),
-                                        ambiguousLegacyCost: null,
-                                      };
-                                    }
-                                    return {
-                                      ...l,
-                                      vendorCostMode: nextMode,
-                                      ambiguousLegacyCost: null,
-                                    };
-                                  }),
-                                );
-                              }}
-                            >
-                              {line.ambiguousLegacyCost && (
-                                <option value="" disabled>
-                                  -- Chưa rõ (Chọn kiểu giá vốn) --
-                                </option>
-                              )}
-                              <option value={VendorCostMode.PER_UNIT}>
-                                Từng {line.unit || 'cái'} (1 đơn vị)
-                              </option>
-                              <option value={VendorCostMode.TOTAL_BATCH}>
-                                Trọn lô (
-                                {rawQtyInput === '' ? '?' : line.quantity}{' '}
-                                {line.unit || 'cái'})
-                              </option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label
-                              htmlFor={`pq-line-cost-val-${idx}`}
-                              style={labelStyle}
-                            >
-                              {line.ambiguousLegacyCost
-                                ? `Giá vốn đã lưu (${line.ambiguousLegacyCost.originalQuantity} ${line.unit || 'cái'})`
-                                : line.vendorCostMode ===
-                                    VendorCostMode.PER_UNIT
-                                  ? `Giá nhà in / 1 ${line.unit || 'cái'} (đ) *`
-                                  : 'Tổng giá nhà in cả lô (đ) *'}
-                            </label>
-                            <NumericDraftInput
-                              id={`pq-line-cost-val-${idx}`}
-                              ariaLabel={`Giá trị giá vốn dòng ${idx + 1}`}
-                              allowDecimal={costAllowDecimal}
-                              placeholder="Nhập 0 nếu miễn phí"
-                              style={inputStyle}
-                              invalid={Boolean(
-                                showValidationState && lineErr?.vendorCost,
-                              )}
-                              value={rawCostInput}
-                              onValueChange={(nextRaw) => {
-                                onMarkTouched?.();
-                                const parsed = parseNumericDraftValue(nextRaw, {
-                                  allowDecimal: costAllowDecimal,
-                                  min: 0,
-                                  integerOnly: !costAllowDecimal,
-                                });
-                                setDraftLines((prev) =>
-                                  prev.map((l, i) =>
-                                    i === idx
-                                      ? {
-                                          ...l,
-                                          vendorCostInput: nextRaw,
-                                          ...(parsed.isValid &&
-                                          parsed.value !== null
-                                            ? { vendorCostValue: parsed.value }
-                                            : {}),
-                                        }
-                                      : l,
-                                  ),
-                                );
-                              }}
-                            />
-                          </div>
-
-                          {line.ambiguousLegacyCost && (
-                            <div
-                              data-testid={`pq-legacy-cost-confirm-${idx}`}
-                              style={{
-                                gridColumn: '1 / -1',
-                                padding: '10px 12px',
-                                borderRadius: '8px',
-                                border: lineErr?.costMode
-                                  ? '1px solid var(--danger-text)'
-                                  : '1px solid var(--border-color)',
-                                backgroundColor: 'var(--bg-color)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '8px',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontSize: '12.5px',
-                                  fontWeight: 600,
-                                  color: lineErr?.costMode
-                                    ? 'var(--danger-text)'
-                                    : 'var(--text-color)',
-                                }}
-                              >
-                                Báo giá cũ lưu giá vốn{' '}
-                                {formatVnd(
-                                  line.ambiguousLegacyCost.totalVendorCost,
-                                )}{' '}
-                                cho {line.ambiguousLegacyCost.originalQuantity}{' '}
-                                {line.unit || 'tờ'} (chưa ghi rõ kiểu tính).
-                                Chọn xác nhận để tính đúng khi đổi số lượng:
-                              </div>
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  flexWrap: 'wrap',
-                                  gap: '8px',
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  data-testid={`pq-confirm-legacy-batch-${idx}`}
-                                  onClick={() => {
-                                    onMarkTouched?.();
-                                    setDraftLines((prev) =>
-                                      prev.map((l, i) => {
-                                        if (i !== idx || !l.ambiguousLegacyCost)
-                                          return l;
-                                        const val =
-                                          l.ambiguousLegacyCost.totalVendorCost;
-                                        return {
-                                          ...l,
-                                          vendorCostMode:
-                                            VendorCostMode.TOTAL_BATCH,
-                                          vendorCostValue: val,
-                                          vendorCostInput: String(val),
-                                          ambiguousLegacyCost: null,
-                                        };
-                                      }),
-                                    );
-                                  }}
-                                  style={{
-                                    minHeight: '44px',
-                                    padding: '6px 12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid var(--accent-text)',
-                                    backgroundColor: 'var(--accent-soft)',
-                                    color: 'var(--accent-text)',
-                                    fontSize: '12.5px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  Giữ trọn lô:{' '}
-                                  {formatVnd(
-                                    line.ambiguousLegacyCost.totalVendorCost,
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  data-testid={`pq-confirm-legacy-per-unit-${idx}`}
-                                  onClick={() => {
-                                    onMarkTouched?.();
-                                    setDraftLines((prev) =>
-                                      prev.map((l, i) => {
-                                        if (i !== idx || !l.ambiguousLegacyCost)
-                                          return l;
-                                        const val =
-                                          l.ambiguousLegacyCost.unitVendorCost;
-                                        return {
-                                          ...l,
-                                          vendorCostMode:
-                                            VendorCostMode.PER_UNIT,
-                                          vendorCostValue: val,
-                                          vendorCostInput: String(val),
-                                          ambiguousLegacyCost: null,
-                                        };
-                                      }),
-                                    );
-                                  }}
-                                  style={{
-                                    minHeight: '44px',
-                                    padding: '6px 12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid var(--border-color)',
-                                    backgroundColor: 'var(--surface-color)',
-                                    color: 'var(--text-color)',
-                                    fontSize: '12.5px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  Tính theo 1 {line.unit || 'tờ'}:{' '}
-                                  {formatExactVnd(
-                                    line.ambiguousLegacyCost.unitVendorCost,
-                                  )}
-                                </button>
-                              </div>
+                        {/* Row 2: Two Clean Side-by-Side Internal Pricing Panels (No Dashed Borders) */}
+                        <div className="pq-pricing-pair-grid">
+                          {/* Vendor Cost Soft Panel */}
+                          <div className="pq-internal-subpanel">
+                            <div className="pq-internal-subpanel-title">
+                              <PqLockIcon size={13} />
+                              <span>Giá gốc nhà in (Ẩn trên PDF)</span>
                             </div>
-                          )}
 
-                          <div>
-                            <label
-                              htmlFor={`pq-line-profit-mode-${idx}`}
-                              style={labelStyle}
-                            >
-                              🔒 Tiền lời tính theo
-                            </label>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <select
-                                id={`pq-line-profit-mode-${idx}`}
-                                aria-label={`Kiểu lợi nhuận dòng ${idx + 1}`}
-                                style={inputStyle}
-                                value={line.profitMode}
-                                onChange={(e) => {
-                                  onMarkTouched?.();
-                                  const nextMode = e.target
-                                    .value as ProfitModeType;
-                                  setDraftLines((prev) =>
-                                    prev.map((l, i) => {
-                                      if (i !== idx) return l;
-                                      let nextProfitInput = l.profitInput;
-                                      let nextProfitValue = l.profitValue;
-                                      if (
-                                        nextMode === ProfitMode.FIXED_AMOUNT &&
-                                        nextProfitInput !== undefined &&
-                                        nextProfitInput.includes('.')
-                                      ) {
-                                        const rounded = Math.max(
-                                          0,
-                                          Math.round(
-                                            Number(nextProfitInput) || 0,
-                                          ),
-                                        );
-                                        nextProfitValue = rounded;
-                                        nextProfitInput = String(rounded);
-                                      }
-                                      return {
-                                        ...l,
-                                        profitMode: nextMode,
-                                        profitValue: nextProfitValue,
-                                        profitInput: nextProfitInput,
-                                      };
-                                    }),
-                                  );
-                                }}
-                              >
-                                <option value={ProfitMode.FIXED_AMOUNT}>
-                                  Số tiền (đ)
-                                </option>
-                                <option value={ProfitMode.PERCENTAGE}>
-                                  Phần trăm (%)
-                                </option>
-                              </select>
-                              {line.profitMode === ProfitMode.FIXED_AMOUNT && (
+                            <div className="pq-subpanel-stack">
+                              <div>
+                                <label
+                                  htmlFor={`pq-line-cost-mode-${idx}`}
+                                  style={labelStyle}
+                                >
+                                  Kiểu tính giá vốn
+                                </label>
                                 <select
-                                  aria-label={`Phạm vi lợi nhuận dòng ${idx + 1}`}
-                                  style={inputStyle}
-                                  value={line.profitScope}
+                                  id={`pq-line-cost-mode-${idx}`}
+                                  key={
+                                    line.ambiguousLegacyCost
+                                      ? 'ambiguous'
+                                      : 'confirmed'
+                                  }
+                                  aria-label={`Kiểu giá vốn dòng ${idx + 1}`}
+                                  style={{
+                                    ...inputStyle,
+                                    ...(lineErr?.costMode
+                                      ? {
+                                          borderColor: 'var(--danger-text)',
+                                          boxShadow:
+                                            '0 0 0 1px var(--danger-text) inset',
+                                        }
+                                      : {}),
+                                  }}
+                                  value={
+                                    line.ambiguousLegacyCost
+                                      ? ''
+                                      : line.vendorCostMode
+                                  }
                                   onChange={(e) => {
+                                    const nextMode = e.target
+                                      .value as VendorCostModeType;
+                                    if (!nextMode) return;
                                     onMarkTouched?.();
+                                    setDraftLines((prev) =>
+                                      prev.map((l, i) => {
+                                        if (i !== idx) return l;
+                                        if (l.ambiguousLegacyCost) {
+                                          const editedManually =
+                                            l.vendorCostInput !== undefined &&
+                                            l.vendorCostInput !==
+                                              String(
+                                                l.ambiguousLegacyCost
+                                                  .totalVendorCost,
+                                              );
+                                          const resolvedVal = editedManually
+                                            ? l.vendorCostValue
+                                            : nextMode ===
+                                                VendorCostMode.PER_UNIT
+                                              ? l.ambiguousLegacyCost
+                                                  .unitVendorCost
+                                              : l.ambiguousLegacyCost
+                                                  .totalVendorCost;
+                                          return {
+                                            ...l,
+                                            vendorCostMode: nextMode,
+                                            vendorCostValue: resolvedVal,
+                                            vendorCostInput: editedManually
+                                              ? l.vendorCostInput
+                                              : String(resolvedVal),
+                                            ambiguousLegacyCost: null,
+                                          };
+                                        }
+                                        return {
+                                          ...l,
+                                          vendorCostMode: nextMode,
+                                          ambiguousLegacyCost: null,
+                                        };
+                                      }),
+                                    );
+                                  }}
+                                >
+                                  {line.ambiguousLegacyCost && (
+                                    <option value="" disabled>
+                                      -- Chưa rõ (Chọn kiểu giá vốn) --
+                                    </option>
+                                  )}
+                                  <option value={VendorCostMode.PER_UNIT}>
+                                    Từng {line.unit || 'cái'} (1 đv)
+                                  </option>
+                                  <option value={VendorCostMode.TOTAL_BATCH}>
+                                    Trọn lô (
+                                    {rawQtyInput === '' ? '?' : line.quantity}{' '}
+                                    {line.unit || 'cái'})
+                                  </option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label
+                                  htmlFor={`pq-line-cost-val-${idx}`}
+                                  style={labelStyle}
+                                >
+                                  {line.ambiguousLegacyCost
+                                    ? `Giá vốn lưu (${line.ambiguousLegacyCost.originalQuantity} ${line.unit || 'cái'})`
+                                    : line.vendorCostMode ===
+                                        VendorCostMode.PER_UNIT
+                                      ? `Đơn giá / 1 ${line.unit || 'cái'} (đ) *`
+                                      : 'Tổng giá cả lô (đ) *'}
+                                </label>
+                                <NumericDraftInput
+                                  id={`pq-line-cost-val-${idx}`}
+                                  ariaLabel={`Giá trị giá vốn dòng ${idx + 1}`}
+                                  allowDecimal={costAllowDecimal}
+                                  placeholder="Nhập 0 nếu miễn phí"
+                                  style={{ ...inputStyle, ...tabularNumStyle }}
+                                  invalid={Boolean(
+                                    showValidationState && lineErr?.vendorCost,
+                                  )}
+                                  value={rawCostInput}
+                                  onValueChange={(nextRaw) => {
+                                    onMarkTouched?.();
+                                    const parsed = parseNumericDraftValue(
+                                      nextRaw,
+                                      {
+                                        allowDecimal: costAllowDecimal,
+                                        min: 0,
+                                        integerOnly: !costAllowDecimal,
+                                      },
+                                    );
                                     setDraftLines((prev) =>
                                       prev.map((l, i) =>
                                         i === idx
                                           ? {
                                               ...l,
-                                              profitScope: e.target
-                                                .value as ProfitScopeType,
+                                              vendorCostInput: nextRaw,
+                                              ...(parsed.isValid &&
+                                              parsed.value !== null
+                                                ? {
+                                                    vendorCostValue:
+                                                      parsed.value,
+                                                  }
+                                                : {}),
                                             }
                                           : l,
                                       ),
                                     );
                                   }}
-                                >
-                                  <option value={ProfitScope.PER_UNIT}>
-                                    Mỗi {line.unit || 'cái'}
-                                  </option>
-                                  <option value={ProfitScope.TOTAL_BATCH}>
-                                    Cả lô
-                                  </option>
-                                </select>
-                              )}
+                                />
+                              </div>
                             </div>
+
+                            {line.ambiguousLegacyCost && (
+                              <div
+                                data-testid={`pq-legacy-cost-confirm-${idx}`}
+                                style={{
+                                  marginTop: '10px',
+                                  padding: '10px 12px',
+                                  borderRadius: '10px',
+                                  border: lineErr?.costMode
+                                    ? '1px solid var(--danger-text)'
+                                    : '1px solid var(--border-color)',
+                                  backgroundColor: 'var(--bg-color)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '8px',
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    color: lineErr?.costMode
+                                      ? 'var(--danger-text)'
+                                      : 'var(--text-color)',
+                                    lineHeight: 1.45,
+                                  }}
+                                >
+                                  Báo giá cũ lưu giá vốn{' '}
+                                  {formatVnd(
+                                    line.ambiguousLegacyCost.totalVendorCost,
+                                  )}{' '}
+                                  cho{' '}
+                                  {line.ambiguousLegacyCost.originalQuantity}{' '}
+                                  {line.unit || 'tờ'} (chưa ghi rõ kiểu tính).
+                                  Chọn xác nhận để tính đúng khi đổi số lượng:
+                                </div>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: '8px',
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    data-testid={`pq-confirm-legacy-batch-${idx}`}
+                                    onClick={() => {
+                                      onMarkTouched?.();
+                                      setDraftLines((prev) =>
+                                        prev.map((l, i) => {
+                                          if (
+                                            i !== idx ||
+                                            !l.ambiguousLegacyCost
+                                          )
+                                            return l;
+                                          const val =
+                                            l.ambiguousLegacyCost
+                                              .totalVendorCost;
+                                          return {
+                                            ...l,
+                                            vendorCostMode:
+                                              VendorCostMode.TOTAL_BATCH,
+                                            vendorCostValue: val,
+                                            vendorCostInput: String(val),
+                                            ambiguousLegacyCost: null,
+                                          };
+                                        }),
+                                      );
+                                    }}
+                                    className="pq-btn pq-btn-accent pq-btn-sm"
+                                  >
+                                    Giữ trọn lô:{' '}
+                                    {formatVnd(
+                                      line.ambiguousLegacyCost.totalVendorCost,
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    data-testid={`pq-confirm-legacy-per-unit-${idx}`}
+                                    onClick={() => {
+                                      onMarkTouched?.();
+                                      setDraftLines((prev) =>
+                                        prev.map((l, i) => {
+                                          if (
+                                            i !== idx ||
+                                            !l.ambiguousLegacyCost
+                                          )
+                                            return l;
+                                          const val =
+                                            l.ambiguousLegacyCost
+                                              .unitVendorCost;
+                                          return {
+                                            ...l,
+                                            vendorCostMode:
+                                              VendorCostMode.PER_UNIT,
+                                            vendorCostValue: val,
+                                            vendorCostInput: String(val),
+                                            ambiguousLegacyCost: null,
+                                          };
+                                        }),
+                                      );
+                                    }}
+                                    className="pq-btn pq-btn-secondary pq-btn-sm"
+                                  >
+                                    Tính theo 1 {line.unit || 'tờ'}:{' '}
+                                    {formatExactVnd(
+                                      line.ambiguousLegacyCost.unitVendorCost,
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
-                          <div>
-                            <label
-                              htmlFor={`pq-line-profit-val-${idx}`}
-                              style={labelStyle}
-                            >
-                              {line.profitMode === ProfitMode.PERCENTAGE
-                                ? 'Mức lời (% trên giá gốc) *'
-                                : line.profitScope === ProfitScope.PER_UNIT
-                                  ? `Tiền lời / 1 ${line.unit || 'cái'} (đ) *`
-                                  : 'Tổng tiền lời cả lô (đ) *'}
-                            </label>
-                            <NumericDraftInput
-                              id={`pq-line-profit-val-${idx}`}
-                              ariaLabel={`Giá trị lợi nhuận dòng ${idx + 1}`}
-                              allowDecimal={profitAllowDecimal}
-                              placeholder={
-                                profitAllowDecimal
-                                  ? 'VD: 15 hoặc 12.5'
-                                  : 'Nhập 0 nếu không lời'
-                              }
-                              style={inputStyle}
-                              invalid={Boolean(
-                                showValidationState && lineErr?.profit,
-                              )}
-                              value={rawProfitInput}
-                              onValueChange={(nextRaw) => {
-                                onMarkTouched?.();
-                                const parsed = parseNumericDraftValue(nextRaw, {
-                                  allowDecimal: profitAllowDecimal,
-                                  min: 0,
-                                  integerOnly: !profitAllowDecimal,
-                                });
-                                setDraftLines((prev) =>
-                                  prev.map((l, i) =>
-                                    i === idx
-                                      ? {
-                                          ...l,
-                                          profitInput: nextRaw,
-                                          ...(parsed.isValid &&
-                                          parsed.value !== null
-                                            ? { profitValue: parsed.value }
-                                            : {}),
-                                        }
-                                      : l,
-                                  ),
-                                );
-                              }}
-                            />
+                          {/* Profit Soft Panel */}
+                          <div className="pq-internal-subpanel pq-internal-subpanel-profit">
+                            <div className="pq-internal-subpanel-title">
+                              <PqLockIcon size={13} />
+                              <span>Lợi nhuận cộng thêm (Ẩn trên PDF)</span>
+                            </div>
+
+                            <div className="pq-subpanel-stack">
+                              <div>
+                                <label
+                                  htmlFor={`pq-line-profit-mode-${idx}`}
+                                  style={labelStyle}
+                                >
+                                  Tính lời theo
+                                </label>
+                                <div
+                                  style={{
+                                    display: 'grid',
+                                    gridTemplateColumns:
+                                      line.profitMode ===
+                                      ProfitMode.FIXED_AMOUNT
+                                        ? 'repeat(2, minmax(0, 1fr))'
+                                        : 'minmax(0, 1fr)',
+                                    gap: '8px',
+                                  }}
+                                >
+                                  <select
+                                    id={`pq-line-profit-mode-${idx}`}
+                                    aria-label={`Kiểu lợi nhuận dòng ${idx + 1}`}
+                                    style={inputStyle}
+                                    value={line.profitMode}
+                                    onChange={(e) => {
+                                      onMarkTouched?.();
+                                      const nextMode = e.target
+                                        .value as ProfitModeType;
+                                      setDraftLines((prev) =>
+                                        prev.map((l, i) => {
+                                          if (i !== idx) return l;
+                                          let nextProfitInput = l.profitInput;
+                                          let nextProfitValue = l.profitValue;
+                                          if (
+                                            nextMode ===
+                                              ProfitMode.FIXED_AMOUNT &&
+                                            nextProfitInput !== undefined &&
+                                            nextProfitInput.includes('.')
+                                          ) {
+                                            const rounded = Math.max(
+                                              0,
+                                              Math.round(
+                                                Number(nextProfitInput) || 0,
+                                              ),
+                                            );
+                                            nextProfitValue = rounded;
+                                            nextProfitInput = String(rounded);
+                                          }
+                                          return {
+                                            ...l,
+                                            profitMode: nextMode,
+                                            profitValue: nextProfitValue,
+                                            profitInput: nextProfitInput,
+                                          };
+                                        }),
+                                      );
+                                    }}
+                                  >
+                                    <option value={ProfitMode.FIXED_AMOUNT}>
+                                      Số tiền (đ)
+                                    </option>
+                                    <option value={ProfitMode.PERCENTAGE}>
+                                      Phần trăm (%)
+                                    </option>
+                                  </select>
+                                  {line.profitMode ===
+                                    ProfitMode.FIXED_AMOUNT && (
+                                    <select
+                                      aria-label={`Phạm vi lợi nhuận dòng ${idx + 1}`}
+                                      style={inputStyle}
+                                      value={line.profitScope}
+                                      onChange={(e) => {
+                                        onMarkTouched?.();
+                                        setDraftLines((prev) =>
+                                          prev.map((l, i) =>
+                                            i === idx
+                                              ? {
+                                                  ...l,
+                                                  profitScope: e.target
+                                                    .value as ProfitScopeType,
+                                                }
+                                              : l,
+                                          ),
+                                        );
+                                      }}
+                                    >
+                                      <option value={ProfitScope.PER_UNIT}>
+                                        Mỗi {line.unit || 'cái'}
+                                      </option>
+                                      <option value={ProfitScope.TOTAL_BATCH}>
+                                        Cả lô
+                                      </option>
+                                    </select>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label
+                                  htmlFor={`pq-line-profit-val-${idx}`}
+                                  style={labelStyle}
+                                >
+                                  {line.profitMode === ProfitMode.PERCENTAGE
+                                    ? 'Mức lời (% vốn) *'
+                                    : line.profitScope === ProfitScope.PER_UNIT
+                                      ? `Lời / 1 ${line.unit || 'cái'} (đ) *`
+                                      : 'Lời cả lô (đ) *'}
+                                </label>
+                                <NumericDraftInput
+                                  id={`pq-line-profit-val-${idx}`}
+                                  ariaLabel={`Giá trị lợi nhuận dòng ${idx + 1}`}
+                                  allowDecimal={profitAllowDecimal}
+                                  placeholder={
+                                    profitAllowDecimal
+                                      ? 'VD: 15 hoặc 12.5'
+                                      : 'Nhập 0 nếu không lời'
+                                  }
+                                  style={{ ...inputStyle, ...tabularNumStyle }}
+                                  invalid={Boolean(
+                                    showValidationState && lineErr?.profit,
+                                  )}
+                                  value={rawProfitInput}
+                                  onValueChange={(nextRaw) => {
+                                    onMarkTouched?.();
+                                    const parsed = parseNumericDraftValue(
+                                      nextRaw,
+                                      {
+                                        allowDecimal: profitAllowDecimal,
+                                        min: 0,
+                                        integerOnly: !profitAllowDecimal,
+                                      },
+                                    );
+                                    setDraftLines((prev) =>
+                                      prev.map((l, i) =>
+                                        i === idx
+                                          ? {
+                                              ...l,
+                                              profitInput: nextRaw,
+                                              ...(parsed.isValid &&
+                                              parsed.value !== null
+                                                ? { profitValue: parsed.value }
+                                                : {}),
+                                            }
+                                          : l,
+                                      ),
+                                    );
+                                  }}
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1457,76 +1390,47 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 );
               })}
             </div>
-          </div>
+          </section>
 
           {/* 3. Shipping, Notes & Advanced Options */}
-          <div style={cardStyle}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '8px',
-                marginBottom: '12px',
-              }}
-            >
-              <strong
-                style={{
-                  fontSize: '14px',
-                  fontWeight: 800,
-                  color: 'var(--accent-text)',
-                }}
-              >
-                3. Phí giao hàng & Ghi chú báo giá
-              </strong>
+          <section style={cardStyle}>
+            <div className="pq-step-header">
+              <div className="pq-step-title-group">
+                <span className="pq-step-badge">3</span>
+                <h2 className="pq-step-heading">Giao hàng & Ghi chú báo giá</h2>
+              </div>
 
               <button
                 type="button"
                 data-testid="pq-advanced-options-toggle"
+                aria-expanded={showAdvancedOptions}
                 onClick={() => setShowAdvancedOptions((v) => !v)}
-                style={{
-                  minHeight: '44px',
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: showAdvancedOptions
-                    ? 'var(--accent-soft)'
-                    : 'transparent',
-                  color: showAdvancedOptions
-                    ? 'var(--accent-text)'
-                    : 'var(--muted-color)',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className={
+                  showAdvancedOptions
+                    ? 'pq-btn pq-btn-accent pq-btn-sm'
+                    : 'pq-btn pq-btn-ghost pq-btn-sm'
+                }
               >
-                ⚙️ Tùy chọn nâng cao {showAdvancedOptions ? '▴' : '▾'}
+                <PqSlidersIcon size={14} />
+                <span>Tùy chọn nâng cao</span>
+                <PqChevronIcon size={13} up={showAdvancedOptions} />
               </button>
             </div>
 
             <div
               style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
             >
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
-                  gap: '12px',
-                  alignItems: 'end',
-                }}
-              >
+              <div className="pq-customer-grid">
                 <div>
                   <label style={labelStyle} htmlFor="pq-shipping-input">
-                    Phí giao hàng toàn đơn (đ — tính 1 lần)
+                    Phí giao hàng toàn đơn (đ — cộng 1 lần)
                   </label>
                   <NumericDraftInput
                     id="pq-shipping-input"
                     dataTestId="pq-shipping-input"
                     allowDecimal={false}
                     placeholder="Nhập 0 nếu miễn phí giao hàng"
-                    style={inputStyle}
+                    style={{ ...inputStyle, ...tabularNumStyle }}
                     invalid={Boolean(
                       showValidationState && livePricingResult.shippingError,
                     )}
@@ -1546,36 +1450,32 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                   />
                 </div>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    minHeight: '44px',
-                  }}
-                >
-                  <input
-                    id="pq-merge-ship-checkbox"
-                    data-testid="pq-merge-ship-checkbox"
-                    type="checkbox"
-                    checked={includeShippingInUnitPrice}
-                    onChange={(e) => {
-                      onMarkTouched?.();
-                      onChangeIncludeShippingInUnitPrice(e.target.checked);
-                    }}
-                    style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                  />
+                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                   <label
                     htmlFor="pq-merge-ship-checkbox"
-                    style={{
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                      cursor: 'pointer',
-                    }}
+                    className="pq-checkbox-card"
                   >
-                    Cộng gộp phí giao hàng vào đơn giá khách (Ẩn dòng ship trên
-                    PDF)
+                    <input
+                      id="pq-merge-ship-checkbox"
+                      data-testid="pq-merge-ship-checkbox"
+                      type="checkbox"
+                      checked={includeShippingInUnitPrice}
+                      onChange={(e) => {
+                        onMarkTouched?.();
+                        onChangeIncludeShippingInUnitPrice(e.target.checked);
+                      }}
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        accentColor: 'var(--primary-color)',
+                      }}
+                    />
+                    <span style={{ fontSize: '12.5px', fontWeight: 600 }}>
+                      Gộp phí giao hàng vào đơn giá khách (Ẩn dòng ship trên
+                      PDF)
+                    </span>
                   </label>
                 </div>
               </div>
@@ -1583,16 +1483,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               {showAdvancedOptions && (
                 <div
                   data-testid="pq-advanced-options-panel"
-                  style={{
-                    padding: '12px',
-                    borderRadius: '10px',
-                    border: '1px dashed var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
-                    gap: '10px',
-                  }}
+                  className="pq-advanced-box"
                 >
                   <div>
                     <label style={labelStyle} htmlFor="pq-valid-until">
@@ -1674,7 +1565,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                       </select>
                       <select
                         aria-label="Bước làm tròn VNĐ"
-                        style={{ ...inputStyle, maxWidth: '110px' }}
+                        style={{ ...inputStyle, maxWidth: '108px' }}
                         value={roundingStep}
                         onChange={(e) => {
                           onMarkTouched?.();
@@ -1690,7 +1581,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
 
                   <div>
                     <label style={labelStyle} htmlFor="pq-internal-notes">
-                      🔒 Ghi chú nội bộ (Không in lên PDF)
+                      Ghi chú nội bộ Owner (Không in lên PDF)
                     </label>
                     <input
                       id="pq-internal-notes"
@@ -1700,7 +1591,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                         onMarkTouched?.();
                         onChangeInternalNotes(e.target.value);
                       }}
-                      placeholder="VD: Đặt xưởng Sài Gòn, cọc 50%"
+                      placeholder="VD: Đặt xưởng Sài Gòn, cọc 50%…"
                     />
                   </div>
                 </div>
@@ -1714,6 +1605,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                   id="pq-customer-notes"
                   rows={2}
                   style={inputStyle}
+                  placeholder="VD: Thời gian giao hàng 2–3 ngày làm việc sau khi duyệt file in…"
                   value={customerNotes}
                   onChange={(e) => {
                     onMarkTouched?.();
@@ -1735,16 +1627,16 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                       onMarkTouched?.();
                       onChangeVersionChangeNote(e.target.value);
                     }}
-                    placeholder="VD: Khách tăng số lượng lên 500 tờ"
+                    placeholder="VD: Khách tăng số lượng lên 500 tờ…"
                   />
                 </div>
               )}
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* RIGHT STICKY COLUMN: Live Summary + Primary Save CTA */}
-        <div
+        {/* RIGHT STICKY COLUMN: Executive Summary + Primary Save CTA */}
+        <aside
           id="pq-sec-summary"
           className="pq-editor-summary-col"
           style={{
@@ -1755,17 +1647,23 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
           }}
         >
           <div style={cardStyle}>
-            <strong
+            <div
               style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: 800,
-                color: 'var(--accent-text)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '8px',
                 marginBottom: '12px',
               }}
             >
-              Tổng kết & Tạm tính báo giá
-            </strong>
+              <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
+                Tổng kết báo giá
+              </h2>
+              <span className="pq-safe-pill">
+                <PqShieldIcon size={12} />
+                <span>Tự động ẩn giá vốn</span>
+              </span>
+            </div>
 
             {livePricingResult.calc && livePricingResult.customerPdf ? (
               <div
@@ -1773,122 +1671,66 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '12px',
+                  gap: '14px',
                 }}
               >
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 135px), 1fr))',
-                    gap: '8px',
-                  }}
-                >
+                {/* Hero Customer Total Banner */}
+                <div className="pq-summary-hero">
+                  <div className="pq-summary-hero-label">
+                    Tổng thanh toán báo khách
+                  </div>
                   <div
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--bg-color)',
-                      border: '1px solid var(--border-color)',
-                    }}
+                    data-testid="pq-summary-total"
+                    className="pq-summary-hero-value"
+                    style={tabularNumStyle}
                   >
-                    <div
-                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                    >
-                      🔒 Tổng giá gốc nhà in
-                    </div>
-                    <div
+                    {formatVnd(livePricingResult.calc.totalQuoteAmount)}
+                  </div>
+                </div>
+
+                {/* Compact 3-Metric Internal Breakdown */}
+                <div className="pq-internal-kpi-grid">
+                  <div className="pq-kpi-mini-card">
+                    <div className="pq-kpi-mini-label">Giá gốc nhà in</div>
+                    <strong
                       data-testid="pq-summary-vendor-cost"
-                      style={{ fontSize: '15px', fontWeight: 700 }}
+                      className="pq-kpi-mini-val"
+                      style={tabularNumStyle}
                     >
                       {formatVnd(livePricingResult.calc.totalVendorCost)}
-                    </div>
+                    </strong>
                   </div>
 
-                  <div
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--bg-color)',
-                      border: '1px solid var(--border-color)',
-                    }}
-                  >
-                    <div
-                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                    >
-                      🔒 Tổng tiền lời ròng
-                    </div>
-                    <div
+                  <div className="pq-kpi-mini-card">
+                    <div className="pq-kpi-mini-label">Tiền lời ròng</div>
+                    <strong
                       data-testid="pq-summary-profit"
+                      className="pq-kpi-mini-val"
                       style={{
-                        fontSize: '15px',
-                        fontWeight: 700,
+                        ...tabularNumStyle,
                         color: 'var(--success-text)',
                       }}
                     >
                       +{formatVnd(livePricingResult.calc.totalProfit)}
-                    </div>
+                    </strong>
                   </div>
 
-                  <div
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--bg-color)',
-                      border: '1px solid var(--border-color)',
-                    }}
-                  >
-                    <div
-                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                    >
-                      Phí giao hàng (1 lần)
-                    </div>
-                    <div
+                  <div className="pq-kpi-mini-card">
+                    <div className="pq-kpi-mini-label">Giao hàng (1 lần)</div>
+                    <strong
                       data-testid="pq-summary-shipping"
-                      style={{ fontSize: '15px', fontWeight: 700 }}
+                      className="pq-kpi-mini-val"
+                      style={tabularNumStyle}
                     >
                       {formatVnd(livePricingResult.calc.shippingFee)}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--accent-soft)',
-                      border: '1px solid var(--accent-text)',
-                    }}
-                  >
-                    <div
-                      style={{ fontSize: '12px', color: 'var(--accent-text)' }}
-                    >
-                      Tổng báo giá khách
-                    </div>
-                    <div
-                      data-testid="pq-summary-total"
-                      style={{
-                        fontSize: '16px',
-                        fontWeight: 800,
-                        color: 'var(--accent-text)',
-                      }}
-                    >
-                      {formatVnd(livePricingResult.calc.totalQuoteAmount)}
-                    </div>
+                    </strong>
                   </div>
                 </div>
 
-                {/* Single Summary Switcher: Customer-Safe vs Internal */}
+                {/* Segmented Preview Switcher: Customer-Safe vs Internal */}
                 <div
                   data-testid="pq-customer-safe-card"
-                  style={{
-                    border:
-                      summaryViewMode === 'customer'
-                        ? '1px solid var(--success-text)'
-                        : '1px solid var(--accent-text)',
-                    borderRadius: '10px',
-                    padding: '12px',
-                    backgroundColor: 'var(--bg-color)',
-                  }}
+                  className="pq-summary-preview-box"
                 >
                   <div
                     style={{
@@ -1903,66 +1745,34 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                     <div
                       role="group"
                       aria-label="Chế độ xem bảng tổng kết"
-                      style={{
-                        display: 'flex',
-                        gap: '6px',
-                        flexWrap: 'wrap',
-                      }}
+                      className="pq-segmented-switch"
                     >
                       <button
                         type="button"
                         data-testid="pq-view-mode-customer"
+                        aria-pressed={summaryViewMode === 'customer'}
+                        className="pq-segmented-btn"
+                        data-active={
+                          summaryViewMode === 'customer' ? 'true' : 'false'
+                        }
                         onClick={() => setSummaryViewMode('customer')}
-                        style={{
-                          minHeight: '44px',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          border:
-                            summaryViewMode === 'customer'
-                              ? '1px solid var(--success-text)'
-                              : '1px solid var(--border-color)',
-                          backgroundColor:
-                            summaryViewMode === 'customer'
-                              ? 'rgba(16, 185, 129, 0.14)'
-                              : 'var(--surface-color)',
-                          color:
-                            summaryViewMode === 'customer'
-                              ? 'var(--success-text)'
-                              : 'var(--text-color)',
-                          fontWeight: 700,
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                        }}
                       >
-                        📄 Bản gửi khách
+                        <PqFileTextIcon size={13} />
+                        <span>Bản gửi khách</span>
                       </button>
 
                       <button
                         type="button"
                         data-testid="pq-view-mode-internal"
+                        aria-pressed={summaryViewMode === 'internal'}
+                        className="pq-segmented-btn"
+                        data-active={
+                          summaryViewMode === 'internal' ? 'true' : 'false'
+                        }
                         onClick={() => setSummaryViewMode('internal')}
-                        style={{
-                          minHeight: '44px',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          border:
-                            summaryViewMode === 'internal'
-                              ? '1px solid var(--accent-text)'
-                              : '1px solid var(--border-color)',
-                          backgroundColor:
-                            summaryViewMode === 'internal'
-                              ? 'var(--accent-soft)'
-                              : 'var(--surface-color)',
-                          color:
-                            summaryViewMode === 'internal'
-                              ? 'var(--accent-text)'
-                              : 'var(--text-color)',
-                          fontWeight: 700,
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                        }}
                       >
-                        🔒 Bóc tách nội bộ
+                        <PqLockIcon size={13} />
+                        <span>Bóc tách nội bộ</span>
                       </button>
                     </div>
 
@@ -1980,31 +1790,13 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
 
                   {summaryViewMode === 'customer' ? (
                     <div style={{ overflowX: 'auto' }}>
-                      <table
-                        style={{
-                          width: '100%',
-                          borderCollapse: 'collapse',
-                          fontSize: '12.5px',
-                        }}
-                      >
+                      <table className="pq-table pq-table-compact">
                         <thead>
-                          <tr
-                            style={{
-                              borderBottom: '1px solid var(--border-color)',
-                              color: 'var(--muted-color)',
-                              textAlign: 'left',
-                            }}
-                          >
-                            <th style={{ padding: '6px' }}>Sản phẩm in</th>
-                            <th style={{ padding: '6px', textAlign: 'right' }}>
-                              SL
-                            </th>
-                            <th style={{ padding: '6px', textAlign: 'right' }}>
-                              Đơn giá bán
-                            </th>
-                            <th style={{ padding: '6px', textAlign: 'right' }}>
-                              Thành tiền
-                            </th>
+                          <tr>
+                            <th>Sản phẩm in</th>
+                            <th style={{ textAlign: 'right' }}>SL</th>
+                            <th style={{ textAlign: 'right' }}>Đơn giá</th>
+                            <th style={{ textAlign: 'right' }}>Thành tiền</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2019,30 +1811,22 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                   rawUnit,
                                 );
                               return (
-                                <tr
-                                  key={item.id}
-                                  style={{
-                                    borderBottom:
-                                      '1px solid var(--border-color)',
-                                  }}
-                                >
-                                  <td
-                                    style={{ padding: '6px', fontWeight: 600 }}
-                                  >
+                                <tr key={item.id}>
+                                  <td style={{ fontWeight: 600 }}>
                                     {item.name}
                                   </td>
                                   <td
                                     style={{
-                                      padding: '6px',
                                       textAlign: 'right',
+                                      ...tabularNumStyle,
                                     }}
                                   >
                                     {formatNumberVn(item.quantity)}
                                   </td>
                                   <td
                                     style={{
-                                      padding: '6px',
                                       textAlign: 'right',
+                                      ...tabularNumStyle,
                                     }}
                                   >
                                     <div>{priceDisplay.unitPriceDisplay}</div>
@@ -2060,9 +1844,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                   </td>
                                   <td
                                     style={{
-                                      padding: '6px',
                                       textAlign: 'right',
                                       fontWeight: 700,
+                                      ...tabularNumStyle,
                                     }}
                                   >
                                     {formatVnd(item.lineTotal)}
@@ -2076,72 +1860,53 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                     </div>
                   ) : (
                     <div style={{ overflowX: 'auto' }}>
-                      <table
-                        style={{
-                          width: '100%',
-                          borderCollapse: 'collapse',
-                          fontSize: '12px',
-                        }}
-                      >
+                      <table className="pq-table pq-table-compact">
                         <thead>
-                          <tr
-                            style={{
-                              borderBottom: '1px solid var(--border-color)',
-                              color: 'var(--muted-color)',
-                              textAlign: 'left',
-                            }}
-                          >
-                            <th style={{ padding: '6px' }}>Sản phẩm</th>
-                            <th style={{ padding: '6px', textAlign: 'right' }}>
-                              Giá vốn
-                            </th>
-                            <th style={{ padding: '6px', textAlign: 'right' }}>
-                              Lời
-                            </th>
-                            <th style={{ padding: '6px', textAlign: 'right' }}>
-                              Ship
-                            </th>
-                            <th style={{ padding: '6px', textAlign: 'right' }}>
-                              Thành tiền
-                            </th>
+                          <tr>
+                            <th>Sản phẩm</th>
+                            <th style={{ textAlign: 'right' }}>Vốn</th>
+                            <th style={{ textAlign: 'right' }}>Lời</th>
+                            <th style={{ textAlign: 'right' }}>Ship</th>
+                            <th style={{ textAlign: 'right' }}>Tổng</th>
                           </tr>
                         </thead>
                         <tbody>
                           {livePricingResult.calc.lines.map((item) => (
-                            <tr
-                              key={item.id}
-                              style={{
-                                borderBottom: '1px solid var(--border-color)',
-                              }}
-                            >
-                              <td style={{ padding: '6px', fontWeight: 600 }}>
+                            <tr key={item.id}>
+                              <td style={{ fontWeight: 600 }}>
                                 {item.name} ({formatNumberVn(item.quantity)})
                               </td>
                               <td
-                                style={{ padding: '6px', textAlign: 'right' }}
+                                style={{
+                                  textAlign: 'right',
+                                  ...tabularNumStyle,
+                                }}
                               >
                                 {formatVnd(item.totalVendorCost)}
                               </td>
                               <td
                                 style={{
-                                  padding: '6px',
                                   textAlign: 'right',
                                   color: 'var(--success-text)',
+                                  ...tabularNumStyle,
                                 }}
                               >
                                 +{formatVnd(item.totalProfit)}
                               </td>
                               <td
-                                style={{ padding: '6px', textAlign: 'right' }}
+                                style={{
+                                  textAlign: 'right',
+                                  ...tabularNumStyle,
+                                }}
                               >
                                 {formatVnd(item.allocatedShippingFee)}
                               </td>
                               <td
                                 style={{
-                                  padding: '6px',
                                   textAlign: 'right',
                                   fontWeight: 700,
                                   color: 'var(--accent-text)',
+                                  ...tabularNumStyle,
                                 }}
                               >
                                 {formatVnd(item.reconciledLineTotal)}
@@ -2155,82 +1920,88 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
 
                   <div
                     style={{
-                      fontSize: '12.5px',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--surface-color)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '8px',
+                      flexWrap: 'wrap',
                       marginTop: '10px',
+                      paddingTop: '8px',
+                      borderTop: '1px solid var(--border-color)',
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
                     }}
                   >
-                    <div
+                    <span
                       style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        marginBottom: '4px',
-                        flexWrap: 'wrap',
-                        gap: '4px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
                       }}
                     >
-                      <span>Phí giao hàng trên PDF:</span>
-                      <strong>
-                        {livePricingResult.customerPdf
-                          .includeShippingInUnitPrice
-                          ? 'Đã gộp vào đơn giá (0 ₫ phụ thu)'
-                          : formatVnd(
-                              livePricingResult.customerPdf
-                                .shippingAmountToAddOnPdfFooter,
-                            )}
-                      </strong>
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        fontSize: '14.5px',
-                        fontWeight: 800,
-                        color: 'var(--accent-text)',
-                      }}
-                    >
-                      <span>TỔNG THANH TOÁN:</span>
-                      <span>
-                        {formatVnd(
-                          livePricingResult.customerPdf.grandTotalPayable,
-                        )}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '12px',
-                        color: 'var(--muted-color)',
-                        marginTop: '2px',
-                        fontStyle: 'italic',
-                      }}
-                    >
-                      Bằng chữ:{' '}
-                      {numberToVietnameseWords(
-                        livePricingResult.customerPdf.grandTotalPayable,
-                      )}
-                      .
-                    </div>
+                      <PqTruckIcon size={13} />
+                      <span>Hiển thị ship trên PDF:</span>
+                    </span>
+                    <strong style={{ color: 'var(--text-color)' }}>
+                      {livePricingResult.customerPdf.includeShippingInUnitPrice
+                        ? 'Đã gộp vào đơn giá (0 ₫ phụ thu)'
+                        : formatVnd(
+                            livePricingResult.customerPdf
+                              .shippingAmountToAddOnPdfFooter,
+                          )}
+                    </strong>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    Bằng chữ:{' '}
+                    {numberToVietnameseWords(
+                      livePricingResult.customerPdf.grandTotalPayable,
+                    )}
+                    .
                   </div>
                 </div>
               </div>
             ) : !showValidationState ? (
               <div
                 data-testid="pq-empty-guidance-notice"
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-color)',
-                  color: 'var(--muted-color)',
-                  fontSize: '12.5px',
-                  lineHeight: 1.5,
-                }}
+                className="pq-empty-summary-box"
               >
-                Nhập tên sản phẩm (hoặc chọn từ <strong>Bảng giá Nhà in</strong>
-                ), số lượng, giá gốc nhà in và tiền lời để xem ngay tổng tiền
-                báo giá.
+                <div className="pq-empty-icon-ring">
+                  <PqFileTextIcon size={20} />
+                </div>
+                <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                  Sẵn sàng tính giá tức thì
+                </div>
+                <div
+                  style={{
+                    color: 'var(--muted-color)',
+                    fontSize: '12.5px',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Chọn ấn phẩm từ <strong>Bảng giá nhà in</strong> hoặc điền đủ
+                  3 thông số bên trái để xem tổng tiền & PDF A4:
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    marginTop: '2px',
+                  }}
+                >
+                  <span className="pq-version-pill">1. Số lượng &gt; 0</span>
+                  <span className="pq-version-pill">2. Giá nhà in</span>
+                  <span className="pq-version-pill">3. Tiền lời</span>
+                </div>
               </div>
             ) : (
               <div
@@ -2238,9 +2009,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 data-testid="pq-incomplete-pricing-notice"
                 style={{
                   padding: '12px 14px',
-                  borderRadius: '10px',
+                  borderRadius: '12px',
                   border: '1px solid var(--danger-text)',
-                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
                   color: 'var(--text-color)',
                   fontSize: '12.5px',
                   lineHeight: 1.5,
@@ -2253,7 +2024,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                     marginBottom: '4px',
                   }}
                 >
-                  Chưa đủ dữ liệu hợp lệ để tính tổng tiền báo giá:
+                  Cần bổ sung để tính tổng tiền báo giá:
                 </div>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
                   {(livePricingResult.validationErrors &&
@@ -2271,66 +2042,47 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
             )}
           </div>
 
-          {/* Primary Save Action Bar */}
+          {/* Primary Save & Preview Action Card */}
           <div
             id="pq-sec-actions"
             data-testid="pq-action-bar"
-            style={{
-              ...cardStyle,
-              border: '1px solid var(--accent-text)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-            }}
+            className="pq-action-card"
           >
             <button
               type="button"
               data-testid="pq-save-quote-btn"
               disabled={isQuoteIncomplete || savingQuote}
               onClick={onSaveQuote}
-              style={{
-                width: '100%',
-                minHeight: '46px',
-                padding: '10px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: 'var(--primary-color)',
-                color: 'var(--inverse-text)',
-                fontWeight: 800,
-                fontSize: '14px',
-                opacity: isQuoteIncomplete || savingQuote ? 0.55 : 1,
-                cursor:
-                  isQuoteIncomplete || savingQuote ? 'not-allowed' : 'pointer',
-              }}
+              className="pq-btn pq-btn-primary pq-btn-lg"
+              style={{ width: '100%' }}
             >
-              {savingQuote
-                ? 'Đang lưu báo giá…'
-                : editingQuoteId
-                  ? `💾 Lưu Phiên bản v${editingQuoteVersion + 1}`
-                  : '💾 Lưu báo giá'}
+              <PqSaveIcon size={16} />
+              <span>
+                {savingQuote
+                  ? 'Đang lưu báo giá…'
+                  : editingQuoteId
+                    ? `Lưu Phiên bản v${editingQuoteVersion + 1}`
+                    : 'Lưu báo giá'}
+              </span>
             </button>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+              }}
+            >
               <button
                 type="button"
                 data-testid="pq-preview-pdf-btn"
                 disabled={isQuoteIncomplete}
                 onClick={onOpenLivePreview}
-                style={{
-                  flex: '1 1 135px',
-                  minHeight: '44px',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-color)',
-                  color: 'var(--text-color)',
-                  fontWeight: 600,
-                  fontSize: '12.5px',
-                  opacity: isQuoteIncomplete ? 0.55 : 1,
-                  cursor: isQuoteIncomplete ? 'not-allowed' : 'pointer',
-                }}
+                className="pq-btn pq-btn-secondary"
+                style={{ width: '100%' }}
               >
-                👁️ Xem nháp A4
+                <PqEyeIcon size={15} />
+                <span>Xem nháp A4</span>
               </button>
 
               <button
@@ -2338,25 +2090,15 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 data-testid="pq-download-pdf-btn"
                 disabled={isQuoteIncomplete}
                 onClick={onDownloadLivePdf}
-                style={{
-                  flex: '1 1 135px',
-                  minHeight: '44px',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-color)',
-                  color: 'var(--text-color)',
-                  fontWeight: 600,
-                  fontSize: '12.5px',
-                  opacity: isQuoteIncomplete ? 0.55 : 1,
-                  cursor: isQuoteIncomplete ? 'not-allowed' : 'pointer',
-                }}
+                className="pq-btn pq-btn-accent"
+                style={{ width: '100%' }}
               >
-                ⬇️ Tải PDF nháp
+                <PqDownloadIcon size={15} />
+                <span>Tải PDF nháp</span>
               </button>
             </div>
           </div>
-        </div>
+        </aside>
       </div>
 
       {/* Quick Customer Creation Dialog */}
@@ -2370,7 +2112,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
         <form
           onSubmit={handleQuickSaveCustomer}
           data-testid="pq-inline-customer-form"
-          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
         >
           <div>
             <label htmlFor="pq-quick-cust-name-input" style={labelStyle}>
@@ -2381,7 +2123,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               aria-label="Tên khách hàng thêm nhanh"
               data-testid="pq-quick-cust-name"
               style={inputStyle}
-              placeholder="VD: Chị Lan"
+              placeholder="VD: Chị Lan…"
               value={quickCustName}
               onChange={(e) => setQuickCustName(e.target.value)}
               required
@@ -2393,7 +2135,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               display: 'grid',
               gridTemplateColumns:
                 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-              gap: '10px',
+              gap: '12px',
             }}
           >
             <div>
@@ -2407,7 +2149,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 type="tel"
                 inputMode="tel"
                 style={inputStyle}
-                placeholder="VD: 0909123456"
+                placeholder="VD: 0909123456…"
                 value={quickCustPhone}
                 onChange={(e) => setQuickCustPhone(e.target.value)}
               />
@@ -2422,7 +2164,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 aria-label="Công ty khách thêm nhanh"
                 data-testid="pq-quick-cust-company"
                 style={inputStyle}
-                placeholder="VD: Spa Hoa Hồng"
+                placeholder="VD: Spa Hoa Hồng…"
                 value={quickCustCompany}
                 onChange={(e) => setQuickCustCompany(e.target.value)}
               />
@@ -2440,16 +2182,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
             <button
               type="button"
               onClick={() => setShowQuickCustomerModal(false)}
-              style={{
-                minHeight: '44px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'transparent',
-                color: 'var(--text-color)',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
+              className="pq-btn pq-btn-secondary"
             >
               Hủy
             </button>
@@ -2457,18 +2190,10 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
               type="submit"
               data-testid="pq-quick-cust-submit"
               disabled={quickCustSaving}
-              style={{
-                minHeight: '44px',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: 'var(--primary-color)',
-                color: 'var(--inverse-text)',
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
+              className="pq-btn pq-btn-primary"
             >
-              {quickCustSaving ? 'Đang lưu…' : 'Lưu & Chọn ngay'}
+              <PqCheckIcon size={15} />
+              <span>{quickCustSaving ? 'Đang lưu…' : 'Lưu & Chọn ngay'}</span>
             </button>
           </div>
         </form>
@@ -2484,14 +2209,13 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
         onClose={() => setCatalogPickerLineIdx(null)}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
-            <label htmlFor="pq-picker-search-input" style={labelStyle}>
-              Tìm kiếm ấn phẩm trong bảng giá
-            </label>
+          <div className="pq-search-wrap" style={{ maxWidth: '100%' }}>
+            <PqSearchIcon size={15} className="pq-search-icon" />
             <input
               id="pq-picker-search-input"
               type="search"
-              style={inputStyle}
+              aria-label="Tìm kiếm ấn phẩm trong bảng giá"
+              style={{ ...inputStyle, paddingLeft: '36px' }}
               placeholder="Gõ tên ấn phẩm, quy cách hoặc nhà in…"
               value={catalogSearchQuery}
               onChange={(e) => setCatalogSearchQuery(e.target.value)}
@@ -2501,7 +2225,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
           {filteredCatalogItems.length === 0 ? (
             <div
               style={{
-                padding: '16px',
+                padding: '20px',
                 textAlign: 'center',
                 color: 'var(--muted-color)',
                 fontSize: '13px',
@@ -2515,7 +2239,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '8px',
-                maxHeight: '340px',
+                maxHeight: '360px',
                 overflowY: 'auto',
               }}
             >
@@ -2531,42 +2255,45 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                     setCatalogPickerLineIdx(null);
                     focusQuantityForLine(targetIdx);
                   }}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    color: 'var(--text-color)',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '10px',
-                    flexWrap: 'wrap',
-                  }}
+                  className="pq-picker-row"
                 >
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: '13px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '13.5px' }}>
                       <span style={{ color: 'var(--accent-text)' }}>
                         {item.code}
                       </span>{' '}
                       — {item.name}
                     </div>
                     <div
-                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--muted-color)',
+                        marginTop: '2px',
+                      }}
                     >
                       {item.vendor_name || 'Nhà in'}
                       {item.specification ? ` • ${item.specification}` : ''}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right', fontSize: '12px' }}>
+                  <div
+                    style={{
+                      textAlign: 'right',
+                      fontSize: '12.5px',
+                      ...tabularNumStyle,
+                    }}
+                  >
                     <strong>
                       {item.pricing_mode === 'TOTAL_BATCH'
                         ? `${formatVnd(item.batch_total_cost)} / lô`
                         : `${formatVnd(item.unit_cost)} / ${item.unit}`}
                     </strong>
-                    <div style={{ color: 'var(--success-text)' }}>
+                    <div
+                      style={{
+                        color: 'var(--success-text)',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                      }}
+                    >
                       +Lời:{' '}
                       {item.default_profit_mode === 'PERCENTAGE'
                         ? `${item.default_profit_value}%`
@@ -2579,24 +2306,6 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
           )}
         </div>
       </CatalogModalDialog>
-
-      <style>{`
-        .pq-editor-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 14px;
-          align-items: start;
-        }
-        @media (min-width: 1024px) {
-          .pq-editor-grid {
-            grid-template-columns: minmax(0, 1.38fr) minmax(330px, 0.92fr);
-          }
-          .pq-editor-summary-col {
-            position: sticky;
-            top: 60px;
-          }
-        }
-      `}</style>
     </div>
   );
 };

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { PrintCustomerData } from '../../../../../packages/contracts/src/printquote.js';
 import { cardStyle, inputStyle, labelStyle } from './types.js';
 import { CatalogModalDialog } from './CatalogModalDialog.js';
+import { PqPlusIcon, PqSearchIcon, PqUsersIcon } from './PrintQuoteIcons.js';
 
 export interface CustomersTabProps {
   customers: PrintCustomerData[];
@@ -62,134 +63,158 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   };
 
   return (
-    <div style={cardStyle} data-testid="panel-customers">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '8px',
-          marginBottom: '12px',
-        }}
-      >
+    <div
+      data-testid="panel-customers"
+      style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+    >
+      <div className="pq-page-head">
         <div>
-          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
-            Danh bạ Khách hàng đặt in ({customers.length})
-          </h2>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Lưu thông tin khách hàng để chọn nhanh khi tạo báo giá và in lên PDF
-            A4
-          </div>
+          <h1 className="pq-page-title">
+            Khách hàng đặt in ({customers.length})
+          </h1>
+          <p className="pq-page-subtitle">
+            Lưu thông tin liên hệ và địa chỉ giao hàng để chọn nhanh khi lập báo
+            giá
+          </p>
         </div>
 
         <button
           type="button"
           data-testid="pq-open-customer-dialog-btn"
           onClick={() => setIsDialogOpen(true)}
-          style={{
-            minHeight: '44px',
-            padding: '10px 16px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: 'var(--primary-color)',
-            color: 'var(--inverse-text)',
-            fontWeight: 800,
-            fontSize: '13px',
-            cursor: 'pointer',
-          }}
+          className="pq-btn pq-btn-primary pq-btn-cta"
         >
-          + Thêm khách hàng
+          <PqPlusIcon size={15} />
+          <span>Thêm khách hàng</span>
         </button>
       </div>
 
-      <div style={{ marginBottom: '14px', maxWidth: '380px' }}>
-        <label htmlFor="pq-customer-search-input" style={labelStyle}>
-          Tìm kiếm khách hàng
-        </label>
-        <input
-          id="pq-customer-search-input"
-          type="search"
-          aria-label="Tìm kiếm khách hàng"
-          style={inputStyle}
-          placeholder="Tìm tên, công ty, SĐT hoặc địa chỉ khách…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      <div className="pq-toolbar-card">
+        <div className="pq-search-wrap" style={{ maxWidth: '420px' }}>
+          <PqSearchIcon size={15} className="pq-search-icon" />
+          <input
+            id="pq-customer-search-input"
+            type="search"
+            aria-label="Tìm kiếm khách hàng"
+            style={{ ...inputStyle, paddingLeft: '36px', minHeight: '40px' }}
+            placeholder="Tìm tên, công ty, SĐT hoặc địa chỉ khách…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       {filteredCustomers.length === 0 ? (
         <div
           style={{
-            padding: '24px',
+            ...cardStyle,
+            padding: '40px 24px',
             textAlign: 'center',
-            color: 'var(--muted-color)',
-            fontSize: '13.5px',
           }}
         >
-          {customers.length === 0
-            ? 'Chưa có hồ sơ khách hàng nào. Bấm "+ Thêm khách hàng" để tạo mới.'
-            : 'Không tìm thấy khách hàng phù hợp.'}
+          {customers.length === 0 ? (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px',
+                maxWidth: '400px',
+                margin: '0 auto',
+              }}
+            >
+              <div className="pq-empty-icon-ring">
+                <PqUsersIcon size={24} />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '15px' }}>
+                Chưa có khách hàng trong danh bạ
+              </div>
+              <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
+                Thêm khách hàng thường xuyên để tự động điền tên, SĐT và địa chỉ
+                trên PDF A4.
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDialogOpen(true)}
+                className="pq-btn pq-btn-primary"
+              >
+                <PqPlusIcon size={15} />
+                <span>Thêm khách hàng đầu tiên</span>
+              </button>
+            </div>
+          ) : (
+            <div style={{ color: 'var(--muted-color)', fontSize: '13.5px' }}>
+              Không tìm thấy khách hàng phù hợp với từ khóa.
+            </div>
+          )}
         </div>
       ) : (
         <div
           style={{
             display: 'grid',
             gridTemplateColumns:
-              'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
-            gap: '10px',
+              'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+            gap: '12px',
           }}
         >
           {filteredCustomers.map((c) => (
             <div
               key={c.id}
               data-testid={`customer-card-${c.code}`}
+              className="pq-quote-card"
               style={{
-                padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-color)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                gap: '8px',
+                gap: '12px',
               }}
             >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '13.5px' }}>
-                  <span style={{ color: 'var(--accent-text)' }}>{c.code}</span>{' '}
-                  — {c.name}
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span className="pq-code-pill">{c.code}</span>
+                  <strong style={{ fontSize: '14px' }}>{c.name}</strong>
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                <div
+                  style={{
+                    fontSize: '12.5px',
+                    color: 'var(--muted-color)',
+                    marginTop: '5px',
+                  }}
+                >
                   {c.company_name ? `${c.company_name} • ` : ''}SĐT:{' '}
-                  {c.phone || '—'}
+                  <strong style={{ color: 'var(--text-color)' }}>
+                    {c.phone || '—'}
+                  </strong>
                 </div>
                 {c.address && (
                   <div
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '2px',
+                    }}
                   >
                     Đ/c: {c.address}
                   </div>
                 )}
               </div>
+
               <button
                 type="button"
                 data-testid={`pq-quick-quote-customer-${c.code}`}
                 onClick={() => onSelectCustomerForQuote(c.id)}
-                style={{
-                  minHeight: '44px',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--accent-text)',
-                  backgroundColor: 'var(--accent-soft)',
-                  color: 'var(--accent-text)',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
+                className="pq-btn pq-btn-accent"
+                style={{ flexShrink: 0 }}
               >
-                + Báo giá
+                <PqPlusIcon size={14} />
+                <span>Báo giá</span>
               </button>
             </div>
           ))}
@@ -205,14 +230,14 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       >
         <form
           onSubmit={handleDialogSubmit}
-          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
         >
           <div
             style={{
               display: 'grid',
               gridTemplateColumns:
                 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-              gap: '10px',
+              gap: '12px',
             }}
           >
             <div>
@@ -223,7 +248,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                 id="pq-dialog-cust-name"
                 aria-label="Tên khách hàng"
                 style={inputStyle}
-                placeholder="VD: Anh Minh"
+                placeholder="VD: Anh Minh…"
                 value={custName}
                 onChange={(e) => setCustName(e.target.value)}
                 required
@@ -240,7 +265,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                 type="tel"
                 inputMode="tel"
                 style={inputStyle}
-                placeholder="VD: 0918222333"
+                placeholder="VD: 0918222333…"
                 value={custPhone}
                 onChange={(e) => setCustPhone(e.target.value)}
               />
@@ -255,7 +280,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               id="pq-dialog-cust-company"
               aria-label="Tên công ty khách hàng"
               style={inputStyle}
-              placeholder="VD: Công ty TNHH Thực Phẩm Xanh"
+              placeholder="VD: Công ty TNHH Thực Phẩm Xanh…"
               value={custCompany}
               onChange={(e) => setCustCompany(e.target.value)}
             />
@@ -269,7 +294,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               id="pq-dialog-cust-address"
               aria-label="Địa chỉ giao hàng"
               style={inputStyle}
-              placeholder="VD: 120 Nguyễn Trãi, Q.1, TP.HCM"
+              placeholder="VD: 120 Nguyễn Trãi, Q.1, TP.HCM…"
               value={custAddress}
               onChange={(e) => setCustAddress(e.target.value)}
             />
@@ -286,16 +311,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             <button
               type="button"
               onClick={() => setIsDialogOpen(false)}
-              style={{
-                minHeight: '44px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'transparent',
-                color: 'var(--text-color)',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
+              className="pq-btn pq-btn-secondary"
             >
               Hủy
             </button>
@@ -303,18 +319,9 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               type="submit"
               data-testid="pq-submit-customer-btn"
               disabled={submitting}
-              style={{
-                minHeight: '44px',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: 'var(--primary-color)',
-                color: 'var(--inverse-text)',
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
+              className="pq-btn pq-btn-primary"
             >
-              {submitting ? 'Đang lưu…' : '+ Lưu Khách hàng'}
+              {submitting ? 'Đang lưu…' : 'Lưu khách hàng'}
             </button>
           </div>
         </form>

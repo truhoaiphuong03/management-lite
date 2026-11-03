@@ -4,6 +4,7 @@ export interface CatalogModalDialogProps {
   open: boolean;
   title: string;
   subtitle?: string | undefined;
+  ariaLabel?: string | undefined;
   testId?: string | undefined;
   maxWidth?: string | undefined;
   onClose: () => void;
@@ -17,6 +18,7 @@ export const CatalogModalDialog: React.FC<CatalogModalDialogProps> = ({
   open,
   title,
   subtitle,
+  ariaLabel,
   testId,
   maxWidth = '540px',
   onClose,
@@ -102,7 +104,8 @@ export const CatalogModalDialog: React.FC<CatalogModalDialogProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby={titleId}
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabel ? undefined : titleId}
       data-testid={testId}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
@@ -113,12 +116,14 @@ export const CatalogModalDialog: React.FC<CatalogModalDialogProps> = ({
         position: 'fixed',
         inset: 0,
         zIndex: 1150,
-        backgroundColor: 'rgba(2, 6, 23, 0.78)',
+        backgroundColor: 'rgba(2, 6, 23, 0.72)',
+        backdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '12px',
+        padding: '14px',
         overflowY: 'auto',
+        overscrollBehavior: 'contain',
         boxSizing: 'border-box',
       }}
     >
@@ -127,15 +132,16 @@ export const CatalogModalDialog: React.FC<CatalogModalDialogProps> = ({
         style={{
           width: '100%',
           maxWidth,
-          maxHeight: 'calc(100dvh - 24px)',
+          maxHeight: 'calc(100dvh - 28px)',
           overflowY: 'auto',
+          overscrollBehavior: 'contain',
           margin: 'auto',
           backgroundColor: 'var(--surface-color)',
           border: '1px solid var(--border-color)',
-          borderRadius: '14px',
-          padding: '18px',
+          borderRadius: '16px',
+          padding: '20px 22px',
           color: 'var(--text-color)',
-          boxShadow: '0 24px 48px rgba(0, 0, 0, 0.55)',
+          boxShadow: '0 24px 48px rgba(2, 6, 23, 0.45)',
           boxSizing: 'border-box',
         }}
       >
@@ -144,8 +150,10 @@ export const CatalogModalDialog: React.FC<CatalogModalDialogProps> = ({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
-            gap: '10px',
-            marginBottom: '12px',
+            gap: '12px',
+            marginBottom: '16px',
+            paddingBottom: '12px',
+            borderBottom: '1px solid var(--border-color)',
           }}
         >
           <div>

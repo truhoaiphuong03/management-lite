@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.8.3';
-export const SYSTEM_COMMIT = 'dc1f10a';
+export const SYSTEM_VERSION = '0.8.4';
+export const SYSTEM_COMMIT = '62bb359';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -40,6 +40,22 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  * Bản 'latest' tự động gắn với commit thực tế của bản dựng mới nhất khi đóng gói và triển khai.
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
+  {
+    version: '0.8.4',
+    commit: 'latest',
+    released_at: '2026-11-03',
+    summary:
+      'Tối ưu toàn diện giao diện Báo giá in ấn (/print-quotes) theo phong cách tối giản hiện đại, chuẩn tương phản Sáng/Tối AA và hiển thị cân đối trên Desktop & iPhone',
+    added: [
+      'Bộ biểu tượng hình học SVG đồng nhất (PrintQuoteIcons) thay thế toàn bộ emoji rời rạc và khung xem trước trang giấy A4 trực quan trên màn hình Chi tiết báo giá.',
+    ],
+    improved: [
+      'Loại bỏ khung viền lồng nhau dư thừa, hợp nhất thanh điều hướng dạng pill, chuẩn hóa bố cục nhập liệu 2 cột thoáng mắt, chữ số thẳng hàng (tabular-nums) và hiển thị trọn 4 mục trên màn hình iPhone.',
+    ],
+    fixed: [
+      'Khắc phục cắt chữ ở các ô chọn chế độ giá vốn/lợi nhuận và loại bỏ tiêu đề trùng lặp phía trên các trang Báo giá in ấn.',
+    ],
+  },
   {
     version: '0.8.3',
     commit: 'latest',

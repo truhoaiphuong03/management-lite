@@ -107,13 +107,15 @@ export function isQuoteStatusEditable(status: string): boolean {
 
 export const inputStyle: React.CSSProperties = {
   width: '100%',
-  minHeight: '44px',
-  padding: '8px 10px',
-  borderRadius: '8px',
+  minHeight: '42px',
+  padding: '9px 12px',
+  borderRadius: '10px',
   border: '1px solid var(--border-color)',
   backgroundColor: 'var(--bg-color)',
   color: 'var(--text-color)',
   fontSize: '13.5px',
+  lineHeight: 1.4,
+  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
   boxSizing: 'border-box',
 };
 
@@ -122,15 +124,21 @@ export const labelStyle: React.CSSProperties = {
   fontSize: '12px',
   fontWeight: 600,
   color: 'var(--muted-color)',
-  marginBottom: '4px',
+  marginBottom: '6px',
+  letterSpacing: '0.01em',
 };
 
 export const cardStyle: React.CSSProperties = {
   backgroundColor: 'var(--surface-color)',
   border: '1px solid var(--border-color)',
-  borderRadius: '12px',
-  padding: '16px',
+  borderRadius: '14px',
+  padding: '18px 20px',
+  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
   boxSizing: 'border-box',
+};
+
+export const tabularNumStyle: React.CSSProperties = {
+  fontVariantNumeric: 'tabular-nums',
 };
 
 export function resolveNavGroupForTab(

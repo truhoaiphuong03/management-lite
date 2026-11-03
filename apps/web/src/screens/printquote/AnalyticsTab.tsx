@@ -5,7 +5,8 @@ import type {
   PrintQuoteDashboardStats,
 } from '../../../../../packages/contracts/src/printquote.js';
 import { formatVnd } from '../helpers/printquote-helpers.js';
-import { cardStyle } from './types.js';
+import { cardStyle, tabularNumStyle } from './types.js';
+import { PqShieldIcon } from './PrintQuoteIcons.js';
 
 export interface AnalyticsTabProps {
   stats: PrintQuoteDashboardStats | null;
@@ -38,106 +39,104 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     [orders, onlyDebt],
   );
 
+  const debtCount = orders.filter((o) => o.remaining_debt_amount > 0).length;
+
   return (
     <div
       data-testid="panel-profit-debt"
       style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
     >
+      <div className="pq-page-head">
+        <div>
+          <h1 className="pq-page-title">Báo cáo lợi nhuận & phải thu</h1>
+          <p className="pq-page-subtitle">
+            Tổng hợp giá trị đơn hàng, lợi nhuận dự kiến và tiến độ thu tiền
+          </p>
+        </div>
+      </div>
+
       <div
         data-testid="pq-reports-scope-note"
         style={{
-          padding: '10px 14px',
-          borderRadius: '10px',
+          padding: '12px 16px',
+          borderRadius: '12px',
           backgroundColor: 'var(--surface-color)',
           border: '1px solid var(--border-color)',
           fontSize: '12.5px',
           color: 'var(--muted-color)',
-          lineHeight: 1.5,
+          lineHeight: 1.55,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '10px',
         }}
       >
-        <strong style={{ color: 'var(--text-color)' }}>
-          Phạm vi số liệu báo cáo:
-        </strong>{' '}
-        Lợi nhuận trên trang này là <strong>lợi nhuận dự kiến</strong> tính theo
-        giá vốn lúc lập báo giá (chưa bao gồm sổ đối soát hóa đơn thực tế với
-        xưởng in). Sổ Thu chi cá nhân (<code>/finance</code>) hoạt động độc lập
-        hoàn toàn.
+        <PqShieldIcon
+          size={16}
+          style={{ color: 'var(--accent-text)', marginTop: '2px' }}
+        />
+        <div>
+          <strong style={{ color: 'var(--text-color)' }}>
+            Phạm vi số liệu báo cáo:
+          </strong>{' '}
+          Lợi nhuận trên trang này là <strong>lợi nhuận dự kiến</strong> tính
+          theo giá vốn lúc lập báo giá (chưa bao gồm sổ đối soát hóa đơn thực tế
+          với xưởng in). Sổ Thu chi cá nhân (<code>/finance</code>) hoạt động
+          độc lập hoàn toàn.
+        </div>
       </div>
 
       <div
         style={{
           display: 'grid',
           gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+            'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
           gap: '12px',
         }}
       >
-        <div style={cardStyle}>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Tổng giá trị đơn hàng (chưa hủy)
-          </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, marginTop: '4px' }}>
+        <div className="pq-stat-card">
+          <div className="pq-stat-label">Tổng giá trị đơn hàng (chưa hủy)</div>
+          <div className="pq-stat-value" style={tabularNumStyle}>
             {formatVnd(stats?.total_order_revenue ?? 0)}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+          <div className="pq-stat-sub">
             {stats?.total_orders ?? orders.length} đơn hàng /{' '}
             {stats?.total_quotes ?? quotes.length} báo giá
           </div>
         </div>
 
-        <div style={cardStyle}>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Lợi nhuận dự kiến theo báo giá
-          </div>
+        <div className="pq-stat-card">
+          <div className="pq-stat-label">Lợi nhuận dự kiến theo báo giá</div>
           <div
-            style={{
-              fontSize: '20px',
-              fontWeight: 800,
-              color: 'var(--success-text)',
-              marginTop: '4px',
-            }}
+            className="pq-stat-value"
+            style={{ ...tabularNumStyle, color: 'var(--success-text)' }}
           >
             {formatVnd(stats?.total_expected_profit ?? 0)}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Tính theo giá vốn báo giá ban đầu
-          </div>
+          <div className="pq-stat-sub">Tính theo giá vốn báo giá ban đầu</div>
         </div>
 
-        <div style={cardStyle}>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Đã ghi nhận thu trên đơn
-          </div>
+        <div className="pq-stat-card">
+          <div className="pq-stat-label">Đã ghi nhận thu trên đơn</div>
           <div
-            style={{
-              fontSize: '20px',
-              fontWeight: 800,
-              color: 'var(--accent-text)',
-              marginTop: '4px',
-            }}
+            className="pq-stat-value"
+            style={{ ...tabularNumStyle, color: 'var(--accent-text)' }}
           >
             {formatVnd(stats?.total_paid_amount ?? 0)}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+          <div className="pq-stat-sub">
             Tổng tiền cọc & các đợt thanh toán đã nhập
           </div>
         </div>
 
-        <div style={cardStyle}>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            Còn phải thu trên đơn
-          </div>
+        <div className="pq-stat-card">
+          <div className="pq-stat-label">Còn phải thu trên đơn</div>
           <div
-            style={{
-              fontSize: '20px',
-              fontWeight: 800,
-              color: 'var(--danger-text)',
-              marginTop: '4px',
-            }}
+            className="pq-stat-value"
+            style={{ ...tabularNumStyle, color: 'var(--danger-text)' }}
           >
             {formatVnd(stats?.total_remaining_debt ?? 0)}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+          <div className="pq-stat-sub">
             {ordersInProdCount} đơn đang SX • {ordersPendingDeliveryCount} đơn
             chờ giao
           </div>
@@ -151,138 +150,105 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '8px',
-            marginBottom: '12px',
+            gap: '10px',
+            marginBottom: '14px',
           }}
         >
-          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
-            Theo dõi Lợi nhuận dự kiến & Phải thu khách theo Đơn hàng
-          </h3>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
+            Chi tiết lợi nhuận dự kiến & phải thu theo đơn
+          </h2>
+          <div className="pq-filter-pills">
             <button
               type="button"
+              aria-pressed={!onlyDebt}
+              className="pq-filter-pill"
+              data-active={!onlyDebt ? 'true' : 'false'}
               onClick={() => setOnlyDebt(false)}
-              style={{
-                minHeight: '44px',
-                padding: '8px 12px',
-                borderRadius: '999px',
-                border: !onlyDebt
-                  ? '1px solid var(--accent-text)'
-                  : '1px solid var(--border-color)',
-                backgroundColor: !onlyDebt
-                  ? 'var(--accent-soft)'
-                  : 'var(--bg-color)',
-                color: !onlyDebt ? 'var(--accent-text)' : 'var(--muted-color)',
-                fontWeight: !onlyDebt ? 700 : 600,
-                fontSize: '12.5px',
-                cursor: 'pointer',
-              }}
             >
-              Tất cả ({orders.length})
+              <span>Tất cả</span>
+              <span className="pq-filter-pill-count">{orders.length}</span>
             </button>
             <button
               type="button"
+              aria-pressed={onlyDebt}
+              className="pq-filter-pill"
+              data-active={onlyDebt ? 'true' : 'false'}
               onClick={() => setOnlyDebt(true)}
-              style={{
-                minHeight: '44px',
-                padding: '8px 12px',
-                borderRadius: '999px',
-                border: onlyDebt
-                  ? '1px solid var(--danger-text)'
-                  : '1px solid var(--border-color)',
-                backgroundColor: onlyDebt
-                  ? 'rgba(239, 68, 68, 0.14)'
-                  : 'var(--bg-color)',
-                color: onlyDebt ? 'var(--danger-text)' : 'var(--muted-color)',
-                fontWeight: onlyDebt ? 700 : 600,
-                fontSize: '12.5px',
-                cursor: 'pointer',
-              }}
             >
-              Chỉ xem đơn còn phải thu (
-              {orders.filter((o) => o.remaining_debt_amount > 0).length})
+              <span>Còn phải thu</span>
+              <span className="pq-filter-pill-count">{debtCount}</span>
             </button>
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table
+        {displayedOrders.length === 0 ? (
+          <div
             style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: '12.5px',
+              padding: '28px 16px',
+              textAlign: 'center',
+              color: 'var(--muted-color)',
+              fontSize: '13px',
             }}
           >
-            <thead>
-              <tr
-                style={{
-                  borderBottom: '1px solid var(--border-color)',
-                  color: 'var(--muted-color)',
-                  textAlign: 'left',
-                }}
-              >
-                <th style={{ padding: '8px' }}>Mã đơn</th>
-                <th style={{ padding: '8px' }}>Khách hàng</th>
-                <th style={{ padding: '8px', textAlign: 'right' }}>
-                  Giá trị đơn
-                </th>
-                <th style={{ padding: '8px', textAlign: 'right' }}>
-                  Lời dự kiến (theo BG)
-                </th>
-                <th style={{ padding: '8px', textAlign: 'right' }}>
-                  Đã ghi nhận thu
-                </th>
-                <th style={{ padding: '8px', textAlign: 'right' }}>
-                  Còn phải thu
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedOrders.map((o) => (
-                <tr
-                  key={o.id}
-                  style={{ borderBottom: '1px solid var(--border-color)' }}
-                >
-                  <td style={{ padding: '8px', fontWeight: 700 }}>
-                    {o.order_code}
-                  </td>
-                  <td style={{ padding: '8px' }}>
-                    {o.customer_name || 'Khách lẻ'}
-                  </td>
-                  <td style={{ padding: '8px', textAlign: 'right' }}>
-                    {formatVnd(o.total_quote_amount)}
-                  </td>
-                  <td
-                    style={{
-                      padding: '8px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: 'var(--success-text)',
-                    }}
-                  >
-                    {formatVnd(o.expected_profit)}
-                  </td>
-                  <td style={{ padding: '8px', textAlign: 'right' }}>
-                    {formatVnd(o.total_paid_amount)}
-                  </td>
-                  <td
-                    style={{
-                      padding: '8px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color:
-                        o.remaining_debt_amount > 0
-                          ? 'var(--danger-text)'
-                          : 'var(--success-text)',
-                    }}
-                  >
-                    {formatVnd(o.remaining_debt_amount)}
-                  </td>
+            Chưa có đơn hàng nào khớp bộ lọc hiện tại.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="pq-table">
+              <thead>
+                <tr>
+                  <th>Mã đơn</th>
+                  <th>Khách hàng</th>
+                  <th style={{ textAlign: 'right' }}>Giá trị đơn</th>
+                  <th style={{ textAlign: 'right' }}>Lời dự kiến (BG)</th>
+                  <th style={{ textAlign: 'right' }}>Đã thu</th>
+                  <th style={{ textAlign: 'right' }}>Còn phải thu</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {displayedOrders.map((o) => (
+                  <tr key={o.id}>
+                    <td
+                      style={{ fontWeight: 700, color: 'var(--accent-text)' }}
+                    >
+                      {o.order_code}
+                    </td>
+                    <td>{o.customer_name || 'Khách lẻ'}</td>
+                    <td style={{ textAlign: 'right', ...tabularNumStyle }}>
+                      {formatVnd(o.total_quote_amount)}
+                    </td>
+                    <td
+                      style={{
+                        textAlign: 'right',
+                        fontWeight: 700,
+                        color: 'var(--success-text)',
+                        ...tabularNumStyle,
+                      }}
+                    >
+                      {formatVnd(o.expected_profit)}
+                    </td>
+                    <td style={{ textAlign: 'right', ...tabularNumStyle }}>
+                      {formatVnd(o.total_paid_amount)}
+                    </td>
+                    <td
+                      style={{
+                        textAlign: 'right',
+                        fontWeight: 700,
+                        color:
+                          o.remaining_debt_amount > 0
+                            ? 'var(--danger-text)'
+                            : 'var(--success-text)',
+                        ...tabularNumStyle,
+                      }}
+                    >
+                      {formatVnd(o.remaining_debt_amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

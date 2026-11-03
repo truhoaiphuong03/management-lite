@@ -1,5 +1,13 @@
 import React from 'react';
-import type { PrintQuoteViewMode } from './types.js';
+import type { CatalogSubPageId, PrintQuoteViewMode } from './types.js';
+import {
+  PqChartIcon,
+  PqFileTextIcon,
+  PqPackageIcon,
+  PqStoreIcon,
+  PqTagIcon,
+  PqUsersIcon,
+} from './PrintQuoteIcons.js';
 
 export interface PrintQuoteNavHeaderProps {
   viewMode: PrintQuoteViewMode;
@@ -20,8 +28,8 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
   customersCount,
   vendorsCount,
 }) => {
-  // Focused editor / detail screens never render module subnav to keep 100% focus
-  if (viewMode === 'new' || viewMode === 'detail' || viewMode === 'edit') {
+  // Focused editor & detail routes hide module subnav to maximize calm workspace
+  if (viewMode === 'new' || viewMode === 'edit' || viewMode === 'detail') {
     return null;
   }
 
@@ -30,108 +38,112 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
     viewMode === 'catalog-customers' ||
     viewMode === 'catalog-vendors';
 
-  const primaryTabs: Array<{
+  const topItems: Array<{
     id: string;
+    testId: string;
     label: string;
+    count?: number;
     path: string;
     active: boolean;
-    badge?: number | undefined;
-    testId: string;
+    icon: React.ReactNode;
   }> = [
     {
       id: 'quotes',
+      testId: 'pq-nav-group-quotes',
       label: 'Báo giá',
+      count: quotesCount,
       path: '/print-quotes',
       active: viewMode === 'quotes',
-      badge: quotesCount,
-      testId: 'pq-nav-group-quotes',
+      icon: <PqFileTextIcon size={15} />,
     },
     {
       id: 'orders',
+      testId: 'pq-nav-group-orders',
       label: 'Đơn hàng',
+      count: ordersCount,
       path: '/print-quotes/orders',
       active: viewMode === 'orders',
-      badge: ordersCount,
-      testId: 'pq-nav-group-orders',
+      icon: <PqPackageIcon size={15} />,
     },
     {
       id: 'catalog',
+      testId: 'pq-nav-group-catalog',
       label: 'Danh mục',
       path: '/print-quotes/catalog/prices',
       active: isCatalogView,
-      badge: priceItemsCount + customersCount + vendorsCount,
-      testId: 'pq-nav-group-catalog',
+      icon: <PqTagIcon size={15} />,
     },
     {
       id: 'reports',
+      testId: 'pq-nav-group-analytics',
       label: 'Báo cáo',
       path: '/print-quotes/reports',
       active: viewMode === 'reports',
-      testId: 'pq-nav-group-analytics',
+      icon: <PqChartIcon size={15} />,
     },
   ];
 
-  const catalogSubTabs: Array<{
-    id: string;
+  const activeCatalogSub: CatalogSubPageId =
+    viewMode === 'catalog-customers'
+      ? 'customers'
+      : viewMode === 'catalog-vendors'
+        ? 'vendors'
+        : 'prices';
+
+  const catalogSubItems: Array<{
+    id: CatalogSubPageId;
     label: string;
+    count: number;
     path: string;
-    active: boolean;
-    testId: string;
+    icon: React.ReactNode;
   }> = [
     {
       id: 'prices',
-      label: `Bảng giá nhà in (${priceItemsCount})`,
+      label: 'Bảng giá nhà in',
+      count: priceItemsCount,
       path: '/print-quotes/catalog/prices',
-      active: viewMode === 'catalog-prices',
-      testId: 'pq-catalog-tab-prices',
+      icon: <PqTagIcon size={14} />,
     },
     {
       id: 'customers',
-      label: `Khách hàng (${customersCount})`,
+      label: 'Khách hàng',
+      count: customersCount,
       path: '/print-quotes/catalog/customers',
-      active: viewMode === 'catalog-customers',
-      testId: 'pq-catalog-tab-customers',
+      icon: <PqUsersIcon size={14} />,
     },
     {
       id: 'vendors',
-      label: `Nhà in đối tác (${vendorsCount})`,
+      label: 'Nhà in đối tác',
+      count: vendorsCount,
       path: '/print-quotes/catalog/vendors',
-      active: viewMode === 'catalog-vendors',
-      testId: 'pq-catalog-tab-vendors',
+      icon: <PqStoreIcon size={14} />,
     },
   ];
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        width: '100%',
-        maxWidth: '100%',
-        boxSizing: 'border-box',
-      }}
-    >
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <nav
         aria-label="Điều hướng phân hệ Báo giá in ấn"
-        className="app-subnav-bar"
-        data-testid="pq-grouped-nav"
+        className="pq-module-nav"
       >
-        {primaryTabs.map((item) => (
+        {topItems.map((item) => (
           <button
             key={item.id}
             type="button"
-            className="app-subnav-item"
             data-testid={item.testId}
-            data-active={item.active ? 'true' : 'false'}
             aria-current={item.active ? 'page' : undefined}
+            className="pq-module-nav-item"
+            data-active={item.active ? 'true' : 'false'}
             onClick={() => onNavigatePath(item.path)}
-            style={{ minHeight: '44px' }}
           >
+            {item.icon}
             <span>{item.label}</span>
-            {typeof item.badge === 'number' && item.badge > 0 && (
-              <span style={{ fontSize: '12px', opacity: 0.85 }}>
-                ({item.badge})
+            {typeof item.count === 'number' && (
+              <span
+                className="pq-nav-count-pill"
+                data-active={item.active ? 'true' : 'false'}
+              >
+                {item.count}
               </span>
             )}
           </button>
@@ -140,45 +152,34 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
 
       {isCatalogView && (
         <div
-          role="tablist"
-          aria-label="Danh mục Báo giá in ấn"
+          role="navigation"
+          aria-label="Phân mục Danh mục in ấn"
           data-testid="pq-catalog-tabs"
-          style={{
-            display: 'flex',
-            gap: '6px',
-            overflowX: 'auto',
-            paddingBottom: '2px',
-            WebkitOverflowScrolling: 'touch',
-          }}
+          className="pq-catalog-subnav"
         >
-          {catalogSubTabs.map((sub) => (
-            <button
-              key={sub.id}
-              type="button"
-              role="tab"
-              aria-selected={sub.active}
-              data-testid={sub.testId}
-              onClick={() => onNavigatePath(sub.path)}
-              style={{
-                minHeight: '44px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: sub.active
-                  ? '1px solid var(--accent-text)'
-                  : '1px solid var(--border-color)',
-                backgroundColor: sub.active
-                  ? 'var(--accent-soft)'
-                  : 'var(--surface-color)',
-                color: sub.active ? 'var(--accent-text)' : 'var(--text-color)',
-                fontWeight: sub.active ? 700 : 600,
-                fontSize: '13px',
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-              }}
-            >
-              {sub.label}
-            </button>
-          ))}
+          {catalogSubItems.map((sub) => {
+            const active = activeCatalogSub === sub.id;
+            return (
+              <button
+                key={sub.id}
+                type="button"
+                data-testid={`pq-catalog-tab-${sub.id}`}
+                aria-current={active ? 'page' : undefined}
+                className="pq-catalog-subnav-item"
+                data-active={active ? 'true' : 'false'}
+                onClick={() => onNavigatePath(sub.path)}
+              >
+                {sub.icon}
+                <span>{sub.label}</span>
+                <span
+                  className="pq-nav-count-pill"
+                  data-active={active ? 'true' : 'false'}
+                >
+                  {sub.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
