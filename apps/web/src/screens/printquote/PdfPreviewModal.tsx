@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import type { PdfPreviewState } from './types.js';
 
 export interface PdfPreviewModalProps {
@@ -16,6 +16,42 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
   onDownloadLivePdf,
   onPrintWindow,
 }) => {
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!previewState || typeof document === 'undefined') return;
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const focusTimer = setTimeout(() => {
+      closeBtnRef.current?.focus();
+    }, 0);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCloseRef.current();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      const prev = previousFocusRef.current;
+      if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
+        try {
+          prev.focus();
+        } catch {
+          // Ignore focus restore error
+        }
+      }
+    };
+  }, [previewState]);
+
   if (!previewState) return null;
 
   return (
@@ -24,6 +60,11 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
       aria-modal="true"
       aria-label={previewState.title}
       data-testid="pq-pdf-modal"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -79,11 +120,12 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
                 }
               }}
               style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
+                minHeight: '44px',
+                padding: '8px 14px',
+                borderRadius: '8px',
                 border: 'none',
-                backgroundColor: 'var(--accent-text)',
-                color: '#0F172A',
+                backgroundColor: 'var(--primary-color)',
+                color: 'var(--inverse-text)',
                 fontWeight: 700,
                 fontSize: '12.5px',
                 cursor: 'pointer',
@@ -95,8 +137,9 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
               type="button"
               onClick={() => onPrintWindow(previewState.html)}
               style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
+                minHeight: '44px',
+                padding: '8px 14px',
+                borderRadius: '8px',
                 border: '1px solid var(--accent-text)',
                 backgroundColor: 'var(--accent-soft)',
                 color: 'var(--accent-text)',
@@ -108,15 +151,18 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
               🖨️ Mở cửa sổ In A4
             </button>
             <button
+              ref={closeBtnRef}
               type="button"
               onClick={onClose}
               style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
+                minHeight: '44px',
+                padding: '8px 14px',
+                borderRadius: '8px',
                 border: '1px solid var(--border-color)',
                 backgroundColor: 'transparent',
                 color: 'var(--text-color)',
                 fontSize: '12.5px',
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >

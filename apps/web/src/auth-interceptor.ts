@@ -6,6 +6,12 @@
 
 import { sanitizePostLoginRedirect } from './navigation-guard.js';
 import { clearFrontendQueryCache } from './cache/query-cache.js';
+import {
+  clearPrintQuoteRamDraft,
+  clearPrintQuoteSessionIdentity,
+  reconcilePrintQuoteDraftWithVerifiedSession,
+} from './printquote-draft-bridge.js';
+import { parseSessionPayload } from './session-manager.js';
 
 type SessionExpiredListener = (info: {
   currentPath: string;
@@ -126,10 +132,25 @@ export async function attemptSilentSessionRefresh(
       }
       const body = (await res.json().catch(() => null)) as {
         success?: boolean;
-        data?: { csrf_token?: unknown };
+        data?: {
+          csrf_token?: unknown;
+          user?: unknown;
+          active_workspace?: unknown;
+        };
       } | null;
       if (!body?.success) {
         return { ok: false };
+      }
+      if (
+        body.data &&
+        (body.data.active_workspace !== undefined ||
+          body.data.user !== undefined)
+      ) {
+        const parsed = parseSessionPayload(body);
+        if (!parsed || !reconcilePrintQuoteDraftWithVerifiedSession(parsed)) {
+          clearPrintQuoteSessionIdentity();
+          clearPrintQuoteRamDraft();
+        }
       }
       const csrfToken =
         typeof body.data?.csrf_token === 'string'
@@ -152,7 +173,11 @@ export async function attemptSilentSessionRefresh(
  */
 export function triggerSessionExpired(url: string = ''): void {
   clearFrontendQueryCache();
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {
+    clearPrintQuoteSessionIdentity();
+    clearPrintQuoteRamDraft();
+    return;
+  }
 
   const currentPath = window.location.pathname;
 
@@ -186,6 +211,8 @@ export function triggerSessionExpired(url: string = ''): void {
       // Prevent listener errors from breaking interceptor
     }
   }
+  clearPrintQuoteSessionIdentity();
+  clearPrintQuoteRamDraft();
 }
 
 /**

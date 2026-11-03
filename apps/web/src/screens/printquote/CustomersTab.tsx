@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { PrintCustomerData } from '../../../../../packages/contracts/src/printquote.js';
-import { cardStyle, inputStyle } from './types.js';
+import { cardStyle, inputStyle, labelStyle } from './types.js';
+import { CatalogModalDialog } from './CatalogModalDialog.js';
 
 export interface CustomersTabProps {
   customers: PrintCustomerData[];
@@ -12,7 +13,7 @@ export interface CustomersTabProps {
   setCustPhone: (v: string) => void;
   custAddress: string;
   setCustAddress: (v: string) => void;
-  onCreateCustomer: (e: React.FormEvent) => void;
+  onCreateCustomer: (e: React.FormEvent) => Promise<boolean> | void;
   onSelectCustomerForQuote: (customerId: string) => void;
 }
 
@@ -30,6 +31,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   onSelectCustomerForQuote,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   const filteredCustomers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -43,6 +46,20 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
         (c.address || '').toLowerCase().includes(q),
     );
   }, [customers, searchQuery]);
+
+  const handleDialogSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const ok = await onCreateCustomer(e);
+      if (ok !== false) {
+        setIsDialogOpen(false);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div style={cardStyle} data-testid="panel-customers">
@@ -65,132 +82,243 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             A4
           </div>
         </div>
+
+        <button
+          type="button"
+          data-testid="pq-open-customer-dialog-btn"
+          onClick={() => setIsDialogOpen(true)}
+          style={{
+            minHeight: '44px',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: 'var(--primary-color)',
+            color: 'var(--inverse-text)',
+            fontWeight: 800,
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          + Thêm khách hàng
+        </button>
+      </div>
+
+      <div style={{ marginBottom: '14px', maxWidth: '380px' }}>
+        <label htmlFor="pq-customer-search-input" style={labelStyle}>
+          Tìm kiếm khách hàng
+        </label>
         <input
+          id="pq-customer-search-input"
           type="search"
           aria-label="Tìm kiếm khách hàng"
-          style={{ ...inputStyle, maxWidth: '280px' }}
-          placeholder="Tìm tên, công ty hoặc SĐT khách…"
+          style={inputStyle}
+          placeholder="Tìm tên, công ty, SĐT hoặc địa chỉ khách…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
 
-      <form
-        onSubmit={onCreateCustomer}
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-          gap: '8px',
-          marginBottom: '16px',
-          padding: '12px',
-          borderRadius: '10px',
-          backgroundColor: 'var(--bg-color)',
-          border: '1px solid var(--border-color)',
-        }}
-      >
-        <input
-          aria-label="Tên khách hàng"
-          style={inputStyle}
-          placeholder="Tên khách hàng *"
-          value={custName}
-          onChange={(e) => setCustName(e.target.value)}
-          required
-        />
-        <input
-          aria-label="Tên công ty khách hàng"
-          style={inputStyle}
-          placeholder="Công ty / Thương hiệu"
-          value={custCompany}
-          onChange={(e) => setCustCompany(e.target.value)}
-        />
-        <input
-          aria-label="Số điện thoại khách hàng"
-          style={inputStyle}
-          placeholder="Số điện thoại"
-          value={custPhone}
-          onChange={(e) => setCustPhone(e.target.value)}
-        />
-        <input
-          aria-label="Địa chỉ giao hàng"
-          style={inputStyle}
-          placeholder="Địa chỉ nhận hàng"
-          value={custAddress}
-          onChange={(e) => setCustAddress(e.target.value)}
-        />
-        <button
-          type="submit"
+      {filteredCustomers.length === 0 ? (
+        <div
           style={{
-            padding: '8px 14px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: 'var(--accent-text)',
-            color: '#0F172A',
-            fontWeight: 700,
-            cursor: 'pointer',
+            padding: '24px',
+            textAlign: 'center',
+            color: 'var(--muted-color)',
+            fontSize: '13.5px',
           }}
         >
-          + Thêm Khách hàng
-        </button>
-      </form>
+          {customers.length === 0
+            ? 'Chưa có hồ sơ khách hàng nào. Bấm "+ Thêm khách hàng" để tạo mới.'
+            : 'Không tìm thấy khách hàng phù hợp.'}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+            gap: '10px',
+          }}
+        >
+          {filteredCustomers.map((c) => (
+            <div
+              key={c.id}
+              data-testid={`customer-card-${c.code}`}
+              style={{
+                padding: '12px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-color)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '13.5px' }}>
+                  <span style={{ color: 'var(--accent-text)' }}>{c.code}</span>{' '}
+                  — {c.name}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                  {c.company_name ? `${c.company_name} • ` : ''}SĐT:{' '}
+                  {c.phone || '—'}
+                </div>
+                {c.address && (
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Đ/c: {c.address}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                data-testid={`pq-quick-quote-customer-${c.code}`}
+                onClick={() => onSelectCustomerForQuote(c.id)}
+                style={{
+                  minHeight: '44px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--accent-text)',
+                  backgroundColor: 'var(--accent-soft)',
+                  color: 'var(--accent-text)',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                + Báo giá
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
-          gap: '10px',
-        }}
+      <CatalogModalDialog
+        open={isDialogOpen}
+        title="Thêm khách hàng đặt in mới"
+        subtitle="Thông tin khách hàng sẽ tự động điền vào biểu mẫu báo giá và PDF A4."
+        testId="pq-customer-dialog"
+        onClose={() => setIsDialogOpen(false)}
       >
-        {filteredCustomers.map((c) => (
+        <form
+          onSubmit={handleDialogSubmit}
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+        >
           <div
-            key={c.id}
             style={{
-              padding: '12px',
-              borderRadius: '10px',
-              border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--bg-color)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '8px',
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+              gap: '10px',
             }}
           >
             <div>
-              <div style={{ fontWeight: 700, fontSize: '13.5px' }}>
-                <span style={{ color: 'var(--accent-text)' }}>{c.code}</span> —{' '}
-                {c.name}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                {c.company_name ? `${c.company_name} • ` : ''}SĐT:{' '}
-                {c.phone || '—'}
-              </div>
-              {c.address && (
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Đ/c: {c.address}
-                </div>
-              )}
+              <label htmlFor="pq-dialog-cust-name" style={labelStyle}>
+                Tên khách hàng *
+              </label>
+              <input
+                id="pq-dialog-cust-name"
+                aria-label="Tên khách hàng"
+                style={inputStyle}
+                placeholder="VD: Anh Minh"
+                value={custName}
+                onChange={(e) => setCustName(e.target.value)}
+                required
+              />
             </div>
+
+            <div>
+              <label htmlFor="pq-dialog-cust-phone" style={labelStyle}>
+                Số điện thoại
+              </label>
+              <input
+                id="pq-dialog-cust-phone"
+                aria-label="Số điện thoại khách hàng"
+                type="tel"
+                inputMode="tel"
+                style={inputStyle}
+                placeholder="VD: 0918222333"
+                value={custPhone}
+                onChange={(e) => setCustPhone(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="pq-dialog-cust-company" style={labelStyle}>
+              Công ty / Thương hiệu
+            </label>
+            <input
+              id="pq-dialog-cust-company"
+              aria-label="Tên công ty khách hàng"
+              style={inputStyle}
+              placeholder="VD: Công ty TNHH Thực Phẩm Xanh"
+              value={custCompany}
+              onChange={(e) => setCustCompany(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="pq-dialog-cust-address" style={labelStyle}>
+              Địa chỉ nhận hàng
+            </label>
+            <input
+              id="pq-dialog-cust-address"
+              aria-label="Địa chỉ giao hàng"
+              style={inputStyle}
+              placeholder="VD: 120 Nguyễn Trãi, Q.1, TP.HCM"
+              value={custAddress}
+              onChange={(e) => setCustAddress(e.target.value)}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '8px',
+              marginTop: '4px',
+            }}
+          >
             <button
               type="button"
-              onClick={() => onSelectCustomerForQuote(c.id)}
+              onClick={() => setIsDialogOpen(false)}
               style={{
-                padding: '6px 10px',
-                borderRadius: '6px',
-                border: '1px solid var(--accent-text)',
-                backgroundColor: 'var(--accent-soft)',
-                color: 'var(--accent-text)',
-                fontSize: '12px',
-                fontWeight: 700,
+                minHeight: '44px',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'transparent',
+                color: 'var(--text-color)',
+                fontWeight: 600,
                 cursor: 'pointer',
-                whiteSpace: 'nowrap',
               }}
             >
-              + Báo giá
+              Hủy
+            </button>
+            <button
+              type="submit"
+              data-testid="pq-submit-customer-btn"
+              disabled={submitting}
+              style={{
+                minHeight: '44px',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: 'var(--primary-color)',
+                color: 'var(--inverse-text)',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              {submitting ? 'Đang lưu…' : '+ Lưu Khách hàng'}
             </button>
           </div>
-        ))}
-      </div>
+        </form>
+      </CatalogModalDialog>
     </div>
   );
 };

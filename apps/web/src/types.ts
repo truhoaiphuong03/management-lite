@@ -23,6 +23,15 @@ export interface RouteMeta {
     | 'print-quotes';
 }
 
+const pqRoute = (id: string, path: string, title: string): RouteMeta => ({
+  id,
+  path,
+  title,
+  ownerOnly: true,
+  implemented: true,
+  category: 'print-quotes',
+});
+
 export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
   '/finance': {
     id: 'FIN-UI-1',
@@ -252,14 +261,56 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     implemented: true,
     category: 'accounts',
   },
-  '/print-quotes': {
-    id: 'UI-PRINTQUOTE-01',
-    path: '/print-quotes',
-    title: 'Báo giá in ấn',
-    ownerOnly: true,
-    implemented: true,
-    category: 'print-quotes',
-  },
+  '/print-quotes': pqRoute(
+    'UI-PRINTQUOTE-01',
+    '/print-quotes',
+    'Báo giá in ấn',
+  ),
+  '/print-quotes/new': pqRoute(
+    'UI-PRINTQUOTE-02',
+    '/print-quotes/new',
+    'Tạo báo giá mới',
+  ),
+  '/print-quotes/orders': pqRoute(
+    'UI-PRINTQUOTE-03',
+    '/print-quotes/orders',
+    'Đơn hàng in ấn',
+  ),
+  '/print-quotes/catalog': pqRoute(
+    'UI-PRINTQUOTE-04',
+    '/print-quotes/catalog',
+    'Danh mục in ấn',
+  ),
+  '/print-quotes/catalog/prices': pqRoute(
+    'UI-PRINTQUOTE-05',
+    '/print-quotes/catalog/prices',
+    'Bảng giá nhà in',
+  ),
+  '/print-quotes/catalog/customers': pqRoute(
+    'UI-PRINTQUOTE-06',
+    '/print-quotes/catalog/customers',
+    'Khách hàng in ấn',
+  ),
+  '/print-quotes/catalog/vendors': pqRoute(
+    'UI-PRINTQUOTE-07',
+    '/print-quotes/catalog/vendors',
+    'Nhà in đối tác',
+  ),
+  '/print-quotes/reports': pqRoute(
+    'UI-PRINTQUOTE-08',
+    '/print-quotes/reports',
+    'Báo cáo in ấn',
+  ),
+  '/print-quotes/:id': pqRoute(
+    'UI-PRINTQUOTE-09',
+    '/print-quotes/:id',
+    'Chi tiết báo giá',
+  ),
+  '/print-quotes/:id/edit': pqRoute(
+    'UI-PRINTQUOTE-10',
+    '/print-quotes/:id/edit',
+    'Sửa báo giá',
+  ),
   '/storage': {
     id: 'UI-STORAGE-01',
     path: '/storage',

@@ -1,5 +1,13 @@
 import { matchRoute } from './router.js';
 import { clearFrontendQueryCache } from './cache/query-cache.js';
+import {
+  bindPrintQuoteDraftOwnerFromActiveTracker,
+  clearPrintQuoteRamDraft,
+  clearPrintQuoteSessionIdentity,
+  getVerifiedActivePrintQuoteEditorPath,
+  purgeUnattributedPrintQuoteDraft,
+  reconcilePrintQuoteDraftWithVerifiedSession,
+} from './printquote-draft-bridge.js';
 import type { UserRole } from './types.js';
 
 export interface ParsedSessionData {
@@ -87,10 +95,25 @@ export interface SessionStateTracker {
   csrfToken: string;
 }
 
+function resetSessionTrackerClosed(tracker: SessionStateTracker): void {
+  tracker.verifiedOwnerSession = false;
+  tracker.isLoggedIn = false;
+  tracker.userId = undefined;
+  tracker.userEmail = undefined;
+  tracker.emailVerified = undefined;
+  tracker.workspaceId = undefined;
+  tracker.workspaceName = undefined;
+}
+
+function isDefinitiveAuthRejectionStatus(status: number): boolean {
+  return status === 401 || status === 403;
+}
+
 export async function executeSessionVerification(
   tracker: SessionStateTracker,
   fetchFn: typeof fetch = fetch,
 ): Promise<boolean> {
+  bindPrintQuoteDraftOwnerFromActiveTracker(tracker);
   const epoch = ++tracker.authEpoch;
   try {
     let res = await fetchFn('/api/v1/auth/me', {
@@ -119,26 +142,41 @@ export async function executeSessionVerification(
 
     if (!res.ok) {
       clearFrontendQueryCache();
-      tracker.verifiedOwnerSession = false;
-      tracker.isLoggedIn = false;
-      tracker.userId = undefined;
-      tracker.userEmail = undefined;
-      tracker.emailVerified = undefined;
-      tracker.workspaceId = undefined;
-      tracker.workspaceName = undefined;
+      if (isDefinitiveAuthRejectionStatus(res.status)) {
+        clearPrintQuoteSessionIdentity();
+        clearPrintQuoteRamDraft();
+      } else {
+        // Transient server / gateway / rate-limit failure (5xx, 408, 429):
+        // Fail closed on session access, preserve Owner-bound RAM draft, purge only unattributed drafts
+        purgeUnattributedPrintQuoteDraft();
+      }
+      resetSessionTrackerClosed(tracker);
       return false;
     }
 
-    const body = await res.json().catch(() => null);
+    const JSON_PARSE_ERROR = Symbol('json_parse_error');
+    const rawBody: unknown = await res.json().catch(() => JSON_PARSE_ERROR);
     if (epoch !== tracker.authEpoch) return false;
 
-    const parsed = parseSessionPayload(body);
+    if (rawBody === JSON_PARSE_ERROR) {
+      // Non-JSON proxy/gateway response on 2xx: fail closed on session, preserve Owner-bound RAM draft
+      clearFrontendQueryCache();
+      purgeUnattributedPrintQuoteDraft();
+      resetSessionTrackerClosed(tracker);
+      return false;
+    }
+
+    const parsed = parseSessionPayload(rawBody);
     if (parsed) {
       if (
         (tracker.userId && tracker.userId !== parsed.userId) ||
         (tracker.workspaceId && tracker.workspaceId !== parsed.workspaceId) ||
         (tracker.isLoggedIn && tracker.role !== parsed.role)
       ) {
+        clearFrontendQueryCache();
+        clearPrintQuoteRamDraft();
+      }
+      if (!reconcilePrintQuoteDraftWithVerifiedSession(parsed)) {
         clearFrontendQueryCache();
       }
       tracker.role = parsed.role;
@@ -154,44 +192,42 @@ export async function executeSessionVerification(
       tracker.isLoggedIn = true;
       return true;
     } else {
-      // Malformed payload => fail closed
+      // Structured JSON rejection or non-owner/missing workspace => fail closed & purge RAM draft
       clearFrontendQueryCache();
-      tracker.verifiedOwnerSession = false;
-      tracker.isLoggedIn = false;
-      tracker.userId = undefined;
-      tracker.userEmail = undefined;
-      tracker.emailVerified = undefined;
-      tracker.workspaceId = undefined;
-      tracker.workspaceName = undefined;
+      clearPrintQuoteSessionIdentity();
+      clearPrintQuoteRamDraft();
+      resetSessionTrackerClosed(tracker);
       return false;
     }
   } catch {
     if (epoch === tracker.authEpoch) {
       clearFrontendQueryCache();
-      tracker.verifiedOwnerSession = false;
-      tracker.isLoggedIn = false;
-      tracker.userId = undefined;
-      tracker.userEmail = undefined;
-      tracker.emailVerified = undefined;
-      tracker.workspaceId = undefined;
-      tracker.workspaceName = undefined;
+      purgeUnattributedPrintQuoteDraft();
+      resetSessionTrackerClosed(tracker);
     }
     return false;
   }
 }
 
 export function executeLogout(tracker: SessionStateTracker) {
-  // Invalidate any in-flight session verification and purge frontend query cache immediately
+  // Invalidate any in-flight session verification and purge frontend query cache + RAM quote draft immediately
   clearFrontendQueryCache();
+  clearPrintQuoteSessionIdentity();
+  clearPrintQuoteRamDraft();
   tracker.authEpoch++;
-  tracker.verifiedOwnerSession = false;
-  tracker.isLoggedIn = false;
-  tracker.userId = undefined;
-  tracker.userEmail = undefined;
-  tracker.emailVerified = undefined;
-  tracker.workspaceId = undefined;
-  tracker.workspaceName = undefined;
+  resetSessionTrackerClosed(tracker);
   tracker.csrfToken = '';
+}
+
+export function isPublicAuthRoute(pathname: string): boolean {
+  const clean = pathname.split(/[?#]/, 1)[0] || '/';
+  return (
+    clean === '/login' ||
+    clean === '/forgot-password' ||
+    clean.startsWith('/activate') ||
+    clean.startsWith('/reset-password') ||
+    clean.startsWith('/verify-email')
+  );
 }
 
 export function determinePostVerificationRoute(
@@ -200,17 +236,11 @@ export function determinePostVerificationRoute(
 ): string | null {
   if (verified) {
     if (currentPath === '/login') {
-      return '/';
+      return getVerifiedActivePrintQuoteEditorPath() || '/';
     }
     return null; // Keep current path
   } else {
-    if (
-      currentPath !== '/login' &&
-      !currentPath.startsWith('/activate') &&
-      currentPath !== '/forgot-password' &&
-      !currentPath.startsWith('/reset-password') &&
-      !currentPath.startsWith('/verify-email')
-    ) {
+    if (!isPublicAuthRoute(currentPath)) {
       return '/login'; // Redirect to login
     }
     return null; // Stay at current public route, do not navigate away
@@ -229,15 +259,32 @@ export function evaluateRouteAccess(
     routeMeta?.path === '/issues/:id' ||
     currentPath.startsWith('/issues'),
   );
+  const isPrintQuotesRoute = Boolean(
+    routeMeta?.category === 'print-quotes' ||
+    currentPath === '/print-quotes' ||
+    currentPath.startsWith('/print-quotes/'),
+  );
 
   const isForbidden = Boolean(
     (routeMeta?.category === 'finance' &&
       (!verifiedOwnerSession || role !== 'owner')) ||
     (isIssuesRoute && (!verifiedOwnerSession || role !== 'owner')) ||
-    (routeMeta?.path === '/print-quotes' && role !== 'owner') ||
-    (!isIssuesRoute && routeMeta?.ownerOnly && role === 'staff') ||
-    (!isIssuesRoute && routeMeta?.staffOnly && role === 'owner'),
+    (isPrintQuotesRoute && (!verifiedOwnerSession || role !== 'owner')) ||
+    (!isIssuesRoute &&
+      !isPrintQuotesRoute &&
+      routeMeta?.ownerOnly &&
+      role === 'staff') ||
+    (!isIssuesRoute &&
+      !isPrintQuotesRoute &&
+      routeMeta?.staffOnly &&
+      role === 'owner'),
   );
 
-  return { route: routeMeta, params, isIssuesRoute, isForbidden };
+  return {
+    route: routeMeta,
+    params,
+    isIssuesRoute,
+    isPrintQuotesRoute,
+    isForbidden,
+  };
 }

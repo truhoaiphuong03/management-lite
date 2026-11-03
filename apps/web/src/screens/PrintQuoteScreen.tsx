@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from 'react';
 import { PageHeader } from '../../../../packages/ui/src/components/index.js';
 import {
   ProfitMode,
@@ -21,45 +27,186 @@ import {
 } from '../../../../packages/contracts/src/printquote.js';
 import {
   buildPrintQuoteA4Html,
+  QUOTE_STATUS_LABELS,
   resolveSavedQuoteLineCostState,
   validateQuoteDraftInputs,
   type DraftLineValidationError,
 } from './helpers/printquote-helpers.js';
 import type { UserRole } from '../types.js';
 import {
-  DEFAULT_DRAFT_LINE,
+  clearPrintQuoteRamDraft,
+  getPrintQuoteRamDraft,
+  registerPrintQuoteLeaveInterceptor,
+  setPrintQuoteRamDraft,
+  subscribePrintQuoteDraft,
+} from '../printquote-draft-bridge.js';
+import {
+  EMPTY_DRAFT_LINE,
   cardStyle,
+  isQuoteStatusEditable,
   type PrintQuoteTabId,
+  type PrintQuoteViewMode,
   type DraftLineState,
 } from './printquote/types.js';
 import { PrintQuoteNavHeader } from './printquote/PrintQuoteNavHeader.js';
 import { CreateQuoteTab } from './printquote/CreateQuoteTab.js';
 import { QuotesListTab } from './printquote/QuotesListTab.js';
+import { QuoteDetailView } from './printquote/QuoteDetailView.js';
 import { VendorsCatalogTab } from './printquote/VendorsCatalogTab.js';
 import { CustomersTab } from './printquote/CustomersTab.js';
 import { OrdersTab } from './printquote/OrdersTab.js';
 import { AnalyticsTab } from './printquote/AnalyticsTab.js';
 import { PdfPreviewModal } from './printquote/PdfPreviewModal.js';
+import { CatalogModalDialog } from './printquote/CatalogModalDialog.js';
 
-export type { PrintQuoteTabId } from './printquote/types.js';
+export type {
+  PrintQuoteTabId,
+  PrintQuoteViewMode,
+} from './printquote/types.js';
+
+const DEFAULT_CUSTOMER_NOTES =
+  '1. Đơn giá trên đã tính theo đúng quy cách và số lượng đặt in.\n2. Thời gian giao hàng dự kiến: 2–4 ngày làm việc kể từ khi chốt file in và đặt cọc.';
+
+function mapLegacyTabToPath(tab?: PrintQuoteTabId | undefined): string {
+  switch (tab) {
+    case 'create':
+      return '/print-quotes/new';
+    case 'vendors':
+      return '/print-quotes/catalog/prices';
+    case 'customers':
+      return '/print-quotes/catalog/customers';
+    case 'orders':
+      return '/print-quotes/orders';
+    case 'analytics':
+      return '/print-quotes/reports';
+    case 'quotes':
+    default:
+      return '/print-quotes';
+  }
+}
+
+function resolveViewAndQuoteId(
+  path: string,
+  routePattern?: string | undefined,
+  routeParams?: Record<string, string> | undefined,
+): { viewMode: PrintQuoteViewMode; quoteId: string | null } {
+  const clean =
+    (path.split(/[?#]/, 1)[0] || '/print-quotes').replace(/\/+$/, '') ||
+    '/print-quotes';
+
+  if (clean === '/print-quotes') {
+    return { viewMode: 'quotes', quoteId: null };
+  }
+  if (clean === '/print-quotes/new') {
+    return { viewMode: 'new', quoteId: null };
+  }
+  if (clean === '/print-quotes/orders') {
+    return { viewMode: 'orders', quoteId: null };
+  }
+  if (
+    clean === '/print-quotes/catalog' ||
+    clean === '/print-quotes/catalog/prices'
+  ) {
+    return { viewMode: 'catalog-prices', quoteId: null };
+  }
+  if (clean === '/print-quotes/catalog/customers') {
+    return { viewMode: 'catalog-customers', quoteId: null };
+  }
+  if (clean === '/print-quotes/catalog/vendors') {
+    return { viewMode: 'catalog-vendors', quoteId: null };
+  }
+  if (clean === '/print-quotes/reports') {
+    return { viewMode: 'reports', quoteId: null };
+  }
+
+  if (routePattern === '/print-quotes/:id/edit' && routeParams?.['id']) {
+    return {
+      viewMode: 'edit',
+      quoteId: decodeURIComponent(routeParams['id']),
+    };
+  }
+  if (routePattern === '/print-quotes/:id' && routeParams?.['id']) {
+    return {
+      viewMode: 'detail',
+      quoteId: decodeURIComponent(routeParams['id']),
+    };
+  }
+
+  const editMatch = /^\/print-quotes\/([^/]+)\/edit$/.exec(clean);
+  if (editMatch?.[1]) {
+    return { viewMode: 'edit', quoteId: decodeURIComponent(editMatch[1]) };
+  }
+  const detailMatch = /^\/print-quotes\/([^/]+)$/.exec(clean);
+  if (detailMatch?.[1]) {
+    return { viewMode: 'detail', quoteId: decodeURIComponent(detailMatch[1]) };
+  }
+
+  return { viewMode: 'quotes', quoteId: null };
+}
+
+function mapQuoteLinesToDraftLines(quote: PrintQuoteData): DraftLineState[] {
+  if (!quote.lines_json || quote.lines_json.length === 0) {
+    return [EMPTY_DRAFT_LINE(1)];
+  }
+  return quote.lines_json.map((item, idx) => {
+    const explicitMode = (
+      item as typeof item & {
+        vendorCostMode?: VendorCostModeType | undefined;
+      }
+    ).vendorCostMode;
+    const resolvedCost = resolveSavedQuoteLineCostState({
+      quantity: item.quantity,
+      unitVendorCost: item.unitVendorCost,
+      totalVendorCost: item.totalVendorCost,
+      vendorCostMode: explicitMode,
+    });
+
+    return {
+      id: item.id || `ITEM-${idx + 1}`,
+      vendorPriceItemId: item.vendorPriceItemId || '',
+      name: item.name,
+      specification: item.specification || '',
+      unit: item.unit || 'sp',
+      quantity: item.quantity,
+      quantityInput: String(item.quantity),
+      vendorCostMode: resolvedCost.vendorCostMode,
+      vendorCostValue: resolvedCost.vendorCostValue,
+      vendorCostInput: resolvedCost.vendorCostInput,
+      ambiguousLegacyCost: resolvedCost.ambiguousLegacyCost,
+      profitMode: item.profitMode,
+      profitScope: item.profitScope,
+      profitValue: item.profitInputValue,
+      profitInput: String(item.profitInputValue),
+    };
+  });
+}
 
 export interface PrintQuoteScreenProps {
   role: UserRole;
+  isOwnerVerified?: boolean | undefined;
   workspaceName?: string | undefined;
-  onNavigate?: (path: string) => void;
+  currentPath?: string | undefined;
+  routePattern?: string | undefined;
+  routeParams?: Record<string, string> | undefined;
+  onNavigate?: ((path: string) => void) | undefined;
   initialTab?: PrintQuoteTabId | undefined;
   initialVendors?: PrintVendorData[] | undefined;
   initialPriceItems?: PrintVendorPriceItemData[] | undefined;
   initialCustomers?: PrintCustomerData[] | undefined;
   initialQuotes?: PrintQuoteData[] | undefined;
   initialOrders?: PrintOrderData[] | undefined;
-  initialStats?: PrintQuoteDashboardStats | undefined;
+  initialStats?: PrintQuoteDashboardStats | null | undefined;
 }
 
 export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   role,
+  isOwnerVerified = true,
   workspaceName = 'Hoài Phương Media',
-  initialTab = 'create',
+  currentPath,
+  routePattern,
+  routeParams,
+  onNavigate,
+  initialTab,
   initialVendors = [],
   initialPriceItems = [],
   initialCustomers = [],
@@ -67,8 +214,46 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   initialOrders = [],
   initialStats = null,
 }) => {
-  const [activeTab, setActiveTab] = useState<PrintQuoteTabId>(initialTab);
+  const [fallbackPath, setFallbackPath] = useState<string>(
+    () => currentPath || mapLegacyTabToPath(initialTab),
+  );
+  const effectivePath = currentPath || fallbackPath;
+
+  const navigateInternal = useCallback(
+    (targetPath: string, replace = false) => {
+      if (replace && typeof window !== 'undefined') {
+        window.history.replaceState(null, '', targetPath);
+      }
+      if (onNavigate) {
+        onNavigate(targetPath);
+      } else {
+        setFallbackPath(targetPath);
+      }
+    },
+    [onNavigate],
+  );
+
+  // Redirect alias /print-quotes/catalog -> /print-quotes/catalog/prices cleanly
+  useEffect(() => {
+    const clean = effectivePath.split(/[?#]/, 1)[0];
+    if (clean === '/print-quotes/catalog') {
+      navigateInternal('/print-quotes/catalog/prices', true);
+    }
+  }, [effectivePath, navigateInternal]);
+
+  const { viewMode, quoteId: activeQuoteId } = useMemo(
+    () =>
+      resolveViewAndQuoteId(
+        effectivePath,
+        currentPath ? routePattern : undefined,
+        currentPath ? routeParams : undefined,
+      ),
+    [effectivePath, currentPath, routePattern, routeParams],
+  );
+
   const [loading, setLoading] = useState<boolean>(false);
+  const [singleQuoteLoading, setSingleQuoteLoading] = useState<boolean>(false);
+  const [savingQuote, setSavingQuote] = useState<boolean>(false);
   const [bannerMessage, setBannerMessage] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -86,41 +271,179 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     initialStats,
   );
 
-  // Tab 1: Create / Edit Quote State
-  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
-  const [editingQuoteCode, setEditingQuoteCode] = useState<string | null>(null);
-  const [editingQuoteVersion, setEditingQuoteVersion] = useState<number>(1);
-  const [quoteTitle, setQuoteTitle] = useState<string>(
-    'Báo giá in ấn ấn phẩm truyền thông',
+  // Hydrate initial editor state from RAM draft bridge if present, or initial edit quote on SSR/first mount, otherwise clean empty UX V2 state
+  const initialDraft = useMemo(() => getPrintQuoteRamDraft(), []);
+  const initialEditableQuote = useMemo(() => {
+    if (initialDraft || viewMode !== 'edit' || !activeQuoteId) return null;
+    const found = initialQuotes.find(
+      (q) => q.id === activeQuoteId || q.quote_code === activeQuoteId,
+    );
+    return found && isQuoteStatusEditable(found.status) ? found : null;
+  }, [initialDraft, viewMode, activeQuoteId, initialQuotes]);
+
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(
+    initialDraft?.editingQuoteId ?? initialEditableQuote?.id ?? null,
   );
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
-  const [validUntil, setValidUntil] = useState<string>('');
-  const [shippingFee, setShippingFee] = useState<number>(50000);
-  const [shippingFeeInput, setShippingFeeInput] = useState<string>('50000');
+  const [editingQuoteCode, setEditingQuoteCode] = useState<string | null>(
+    initialDraft?.editingQuoteCode ?? initialEditableQuote?.quote_code ?? null,
+  );
+  const [editingQuoteVersion, setEditingQuoteVersion] = useState<number>(
+    initialDraft?.editingQuoteVersion ??
+      initialEditableQuote?.current_version ??
+      1,
+  );
+  const [editorPath, setEditorPath] = useState<string>(
+    initialDraft?.editorPath ??
+      (initialEditableQuote
+        ? `/print-quotes/${encodeURIComponent(initialEditableQuote.id)}/edit`
+        : '/print-quotes/new'),
+  );
+  const [quoteTitle, setQuoteTitle] = useState<string>(
+    initialDraft?.quoteTitle ?? initialEditableQuote?.title ?? '',
+  );
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
+    initialDraft?.selectedCustomerId ??
+      (initialEditableQuote?.customer_id || ''),
+  );
+  const [validUntil, setValidUntil] = useState<string>(
+    initialDraft?.validUntil ?? (initialEditableQuote?.valid_until || ''),
+  );
+  const [shippingFee, setShippingFee] = useState<number>(
+    initialDraft?.shippingFee ?? initialEditableQuote?.shipping_fee ?? 0,
+  );
+  const [shippingFeeInput, setShippingFeeInput] = useState<string>(
+    initialDraft?.shippingFeeInput ??
+      (initialEditableQuote ? String(initialEditableQuote.shipping_fee) : '0'),
+  );
   const [includeShippingInUnitPrice, setIncludeShippingInUnitPrice] =
-    useState<boolean>(true);
+    useState<boolean>(
+      initialDraft?.includeShippingInUnitPrice ??
+        initialEditableQuote?.include_shipping_in_unit_price ??
+        true,
+    );
   const [shippingAllocation, setShippingAllocation] =
     useState<ShippingAllocationStrategyType>(
-      ShippingAllocationStrategy.PROPORTIONAL_BY_BASE_AMOUNT,
+      initialDraft?.shippingAllocation ??
+        initialEditableQuote?.shipping_allocation_strategy ??
+        ShippingAllocationStrategy.PROPORTIONAL_BY_BASE_AMOUNT,
     );
   const [roundingMode, setRoundingMode] = useState<RoundingModeType>(
-    RoundingMode.CEIL,
+    initialDraft?.roundingMode ??
+      initialEditableQuote?.rounding_mode ??
+      RoundingMode.CEIL,
   );
-  const [roundingStep, setRoundingStep] = useState<number>(1);
+  const [roundingStep, setRoundingStep] = useState<number>(
+    initialDraft?.roundingStep ?? initialEditableQuote?.rounding_step ?? 1,
+  );
   const [customerNotes, setCustomerNotes] = useState<string>(
-    '1. Đơn giá trên đã tính theo đúng quy cách và số lượng đặt in.\n2. Thời gian giao hàng dự kiến: 2–4 ngày làm việc kể từ khi chốt file in và đặt cọc.',
+    initialDraft?.customerNotes ??
+      (initialEditableQuote?.notes || DEFAULT_CUSTOMER_NOTES),
   );
-  const [internalNotes, setInternalNotes] = useState<string>('');
-  const [versionChangeNote, setVersionChangeNote] = useState<string>('');
-  const [draftLines, setDraftLines] = useState<DraftLineState[]>([
-    DEFAULT_DRAFT_LINE(1),
+  const [internalNotes, setInternalNotes] = useState<string>(
+    initialDraft?.internalNotes ?? '',
+  );
+  const [versionChangeNote, setVersionChangeNote] = useState<string>(
+    initialDraft?.versionChangeNote ?? '',
+  );
+  const [draftLines, setDraftLines] = useState<DraftLineState[]>(
+    () =>
+      initialDraft?.draftLines ??
+      (initialEditableQuote
+        ? mapQuoteLinesToDraftLines(initialEditableQuote)
+        : [EMPTY_DRAFT_LINE(1)]),
+  );
+  const [hasTouchedFields, setHasTouchedFields] = useState<boolean>(
+    initialDraft?.hasTouchedFields ?? Boolean(initialEditableQuote),
+  );
+  const [isDraftDirty, setIsDraftDirty] = useState<boolean>(
+    initialDraft?.isDirty ?? false,
+  );
+
+  // Confirmation dialogs for unsaved RAM draft
+  const [pendingLeaveAction, setPendingLeaveAction] = useState<
+    (() => void) | null
+  >(null);
+  const [pendingReplaceDraftAction, setPendingReplaceDraftAction] = useState<
+    (() => void) | null
+  >(null);
+
+  const hydratedEditIdRef = useRef<string | null>(
+    initialDraft?.editingQuoteId ?? initialEditableQuote?.id ?? null,
+  );
+  const internalClearingRef = useRef<boolean>(false);
+
+  const markEditorDirty = useCallback(() => {
+    setHasTouchedFields(true);
+    setIsDraftDirty(true);
+  }, []);
+
+  // Keep pure-RAM draft bridge synchronized (0 storage writes)
+  useEffect(() => {
+    if (!isDraftDirty && !editingQuoteId && !hasTouchedFields) {
+      internalClearingRef.current = true;
+      clearPrintQuoteRamDraft();
+      internalClearingRef.current = false;
+      return;
+    }
+    setPrintQuoteRamDraft({
+      mode: editingQuoteId ? 'edit' : 'new',
+      editingQuoteId,
+      editingQuoteCode,
+      editingQuoteVersion,
+      editorPath,
+      quoteTitle,
+      selectedCustomerId,
+      validUntil,
+      shippingFee,
+      shippingFeeInput,
+      includeShippingInUnitPrice,
+      shippingAllocation,
+      roundingMode,
+      roundingStep,
+      customerNotes,
+      internalNotes,
+      versionChangeNote,
+      draftLines,
+      hasTouchedFields,
+      isDirty: isDraftDirty,
+    });
+  }, [
+    isDraftDirty,
+    editingQuoteId,
+    editingQuoteCode,
+    editingQuoteVersion,
+    editorPath,
+    quoteTitle,
+    selectedCustomerId,
+    validUntil,
+    shippingFee,
+    shippingFeeInput,
+    includeShippingInUnitPrice,
+    shippingAllocation,
+    roundingMode,
+    roundingStep,
+    customerNotes,
+    internalNotes,
+    versionChangeNote,
+    draftLines,
+    hasTouchedFields,
   ]);
+
+  // Register cross-module leave interceptor (beforeunload is managed globally in printquote-draft-bridge)
+  useEffect(() => {
+    registerPrintQuoteLeaveInterceptor((proceed) => {
+      setPendingLeaveAction(() => proceed);
+    });
+    return () => {
+      registerPrintQuoteLeaveInterceptor(null);
+    };
+  }, []);
 
   // A4 PDF Preview Modal State
   const [pdfPreviewState, setPdfPreviewState] = useState<{
     title: string;
     html: string;
-    quoteId?: string | null;
+    quoteId?: string | null | undefined;
     quoteCode: string;
   } | null>(null);
 
@@ -129,7 +452,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     string | null
   >(null);
 
-  // Tab 3: New Vendor & Price Item Forms
+  // Catalog Dialog Form States
   const [vendorName, setVendorName] = useState<string>('');
   const [vendorPhone, setVendorPhone] = useState<string>('');
   const [vendorBankName, setVendorBankName] = useState<string>('');
@@ -138,21 +461,20 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   const [priceVendorId, setPriceVendorId] = useState<string>('');
   const [priceItemName, setPriceItemName] = useState<string>('');
   const [priceSpec, setPriceSpec] = useState<string>('');
+  const [priceUnit, setPriceUnit] = useState<string>('tờ');
   const [priceCostMode, setPriceCostMode] = useState<VendorCostModeType>(
     VendorCostMode.PER_UNIT,
   );
-  const [priceUnitCost, setPriceUnitCost] = useState<number>(300);
-  const [priceBatchCost, setPriceBatchCost] = useState<number>(300000);
-  const [priceDefaultProfitVal, setPriceDefaultProfitVal] =
-    useState<number>(200);
+  const [priceUnitCost, setPriceUnitCost] = useState<number>(0);
+  const [priceBatchCost, setPriceBatchCost] = useState<number>(0);
+  const [priceDefaultProfitVal, setPriceDefaultProfitVal] = useState<number>(0);
 
-  // Tab 4: New Customer Form
   const [custName, setCustName] = useState<string>('');
   const [custCompany, setCustCompany] = useState<string>('');
   const [custPhone, setCustPhone] = useState<string>('');
   const [custAddress, setCustAddress] = useState<string>('');
 
-  // Tab 5: Payment Modal / Inline Form
+  // Orders Payment Modal State
   const [paymentOrderTarget, setPaymentOrderTarget] =
     useState<PrintOrderData | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -221,7 +543,171 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     void loadAllData();
   }, [loadAllData]);
 
-  // Live Pricing Engine Calculation (Strict validation: no fake totals when required inputs are empty/invalid)
+  const activeQuote = useMemo(() => {
+    if (!activeQuoteId) return null;
+    return (
+      quotes.find(
+        (q) => q.id === activeQuoteId || q.quote_code === activeQuoteId,
+      ) || null
+    );
+  }, [quotes, activeQuoteId]);
+
+  // Direct URL / F5 refresh single-quote fetch fallback
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      (viewMode !== 'detail' && viewMode !== 'edit') ||
+      !activeQuoteId ||
+      activeQuote
+    ) {
+      return;
+    }
+    let cancelled = false;
+    const fetchSingleQuote = async () => {
+      setSingleQuoteLoading(true);
+      try {
+        const res = await fetch(
+          `/api/v1/print-quotes/quotes/${encodeURIComponent(activeQuoteId)}`,
+          { credentials: 'include' },
+        );
+        if (!res.ok || cancelled) return;
+        const json = await res.json().catch(() => null);
+        const item: PrintQuoteData | undefined = json?.data;
+        if (item && item.id && !cancelled) {
+          setQuotes((prev) =>
+            prev.some((q) => q.id === item.id) ? prev : [item, ...prev],
+          );
+        }
+      } catch {
+        // Ignore single fetch error
+      } finally {
+        if (!cancelled) {
+          setSingleQuoteLoading(false);
+        }
+      }
+    };
+    void fetchSingleQuote();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, activeQuoteId, activeQuote]);
+
+  const applyQuoteIntoEditor = useCallback(
+    (quote: PrintQuoteData, asClone: boolean) => {
+      if (asClone) {
+        hydratedEditIdRef.current = null;
+        setEditingQuoteId(null);
+        setEditingQuoteCode(null);
+        setEditingQuoteVersion(1);
+        setEditorPath('/print-quotes/new');
+        setQuoteTitle(quote.title ? `${quote.title} (Bản mới)` : '');
+        setIsDraftDirty(true);
+        setHasTouchedFields(true);
+      } else {
+        hydratedEditIdRef.current = quote.id;
+        setEditingQuoteId(quote.id);
+        setEditingQuoteCode(quote.quote_code);
+        setEditingQuoteVersion(quote.current_version);
+        setEditorPath(`/print-quotes/${encodeURIComponent(quote.id)}/edit`);
+        setQuoteTitle(quote.title);
+        setIsDraftDirty(false);
+        setHasTouchedFields(true);
+      }
+      setSelectedCustomerId(quote.customer_id || '');
+      setValidUntil(quote.valid_until || '');
+      setShippingFee(quote.shipping_fee);
+      setShippingFeeInput(String(quote.shipping_fee));
+      setIncludeShippingInUnitPrice(quote.include_shipping_in_unit_price);
+      setShippingAllocation(quote.shipping_allocation_strategy);
+      setRoundingMode(quote.rounding_mode);
+      setRoundingStep(quote.rounding_step);
+      setCustomerNotes(quote.notes || DEFAULT_CUSTOMER_NOTES);
+      setInternalNotes('');
+      setVersionChangeNote('');
+      setDraftLines(mapQuoteLinesToDraftLines(quote));
+    },
+    [],
+  );
+
+  // Hydrate /print-quotes/:id/edit automatically when navigating directly via URL
+  useEffect(() => {
+    if (viewMode !== 'edit' || !activeQuote) return;
+    if (!isQuoteStatusEditable(activeQuote.status)) return;
+    if (
+      hydratedEditIdRef.current === activeQuote.id &&
+      editingQuoteId === activeQuote.id
+    ) {
+      return;
+    }
+    if (isDraftDirty && editingQuoteId !== activeQuote.id) {
+      return;
+    }
+    applyQuoteIntoEditor(activeQuote, false);
+  }, [
+    viewMode,
+    activeQuote,
+    editingQuoteId,
+    isDraftDirty,
+    applyQuoteIntoEditor,
+  ]);
+
+  const resetCleanNewDraft = useCallback(() => {
+    hydratedEditIdRef.current = null;
+    setEditingQuoteId(null);
+    setEditingQuoteCode(null);
+    setEditingQuoteVersion(1);
+    setEditorPath('/print-quotes/new');
+    setQuoteTitle('');
+    setSelectedCustomerId('');
+    setValidUntil('');
+    setShippingFee(0);
+    setShippingFeeInput('0');
+    setIncludeShippingInUnitPrice(true);
+    setShippingAllocation(
+      ShippingAllocationStrategy.PROPORTIONAL_BY_BASE_AMOUNT,
+    );
+    setRoundingMode(RoundingMode.CEIL);
+    setRoundingStep(1);
+    setCustomerNotes(DEFAULT_CUSTOMER_NOTES);
+    setInternalNotes('');
+    setVersionChangeNote('');
+    setDraftLines([EMPTY_DRAFT_LINE(1)]);
+    setHasTouchedFields(false);
+    setIsDraftDirty(false);
+    internalClearingRef.current = true;
+    clearPrintQuoteRamDraft();
+    internalClearingRef.current = false;
+  }, []);
+
+  // Sync local draft state if RAM draft is cleared externally (e.g. root fallback guard or session expiry)
+  useEffect(() => {
+    return subscribePrintQuoteDraft(() => {
+      if (internalClearingRef.current) return;
+      if (getPrintQuoteRamDraft() === null) {
+        resetCleanNewDraft();
+      }
+    });
+  }, [resetCleanNewDraft]);
+
+  const runWithDraftReplaceGuard = useCallback(
+    (shouldGuard: boolean, action: () => void) => {
+      if (shouldGuard && isDraftDirty) {
+        setPendingReplaceDraftAction(() => action);
+        return;
+      }
+      action();
+    },
+    [isDraftDirty],
+  );
+
+  // When entering /print-quotes/new while editor was previously holding a clean (non-dirty) edit state, reset cleanly
+  useEffect(() => {
+    if (viewMode === 'new' && editingQuoteId && !isDraftDirty) {
+      resetCleanNewDraft();
+    }
+  }, [viewMode, editingQuoteId, isDraftDirty, resetCleanNewDraft]);
+
+  // Live Pricing Engine Calculation
   const livePricingResult = useMemo<{
     calc: ReturnType<typeof calculatePrintQuote> | null;
     customerPdf: ReturnType<typeof buildCustomerSafePdfPayload> | null;
@@ -320,6 +806,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     lineIndex: number,
     catalogItemId: string,
   ) => {
+    markEditorDirty();
     const found = priceItems.find((p) => p.id === catalogItemId);
     setDraftLines((prev) =>
       prev.map((line, idx) => {
@@ -337,6 +824,9 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           name: found.name,
           specification: found.specification || '',
           unit: found.unit || 'tờ',
+          // Preserve user's typed quantity or keep empty "" so user enters real order quantity
+          quantityInput:
+            line.quantityInput !== undefined ? line.quantityInput : '',
           vendorCostMode: found.pricing_mode,
           vendorCostValue: resolvedCost,
           vendorCostInput: String(resolvedCost),
@@ -351,6 +841,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   };
 
   const handleOpenLiveA4Preview = () => {
+    setHasTouchedFields(true);
     const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
     if (!validation.isValid || !livePricingResult.customerPdf) {
       setBannerMessage({
@@ -375,7 +866,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
     const html = buildPrintQuoteA4Html(livePricingResult.customerPdf, {
       quoteCode: editingQuoteCode || 'BG-PREVIEW',
-      quoteTitle,
+      quoteTitle: quoteTitle.trim() || 'Báo giá in ấn',
       versionNo: editingQuoteVersion,
       createdAt: new Date().toISOString(),
       validUntil: validUntil || null,
@@ -468,6 +959,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   };
 
   const handleDownloadLivePdfFile = async () => {
+    setHasTouchedFields(true);
     const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
     if (!validation.isValid || !livePricingResult.customerPdf) {
       setBannerMessage({
@@ -479,7 +971,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       });
       return;
     }
-    if (editingQuoteId && editingQuoteCode) {
+    if (editingQuoteId && editingQuoteCode && !isDraftDirty) {
       await handleDownloadSavedQuotePdfFile(editingQuoteId, editingQuoteCode);
       return;
     }
@@ -497,7 +989,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           customer_pdf: livePricingResult.customerPdf,
           meta: {
             quoteCode: code,
-            quoteTitle,
+            quoteTitle: quoteTitle.trim() || 'Báo giá in ấn',
             versionNo: editingQuoteVersion,
             createdAt: new Date().toISOString(),
             validUntil: validUntil || null,
@@ -548,6 +1040,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   };
 
   const handleSaveQuote = async () => {
+    setHasTouchedFields(true);
     const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
     if (!validation.isValid || !livePricingResult.calc) {
       setBannerMessage({
@@ -560,6 +1053,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       return;
     }
 
+    setSavingQuote(true);
     setBannerMessage(null);
     setShippingFee(validation.shippingFee);
     setShippingFeeInput(String(validation.shippingFee));
@@ -579,10 +1073,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       }),
     );
 
+    const firstProductName = draftLines[0]?.name.trim() || '';
+    const resolvedTitle =
+      quoteTitle.trim() ||
+      (firstProductName ? `Báo giá ${firstProductName}` : 'Báo giá in ấn');
+
     const csrf = await getCsrfToken();
     const payload = {
       customer_id: selectedCustomerId || null,
-      title: quoteTitle.trim() || 'Báo giá in ấn',
+      title: resolvedTitle,
       shipping_fee: validation.shippingFee,
       include_shipping_in_unit_price: includeShippingInUnitPrice,
       shipping_allocation_strategy: shippingAllocation,
@@ -590,9 +1089,9 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       rounding_step: Math.max(1, Math.round(Number(roundingStep) || 1)),
       valid_until: validUntil || null,
       notes: customerNotes || null,
-      internal_notes: internalNotes || null,
       change_note:
         versionChangeNote.trim() ||
+        internalNotes.trim() ||
         (editingQuoteId
           ? `Cập nhật phiên bản v${editingQuoteVersion + 1}`
           : 'Khởi tạo báo giá v1'),
@@ -631,7 +1130,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
     try {
       const url = editingQuoteId
-        ? `/api/v1/print-quotes/quotes/${editingQuoteId}`
+        ? `/api/v1/print-quotes/quotes/${encodeURIComponent(editingQuoteId)}`
         : '/api/v1/print-quotes/quotes';
       const method = editingQuoteId ? 'PATCH' : 'POST';
       const res = await fetch(url, {
@@ -644,8 +1143,17 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         credentials: 'include',
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!res.ok) {
+      if (res.status === 401) {
+        clearPrintQuoteRamDraft();
+        setIsDraftDirty(false);
+        setBannerMessage({
+          type: 'error',
+          text: 'Phiên làm việc đã hết hạn — bản nháp trong bộ nhớ tạm đã được xóa để bảo mật. Vui lòng đăng nhập lại.',
+        });
+        return;
+      }
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.data) {
         setBannerMessage({
           type: 'error',
           text: json?.error?.message || 'Không thể lưu báo giá.',
@@ -653,99 +1161,77 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         return;
       }
       const saved: PrintQuoteData = json.data;
-      setEditingQuoteId(saved.id);
-      setEditingQuoteCode(saved.quote_code);
-      setEditingQuoteVersion(saved.current_version);
+      setQuotes((prev) => {
+        const exists = prev.some((q) => q.id === saved.id);
+        return exists
+          ? prev.map((q) => (q.id === saved.id ? saved : q))
+          : [saved, ...prev];
+      });
+      resetCleanNewDraft();
       setBannerMessage({
         type: 'success',
         text: `Đã lưu thành công báo giá ${saved.quote_code} (Phiên bản v${saved.current_version})!`,
       });
-      await loadAllData();
+      navigateInternal(`/print-quotes/${encodeURIComponent(saved.id)}`);
+      void loadAllData();
     } catch {
       setBannerMessage({
         type: 'error',
         text: 'Lỗi kết nối máy chủ khi lưu báo giá.',
       });
+    } finally {
+      setSavingQuote(false);
     }
+  };
+
+  const handleStartNewQuote = () => {
+    // If user already has an unsaved 'new' draft, resume it directly
+    if (isDraftDirty && !editingQuoteId) {
+      setEditorPath('/print-quotes/new');
+      navigateInternal('/print-quotes/new');
+      return;
+    }
+    runWithDraftReplaceGuard(Boolean(editingQuoteId), () => {
+      resetCleanNewDraft();
+      setBannerMessage(null);
+      navigateInternal('/print-quotes/new');
+    });
   };
 
   const handleLoadQuoteForEdit = (quote: PrintQuoteData) => {
-    setEditingQuoteId(quote.id);
-    setEditingQuoteCode(quote.quote_code);
-    setEditingQuoteVersion(quote.current_version);
-    setQuoteTitle(quote.title);
-    setSelectedCustomerId(quote.customer_id || '');
-    setValidUntil(quote.valid_until || '');
-    setShippingFee(quote.shipping_fee);
-    setShippingFeeInput(String(quote.shipping_fee));
-    setIncludeShippingInUnitPrice(quote.include_shipping_in_unit_price);
-    setShippingAllocation(quote.shipping_allocation_strategy);
-    setRoundingMode(quote.rounding_mode);
-    setRoundingStep(quote.rounding_step);
-    setCustomerNotes(quote.notes || '');
-    setVersionChangeNote('');
-
-    if (quote.lines_json && quote.lines_json.length > 0) {
-      setDraftLines(
-        quote.lines_json.map((item, idx) => {
-          const explicitMode = (
-            item as typeof item & {
-              vendorCostMode?: VendorCostModeType | undefined;
-            }
-          ).vendorCostMode;
-          const resolvedCost = resolveSavedQuoteLineCostState({
-            quantity: item.quantity,
-            unitVendorCost: item.unitVendorCost,
-            totalVendorCost: item.totalVendorCost,
-            vendorCostMode: explicitMode,
-          });
-
-          return {
-            id: item.id || `ITEM-${idx + 1}`,
-            vendorPriceItemId: item.vendorPriceItemId || '',
-            name: item.name,
-            specification: item.specification || '',
-            unit: item.unit || 'sp',
-            quantity: item.quantity,
-            quantityInput: String(item.quantity),
-            vendorCostMode: resolvedCost.vendorCostMode,
-            vendorCostValue: resolvedCost.vendorCostValue,
-            vendorCostInput: resolvedCost.vendorCostInput,
-            ambiguousLegacyCost: resolvedCost.ambiguousLegacyCost,
-            profitMode: item.profitMode,
-            profitScope: item.profitScope,
-            profitValue: item.profitInputValue,
-            profitInput: String(item.profitInputValue),
-          };
-        }),
-      );
+    if (!isQuoteStatusEditable(quote.status)) {
+      handleCloneQuoteAsNew(quote);
+      return;
     }
-    setActiveTab('create');
+    runWithDraftReplaceGuard(editingQuoteId !== quote.id, () => {
+      applyQuoteIntoEditor(quote, false);
+      setBannerMessage(null);
+      navigateInternal(`/print-quotes/${encodeURIComponent(quote.id)}/edit`);
+    });
   };
 
-  const handleResetNewQuote = () => {
-    setEditingQuoteId(null);
-    setEditingQuoteCode(null);
-    setEditingQuoteVersion(1);
-    setQuoteTitle('Báo giá in ấn ấn phẩm truyền thông');
-    setSelectedCustomerId('');
-    setValidUntil('');
-    setShippingFee(50000);
-    setShippingFeeInput('50000');
-    setIncludeShippingInUnitPrice(true);
-    setDraftLines([DEFAULT_DRAFT_LINE(1)]);
-    setVersionChangeNote('');
-    setBannerMessage(null);
+  const handleCloneQuoteAsNew = (quote: PrintQuoteData) => {
+    runWithDraftReplaceGuard(true, () => {
+      applyQuoteIntoEditor(quote, true);
+      setBannerMessage({
+        type: 'success',
+        text: `Đã sao chép dữ liệu từ ${quote.quote_code} sang bản báo giá mới.`,
+      });
+      navigateInternal('/print-quotes/new');
+    });
   };
 
   const handleFinalizeQuote = async (quoteId: string) => {
     const csrf = await getCsrfToken();
-    const res = await fetch(`/api/v1/print-quotes/quotes/${quoteId}/finalize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-      credentials: 'include',
-      body: JSON.stringify({}),
-    });
+    const res = await fetch(
+      `/api/v1/print-quotes/quotes/${encodeURIComponent(quoteId)}/finalize`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      },
+    );
     if (res.ok) {
       setBannerMessage({
         type: 'success',
@@ -773,7 +1259,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         deposit_paid: 0,
       }),
     });
-    const json = await res.json();
+    const json = await res.json().catch(() => null);
     if (!res.ok) {
       setBannerMessage({
         type: 'error',
@@ -787,12 +1273,12 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       text: `Đã tạo đơn đặt in ${json.data.order_code} từ báo giá ${quote.quote_code}!`,
     });
     await loadAllData();
-    setActiveTab('orders');
+    navigateInternal('/print-quotes/orders');
   };
 
-  const handleCreateVendor = async (e: React.FormEvent) => {
+  const handleCreateVendor = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault();
-    if (!vendorName.trim()) return;
+    if (!vendorName.trim()) return false;
     const csrf = await getCsrfToken();
     const res = await fetch('/api/v1/print-quotes/vendors', {
       method: 'POST',
@@ -809,23 +1295,32 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         bank_account_number: vendorBankAccount.trim() || null,
       }),
     });
-    if (res.ok) {
-      setVendorName('');
-      setVendorPhone('');
-      setVendorBankName('');
-      setVendorBankAccount('');
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
       setBannerMessage({
-        type: 'success',
-        text: 'Đã thêm Nhà in mới thành công!',
+        type: 'error',
+        text: json?.error?.message || 'Không thể thêm nhà in mới.',
       });
-      await loadAllData();
+      return false;
     }
+    setVendorName('');
+    setVendorPhone('');
+    setVendorBankName('');
+    setVendorBankAccount('');
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã thêm Nhà in đối tác mới thành công!',
+    });
+    await loadAllData();
+    return true;
   };
 
-  const handleCreatePriceItem = async (e: React.FormEvent) => {
+  const handleCreatePriceItem = async (
+    e: React.FormEvent,
+  ): Promise<boolean> => {
     e.preventDefault();
     const targetVendorId = priceVendorId || vendors[0]?.id;
-    if (!targetVendorId || !priceItemName.trim()) return;
+    if (!targetVendorId || !priceItemName.trim()) return false;
     const csrf = await getCsrfToken();
     const res = await fetch('/api/v1/print-quotes/price-items', {
       method: 'POST',
@@ -840,7 +1335,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         name: priceItemName.trim(),
         category: 'Ấn phẩm in',
         specification: priceSpec.trim() || null,
-        unit: 'tờ',
+        unit: priceUnit.trim() || 'tờ',
         pricing_mode: priceCostMode,
         unit_cost: priceUnitCost,
         batch_total_cost: priceBatchCost,
@@ -849,20 +1344,31 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         default_profit_value: priceDefaultProfitVal,
       }),
     });
-    if (res.ok) {
-      setPriceItemName('');
-      setPriceSpec('');
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
       setBannerMessage({
-        type: 'success',
-        text: 'Đã thêm hạng mục vào Bảng giá nhà in!',
+        type: 'error',
+        text: json?.error?.message || 'Không thể lưu hạng mục bảng giá.',
       });
-      await loadAllData();
+      return false;
     }
+    setPriceItemName('');
+    setPriceSpec('');
+    setPriceUnit('tờ');
+    setPriceUnitCost(0);
+    setPriceBatchCost(0);
+    setPriceDefaultProfitVal(0);
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã thêm hạng mục vào Bảng giá nhà in!',
+    });
+    await loadAllData();
+    return true;
   };
 
-  const handleCreateCustomer = async (e: React.FormEvent) => {
+  const handleCreateCustomer = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault();
-    if (!custName.trim()) return;
+    if (!custName.trim()) return false;
     const csrf = await getCsrfToken();
     const res = await fetch('/api/v1/print-quotes/customers', {
       method: 'POST',
@@ -879,20 +1385,26 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         address: custAddress.trim() || null,
       }),
     });
-    if (res.ok) {
-      setCustName('');
-      setCustCompany('');
-      setCustPhone('');
-      setCustAddress('');
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
       setBannerMessage({
-        type: 'success',
-        text: 'Đã lưu hồ sơ Khách hàng mới!',
+        type: 'error',
+        text: json?.error?.message || 'Không thể lưu khách hàng mới.',
       });
-      await loadAllData();
+      return false;
     }
+    setCustName('');
+    setCustCompany('');
+    setCustPhone('');
+    setCustAddress('');
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã lưu hồ sơ Khách hàng mới!',
+    });
+    await loadAllData();
+    return true;
   };
 
-  // Requirement 4: Inline quick-add customer directly inside Create Quote
   const handleInlineCreateCustomer = async (input: {
     name: string;
     phone: string;
@@ -956,7 +1468,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     if (res.ok) {
       setBannerMessage({
         type: 'success',
-        text: 'Đã cập nhật tiến độ / chi phí đơn hàng!',
+        text: 'Đã cập nhật tiến độ đơn hàng!',
       });
       await loadAllData();
     }
@@ -991,25 +1503,28 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       setPaymentNote('');
       setBannerMessage({
         type: 'success',
-        text: 'Đã ghi nhận thanh toán & cập nhật công nợ đơn hàng!',
+        text: 'Đã ghi nhận thanh toán đơn hàng!',
       });
     }
   };
 
-  if (role !== 'owner') {
+  if (role !== 'owner' || isOwnerVerified === false) {
     return (
       <div style={{ padding: '24px' }} data-testid="printquote-forbidden">
         <PageHeader
           title="Báo giá in ấn"
-          subtitle="Phân hệ quản lý giá vốn nhà in, lợi nhuận và công nợ dành riêng cho Chủ sở hữu."
+          subtitle="Phân hệ quản lý giá vốn nhà in, lợi nhuận và đơn đặt in dành riêng cho Chủ sở hữu."
         />
         <div style={cardStyle}>
-          Chỉ Chủ sở hữu (Owner) mới được phép truy cập dữ liệu giá nhà in và
-          lợi nhuận báo giá.
+          Chỉ Chủ sở hữu (Owner) với phiên làm việc xác thực mới được phép truy
+          cập dữ liệu giá nhà in và lợi nhuận báo giá.
         </div>
       </div>
     );
   }
+
+  const isEditorView = viewMode === 'new' || viewMode === 'edit';
+  const showHeaderOnCurrentView = !isEditorView && viewMode !== 'detail';
 
   return (
     <div
@@ -1020,23 +1535,100 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         gap: '14px',
         width: '100%',
         maxWidth: '100%',
-        paddingBottom: '96px',
+        paddingBottom: isEditorView ? '32px' : '96px',
         boxSizing: 'border-box',
       }}
     >
-      <PageHeader
-        title="Báo giá in ấn & Quản lý đơn in"
-        subtitle="Tạo báo giá nhanh cho khách, tự tính lời trên từng sản phẩm, xuất file PDF A4 ẩn giá vốn và theo dõi công nợ."
-      />
+      {showHeaderOnCurrentView && (
+        <PageHeader
+          title="Báo giá in ấn & Quản lý đơn in"
+          subtitle="Quản lý danh sách báo giá, lập báo giá mới ẩn giá vốn trên PDF A4, tra cứu bảng giá nhà in và theo dõi đơn hàng."
+        />
+      )}
 
       <PrintQuoteNavHeader
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        viewMode={viewMode}
+        onNavigatePath={(path) => navigateInternal(path)}
         quotesCount={quotes.length}
+        ordersCount={orders.length}
         priceItemsCount={priceItems.length}
         customersCount={customers.length}
-        ordersCount={orders.length}
+        vendorsCount={vendors.length}
       />
+
+      {/* RAM Draft Reminder Banner on non-editor views */}
+      {isDraftDirty && !isEditorView && (
+        <div
+          role="status"
+          data-testid="pq-ram-draft-banner"
+          style={{
+            padding: '10px 14px',
+            borderRadius: '10px',
+            backgroundColor: 'var(--accent-soft)',
+            border: '1px solid var(--accent-text)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
+            fontSize: '13px',
+          }}
+        >
+          <div>
+            <strong style={{ color: 'var(--accent-text)' }}>
+              📝 Đang có bản nháp chưa lưu trong bộ nhớ tạm:
+            </strong>{' '}
+            <span>
+              {editingQuoteCode
+                ? `Đang sửa ${editingQuoteCode}`
+                : quoteTitle.trim() ||
+                  draftLines[0]?.name.trim() ||
+                  'Báo giá mới'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              data-testid="pq-resume-draft-btn"
+              onClick={() => navigateInternal(editorPath)}
+              style={{
+                minHeight: '44px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: 'var(--primary-color)',
+                color: 'var(--inverse-text)',
+                fontWeight: 800,
+                fontSize: '12.5px',
+                cursor: 'pointer',
+              }}
+            >
+              Tiếp tục nhập →
+            </button>
+            <button
+              type="button"
+              data-testid="pq-discard-draft-btn"
+              onClick={() => {
+                resetCleanNewDraft();
+                setBannerMessage(null);
+              }}
+              style={{
+                minHeight: '44px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--surface-color)',
+                color: 'var(--text-color)',
+                fontWeight: 600,
+                fontSize: '12.5px',
+                cursor: 'pointer',
+              }}
+            >
+              Bỏ nháp
+            </button>
+          </div>
+        </div>
+      )}
 
       {bannerMessage && (
         <div
@@ -1062,6 +1654,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            gap: '8px',
           }}
         >
           <span>{bannerMessage.text}</span>
@@ -1070,6 +1663,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
             aria-label="Đóng thông báo"
             onClick={() => setBannerMessage(null)}
             style={{
+              minWidth: '44px',
+              minHeight: '44px',
               background: 'transparent',
               border: 'none',
               color: 'inherit',
@@ -1082,83 +1677,168 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         </div>
       )}
 
-      {/* TAB 1: TẠO BÁO GIÁ (4 NHÓM THU GỌN TRÊN 1 MÀN HÌNH) */}
-      {activeTab === 'create' && (
-        <CreateQuoteTab
-          editingQuoteId={editingQuoteId}
-          editingQuoteCode={editingQuoteCode}
-          editingQuoteVersion={editingQuoteVersion}
-          quoteTitle={quoteTitle}
-          onChangeQuoteTitle={setQuoteTitle}
-          selectedCustomerId={selectedCustomerId}
-          onChangeSelectedCustomerId={setSelectedCustomerId}
-          validUntil={validUntil}
-          onChangeValidUntil={setValidUntil}
-          shippingFee={shippingFee}
-          onChangeShippingFee={(val) => {
-            setShippingFee(val);
-            setShippingFeeInput(String(val));
-          }}
-          shippingFeeInput={shippingFeeInput}
-          onChangeShippingFeeInput={(nextRaw) => {
-            setShippingFeeInput(nextRaw);
-            if (
-              nextRaw !== '' &&
-              Number.isFinite(Number(nextRaw)) &&
-              Number(nextRaw) >= 0
-            ) {
-              setShippingFee(Math.round(Number(nextRaw)));
-            }
-          }}
-          includeShippingInUnitPrice={includeShippingInUnitPrice}
-          onChangeIncludeShippingInUnitPrice={setIncludeShippingInUnitPrice}
-          shippingAllocation={shippingAllocation}
-          onChangeShippingAllocation={setShippingAllocation}
-          roundingMode={roundingMode}
-          onChangeRoundingMode={setRoundingMode}
-          roundingStep={roundingStep}
-          onChangeRoundingStep={setRoundingStep}
-          customerNotes={customerNotes}
-          onChangeCustomerNotes={setCustomerNotes}
-          internalNotes={internalNotes}
-          onChangeInternalNotes={setInternalNotes}
-          versionChangeNote={versionChangeNote}
-          onChangeVersionChangeNote={setVersionChangeNote}
-          draftLines={draftLines}
-          setDraftLines={setDraftLines}
-          customers={customers}
-          priceItems={priceItems}
-          livePricingResult={livePricingResult}
-          onSelectCatalogItem={handleSelectCatalogItem}
-          onResetNewQuote={handleResetNewQuote}
-          onSaveQuote={handleSaveQuote}
-          onDownloadLivePdf={handleDownloadLivePdfFile}
-          onOpenLivePreview={handleOpenLiveA4Preview}
-          onQuickCreateCustomer={handleInlineCreateCustomer}
-        />
-      )}
-
-      {/* TAB 2: DANH SÁCH BÁO GIÁ */}
-      {activeTab === 'quotes' && (
+      {/* DEFAULT VIEW: /print-quotes -> QUOTES LIST */}
+      {viewMode === 'quotes' && (
         <QuotesListTab
           quotes={quotes}
           expandedQuoteHistoryId={expandedQuoteHistoryId}
           setExpandedQuoteHistoryId={setExpandedQuoteHistoryId}
-          onStartNewQuote={() => {
-            handleResetNewQuote();
-            setActiveTab('create');
-          }}
+          onStartNewQuote={handleStartNewQuote}
+          onOpenQuoteDetail={(q) =>
+            navigateInternal(`/print-quotes/${encodeURIComponent(q.id)}`)
+          }
           onDownloadSavedQuotePdfFile={handleDownloadSavedQuotePdfFile}
           onOpenSavedQuotePdf={handleOpenSavedQuotePdf}
           onLoadQuoteForEdit={handleLoadQuoteForEdit}
+          onCloneQuoteAsNew={handleCloneQuoteAsNew}
           onFinalizeQuote={handleFinalizeQuote}
           onConvertQuoteToOrder={handleConvertQuoteToOrder}
         />
       )}
 
-      {/* TAB 3: NHÀ IN & BẢNG GIÁ */}
-      {activeTab === 'vendors' && (
+      {/* FOCUSED EDITOR: /print-quotes/new & /print-quotes/:id/edit */}
+      {isEditorView &&
+        (viewMode === 'edit' && !activeQuote ? (
+          loading || singleQuoteLoading ? (
+            <div style={cardStyle} data-testid="panel-quote-edit-loading">
+              <div style={{ fontSize: '13.5px', color: 'var(--muted-color)' }}>
+                Đang tải dữ liệu báo giá để chỉnh sửa…
+              </div>
+            </div>
+          ) : (
+            <div style={cardStyle} data-testid="pq-quote-not-found">
+              <h2
+                style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700 }}
+              >
+                Không tìm thấy báo giá cần sửa
+              </h2>
+              <button
+                type="button"
+                data-testid="pq-editor-back-btn"
+                onClick={() => navigateInternal('/print-quotes')}
+                style={{
+                  minHeight: '44px',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-color)',
+                  color: 'var(--text-color)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                ← Quay lại Danh sách báo giá
+              </button>
+            </div>
+          )
+        ) : (
+          <CreateQuoteTab
+            editingQuoteId={viewMode === 'edit' ? editingQuoteId : null}
+            editingQuoteCode={viewMode === 'edit' ? editingQuoteCode : null}
+            editingQuoteVersion={viewMode === 'edit' ? editingQuoteVersion : 1}
+            isLockedQuoteForEdit={Boolean(
+              viewMode === 'edit' &&
+              activeQuote &&
+              !isQuoteStatusEditable(activeQuote.status),
+            )}
+            lockedQuoteStatusLabel={
+              activeQuote
+                ? QUOTE_STATUS_LABELS[activeQuote.status] || activeQuote.status
+                : undefined
+            }
+            onCloneLockedQuote={
+              activeQuote ? () => handleCloneQuoteAsNew(activeQuote) : undefined
+            }
+            onBackToQuotes={() => {
+              if (viewMode === 'edit' && activeQuote) {
+                navigateInternal(
+                  `/print-quotes/${encodeURIComponent(activeQuote.id)}`,
+                );
+              } else {
+                navigateInternal('/print-quotes');
+              }
+            }}
+            hasTouchedFields={hasTouchedFields}
+            onMarkTouched={markEditorDirty}
+            savingQuote={savingQuote}
+            quoteTitle={quoteTitle}
+            onChangeQuoteTitle={setQuoteTitle}
+            selectedCustomerId={selectedCustomerId}
+            onChangeSelectedCustomerId={setSelectedCustomerId}
+            validUntil={validUntil}
+            onChangeValidUntil={setValidUntil}
+            shippingFee={shippingFee}
+            onChangeShippingFee={(val) => {
+              setShippingFee(val);
+              setShippingFeeInput(String(val));
+            }}
+            shippingFeeInput={shippingFeeInput}
+            onChangeShippingFeeInput={(nextRaw) => {
+              setShippingFeeInput(nextRaw);
+              if (
+                nextRaw !== '' &&
+                Number.isFinite(Number(nextRaw)) &&
+                Number(nextRaw) >= 0
+              ) {
+                setShippingFee(Math.round(Number(nextRaw)));
+              }
+            }}
+            includeShippingInUnitPrice={includeShippingInUnitPrice}
+            onChangeIncludeShippingInUnitPrice={setIncludeShippingInUnitPrice}
+            shippingAllocation={shippingAllocation}
+            onChangeShippingAllocation={setShippingAllocation}
+            roundingMode={roundingMode}
+            onChangeRoundingMode={setRoundingMode}
+            roundingStep={roundingStep}
+            onChangeRoundingStep={setRoundingStep}
+            customerNotes={customerNotes}
+            onChangeCustomerNotes={setCustomerNotes}
+            internalNotes={internalNotes}
+            onChangeInternalNotes={setInternalNotes}
+            versionChangeNote={versionChangeNote}
+            onChangeVersionChangeNote={setVersionChangeNote}
+            draftLines={draftLines}
+            setDraftLines={setDraftLines}
+            customers={customers}
+            priceItems={priceItems}
+            livePricingResult={livePricingResult}
+            onSelectCatalogItem={handleSelectCatalogItem}
+            onResetNewQuote={() => {
+              resetCleanNewDraft();
+              setBannerMessage(null);
+              if (viewMode === 'edit') {
+                navigateInternal('/print-quotes/new');
+              }
+            }}
+            onSaveQuote={handleSaveQuote}
+            onDownloadLivePdf={handleDownloadLivePdfFile}
+            onOpenLivePreview={handleOpenLiveA4Preview}
+            onQuickCreateCustomer={handleInlineCreateCustomer}
+          />
+        ))}
+
+      {/* DEDICATED QUOTE DETAIL VIEW: /print-quotes/:id */}
+      {viewMode === 'detail' && (
+        <QuoteDetailView
+          quote={activeQuote}
+          loading={loading || singleQuoteLoading}
+          workspaceName={workspaceName}
+          customers={customers}
+          onBackToList={() => navigateInternal('/print-quotes')}
+          onDownloadSavedPdf={handleDownloadSavedQuotePdfFile}
+          onOpenFullPreview={handleOpenSavedQuotePdf}
+          onPrintWindow={handlePrintA4Window}
+          onEditQuote={handleLoadQuoteForEdit}
+          onCloneQuoteAsNew={handleCloneQuoteAsNew}
+          onFinalizeQuote={handleFinalizeQuote}
+          onConvertQuoteToOrder={handleConvertQuoteToOrder}
+        />
+      )}
+
+      {/* SEPARATED CATALOG SUB-PAGES: /catalog/prices & /catalog/vendors */}
+      {(viewMode === 'catalog-prices' || viewMode === 'catalog-vendors') && (
         <VendorsCatalogTab
+          mode={viewMode === 'catalog-vendors' ? 'vendors' : 'prices'}
           vendors={vendors}
           priceItems={priceItems}
           vendorName={vendorName}
@@ -1176,6 +1856,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           setPriceItemName={setPriceItemName}
           priceSpec={priceSpec}
           setPriceSpec={setPriceSpec}
+          priceUnit={priceUnit}
+          setPriceUnit={setPriceUnit}
           priceCostMode={priceCostMode}
           setPriceCostMode={setPriceCostMode}
           priceUnitCost={priceUnitCost}
@@ -1185,36 +1867,50 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           priceDefaultProfitVal={priceDefaultProfitVal}
           setPriceDefaultProfitVal={setPriceDefaultProfitVal}
           onCreatePriceItem={handleCreatePriceItem}
+          onNavigateCatalogSubPage={(sub) =>
+            navigateInternal(`/print-quotes/catalog/${sub}`)
+          }
           onQuickQuotePriceItem={(item) => {
-            const resolvedCost =
-              item.pricing_mode === VendorCostMode.TOTAL_BATCH
-                ? item.batch_total_cost
-                : item.unit_cost;
-            setDraftLines([
-              {
-                id: 'ITEM-1',
-                vendorPriceItemId: item.id,
-                name: item.name,
-                specification: item.specification || '',
-                unit: item.unit || 'tờ',
-                quantity: 100,
-                quantityInput: '100',
-                vendorCostMode: item.pricing_mode,
-                vendorCostValue: resolvedCost,
-                vendorCostInput: String(resolvedCost),
-                profitMode: item.default_profit_mode,
-                profitScope: item.default_profit_scope,
-                profitValue: item.default_profit_value,
-                profitInput: String(item.default_profit_value),
-              },
-            ]);
-            setActiveTab('create');
+            runWithDraftReplaceGuard(true, () => {
+              const resolvedCost =
+                item.pricing_mode === VendorCostMode.TOTAL_BATCH
+                  ? item.batch_total_cost
+                  : item.unit_cost;
+              hydratedEditIdRef.current = null;
+              setEditingQuoteId(null);
+              setEditingQuoteCode(null);
+              setEditingQuoteVersion(1);
+              setEditorPath('/print-quotes/new');
+              setQuoteTitle(`Báo giá ${item.name}`);
+              setDraftLines([
+                {
+                  id: 'ITEM-1',
+                  vendorPriceItemId: item.id,
+                  name: item.name,
+                  specification: item.specification || '',
+                  unit: item.unit || 'tờ',
+                  quantity: 0,
+                  quantityInput: '',
+                  vendorCostMode: item.pricing_mode,
+                  vendorCostValue: resolvedCost,
+                  vendorCostInput: String(resolvedCost),
+                  ambiguousLegacyCost: null,
+                  profitMode: item.default_profit_mode,
+                  profitScope: item.default_profit_scope,
+                  profitValue: item.default_profit_value,
+                  profitInput: String(item.default_profit_value),
+                },
+              ]);
+              setHasTouchedFields(false);
+              setIsDraftDirty(true);
+              navigateInternal('/print-quotes/new');
+            });
           }}
         />
       )}
 
-      {/* TAB 4: KHÁCH HÀNG */}
-      {activeTab === 'customers' && (
+      {/* SEPARATED CATALOG SUB-PAGE: /catalog/customers */}
+      {viewMode === 'catalog-customers' && (
         <CustomersTab
           customers={customers}
           custName={custName}
@@ -1227,14 +1923,25 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           setCustAddress={setCustAddress}
           onCreateCustomer={handleCreateCustomer}
           onSelectCustomerForQuote={(customerId) => {
-            setSelectedCustomerId(customerId);
-            setActiveTab('create');
+            if (!editingQuoteId) {
+              setSelectedCustomerId(customerId);
+              setEditorPath('/print-quotes/new');
+              setIsDraftDirty(true);
+              navigateInternal('/print-quotes/new');
+              return;
+            }
+            runWithDraftReplaceGuard(true, () => {
+              resetCleanNewDraft();
+              setSelectedCustomerId(customerId);
+              setIsDraftDirty(true);
+              navigateInternal('/print-quotes/new');
+            });
           }}
         />
       )}
 
-      {/* TAB 5: ĐƠN HÀNG */}
-      {activeTab === 'orders' && (
+      {/* ORDERS VIEW: /print-quotes/orders */}
+      {viewMode === 'orders' && (
         <OrdersTab
           orders={orders}
           onUpdateOrderField={handleUpdateOrderField}
@@ -1252,8 +1959,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         />
       )}
 
-      {/* TAB 6: LỢI NHUẬN & CÔNG NỢ */}
-      {activeTab === 'analytics' && (
+      {/* HONEST REPORTS VIEW: /print-quotes/reports */}
+      {viewMode === 'reports' && (
         <AnalyticsTab stats={stats} orders={orders} quotes={quotes} />
       )}
 
@@ -1268,13 +1975,132 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         />
       )}
 
+      {/* 2-Button Leave PrintQuote Module Confirmation Dialog */}
+      <CatalogModalDialog
+        open={pendingLeaveAction !== null}
+        title="Rời phân hệ Báo giá in ấn?"
+        subtitle="Bản nháp báo giá chưa lưu chỉ nằm trong bộ nhớ tạm (RAM) để bảo mật giá vốn và sẽ bị xóa khi rời sang phân hệ khác."
+        testId="pq-leave-draft-dialog"
+        maxWidth="460px"
+        onClose={() => setPendingLeaveAction(null)}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '8px',
+            flexWrap: 'wrap',
+            marginTop: '8px',
+          }}
+        >
+          <button
+            type="button"
+            data-testid="pq-leave-stay-btn"
+            onClick={() => setPendingLeaveAction(null)}
+            style={{
+              minHeight: '44px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: '1px solid var(--accent-text)',
+              backgroundColor: 'var(--accent-soft)',
+              color: 'var(--accent-text)',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Ở lại tiếp tục nhập
+          </button>
+          <button
+            type="button"
+            data-testid="pq-leave-discard-btn"
+            onClick={() => {
+              const proceed = pendingLeaveAction;
+              setPendingLeaveAction(null);
+              resetCleanNewDraft();
+              proceed?.();
+            }}
+            style={{
+              minHeight: '44px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: 'var(--danger-color)',
+              color: '#FFFFFF',
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            Rời trang & xóa nháp
+          </button>
+        </div>
+      </CatalogModalDialog>
+
+      {/* Replace Dirty Draft Confirmation Dialog */}
+      <CatalogModalDialog
+        open={pendingReplaceDraftAction !== null}
+        title="Thay thế bản nháp đang nhập?"
+        subtitle="Bạn đang có một bản nháp báo giá chưa lưu trong bộ nhớ tạm. Mở báo giá khác sẽ xóa bản nháp hiện tại."
+        testId="pq-replace-draft-dialog"
+        maxWidth="460px"
+        onClose={() => setPendingReplaceDraftAction(null)}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '8px',
+            flexWrap: 'wrap',
+            marginTop: '8px',
+          }}
+        >
+          <button
+            type="button"
+            data-testid="pq-replace-keep-btn"
+            onClick={() => setPendingReplaceDraftAction(null)}
+            style={{
+              minHeight: '44px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'transparent',
+              color: 'var(--text-color)',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Giữ bản nháp đang nhập
+          </button>
+          <button
+            type="button"
+            data-testid="pq-replace-confirm-btn"
+            onClick={() => {
+              const act = pendingReplaceDraftAction;
+              setPendingReplaceDraftAction(null);
+              act?.();
+            }}
+            style={{
+              minHeight: '44px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: 'var(--primary-color)',
+              color: 'var(--inverse-text)',
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            Bỏ nháp cũ & mở mới
+          </button>
+        </div>
+      </CatalogModalDialog>
+
       {loading && (
         <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
           Đang đồng bộ dữ liệu báo giá…
         </div>
       )}
 
-      {/* Ngăn iOS Safari tự phóng to (auto-zoom) khi chạm vào ô nhập số/chữ trên iPhone */}
+      {/* Prevent iOS Safari auto-zoom on mobile inputs */}
       <style>{`
         @media (max-width: 768px) {
           [data-testid="printquote-screen"] input:not([type="checkbox"]):not([type="radio"]),

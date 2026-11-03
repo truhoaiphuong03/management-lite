@@ -34,12 +34,9 @@ import {
   FinanceCategoriesScreen,
   FinancePlanScreen,
   PrintQuoteScreen,
-} from './lazy-screens.js';
-import {
   SettingsScreen,
-  applyTheme,
-  removeThemeListener,
-} from './screens/SettingsScreen.js';
+} from './lazy-screens.js';
+import { applyTheme, removeThemeListener } from './theme.js';
 import {
   installAuthInterceptor,
   addSessionExpiredListener,
@@ -59,9 +56,22 @@ import {
   executeLogout,
   determinePostVerificationRoute,
   evaluateRouteAccess,
+  isPublicAuthRoute,
   type ParsedSessionData,
   type SessionStateTracker,
 } from './session-manager.js';
+import {
+  clearPrintQuoteRamDraft,
+  confirmLeavePrintQuoteIfNeeded,
+  discardAndProceedPrintQuoteFallbackLeave,
+  getPrintQuoteRamDraft,
+  getVerifiedActivePrintQuoteEditorPath,
+  hasPendingPrintQuoteFallbackLeave,
+  isInternalPrintQuotePath,
+  isPrintQuoteDraftDirty,
+  stayOnPrintQuoteFallbackLeave,
+  subscribePrintQuoteDraft,
+} from './printquote-draft-bridge.js';
 import type { UserRole } from './types.js';
 
 export {
@@ -91,6 +101,31 @@ export const App: React.FC = () => {
   };
 
   const [currentPath, setCurrentPath] = useState<string>(getInitialPath);
+  const currentPathRef = useRef<string>(currentPath);
+  currentPathRef.current = currentPath;
+  const [pqFallbackLeaveOpen, setPqFallbackLeaveOpen] = useState<boolean>(() =>
+    hasPendingPrintQuoteFallbackLeave(),
+  );
+
+  useEffect(() => {
+    return subscribePrintQuoteDraft(() => {
+      setPqFallbackLeaveOpen(hasPendingPrintQuoteFallbackLeave());
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!pqFallbackLeaveOpen || typeof window === 'undefined') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        stayOnPrintQuoteFallbackLeave();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [pqFallbackLeaveOpen]);
   const [currentSearch, setCurrentSearch] = useState<string>(() =>
     typeof window !== 'undefined' && typeof window.location.search === 'string'
       ? window.location.search
@@ -183,8 +218,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     installAuthInterceptor();
     const unsubscribe = addSessionExpiredListener(() => {
+      const hadUnsavedPrintQuoteDraft = isPrintQuoteDraftDirty();
+      if (hadUnsavedPrintQuoteDraft) {
+        clearPrintQuoteRamDraft();
+      }
       setSessionExpiredNotice(
-        'Phiên làm việc đã hết hạn hoặc không hợp lệ. Đang chuyển về trang đăng nhập…',
+        hadUnsavedPrintQuoteDraft
+          ? 'Phiên làm việc đã hết hạn — bản nháp báo giá chưa lưu trong bộ nhớ tạm đã bị xóa để bảo mật. Đang chuyển về trang đăng nhập…'
+          : 'Phiên làm việc đã hết hạn hoặc không hợp lệ. Đang chuyển về trang đăng nhập…',
       );
 
       if (expiryRedirectTimerRef.current !== null) {
@@ -239,6 +280,25 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname || '/';
+      const prevPath = currentPathRef.current;
+      const bypassForUnauthenticatedPublicRoute =
+        !sessionTrackerRef.current.isLoggedIn && isPublicAuthRoute(path);
+      if (
+        !bypassForUnauthenticatedPublicRoute &&
+        !isInternalPrintQuotePath(path) &&
+        isPrintQuoteDraftDirty()
+      ) {
+        const nextRaw = `${path}${window.location.search || ''}${window.location.hash || ''}`;
+        window.history.pushState(null, '', prevPath);
+        if (
+          confirmLeavePrintQuoteIfNeeded(() => {
+            clearPrintQuoteRamDraft();
+            handleNavigate(nextRaw);
+          })
+        ) {
+          return;
+        }
+      }
       setCurrentPath(path);
       setCurrentSearch(window.location.search || '');
     };
@@ -392,6 +452,19 @@ export const App: React.FC = () => {
     };
     const rawTarget = groupPrimaryMap[rawPath] || rawPath;
     const cleanPath = rawTarget.split(/[?#]/, 1)[0] || '/';
+    const bypassForAuthRoute =
+      !sessionTrackerRef.current.isLoggedIn && isPublicAuthRoute(cleanPath);
+    if (
+      !bypassForAuthRoute &&
+      !isInternalPrintQuotePath(cleanPath) &&
+      isPrintQuoteDraftDirty() &&
+      confirmLeavePrintQuoteIfNeeded(() => {
+        clearPrintQuoteRamDraft();
+        handleNavigate(rawTarget);
+      })
+    ) {
+      return;
+    }
     const hasExplicitQueryOrHash =
       rawTarget.includes('?') || rawTarget.includes('#');
     if (typeof window !== 'undefined') {
@@ -440,7 +513,12 @@ export const App: React.FC = () => {
         }
       } catch {}
 
-      const targetPath = sanitizePostLoginRedirect(returnUrl);
+      const preservedDraftPath = !returnUrl
+        ? getVerifiedActivePrintQuoteEditorPath()
+        : null;
+      const targetPath = preservedDraftPath
+        ? sanitizePostLoginRedirect(preservedDraftPath)
+        : sanitizePostLoginRedirect(returnUrl);
 
       handleNavigate(targetPath);
     } else {
@@ -469,6 +547,15 @@ export const App: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
+    if (
+      isPrintQuoteDraftDirty() &&
+      confirmLeavePrintQuoteIfNeeded(() => {
+        clearPrintQuoteRamDraft();
+        void handleLogout();
+      })
+    ) {
+      return;
+    }
     clearPendingExpiryTimer();
     executeLogout(sessionTrackerRef.current);
     syncTrackerToState();
@@ -601,6 +688,7 @@ export const App: React.FC = () => {
     route: routeMeta,
     params,
     isIssuesRoute,
+    isPrintQuotesRoute,
     isForbidden,
   } = evaluateRouteAccess(currentPath, verifiedOwnerSession, role);
 
@@ -608,9 +696,11 @@ export const App: React.FC = () => {
     if (isForbidden) {
       const message = isIssuesRoute
         ? 'Chức năng Sổ tay lỗi chỉ dành riêng cho Chủ sở hữu (Owner) với phiên làm việc hợp lệ được xác thực từ máy chủ.'
-        : routeMeta?.staffOnly && role === 'owner'
-          ? 'Bạn đang ở chế độ xem Chủ sở hữu (Owner). Tuyến đường này dành riêng cho Nhân viên (theo quy tắc C04/PAY-02: Owner không có phiếu lương cá nhân).'
-          : 'Bạn đang ở chế độ xem Nhân viên (Staff). Theo quy tắc RBAC-02, tuyến đường này chỉ dành riêng cho Chủ sở hữu (Owner) của workspace.';
+        : isPrintQuotesRoute
+          ? 'Phân hệ Báo giá in ấn chứa thông tin giá gốc nhà in và biên lợi nhuận nội bộ, chỉ dành riêng cho Chủ sở hữu (Owner) đã xác thực phiên làm việc.'
+          : routeMeta?.staffOnly && role === 'owner'
+            ? 'Bạn đang ở chế độ xem Chủ sở hữu (Owner). Tuyến đường này dành riêng cho Nhân viên (theo quy tắc C04/PAY-02: Owner không có phiếu lương cá nhân).'
+            : 'Bạn đang ở chế độ xem Nhân viên (Staff). Theo quy tắc RBAC-02, tuyến đường này chỉ dành riêng cho Chủ sở hữu (Owner) của workspace.';
       return (
         <NotFoundScreen
           isForbidden
@@ -753,10 +843,28 @@ export const App: React.FC = () => {
       case '/accounts':
         return <AccountsScreen role={role} onNavigate={handleNavigate} />;
       case '/print-quotes':
+      case '/print-quotes/new':
+      case '/print-quotes/orders':
+      case '/print-quotes/catalog':
+      case '/print-quotes/catalog/prices':
+      case '/print-quotes/catalog/customers':
+      case '/print-quotes/catalog/vendors':
+      case '/print-quotes/reports':
+      case '/print-quotes/:id':
+      case '/print-quotes/:id/edit':
+        if (!verifiedOwnerSession || role !== 'owner') {
+          return (
+            <NotFoundScreen isForbidden onGoHome={() => handleNavigate('/')} />
+          );
+        }
         return (
           <PrintQuoteScreen
             role={role}
+            isOwnerVerified={verifiedOwnerSession}
             workspaceName={workspaceName}
+            currentPath={currentPath}
+            routePattern={routeMeta.path}
+            routeParams={params}
             onNavigate={handleNavigate}
           />
         );
@@ -1741,6 +1849,137 @@ export const App: React.FC = () => {
                   }}
                 >
                   {promptSaving ? 'Đang lưu…' : 'Lưu thông tin'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {pqFallbackLeaveOpen && (
+          <div
+            role="presentation"
+            onClick={() => stayOnPrintQuoteFallbackLeave()}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1300,
+              backgroundColor: 'rgba(15, 23, 42, 0.72)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="pq-fallback-leave-title"
+              aria-describedby="pq-fallback-leave-desc"
+              data-testid="pq-leave-draft-dialog"
+              data-fallback-guard="true"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: '460px',
+                backgroundColor: 'var(--surface-color)',
+                color: 'var(--text-color)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '14px',
+                padding: '20px',
+                boxShadow: '0 20px 50px rgba(0, 0, 0, 0.45)',
+              }}
+            >
+              <h2
+                id="pq-fallback-leave-title"
+                style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 800 }}
+              >
+                Rời phân hệ Báo giá in ấn?
+              </h2>
+              <p
+                id="pq-fallback-leave-desc"
+                style={{
+                  margin: '0 0 16px',
+                  fontSize: '13px',
+                  color: 'var(--muted-color)',
+                  lineHeight: 1.5,
+                }}
+              >
+                Bản nháp báo giá chưa lưu đang được bảo vệ trong bộ nhớ tạm
+                (RAM) để bảo mật giá vốn. Rời sang phân hệ khác sẽ xóa bản nháp
+                này.
+              </p>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <button
+                  type="button"
+                  autoFocus
+                  data-testid="pq-leave-stay-btn"
+                  onClick={() => stayOnPrintQuoteFallbackLeave()}
+                  style={{
+                    minHeight: '44px',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--accent-text)',
+                    backgroundColor: 'var(--accent-soft)',
+                    color: 'var(--accent-text)',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Ở lại giữ bản nháp
+                </button>
+                {currentPath !==
+                  (getPrintQuoteRamDraft()?.editorPath ||
+                    '/print-quotes/new') && (
+                  <button
+                    type="button"
+                    data-testid="pq-leave-return-editor-btn"
+                    onClick={() => {
+                      const targetEditor =
+                        getPrintQuoteRamDraft()?.editorPath ||
+                        '/print-quotes/new';
+                      stayOnPrintQuoteFallbackLeave();
+                      handleNavigate(targetEditor);
+                    }}
+                    style={{
+                      minHeight: '44px',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-color)',
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Mở lại bản nháp
+                  </button>
+                )}
+                <button
+                  type="button"
+                  data-testid="pq-leave-discard-btn"
+                  onClick={() => discardAndProceedPrintQuoteFallbackLeave()}
+                  style={{
+                    minHeight: '44px',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'var(--danger-color)',
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Rời trang & xóa nháp
                 </button>
               </div>
             </div>

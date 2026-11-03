@@ -34,8 +34,9 @@ async function startInMemoryPrintQuoteWebServer() {
   let postQuotesCount = 0;
   let postPdfCount = 0;
   let lastSavedPayload = null;
+  let forcedQuoteSaveFailure = null;
 
-  const savedQuotes = [
+  const initialSavedQuotes = [
     {
       id: 'saved-quote-batch-3',
       workspace_id: 'ws-test-mobile',
@@ -293,6 +294,7 @@ async function startInMemoryPrintQuoteWebServer() {
       updated_at: '2026-11-03T00:00:00.000Z',
     },
   ];
+  let savedQuotes = structuredClone(initialSavedQuotes);
 
   const server = http.createServer((req, res) => {
     const reqUrl = req.url || '/';
@@ -332,6 +334,30 @@ async function startInMemoryPrintQuoteWebServer() {
       return;
     }
 
+    const singleQuoteGetMatch =
+      /^\/api\/v1\/print-quotes\/quotes\/([^/]+)$/.exec(cleanPath);
+    if (singleQuoteGetMatch && req.method === 'GET') {
+      const targetId = decodeURIComponent(singleQuoteGetMatch[1]);
+      const found = savedQuotes.find(
+        (q) => q.id === targetId || q.quote_code === targetId,
+      );
+      if (!found) {
+        res.writeHead(404, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Không tìm thấy báo giá.' },
+          }),
+        );
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, data: found }));
+      return;
+    }
+
     if (
       cleanPath.startsWith('/api/v1/print-quotes/quotes') &&
       (req.method === 'POST' || req.method === 'PATCH')
@@ -344,19 +370,59 @@ async function startInMemoryPrintQuoteWebServer() {
       req.on('end', () => {
         const parsed = JSON.parse(rawBody || '{}');
         lastSavedPayload = parsed;
+        if (forcedQuoteSaveFailure) {
+          const failSpec = forcedQuoteSaveFailure;
+          forcedQuoteSaveFailure = null;
+          res.writeHead(failSpec.statusCode, {
+            'Content-Type': 'application/json; charset=utf-8',
+          });
+          res.end(
+            JSON.stringify({
+              success: false,
+              error: {
+                code: 'SAVE_FAILED',
+                message: failSpec.message,
+              },
+            }),
+          );
+          return;
+        }
+        const patchMatch = /^\/api\/v1\/print-quotes\/quotes\/([^/]+)$/.exec(
+          cleanPath,
+        );
+        let savedRecord;
+        if (req.method === 'PATCH' && patchMatch) {
+          const patchId = decodeURIComponent(patchMatch[1]);
+          const existing =
+            savedQuotes.find((q) => q.id === patchId) || savedQuotes[0];
+          savedRecord = {
+            ...existing,
+            current_version: (existing.current_version || 1) + 1,
+            title: parsed.title || existing.title,
+          };
+          savedQuotes = savedQuotes.map((q) =>
+            q.id === patchId ? savedRecord : q,
+          );
+        } else {
+          savedRecord = {
+            ...savedQuotes[0],
+            id: 'saved-new-1',
+            quote_code: 'BG-202611-099',
+            current_version: 1,
+            title: parsed.title || 'Báo giá mới',
+          };
+          savedQuotes = [
+            savedRecord,
+            ...savedQuotes.filter((q) => q.id !== 'saved-new-1'),
+          ];
+        }
         res.writeHead(200, {
           'Content-Type': 'application/json; charset=utf-8',
         });
         res.end(
           JSON.stringify({
             success: true,
-            data: {
-              ...savedQuotes[0],
-              id: 'saved-new-1',
-              quote_code: 'BG-202611-099',
-              current_version: 1,
-              title: parsed.title || 'Báo giá mới',
-            },
+            data: savedRecord,
           }),
         );
       });
@@ -407,10 +473,18 @@ async function startInMemoryPrintQuoteWebServer() {
   return {
     webUrl: `http://127.0.0.1:${port}`,
     getCounters: () => ({ postQuotesCount, postPdfCount, lastSavedPayload }),
+    failNextQuoteSave: (
+      statusCode = 500,
+      message = 'Máy chủ bận tạm thời, vui lòng thử lại.',
+    ) => {
+      forcedQuoteSaveFailure = { statusCode, message };
+    },
     resetCounters: () => {
       postQuotesCount = 0;
       postPdfCount = 0;
       lastSavedPayload = null;
+      forcedQuoteSaveFailure = null;
+      savedQuotes = structuredClone(initialSavedQuotes);
     },
     close: () => new Promise((resolve) => server.close(resolve)),
   };
@@ -485,15 +559,27 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
     );
     assert.equal(explicitZeroCostValidation.isValid, true);
 
-    // SSR markup kiểm tra inputMode="numeric" (không dùng type="number" gây lỗi iOS)
+    // SSR markup kiểm tra UX V2: /print-quotes mặc định là Danh sách, /print-quotes/new gắn đúng inputMode="numeric" với ô rỗng
+    const defaultListHtml = renderToStaticMarkup(
+      React.createElement(PrintQuoteScreen, {
+        role: 'owner',
+        workspaceName: 'Hoài Phương Media',
+      }),
+    );
+    assert.equal(
+      defaultListHtml.includes('data-testid="panel-quotes-list"'),
+      true,
+    );
+
     const html = renderToStaticMarkup(
       React.createElement(PrintQuoteScreen, {
         role: 'owner',
         workspaceName: 'Hoài Phương Media',
-        initialTab: 'create',
+        currentPath: '/print-quotes/new',
       }),
     );
     assert.equal(html.includes('inputMode="numeric"'), true);
+    assert.equal(html.includes('data-testid="pq-empty-guidance-notice"'), true);
   });
 
   it('1b. Regression TASK 1: Báo giá Trọn lô 30.000đ / 100 tờ lưu đúng vendorCostMode=TOTAL_BATCH, giữ nguyên 30.000đ khi đổi lên 200 tờ, và không suy đoán trên dữ liệu cũ mơ hồ', async () => {
@@ -751,12 +837,100 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           const page = await context.newPage();
           server.resetCounters();
 
+          // UX V2: /print-quotes mặc định mở Danh sách báo giá + nút "+ Tạo báo giá mới"
           await page.goto(`${server.webUrl}/print-quotes`, {
             waitUntil: 'networkidle',
           });
+          await page.waitForSelector('[data-testid="panel-quotes-list"]', {
+            timeout: 15000,
+          });
+          await page.waitForSelector('[data-testid="quote-row-BG-202611-088"]');
+
+          // Trên màn hình danh sách (/print-quotes): khi bàn phím đóng MobileBottomNav & ReportBugWidget hiển thị; khi bàn phím mở tự ẩn
+          const listClosedOverlay = await page.evaluate(() => {
+            const navWrap = document.querySelector(
+              '.mobile-bottom-nav-wrapper',
+            );
+            const bugBtn = document.querySelector('.btn-floating-report-bug');
+            const navStyle = navWrap ? window.getComputedStyle(navWrap) : null;
+            const bugStyle = bugBtn ? window.getComputedStyle(bugBtn) : null;
+            return {
+              navVisible:
+                Boolean(navStyle) &&
+                navStyle.visibility !== 'hidden' &&
+                navStyle.display !== 'none' &&
+                navStyle.opacity !== '0',
+              bugVisible:
+                Boolean(bugStyle) &&
+                bugStyle.visibility !== 'hidden' &&
+                bugStyle.display !== 'none' &&
+                bugStyle.opacity !== '0',
+            };
+          });
+          assert.equal(
+            listClosedOverlay.navVisible,
+            true,
+            `[${target.label}] Trên /print-quotes khi đóng bàn phím, MobileBottomNav phải hiển thị`,
+          );
+          assert.equal(
+            listClosedOverlay.bugVisible,
+            true,
+            `[${target.label}] Trên /print-quotes khi đóng bàn phím, nút Báo lỗi nổi phải hiển thị`,
+          );
+
+          await page.setViewportSize({ width: 390, height: 420 });
+          await page.locator('#pq-quotes-search-input').focus();
+          await page.waitForFunction(
+            () =>
+              window.innerHeight === 420 &&
+              document.documentElement.getAttribute('data-mobile-keyboard') ===
+                'open',
+            { timeout: 3000 },
+          );
+          const listKbOpenOverlay = await page.evaluate(() => {
+            const navWrap = document.querySelector(
+              '.mobile-bottom-nav-wrapper',
+            );
+            const bugBtn = document.querySelector('.btn-floating-report-bug');
+            const navStyle = navWrap ? window.getComputedStyle(navWrap) : null;
+            const bugStyle = bugBtn ? window.getComputedStyle(bugBtn) : null;
+            return {
+              navHidden:
+                !navStyle ||
+                navStyle.visibility === 'hidden' ||
+                navStyle.display === 'none' ||
+                navStyle.opacity === '0',
+              bugHidden:
+                !bugStyle ||
+                bugStyle.visibility === 'hidden' ||
+                bugStyle.display === 'none' ||
+                bugStyle.opacity === '0',
+            };
+          });
+          assert.equal(listKbOpenOverlay.navHidden, true);
+          assert.equal(listKbOpenOverlay.bugHidden, true);
+
+          await page
+            .locator('#pq-quotes-search-input')
+            .evaluate((el) => el.blur());
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.waitForFunction(
+            () =>
+              window.innerHeight === 844 &&
+              document.documentElement.getAttribute('data-mobile-keyboard') ===
+                'closed',
+            { timeout: 3000 },
+          );
+
+          // Bấm "+ Tạo báo giá mới" -> mở /print-quotes/new với form sạch rỗng
+          await page.click('[data-testid="pq-new-quote-cta"]');
           await page.waitForSelector('[data-testid="panel-create-quote"]', {
             timeout: 15000,
           });
+          assert.ok(
+            page.url().endsWith('/print-quotes/new'),
+            `[${target.label}] Bấm + Tạo báo giá mới phải chuyển sang /print-quotes/new`,
+          );
 
           const qtyInput = page.locator('input[aria-label="Số lượng dòng 1"]');
           const costInput = page.locator(
@@ -766,6 +940,17 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
             'input[aria-label="Giá trị lợi nhuận dòng 1"]',
           );
           const shipInput = page.locator('[data-testid="pq-shipping-input"]');
+
+          // Form /print-quotes/new khởi tạo sạch rỗng, không điền sẵn số mẫu 100 / 300 / 200
+          assert.equal(await qtyInput.inputValue(), '');
+          assert.equal(await costInput.inputValue(), '');
+          assert.equal(await profitInput.inputValue(), '');
+          assert.equal(
+            await page
+              .locator('[data-testid="pq-empty-guidance-notice"]')
+              .count(),
+            1,
+          );
 
           // --- SCENARIO A: Số lượng 1 -> xóa hết -> phải rỗng ("") -> nhập 500 -> kết quả 500 (KHÔNG PHẢI 1500) ---
           await qtyInput.click();
@@ -832,7 +1017,22 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           // --- TASK 2: Khi bàn phím mở (ô nhập đang focus trên iPhone), MobileBottomNav & ReportBugWidget không che ô nhập ---
           await page.setViewportSize({ width: 390, height: 420 }); // Mô phỏng chiều cao còn lại khi bàn phím iPhone bật
           await qtyInput.focus();
-          await page.waitForTimeout(180);
+          await page.waitForFunction(
+            () =>
+              window.innerHeight === 420 &&
+              document.documentElement.getAttribute('data-mobile-keyboard') ===
+                'open',
+            { timeout: 3000 },
+          );
+          // Chờ 1 nhịp layout/frame sau khi sự kiện resize đã cập nhật xong viewport
+          await page.evaluate(
+            () =>
+              new Promise((resolve) =>
+                window.requestAnimationFrame(() =>
+                  window.requestAnimationFrame(resolve),
+                ),
+              ),
+          );
 
           const kbOpenOverlayState = await page.evaluate(() => {
             const navWrap = document.querySelector(
@@ -865,12 +1065,12 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           assert.equal(
             kbOpenOverlayState.navHidden,
             true,
-            `[${target.label}] MobileBottomNav phải tự ẩn khi bàn phím di động đang mở`,
+            `[${target.label}] MobileBottomNav phải ẩn trên màn hình tạo/sửa báo giá và khi bàn phím mở`,
           );
           assert.equal(
             kbOpenOverlayState.bugHidden,
             true,
-            `[${target.label}] Nút Báo lỗi nổi phải tự ẩn khi bàn phím di động đang mở`,
+            `[${target.label}] Nút Báo lỗi nổi phải ẩn trên màn hình tạo/sửa báo giá và khi bàn phím mở`,
           );
           assert.ok(
             kbOpenOverlayState.inputTop >= 40 &&
@@ -878,8 +1078,78 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
             `[${target.label}] Ô đang nhập phải tự cuộn nằm trọn trong vùng nhìn thấy (${kbOpenOverlayState.inputTop}..${kbOpenOverlayState.inputBottom} / ${kbOpenOverlayState.innerHeight})`,
           );
 
+          // Kiểm tra độ ổn định chống race qua nhiều chu kỳ:
+          // (a) Chuyển focus liên tiếp từ đầu trang xuống cuối trang khi bàn phím đang mở (390x420)
+          // (b) Ô đã focus sẵn ở 390x844 (scrollY=0), sau đó thu hẹp đột ngột về 390x420 mà KHÔNG gọi lại focus()
+          for (const focusTarget of [
+            page.locator('[data-testid="pq-title-input"]'),
+            qtyInput,
+            costInput,
+            profitInput,
+            shipInput,
+          ]) {
+            await focusTarget.focus();
+            await page.evaluate(
+              () =>
+                new Promise((resolve) =>
+                  window.requestAnimationFrame(() =>
+                    window.requestAnimationFrame(resolve),
+                  ),
+                ),
+            );
+            const focusRect = await page.evaluate(() => {
+              const el = document.activeElement;
+              const r = el ? el.getBoundingClientRect() : null;
+              return {
+                top: r ? r.top : 0,
+                bottom: r ? r.bottom : 0,
+                innerHeight: window.innerHeight,
+              };
+            });
+            assert.ok(
+              focusRect.top >= 40 && focusRect.bottom <= focusRect.innerHeight,
+              `[${target.label}] Khi nhảy focus sang ô khác lúc bàn phím mở, ô phải nằm trọn trong viewport (${focusRect.top}..${focusRect.bottom} / ${focusRect.innerHeight})`,
+            );
+          }
+
+          for (let cycle = 1; cycle <= 3; cycle += 1) {
+            await page.setViewportSize({ width: 390, height: 844 });
+            await page.waitForFunction(() => window.innerHeight === 844, {
+              timeout: 3000,
+            });
+            await qtyInput.focus();
+            await page.evaluate(() => window.scrollTo(0, 0));
+            // Không gọi lại qtyInput.focus() — thu hẹp trực tiếp viewport 844 -> 420 như khi bàn phím iOS/Android bật lên trên ô đang focus
+            await page.setViewportSize({ width: 390, height: 420 });
+            await page.waitForFunction(() => window.innerHeight === 420, {
+              timeout: 3000,
+            });
+            await page.evaluate(
+              () =>
+                new Promise((resolve) =>
+                  window.requestAnimationFrame(() =>
+                    window.requestAnimationFrame(resolve),
+                  ),
+                ),
+            );
+            const cycleRect = await page.evaluate(() => {
+              const el = document.activeElement;
+              const r = el ? el.getBoundingClientRect() : null;
+              return {
+                top: r ? r.top : 0,
+                bottom: r ? r.bottom : 0,
+                innerHeight: window.innerHeight,
+              };
+            });
+            assert.ok(
+              cycleRect.top >= 40 && cycleRect.bottom <= cycleRect.innerHeight,
+              `[${target.label}] Chu kỳ ổn định #${cycle}: thu hẹp viewport 844->420 khi ô đang focus sẵn phải tự cuộn vào vùng nhìn thấy (${cycleRect.top}..${cycleRect.bottom} / ${cycleRect.innerHeight})`,
+            );
+          }
+
           // --- SCENARIO B: Giá nhà in 300 -> xóa hết -> nhập 5000 -> kết quả 5000 (KHÔNG PHẢI 05000) ---
           await costInput.click();
+          await costInput.fill('300');
           await costInput.selectText();
           await costInput.press('Backspace');
           assert.equal(
@@ -904,6 +1174,7 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           );
 
           // --- SCENARIO C: Tiền lời 200 -> xóa hết -> nhập 500 -> kết quả 500 (KHÔNG PHẢI 0500) ---
+          await profitInput.fill('200');
           await profitInput.selectText();
           await profitInput.press('Backspace');
           assert.equal(
@@ -957,9 +1228,16 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           // Đóng bàn phím & khôi phục chiều cao màn hình iPhone 390x844
           await shipInput.evaluate((el) => el.blur());
           await page.setViewportSize({ width: 390, height: 844 });
-          await page.waitForTimeout(180);
+          await page.waitForFunction(
+            () =>
+              window.innerHeight === 844 &&
+              document.documentElement.getAttribute('data-mobile-keyboard') ===
+                'closed',
+            { timeout: 3000 },
+          );
 
-          const kbClosedState = await page.evaluate(() => {
+          // UX V2: Trên route soạn thảo tập trung (/print-quotes/new), MobileBottomNav & ReportBugWidget luôn ẩn trên mobile <=768px để không che CTA Lưu
+          const editorOverlayState = await page.evaluate(() => {
             const navWrap = document.querySelector(
               '.mobile-bottom-nav-wrapper',
             );
@@ -967,27 +1245,31 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
             const navStyle = navWrap ? window.getComputedStyle(navWrap) : null;
             const bugStyle = bugBtn ? window.getComputedStyle(bugBtn) : null;
             return {
-              navVisible:
-                Boolean(navStyle) &&
-                navStyle.visibility !== 'hidden' &&
-                navStyle.display !== 'none' &&
-                navStyle.opacity !== '0',
-              bugVisible:
-                Boolean(bugStyle) &&
-                bugStyle.visibility !== 'hidden' &&
-                bugStyle.display !== 'none' &&
-                bugStyle.opacity !== '0',
+              pqEditorAttr: document
+                .querySelector('.app-shell-root')
+                ?.getAttribute('data-pq-editor'),
+              navHidden:
+                !navStyle ||
+                navStyle.visibility === 'hidden' ||
+                navStyle.display === 'none' ||
+                navStyle.opacity === '0',
+              bugHidden:
+                !bugStyle ||
+                bugStyle.visibility === 'hidden' ||
+                bugStyle.display === 'none' ||
+                bugStyle.opacity === '0',
             };
           });
+          assert.equal(editorOverlayState.pqEditorAttr, 'true');
           assert.equal(
-            kbClosedState.navVisible,
+            editorOverlayState.navHidden,
             true,
-            `[${target.label}] Khi đóng bàn phím, MobileBottomNav phải hiển thị trở lại`,
+            `[${target.label}] Trên /print-quotes/new di động, MobileBottomNav giữ ẩn để không che nút Lưu`,
           );
           assert.equal(
-            kbClosedState.bugVisible,
+            editorOverlayState.bugHidden,
             true,
-            `[${target.label}] Khi đóng bàn phím, nút Báo lỗi nổi phải hiển thị trở lại`,
+            `[${target.label}] Trên /print-quotes/new di động, nút Báo lỗi nổi giữ ẩn để không che ô nhập`,
           );
 
           assert.match(
@@ -1053,13 +1335,33 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
             /2\.500\.000\s*₫/,
           );
 
+          // Quay lại Danh sách (/print-quotes): kiểm tra nháp chỉ nằm trong RAM (0 localStorage/sessionStorage) và cảnh báo khi mở sửa báo giá khác
+          await page.click('[data-testid="pq-editor-back-btn"]');
+          await page.waitForSelector('[data-testid="panel-quotes-list"]');
+          await page.waitForSelector('[data-testid="pq-ram-draft-banner"]');
+
+          const storageDump = await page.evaluate(() => ({
+            localKeys: Object.keys(window.localStorage),
+            sessionKeys: Object.keys(window.sessionStorage),
+          }));
+          assert.equal(
+            storageDump.localKeys.some((k) => /quote|vendor|cost|pq/i.test(k)),
+            false,
+            `[${target.label}] Tuyệt đối không ghi nháp giá vốn/báo giá xuống localStorage`,
+          );
+          assert.equal(
+            storageDump.sessionKeys.some((k) =>
+              /quote|vendor|cost|pq/i.test(k),
+            ),
+            false,
+            `[${target.label}] Tuyệt đối không ghi nháp giá vốn/báo giá xuống sessionStorage`,
+          );
+
           // Kiểm tra tải báo giá đã lưu (TOTAL_BATCH 3 tờ = 10.000đ vốn + 5.000đ lời + 25.000đ ship = 40.000đ) -> giữ nguyên 100%
-          await page.click('[data-testid="tab-quotes-list"]');
           await page.waitForSelector('[data-testid="quote-row-BG-202611-088"]');
-          await page
-            .locator('[data-testid="quote-row-BG-202611-088"]')
-            .locator('button:has-text("Sửa / Tạo phiên bản")')
-            .click();
+          await page.click('[data-testid="pq-quote-edit-BG-202611-088"]');
+          await page.waitForSelector('[data-testid="pq-replace-draft-dialog"]');
+          await page.click('[data-testid="pq-replace-confirm-btn"]');
           await page.waitForSelector('[data-testid="panel-create-quote"]');
           assert.equal(await qtyInput.inputValue(), '3');
           assert.match(
@@ -1076,12 +1378,11 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           );
 
           // --- SCENARIO G (TASK 1): Báo giá TRỌN LÔ 30.000đ / 100 tờ -> mở lại -> đổi SL thành 200 tờ -> giữ nguyên Trọn lô & 30.000đ (KHÔNG thành 60.000đ) ---
-          await page.click('[data-testid="tab-quotes-list"]');
+          await page.click('[data-testid="pq-editor-back-btn"]');
+          await page.waitForSelector('[data-testid="panel-quote-detail"]');
+          await page.click('[data-testid="pq-detail-back-btn"]');
           await page.waitForSelector('[data-testid="quote-row-BG-202611-089"]');
-          await page
-            .locator('[data-testid="quote-row-BG-202611-089"]')
-            .locator('button:has-text("Sửa / Tạo phiên bản")')
-            .click();
+          await page.click('[data-testid="pq-quote-edit-BG-202611-089"]');
           await page.waitForSelector('[data-testid="panel-create-quote"]');
 
           const costModeSelect = page.locator(
@@ -1111,11 +1412,15 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
             /^40\.000\s*₫$/,
           );
 
-          // Lưu phiên bản mới -> kiểm tra payload gửi lên API mang đúng vendorCostMode = TOTAL_BATCH và totalVendorCost = 30000
+          // Lưu phiên bản mới -> kiểm tra payload gửi lên API mang đúng vendorCostMode = TOTAL_BATCH, totalVendorCost = 30000 VÀ UX V2 tự chuyển sang Chi tiết báo giá (/print-quotes/:id)
           const saveBtn = page.locator('[data-testid="pq-save-quote-btn"]');
           server.resetCounters();
           await saveBtn.click();
-          await page.waitForTimeout(100);
+          await page.waitForSelector('[data-testid="panel-quote-detail"]');
+          assert.ok(
+            page.url().endsWith('/print-quotes/saved-quote-batch-30k-100'),
+            `[${target.label}] Sau khi lưu báo giá phải tự mở trang Chi tiết báo giá (/print-quotes/:id)`,
+          );
           assert.equal(server.getCounters().postQuotesCount, 1);
           assert.equal(
             server.getCounters().lastSavedPayload?.items?.[0]?.vendorCostMode,
@@ -1127,12 +1432,9 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
           );
 
           // --- SCENARIO H (TASK 1): Báo giá CŨ (legacy) thiếu vendorCostMode (30.000đ / 100 tờ) -> đổi SL 200 tờ -> KHÔNG SUY ĐOÁN cho tới khi xác nhận ---
-          await page.click('[data-testid="tab-quotes-list"]');
+          await page.click('[data-testid="pq-detail-back-btn"]');
           await page.waitForSelector('[data-testid="quote-row-BG-202611-090"]');
-          await page
-            .locator('[data-testid="quote-row-BG-202611-090"]')
-            .locator('button:has-text("Sửa / Tạo phiên bản")')
-            .click();
+          await page.click('[data-testid="pq-quote-edit-BG-202611-090"]');
           await page.waitForSelector('[data-testid="panel-create-quote"]');
 
           assert.equal(
@@ -1186,6 +1488,406 @@ describe('PrintQuote P0 Mobile Numeric Input & iPhone Keyboard Hotfix Regression
             false,
             `[${target.label}] iPhone SE 320x568 không được tràn ngang`,
           );
+
+          await context.close();
+        } finally {
+          await browser.close();
+        }
+      }
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('3. Real Browser RAM Draft Guard: nhập nháp -> sang danh mục -> Back/Forward giữ dữ liệu; lỗi lưu giữ nháp; beforeunload; rời phân hệ ở lại / xóa & fail-closed khi không có interceptor', async () => {
+    const server = await startInMemoryPrintQuoteWebServer();
+
+    const browserTargets = [
+      {
+        label: 'Chrome Mobile iPhone',
+        launch: () =>
+          chromium.launch({
+            channel: 'chrome',
+            headless: true,
+            args: ['--no-sandbox', '--disable-dev-shm-usage'],
+          }),
+      },
+    ];
+
+    if (fs.existsSync(webkit.executablePath())) {
+      browserTargets.push({
+        label: 'Playwright WebKit iPhone (Safari Engine)',
+        launch: () => webkit.launch({ headless: true }),
+      });
+    }
+
+    try {
+      for (const target of browserTargets) {
+        const browser = await target.launch();
+        try {
+          const context = await browser.newContext({
+            viewport: { width: 390, height: 844 },
+            isMobile: true,
+            hasTouch: true,
+            userAgent:
+              'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+          });
+          const page = await context.newPage();
+          server.resetCounters();
+
+          // Khởi đầu từ "/" rồi vào "/print-quotes" qua thanh điều hướng SPA
+          await page.goto(`${server.webUrl}/`, { waitUntil: 'networkidle' });
+          await page.click('nav.mobile-bottom-nav button:has-text("Báo giá")');
+          await page.waitForSelector('[data-testid="panel-quotes-list"]', {
+            timeout: 15000,
+          });
+
+          // 1) Kiểm tra beforeunload khi chưa có nháp bẩn -> không chặn
+          const cleanBeforeUnload = await page.evaluate(() => {
+            const ev = new Event('beforeunload', { cancelable: true });
+            window.dispatchEvent(ev);
+            return ev.defaultPrevented;
+          });
+          assert.equal(
+            cleanBeforeUnload,
+            false,
+            `[${target.label}] Khi chưa nhập nháp, beforeunload không được chặn tải lại trang`,
+          );
+
+          // Mở tạo báo giá mới và nhập dữ liệu nháp
+          await page.click('[data-testid="pq-new-quote-cta"]');
+          await page.waitForSelector('[data-testid="panel-create-quote"]');
+
+          const titleInput = page.locator('[data-testid="pq-title-input"]');
+          const prodNameInput = page.locator(
+            'input[aria-label="Tên sản phẩm dòng 1"]',
+          );
+          const qtyInput = page.locator('input[aria-label="Số lượng dòng 1"]');
+          const costInput = page.locator(
+            'input[aria-label="Giá trị giá vốn dòng 1"]',
+          );
+          const profitInput = page.locator(
+            'input[aria-label="Giá trị lợi nhuận dòng 1"]',
+          );
+          const shipInput = page.locator('[data-testid="pq-shipping-input"]');
+
+          await titleInput.fill('Báo giá Catalogue Tết 2027');
+          await prodNameInput.fill('Catalogue A4 16 trang C200');
+          await qtyInput.fill('250');
+          await costInput.fill('10000');
+          await profitInput.fill('2000');
+          await shipInput.fill('40000');
+
+          assert.match(
+            await page.textContent('[data-testid="pq-summary-total"]'),
+            /3\.040\.000\s*₫/,
+          );
+
+          // 2) Kiểm tra beforeunload khi đang có nháp bẩn -> PHẢI chặn (defaultPrevented = true)
+          const dirtyBeforeUnload = await page.evaluate(() => {
+            const ev = new Event('beforeunload', { cancelable: true });
+            window.dispatchEvent(ev);
+            return ev.defaultPrevented;
+          });
+          assert.equal(
+            dirtyBeforeUnload,
+            true,
+            `[${target.label}] Khi có nháp bẩn chưa lưu, beforeunload phải kích hoạt preventDefault`,
+          );
+
+          // 3) Nhập nháp -> sang các trang Danh mục -> Back / Forward trình duyệt giữ nguyên 100% dữ liệu
+          await page.click('[data-testid="pq-editor-back-btn"]');
+          await page.waitForSelector('[data-testid="panel-quotes-list"]');
+          await page.waitForSelector('[data-testid="pq-ram-draft-banner"]');
+
+          await page.click('[data-testid="pq-nav-group-catalog"]');
+          await page.waitForSelector(
+            '[data-testid="pq-open-price-dialog-btn"]',
+          );
+          assert.ok(page.url().endsWith('/print-quotes/catalog/prices'));
+          await page.waitForSelector('[data-testid="pq-ram-draft-banner"]');
+
+          await page.click('[data-testid="pq-catalog-tab-customers"]');
+          await page.waitForSelector('[data-testid="panel-customers"]');
+          assert.ok(page.url().endsWith('/print-quotes/catalog/customers'));
+          await page.waitForSelector('[data-testid="pq-ram-draft-banner"]');
+
+          await page.click('[data-testid="pq-catalog-tab-vendors"]');
+          await page.waitForSelector(
+            '[data-testid="pq-open-vendor-dialog-btn"]',
+          );
+          assert.ok(page.url().endsWith('/print-quotes/catalog/vendors'));
+          await page.waitForSelector('[data-testid="pq-ram-draft-banner"]');
+
+          // Nhấn Back trình duyệt 4 bước quay về /print-quotes/new -> toàn bộ dữ liệu nháp còn nguyên
+          await page.goBack();
+          await page.waitForSelector('[data-testid="panel-customers"]');
+          await page.goBack();
+          await page.waitForSelector(
+            '[data-testid="pq-open-price-dialog-btn"]',
+          );
+          await page.goBack();
+          await page.waitForSelector('[data-testid="panel-quotes-list"]');
+          await page.goBack();
+          await page.waitForSelector('[data-testid="panel-create-quote"]');
+          assert.ok(page.url().endsWith('/print-quotes/new'));
+
+          assert.equal(
+            await titleInput.inputValue(),
+            'Báo giá Catalogue Tết 2027',
+            `[${target.label}] Back từ Danh mục về /print-quotes/new phải giữ nguyên Tên báo giá`,
+          );
+          assert.equal(
+            await prodNameInput.inputValue(),
+            'Catalogue A4 16 trang C200',
+          );
+          assert.equal(await qtyInput.inputValue(), '250');
+          assert.equal(await costInput.inputValue(), '10000');
+          assert.equal(await profitInput.inputValue(), '2000');
+          assert.equal(await shipInput.inputValue(), '40000');
+          assert.match(
+            await page.textContent('[data-testid="pq-summary-total"]'),
+            /3\.040\.000\s*₫/,
+          );
+
+          // Nhấn Forward trình duyệt sang lại Danh mục rồi bấm Tiếp tục nhập -> vẫn giữ nguyên 100%
+          await page.goForward();
+          await page.waitForSelector('[data-testid="panel-quotes-list"]');
+          await page.goForward();
+          await page.waitForSelector(
+            '[data-testid="pq-open-price-dialog-btn"]',
+          );
+          assert.ok(page.url().endsWith('/print-quotes/catalog/prices'));
+          await page.click('[data-testid="pq-resume-draft-btn"]');
+          await page.waitForSelector('[data-testid="panel-create-quote"]');
+          assert.equal(
+            await titleInput.inputValue(),
+            'Báo giá Catalogue Tết 2027',
+          );
+          assert.equal(await qtyInput.inputValue(), '250');
+          assert.match(
+            await page.textContent('[data-testid="pq-summary-total"]'),
+            /3\.040\.000\s*₫/,
+          );
+
+          // 4) Lỗi lưu (HTTP 500) -> hiện thông báo lỗi, KHÔNG điều hướng mất trang, giữ nguyên toàn bộ nháp
+          server.failNextQuoteSave(
+            500,
+            'Máy chủ bận tạm thời, vui lòng thử lại.',
+          );
+          await page.click('[data-testid="pq-save-quote-btn"]');
+          await page.waitForSelector('[data-testid="printquote-banner"]');
+          assert.match(
+            await page.textContent('[data-testid="printquote-banner"]'),
+            /Máy chủ bận tạm thời, vui lòng thử lại\./,
+          );
+          assert.ok(
+            page.url().endsWith('/print-quotes/new'),
+            `[${target.label}] Khi lưu lỗi phải giữ nguyên tại /print-quotes/new`,
+          );
+          assert.equal(
+            await titleInput.inputValue(),
+            'Báo giá Catalogue Tết 2027',
+          );
+          assert.equal(
+            await prodNameInput.inputValue(),
+            'Catalogue A4 16 trang C200',
+          );
+          assert.equal(await qtyInput.inputValue(), '250');
+          assert.equal(await costInput.inputValue(), '10000');
+          assert.equal(await profitInput.inputValue(), '2000');
+          assert.equal(await shipInput.inputValue(), '40000');
+          assert.match(
+            await page.textContent('[data-testid="pq-summary-total"]'),
+            /3\.040\.000\s*₫/,
+          );
+
+          // 5) Rời phân hệ khi có screen interceptor: chọn Ở lại giữ nháp -> sau đó chọn Rời trang & xóa nháp
+          await page.click('[data-testid="pq-editor-back-btn"]');
+          await page.waitForSelector('[data-testid="panel-quotes-list"]');
+
+          await page.click(
+            'nav.mobile-bottom-nav button:has-text("Chấm công")',
+          );
+          await page.waitForSelector('[data-testid="pq-leave-draft-dialog"]');
+          assert.ok(
+            page.url().endsWith('/print-quotes'),
+            `[${target.label}] Chưa xác nhận rời phân hệ thì không được tự chuyển sang /clock`,
+          );
+
+          // Chọn "Ở lại tiếp tục nhập" -> đóng dialog, giữ nguyên nháp
+          await page.click('[data-testid="pq-leave-stay-btn"]');
+          assert.equal(
+            await page.locator('[data-testid="pq-leave-draft-dialog"]').count(),
+            0,
+          );
+          assert.ok(page.url().endsWith('/print-quotes'));
+          assert.equal(
+            await page.locator('[data-testid="pq-ram-draft-banner"]').count(),
+            1,
+          );
+
+          // Chọn "Rời trang & xóa nháp" -> chuyển sang /clock và xóa sạch nháp trong RAM
+          await page.click(
+            'nav.mobile-bottom-nav button:has-text("Chấm công")',
+          );
+          await page.waitForSelector('[data-testid="pq-leave-draft-dialog"]');
+          await page.click('[data-testid="pq-leave-discard-btn"]');
+          await page.waitForFunction(() =>
+            window.location.pathname.startsWith('/clock'),
+          );
+          assert.equal(
+            await page.evaluate(() => {
+              const ev = new Event('beforeunload', { cancelable: true });
+              window.dispatchEvent(ev);
+              return ev.defaultPrevented;
+            }),
+            false,
+            `[${target.label}] Sau khi xác nhận xóa nháp rời trang, beforeunload phải được gỡ bỏ`,
+          );
+
+          // Quay lại Báo giá qua SPA (không reload trang) -> chứng minh nháp RAM đã xóa sạch
+          await page.click('nav.mobile-bottom-nav button:has-text("Báo giá")');
+          await page.waitForSelector('[data-testid="panel-quotes-list"]');
+          assert.equal(
+            await page.locator('[data-testid="pq-ram-draft-banner"]').count(),
+            0,
+          );
+          await page.click('[data-testid="pq-new-quote-cta"]');
+          await page.waitForSelector('[data-testid="panel-create-quote"]');
+          assert.equal(await titleInput.inputValue(), '');
+          assert.equal(await qtyInput.inputValue(), '');
+
+          // 6) Trạng thái KHÔNG CÓ screen leaveInterceptor (PrintQuoteScreen đã unmount trên đường dẫn con 404):
+          // Fail-closed: tuyệt đối không tự xóa nháp hay rời trang âm thầm; hiển thị hộp thoại xác nhận gốc của App
+          await titleInput.fill('Báo giá Hộp Cứng Fail-Closed');
+          await prodNameInput.fill('Hộp nam châm cao cấp');
+          await qtyInput.fill('120');
+          await costInput.fill('15000');
+          await profitInput.fill('5000');
+          await shipInput.fill('0');
+          assert.match(
+            await page.textContent('[data-testid="pq-summary-total"]'),
+            /2\.400\.000\s*₫/,
+          );
+
+          // Đẩy sang đường dẫn con không khớp route trong /print-quotes/* -> NotFoundScreen mount & PrintQuoteScreen unmount (registerPrintQuoteLeaveInterceptor(null))
+          await page.evaluate(() => {
+            window.history.pushState(
+              null,
+              '',
+              '/print-quotes/unmatched/sub/route',
+            );
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          });
+          await page.waitForSelector(
+            'h1:has-text("404 — Không tìm thấy trang")',
+          );
+          assert.equal(
+            await page.locator('[data-testid="printquote-screen"]').count(),
+            0,
+            `[${target.label}] PrintQuoteScreen phải đã unmount để kiểm tra đúng trạng thái không có screen leaveInterceptor`,
+          );
+          // Ngay cả khi PrintQuoteScreen đã unmount, beforeunload cấp cầu nối RAM vẫn phải bảo vệ nháp
+          assert.equal(
+            await page.evaluate(() => {
+              const ev = new Event('beforeunload', { cancelable: true });
+              window.dispatchEvent(ev);
+              return ev.defaultPrevented;
+            }),
+            true,
+          );
+
+          // Bấm nút rời về "/" khi không có screen interceptor -> phải hiện dialog xác nhận dự phòng (role="dialog", data-fallback-guard="true"), KHÔNG tự xóa nháp
+          await page.click('button:has-text("Quay lại Trang tổng quan")');
+          await page.waitForSelector(
+            '[data-testid="pq-leave-draft-dialog"][data-fallback-guard="true"]',
+          );
+          assert.equal(
+            await page
+              .locator('[data-testid="pq-leave-draft-dialog"]')
+              .getAttribute('role'),
+            'dialog',
+          );
+          assert.equal(
+            await page
+              .locator('[data-testid="pq-leave-draft-dialog"]')
+              .getAttribute('aria-modal'),
+            'true',
+          );
+          assert.ok(
+            page.url().endsWith('/print-quotes/unmatched/sub/route'),
+            `[${target.label}] Khi chưa xác nhận trên fallback dialog, không được tự ý điều hướng sang "/"`,
+          );
+
+          // Chọn "Ở lại giữ bản nháp" -> đóng dialog, không mất nháp
+          await page.click('[data-testid="pq-leave-stay-btn"]');
+          assert.equal(
+            await page.locator('[data-testid="pq-leave-draft-dialog"]').count(),
+            0,
+          );
+          assert.ok(page.url().endsWith('/print-quotes/unmatched/sub/route'));
+
+          // Bấm rời lần 2 -> chọn "Mở lại bản nháp" -> quay thẳng về /print-quotes/new với nguyên vẹn 100% dữ liệu nháp
+          await page.click('button:has-text("Quay lại Trang tổng quan")');
+          await page.waitForSelector(
+            '[data-testid="pq-leave-draft-dialog"][data-fallback-guard="true"]',
+          );
+          await page.click('[data-testid="pq-leave-return-editor-btn"]');
+          await page.waitForSelector('[data-testid="panel-create-quote"]');
+          assert.ok(page.url().endsWith('/print-quotes/new'));
+          assert.equal(
+            await titleInput.inputValue(),
+            'Báo giá Hộp Cứng Fail-Closed',
+          );
+          assert.equal(
+            await prodNameInput.inputValue(),
+            'Hộp nam châm cao cấp',
+          );
+          assert.equal(await qtyInput.inputValue(), '120');
+          assert.match(
+            await page.textContent('[data-testid="pq-summary-total"]'),
+            /2\.400\.000\s*₫/,
+          );
+
+          // Quay lại trạng thái không có interceptor rồi xác nhận "Rời trang & xóa nháp" -> điều hướng về "/" và xóa sạch nháp RAM
+          await page.evaluate(() => {
+            window.history.pushState(
+              null,
+              '',
+              '/print-quotes/unmatched/sub/route',
+            );
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          });
+          await page.waitForSelector(
+            'h1:has-text("404 — Không tìm thấy trang")',
+          );
+          await page.click('button:has-text("Quay lại Trang tổng quan")');
+          await page.waitForSelector(
+            '[data-testid="pq-leave-draft-dialog"][data-fallback-guard="true"]',
+          );
+          await page.click('[data-testid="pq-leave-discard-btn"]');
+          await page.waitForFunction(() => window.location.pathname === '/');
+          assert.equal(
+            await page.evaluate(() => {
+              const ev = new Event('beforeunload', { cancelable: true });
+              window.dispatchEvent(ev);
+              return ev.defaultPrevented;
+            }),
+            false,
+          );
+
+          // Mở lại Báo giá -> Tạo báo giá mới qua SPA -> form sạch rỗng hoàn toàn
+          await page.click('nav.mobile-bottom-nav button:has-text("Báo giá")');
+          await page.waitForSelector('[data-testid="panel-quotes-list"]');
+          assert.equal(
+            await page.locator('[data-testid="pq-ram-draft-banner"]').count(),
+            0,
+          );
+          await page.click('[data-testid="pq-new-quote-cta"]');
+          await page.waitForSelector('[data-testid="panel-create-quote"]');
+          assert.equal(await titleInput.inputValue(), '');
+          assert.equal(await qtyInput.inputValue(), '');
 
           await context.close();
         } finally {

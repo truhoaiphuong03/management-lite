@@ -201,6 +201,52 @@ export function resolveNavigationBreadcrumbs(
     };
   }
 
+  // 2H. Báo giá in ấn (PrintQuote UX V2)
+  if (
+    currentPath === '/print-quotes' ||
+    currentPath.startsWith('/print-quotes/')
+  ) {
+    const pqLabels: Record<string, string> = {
+      '/print-quotes/new': 'Tạo báo giá mới',
+      '/print-quotes/orders': 'Đơn hàng in ấn',
+      '/print-quotes/catalog': 'Bảng giá nhà in',
+      '/print-quotes/catalog/prices': 'Bảng giá nhà in',
+      '/print-quotes/catalog/customers': 'Khách hàng',
+      '/print-quotes/catalog/vendors': 'Nhà in đối tác',
+      '/print-quotes/reports': 'Báo cáo in ấn',
+    };
+    const isEdit = /^\/print-quotes\/[^/]+\/edit$/.test(currentPath);
+    const editParentPath = isEdit
+      ? currentPath.replace(/\/edit$/, '')
+      : '/print-quotes';
+    const currentLabel =
+      pqLabels[currentPath] ??
+      options?.customTitle ??
+      (isEdit ? 'Sửa báo giá' : 'Chi tiết báo giá');
+    return {
+      items:
+        currentPath === '/print-quotes'
+          ? [{ label: 'Báo giá in ấn' }]
+          : isEdit
+            ? [
+                { label: 'Báo giá in ấn', path: '/print-quotes' },
+                { label: 'Chi tiết báo giá', path: editParentPath },
+                { label: currentLabel },
+              ]
+            : [
+                { label: 'Báo giá in ấn', path: '/print-quotes' },
+                { label: currentLabel },
+              ],
+      parentLabel:
+        currentPath === '/print-quotes'
+          ? 'Tổng quan'
+          : isEdit
+            ? 'Chi tiết báo giá'
+            : 'Báo giá in ấn',
+      parentPath: currentPath === '/print-quotes' ? '/' : editParentPath,
+    };
+  }
+
   // 3. Primary Function Routes (2 levels: Group > Function)
   const exactItem = itemByPath.get(currentPath);
   if (exactItem) {
