@@ -19,7 +19,12 @@ import {
   type PrintQuoteDashboardStats,
   type QuoteLineInput,
 } from '../../../../packages/contracts/src/printquote.js';
-import { buildPrintQuoteA4Html } from './helpers/printquote-helpers.js';
+import {
+  buildPrintQuoteA4Html,
+  resolveSavedQuoteLineCostState,
+  validateQuoteDraftInputs,
+  type DraftLineValidationError,
+} from './helpers/printquote-helpers.js';
 import type { UserRole } from '../types.js';
 import {
   DEFAULT_DRAFT_LINE,
@@ -91,6 +96,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [validUntil, setValidUntil] = useState<string>('');
   const [shippingFee, setShippingFee] = useState<number>(50000);
+  const [shippingFeeInput, setShippingFeeInput] = useState<string>('50000');
   const [includeShippingInUnitPrice, setIncludeShippingInUnitPrice] =
     useState<boolean>(true);
   const [shippingAllocation, setShippingAllocation] =
@@ -215,21 +221,47 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     void loadAllData();
   }, [loadAllData]);
 
-  // Live Pricing Engine Calculation
-  const livePricingResult = useMemo(() => {
+  // Live Pricing Engine Calculation (Strict validation: no fake totals when required inputs are empty/invalid)
+  const livePricingResult = useMemo<{
+    calc: ReturnType<typeof calculatePrintQuote> | null;
+    customerPdf: ReturnType<typeof buildCustomerSafePdfPayload> | null;
+    error: string | null;
+    validationErrors: string[];
+    lineErrors: Record<string, DraftLineValidationError>;
+    shippingError: string | null;
+  }>(() => {
+    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    if (!validation.isValid) {
+      return {
+        calc: null,
+        customerPdf: null,
+        error:
+          validation.errors[0] ||
+          'Vui lòng nhập đầy đủ số lượng và đơn giá hợp lệ.',
+        validationErrors: validation.errors,
+        lineErrors: validation.lineErrors,
+        shippingError: validation.shippingError,
+      };
+    }
+
     try {
       const itemsInput: QuoteLineInput[] = draftLines.map((line, idx) => {
-        const costVal = Math.max(0, Number(line.vendorCostValue) || 0);
+        const validLine = validation.lines[idx] ?? {
+          quantity: line.quantity,
+          vendorCostValue: line.vendorCostValue,
+          profitValue: line.profitValue,
+        };
+        const costVal = validLine.vendorCostValue;
         const baseLine: QuoteLineInput = {
           id: line.id || `ITEM-${idx + 1}`,
           name: line.name.trim() || `Sản phẩm #${idx + 1}`,
           specification: line.specification.trim(),
           unit: line.unit.trim() || 'tờ',
-          quantity: Math.max(1, Math.round(Number(line.quantity) || 1)),
+          quantity: validLine.quantity,
           profit: {
             mode: line.profitMode,
             scope: line.profitScope,
-            value: Math.max(0, Number(line.profitValue) || 0),
+            value: validLine.profitValue,
           },
         };
         if (line.vendorCostMode === VendorCostMode.TOTAL_BATCH) {
@@ -242,7 +274,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
       const calc = calculatePrintQuote({
         items: itemsInput,
-        shippingFee: Math.max(0, Math.round(Number(shippingFee) || 0)),
+        shippingFee: validation.shippingFee,
         includeShippingInUnitPrice,
         shippingAllocationStrategy: shippingAllocation,
         roundingPolicy: {
@@ -251,17 +283,28 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         },
       });
       const customerPdf = buildCustomerSafePdfPayload(calc);
-      return { calc, customerPdf, error: null };
+      return {
+        calc,
+        customerPdf,
+        error: null,
+        validationErrors: [],
+        lineErrors: {},
+        shippingError: null,
+      };
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Lỗi tính toán báo giá';
       return {
         calc: null,
         customerPdf: null,
-        error: err instanceof Error ? err.message : 'Lỗi tính toán báo giá',
+        error: msg,
+        validationErrors: [msg],
+        lineErrors: {},
+        shippingError: null,
       };
     }
   }, [
     draftLines,
-    shippingFee,
+    shippingFeeInput,
     includeShippingInUnitPrice,
     shippingAllocation,
     roundingMode,
@@ -284,6 +327,10 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         if (!found) {
           return { ...line, vendorPriceItemId: '' };
         }
+        const resolvedCost =
+          found.pricing_mode === VendorCostMode.TOTAL_BATCH
+            ? found.batch_total_cost
+            : found.unit_cost;
         return {
           ...line,
           vendorPriceItemId: found.id,
@@ -291,20 +338,30 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           specification: found.specification || '',
           unit: found.unit || 'tờ',
           vendorCostMode: found.pricing_mode,
-          vendorCostValue:
-            found.pricing_mode === VendorCostMode.TOTAL_BATCH
-              ? found.batch_total_cost
-              : found.unit_cost,
+          vendorCostValue: resolvedCost,
+          vendorCostInput: String(resolvedCost),
+          ambiguousLegacyCost: null,
           profitMode: found.default_profit_mode,
           profitScope: found.default_profit_scope,
           profitValue: found.default_profit_value,
+          profitInput: String(found.default_profit_value),
         };
       }),
     );
   };
 
   const handleOpenLiveA4Preview = () => {
-    if (!livePricingResult.customerPdf) return;
+    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    if (!validation.isValid || !livePricingResult.customerPdf) {
+      setBannerMessage({
+        type: 'error',
+        text:
+          validation.errors[0] ||
+          livePricingResult.error ||
+          'Vui lòng nhập đầy đủ số lượng và đơn giá hợp lệ trước khi xem trước PDF.',
+      });
+      return;
+    }
     const itemSpecs: Record<
       string,
       { specification?: string | undefined; unit?: string | undefined }
@@ -411,11 +468,21 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   };
 
   const handleDownloadLivePdfFile = async () => {
+    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    if (!validation.isValid || !livePricingResult.customerPdf) {
+      setBannerMessage({
+        type: 'error',
+        text:
+          validation.errors[0] ||
+          livePricingResult.error ||
+          'Vui lòng nhập đầy đủ số lượng và đơn giá hợp lệ trước khi tải PDF.',
+      });
+      return;
+    }
     if (editingQuoteId && editingQuoteCode) {
       await handleDownloadSavedQuotePdfFile(editingQuoteId, editingQuoteCode);
       return;
     }
-    if (!livePricingResult.customerPdf) return;
     try {
       const csrf = await getCsrfToken();
       const code = editingQuoteCode || 'BG-DRAFT';
@@ -481,12 +548,42 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   };
 
   const handleSaveQuote = async () => {
+    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    if (!validation.isValid || !livePricingResult.calc) {
+      setBannerMessage({
+        type: 'error',
+        text:
+          validation.errors[0] ||
+          livePricingResult.error ||
+          'Vui lòng nhập đầy đủ số lượng và đơn giá hợp lệ trước khi lưu báo giá.',
+      });
+      return;
+    }
+
     setBannerMessage(null);
+    setShippingFee(validation.shippingFee);
+    setShippingFeeInput(String(validation.shippingFee));
+    setDraftLines((prev) =>
+      prev.map((line, i) => {
+        const validLine = validation.lines[i];
+        if (!validLine) return line;
+        return {
+          ...line,
+          quantity: validLine.quantity,
+          quantityInput: String(validLine.quantity),
+          vendorCostValue: validLine.vendorCostValue,
+          vendorCostInput: String(validLine.vendorCostValue),
+          profitValue: validLine.profitValue,
+          profitInput: String(validLine.profitValue),
+        };
+      }),
+    );
+
     const csrf = await getCsrfToken();
     const payload = {
       customer_id: selectedCustomerId || null,
       title: quoteTitle.trim() || 'Báo giá in ấn',
-      shipping_fee: Math.max(0, Math.round(Number(shippingFee) || 0)),
+      shipping_fee: validation.shippingFee,
       include_shipping_in_unit_price: includeShippingInUnitPrice,
       shipping_allocation_strategy: shippingAllocation,
       rounding_mode: roundingMode,
@@ -500,25 +597,34 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           ? `Cập nhật phiên bản v${editingQuoteVersion + 1}`
           : 'Khởi tạo báo giá v1'),
       items: draftLines.map((line, i) => {
-        const costVal = Math.max(0, Number(line.vendorCostValue) || 0);
+        const validLine = validation.lines[i] ?? {
+          quantity: line.quantity,
+          vendorCostValue: line.vendorCostValue,
+          profitValue: line.profitValue,
+        };
+        const costVal = validLine.vendorCostValue;
+        const legacyAmbiguous = line.ambiguousLegacyCost;
         return {
           id: line.id || `ITEM-${i + 1}`,
           vendor_price_item_id: line.vendorPriceItemId || undefined,
           name: line.name.trim() || `Ấn phẩm #${i + 1}`,
           specification: line.specification.trim() || undefined,
           unit: line.unit.trim() || 'tờ',
-          quantity: Math.max(1, Math.round(Number(line.quantity) || 1)),
-          unitVendorCost:
-            line.vendorCostMode === VendorCostMode.PER_UNIT
+          quantity: validLine.quantity,
+          vendorCostMode: legacyAmbiguous ? undefined : line.vendorCostMode,
+          unitVendorCost: legacyAmbiguous
+            ? legacyAmbiguous.unitVendorCost
+            : line.vendorCostMode === VendorCostMode.PER_UNIT
               ? costVal
               : undefined,
-          totalVendorCost:
-            line.vendorCostMode === VendorCostMode.TOTAL_BATCH
+          totalVendorCost: legacyAmbiguous
+            ? legacyAmbiguous.totalVendorCost
+            : line.vendorCostMode === VendorCostMode.TOTAL_BATCH
               ? costVal
               : undefined,
           profitMode: line.profitMode,
           profitScope: line.profitScope,
-          profitValue: Math.max(0, Number(line.profitValue) || 0),
+          profitValue: validLine.profitValue,
         };
       }),
     };
@@ -571,6 +677,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     setSelectedCustomerId(quote.customer_id || '');
     setValidUntil(quote.valid_until || '');
     setShippingFee(quote.shipping_fee);
+    setShippingFeeInput(String(quote.shipping_fee));
     setIncludeShippingInUnitPrice(quote.include_shipping_in_unit_price);
     setShippingAllocation(quote.shipping_allocation_strategy);
     setRoundingMode(quote.rounding_mode);
@@ -580,19 +687,37 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
     if (quote.lines_json && quote.lines_json.length > 0) {
       setDraftLines(
-        quote.lines_json.map((item, idx) => ({
-          id: item.id || `ITEM-${idx + 1}`,
-          vendorPriceItemId: item.vendorPriceItemId || '',
-          name: item.name,
-          specification: item.specification || '',
-          unit: item.unit || 'sp',
-          quantity: item.quantity,
-          vendorCostMode: VendorCostMode.PER_UNIT,
-          vendorCostValue: item.unitVendorCost,
-          profitMode: item.profitMode,
-          profitScope: item.profitScope,
-          profitValue: item.profitInputValue,
-        })),
+        quote.lines_json.map((item, idx) => {
+          const explicitMode = (
+            item as typeof item & {
+              vendorCostMode?: VendorCostModeType | undefined;
+            }
+          ).vendorCostMode;
+          const resolvedCost = resolveSavedQuoteLineCostState({
+            quantity: item.quantity,
+            unitVendorCost: item.unitVendorCost,
+            totalVendorCost: item.totalVendorCost,
+            vendorCostMode: explicitMode,
+          });
+
+          return {
+            id: item.id || `ITEM-${idx + 1}`,
+            vendorPriceItemId: item.vendorPriceItemId || '',
+            name: item.name,
+            specification: item.specification || '',
+            unit: item.unit || 'sp',
+            quantity: item.quantity,
+            quantityInput: String(item.quantity),
+            vendorCostMode: resolvedCost.vendorCostMode,
+            vendorCostValue: resolvedCost.vendorCostValue,
+            vendorCostInput: resolvedCost.vendorCostInput,
+            ambiguousLegacyCost: resolvedCost.ambiguousLegacyCost,
+            profitMode: item.profitMode,
+            profitScope: item.profitScope,
+            profitValue: item.profitInputValue,
+            profitInput: String(item.profitInputValue),
+          };
+        }),
       );
     }
     setActiveTab('create');
@@ -606,6 +731,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     setSelectedCustomerId('');
     setValidUntil('');
     setShippingFee(50000);
+    setShippingFeeInput('50000');
     setIncludeShippingInUnitPrice(true);
     setDraftLines([DEFAULT_DRAFT_LINE(1)]);
     setVersionChangeNote('');
@@ -969,7 +1095,21 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           validUntil={validUntil}
           onChangeValidUntil={setValidUntil}
           shippingFee={shippingFee}
-          onChangeShippingFee={setShippingFee}
+          onChangeShippingFee={(val) => {
+            setShippingFee(val);
+            setShippingFeeInput(String(val));
+          }}
+          shippingFeeInput={shippingFeeInput}
+          onChangeShippingFeeInput={(nextRaw) => {
+            setShippingFeeInput(nextRaw);
+            if (
+              nextRaw !== '' &&
+              Number.isFinite(Number(nextRaw)) &&
+              Number(nextRaw) >= 0
+            ) {
+              setShippingFee(Math.round(Number(nextRaw)));
+            }
+          }}
           includeShippingInUnitPrice={includeShippingInUnitPrice}
           onChangeIncludeShippingInUnitPrice={setIncludeShippingInUnitPrice}
           shippingAllocation={shippingAllocation}
@@ -1046,6 +1186,10 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           setPriceDefaultProfitVal={setPriceDefaultProfitVal}
           onCreatePriceItem={handleCreatePriceItem}
           onQuickQuotePriceItem={(item) => {
+            const resolvedCost =
+              item.pricing_mode === VendorCostMode.TOTAL_BATCH
+                ? item.batch_total_cost
+                : item.unit_cost;
             setDraftLines([
               {
                 id: 'ITEM-1',
@@ -1054,14 +1198,14 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                 specification: item.specification || '',
                 unit: item.unit || 'tờ',
                 quantity: 100,
+                quantityInput: '100',
                 vendorCostMode: item.pricing_mode,
-                vendorCostValue:
-                  item.pricing_mode === VendorCostMode.TOTAL_BATCH
-                    ? item.batch_total_cost
-                    : item.unit_cost,
+                vendorCostValue: resolvedCost,
+                vendorCostInput: String(resolvedCost),
                 profitMode: item.default_profit_mode,
                 profitScope: item.default_profit_scope,
                 profitValue: item.default_profit_value,
+                profitInput: String(item.default_profit_value),
               },
             ]);
             setActiveTab('create');
@@ -1129,6 +1273,18 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           Đang đồng bộ dữ liệu báo giá…
         </div>
       )}
+
+      {/* Ngăn iOS Safari tự phóng to (auto-zoom) khi chạm vào ô nhập số/chữ trên iPhone */}
+      <style>{`
+        @media (max-width: 768px) {
+          [data-testid="printquote-screen"] input:not([type="checkbox"]):not([type="radio"]),
+          [data-testid="printquote-screen"] select,
+          [data-testid="printquote-screen"] textarea {
+            font-size: 16px !important;
+            min-width: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 };

@@ -85,6 +85,10 @@ function toDateStr(val: unknown): string | null {
   return null;
 }
 
+type StoredQuoteLineJson = PersistedQuoteLineSnapshot & {
+  vendorCostMode?: VendorCostModeType | undefined;
+};
+
 export class PrintQuoteService {
   constructor(private readonly pool: DatabasePool) {}
 
@@ -940,7 +944,10 @@ export class PrintQuoteService {
     client: pg.PoolClient,
     workspaceId: string,
     rawItems: unknown,
-  ): Promise<QuoteLineInput[]> {
+  ): Promise<{
+    lines: QuoteLineInput[];
+    costModes: Array<VendorCostModeType | undefined>;
+  }> {
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
       throw new AuthError(
         'VALIDATION_ERROR',
@@ -950,6 +957,7 @@ export class PrintQuoteService {
     }
 
     const lines: QuoteLineInput[] = [];
+    const costModes: Array<VendorCostModeType | undefined> = [];
     for (let i = 0; i < rawItems.length; i++) {
       const raw = rawItems[i] as Record<string, unknown>;
       const lineId =
@@ -1026,6 +1034,15 @@ export class PrintQuoteService {
               }
             : undefined;
 
+        const catalogPricingMode: VendorCostModeType =
+          raw['unitVendorCost'] !== undefined ||
+          raw['unit_vendor_cost'] !== undefined
+            ? VendorCostMode.PER_UNIT
+            : raw['totalVendorCost'] !== undefined ||
+                raw['total_vendor_cost'] !== undefined
+              ? VendorCostMode.TOTAL_BATCH
+              : mappedCat.pricing_mode;
+
         lines.push(
           buildQuoteLineFromVendorCatalogItem(
             {
@@ -1045,14 +1062,7 @@ export class PrintQuoteService {
                 typeof raw['unit'] === 'string' && raw['unit'].trim()
                   ? raw['unit'].trim()
                   : mappedCat.unit,
-              pricingMode:
-                raw['unitVendorCost'] !== undefined ||
-                raw['unit_vendor_cost'] !== undefined
-                  ? VendorCostMode.PER_UNIT
-                  : raw['totalVendorCost'] !== undefined ||
-                      raw['total_vendor_cost'] !== undefined
-                    ? VendorCostMode.TOTAL_BATCH
-                    : mappedCat.pricing_mode,
+              pricingMode: catalogPricingMode,
               unitCost:
                 raw['unitVendorCost'] !== undefined ||
                 raw['unit_vendor_cost'] !== undefined
@@ -1091,6 +1101,7 @@ export class PrintQuoteService {
             },
           ),
         );
+        costModes.push(catalogPricingMode);
         continue;
       }
 
@@ -1116,6 +1127,19 @@ export class PrintQuoteService {
           400,
         );
       }
+
+      const explicitCostModeRaw =
+        raw['vendorCostMode'] ?? raw['vendor_cost_mode'];
+      const resolvedCostMode: VendorCostModeType | undefined =
+        explicitCostModeRaw === VendorCostMode.TOTAL_BATCH
+          ? VendorCostMode.TOTAL_BATCH
+          : explicitCostModeRaw === VendorCostMode.PER_UNIT
+            ? VendorCostMode.PER_UNIT
+            : hasTotal && !hasUnit
+              ? VendorCostMode.TOTAL_BATCH
+              : hasUnit && !hasTotal
+                ? VendorCostMode.PER_UNIT
+                : undefined;
 
       const rawProfit = raw['profit'] as Record<string, unknown> | undefined;
       const profitMode: ProfitModeType =
@@ -1169,13 +1193,13 @@ export class PrintQuoteService {
         extraCost: Math.max(0, toInt(raw['extraCost'] ?? raw['extra_cost'], 0)),
       };
 
-      if (hasUnit) {
+      if (hasUnit && resolvedCostMode !== VendorCostMode.TOTAL_BATCH) {
         lineItem.unitVendorCost = Math.max(
           0,
           toNum(raw['unitVendorCost'] ?? raw['unit_vendor_cost'], 0),
         );
       }
-      if (hasTotal) {
+      if (hasTotal && resolvedCostMode !== VendorCostMode.PER_UNIT) {
         lineItem.totalVendorCost = Math.max(
           0,
           toInt(raw['totalVendorCost'] ?? raw['total_vendor_cost'], 0),
@@ -1183,9 +1207,10 @@ export class PrintQuoteService {
       }
 
       lines.push(lineItem);
+      costModes.push(resolvedCostMode);
     }
 
-    return lines;
+    return { lines, costModes };
   }
 
   async listQuotes(ctx: AuthenticatedContext): Promise<PrintQuoteData[]> {
@@ -1299,11 +1324,12 @@ export class PrintQuoteService {
             ? input['title'].trim()
             : `Báo giá in ấn — ${customerName}`;
 
-        const items = await this.resolveQuoteLinesWithCatalog(
-          client,
-          ctx.workspace.id,
-          input['items'],
-        );
+        const { lines: items, costModes } =
+          await this.resolveQuoteLinesWithCatalog(
+            client,
+            ctx.workspace.id,
+            input['items'],
+          );
 
         const includeShippingInUnitPrice =
           input['include_shipping_in_unit_price'] !== undefined
@@ -1386,6 +1412,13 @@ export class PrintQuoteService {
           notes,
         });
 
+        const persistedLinesJson: StoredQuoteLineJson[] = snapshot.lines.map(
+          (snapLine, idx) =>
+            costModes[idx]
+              ? { ...snapLine, vendorCostMode: costModes[idx] }
+              : snapLine,
+        );
+
         const insertRes = await client.query(
           `INSERT INTO print_quotes (
             workspace_id, quote_code, title, customer_id, customer_name, customer_phone, customer_address,
@@ -1423,7 +1456,7 @@ export class PrintQuoteService {
             calcResult.totalQuoteAmount,
             calcResult.totalRoundingAdjustment,
             calcResult.singleProductFinalUnitPrice,
-            JSON.stringify(snapshot.lines),
+            JSON.stringify(persistedLinesJson),
             JSON.stringify(snapshot),
             JSON.stringify(customerPdf),
             snapshot.integrityHash,
@@ -1530,33 +1563,48 @@ export class PrintQuoteService {
           ? input['title'].trim()
           : String(existing['title']);
 
-      const items =
+      const resolvedItemsResult =
         input['items'] !== undefined
           ? await this.resolveQuoteLinesWithCatalog(
               client,
               ctx.workspace.id,
               input['items'],
             )
-          : (existing['lines_json'] as PersistedQuoteLineSnapshot[]).map(
-              (l) => ({
-                id: l.id,
-                name: l.name,
-                specification: l.specification ?? '',
-                vendorId: l.vendorId ?? null,
-                vendorName: l.vendorName ?? null,
-                vendorPriceItemId: l.vendorPriceItemId ?? null,
-                unit: l.unit,
-                quantity: l.quantity,
-                unitVendorCost: l.unitVendorCost,
-                totalVendorCost: l.totalVendorCost,
-                profit: {
-                  mode: l.profitMode,
-                  scope: l.profitScope,
-                  value: l.profitInputValue,
-                },
-                extraCost: l.totalExtraCost,
-              }),
-            );
+          : (() => {
+              const existingLines =
+                (existing['lines_json'] as StoredQuoteLineJson[]) ?? [];
+              return {
+                lines: existingLines.map((l): QuoteLineInput => {
+                  const base: QuoteLineInput = {
+                    id: l.id,
+                    name: l.name,
+                    specification: l.specification ?? '',
+                    vendorId: l.vendorId ?? null,
+                    vendorName: l.vendorName ?? null,
+                    vendorPriceItemId: l.vendorPriceItemId ?? null,
+                    unit: l.unit,
+                    quantity: l.quantity,
+                    profit: {
+                      mode: l.profitMode,
+                      scope: l.profitScope,
+                      value: l.profitInputValue,
+                    },
+                    extraCost: l.totalExtraCost,
+                  };
+                  if (l.vendorCostMode === VendorCostMode.TOTAL_BATCH) {
+                    base.totalVendorCost = l.totalVendorCost;
+                  } else if (l.vendorCostMode === VendorCostMode.PER_UNIT) {
+                    base.unitVendorCost = l.unitVendorCost;
+                  } else {
+                    base.unitVendorCost = l.unitVendorCost;
+                    base.totalVendorCost = l.totalVendorCost;
+                  }
+                  return base;
+                }),
+                costModes: existingLines.map((l) => l.vendorCostMode),
+              };
+            })();
+      const { lines: items, costModes } = resolvedItemsResult;
 
       const includeShippingInUnitPrice =
         input['include_shipping_in_unit_price'] !== undefined
@@ -1636,6 +1684,13 @@ export class PrintQuoteService {
         notes,
       });
 
+      const persistedLinesJson: StoredQuoteLineJson[] = snapshot.lines.map(
+        (snapLine, idx) =>
+          costModes[idx]
+            ? { ...snapLine, vendorCostMode: costModes[idx] }
+            : snapLine,
+      );
+
       const updRes = await client.query(
         `UPDATE print_quotes
          SET title = $1,
@@ -1685,7 +1740,7 @@ export class PrintQuoteService {
           calcResult.totalQuoteAmount,
           calcResult.totalRoundingAdjustment,
           calcResult.singleProductFinalUnitPrice,
-          JSON.stringify(snapshot.lines),
+          JSON.stringify(persistedLinesJson),
           JSON.stringify(snapshot),
           JSON.stringify(customerPdf),
           snapshot.integrityHash,

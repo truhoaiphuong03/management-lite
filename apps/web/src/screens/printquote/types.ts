@@ -7,6 +7,7 @@ import {
   type ProfitScopeType,
   type VendorCostModeType,
 } from '../../../../../packages/contracts/src/printquote.js';
+import type { AmbiguousLegacyCostState } from '../helpers/printquote-helpers.js';
 
 export type PrintQuoteTabId =
   'create' | 'quotes' | 'vendors' | 'customers' | 'orders' | 'analytics';
@@ -26,11 +27,15 @@ export interface DraftLineState {
   specification: string;
   unit: string;
   quantity: number;
+  quantityInput?: string | undefined;
   vendorCostMode: VendorCostModeType;
   vendorCostValue: number;
+  vendorCostInput?: string | undefined;
+  ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;
   profitScope: ProfitScopeType;
   profitValue: number;
+  profitInput?: string | undefined;
 }
 
 export interface PdfPreviewState {
@@ -49,11 +54,14 @@ export const DEFAULT_DRAFT_LINE = (index: number): DraftLineState => ({
     index === 1 ? 'In Offset 4 màu, cán bóng 2 mặt, cắt thành phẩm' : '',
   unit: 'tờ',
   quantity: 100,
+  quantityInput: '100',
   vendorCostMode: VendorCostMode.PER_UNIT,
   vendorCostValue: 300,
+  vendorCostInput: '300',
   profitMode: ProfitMode.FIXED_AMOUNT,
   profitScope: ProfitScope.PER_UNIT,
   profitValue: 200,
+  profitInput: '200',
 });
 
 export const inputStyle: React.CSSProperties = {

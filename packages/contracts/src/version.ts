@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.8.2';
-export const SYSTEM_COMMIT = 'e6d28cd';
+export const SYSTEM_VERSION = '0.8.3';
+export const SYSTEM_COMMIT = 'dc1f10a';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -40,6 +40,23 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  * Bản 'latest' tự động gắn với commit thực tế của bản dựng mới nhất khi đóng gói và triển khai.
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
+  {
+    version: '0.8.3',
+    commit: 'latest',
+    released_at: '2026-11-03',
+    summary:
+      'Sửa dứt điểm lỗi nhập số trên iPhone trong Báo giá in ấn (/print-quotes), tự ẩn thanh dưới/nút Báo lỗi khi mở bàn phím ảo và bảo toàn chế độ giá vốn Trọn lô khi mở lại báo giá đã lưu',
+    added: [
+      'Bổ sung ô nhập số nháp NumericDraftInput hỗ trợ xóa trắng hoàn toàn, không tự chèn 0/1 khi đang gõ, chuẩn hóa số 0 đứng đầu khi hoàn tất nhập và hỗ trợ dán chuỗi số tiền.',
+      'Lưu tường minh chế độ tính giá vốn (vendorCostMode: PER_UNIT / TOTAL_BATCH) trong dữ liệu báo giá và bổ sung thanh xác nhận 1 chạm không suy đoán cho các báo giá cũ chưa lưu rõ kiểu giá vốn khi đổi số lượng.',
+    ],
+    improved: [
+      'Tự động nhận diện bàn phím ảo trên iPhone (visualViewport), cuộn vùng đang nhập vào khung nhìn và ẩn tức thì thanh điều hướng đáy cùng nút Báo lỗi nổi để không che khuất trường nhập liệu.',
+    ],
+    fixed: [
+      'Khắc phục lỗi xóa trắng Số lượng bị ép về 1 (gây nối thành 1500), nhập Giá nhà in/Tiền lời bị dính số 0 đầu (05000, 0500) và lỗi mở lại báo giá Trọn lô (VD: 30.000đ / 100 tờ) bị nhảy sang Theo từng tờ khi đổi số lượng.',
+    ],
+  },
   {
     version: '0.8.2',
     commit: 'latest',

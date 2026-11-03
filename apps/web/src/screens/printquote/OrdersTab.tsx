@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { StatusBadge } from '../../../../../packages/ui/src/components/index.js';
 import {
   PrintProductionStatus,
@@ -9,11 +9,13 @@ import {
 } from '../../../../../packages/contracts/src/printquote.js';
 import {
   formatVnd,
+  parseNumericDraftValue,
   PRODUCTION_STATUS_LABELS,
   DELIVERY_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
 } from '../helpers/printquote-helpers.js';
 import { cardStyle, inputStyle, labelStyle } from './types.js';
+import { NumericDraftInput } from './NumericDraftInput.js';
 
 export interface OrdersTabProps {
   orders: PrintOrderData[];
@@ -50,6 +52,15 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
     'ALL' | 'IN_PROD' | 'PENDING_DELIVERY' | 'HAS_DEBT'
   >('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [paymentAmountInput, setPaymentAmountInput] = useState<string>(
+    paymentAmount > 0 ? String(paymentAmount) : '',
+  );
+
+  useEffect(() => {
+    if (paymentOrderTarget) {
+      setPaymentAmountInput(paymentAmount > 0 ? String(paymentAmount) : '');
+    }
+  }, [paymentOrderTarget, paymentAmount]);
 
   const filteredOrders = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -484,16 +495,24 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
             </div>
             <div style={{ marginBottom: '10px' }}>
               <label style={labelStyle}>Số tiền thu (VNĐ) *</label>
-              <input
-                aria-label="Số tiền thanh toán"
-                type="number"
-                min={1}
+              <NumericDraftInput
+                ariaLabel="Số tiền thanh toán"
+                allowDecimal={false}
+                placeholder="VD: 50000"
                 style={inputStyle}
-                value={paymentAmount}
-                onChange={(e) =>
-                  setPaymentAmount(Math.max(0, Number(e.target.value) || 0))
-                }
                 required
+                value={paymentAmountInput}
+                onValueChange={(nextRaw) => {
+                  setPaymentAmountInput(nextRaw);
+                  const parsed = parseNumericDraftValue(nextRaw, {
+                    allowDecimal: false,
+                    min: 0,
+                    integerOnly: true,
+                  });
+                  setPaymentAmount(
+                    parsed.isValid && parsed.value !== null ? parsed.value : 0,
+                  );
+                }}
               />
             </div>
             <div style={{ marginBottom: '10px' }}>
