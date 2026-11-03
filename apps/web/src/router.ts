@@ -13,11 +13,14 @@ export interface RouteMatchResult {
  */
 export function matchRoute(pathname: string): RouteMatchResult {
   try {
+    // Strip any query string (?...) or hash fragment (#...) before matching pathname segments
+    const cleanPathname = (pathname || '/').split(/[?#]/, 1)[0] || '/';
+
     // Normalize pathname: ensure leading slash, remove trailing slash (except root)
     const normalized =
-      pathname.length > 1 && pathname.endsWith('/')
-        ? pathname.slice(0, -1)
-        : pathname || '/';
+      cleanPathname.length > 1 && cleanPathname.endsWith('/')
+        ? cleanPathname.slice(0, -1)
+        : cleanPathname || '/';
 
     // 1. Direct exact match
     if (ROUTE_REGISTRY[normalized]) {

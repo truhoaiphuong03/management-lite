@@ -100,6 +100,22 @@ test('routing engine matches exact routes, normalizes slashes, and extracts dyna
   assert.equal(employeeDetailMatch.isExact, false);
   assert.equal(employeeDetailMatch.params.id, 'EMP-99');
 
+  // 3b. Query string and hash fragments must be stripped cleanly before route matching & param extraction
+  const employeeEditQueryMatch = matchRoute(
+    '/employees/aa1f9877-dc6b-4f8a-a4c2-593d251db34b?edit=1',
+  );
+  assert.equal(employeeEditQueryMatch.route?.id, 'UI13');
+  assert.equal(
+    employeeEditQueryMatch.params.id,
+    'aa1f9877-dc6b-4f8a-a4c2-593d251db34b',
+  );
+
+  const reportsFilterQueryMatch = matchRoute(
+    '/reports?employee=aa1f9877-dc6b-4f8a-a4c2-593d251db34b&date=2026-11-03#top',
+  );
+  assert.equal(reportsFilterQueryMatch.route?.path, '/reports');
+  assert.deepEqual(reportsFilterQueryMatch.params, {});
+
   const accountDetailMatch = matchRoute('/accounts/ACC-101');
   assert.equal(accountDetailMatch.route?.id, 'UI18');
   assert.equal(accountDetailMatch.isExact, false);

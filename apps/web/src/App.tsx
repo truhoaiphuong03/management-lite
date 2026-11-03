@@ -91,6 +91,11 @@ export const App: React.FC = () => {
   };
 
   const [currentPath, setCurrentPath] = useState<string>(getInitialPath);
+  const [currentSearch, setCurrentSearch] = useState<string>(() =>
+    typeof window !== 'undefined' && typeof window.location.search === 'string'
+      ? window.location.search
+      : '',
+  );
   const [initialVerifyToken] = useState<string>(() => {
     if (
       typeof window !== 'undefined' &&
@@ -235,6 +240,7 @@ export const App: React.FC = () => {
     const handlePopState = () => {
       const path = window.location.pathname || '/';
       setCurrentPath(path);
+      setCurrentSearch(window.location.search || '');
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -384,11 +390,33 @@ export const App: React.FC = () => {
       '/groups/admin':
         role === 'owner' && verifiedOwnerSession ? '/accounts' : '/settings',
     };
-    const path = groupPrimaryMap[rawPath] || rawPath;
-    if (typeof window !== 'undefined' && window.location.pathname !== path) {
-      window.history.pushState(null, '', path);
+    const rawTarget = groupPrimaryMap[rawPath] || rawPath;
+    const cleanPath = rawTarget.split(/[?#]/, 1)[0] || '/';
+    const hasExplicitQueryOrHash =
+      rawTarget.includes('?') || rawTarget.includes('#');
+    if (typeof window !== 'undefined') {
+      if (hasExplicitQueryOrHash) {
+        const currentFull = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        if (currentFull !== rawTarget) {
+          window.history.pushState(null, '', rawTarget);
+        }
+      } else if (window.location.pathname !== cleanPath) {
+        window.history.pushState(null, '', cleanPath);
+      }
     }
-    setCurrentPath(path);
+    setCurrentPath(cleanPath);
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.location.search === 'string'
+    ) {
+      setCurrentSearch(window.location.search);
+    } else {
+      const qIdx = rawTarget.indexOf('?');
+      const hIdx = rawTarget.indexOf('#');
+      setCurrentSearch(
+        qIdx >= 0 ? rawTarget.slice(qIdx, hIdx >= qIdx ? hIdx : undefined) : '',
+      );
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -700,6 +728,7 @@ export const App: React.FC = () => {
           <EmployeeDetailScreen
             employeeId={params['id'] || ''}
             role={role}
+            initialEdit={new URLSearchParams(currentSearch).get('edit') === '1'}
             onNavigate={handleNavigate}
           />
         );
