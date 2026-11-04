@@ -1946,7 +1946,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   const handleUpdateOrderField = async (
     orderId: string,
     patch: Record<string, unknown>,
-  ) => {
+  ): Promise<boolean> => {
     const csrf = await getCsrfToken();
     const res = await fetch(`/api/v1/print-quotes/orders/${orderId}`, {
       method: 'PATCH',
@@ -1954,13 +1954,22 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       credentials: 'include',
       body: JSON.stringify(patch),
     });
-    if (res.ok) {
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
       setBannerMessage({
-        type: 'success',
-        text: 'Đã cập nhật tiến độ đơn hàng!',
+        type: 'error',
+        text:
+          json?.error?.message ||
+          'Không thể cập nhật thông tin đơn hàng đặt in.',
       });
-      await loadAllData();
+      return false;
     }
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã cập nhật tiến độ & đối soát đơn hàng!',
+    });
+    await loadAllData();
+    return true;
   };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
@@ -1985,16 +1994,23 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         }),
       },
     );
-    if (res.ok) {
-      await loadAllData();
-      setPaymentOrderTarget(null);
-      setPaymentAmount(0);
-      setPaymentNote('');
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
       setBannerMessage({
-        type: 'success',
-        text: 'Đã ghi nhận thanh toán đơn hàng!',
+        type: 'error',
+        text:
+          json?.error?.message || 'Không thể ghi nhận giao dịch thanh toán.',
       });
+      return;
     }
+    await loadAllData();
+    setPaymentOrderTarget(null);
+    setPaymentAmount(0);
+    setPaymentNote('');
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã ghi nhận thanh toán đơn hàng!',
+    });
   };
 
   if (role !== 'owner' || isOwnerVerified === false) {

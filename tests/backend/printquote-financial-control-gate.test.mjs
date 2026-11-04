@@ -1290,10 +1290,11 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
       assert.equal(order.expected_shipping_fee, 40_000);
       assert.equal(order.expected_profit, 100_000);
 
-      // Tier 2 (Confirmed Actual): MUST be unconfirmed (false) and NOT fake-copied from expected!
+      // Tier 2 (Confirmed Actual): MUST be unconfirmed (false), null on API, and NOT fake-copied from expected!
       assert.equal(order.actual_cost_confirmed, false);
-      assert.equal(order.actual_vendor_cost, 0);
-      assert.equal(order.actual_profit, 0);
+      assert.equal(order.cost_reconciliation_status, 'UNVERIFIED');
+      assert.equal(order.actual_vendor_cost, null);
+      assert.equal(order.actual_profit, null);
 
       // Tier 3 (Actual Cash In / Out): customer paid 300k, vendor paid 0
       assert.equal(order.total_paid_amount, 300_000);
@@ -1314,7 +1315,7 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
       assert.equal(statsBefore.body.data.total_paid_amount, 300_000);
       assert.equal(statsBefore.body.data.total_vendor_paid_amount, 0);
 
-      // Owner explicitly confirms actual workshop invoice + cash paid to workshop
+      // Owner explicitly confirms all 3 actual workshop/shipping/extra cost components + cash paid to workshop
       const confirmRes = await apiRequest(
         baseUrl,
         'PATCH',
@@ -1323,6 +1324,7 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
           cookie: ownerCookie,
           csrfToken: ownerCsrf,
           body: {
+            actual_cost_confirmed: true,
             actual_vendor_cost: 580_000,
             actual_shipping_fee: 35_000,
             actual_extra_cost: 5_000,
@@ -1502,15 +1504,35 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
         assert.equal(applyRes.appliedCount, 1);
 
         const checkOrders = await tempPool.query(
-          `SELECT id, actual_cost_confirmed, vendor_paid_amount FROM print_orders ORDER BY order_code ASC`,
+          `SELECT id, actual_cost_confirmed, cost_reconciliation_status, actual_vendor_cost, vendor_paid_amount FROM print_orders ORDER BY order_code ASC`,
         );
-        // DH-OLD-A (actual == expected) stays actual_cost_confirmed = false
+        // Zero guesswork: BOTH DH-OLD-A and DH-OLD-B stay actual_cost_confirmed = false, placed into NEEDS_REVIEW, with raw numbers untouched!
         assert.equal(checkOrders.rows[0].actual_cost_confirmed, false);
+        assert.equal(
+          checkOrders.rows[0].cost_reconciliation_status,
+          'NEEDS_REVIEW',
+        );
+        assert.equal(Number(checkOrders.rows[0].actual_vendor_cost), 300_000);
         assert.equal(Number(checkOrders.rows[0].vendor_paid_amount), 0);
-        // DH-OLD-B (actual != expected) is preserved as actual_cost_confirmed = true!
-        assert.equal(checkOrders.rows[1].actual_cost_confirmed, true);
 
-        // 4. Rollback script MUST block while DH-OLD-B has actual_cost_confirmed = true
+        assert.equal(checkOrders.rows[1].actual_cost_confirmed, false);
+        assert.equal(
+          checkOrders.rows[1].cost_reconciliation_status,
+          'NEEDS_REVIEW',
+        );
+        assert.equal(Number(checkOrders.rows[1].actual_vendor_cost), 280_000);
+
+        // 4. Once an order records entered/confirmed actual costs, rollback script MUST block (ROLLBACK_BLOCKED)
+        await tempPool.query(
+          `UPDATE print_orders
+           SET entered_vendor_cost = 280000,
+               entered_shipping_fee = 20000,
+               entered_extra_cost = 0,
+               cost_reconciliation_status = 'CONFIRMED',
+               actual_cost_confirmed = true
+           WHERE id = $1`,
+          [legacyOrderEditedId],
+        );
         const rollbackSql = await fs.readFile(
           path.join(
             REPO_ROOT,
@@ -1523,9 +1545,15 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
           /ROLLBACK_BLOCKED/,
         );
 
-        // 5. Clear confirmed flag -> rollback succeeds cleanly -> re-apply 0035 is idempotent
+        // 5. Clear entered/confirmed data -> rollback succeeds cleanly -> re-apply 0035 is idempotent
         await tempPool.query(
-          `UPDATE print_orders SET actual_cost_confirmed = false, vendor_paid_amount = 0`,
+          `UPDATE print_orders
+           SET actual_cost_confirmed = false,
+               cost_reconciliation_status = 'NEEDS_REVIEW',
+               entered_vendor_cost = NULL,
+               entered_shipping_fee = NULL,
+               entered_extra_cost = NULL,
+               vendor_paid_amount = 0`,
         );
         await tempPool.query(rollbackSql);
 
@@ -1667,13 +1695,17 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
         expected_shipping_fee: 70_000,
         expected_extra_cost: 0,
         expected_profit: 300_000,
+        cost_reconciliation_status: 'UNVERIFIED',
         actual_cost_confirmed: false,
         actual_cost_confirmed_at: null,
         actual_cost_confirmed_by: null,
-        actual_vendor_cost: 0,
-        actual_shipping_fee: 0,
-        actual_extra_cost: 0,
-        actual_profit: 0,
+        entered_vendor_cost: null,
+        entered_shipping_fee: null,
+        entered_extra_cost: null,
+        actual_vendor_cost: null,
+        actual_shipping_fee: null,
+        actual_extra_cost: null,
+        actual_profit: null,
         vendor_paid_amount: 0,
         deposit_required: 500_000,
         deposit_paid: 500_000,

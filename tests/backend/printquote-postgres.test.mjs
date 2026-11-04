@@ -421,7 +421,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 2 & 4 PostgreSQL Integration Tests', () =>
     );
     assert.equal(qForbiddenEdit.status, 409);
 
-    // 8. Cập nhật độc lập trạng thái sản xuất & giao hàng + cập nhật chi phí thực tế
+    // 8. Cập nhật độc lập trạng thái sản xuất & giao hàng + xác nhận đủ 3 khoản chi phí thực tế
     const ordUpd = await apiRequest(
       baseUrl,
       'PATCH',
@@ -432,8 +432,10 @@ describe('MGL-PRINTQUOTE V1 — Phase 2 & 4 PostgreSQL Integration Tests', () =>
         body: {
           production_status: 'COMPLETED',
           delivery_status: 'SHIPPING',
+          actual_cost_confirmed: true,
           actual_vendor_cost: 28_000, // tiết kiệm 2.000đ giá in
           actual_shipping_fee: 45_000, // tiết kiệm 5.000đ ship
+          actual_extra_cost: 0,
         },
       },
     );

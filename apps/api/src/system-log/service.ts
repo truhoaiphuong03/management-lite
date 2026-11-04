@@ -134,15 +134,25 @@ export class SystemLogService {
   private queue: SystemLogInput[] = [];
   private timer: NodeJS.Timeout | null = null;
   private flushing = false;
+  private stopped = false;
   private lastPurge = 0;
   private lastFlushError = 0;
   private readonly clientErrorWindow = new Map<string, number[]>();
 
   constructor(private readonly pool: DatabasePool) {}
 
+  private isPoolClosingOrEnded(): boolean {
+    const raw = this.pool as unknown as {
+      ending?: boolean;
+      ended?: boolean;
+    };
+    return Boolean(raw.ending || raw.ended);
+  }
+
   /** Fire-and-forget. Never throws and never blocks the request. */
   record(entry: SystemLogInput): void {
     try {
+      if (this.stopped || this.isPoolClosingOrEnded()) return;
       if (this.queue.length >= MAX_QUEUE) this.queue.shift();
       this.queue.push(entry);
       if (!this.timer) {
@@ -154,6 +164,25 @@ export class SystemLogService {
       }
     } catch {
       /* logging must never break the app */
+    }
+  }
+
+  /**
+   * Drains buffered logs while the DB pool is still open, and prevents any
+   * delayed timer from querying `pool` after `pool.end()` begins.
+   */
+  async stop(): Promise<void> {
+    this.stopped = true;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.isPoolClosingOrEnded()) {
+      this.queue.length = 0;
+      return;
+    }
+    while (this.queue.length > 0 && !this.isPoolClosingOrEnded()) {
+      await this.flush(true);
     }
   }
 
@@ -173,8 +202,12 @@ export class SystemLogService {
     return true;
   }
 
-  async flush(): Promise<void> {
+  async flush(allowDuringStop = false): Promise<void> {
     if (this.flushing || this.queue.length === 0) return;
+    if ((this.stopped && !allowDuringStop) || this.isPoolClosingOrEnded()) {
+      this.queue.length = 0;
+      return;
+    }
     this.flushing = true;
     const batch = this.queue.splice(0, 100);
     try {
@@ -222,7 +255,11 @@ export class SystemLogService {
          VALUES ${rows.join(',')}`,
         values,
       );
-      if (Date.now() - this.lastPurge > PURGE_EVERY_MS) {
+      if (
+        !this.stopped &&
+        !this.isPoolClosingOrEnded() &&
+        Date.now() - this.lastPurge > PURGE_EVERY_MS
+      ) {
         this.lastPurge = Date.now();
         await this.pool.query(
           `DELETE FROM system_logs WHERE occurred_at < now() - ($1 || ' days')::interval`,
@@ -230,13 +267,24 @@ export class SystemLogService {
         );
       }
     } catch (err) {
-      if (Date.now() - this.lastFlushError > 60_000) {
+      const msg = String((err as Error)?.message ?? '');
+      const isPoolShutdownRace =
+        this.isPoolClosingOrEnded() ||
+        msg.includes('Cannot use a pool after calling end on the pool');
+      if (isPoolShutdownRace) {
+        this.queue.length = 0;
+      } else if (Date.now() - this.lastFlushError > 60_000) {
         this.lastFlushError = Date.now();
-        console.error('[SYSTEM_LOG_FLUSH_FAILED]', (err as Error)?.message);
+        console.error('[SYSTEM_LOG_FLUSH_FAILED]', msg);
       }
     } finally {
       this.flushing = false;
-      if (this.queue.length > 0 && !this.timer) {
+      if (
+        !this.stopped &&
+        !this.isPoolClosingOrEnded() &&
+        this.queue.length > 0 &&
+        !this.timer
+      ) {
         this.timer = setTimeout(() => {
           this.timer = null;
           void this.flush();

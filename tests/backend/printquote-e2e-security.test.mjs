@@ -397,7 +397,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
     assert.equal(pay2Res.body.data.remaining_debt_amount, 300000);
     assert.equal(pay2Res.body.data.payment_status, 'PARTIALLY_PAID');
 
-    // Bước 8: Cập nhật trạng thái Sản xuất (FINISHING) và Giao hàng (PACKING) độc lập + Chi phí thực tế
+    // Bước 8: Cập nhật trạng thái Sản xuất (FINISHING) và Giao hàng (PACKING) độc lập + Xác nhận đủ 3 khoản chi phí thực tế
     const statusRes = await apiRequest(
       baseUrl,
       'PATCH',
@@ -408,8 +408,10 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
         body: {
           production_status: 'FINISHING',
           delivery_status: 'PACKING',
+          actual_cost_confirmed: true,
           actual_vendor_cost: 720000,
           actual_shipping_fee: 60000,
+          actual_extra_cost: 0,
         },
       },
     );

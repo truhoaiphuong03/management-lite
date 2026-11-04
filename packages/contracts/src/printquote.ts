@@ -2083,6 +2083,12 @@ export const FORBIDDEN_CUSTOMER_PDF_KEYS = new Set([
   'adjustmentReason',
   'expected_vendor_cost',
   'expected_profit',
+  'entered_vendor_cost',
+  'entered_shipping_fee',
+  'entered_extra_cost',
+  'cost_reconciliation_status',
+  'cost_history',
+  'legacy_raw_actual_costs',
   'actual_vendor_cost',
   'actual_profit',
   'actual_cost_confirmed',
@@ -3155,6 +3161,48 @@ export interface PrintOrderPaymentData {
   created_at: string;
 }
 
+export const OrderCostReconciliationStatus = {
+  UNVERIFIED: 'UNVERIFIED',
+  NEEDS_REVIEW: 'NEEDS_REVIEW',
+  PARTIAL_ENTERED: 'PARTIAL_ENTERED',
+  ENTERED_UNCONFIRMED: 'ENTERED_UNCONFIRMED',
+  CONFIRMED: 'CONFIRMED',
+} as const;
+
+export type OrderCostReconciliationStatusType =
+  (typeof OrderCostReconciliationStatus)[keyof typeof OrderCostReconciliationStatus];
+
+export type OrderCostHistoryActionType =
+  'ENTERED' | 'CONFIRMED' | 'ADJUSTED' | 'UNCONFIRMED' | 'VENDOR_PAYMENT_NOTE';
+
+export interface PrintOrderCostHistoryData {
+  id: string;
+  workspace_id: string;
+  order_id: string;
+  action: OrderCostHistoryActionType;
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
+  note: string | null;
+  changed_by: string | null;
+  created_at: string;
+}
+
+export interface LegacyRawOrderActualCosts {
+  vendor_cost: number;
+  shipping_fee: number;
+  extra_cost: number;
+  profit: number;
+}
+
+export interface CancelledOrdersObligationSummary {
+  cancelled_orders_count: number;
+  cancelled_orders_with_obligations_count: number;
+  cancelled_customer_paid_holding: number;
+  cancelled_vendor_paid_amount: number;
+  cancelled_confirmed_incurred_cost: number;
+  cancelled_unconfirmed_entered_cost: number;
+}
+
 export interface PrintOrderData {
   id: string;
   workspace_id: string;
@@ -3182,13 +3230,18 @@ export interface PrintOrderData {
   expected_shipping_fee: number;
   expected_extra_cost: number;
   expected_profit: number;
+  cost_reconciliation_status: OrderCostReconciliationStatusType;
   actual_cost_confirmed: boolean;
   actual_cost_confirmed_at: string | null;
   actual_cost_confirmed_by?: string | null | undefined;
-  actual_vendor_cost: number;
-  actual_shipping_fee: number;
-  actual_extra_cost: number;
-  actual_profit: number;
+  entered_vendor_cost: number | null;
+  entered_shipping_fee: number | null;
+  entered_extra_cost: number | null;
+  actual_vendor_cost: number | null;
+  actual_shipping_fee: number | null;
+  actual_extra_cost: number | null;
+  actual_profit: number | null;
+  legacy_raw_actual_costs?: LegacyRawOrderActualCosts | null | undefined;
   vendor_paid_amount: number;
   deposit_required: number;
   deposit_paid: number;
@@ -3201,6 +3254,7 @@ export interface PrintOrderData {
   created_at: string;
   updated_at: string;
   payments?: PrintOrderPaymentData[];
+  cost_history?: PrintOrderCostHistoryData[] | undefined;
 }
 
 export interface PrintQuoteDashboardStats {
@@ -3211,6 +3265,8 @@ export interface PrintQuoteDashboardStats {
   finalized_quotes: number;
   total_orders: number;
   confirmed_actual_orders_count?: number | undefined;
+  needs_review_orders_count?: number | undefined;
+  unconfirmed_entered_orders_count?: number | undefined;
   total_order_revenue: number;
   total_expected_vendor_cost: number;
   total_actual_vendor_cost: number;
@@ -3219,6 +3275,7 @@ export interface PrintQuoteDashboardStats {
   total_paid_amount: number;
   total_vendor_paid_amount?: number | undefined;
   total_remaining_debt: number;
+  cancelled_orders_summary?: CancelledOrdersObligationSummary | undefined;
   orders_by_production_status: Record<PrintProductionStatusType, number>;
   orders_by_delivery_status: Record<PrintDeliveryStatusType, number>;
   orders_by_payment_status: Record<PrintPaymentStatusType, number>;

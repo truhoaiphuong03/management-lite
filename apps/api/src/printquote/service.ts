@@ -20,6 +20,7 @@ import {
   PrintProductionStatus,
   PrintDeliveryStatus,
   PrintPaymentStatus,
+  OrderCostReconciliationStatus,
   calculatePrintQuote,
   createQuoteOrderSnapshot,
   createPendingCostQuoteSnapshot,
@@ -54,6 +55,9 @@ import {
   type PrintQuoteVersionData,
   type PrintOrderData,
   type PrintOrderPaymentData,
+  type PrintOrderCostHistoryData,
+  type OrderCostReconciliationStatusType,
+  type OrderCostHistoryActionType,
   type PrintQuoteDashboardStats,
   type CustomerSafePdfPayload,
   type PersistedQuoteOrderSnapshot,
@@ -3776,6 +3780,91 @@ export class PrintQuoteService {
     return PrintPaymentStatus.PARTIALLY_PAID;
   }
 
+  private parseOptionalCostComponent(
+    input: Record<string, unknown>,
+    enteredKey: string,
+    aliasActualKey: string,
+    label: string,
+  ): { provided: boolean; value: number | null } {
+    const raw =
+      input[enteredKey] !== undefined
+        ? input[enteredKey]
+        : input[aliasActualKey];
+    if (raw === undefined) {
+      return { provided: false, value: null };
+    }
+    if (raw === null || (typeof raw === 'string' && raw.trim() === '')) {
+      return { provided: true, value: null };
+    }
+    const num =
+      typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string'
+          ? Number(raw.trim())
+          : Number.NaN;
+    if (
+      !Number.isFinite(num) ||
+      !Number.isInteger(num) ||
+      num < 0 ||
+      num > 1_000_000_000_000
+    ) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        `${label} phải là số nguyên không âm hợp lệ (VND).`,
+        400,
+      );
+    }
+    return { provided: true, value: num };
+  }
+
+  private mapCostHistoryRow(
+    r: Record<string, unknown>,
+  ): PrintOrderCostHistoryData {
+    return {
+      id: String(r['id']),
+      workspace_id: String(r['workspace_id']),
+      order_id: String(r['order_id']),
+      action: r['action'] as OrderCostHistoryActionType,
+      before_json:
+        (r['before_json'] as Record<string, unknown> | undefined) ?? {},
+      after_json:
+        (r['after_json'] as Record<string, unknown> | undefined) ?? {},
+      note: r['note'] ? String(r['note']) : null,
+      changed_by: r['changed_by'] ? String(r['changed_by']) : null,
+      created_at: toIso(r['created_at']),
+    };
+  }
+
+  private async insertOrderCostHistory(
+    client: pg.PoolClient,
+    params: {
+      workspaceId: string;
+      orderId: string;
+      action: OrderCostHistoryActionType;
+      beforeJson: Record<string, unknown>;
+      afterJson: Record<string, unknown>;
+      note: string | null;
+      changedBy: string | null;
+    },
+  ): Promise<PrintOrderCostHistoryData> {
+    const res = await client.query(
+      `INSERT INTO print_order_cost_history (
+         workspace_id, order_id, action, before_json, after_json, note, changed_by
+       ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7)
+       RETURNING *`,
+      [
+        params.workspaceId,
+        params.orderId,
+        params.action,
+        JSON.stringify(params.beforeJson),
+        JSON.stringify(params.afterJson),
+        params.note,
+        params.changedBy,
+      ],
+    );
+    return this.mapCostHistoryRow(res.rows[0]!);
+  }
+
   async listOrders(ctx: AuthenticatedContext): Promise<PrintOrderData[]> {
     this.assertOwnerAccess(ctx);
     const res = await this.pool.query(
@@ -3784,10 +3873,16 @@ export class PrintQuoteService {
     );
     const orders = res.rows.map((r) => this.mapOrderRow(r));
     if (orders.length > 0) {
-      const payRes = await this.pool.query(
-        `SELECT * FROM print_order_payments WHERE workspace_id = $1 ORDER BY paid_at ASC`,
-        [ctx.workspace.id],
-      );
+      const [payRes, histRes] = await Promise.all([
+        this.pool.query(
+          `SELECT * FROM print_order_payments WHERE workspace_id = $1 ORDER BY paid_at ASC`,
+          [ctx.workspace.id],
+        ),
+        this.pool.query(
+          `SELECT * FROM print_order_cost_history WHERE workspace_id = $1 ORDER BY created_at DESC`,
+          [ctx.workspace.id],
+        ),
+      ]);
       const paymentsByOrder = new Map<string, PrintOrderPaymentData[]>();
       for (const row of payRes.rows) {
         const p = this.mapPaymentRow(row);
@@ -3795,8 +3890,16 @@ export class PrintQuoteService {
         arr.push(p);
         paymentsByOrder.set(p.order_id, arr);
       }
+      const historyByOrder = new Map<string, PrintOrderCostHistoryData[]>();
+      for (const row of histRes.rows) {
+        const h = this.mapCostHistoryRow(row);
+        const arr = historyByOrder.get(h.order_id) ?? [];
+        arr.push(h);
+        historyByOrder.set(h.order_id, arr);
+      }
       for (const ord of orders) {
         ord.payments = paymentsByOrder.get(ord.id) ?? [];
+        ord.cost_history = historyByOrder.get(ord.id) ?? [];
       }
     }
     return orders;
@@ -3815,12 +3918,19 @@ export class PrintQuoteService {
     if (!row) {
       throw new AuthError('NOT_FOUND', 'Không tìm thấy đơn hàng in ấn.', 404);
     }
-    const payRes = await this.pool.query(
-      `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC`,
-      [orderId, ctx.workspace.id],
-    );
+    const [payRes, histRes] = await Promise.all([
+      this.pool.query(
+        `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC`,
+        [orderId, ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT * FROM print_order_cost_history WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at DESC`,
+        [orderId, ctx.workspace.id],
+      ),
+    ]);
     const order = this.mapOrderRow(row);
     order.payments = payRes.rows.map((p) => this.mapPaymentRow(p));
+    order.cost_history = histRes.rows.map((h) => this.mapCostHistoryRow(h));
     return order;
   }
 
@@ -3923,46 +4033,62 @@ export class PrintQuoteService {
         const expectedExtraCost = toInt(quoteRow['total_extra_cost'], 0);
         const expectedProfit = toInt(quoteRow['total_profit'], 0);
 
-        const hasExplicitActualCostInput =
-          input['actual_vendor_cost'] !== undefined ||
-          input['actual_shipping_fee'] !== undefined ||
-          input['actual_extra_cost'] !== undefined ||
-          input['actual_cost_confirmed'] === true;
+        const vendorField = this.parseOptionalCostComponent(
+          input,
+          'entered_vendor_cost',
+          'actual_vendor_cost',
+          'Giá vốn xưởng thực tế',
+        );
+        const shippingField = this.parseOptionalCostComponent(
+          input,
+          'entered_shipping_fee',
+          'actual_shipping_fee',
+          'Phí vận chuyển thực tế',
+        );
+        const extraField = this.parseOptionalCostComponent(
+          input,
+          'entered_extra_cost',
+          'actual_extra_cost',
+          'Chi phí phát sinh thực tế',
+        );
 
-        if (
-          (input['actual_vendor_cost'] !== undefined &&
-            toInt(input['actual_vendor_cost'], -1) < 0) ||
-          (input['actual_shipping_fee'] !== undefined &&
-            toInt(input['actual_shipping_fee'], -1) < 0) ||
-          (input['actual_extra_cost'] !== undefined &&
-            toInt(input['actual_extra_cost'], -1) < 0)
-        ) {
+        const enteredVendorCost = vendorField.provided
+          ? vendorField.value
+          : null;
+        const enteredShippingFee = shippingField.provided
+          ? shippingField.value
+          : null;
+        const enteredExtraCost = extraField.provided ? extraField.value : null;
+        const enteredCount = [
+          enteredVendorCost,
+          enteredShippingFee,
+          enteredExtraCost,
+        ].filter((v) => v !== null).length;
+
+        const wantsConfirm = input['actual_cost_confirmed'] === true;
+        if (wantsConfirm && enteredCount < 3) {
           throw new AuthError(
-            'VALIDATION_ERROR',
-            'Chi phí thực tế (giá vốn xưởng, vận chuyển, phát sinh) không được âm.',
+            'INCOMPLETE_ACTUAL_COST_CONFIRMATION',
+            'Chỉ được xác nhận đối soát lợi nhuận thực tế khi đã nhập đầy đủ cả 3 khoản: Giá vốn xưởng, Phí vận chuyển thực tế và Chi phí phát sinh (nhập 0 nếu không phát sinh). Hệ thống không tự mượn chi phí dự kiến cho khoản chưa kiểm tra.',
             400,
           );
         }
 
-        const actualCostConfirmed =
-          input['actual_cost_confirmed'] === false
-            ? false
-            : hasExplicitActualCostInput;
-        const actualVendorCost = actualCostConfirmed
-          ? input['actual_vendor_cost'] !== undefined
-            ? Math.max(0, toInt(input['actual_vendor_cost'], 0))
-            : expectedVendorCost
-          : 0;
-        const actualShippingFee = actualCostConfirmed
-          ? input['actual_shipping_fee'] !== undefined
-            ? Math.max(0, toInt(input['actual_shipping_fee'], 0))
-            : expectedShippingFee
-          : 0;
-        const actualExtraCost = actualCostConfirmed
-          ? input['actual_extra_cost'] !== undefined
-            ? Math.max(0, toInt(input['actual_extra_cost'], 0))
-            : expectedExtraCost
-          : 0;
+        const actualCostConfirmed = wantsConfirm;
+        const costReconciliationStatus: OrderCostReconciliationStatusType =
+          actualCostConfirmed
+            ? OrderCostReconciliationStatus.CONFIRMED
+            : input['actual_cost_confirmed'] === false
+              ? OrderCostReconciliationStatus.NEEDS_REVIEW
+              : enteredCount === 0
+                ? OrderCostReconciliationStatus.UNVERIFIED
+                : enteredCount < 3
+                  ? OrderCostReconciliationStatus.PARTIAL_ENTERED
+                  : OrderCostReconciliationStatus.ENTERED_UNCONFIRMED;
+
+        const actualVendorCost = actualCostConfirmed ? enteredVendorCost! : 0;
+        const actualShippingFee = actualCostConfirmed ? enteredShippingFee! : 0;
+        const actualExtraCost = actualCostConfirmed ? enteredExtraCost! : 0;
         const actualProfit = actualCostConfirmed
           ? totalQuoteAmount -
             actualVendorCost -
@@ -3970,7 +4096,10 @@ export class PrintQuoteService {
             actualExtraCost
           : 0;
 
-        const vendorPaidAmount = toInt(input['vendor_paid_amount'], 0);
+        const vendorPaidAmount =
+          input['vendor_paid_amount'] !== undefined
+            ? toInt(input['vendor_paid_amount'], -1)
+            : 0;
         if (vendorPaidAmount < 0) {
           throw new AuthError(
             'VALIDATION_ERROR',
@@ -4049,7 +4178,8 @@ export class PrintQuoteService {
             vendor_id, vendor_name, title, order_date, print_ordered_at, due_date,
             production_status, delivery_status, payment_status,
             total_quote_amount, expected_vendor_cost, expected_shipping_fee, expected_extra_cost, expected_profit,
-            actual_cost_confirmed, actual_cost_confirmed_at, actual_cost_confirmed_by,
+            cost_reconciliation_status, actual_cost_confirmed, actual_cost_confirmed_at, actual_cost_confirmed_by,
+            entered_vendor_cost, entered_shipping_fee, entered_extra_cost,
             actual_vendor_cost, actual_shipping_fee, actual_extra_cost, actual_profit, vendor_paid_amount,
             deposit_required, deposit_paid, total_paid_amount, remaining_debt_amount,
             snapshot_json, integrity_hash, notes, created_by
@@ -4059,10 +4189,11 @@ export class PrintQuoteService {
             $10, $11, $12, $13, $14, $15,
             $16, $17, $18,
             $19, $20, $21, $22, $23,
-            $24, $25, $26,
-            $27, $28, $29, $30, $31,
-            $32, $33, $34, $35,
-            $36::jsonb, $37, $38, $39
+            $24, $25, $26, $27,
+            $28, $29, $30,
+            $31, $32, $33, $34, $35,
+            $36, $37, $38, $39,
+            $40::jsonb, $41, $42, $43
           ) RETURNING *`,
           [
             ctx.workspace.id,
@@ -4090,9 +4221,13 @@ export class PrintQuoteService {
             expectedShippingFee,
             expectedExtraCost,
             expectedProfit,
+            costReconciliationStatus,
             actualCostConfirmed,
             actualCostConfirmed ? new Date() : null,
             actualCostConfirmed ? ctx.user.id : null,
+            enteredVendorCost,
+            enteredShippingFee,
+            enteredExtraCost,
             actualVendorCost,
             actualShippingFee,
             actualExtraCost,
@@ -4113,6 +4248,56 @@ export class PrintQuoteService {
 
         const createdOrder = this.mapOrderRow(ordRes.rows[0]!);
         createdOrder.payments = [];
+        createdOrder.cost_history = [];
+
+        const costNote =
+          typeof input['cost_note'] === 'string' && input['cost_note'].trim()
+            ? input['cost_note'].trim()
+            : null;
+        const afterSnap = {
+          cost_reconciliation_status: costReconciliationStatus,
+          actual_cost_confirmed: actualCostConfirmed,
+          entered_vendor_cost: enteredVendorCost,
+          entered_shipping_fee: enteredShippingFee,
+          entered_extra_cost: enteredExtraCost,
+          actual_profit: actualCostConfirmed ? actualProfit : null,
+          vendor_paid_amount: vendorPaidAmount,
+        };
+
+        if (actualCostConfirmed || enteredCount > 0) {
+          const h = await this.insertOrderCostHistory(client, {
+            workspaceId: ctx.workspace.id,
+            orderId: createdOrder.id,
+            action: actualCostConfirmed ? 'CONFIRMED' : 'ENTERED',
+            beforeJson: {
+              cost_reconciliation_status:
+                OrderCostReconciliationStatus.UNVERIFIED,
+              actual_cost_confirmed: false,
+              entered_vendor_cost: null,
+              entered_shipping_fee: null,
+              entered_extra_cost: null,
+              actual_profit: null,
+              vendor_paid_amount: 0,
+            },
+            afterJson: afterSnap,
+            note: costNote,
+            changedBy: ctx.user.id,
+          });
+          createdOrder.cost_history.unshift(h);
+        }
+
+        if (vendorPaidAmount > 0) {
+          const vh = await this.insertOrderCostHistory(client, {
+            workspaceId: ctx.workspace.id,
+            orderId: createdOrder.id,
+            action: 'VENDOR_PAYMENT_NOTE',
+            beforeJson: { vendor_paid_amount: 0 },
+            afterJson: { vendor_paid_amount: vendorPaidAmount },
+            note: costNote,
+            changedBy: ctx.user.id,
+          });
+          createdOrder.cost_history.unshift(vh);
+        }
 
         if (initialDepositPaid > 0) {
           const pRes = await client.query(
@@ -4145,80 +4330,30 @@ export class PrintQuoteService {
     input: Record<string, unknown>,
   ): Promise<PrintOrderData> {
     this.assertOwnerAccess(ctx);
-    const existingRes = await this.pool.query(
-      `SELECT * FROM print_orders WHERE id = $1 AND workspace_id = $2`,
-      [orderId, ctx.workspace.id],
-    );
-    const existing = existingRes.rows[0];
-    if (!existing) {
-      throw new AuthError('NOT_FOUND', 'Không tìm thấy đơn hàng in ấn.', 404);
-    }
 
-    const totalQuoteAmount = toInt(existing['total_quote_amount'], 0);
-    const wasConfirmed = Boolean(existing['actual_cost_confirmed']);
-    const touchesActualCost =
-      input['actual_vendor_cost'] !== undefined ||
-      input['actual_shipping_fee'] !== undefined ||
-      input['actual_extra_cost'] !== undefined ||
-      input['actual_cost_confirmed'] === true;
+    const vendorField = this.parseOptionalCostComponent(
+      input,
+      'entered_vendor_cost',
+      'actual_vendor_cost',
+      'Giá vốn xưởng thực tế',
+    );
+    const shippingField = this.parseOptionalCostComponent(
+      input,
+      'entered_shipping_fee',
+      'actual_shipping_fee',
+      'Phí vận chuyển thực tế',
+    );
+    const extraField = this.parseOptionalCostComponent(
+      input,
+      'entered_extra_cost',
+      'actual_extra_cost',
+      'Chi phí phát sinh thực tế',
+    );
 
     if (
-      (input['actual_vendor_cost'] !== undefined &&
-        toInt(input['actual_vendor_cost'], -1) < 0) ||
-      (input['actual_shipping_fee'] !== undefined &&
-        toInt(input['actual_shipping_fee'], -1) < 0) ||
-      (input['actual_extra_cost'] !== undefined &&
-        toInt(input['actual_extra_cost'], -1) < 0)
+      input['vendor_paid_amount'] !== undefined &&
+      toInt(input['vendor_paid_amount'], -1) < 0
     ) {
-      throw new AuthError(
-        'VALIDATION_ERROR',
-        'Chi phí thực tế (giá vốn xưởng, vận chuyển, phát sinh) không được âm.',
-        400,
-      );
-    }
-
-    const actualCostConfirmed =
-      input['actual_cost_confirmed'] === false
-        ? false
-        : wasConfirmed || touchesActualCost;
-
-    const fallbackVendorCost = wasConfirmed
-      ? toInt(existing['actual_vendor_cost'], 0)
-      : toInt(existing['expected_vendor_cost'], 0);
-    const fallbackShippingFee = wasConfirmed
-      ? toInt(existing['actual_shipping_fee'], 0)
-      : toInt(existing['expected_shipping_fee'], 0);
-    const fallbackExtraCost = wasConfirmed
-      ? toInt(existing['actual_extra_cost'], 0)
-      : toInt(existing['expected_extra_cost'], 0);
-
-    const actualVendorCost = actualCostConfirmed
-      ? input['actual_vendor_cost'] !== undefined
-        ? Math.max(0, toInt(input['actual_vendor_cost'], 0))
-        : fallbackVendorCost
-      : 0;
-    const actualShippingFee = actualCostConfirmed
-      ? input['actual_shipping_fee'] !== undefined
-        ? Math.max(0, toInt(input['actual_shipping_fee'], 0))
-        : fallbackShippingFee
-      : 0;
-    const actualExtraCost = actualCostConfirmed
-      ? input['actual_extra_cost'] !== undefined
-        ? Math.max(0, toInt(input['actual_extra_cost'], 0))
-        : fallbackExtraCost
-      : 0;
-    const actualProfit = actualCostConfirmed
-      ? totalQuoteAmount -
-        actualVendorCost -
-        actualShippingFee -
-        actualExtraCost
-      : 0;
-
-    const vendorPaidAmount =
-      input['vendor_paid_amount'] !== undefined
-        ? toInt(input['vendor_paid_amount'], -1)
-        : toInt(existing['vendor_paid_amount'], 0);
-    if (vendorPaidAmount < 0) {
       throw new AuthError(
         'VALIDATION_ERROR',
         'Số tiền đã thanh toán cho nhà in (vendor_paid_amount) không được âm.',
@@ -4226,103 +4361,310 @@ export class PrintQuoteService {
       );
     }
 
-    const depositRequired =
-      input['deposit_required'] !== undefined
-        ? Math.max(0, toInt(input['deposit_required'], 0))
-        : toInt(existing['deposit_required'], 0);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const existingRes = await client.query(
+        `SELECT * FROM print_orders WHERE id = $1 AND workspace_id = $2 FOR UPDATE`,
+        [orderId, ctx.workspace.id],
+      );
+      const existing = existingRes.rows[0];
+      if (!existing) {
+        throw new AuthError('NOT_FOUND', 'Không tìm thấy đơn hàng in ấn.', 404);
+      }
 
-    const productionStatus: PrintProductionStatusType =
-      input['production_status'] !== undefined
-        ? (input['production_status'] as PrintProductionStatusType)
-        : (existing['production_status'] as PrintProductionStatusType);
+      const totalQuoteAmount = toInt(existing['total_quote_amount'], 0);
+      const wasConfirmed = Boolean(existing['actual_cost_confirmed']);
+      const prevStatus =
+        (existing[
+          'cost_reconciliation_status'
+        ] as OrderCostReconciliationStatusType) ||
+        OrderCostReconciliationStatus.UNVERIFIED;
 
-    const deliveryStatus: PrintDeliveryStatusType =
-      input['delivery_status'] !== undefined
-        ? (input['delivery_status'] as PrintDeliveryStatusType)
-        : (existing['delivery_status'] as PrintDeliveryStatusType);
+      const prevEnteredVendor =
+        existing['entered_vendor_cost'] !== null &&
+        existing['entered_vendor_cost'] !== undefined
+          ? toInt(existing['entered_vendor_cost'], 0)
+          : null;
+      const prevEnteredShipping =
+        existing['entered_shipping_fee'] !== null &&
+        existing['entered_shipping_fee'] !== undefined
+          ? toInt(existing['entered_shipping_fee'], 0)
+          : null;
+      const prevEnteredExtra =
+        existing['entered_extra_cost'] !== null &&
+        existing['entered_extra_cost'] !== undefined
+          ? toInt(existing['entered_extra_cost'], 0)
+          : null;
+      const prevVendorPaid = toInt(existing['vendor_paid_amount'], 0);
 
-    const printOrderedAt =
-      input['print_ordered_at'] !== undefined
-        ? toDateStr(input['print_ordered_at'])
-        : toDateStr(existing['print_ordered_at']);
-    const dueDate =
-      input['due_date'] !== undefined
-        ? toDateStr(input['due_date'])
-        : toDateStr(existing['due_date']);
+      const nextEnteredVendor = vendorField.provided
+        ? vendorField.value
+        : prevEnteredVendor;
+      const nextEnteredShipping = shippingField.provided
+        ? shippingField.value
+        : prevEnteredShipping;
+      const nextEnteredExtra = extraField.provided
+        ? extraField.value
+        : prevEnteredExtra;
 
-    const updRes = await this.pool.query(
-      `UPDATE print_orders
-       SET print_ordered_at = $1,
-           due_date = $2,
-           production_status = $3,
-           delivery_status = $4,
-           actual_cost_confirmed = $5,
-           actual_cost_confirmed_at = CASE
-             WHEN $5 = false THEN NULL
-             WHEN $15 = true OR actual_cost_confirmed_at IS NULL THEN now()
-             ELSE actual_cost_confirmed_at
-           END,
-           actual_cost_confirmed_by = CASE
-             WHEN $5 = false THEN NULL
-             WHEN $15 = true OR actual_cost_confirmed_by IS NULL THEN $16
-             ELSE actual_cost_confirmed_by
-           END,
-           actual_vendor_cost = $6,
-           actual_shipping_fee = $7,
-           actual_extra_cost = $8,
-           actual_profit = $9,
-           vendor_paid_amount = $17,
-           deposit_required = $10,
-           vendor_id = $11,
-           vendor_name = $12,
-           notes = $13,
-           completed_at = CASE WHEN $3 = 'COMPLETED' AND completed_at IS NULL THEN now() ELSE completed_at END,
-           delivered_at = CASE WHEN $4 = 'DELIVERED' AND delivered_at IS NULL THEN now() ELSE delivered_at END,
-           updated_at = now()
-       WHERE id = $14 AND workspace_id = $18
-       RETURNING *`,
-      [
-        printOrderedAt,
-        dueDate,
-        productionStatus,
-        deliveryStatus,
-        actualCostConfirmed,
-        actualVendorCost,
-        actualShippingFee,
-        actualExtraCost,
-        actualProfit,
-        depositRequired,
-        input['vendor_id'] !== undefined
-          ? typeof input['vendor_id'] === 'string' && input['vendor_id'].trim()
-            ? input['vendor_id'].trim()
-            : null
-          : existing['vendor_id'],
-        input['vendor_name'] !== undefined
-          ? typeof input['vendor_name'] === 'string' &&
-            input['vendor_name'].trim()
-            ? input['vendor_name'].trim()
-            : null
-          : existing['vendor_name'],
-        input['notes'] !== undefined
-          ? typeof input['notes'] === 'string'
-            ? input['notes'].trim() || null
-            : null
-          : existing['notes'],
-        orderId,
-        touchesActualCost,
-        ctx.user.id,
-        vendorPaidAmount,
-        ctx.workspace.id,
-      ],
-    );
+      const touchesCostFields =
+        vendorField.provided || shippingField.provided || extraField.provided;
+      const enteredCount = [
+        nextEnteredVendor,
+        nextEnteredShipping,
+        nextEnteredExtra,
+      ].filter((v) => v !== null).length;
 
-    const payRes = await this.pool.query(
-      `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC`,
-      [orderId, ctx.workspace.id],
-    );
-    const mapped = this.mapOrderRow(updRes.rows[0]!);
-    mapped.payments = payRes.rows.map((p) => this.mapPaymentRow(p));
-    return mapped;
+      let nextConfirmed: boolean;
+      let nextStatus: OrderCostReconciliationStatusType;
+
+      if (input['actual_cost_confirmed'] === false) {
+        nextConfirmed = false;
+        nextStatus = OrderCostReconciliationStatus.NEEDS_REVIEW;
+      } else if (input['actual_cost_confirmed'] === true) {
+        if (enteredCount < 3) {
+          throw new AuthError(
+            'INCOMPLETE_ACTUAL_COST_CONFIRMATION',
+            'Chỉ được xác nhận đối soát lợi nhuận thực tế khi đã nhập đầy đủ cả 3 khoản: Giá vốn xưởng, Phí vận chuyển thực tế và Chi phí phát sinh (nhập 0 nếu không phát sinh). Hệ thống không tự mượn chi phí dự kiến cho khoản chưa kiểm tra.',
+            400,
+          );
+        }
+        nextConfirmed = true;
+        nextStatus = OrderCostReconciliationStatus.CONFIRMED;
+      } else if (touchesCostFields) {
+        // Explicit cost field edit WITHOUT actual_cost_confirmed: true NEVER auto-confirms!
+        nextConfirmed = false;
+        nextStatus =
+          enteredCount === 0
+            ? prevStatus === OrderCostReconciliationStatus.NEEDS_REVIEW ||
+              wasConfirmed
+              ? OrderCostReconciliationStatus.NEEDS_REVIEW
+              : OrderCostReconciliationStatus.UNVERIFIED
+            : enteredCount < 3
+              ? OrderCostReconciliationStatus.PARTIAL_ENTERED
+              : OrderCostReconciliationStatus.ENTERED_UNCONFIRMED;
+      } else {
+        // Non-cost update (e.g., production_status, delivery_status, notes, vendor_paid_amount)
+        nextConfirmed = wasConfirmed;
+        nextStatus = prevStatus;
+      }
+
+      // Preserve raw legacy DB columns untouched if the order has never been confirmed
+      const dbActualVendor = nextConfirmed
+        ? nextEnteredVendor!
+        : wasConfirmed
+          ? 0
+          : toInt(existing['actual_vendor_cost'], 0);
+      const dbActualShipping = nextConfirmed
+        ? nextEnteredShipping!
+        : wasConfirmed
+          ? 0
+          : toInt(existing['actual_shipping_fee'], 0);
+      const dbActualExtra = nextConfirmed
+        ? nextEnteredExtra!
+        : wasConfirmed
+          ? 0
+          : toInt(existing['actual_extra_cost'], 0);
+      const dbActualProfit = nextConfirmed
+        ? totalQuoteAmount - dbActualVendor - dbActualShipping - dbActualExtra
+        : wasConfirmed
+          ? 0
+          : toInt(existing['actual_profit'], 0);
+
+      const vendorPaidAmount =
+        input['vendor_paid_amount'] !== undefined
+          ? toInt(input['vendor_paid_amount'], 0)
+          : prevVendorPaid;
+
+      const depositRequired =
+        input['deposit_required'] !== undefined
+          ? Math.max(0, toInt(input['deposit_required'], 0))
+          : toInt(existing['deposit_required'], 0);
+
+      const productionStatus: PrintProductionStatusType =
+        input['production_status'] !== undefined
+          ? (input['production_status'] as PrintProductionStatusType)
+          : (existing['production_status'] as PrintProductionStatusType);
+
+      const deliveryStatus: PrintDeliveryStatusType =
+        input['delivery_status'] !== undefined
+          ? (input['delivery_status'] as PrintDeliveryStatusType)
+          : (existing['delivery_status'] as PrintDeliveryStatusType);
+
+      const printOrderedAt =
+        input['print_ordered_at'] !== undefined
+          ? toDateStr(input['print_ordered_at'])
+          : toDateStr(existing['print_ordered_at']);
+      const dueDate =
+        input['due_date'] !== undefined
+          ? toDateStr(input['due_date'])
+          : toDateStr(existing['due_date']);
+
+      const confirmTimestampRefresh =
+        nextConfirmed && (!wasConfirmed || touchesCostFields);
+
+      const updRes = await client.query(
+        `UPDATE print_orders
+         SET print_ordered_at = $1,
+             due_date = $2,
+             production_status = $3,
+             delivery_status = $4,
+             cost_reconciliation_status = $5,
+             actual_cost_confirmed = $6,
+             actual_cost_confirmed_at = CASE
+               WHEN $6 = false THEN NULL
+               WHEN $19 = true OR actual_cost_confirmed_at IS NULL THEN now()
+               ELSE actual_cost_confirmed_at
+             END,
+             actual_cost_confirmed_by = CASE
+               WHEN $6 = false THEN NULL
+               WHEN $19 = true OR actual_cost_confirmed_by IS NULL THEN $20
+               ELSE actual_cost_confirmed_by
+             END,
+             entered_vendor_cost = $7,
+             entered_shipping_fee = $8,
+             entered_extra_cost = $9,
+             actual_vendor_cost = $10,
+             actual_shipping_fee = $11,
+             actual_extra_cost = $12,
+             actual_profit = $13,
+             vendor_paid_amount = $21,
+             deposit_required = $14,
+             vendor_id = $15,
+             vendor_name = $16,
+             notes = $17,
+             completed_at = CASE WHEN $3 = 'COMPLETED' AND completed_at IS NULL THEN now() ELSE completed_at END,
+             delivered_at = CASE WHEN $4 = 'DELIVERED' AND delivered_at IS NULL THEN now() ELSE delivered_at END,
+             updated_at = now()
+         WHERE id = $18 AND workspace_id = $22
+         RETURNING *`,
+        [
+          printOrderedAt,
+          dueDate,
+          productionStatus,
+          deliveryStatus,
+          nextStatus,
+          nextConfirmed,
+          nextEnteredVendor,
+          nextEnteredShipping,
+          nextEnteredExtra,
+          dbActualVendor,
+          dbActualShipping,
+          dbActualExtra,
+          dbActualProfit,
+          depositRequired,
+          input['vendor_id'] !== undefined
+            ? typeof input['vendor_id'] === 'string' &&
+              input['vendor_id'].trim()
+              ? input['vendor_id'].trim()
+              : null
+            : existing['vendor_id'],
+          input['vendor_name'] !== undefined
+            ? typeof input['vendor_name'] === 'string' &&
+              input['vendor_name'].trim()
+              ? input['vendor_name'].trim()
+              : null
+            : existing['vendor_name'],
+          input['notes'] !== undefined
+            ? typeof input['notes'] === 'string'
+              ? input['notes'].trim() || null
+              : null
+            : existing['notes'],
+          orderId,
+          confirmTimestampRefresh,
+          ctx.user.id,
+          vendorPaidAmount,
+          ctx.workspace.id,
+        ],
+      );
+
+      const costNote =
+        typeof input['cost_note'] === 'string' && input['cost_note'].trim()
+          ? input['cost_note'].trim()
+          : null;
+
+      const costStateChanged =
+        nextConfirmed !== wasConfirmed ||
+        nextStatus !== prevStatus ||
+        nextEnteredVendor !== prevEnteredVendor ||
+        nextEnteredShipping !== prevEnteredShipping ||
+        nextEnteredExtra !== prevEnteredExtra;
+
+      if (costStateChanged) {
+        const beforeSnap = {
+          cost_reconciliation_status: prevStatus,
+          actual_cost_confirmed: wasConfirmed,
+          entered_vendor_cost: prevEnteredVendor,
+          entered_shipping_fee: prevEnteredShipping,
+          entered_extra_cost: prevEnteredExtra,
+          actual_profit: wasConfirmed
+            ? toInt(existing['actual_profit'], 0)
+            : null,
+        };
+        const afterSnap = {
+          cost_reconciliation_status: nextStatus,
+          actual_cost_confirmed: nextConfirmed,
+          entered_vendor_cost: nextEnteredVendor,
+          entered_shipping_fee: nextEnteredShipping,
+          entered_extra_cost: nextEnteredExtra,
+          actual_profit: nextConfirmed ? dbActualProfit : null,
+        };
+        const action: OrderCostHistoryActionType =
+          wasConfirmed && !nextConfirmed
+            ? 'UNCONFIRMED'
+            : !wasConfirmed && nextConfirmed
+              ? 'CONFIRMED'
+              : wasConfirmed && nextConfirmed
+                ? 'ADJUSTED'
+                : 'ENTERED';
+
+        await this.insertOrderCostHistory(client, {
+          workspaceId: ctx.workspace.id,
+          orderId,
+          action,
+          beforeJson: beforeSnap,
+          afterJson: afterSnap,
+          note: costNote,
+          changedBy: ctx.user.id,
+        });
+      }
+
+      if (vendorPaidAmount !== prevVendorPaid) {
+        await this.insertOrderCostHistory(client, {
+          workspaceId: ctx.workspace.id,
+          orderId,
+          action: 'VENDOR_PAYMENT_NOTE',
+          beforeJson: { vendor_paid_amount: prevVendorPaid },
+          afterJson: { vendor_paid_amount: vendorPaidAmount },
+          note: costNote,
+          changedBy: ctx.user.id,
+        });
+      }
+
+      const [payRes, histRes] = await Promise.all([
+        client.query(
+          `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC`,
+          [orderId, ctx.workspace.id],
+        ),
+        client.query(
+          `SELECT * FROM print_order_cost_history WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at DESC`,
+          [orderId, ctx.workspace.id],
+        ),
+      ]);
+
+      await client.query('COMMIT');
+
+      const mapped = this.mapOrderRow(updRes.rows[0]!);
+      mapped.payments = payRes.rows.map((p) => this.mapPaymentRow(p));
+      mapped.cost_history = histRes.rows.map((h) => this.mapCostHistoryRow(h));
+      return mapped;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async recordOrderPayment(
@@ -4369,6 +4711,17 @@ export class PrintQuoteService {
         const ord = ordRes.rows[0];
         if (!ord) {
           throw new AuthError('NOT_FOUND', 'Không tìm thấy đơn hàng.', 404);
+        }
+
+        if (
+          ord['production_status'] === PrintProductionStatus.CANCELLED &&
+          paymentType !== 'REFUND'
+        ) {
+          throw new AuthError(
+            'ORDER_CANCELLED',
+            'Đơn hàng đã hủy không thể ghi nhận thu thêm tiền. Nếu cần hoàn trả cọc/tiền đã thu cho khách, vui lòng chọn loại giao dịch Hoàn tiền (REFUND).',
+            409,
+          );
         }
 
         const totalQuoteAmount = toInt(ord['total_quote_amount'], 0);
@@ -4487,14 +4840,50 @@ export class PrintQuoteService {
           ],
         );
 
+        const histRes = await client.query(
+          `SELECT * FROM print_order_cost_history WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at DESC`,
+          [orderId, ctx.workspace.id],
+        );
+
         const updatedOrder = this.mapOrderRow(updRes.rows[0]!);
         updatedOrder.payments = payments;
+        updatedOrder.cost_history = histRes.rows.map((h) =>
+          this.mapCostHistoryRow(h),
+        );
         return updatedOrder;
       },
     );
   }
 
   private mapOrderRow(r: Record<string, unknown>): PrintOrderData {
+    const isConfirmed = Boolean(r['actual_cost_confirmed']);
+    const reconStatus =
+      (r['cost_reconciliation_status'] as OrderCostReconciliationStatusType) ||
+      (isConfirmed
+        ? OrderCostReconciliationStatus.CONFIRMED
+        : OrderCostReconciliationStatus.UNVERIFIED);
+    const enteredVendor =
+      r['entered_vendor_cost'] !== null &&
+      r['entered_vendor_cost'] !== undefined
+        ? toInt(r['entered_vendor_cost'], 0)
+        : null;
+    const enteredShipping =
+      r['entered_shipping_fee'] !== null &&
+      r['entered_shipping_fee'] !== undefined
+        ? toInt(r['entered_shipping_fee'], 0)
+        : null;
+    const enteredExtra =
+      r['entered_extra_cost'] !== null && r['entered_extra_cost'] !== undefined
+        ? toInt(r['entered_extra_cost'], 0)
+        : null;
+
+    const isLegacyNeedsReview =
+      !isConfirmed &&
+      reconStatus === OrderCostReconciliationStatus.NEEDS_REVIEW &&
+      enteredVendor === null &&
+      enteredShipping === null &&
+      enteredExtra === null;
+
     return {
       id: String(r['id']),
       workspace_id: String(r['workspace_id']),
@@ -4531,25 +4920,33 @@ export class PrintQuoteService {
       expected_shipping_fee: toInt(r['expected_shipping_fee'], 0),
       expected_extra_cost: toInt(r['expected_extra_cost'], 0),
       expected_profit: toInt(r['expected_profit'], 0),
-      actual_cost_confirmed: Boolean(r['actual_cost_confirmed']),
+      cost_reconciliation_status: reconStatus,
+      actual_cost_confirmed: isConfirmed,
       actual_cost_confirmed_at: r['actual_cost_confirmed_at']
         ? toIso(r['actual_cost_confirmed_at'])
         : null,
       actual_cost_confirmed_by: r['actual_cost_confirmed_by']
         ? String(r['actual_cost_confirmed_by'])
         : null,
-      actual_vendor_cost: Boolean(r['actual_cost_confirmed'])
+      entered_vendor_cost: enteredVendor,
+      entered_shipping_fee: enteredShipping,
+      entered_extra_cost: enteredExtra,
+      actual_vendor_cost: isConfirmed
         ? toInt(r['actual_vendor_cost'], 0)
-        : 0,
-      actual_shipping_fee: Boolean(r['actual_cost_confirmed'])
+        : null,
+      actual_shipping_fee: isConfirmed
         ? toInt(r['actual_shipping_fee'], 0)
-        : 0,
-      actual_extra_cost: Boolean(r['actual_cost_confirmed'])
-        ? toInt(r['actual_extra_cost'], 0)
-        : 0,
-      actual_profit: Boolean(r['actual_cost_confirmed'])
-        ? toInt(r['actual_profit'], 0)
-        : 0,
+        : null,
+      actual_extra_cost: isConfirmed ? toInt(r['actual_extra_cost'], 0) : null,
+      actual_profit: isConfirmed ? toInt(r['actual_profit'], 0) : null,
+      legacy_raw_actual_costs: isLegacyNeedsReview
+        ? {
+            vendor_cost: toInt(r['actual_vendor_cost'], 0),
+            shipping_fee: toInt(r['actual_shipping_fee'], 0),
+            extra_cost: toInt(r['actual_extra_cost'], 0),
+            profit: toInt(r['actual_profit'], 0),
+          }
+        : null,
       vendor_paid_amount: toInt(r['vendor_paid_amount'], 0),
       deposit_required: toInt(r['deposit_required'], 0),
       deposit_paid: toInt(r['deposit_paid'], 0),
@@ -4614,10 +5011,12 @@ export class PrintQuoteService {
       this.pool.query(
         `SELECT production_status, delivery_status, payment_status,
                 total_quote_amount, expected_vendor_cost, expected_profit,
-                actual_cost_confirmed, actual_vendor_cost, actual_profit,
+                cost_reconciliation_status, actual_cost_confirmed,
+                entered_vendor_cost, entered_shipping_fee, entered_extra_cost,
+                actual_vendor_cost, actual_shipping_fee, actual_extra_cost, actual_profit,
                 vendor_paid_amount, total_paid_amount, remaining_debt_amount
          FROM print_orders
-         WHERE workspace_id = $1 AND production_status != 'CANCELLED'`,
+         WHERE workspace_id = $1`,
         [ctx.workspace.id],
       ),
     ]);
@@ -4644,28 +5043,97 @@ export class PrintQuoteService {
       PAID: 0,
     };
 
+    let activeOrdersCount = 0;
     let totalRevenue = 0;
     let totalExpectedCost = 0;
     let totalActualCost = 0;
     let totalExpectedProfit = 0;
     let totalActualProfit = 0;
     let confirmedActualOrdersCount = 0;
+    let needsReviewOrdersCount = 0;
+    let unconfirmedEnteredOrdersCount = 0;
     let totalVendorPaid = 0;
     let totalPaid = 0;
     let totalDebt = 0;
+
+    let cancelledOrdersCount = 0;
+    let cancelledWithObligationsCount = 0;
+    let cancelledCustomerPaidHolding = 0;
+    let cancelledVendorPaidAmount = 0;
+    let cancelledConfirmedIncurredCost = 0;
+    let cancelledUnconfirmedEnteredCost = 0;
 
     for (const r of oRes.rows) {
       const ps = r['production_status'] as PrintProductionStatusType;
       const ds = r['delivery_status'] as PrintDeliveryStatusType;
       const pays = r['payment_status'] as PrintPaymentStatusType;
+      const reconStatus =
+        (r[
+          'cost_reconciliation_status'
+        ] as OrderCostReconciliationStatusType) ||
+        OrderCostReconciliationStatus.UNVERIFIED;
+      const isConfirmed = Boolean(r['actual_cost_confirmed']);
+
       if (ordersByProd[ps] !== undefined) ordersByProd[ps]++;
+
+      if (!isConfirmed) {
+        if (reconStatus === OrderCostReconciliationStatus.NEEDS_REVIEW) {
+          needsReviewOrdersCount++;
+        } else if (
+          reconStatus === OrderCostReconciliationStatus.PARTIAL_ENTERED ||
+          reconStatus === OrderCostReconciliationStatus.ENTERED_UNCONFIRMED
+        ) {
+          unconfirmedEnteredOrdersCount++;
+        }
+      }
+
+      if (ps === PrintProductionStatus.CANCELLED) {
+        cancelledOrdersCount++;
+        const paidHolding = toInt(r['total_paid_amount'], 0);
+        const vPaid = toInt(r['vendor_paid_amount'], 0);
+        const confirmedIncurred = isConfirmed
+          ? toInt(r['actual_vendor_cost'], 0) +
+            toInt(r['actual_shipping_fee'], 0) +
+            toInt(r['actual_extra_cost'], 0)
+          : 0;
+        const enteredUnconfirmed = !isConfirmed
+          ? (r['entered_vendor_cost'] !== null &&
+            r['entered_vendor_cost'] !== undefined
+              ? toInt(r['entered_vendor_cost'], 0)
+              : 0) +
+            (r['entered_shipping_fee'] !== null &&
+            r['entered_shipping_fee'] !== undefined
+              ? toInt(r['entered_shipping_fee'], 0)
+              : 0) +
+            (r['entered_extra_cost'] !== null &&
+            r['entered_extra_cost'] !== undefined
+              ? toInt(r['entered_extra_cost'], 0)
+              : 0)
+          : 0;
+
+        if (
+          paidHolding > 0 ||
+          vPaid > 0 ||
+          confirmedIncurred > 0 ||
+          enteredUnconfirmed > 0
+        ) {
+          cancelledWithObligationsCount++;
+        }
+        cancelledCustomerPaidHolding += paidHolding;
+        cancelledVendorPaidAmount += vPaid;
+        cancelledConfirmedIncurredCost += confirmedIncurred;
+        cancelledUnconfirmedEnteredCost += enteredUnconfirmed;
+        continue;
+      }
+
+      activeOrdersCount++;
       if (ordersByDeliv[ds] !== undefined) ordersByDeliv[ds]++;
       if (ordersByPay[pays] !== undefined) ordersByPay[pays]++;
 
       totalRevenue += toInt(r['total_quote_amount'], 0);
       totalExpectedCost += toInt(r['expected_vendor_cost'], 0);
       totalExpectedProfit += toInt(r['expected_profit'], 0);
-      if (Boolean(r['actual_cost_confirmed'])) {
+      if (isConfirmed) {
         confirmedActualOrdersCount++;
         totalActualCost += toInt(r['actual_vendor_cost'], 0);
         totalActualProfit += toInt(r['actual_profit'], 0);
@@ -4681,8 +5149,10 @@ export class PrintQuoteService {
       total_customers: toInt(cRes.rows[0]?.cnt, 0),
       total_quotes: toInt(qRes.rows[0]?.total_cnt, 0),
       finalized_quotes: toInt(qRes.rows[0]?.fin_cnt, 0),
-      total_orders: oRes.rows.length,
+      total_orders: activeOrdersCount,
       confirmed_actual_orders_count: confirmedActualOrdersCount,
+      needs_review_orders_count: needsReviewOrdersCount,
+      unconfirmed_entered_orders_count: unconfirmedEnteredOrdersCount,
       total_order_revenue: totalRevenue,
       total_expected_vendor_cost: totalExpectedCost,
       total_actual_vendor_cost: totalActualCost,
@@ -4691,6 +5161,14 @@ export class PrintQuoteService {
       total_paid_amount: totalPaid,
       total_vendor_paid_amount: totalVendorPaid,
       total_remaining_debt: totalDebt,
+      cancelled_orders_summary: {
+        cancelled_orders_count: cancelledOrdersCount,
+        cancelled_orders_with_obligations_count: cancelledWithObligationsCount,
+        cancelled_customer_paid_holding: cancelledCustomerPaidHolding,
+        cancelled_vendor_paid_amount: cancelledVendorPaidAmount,
+        cancelled_confirmed_incurred_cost: cancelledConfirmedIncurredCost,
+        cancelled_unconfirmed_entered_cost: cancelledUnconfirmedEnteredCost,
+      },
       orders_by_production_status: ordersByProd,
       orders_by_delivery_status: ordersByDeliv,
       orders_by_payment_status: ordersByPay,
