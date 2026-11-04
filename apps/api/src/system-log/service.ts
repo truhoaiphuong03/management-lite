@@ -134,6 +134,7 @@ export class SystemLogService {
   private queue: SystemLogInput[] = [];
   private timer: NodeJS.Timeout | null = null;
   private flushing = false;
+  private activeFlush: Promise<void> | null = null;
   private stopped = false;
   private lastPurge = 0;
   private lastFlushError = 0;
@@ -168,8 +169,8 @@ export class SystemLogService {
   }
 
   /**
-   * Drains buffered logs while the DB pool is still open, and prevents any
-   * delayed timer from querying `pool` after `pool.end()` begins.
+   * Drains buffered logs while the DB pool is still open, awaits any in-flight
+   * flush without microtask spinning, and prevents delayed timer queries after `pool.end()`.
    */
   async stop(): Promise<void> {
     this.stopped = true;
@@ -177,12 +178,24 @@ export class SystemLogService {
       clearTimeout(this.timer);
       this.timer = null;
     }
+    if (this.activeFlush) {
+      await this.activeFlush;
+    }
     if (this.isPoolClosingOrEnded()) {
       this.queue.length = 0;
       return;
     }
     while (this.queue.length > 0 && !this.isPoolClosingOrEnded()) {
+      if (this.activeFlush) {
+        await this.activeFlush;
+        continue;
+      }
+      const beforeLen = this.queue.length;
       await this.flush(true);
+      if (!this.activeFlush && this.queue.length >= beforeLen) {
+        this.queue.length = 0;
+        break;
+      }
     }
   }
 
@@ -203,95 +216,109 @@ export class SystemLogService {
   }
 
   async flush(allowDuringStop = false): Promise<void> {
+    if (this.activeFlush) {
+      await this.activeFlush;
+    }
     if (this.flushing || this.queue.length === 0) return;
-    if ((this.stopped && !allowDuringStop) || this.isPoolClosingOrEnded()) {
+    if (this.stopped && !allowDuringStop) {
+      return;
+    }
+    if (this.isPoolClosingOrEnded()) {
       this.queue.length = 0;
       return;
     }
     this.flushing = true;
     const batch = this.queue.splice(0, 100);
-    try {
-      const values: unknown[] = [];
-      const rows = batch.map((e, i) => {
-        const message =
-          sanitizeLogText(e.message, MAX_MESSAGE) || '(no message)';
-        const stack = sanitizeLogText(e.stack, MAX_STACK) || null;
-        const route = e.route ? normalizeRoute(e.route) : null;
-        const fp = logFingerprint({
-          level: e.level,
-          source: e.source,
-          route,
-          errorCode: e.errorCode,
-          message,
-          stack,
+    let batchPromise: Promise<void> | null = null;
+    batchPromise = (async () => {
+      try {
+        const values: unknown[] = [];
+        const rows = batch.map((e, i) => {
+          const message =
+            sanitizeLogText(e.message, MAX_MESSAGE) || '(no message)';
+          const stack = sanitizeLogText(e.stack, MAX_STACK) || null;
+          const route = e.route ? normalizeRoute(e.route) : null;
+          const fp = logFingerprint({
+            level: e.level,
+            source: e.source,
+            route,
+            errorCode: e.errorCode,
+            message,
+            stack,
+          });
+          const o = i * 15;
+          values.push(
+            e.level,
+            e.source,
+            e.workspaceId ?? null,
+            e.userId ?? null,
+            e.requestId ? e.requestId.slice(0, 80) : null,
+            e.method ?? null,
+            route,
+            e.status ?? null,
+            e.durationMs ?? null,
+            e.errorCode ? e.errorCode.slice(0, 80) : null,
+            message,
+            stack,
+            fp,
+            e.release ?? null,
+            JSON.stringify({
+              ...(e.metadata ?? {}),
+              ...(e.userAgent
+                ? { user_agent: sanitizeLogText(e.userAgent, 200) }
+                : {}),
+            }),
+          );
+          return `(${Array.from({ length: 15 }, (_x, k) => `$${o + k + 1}`).join(',')})`;
         });
-        const o = i * 15;
-        values.push(
-          e.level,
-          e.source,
-          e.workspaceId ?? null,
-          e.userId ?? null,
-          e.requestId ? e.requestId.slice(0, 80) : null,
-          e.method ?? null,
-          route,
-          e.status ?? null,
-          e.durationMs ?? null,
-          e.errorCode ? e.errorCode.slice(0, 80) : null,
-          message,
-          stack,
-          fp,
-          e.release ?? null,
-          JSON.stringify({
-            ...(e.metadata ?? {}),
-            ...(e.userAgent
-              ? { user_agent: sanitizeLogText(e.userAgent, 200) }
-              : {}),
-          }),
-        );
-        return `(${Array.from({ length: 15 }, (_x, k) => `$${o + k + 1}`).join(',')})`;
-      });
-      await this.pool.query(
-        `INSERT INTO system_logs (level, source, workspace_id, user_id, request_id, method, route, status, duration_ms, error_code, message, stack, fingerprint, release, metadata)
-         VALUES ${rows.join(',')}`,
-        values,
-      );
-      if (
-        !this.stopped &&
-        !this.isPoolClosingOrEnded() &&
-        Date.now() - this.lastPurge > PURGE_EVERY_MS
-      ) {
-        this.lastPurge = Date.now();
         await this.pool.query(
-          `DELETE FROM system_logs WHERE occurred_at < now() - ($1 || ' days')::interval`,
-          [String(RETENTION_DAYS)],
+          `INSERT INTO system_logs (level, source, workspace_id, user_id, request_id, method, route, status, duration_ms, error_code, message, stack, fingerprint, release, metadata)
+           VALUES ${rows.join(',')}`,
+          values,
         );
+        if (
+          !this.stopped &&
+          !this.isPoolClosingOrEnded() &&
+          Date.now() - this.lastPurge > PURGE_EVERY_MS
+        ) {
+          this.lastPurge = Date.now();
+          await this.pool.query(
+            `DELETE FROM system_logs WHERE occurred_at < now() - ($1 || ' days')::interval`,
+            [String(RETENTION_DAYS)],
+          );
+        }
+      } catch (err) {
+        const msg = String((err as Error)?.message ?? '');
+        const isPoolShutdownRace =
+          this.isPoolClosingOrEnded() ||
+          msg.includes('Cannot use a pool after calling end on the pool');
+        if (isPoolShutdownRace) {
+          this.queue.length = 0;
+        } else if (Date.now() - this.lastFlushError > 60_000) {
+          this.lastFlushError = Date.now();
+          console.error('[SYSTEM_LOG_FLUSH_FAILED]', msg);
+        }
+      } finally {
+        this.flushing = false;
+        if (this.activeFlush === batchPromise) {
+          this.activeFlush = null;
+        }
+        if (
+          !this.stopped &&
+          !this.isPoolClosingOrEnded() &&
+          this.queue.length > 0 &&
+          !this.timer
+        ) {
+          this.timer = setTimeout(() => {
+            this.timer = null;
+            void this.flush();
+          }, 250);
+          this.timer.unref?.();
+        }
       }
-    } catch (err) {
-      const msg = String((err as Error)?.message ?? '');
-      const isPoolShutdownRace =
-        this.isPoolClosingOrEnded() ||
-        msg.includes('Cannot use a pool after calling end on the pool');
-      if (isPoolShutdownRace) {
-        this.queue.length = 0;
-      } else if (Date.now() - this.lastFlushError > 60_000) {
-        this.lastFlushError = Date.now();
-        console.error('[SYSTEM_LOG_FLUSH_FAILED]', msg);
-      }
-    } finally {
-      this.flushing = false;
-      if (
-        !this.stopped &&
-        !this.isPoolClosingOrEnded() &&
-        this.queue.length > 0 &&
-        !this.timer
-      ) {
-        this.timer = setTimeout(() => {
-          this.timer = null;
-          void this.flush();
-        }, 250);
-        this.timer.unref?.();
-      }
-    }
+    })();
+    this.activeFlush = batchPromise;
+    await batchPromise;
   }
 
   // ------------------------------------------------------------------ reads

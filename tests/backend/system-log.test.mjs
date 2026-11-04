@@ -1,11 +1,141 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { Worker } from 'node:worker_threads';
 import {
   SystemLogService,
   sanitizeLogText,
   normalizeRoute,
   logFingerprint,
 } from '../../dist/apps/api/src/system-log/service.js';
+
+function runStopScenarioInWorker(scenario, timeoutMs = 800) {
+  const serviceUrl = new URL(
+    '../../dist/apps/api/src/system-log/service.js',
+    import.meta.url,
+  ).href;
+
+  const workerCode = `
+    import { parentPort, workerData } from 'node:worker_threads';
+    const { SystemLogService } = await import(workerData.serviceUrl);
+
+    if (workerData.scenario === 'slow-ok') {
+      const calls = [];
+      let firstQueryStartedResolve;
+      const firstQueryStarted = new Promise((r) => {
+        firstQueryStartedResolve = r;
+      });
+
+      const svc = new SystemLogService({
+        query: async (sql, params) => {
+          calls.push({ sql, params });
+          if (calls.length === 1) {
+            firstQueryStartedResolve();
+            await new Promise((r) => setTimeout(r, 60));
+          } else {
+            await new Promise((r) => setTimeout(r, 20));
+          }
+          return { rows: [], rowCount: 0 };
+        },
+      });
+
+      svc.record({ level: 'error', source: 'api', message: 'first slow log' });
+      const inFlight = svc.flush();
+      await firstQueryStarted;
+
+      svc.record({ level: 'warn', source: 'api', message: 'second queued log' });
+      const concurrentFlush = svc.flush();
+      await svc.stop();
+      await Promise.all([inFlight, concurrentFlush]);
+
+      parentPort.postMessage({
+        ok: true,
+        insertBatchRowCounts: calls
+          .filter((c) => /INSERT INTO system_logs/.test(c.sql))
+          .map((c) => c.params.length / 15),
+      });
+    } else if (workerData.scenario === 'slow-db-error') {
+      let attempts = 0;
+      let firstQueryStartedResolve;
+      const firstQueryStarted = new Promise((r) => {
+        firstQueryStartedResolve = r;
+      });
+
+      const origError = console.error;
+      console.error = () => {};
+      try {
+        const svc = new SystemLogService({
+          query: async () => {
+            attempts += 1;
+            if (attempts === 1) {
+              firstQueryStartedResolve();
+              await new Promise((r) => setTimeout(r, 50));
+            } else {
+              await new Promise((r) => setTimeout(r, 10));
+            }
+            throw new Error('DB connection lost during flush');
+          },
+        });
+
+        svc.record({ level: 'error', source: 'api', message: 'first failing slow log' });
+        const inFlight = svc.flush();
+        await firstQueryStarted;
+
+        for (let i = 0; i < 125; i++) {
+          svc.record({ level: 'error', source: 'api', message: 'queued-' + i });
+        }
+
+        await svc.stop();
+        await inFlight;
+
+        parentPort.postMessage({
+          ok: true,
+          attempts,
+        });
+      } finally {
+        console.error = origError;
+      }
+    }
+  `;
+
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(workerCode, {
+      eval: true,
+      workerData: { serviceUrl, scenario },
+    });
+    let settled = false;
+    const timer = setTimeout(async () => {
+      if (settled) return;
+      settled = true;
+      await worker.terminate();
+      reject(
+        new Error(
+          `SystemLogService.stop() timed out after ${timeoutMs}ms in scenario "${scenario}" (microtask loop or unawaited flush)`,
+        ),
+      );
+    }, timeoutMs);
+
+    worker.once('message', (msg) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(msg);
+    });
+    worker.once('error', (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    });
+    worker.once('exit', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error(`Worker exited with code ${code}`));
+      }
+    });
+  });
+}
 
 test('log text never keeps secrets', () => {
   const raw =
@@ -139,3 +269,18 @@ test('browser error intake is rate limited per user', () => {
   assert.equal(ok, 20);
   assert.equal(svc.allowClientError('u2'), true);
 });
+
+test(
+  'stop() awaits an in-flight slow DB flush, drains newly queued logs without microtask hang, and finishes cleanly on DB errors',
+  { timeout: 4000 },
+  async () => {
+    const okRes = await runStopScenarioInWorker('slow-ok', 800);
+    assert.equal(okRes.ok, true);
+    assert.deepEqual(okRes.insertBatchRowCounts, [1, 1]);
+
+    const errRes = await runStopScenarioInWorker('slow-db-error', 1000);
+    assert.equal(errRes.ok, true);
+    // 1st in-flight batch (1 item) + 2 batches for 125 queued items (100 + 25) = 3 attempts
+    assert.equal(errRes.attempts, 3);
+  },
+);

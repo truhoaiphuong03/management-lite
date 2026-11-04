@@ -42,8 +42,11 @@ BEGIN
   END IF;
 END $$;
 
+DROP TRIGGER IF EXISTS trg_print_order_cost_history_no_truncate ON print_order_cost_history;
+DROP TRIGGER IF EXISTS trg_print_order_cost_history_immutable ON print_order_cost_history;
 DROP INDEX IF EXISTS idx_print_order_cost_history_order;
 DROP TABLE IF EXISTS print_order_cost_history;
+DROP FUNCTION IF EXISTS prevent_print_order_cost_history_mutation();
 
 DROP INDEX IF EXISTS idx_print_orders_actual_confirmed;
 

@@ -2355,8 +2355,8 @@ ALTER TABLE print_orders
 
 CREATE TABLE IF NOT EXISTS print_order_cost_history (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  order_id uuid NOT NULL REFERENCES print_orders(id) ON DELETE CASCADE,
+  workspace_id uuid NOT NULL,
+  order_id uuid NOT NULL,
   action text NOT NULL CHECK (
     action IN (
       'ENTERED',
@@ -2370,8 +2370,71 @@ CREATE TABLE IF NOT EXISTS print_order_cost_history (
   after_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   note text NULL,
   changed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT fk_print_order_cost_history_workspace
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_print_order_cost_history_order
+    FOREIGN KEY (order_id) REFERENCES print_orders(id) ON DELETE RESTRICT
 );
+
+DO $$
+DECLARE
+  fk_rec record;
+BEGIN
+  FOR fk_rec IN
+    SELECT c.conname
+    FROM pg_constraint c
+    WHERE c.conrelid = 'print_order_cost_history'::regclass
+      AND c.contype = 'f'
+      AND c.confdeltype = 'c'
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE print_order_cost_history DROP CONSTRAINT %I',
+      fk_rec.conname
+    );
+  END LOOP;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'print_order_cost_history'::regclass
+      AND conname = 'fk_print_order_cost_history_workspace'
+  ) THEN
+    ALTER TABLE print_order_cost_history
+      ADD CONSTRAINT fk_print_order_cost_history_workspace
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'print_order_cost_history'::regclass
+      AND conname = 'fk_print_order_cost_history_order'
+  ) THEN
+    ALTER TABLE print_order_cost_history
+      ADD CONSTRAINT fk_print_order_cost_history_order
+      FOREIGN KEY (order_id) REFERENCES print_orders(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+-- DB Guard: print_order_cost_history is strictly append-only (prohibit UPDATE, DELETE, TRUNCATE)
+CREATE OR REPLACE FUNCTION prevent_print_order_cost_history_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'print_order_cost_history is append-only: % operation prohibited', TG_OP
+    USING ERRCODE = '23514';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_print_order_cost_history_immutable ON print_order_cost_history;
+CREATE TRIGGER trg_print_order_cost_history_immutable
+  BEFORE UPDATE OR DELETE ON print_order_cost_history
+  FOR EACH ROW EXECUTE FUNCTION prevent_print_order_cost_history_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_order_cost_history_no_truncate ON print_order_cost_history;
+CREATE TRIGGER trg_print_order_cost_history_no_truncate
+  BEFORE TRUNCATE ON print_order_cost_history
+  FOR EACH STATEMENT EXECUTE FUNCTION prevent_print_order_cost_history_mutation();
 
 DROP INDEX IF EXISTS idx_print_orders_actual_confirmed;
 
@@ -2381,6 +2444,8 @@ CREATE INDEX IF NOT EXISTS idx_print_orders_actual_confirmed
 CREATE INDEX IF NOT EXISTS idx_print_order_cost_history_order
   ON print_order_cost_history (workspace_id, order_id, created_at DESC);
 
+REVOKE ALL ON print_order_cost_history FROM PUBLIC;
+
 DO $$
 DECLARE
   r text;
@@ -2389,7 +2454,15 @@ BEGIN
   LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
       EXECUTE format(
-        'GRANT SELECT, INSERT, UPDATE, DELETE ON print_orders, print_order_cost_history TO %I',
+        'GRANT SELECT, INSERT, UPDATE ON print_orders TO %I',
+        r
+      );
+      EXECUTE format(
+        'REVOKE UPDATE, DELETE, TRUNCATE ON print_order_cost_history FROM %I',
+        r
+      );
+      EXECUTE format(
+        'GRANT SELECT, INSERT ON print_order_cost_history TO %I',
         r
       );
     END IF;

@@ -2,6 +2,8 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import crypto from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -820,5 +822,398 @@ describe('Codex QA Regressions — MGL-PRINTQUOTE DEV (Findings #1..#5)', () => 
         line.includes('Cannot use a pool after calling end on the pool'),
     );
     assert.deepEqual(flushFailures, []);
+  });
+
+  it('Finding #6 (e7e9e18 QA #2): Migration 0035 & migrate.mjs chỉ cấp SELECT, INSERT trên print_order_cost_history, chặn UPDATE/DELETE/TRUNCATE & cascade delete, vẫn chạy đủ luồng API dưới quyền hp_app_runtime và kiểm chứng rollback bảo toàn lịch sử', async () => {
+    const execFileAsync = promisify(execFile);
+    const dbConfig = loadTestDatabaseConfig();
+    const adminUrl = new URL(dbConfig.connectionString);
+    adminUrl.pathname = '/postgres';
+    const adminPool = createDatabasePool({
+      ...dbConfig,
+      connectionString: adminUrl.toString(),
+    });
+
+    const tempDbName = `mglite_cqa_priv0035_${crypto.randomUUID().slice(0, 8)}`;
+    await adminPool.query(`CREATE DATABASE "${tempDbName}"`);
+
+    const tempUrl = new URL(dbConfig.connectionString);
+    tempUrl.pathname = `/${tempDbName}`;
+    const tempPool = createDatabasePool({
+      ...dbConfig,
+      connectionString: tempUrl.toString(),
+    });
+
+    let runtimePool = null;
+    let runtimeServer = null;
+
+    try {
+      const allMigs = loadMigrationFiles(
+        path.join(REPO_ROOT, 'packages/database/src/migrations'),
+      );
+      const pre0035 = allMigs.filter((m) => !m.id.startsWith('0035_'));
+      await runMigrations(tempPool, pre0035);
+
+      // Ensure hp_app_runtime & hp_app_test exist on this cluster and hold baseline pre-0035 runtime grants
+      for (const roleName of ['hp_app_runtime', 'hp_app_test']) {
+        await tempPool.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${roleName}') THEN
+              CREATE ROLE ${roleName} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE;
+            END IF;
+          END $$;
+        `);
+        await tempPool.query(`
+          GRANT USAGE ON SCHEMA public TO ${roleName};
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${roleName};
+          REVOKE UPDATE, DELETE ON audit_events FROM ${roleName};
+          REVOKE UPDATE, DELETE ON issue_activity FROM ${roleName};
+          REVOKE ALL ON schema_migrations FROM ${roleName};
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${roleName};
+        `);
+      }
+
+      // Run the real migration CLI (applies 0035 + post-migration role grants in scripts/migrate.mjs)
+      await execFileAsync(process.execPath, ['scripts/migrate.mjs'], {
+        cwd: REPO_ROOT,
+        env: {
+          ...process.env,
+          DATABASE_URL: tempUrl.toString(),
+        },
+      });
+
+      // 1. Verify least-privilege grants on print_order_cost_history & required grants on print_orders
+      for (const roleName of ['hp_app_runtime', 'hp_app_test']) {
+        const privRes = await tempPool.query(
+          `SELECT
+             has_table_privilege($1, 'print_order_cost_history', 'SELECT') AS hist_select,
+             has_table_privilege($1, 'print_order_cost_history', 'INSERT') AS hist_insert,
+             has_table_privilege($1, 'print_order_cost_history', 'UPDATE') AS hist_update,
+             has_table_privilege($1, 'print_order_cost_history', 'DELETE') AS hist_delete,
+             has_table_privilege($1, 'print_order_cost_history', 'TRUNCATE') AS hist_truncate,
+             has_table_privilege($1, 'print_orders', 'SELECT') AS ord_select,
+             has_table_privilege($1, 'print_orders', 'INSERT') AS ord_insert,
+             has_table_privilege($1, 'print_orders', 'UPDATE') AS ord_update`,
+          [roleName],
+        );
+        const p = privRes.rows[0];
+        assert.equal(
+          p.hist_select,
+          true,
+          `${roleName} must have SELECT on print_order_cost_history`,
+        );
+        assert.equal(
+          p.hist_insert,
+          true,
+          `${roleName} must have INSERT on print_order_cost_history`,
+        );
+        assert.equal(
+          p.hist_update,
+          false,
+          `${roleName} MUST NOT have UPDATE on print_order_cost_history`,
+        );
+        assert.equal(
+          p.hist_delete,
+          false,
+          `${roleName} MUST NOT have DELETE on print_order_cost_history`,
+        );
+        assert.equal(
+          p.hist_truncate,
+          false,
+          `${roleName} MUST NOT have TRUNCATE on print_order_cost_history`,
+        );
+        assert.equal(
+          p.ord_select,
+          true,
+          `${roleName} must keep SELECT on print_orders`,
+        );
+        assert.equal(
+          p.ord_insert,
+          true,
+          `${roleName} must keep INSERT on print_orders`,
+        );
+        assert.equal(
+          p.ord_update,
+          true,
+          `${roleName} must keep UPDATE on print_orders`,
+        );
+      }
+
+      // 2. Test clean rollback + idempotent re-apply BEFORE inserting audit history rows
+      const rollbackSql = await fs.readFile(
+        path.join(
+          REPO_ROOT,
+          'scripts/db/rollback-0035-printquote-financial-control-gate.sql',
+        ),
+        'utf8',
+      );
+      await tempPool.query(rollbackSql);
+      await execFileAsync(process.execPath, ['scripts/migrate.mjs'], {
+        cwd: REPO_ROOT,
+        env: {
+          ...process.env,
+          DATABASE_URL: tempUrl.toString(),
+        },
+      });
+
+      // Re-verify privileges remain strict after rollback + re-migrate
+      const recheckPriv = await tempPool.query(
+        `SELECT
+           has_table_privilege('hp_app_runtime', 'print_order_cost_history', 'UPDATE') AS rt_upd,
+           has_table_privilege('hp_app_runtime', 'print_order_cost_history', 'DELETE') AS rt_del,
+           has_table_privilege('hp_app_test', 'print_order_cost_history', 'UPDATE') AS tst_upd,
+           has_table_privilege('hp_app_test', 'print_order_cost_history', 'DELETE') AS tst_del`,
+      );
+      assert.deepEqual(recheckPriv.rows[0], {
+        rt_upd: false,
+        rt_del: false,
+        tst_upd: false,
+        tst_del: false,
+      });
+
+      // 3. Seed workspace + owner session, then boot API executing EVERY query as hp_app_runtime
+      const rtShort = crypto.randomUUID().slice(0, 8);
+      const rtWsId = crypto.randomUUID();
+      const rtOwnerId = crypto.randomUUID();
+      const rtSessionId = crypto.randomUUID();
+      const rtRawToken = `priv-rt-${crypto.randomUUID()}`;
+      const rtTokenHash = hashToken(rtRawToken);
+      const rtCsrf = generateCsrfToken(rtTokenHash, CSRF_SECRET);
+      const rtCookie = `mglite_session=${rtRawToken}`;
+
+      await tempPool.query(
+        `INSERT INTO workspaces (id, name, timezone, status)
+         VALUES ($1, 'QA Priv WS', 'Asia/Ho_Chi_Minh', 'active')`,
+        [rtWsId],
+      );
+      await tempPool.query(
+        `INSERT INTO users (id, username_normalized, email_normalized, status)
+         VALUES ($1, $2, $3, 'active')`,
+        [rtOwnerId, `priv_owner_${rtShort}`, `priv_owner_${rtShort}@qa.local`],
+      );
+      await tempPool.query(
+        `INSERT INTO user_credentials (user_id, password_hash, credential_version)
+         VALUES ($1, 'argon2id$stub', 1)`,
+        [rtOwnerId],
+      );
+      await tempPool.query(
+        `INSERT INTO workspace_memberships (id, workspace_id, user_id, role, status)
+         VALUES ($1, $2, $3, 'owner', 'active')`,
+        [crypto.randomUUID(), rtWsId, rtOwnerId],
+      );
+      await tempPool.query(
+        `INSERT INTO user_workspace_bindings (user_id, workspace_id, status, version)
+         VALUES ($1, $2, 'active', 1)`,
+        [rtOwnerId, rtWsId],
+      );
+      await tempPool.query(
+        `INSERT INTO auth_sessions (
+           id, workspace_id, user_id, session_token_hash,
+           credential_version_at_issue, idle_expires_at, absolute_expires_at, remember_me
+         ) VALUES ($1, $2, $3, $4, 1, now() + interval '4 hours', now() + interval '24 hours', false)`,
+        [rtSessionId, rtWsId, rtOwnerId, rtTokenHash],
+      );
+
+      const rawRuntimePool = createDatabasePool({
+        ...dbConfig,
+        connectionString: tempUrl.toString(),
+      });
+      runtimePool = {
+        async query(sql, params) {
+          const client = await rawRuntimePool.connect();
+          try {
+            await client.query('SET SESSION AUTHORIZATION hp_app_runtime');
+            return await client.query(sql, params);
+          } finally {
+            client.release();
+          }
+        },
+        async connect() {
+          const client = await rawRuntimePool.connect();
+          await client.query('SET SESSION AUTHORIZATION hp_app_runtime');
+          return client;
+        },
+        async end() {
+          await rawRuntimePool.end();
+        },
+      };
+
+      const whoRes = await runtimePool.query(
+        `SELECT current_user AS cur, session_user AS sess`,
+      );
+      assert.equal(whoRes.rows[0].cur, 'hp_app_runtime');
+      assert.equal(whoRes.rows[0].sess, 'hp_app_runtime');
+
+      const rtHandler = createRequestHandler({
+        pool: runtimePool,
+        csrfSecret: CSRF_SECRET,
+        allowedOrigins: [ALLOWED_ORIGIN],
+        isProduction: false,
+      });
+      runtimeServer = http.createServer(rtHandler);
+      await new Promise((resolve) =>
+        runtimeServer.listen(0, '127.0.0.1', resolve),
+      );
+      const rtBaseUrl = `http://127.0.0.1:${runtimeServer.address().port}`;
+
+      // Execute full PrintQuote lifecycle as hp_app_runtime
+      const rtQuoteId = await createApprovedQuoteAndId(
+        rtBaseUrl,
+        rtCookie,
+        rtCsrf,
+        'Đơn kiểm thử quyền hp_app_runtime',
+      );
+      const createOrdRes = await apiRequest(
+        rtBaseUrl,
+        'POST',
+        '/api/v1/print-quotes/orders',
+        {
+          cookie: rtCookie,
+          csrfToken: rtCsrf,
+          idempotencyKey: `idem-priv-create-${crypto.randomUUID()}`,
+          body: { quote_id: rtQuoteId },
+        },
+      );
+      assert.equal(createOrdRes.status, 201);
+      const createdOrder = createOrdRes.body.data;
+
+      const enterRes = await apiRequest(
+        rtBaseUrl,
+        'PATCH',
+        `/api/v1/print-quotes/orders/${createdOrder.id}`,
+        {
+          cookie: rtCookie,
+          csrfToken: rtCsrf,
+          idempotencyKey: `idem-priv-enter-${crypto.randomUUID()}`,
+          body: {
+            actual_vendor_cost: 305_000,
+            cost_note: 'Nhập tạm dưới hp_app_runtime',
+          },
+        },
+      );
+      assert.equal(enterRes.status, 200);
+
+      const confirmRes = await apiRequest(
+        rtBaseUrl,
+        'PATCH',
+        `/api/v1/print-quotes/orders/${createdOrder.id}`,
+        {
+          cookie: rtCookie,
+          csrfToken: rtCsrf,
+          idempotencyKey: `idem-priv-confirm-${crypto.randomUUID()}`,
+          body: {
+            actual_cost_confirmed: true,
+            actual_vendor_cost: 305_000,
+            actual_shipping_fee: 30_000,
+            actual_extra_cost: 0,
+            vendor_paid_amount: 150_000,
+            cost_note: 'Xác nhận đủ 3 khoản dưới hp_app_runtime',
+          },
+        },
+      );
+      assert.equal(confirmRes.status, 200);
+      assert.equal(confirmRes.body.data.actual_cost_confirmed, true);
+
+      const unconfirmRes = await apiRequest(
+        rtBaseUrl,
+        'PATCH',
+        `/api/v1/print-quotes/orders/${createdOrder.id}`,
+        {
+          cookie: rtCookie,
+          csrfToken: rtCsrf,
+          idempotencyKey: `idem-priv-unconfirm-${crypto.randomUUID()}`,
+          body: {
+            actual_cost_confirmed: false,
+            cost_note: 'Mở khóa kiểm tra lại dưới hp_app_runtime',
+          },
+        },
+      );
+      assert.equal(unconfirmRes.status, 200);
+      assert.equal(unconfirmRes.body.data.cost_history.length, 4);
+
+      const historyId = unconfirmRes.body.data.cost_history[0].id;
+
+      // 4. Verify hp_app_runtime CANNOT UPDATE, DELETE, TRUNCATE print_order_cost_history or cascade-delete order
+      await assert.rejects(
+        () =>
+          runtimePool.query(
+            `UPDATE print_order_cost_history SET note = 'tampered' WHERE id = $1`,
+            [historyId],
+          ),
+        /permission denied|append-only/i,
+      );
+      await assert.rejects(
+        () =>
+          runtimePool.query(
+            `DELETE FROM print_order_cost_history WHERE id = $1`,
+            [historyId],
+          ),
+        /permission denied|append-only/i,
+      );
+      await assert.rejects(
+        () => runtimePool.query(`TRUNCATE print_order_cost_history`),
+        /permission denied|append-only/i,
+      );
+      await assert.rejects(
+        () =>
+          runtimePool.query(`DELETE FROM print_orders WHERE id = $1`, [
+            createdOrder.id,
+          ]),
+        /fk_print_order_cost_history_order|violates.*foreign key constraint|permission denied/i,
+      );
+
+      // 5. Even DB owner/superuser CANNOT UPDATE, DELETE, TRUNCATE print_order_cost_history or delete parent order
+      await assert.rejects(
+        () =>
+          tempPool.query(
+            `UPDATE print_order_cost_history SET note = 'owner-tamper' WHERE id = $1`,
+            [historyId],
+          ),
+        /print_order_cost_history is append-only/i,
+      );
+      await assert.rejects(
+        () =>
+          tempPool.query(`DELETE FROM print_order_cost_history WHERE id = $1`, [
+            historyId,
+          ]),
+        /print_order_cost_history is append-only/i,
+      );
+      await assert.rejects(
+        () => tempPool.query(`TRUNCATE print_order_cost_history`),
+        /print_order_cost_history is append-only/i,
+      );
+      await assert.rejects(
+        () =>
+          tempPool.query(`DELETE FROM print_orders WHERE id = $1`, [
+            createdOrder.id,
+          ]),
+        /fk_print_order_cost_history_order|violates.*foreign key constraint/i,
+      );
+
+      // 6. Rollback MUST block fail-closed and preserve 100% of history rows
+      await assert.rejects(
+        () => tempPool.query(rollbackSql),
+        /ROLLBACK_BLOCKED/,
+      );
+      const countAfterBlockedRollback = await tempPool.query(
+        `SELECT COUNT(*)::int AS cnt FROM print_order_cost_history WHERE order_id = $1`,
+        [createdOrder.id],
+      );
+      assert.equal(countAfterBlockedRollback.rows[0].cnt, 4);
+    } finally {
+      if (runtimeServer) {
+        runtimeServer.closeAllConnections?.();
+        await new Promise((resolve) => runtimeServer.close(resolve));
+      }
+      if (runtimePool) await runtimePool.end();
+      await tempPool.end();
+      await adminPool.query(
+        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,
+        [tempDbName],
+      );
+      await adminPool.query(`DROP DATABASE IF EXISTS "${tempDbName}"`);
+      await adminPool.end();
+    }
   });
 });

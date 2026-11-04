@@ -77,7 +77,11 @@ export function assertSafePrintQuoteE2ETarget(env = process.env) {
   return dbConfig;
 }
 
-async function verifyAndResetPrintQuoteTablesInTestDb(pool, env = process.env) {
+async function verifyAndResetPrintQuoteTablesInTestDb(
+  pool,
+  env = process.env,
+  workspaceId = null,
+) {
   const dbConfig = assertSafePrintQuoteE2ETarget(env);
 
   const identityRes = await pool.query(
@@ -115,6 +119,42 @@ async function verifyAndResetPrintQuoteTablesInTestDb(pool, env = process.env) {
 
   assertSafeTestDatabase(dbConfig, env);
 
+  if (workspaceId) {
+    await pool.query(
+      `DELETE FROM print_order_payments WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+    await pool.query(`DELETE FROM print_orders WHERE workspace_id = $1`, [
+      workspaceId,
+    ]);
+    await pool.query(
+      `DELETE FROM print_quote_versions WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+    await pool.query(`DELETE FROM print_quotes WHERE workspace_id = $1`, [
+      workspaceId,
+    ]);
+    await pool.query(
+      `DELETE FROM print_vendor_price_item_history WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+    await pool.query(
+      `DELETE FROM print_vendor_price_items WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+    await pool.query(`DELETE FROM print_customers WHERE workspace_id = $1`, [
+      workspaceId,
+    ]);
+    await pool.query(`DELETE FROM print_vendors WHERE workspace_id = $1`, [
+      workspaceId,
+    ]);
+    await pool.query(
+      `DELETE FROM print_code_counters WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+    return;
+  }
+
   await pool.query(`
     DELETE FROM print_order_payments;
     DELETE FROM print_orders;
@@ -131,24 +171,12 @@ async function verifyAndResetPrintQuoteTablesInTestDb(pool, env = process.env) {
 async function ensureIsolatedTestOwner(pool, testOwnerPassword) {
   const passwordHash = await hashPassword(testOwnerPassword);
 
-  const wsRes = await pool.query(
-    `SELECT id FROM workspaces WHERE status = 'active' ORDER BY created_at ASC LIMIT 1`,
+  const workspaceId = crypto.randomUUID();
+  await pool.query(
+    `INSERT INTO workspaces (id, name, timezone, status)
+     VALUES ($1, 'Hoài Phương Media', 'Asia/Ho_Chi_Minh', 'active')`,
+    [workspaceId],
   );
-  let workspaceId;
-  if (wsRes.rows.length > 0) {
-    workspaceId = wsRes.rows[0].id;
-    await pool.query(
-      `UPDATE workspaces SET name = 'Hoài Phương Media' WHERE id = $1`,
-      [workspaceId],
-    );
-  } else {
-    workspaceId = crypto.randomUUID();
-    await pool.query(
-      `INSERT INTO workspaces (id, name, timezone, status)
-       VALUES ($1, 'Hoài Phương Media', 'Asia/Ho_Chi_Minh', 'active')`,
-      [workspaceId],
-    );
-  }
 
   const userRes = await pool.query(
     `SELECT id FROM users WHERE username_normalized = 'owner' LIMIT 1`,
@@ -229,6 +257,8 @@ async function ensureIsolatedTestOwner(pool, testOwnerPassword) {
       [crypto.randomUUID(), workspaceId, ownerUserId],
     );
   }
+
+  return workspaceId;
 }
 
 const MIME_BY_EXT = {
@@ -519,8 +549,15 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       pool,
       loadMigrationFiles('packages/database/src/migrations'),
     );
-    await ensureIsolatedTestOwner(pool, testOwnerPassword);
-    await verifyAndResetPrintQuoteTablesInTestDb(pool, runtimeEnv);
+    const e2eWorkspaceId = await ensureIsolatedTestOwner(
+      pool,
+      testOwnerPassword,
+    );
+    await verifyAndResetPrintQuoteTablesInTestDb(
+      pool,
+      runtimeEnv,
+      e2eWorkspaceId,
+    );
 
     let targetWebUrl = runtimeEnv.QA_WEB_URL?.trim();
     if (!targetWebUrl) {
