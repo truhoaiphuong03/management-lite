@@ -27,6 +27,7 @@ import {
   assertCustomerSafePdfPayload,
   verifyQuoteSnapshotIntegrity,
   buildQuoteLineFromVendorCatalogItem,
+  evaluateCatalogBatchQuantityCondition,
   type ProfitModeType,
   type ProfitScopeType,
   type VendorCostModeType,
@@ -198,6 +199,11 @@ function parseAreaSpecInput(rawArea: unknown): QuoteAreaSpecInput | null {
     billableRaw !== undefined && billableRaw !== null && billableRaw !== ''
       ? toNum(billableRaw, -1)
       : undefined;
+  const reasonRaw = obj['adjustmentReason'] ?? obj['adjustment_reason'];
+  const adjustmentReason =
+    typeof reasonRaw === 'string' && reasonRaw.trim()
+      ? reasonRaw.trim()
+      : undefined;
 
   if (mode === AreaInputMode.DIRECT_AREA) {
     const actualRaw = obj['actualAreaSqm'] ?? obj['actual_area_sqm'];
@@ -205,6 +211,7 @@ function parseAreaSpecInput(rawArea: unknown): QuoteAreaSpecInput | null {
       mode: AreaInputMode.DIRECT_AREA,
       actualAreaSqm: toNum(actualRaw, -1),
       ...(billableAreaSqm !== undefined ? { billableAreaSqm } : {}),
+      ...(adjustmentReason !== undefined ? { adjustmentReason } : {}),
     };
   }
 
@@ -222,6 +229,7 @@ function parseAreaSpecInput(rawArea: unknown): QuoteAreaSpecInput | null {
     heightM,
     ...(sheetsCount !== undefined ? { sheetsCount } : {}),
     ...(billableAreaSqm !== undefined ? { billableAreaSqm } : {}),
+    ...(adjustmentReason !== undefined ? { adjustmentReason } : {}),
   };
 }
 
@@ -1588,6 +1596,21 @@ export class PrintQuoteService {
           vendorId: l.vendorId ?? null,
           vendorName: l.vendorName ?? null,
           vendorPriceItemId: l.vendorPriceItemId ?? null,
+          ...(l.vendorPriceItemCode !== undefined
+            ? { vendorPriceItemCode: l.vendorPriceItemCode }
+            : {}),
+          ...(l.vendorPriceItemVersion !== undefined
+            ? { vendorPriceItemVersion: l.vendorPriceItemVersion }
+            : {}),
+          ...(l.catalogOriginalRate !== undefined
+            ? { catalogOriginalRate: l.catalogOriginalRate }
+            : {}),
+          ...(l.catalogBatchQuantity !== undefined
+            ? { catalogBatchQuantity: l.catalogBatchQuantity }
+            : {}),
+          ...(l.priceAppliedAt !== undefined
+            ? { priceAppliedAt: l.priceAppliedAt }
+            : {}),
           unit: l.unit,
           quantity: l.quantity,
           vendorCostMode: l.vendorCostMode ?? VendorCostMode.PER_UNIT,
@@ -1615,6 +1638,9 @@ export class PrintQuoteService {
                 sheetsCount: l.areaSpec.sheetsCount,
                 actualAreaSqm: l.areaSpec.actualAreaSqm,
                 billableAreaSqm: l.areaSpec.billableAreaSqm,
+                ...(l.areaSpec.adjustmentReason
+                  ? { adjustmentReason: l.areaSpec.adjustmentReason }
+                  : {}),
               }
             : null,
           finishingStages: (l.finishingStages ?? []).map(
@@ -1622,6 +1648,20 @@ export class PrintQuoteService {
               id: s.id,
               priceItemId: s.priceItemId ?? null,
               code: s.code ?? null,
+              ...(s.priceItemVersion !== undefined
+                ? { priceItemVersion: s.priceItemVersion }
+                : {}),
+              ...(s.vendorId !== undefined ? { vendorId: s.vendorId } : {}),
+              ...(s.vendorName !== undefined
+                ? { vendorName: s.vendorName }
+                : {}),
+              ...(s.catalogOriginalRate !== undefined
+                ? { catalogOriginalRate: s.catalogOriginalRate }
+                : {}),
+              ...(s.catalogBatchQuantity !== undefined
+                ? { catalogBatchQuantity: s.catalogBatchQuantity }
+                : {}),
+              ...(s.appliedAt !== undefined ? { appliedAt: s.appliedAt } : {}),
               name: s.name,
               pricingMode: s.pricingMode,
               rate: s.rate,
@@ -1663,6 +1703,21 @@ export class PrintQuoteService {
           vendorId: l.vendorId ?? null,
           vendorName: l.vendorName ?? null,
           vendorPriceItemId: l.vendorPriceItemId ?? null,
+          ...(l.vendorPriceItemCode !== undefined
+            ? { vendorPriceItemCode: l.vendorPriceItemCode }
+            : {}),
+          ...(l.vendorPriceItemVersion !== undefined
+            ? { vendorPriceItemVersion: l.vendorPriceItemVersion }
+            : {}),
+          ...(l.catalogOriginalRate !== undefined
+            ? { catalogOriginalRate: l.catalogOriginalRate }
+            : {}),
+          ...(l.catalogBatchQuantity !== undefined
+            ? { catalogBatchQuantity: l.catalogBatchQuantity }
+            : {}),
+          ...(l.priceAppliedAt !== undefined
+            ? { priceAppliedAt: l.priceAppliedAt }
+            : {}),
           unit: l.unit,
           quantity: l.quantity,
           vendorCostMode: l.vendorCostMode ?? VendorCostMode.PER_UNIT,
@@ -1688,6 +1743,9 @@ export class PrintQuoteService {
                 sheetsCount: l.areaSpec.sheetsCount,
                 actualAreaSqm: l.areaSpec.actualAreaSqm,
                 billableAreaSqm: l.areaSpec.billableAreaSqm,
+                ...(l.areaSpec.adjustmentReason
+                  ? { adjustmentReason: l.areaSpec.adjustmentReason }
+                  : {}),
               }
             : null,
           finishingStages: (l.finishingStages ?? []).map(
@@ -1695,6 +1753,20 @@ export class PrintQuoteService {
               id: s.id,
               priceItemId: s.priceItemId ?? null,
               code: s.code ?? null,
+              ...(s.priceItemVersion !== undefined
+                ? { priceItemVersion: s.priceItemVersion }
+                : {}),
+              ...(s.vendorId !== undefined ? { vendorId: s.vendorId } : {}),
+              ...(s.vendorName !== undefined
+                ? { vendorName: s.vendorName }
+                : {}),
+              ...(s.catalogOriginalRate !== undefined
+                ? { catalogOriginalRate: s.catalogOriginalRate }
+                : {}),
+              ...(s.catalogBatchQuantity !== undefined
+                ? { catalogBatchQuantity: s.catalogBatchQuantity }
+                : {}),
+              ...(s.appliedAt !== undefined ? { appliedAt: s.appliedAt } : {}),
               name: s.name,
               pricingMode: s.pricingMode,
               rate: typeof s.rate === 'number' ? s.rate : 0,
@@ -1720,6 +1792,21 @@ export class PrintQuoteService {
         vendorId: l.vendorId ?? null,
         vendorName: l.vendorName ?? null,
         vendorPriceItemId: l.vendorPriceItemId ?? null,
+        ...(l.vendorPriceItemCode !== undefined
+          ? { vendorPriceItemCode: l.vendorPriceItemCode }
+          : {}),
+        ...(l.vendorPriceItemVersion !== undefined
+          ? { vendorPriceItemVersion: l.vendorPriceItemVersion }
+          : {}),
+        ...(l.catalogOriginalRate !== undefined
+          ? { catalogOriginalRate: l.catalogOriginalRate }
+          : {}),
+        ...(l.catalogBatchQuantity !== undefined
+          ? { catalogBatchQuantity: l.catalogBatchQuantity }
+          : {}),
+        ...(l.priceAppliedAt !== undefined
+          ? { priceAppliedAt: l.priceAppliedAt }
+          : {}),
         unit: l.unit,
         quantity: l.quantity,
         profit: {
@@ -1830,6 +1917,8 @@ export class PrintQuoteService {
         raw['base_cost_pending'] === true ||
         raw['baseCostRate'] !== undefined ||
         raw['base_cost_rate'] !== undefined ||
+        raw['baseCostSource'] !== undefined ||
+        raw['base_cost_source'] !== undefined ||
         raw['unitVendorCost'] === null ||
         raw['unit_vendor_cost'] === null ||
         raw['unitVendorCost'] === '' ||
@@ -1851,6 +1940,8 @@ export class PrintQuoteService {
         anyExtended = true;
       }
     }
+
+    const appliedAtIso = new Date().toISOString();
 
     if (!anyExtended) {
       // Legacy V1/V2 fast path (preserves exact snapshot hash & error messages)
@@ -1888,6 +1979,24 @@ export class PrintQuoteService {
           raw['total_vendor_cost'] === undefined
         ) {
           const mappedCat = await loadCatalogItem(vendorPriceItemId);
+          const batchCond = evaluateCatalogBatchQuantityCondition({
+            itemName: mappedCat.name,
+            itemCode: mappedCat.code,
+            itemType: mappedCat.item_type,
+            pricingMode: mappedCat.pricing_mode,
+            batchQuantity: mappedCat.batch_quantity,
+            structuredSpec: mappedCat.structured_spec,
+            costSource: LineCostSource.CATALOG,
+            lineQuantity: quantity,
+            unit: mappedCat.unit,
+          });
+          if (!batchCond.allowed) {
+            throw new AuthError(
+              'BATCH_QUANTITY_MISMATCH',
+              batchCond.reason!,
+              409,
+            );
+          }
           const rawProfit = raw['profit'] as
             Record<string, unknown> | undefined;
           const explicitProfitVal =
@@ -1918,45 +2027,55 @@ export class PrintQuoteService {
               : undefined;
 
           const catalogPricingMode: VendorCostModeType = mappedCat.pricing_mode;
-
-          lines.push(
-            buildQuoteLineFromVendorCatalogItem(
-              {
-                id: mappedCat.id,
-                vendorId: mappedCat.vendor_id,
-                vendorName: mappedCat.vendor_name,
-                code: mappedCat.code,
-                name:
-                  typeof raw['name'] === 'string' && raw['name'].trim()
-                    ? raw['name'].trim()
-                    : mappedCat.name,
-                specification:
-                  typeof raw['specification'] === 'string'
-                    ? raw['specification'].trim()
-                    : (mappedCat.specification ?? ''),
-                unit:
-                  typeof raw['unit'] === 'string' && raw['unit'].trim()
-                    ? raw['unit'].trim()
-                    : mappedCat.unit,
-                pricingMode: catalogPricingMode,
-                unitCost: mappedCat.unit_cost,
-                batchQuantity: mappedCat.batch_quantity,
-                batchTotalCost: mappedCat.batch_total_cost,
-                defaultProfitMode: mappedCat.default_profit_mode,
-                defaultProfitScope: mappedCat.default_profit_scope,
-                defaultProfitValue: mappedCat.default_profit_value,
-              },
-              {
-                lineId,
-                quantity,
-                ...(profitOverride ? { profitOverride } : {}),
-                extraCost: Math.max(
-                  0,
-                  toInt(raw['extraCost'] ?? raw['extra_cost'], 0),
-                ),
-              },
-            ),
+          const builtLine = buildQuoteLineFromVendorCatalogItem(
+            {
+              id: mappedCat.id,
+              vendorId: mappedCat.vendor_id,
+              vendorName: mappedCat.vendor_name,
+              code: mappedCat.code,
+              name:
+                typeof raw['name'] === 'string' && raw['name'].trim()
+                  ? raw['name'].trim()
+                  : mappedCat.name,
+              specification:
+                typeof raw['specification'] === 'string'
+                  ? raw['specification'].trim()
+                  : (mappedCat.specification ?? ''),
+              unit:
+                typeof raw['unit'] === 'string' && raw['unit'].trim()
+                  ? raw['unit'].trim()
+                  : mappedCat.unit,
+              pricingMode: catalogPricingMode,
+              unitCost: mappedCat.unit_cost,
+              batchQuantity: mappedCat.batch_quantity,
+              batchTotalCost: mappedCat.batch_total_cost,
+              defaultProfitMode: mappedCat.default_profit_mode,
+              defaultProfitScope: mappedCat.default_profit_scope,
+              defaultProfitValue: mappedCat.default_profit_value,
+            },
+            {
+              lineId,
+              quantity,
+              ...(profitOverride ? { profitOverride } : {}),
+              extraCost: Math.max(
+                0,
+                toInt(raw['extraCost'] ?? raw['extra_cost'], 0),
+              ),
+            },
           );
+          builtLine.vendorPriceItemCode = mappedCat.code;
+          builtLine.vendorPriceItemVersion = mappedCat.version;
+          builtLine.catalogOriginalRate =
+            catalogPricingMode === VendorCostMode.TOTAL_BATCH
+              ? mappedCat.batch_total_cost
+              : mappedCat.unit_cost;
+          builtLine.catalogBatchQuantity =
+            catalogPricingMode === VendorCostMode.TOTAL_BATCH
+              ? mappedCat.batch_quantity
+              : null;
+          builtLine.priceAppliedAt = appliedAtIso;
+
+          lines.push(builtLine);
           costModes.push(catalogPricingMode);
           continue;
         }
@@ -2064,6 +2183,53 @@ export class PrintQuoteService {
             0,
             toInt(raw['totalVendorCost'] ?? raw['total_vendor_cost'], 0),
           );
+        }
+
+        if (vendorPriceItemId) {
+          const mappedCat = await loadCatalogItem(vendorPriceItemId);
+          const catOrigRate =
+            mappedCat.pricing_mode === VendorCostMode.TOTAL_BATCH
+              ? mappedCat.batch_total_cost
+              : mappedCat.unit_cost;
+          const submittedRate =
+            resolvedCostMode === VendorCostMode.TOTAL_BATCH
+              ? lineItem.totalVendorCost
+              : lineItem.unitVendorCost;
+          const inferredSource =
+            submittedRate !== undefined &&
+            submittedRate === catOrigRate &&
+            (resolvedCostMode === undefined ||
+              resolvedCostMode === mappedCat.pricing_mode)
+              ? LineCostSource.CATALOG
+              : LineCostSource.CATALOG_OVERRIDDEN;
+          if (resolvedCostMode === VendorCostMode.TOTAL_BATCH) {
+            const batchCond = evaluateCatalogBatchQuantityCondition({
+              itemName: mappedCat.name,
+              itemCode: mappedCat.code,
+              itemType: mappedCat.item_type,
+              pricingMode: mappedCat.pricing_mode,
+              batchQuantity: mappedCat.batch_quantity,
+              structuredSpec: mappedCat.structured_spec,
+              costSource: inferredSource,
+              lineQuantity: quantity,
+              unit: lineItem.unit,
+            });
+            if (!batchCond.allowed) {
+              throw new AuthError(
+                'BATCH_QUANTITY_MISMATCH',
+                batchCond.reason!,
+                409,
+              );
+            }
+          }
+          lineItem.vendorPriceItemCode = mappedCat.code;
+          lineItem.vendorPriceItemVersion = mappedCat.version;
+          lineItem.catalogOriginalRate = catOrigRate;
+          lineItem.catalogBatchQuantity =
+            mappedCat.pricing_mode === VendorCostMode.TOTAL_BATCH
+              ? mappedCat.batch_quantity
+              : null;
+          lineItem.priceAppliedAt = appliedAtIso;
         }
 
         lines.push(lineItem);
@@ -2207,6 +2373,34 @@ export class PrintQuoteService {
           : (mappedCat?.unit ??
             (vendorCostMode === VendorCostMode.PER_SQM ? 'm²' : 'tờ'));
 
+      const catBaseOriginalRate = mappedCat
+        ? mappedCat.pricing_mode === VendorCostMode.TOTAL_BATCH
+          ? mappedCat.batch_total_cost
+          : mappedCat.unit_cost
+        : null;
+
+      if (mappedCat && vendorCostMode === VendorCostMode.TOTAL_BATCH) {
+        const baseBatchCond = evaluateCatalogBatchQuantityCondition({
+          itemName: mappedCat.name,
+          itemCode: mappedCat.code,
+          itemType: mappedCat.item_type,
+          pricingMode: mappedCat.pricing_mode,
+          batchQuantity: mappedCat.batch_quantity,
+          structuredSpec: mappedCat.structured_spec,
+          costSource:
+            baseCostRate === null ? LineCostSource.MANUAL : baseCostSource,
+          lineQuantity: quantity,
+          unit,
+        });
+        if (!baseBatchCond.allowed) {
+          throw new AuthError(
+            'BATCH_QUANTITY_MISMATCH',
+            baseBatchCond.reason!,
+            409,
+          );
+        }
+      }
+
       const areaSpec = parseAreaSpecInput(raw['areaSpec'] ?? raw['area_spec']);
 
       const rawStagesArr = Array.isArray(
@@ -2308,18 +2502,60 @@ export class PrintQuoteService {
             ? toNum(rawStgArea, -1)
             : null;
 
+        const stgUnit =
+          typeof stgRaw['unit'] === 'string' && stgRaw['unit'].trim()
+            ? stgRaw['unit'].trim()
+            : (stgCat?.unit ??
+              (stgMode === VendorCostMode.PER_SQM ? 'm²' : unit));
+        const stgCatOrigRate = stgCat
+          ? stgCat.pricing_mode === VendorCostMode.TOTAL_BATCH
+            ? stgCat.batch_total_cost
+            : stgCat.unit_cost
+          : null;
+
+        if (stgCat && stgMode === VendorCostMode.TOTAL_BATCH) {
+          const stgBatchCond = evaluateCatalogBatchQuantityCondition({
+            itemName: stgCat.name,
+            itemCode: stgCat.code,
+            itemType: stgCat.item_type,
+            pricingMode: stgCat.pricing_mode,
+            batchQuantity: stgCat.batch_quantity,
+            structuredSpec: stgCat.structured_spec,
+            costSource:
+              stgRate === null ? LineCostSource.MANUAL : stgCostSource,
+            lineQuantity: quantity,
+            unit: unit,
+          });
+          if (!stgBatchCond.allowed) {
+            throw new AuthError(
+              'BATCH_QUANTITY_MISMATCH',
+              stgBatchCond.reason!,
+              409,
+            );
+          }
+        }
+
         resolvedStages.push({
           id: stgId,
           priceItemId: stgPriceItemId,
           code: stgCat?.code ?? null,
+          ...(stgCat
+            ? {
+                priceItemVersion: stgCat.version,
+                vendorId: stgCat.vendor_id,
+                vendorName: stgCat.vendor_name,
+                catalogOriginalRate: stgCatOrigRate,
+                catalogBatchQuantity:
+                  stgCat.pricing_mode === VendorCostMode.TOTAL_BATCH
+                    ? stgCat.batch_quantity
+                    : null,
+                appliedAt: appliedAtIso,
+              }
+            : {}),
           name: stgName,
           pricingMode: stgMode,
           rate: stgRate,
-          unit:
-            typeof stgRaw['unit'] === 'string' && stgRaw['unit'].trim()
-              ? stgRaw['unit'].trim()
-              : (stgCat?.unit ??
-                (stgMode === VendorCostMode.PER_SQM ? 'm²' : unit)),
+          unit: stgUnit,
           billableAreaSqm: stgBillableArea,
           costSource: stgCostSource,
           note:
@@ -2375,6 +2611,18 @@ export class PrintQuoteService {
               ? raw['vendorName'].trim()
               : (mappedCat?.vendor_name ?? null),
         vendorPriceItemId,
+        ...(mappedCat
+          ? {
+              vendorPriceItemCode: mappedCat.code,
+              vendorPriceItemVersion: mappedCat.version,
+              catalogOriginalRate: catBaseOriginalRate,
+              catalogBatchQuantity:
+                mappedCat.pricing_mode === VendorCostMode.TOTAL_BATCH
+                  ? mappedCat.batch_quantity
+                  : null,
+              priceAppliedAt: appliedAtIso,
+            }
+          : {}),
         unit,
         quantity,
         vendorCostMode,
@@ -2418,6 +2666,21 @@ export class PrintQuoteService {
       vendorId: dl.vendorId ?? null,
       vendorName: dl.vendorName ?? null,
       vendorPriceItemId: dl.vendorPriceItemId ?? null,
+      ...(dl.vendorPriceItemCode !== undefined
+        ? { vendorPriceItemCode: dl.vendorPriceItemCode }
+        : {}),
+      ...(dl.vendorPriceItemVersion !== undefined
+        ? { vendorPriceItemVersion: dl.vendorPriceItemVersion }
+        : {}),
+      ...(dl.catalogOriginalRate !== undefined
+        ? { catalogOriginalRate: dl.catalogOriginalRate }
+        : {}),
+      ...(dl.catalogBatchQuantity !== undefined
+        ? { catalogBatchQuantity: dl.catalogBatchQuantity }
+        : {}),
+      ...(dl.priceAppliedAt !== undefined
+        ? { priceAppliedAt: dl.priceAppliedAt }
+        : {}),
       unit: dl.unit ?? 'tờ',
       quantity: dl.quantity,
       vendorCostMode: dl.vendorCostMode,
@@ -2432,6 +2695,18 @@ export class PrintQuoteService {
           id: s.id,
           priceItemId: s.priceItemId ?? null,
           code: s.code ?? null,
+          ...(s.priceItemVersion !== undefined
+            ? { priceItemVersion: s.priceItemVersion }
+            : {}),
+          ...(s.vendorId !== undefined ? { vendorId: s.vendorId } : {}),
+          ...(s.vendorName !== undefined ? { vendorName: s.vendorName } : {}),
+          ...(s.catalogOriginalRate !== undefined
+            ? { catalogOriginalRate: s.catalogOriginalRate }
+            : {}),
+          ...(s.catalogBatchQuantity !== undefined
+            ? { catalogBatchQuantity: s.catalogBatchQuantity }
+            : {}),
+          ...(s.appliedAt !== undefined ? { appliedAt: s.appliedAt } : {}),
           name: s.name,
           pricingMode: s.pricingMode,
           rate: s.rate!,
@@ -2633,15 +2908,28 @@ export class PrintQuoteService {
             );
           }
 
-          const pendingBuilt = createPendingCostQuoteSnapshot({
-            quoteId: quoteCode,
-            orderId: `SNAP-${quoteCode}-V1`,
-            customerName,
-            includeShippingInUnitPrice,
-            shippingAllocationStrategy,
-            shippingFee,
-            lines: resolvedOutcome.draftLines,
-          });
+          let pendingBuilt;
+          try {
+            pendingBuilt = createPendingCostQuoteSnapshot({
+              quoteId: quoteCode,
+              orderId: `SNAP-${quoteCode}-V1`,
+              customerName,
+              includeShippingInUnitPrice,
+              shippingAllocationStrategy,
+              shippingFee,
+              lines: resolvedOutcome.draftLines,
+              requireAreaAdjustmentReason: true,
+            });
+          } catch (err) {
+            if (err instanceof AuthError) throw err;
+            throw new AuthError(
+              'VALIDATION_ERROR',
+              err instanceof Error
+                ? err.message
+                : 'Dữ liệu bản nháp chờ giá xưởng không hợp lệ.',
+              400,
+            );
+          }
           if (!verifyQuoteSnapshotIntegrity(pendingBuilt.snapshot)) {
             throw new AuthError(
               'INTERNAL_ERROR',
@@ -2729,19 +3017,32 @@ export class PrintQuoteService {
 
         const { lines: items, costModes } = resolvedOutcome;
 
-        const calcResult = calculatePrintQuote({
-          quoteId: quoteCode,
-          customerName,
-          items,
-          shippingFee,
-          extraCost,
-          includeShippingInUnitPrice,
-          shippingAllocationStrategy,
-          roundingPolicy: {
-            mode: roundingMode,
-            step: roundingStep,
-          },
-        });
+        let calcResult;
+        try {
+          calcResult = calculatePrintQuote({
+            quoteId: quoteCode,
+            customerName,
+            items,
+            shippingFee,
+            extraCost,
+            includeShippingInUnitPrice,
+            shippingAllocationStrategy,
+            roundingPolicy: {
+              mode: roundingMode,
+              step: roundingStep,
+            },
+            requireAreaAdjustmentReason: true,
+          });
+        } catch (err) {
+          if (err instanceof AuthError) throw err;
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            err instanceof Error
+              ? err.message
+              : 'Dữ liệu tính toán báo giá không hợp lệ.',
+            400,
+          );
+        }
 
         const status: QuoteOrderStatusType =
           input['status'] === QuoteOrderStatus.FINALIZED
@@ -2998,15 +3299,28 @@ export class PrintQuoteService {
           );
         }
 
-        const pendingBuilt = createPendingCostQuoteSnapshot({
-          quoteId: quoteCode,
-          orderId: `SNAP-${quoteCode}-V${nextVersion}`,
-          customerName,
-          includeShippingInUnitPrice,
-          shippingAllocationStrategy,
-          shippingFee,
-          lines: resolvedOutcome.draftLines,
-        });
+        let pendingBuilt;
+        try {
+          pendingBuilt = createPendingCostQuoteSnapshot({
+            quoteId: quoteCode,
+            orderId: `SNAP-${quoteCode}-V${nextVersion}`,
+            customerName,
+            includeShippingInUnitPrice,
+            shippingAllocationStrategy,
+            shippingFee,
+            lines: resolvedOutcome.draftLines,
+            requireAreaAdjustmentReason: true,
+          });
+        } catch (err) {
+          if (err instanceof AuthError) throw err;
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            err instanceof Error
+              ? err.message
+              : 'Dữ liệu bản nháp chờ giá xưởng không hợp lệ.',
+            400,
+          );
+        }
 
         const updPendingRes = await client.query(
           `UPDATE print_quotes
@@ -3111,19 +3425,32 @@ export class PrintQuoteService {
 
       const { lines: items, costModes } = resolvedOutcome;
 
-      const calcResult = calculatePrintQuote({
-        quoteId: quoteCode,
-        customerName,
-        items,
-        shippingFee,
-        extraCost,
-        includeShippingInUnitPrice,
-        shippingAllocationStrategy,
-        roundingPolicy: {
-          mode: roundingMode,
-          step: roundingStep,
-        },
-      });
+      let calcResult;
+      try {
+        calcResult = calculatePrintQuote({
+          quoteId: quoteCode,
+          customerName,
+          items,
+          shippingFee,
+          extraCost,
+          includeShippingInUnitPrice,
+          shippingAllocationStrategy,
+          roundingPolicy: {
+            mode: roundingMode,
+            step: roundingStep,
+          },
+          requireAreaAdjustmentReason: true,
+        });
+      } catch (err) {
+        if (err instanceof AuthError) throw err;
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          err instanceof Error
+            ? err.message
+            : 'Dữ liệu tính toán báo giá không hợp lệ.',
+          400,
+        );
+      }
 
       const nextStatus: QuoteOrderStatusType =
         input['status'] === QuoteOrderStatus.FINALIZED
@@ -3596,23 +3923,61 @@ export class PrintQuoteService {
         const expectedExtraCost = toInt(quoteRow['total_extra_cost'], 0);
         const expectedProfit = toInt(quoteRow['total_profit'], 0);
 
-        const actualVendorCost =
-          input['actual_vendor_cost'] !== undefined
+        const hasExplicitActualCostInput =
+          input['actual_vendor_cost'] !== undefined ||
+          input['actual_shipping_fee'] !== undefined ||
+          input['actual_extra_cost'] !== undefined ||
+          input['actual_cost_confirmed'] === true;
+
+        if (
+          (input['actual_vendor_cost'] !== undefined &&
+            toInt(input['actual_vendor_cost'], -1) < 0) ||
+          (input['actual_shipping_fee'] !== undefined &&
+            toInt(input['actual_shipping_fee'], -1) < 0) ||
+          (input['actual_extra_cost'] !== undefined &&
+            toInt(input['actual_extra_cost'], -1) < 0)
+        ) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'Chi phí thực tế (giá vốn xưởng, vận chuyển, phát sinh) không được âm.',
+            400,
+          );
+        }
+
+        const actualCostConfirmed =
+          input['actual_cost_confirmed'] === false
+            ? false
+            : hasExplicitActualCostInput;
+        const actualVendorCost = actualCostConfirmed
+          ? input['actual_vendor_cost'] !== undefined
             ? Math.max(0, toInt(input['actual_vendor_cost'], 0))
-            : expectedVendorCost;
-        const actualShippingFee =
-          input['actual_shipping_fee'] !== undefined
+            : expectedVendorCost
+          : 0;
+        const actualShippingFee = actualCostConfirmed
+          ? input['actual_shipping_fee'] !== undefined
             ? Math.max(0, toInt(input['actual_shipping_fee'], 0))
-            : expectedShippingFee;
-        const actualExtraCost =
-          input['actual_extra_cost'] !== undefined
+            : expectedShippingFee
+          : 0;
+        const actualExtraCost = actualCostConfirmed
+          ? input['actual_extra_cost'] !== undefined
             ? Math.max(0, toInt(input['actual_extra_cost'], 0))
-            : expectedExtraCost;
-        const actualProfit =
-          totalQuoteAmount -
-          actualVendorCost -
-          actualShippingFee -
-          actualExtraCost;
+            : expectedExtraCost
+          : 0;
+        const actualProfit = actualCostConfirmed
+          ? totalQuoteAmount -
+            actualVendorCost -
+            actualShippingFee -
+            actualExtraCost
+          : 0;
+
+        const vendorPaidAmount = toInt(input['vendor_paid_amount'], 0);
+        if (vendorPaidAmount < 0) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            'Số tiền đã thanh toán cho nhà in (vendor_paid_amount) không được âm.',
+            400,
+          );
+        }
 
         const rawDepositRequired = toInt(input['deposit_required'], 0);
         const rawInitialDepositPaid = toInt(input['deposit_paid'], 0);
@@ -3684,7 +4049,8 @@ export class PrintQuoteService {
             vendor_id, vendor_name, title, order_date, print_ordered_at, due_date,
             production_status, delivery_status, payment_status,
             total_quote_amount, expected_vendor_cost, expected_shipping_fee, expected_extra_cost, expected_profit,
-            actual_vendor_cost, actual_shipping_fee, actual_extra_cost, actual_profit,
+            actual_cost_confirmed, actual_cost_confirmed_at, actual_cost_confirmed_by,
+            actual_vendor_cost, actual_shipping_fee, actual_extra_cost, actual_profit, vendor_paid_amount,
             deposit_required, deposit_paid, total_paid_amount, remaining_debt_amount,
             snapshot_json, integrity_hash, notes, created_by
           ) VALUES (
@@ -3693,9 +4059,10 @@ export class PrintQuoteService {
             $10, $11, $12, $13, $14, $15,
             $16, $17, $18,
             $19, $20, $21, $22, $23,
-            $24, $25, $26, $27,
-            $28, $29, $30, $31,
-            $32::jsonb, $33, $34, $35
+            $24, $25, $26,
+            $27, $28, $29, $30, $31,
+            $32, $33, $34, $35,
+            $36::jsonb, $37, $38, $39
           ) RETURNING *`,
           [
             ctx.workspace.id,
@@ -3723,10 +4090,14 @@ export class PrintQuoteService {
             expectedShippingFee,
             expectedExtraCost,
             expectedProfit,
+            actualCostConfirmed,
+            actualCostConfirmed ? new Date() : null,
+            actualCostConfirmed ? ctx.user.id : null,
             actualVendorCost,
             actualShippingFee,
             actualExtraCost,
             actualProfit,
+            vendorPaidAmount,
             depositRequired,
             initialDepositPaid,
             totalPaidAmount,
@@ -3784,20 +4155,76 @@ export class PrintQuoteService {
     }
 
     const totalQuoteAmount = toInt(existing['total_quote_amount'], 0);
-    const actualVendorCost =
-      input['actual_vendor_cost'] !== undefined
+    const wasConfirmed = Boolean(existing['actual_cost_confirmed']);
+    const touchesActualCost =
+      input['actual_vendor_cost'] !== undefined ||
+      input['actual_shipping_fee'] !== undefined ||
+      input['actual_extra_cost'] !== undefined ||
+      input['actual_cost_confirmed'] === true;
+
+    if (
+      (input['actual_vendor_cost'] !== undefined &&
+        toInt(input['actual_vendor_cost'], -1) < 0) ||
+      (input['actual_shipping_fee'] !== undefined &&
+        toInt(input['actual_shipping_fee'], -1) < 0) ||
+      (input['actual_extra_cost'] !== undefined &&
+        toInt(input['actual_extra_cost'], -1) < 0)
+    ) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Chi phí thực tế (giá vốn xưởng, vận chuyển, phát sinh) không được âm.',
+        400,
+      );
+    }
+
+    const actualCostConfirmed =
+      input['actual_cost_confirmed'] === false
+        ? false
+        : wasConfirmed || touchesActualCost;
+
+    const fallbackVendorCost = wasConfirmed
+      ? toInt(existing['actual_vendor_cost'], 0)
+      : toInt(existing['expected_vendor_cost'], 0);
+    const fallbackShippingFee = wasConfirmed
+      ? toInt(existing['actual_shipping_fee'], 0)
+      : toInt(existing['expected_shipping_fee'], 0);
+    const fallbackExtraCost = wasConfirmed
+      ? toInt(existing['actual_extra_cost'], 0)
+      : toInt(existing['expected_extra_cost'], 0);
+
+    const actualVendorCost = actualCostConfirmed
+      ? input['actual_vendor_cost'] !== undefined
         ? Math.max(0, toInt(input['actual_vendor_cost'], 0))
-        : toInt(existing['actual_vendor_cost'], 0);
-    const actualShippingFee =
-      input['actual_shipping_fee'] !== undefined
+        : fallbackVendorCost
+      : 0;
+    const actualShippingFee = actualCostConfirmed
+      ? input['actual_shipping_fee'] !== undefined
         ? Math.max(0, toInt(input['actual_shipping_fee'], 0))
-        : toInt(existing['actual_shipping_fee'], 0);
-    const actualExtraCost =
-      input['actual_extra_cost'] !== undefined
+        : fallbackShippingFee
+      : 0;
+    const actualExtraCost = actualCostConfirmed
+      ? input['actual_extra_cost'] !== undefined
         ? Math.max(0, toInt(input['actual_extra_cost'], 0))
-        : toInt(existing['actual_extra_cost'], 0);
-    const actualProfit =
-      totalQuoteAmount - actualVendorCost - actualShippingFee - actualExtraCost;
+        : fallbackExtraCost
+      : 0;
+    const actualProfit = actualCostConfirmed
+      ? totalQuoteAmount -
+        actualVendorCost -
+        actualShippingFee -
+        actualExtraCost
+      : 0;
+
+    const vendorPaidAmount =
+      input['vendor_paid_amount'] !== undefined
+        ? toInt(input['vendor_paid_amount'], -1)
+        : toInt(existing['vendor_paid_amount'], 0);
+    if (vendorPaidAmount < 0) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Số tiền đã thanh toán cho nhà in (vendor_paid_amount) không được âm.',
+        400,
+      );
+    }
 
     const depositRequired =
       input['deposit_required'] !== undefined
@@ -3829,24 +4256,37 @@ export class PrintQuoteService {
            due_date = $2,
            production_status = $3,
            delivery_status = $4,
-           actual_vendor_cost = $5,
-           actual_shipping_fee = $6,
-           actual_extra_cost = $7,
-           actual_profit = $8,
-           deposit_required = $9,
-           vendor_id = $10,
-           vendor_name = $11,
-           notes = $12,
+           actual_cost_confirmed = $5,
+           actual_cost_confirmed_at = CASE
+             WHEN $5 = false THEN NULL
+             WHEN $15 = true OR actual_cost_confirmed_at IS NULL THEN now()
+             ELSE actual_cost_confirmed_at
+           END,
+           actual_cost_confirmed_by = CASE
+             WHEN $5 = false THEN NULL
+             WHEN $15 = true OR actual_cost_confirmed_by IS NULL THEN $16
+             ELSE actual_cost_confirmed_by
+           END,
+           actual_vendor_cost = $6,
+           actual_shipping_fee = $7,
+           actual_extra_cost = $8,
+           actual_profit = $9,
+           vendor_paid_amount = $17,
+           deposit_required = $10,
+           vendor_id = $11,
+           vendor_name = $12,
+           notes = $13,
            completed_at = CASE WHEN $3 = 'COMPLETED' AND completed_at IS NULL THEN now() ELSE completed_at END,
            delivered_at = CASE WHEN $4 = 'DELIVERED' AND delivered_at IS NULL THEN now() ELSE delivered_at END,
            updated_at = now()
-       WHERE id = $13 AND workspace_id = $14
+       WHERE id = $14 AND workspace_id = $18
        RETURNING *`,
       [
         printOrderedAt,
         dueDate,
         productionStatus,
         deliveryStatus,
+        actualCostConfirmed,
         actualVendorCost,
         actualShippingFee,
         actualExtraCost,
@@ -3869,6 +4309,9 @@ export class PrintQuoteService {
             : null
           : existing['notes'],
         orderId,
+        touchesActualCost,
+        ctx.user.id,
+        vendorPaidAmount,
         ctx.workspace.id,
       ],
     );
@@ -4088,10 +4531,26 @@ export class PrintQuoteService {
       expected_shipping_fee: toInt(r['expected_shipping_fee'], 0),
       expected_extra_cost: toInt(r['expected_extra_cost'], 0),
       expected_profit: toInt(r['expected_profit'], 0),
-      actual_vendor_cost: toInt(r['actual_vendor_cost'], 0),
-      actual_shipping_fee: toInt(r['actual_shipping_fee'], 0),
-      actual_extra_cost: toInt(r['actual_extra_cost'], 0),
-      actual_profit: toInt(r['actual_profit'], 0),
+      actual_cost_confirmed: Boolean(r['actual_cost_confirmed']),
+      actual_cost_confirmed_at: r['actual_cost_confirmed_at']
+        ? toIso(r['actual_cost_confirmed_at'])
+        : null,
+      actual_cost_confirmed_by: r['actual_cost_confirmed_by']
+        ? String(r['actual_cost_confirmed_by'])
+        : null,
+      actual_vendor_cost: Boolean(r['actual_cost_confirmed'])
+        ? toInt(r['actual_vendor_cost'], 0)
+        : 0,
+      actual_shipping_fee: Boolean(r['actual_cost_confirmed'])
+        ? toInt(r['actual_shipping_fee'], 0)
+        : 0,
+      actual_extra_cost: Boolean(r['actual_cost_confirmed'])
+        ? toInt(r['actual_extra_cost'], 0)
+        : 0,
+      actual_profit: Boolean(r['actual_cost_confirmed'])
+        ? toInt(r['actual_profit'], 0)
+        : 0,
+      vendor_paid_amount: toInt(r['vendor_paid_amount'], 0),
       deposit_required: toInt(r['deposit_required'], 0),
       deposit_paid: toInt(r['deposit_paid'], 0),
       total_paid_amount: toInt(r['total_paid_amount'], 0),
@@ -4154,8 +4613,9 @@ export class PrintQuoteService {
       ),
       this.pool.query(
         `SELECT production_status, delivery_status, payment_status,
-                total_quote_amount, expected_vendor_cost, actual_vendor_cost,
-                expected_profit, actual_profit, total_paid_amount, remaining_debt_amount
+                total_quote_amount, expected_vendor_cost, expected_profit,
+                actual_cost_confirmed, actual_vendor_cost, actual_profit,
+                vendor_paid_amount, total_paid_amount, remaining_debt_amount
          FROM print_orders
          WHERE workspace_id = $1 AND production_status != 'CANCELLED'`,
         [ctx.workspace.id],
@@ -4189,6 +4649,8 @@ export class PrintQuoteService {
     let totalActualCost = 0;
     let totalExpectedProfit = 0;
     let totalActualProfit = 0;
+    let confirmedActualOrdersCount = 0;
+    let totalVendorPaid = 0;
     let totalPaid = 0;
     let totalDebt = 0;
 
@@ -4202,9 +4664,13 @@ export class PrintQuoteService {
 
       totalRevenue += toInt(r['total_quote_amount'], 0);
       totalExpectedCost += toInt(r['expected_vendor_cost'], 0);
-      totalActualCost += toInt(r['actual_vendor_cost'], 0);
       totalExpectedProfit += toInt(r['expected_profit'], 0);
-      totalActualProfit += toInt(r['actual_profit'], 0);
+      if (Boolean(r['actual_cost_confirmed'])) {
+        confirmedActualOrdersCount++;
+        totalActualCost += toInt(r['actual_vendor_cost'], 0);
+        totalActualProfit += toInt(r['actual_profit'], 0);
+      }
+      totalVendorPaid += toInt(r['vendor_paid_amount'], 0);
       totalPaid += toInt(r['total_paid_amount'], 0);
       totalDebt += toInt(r['remaining_debt_amount'], 0);
     }
@@ -4216,12 +4682,14 @@ export class PrintQuoteService {
       total_quotes: toInt(qRes.rows[0]?.total_cnt, 0),
       finalized_quotes: toInt(qRes.rows[0]?.fin_cnt, 0),
       total_orders: oRes.rows.length,
+      confirmed_actual_orders_count: confirmedActualOrdersCount,
       total_order_revenue: totalRevenue,
       total_expected_vendor_cost: totalExpectedCost,
       total_actual_vendor_cost: totalActualCost,
       total_expected_profit: totalExpectedProfit,
       total_actual_profit: totalActualProfit,
       total_paid_amount: totalPaid,
+      total_vendor_paid_amount: totalVendorPaid,
       total_remaining_debt: totalDebt,
       orders_by_production_status: ordersByProd,
       orders_by_delivery_status: ordersByDeliv,

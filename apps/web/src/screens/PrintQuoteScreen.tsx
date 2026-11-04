@@ -179,6 +179,9 @@ function mapQuoteLinesToDraftLines(quote: PrintQuoteData): DraftLineState[] {
             id: s.id || `STG-${idx + 1}-${sIdx + 1}`,
             priceItemId: s.priceItemId || '',
             code: s.code ?? null,
+            priceItemVersion: s.priceItemVersion ?? null,
+            vendorId: s.vendorId ?? null,
+            vendorName: s.vendorName ?? null,
             name: s.name,
             pricingMode: s.pricingMode,
             rateValue: s.rate ?? 0,
@@ -188,7 +191,11 @@ function mapQuoteLinesToDraftLines(quote: PrintQuoteData): DraftLineState[] {
             costSource:
               s.costSource ??
               (s.priceItemId ? LineCostSource.CATALOG : LineCostSource.MANUAL),
-            catalogOriginalRate: s.priceItemId ? (s.rate ?? null) : null,
+            catalogOriginalRate:
+              s.catalogOriginalRate ??
+              (s.priceItemId ? (s.rate ?? null) : null),
+            catalogBatchQuantity: s.catalogBatchQuantity ?? null,
+            appliedAt: s.appliedAt ?? null,
             note: s.note ?? null,
           }))
         : undefined;
@@ -204,6 +211,8 @@ function mapQuoteLinesToDraftLines(quote: PrintQuoteData): DraftLineState[] {
     return {
       id: item.id || `ITEM-${idx + 1}`,
       vendorPriceItemId: item.vendorPriceItemId || '',
+      vendorPriceItemCode: item.vendorPriceItemCode ?? null,
+      vendorPriceItemVersion: item.vendorPriceItemVersion ?? null,
       name: item.name,
       specification: item.specification || '',
       unit: item.unit || 'sp',
@@ -214,9 +223,12 @@ function mapQuoteLinesToDraftLines(quote: PrintQuoteData): DraftLineState[] {
       vendorCostInput: resolvedCost.vendorCostInput,
       baseCostSource: item.baseCostSource,
       baseCatalogOriginalRate:
-        item.vendorPriceItemId && typeof item.baseCostRate === 'number'
+        item.catalogOriginalRate ??
+        (item.vendorPriceItemId && typeof item.baseCostRate === 'number'
           ? item.baseCostRate
-          : null,
+          : null),
+      baseCatalogBatchQuantity: item.catalogBatchQuantity ?? null,
+      priceAppliedAt: item.priceAppliedAt ?? null,
       baseIncludedStages: item.baseIncludedStages
         ? [...item.baseIncludedStages]
         : undefined,
@@ -237,6 +249,7 @@ function mapQuoteLinesToDraftLines(quote: PrintQuoteData): DraftLineState[] {
               ? String(area.billableAreaSqm)
               : '',
             adjustBillableArea: hasCustomBillable,
+            areaAdjustmentReason: area.adjustmentReason ?? '',
           }
         : {}),
       ...(mappedStages ? { finishingStages: mappedStages } : {}),
@@ -788,7 +801,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     lineErrors: Record<string, DraftLineValidationError>;
     shippingError: string | null;
   }>(() => {
-    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    const validation = validateQuoteDraftInputs(
+      draftLines,
+      shippingFeeInput,
+      priceItems,
+    );
     if (!validation.isValid) {
       return {
         calc: null,
@@ -832,6 +849,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           name: line.name.trim() || `Sản phẩm #${idx + 1}`,
           specification: line.specification.trim(),
           vendorPriceItemId: line.vendorPriceItemId || undefined,
+          vendorPriceItemCode: line.vendorPriceItemCode ?? undefined,
+          vendorPriceItemVersion: line.vendorPriceItemVersion ?? undefined,
+          catalogOriginalRate: line.baseCatalogOriginalRate ?? undefined,
+          catalogBatchQuantity: line.baseCatalogBatchQuantity ?? undefined,
+          priceAppliedAt: line.priceAppliedAt ?? undefined,
           unit: line.unit.trim() || 'tờ',
           quantity: validLine.quantity,
           profit: {
@@ -847,11 +869,17 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
               id: s.id || `STG-${idx + 1}-${sIdx + 1}`,
               priceItemId: s.priceItemId || null,
               code: s.code ?? null,
+              priceItemVersion: s.priceItemVersion ?? null,
+              vendorId: s.vendorId ?? null,
+              vendorName: s.vendorName ?? null,
               name: s.name.trim() || `Gia công #${sIdx + 1}`,
               pricingMode: s.pricingMode,
               rate: validLine.stages[sIdx]?.rate ?? s.rateValue,
               unit: s.unit || line.unit || 'tờ',
               costSource: s.costSource,
+              catalogOriginalRate: s.catalogOriginalRate ?? null,
+              catalogBatchQuantity: s.catalogBatchQuantity ?? null,
+              appliedAt: s.appliedAt ?? null,
               note: s.note ?? null,
             }),
           );
@@ -878,6 +906,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           mode: roundingMode,
           step: Math.max(1, Math.round(Number(roundingStep) || 1)),
         },
+        requireAreaAdjustmentReason: true,
       });
       const customerPdf = buildCustomerSafePdfPayload(calc);
       return {
@@ -910,6 +939,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   }, [
     draftLines,
     shippingFeeInput,
+    priceItems,
     includeShippingInUnitPrice,
     shippingAllocation,
     roundingMode,
@@ -934,8 +964,12 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           return {
             ...line,
             vendorPriceItemId: '',
+            vendorPriceItemCode: null,
+            vendorPriceItemVersion: null,
             baseCostSource: LineCostSource.MANUAL,
             baseCatalogOriginalRate: null,
+            baseCatalogBatchQuantity: null,
+            priceAppliedAt: null,
             baseIncludedStages: undefined,
           };
         }
@@ -946,6 +980,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         return {
           ...line,
           vendorPriceItemId: found.id,
+          vendorPriceItemCode: found.code,
+          vendorPriceItemVersion: found.version,
           name: found.name,
           specification: found.specification || '',
           unit: found.unit || 'tờ',
@@ -957,6 +993,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           vendorCostInput: String(resolvedCost),
           baseCostSource: LineCostSource.CATALOG,
           baseCatalogOriginalRate: resolvedCost,
+          baseCatalogBatchQuantity: found.batch_quantity ?? 1,
+          priceAppliedAt: new Date().toISOString(),
           baseIncludedStages: found.included_stages?.length
             ? [...found.included_stages]
             : undefined,
@@ -975,7 +1013,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
   const handleOpenLiveA4Preview = () => {
     setHasTouchedFields(true);
-    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    const validation = validateQuoteDraftInputs(
+      draftLines,
+      shippingFeeInput,
+      priceItems,
+    );
     if (!validation.isValid || !livePricingResult.customerPdf) {
       setBannerMessage({
         type: 'error',
@@ -1100,7 +1142,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
   const handleDownloadLivePdfFile = async () => {
     setHasTouchedFields(true);
-    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    const validation = validateQuoteDraftInputs(
+      draftLines,
+      shippingFeeInput,
+      priceItems,
+    );
     if (!validation.isValid || !livePricingResult.customerPdf) {
       setBannerMessage({
         type: 'error',
@@ -1181,7 +1227,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
   const performSaveQuote = async (allowPendingCost: boolean) => {
     setHasTouchedFields(true);
-    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    const validation = validateQuoteDraftInputs(
+      draftLines,
+      shippingFeeInput,
+      priceItems,
+    );
     const isPendingSave = Boolean(
       allowPendingCost &&
       !validation.isValid &&
@@ -1279,6 +1329,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           return {
             id: line.id || `ITEM-${i + 1}`,
             vendor_price_item_id: line.vendorPriceItemId || undefined,
+            vendorPriceItemCode: line.vendorPriceItemCode ?? undefined,
+            vendorPriceItemVersion: line.vendorPriceItemVersion ?? undefined,
+            catalogOriginalRate: line.baseCatalogOriginalRate ?? undefined,
+            catalogBatchQuantity: line.baseCatalogBatchQuantity ?? undefined,
+            priceAppliedAt: line.priceAppliedAt ?? undefined,
             name: line.name.trim() || `Ấn phẩm #${i + 1}`,
             specification: line.specification.trim() || undefined,
             unit: line.unit.trim() || 'tờ',
@@ -1295,12 +1350,18 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                 id: s.id || `STG-${i + 1}-${sIdx + 1}`,
                 priceItemId: s.priceItemId || null,
                 code: s.code ?? null,
+                priceItemVersion: s.priceItemVersion ?? null,
+                vendorId: s.vendorId ?? null,
+                vendorName: s.vendorName ?? null,
                 name: s.name.trim() || `Gia công #${sIdx + 1}`,
                 pricingMode: s.pricingMode,
                 rate: stageRate,
                 ratePending: stageRate === null,
                 unit: s.unit || line.unit || 'tờ',
                 costSource: s.costSource,
+                catalogOriginalRate: s.catalogOriginalRate ?? null,
+                catalogBatchQuantity: s.catalogBatchQuantity ?? null,
+                appliedAt: s.appliedAt ?? null,
                 note: s.note ?? null,
               };
             }),

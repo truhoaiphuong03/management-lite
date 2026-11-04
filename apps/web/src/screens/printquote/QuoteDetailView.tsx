@@ -580,6 +580,65 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
                                 {line.specification}
                               </div>
                             )}
+                            {(line.vendorPriceItemCode ||
+                              line.baseCostSource === 'CATALOG_OVERRIDDEN' ||
+                              line.profitMode === 'PERCENTAGE') && (
+                              <div
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--muted-color)',
+                                  marginTop: '3px',
+                                }}
+                              >
+                                {line.vendorPriceItemCode && (
+                                  <span>
+                                    Nguồn giá: {line.vendorPriceItemCode}
+                                    {line.vendorPriceItemVersion
+                                      ? ` (v${line.vendorPriceItemVersion})`
+                                      : ''}
+                                  </span>
+                                )}
+                                {line.baseCostSource ===
+                                  'CATALOG_OVERRIDDEN' && (
+                                  <span>
+                                    {line.vendorPriceItemCode ? ' • ' : ''}
+                                    Giá sửa riêng trên báo giá
+                                    {typeof line.catalogOriginalRate ===
+                                    'number'
+                                      ? ` (gốc: ${formatVnd(line.catalogOriginalRate)})`
+                                      : ''}
+                                  </span>
+                                )}
+                                {line.profitMode === 'PERCENTAGE' && (
+                                  <span>
+                                    {line.vendorPriceItemCode ||
+                                    line.baseCostSource === 'CATALOG_OVERRIDDEN'
+                                      ? ' • '
+                                      : ''}
+                                    Lời {line.profitInputValue}% trên tổng vốn
+                                    SP (In + Gia công)
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {line.areaSpec &&
+                              line.areaSpec.adjustmentReason && (
+                                <div
+                                  style={{
+                                    fontSize: '12px',
+                                    color: 'var(--muted-color)',
+                                    marginTop: '3px',
+                                  }}
+                                >
+                                  Điều chỉnh m² (
+                                  {formatAreaSqmVn(line.areaSpec.actualAreaSqm)}{' '}
+                                  →{' '}
+                                  {formatAreaSqmVn(
+                                    line.areaSpec.billableAreaSqm,
+                                  )}{' '}
+                                  m²): {line.areaSpec.adjustmentReason}
+                                </div>
+                              )}
                             {line.finishingStages &&
                               line.finishingStages.length > 0 && (
                                 <div
@@ -594,7 +653,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
                                     .map((s) =>
                                       s.rate === null
                                         ? `${s.name} (Chờ giá)`
-                                        : `${s.name} (${formatVnd('vendorCost' in s ? s.vendorCost : s.rate)})`,
+                                        : `${s.name}${s.code ? ` [${s.code}${s.priceItemVersion ? ` v${s.priceItemVersion}` : ''}]` : ''} (${formatVnd('vendorCost' in s ? s.vendorCost : s.rate)}${s.costSource === 'CATALOG_OVERRIDDEN' && typeof s.catalogOriginalRate === 'number' ? ` — gốc ${formatVnd(s.catalogOriginalRate)}` : ''})`,
                                     )
                                     .join(' • ')}
                                 </div>

@@ -61,12 +61,85 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   const [paymentAmountInput, setPaymentAmountInput] = useState<string>(
     paymentAmount > 0 ? String(paymentAmount) : '',
   );
+  const [costOrderTarget, setCostOrderTarget] = useState<PrintOrderData | null>(
+    null,
+  );
+  const [actualVendorCostInput, setActualVendorCostInput] =
+    useState<string>('');
+  const [actualShippingInput, setActualShippingInput] = useState<string>('0');
+  const [actualExtraInput, setActualExtraInput] = useState<string>('0');
+  const [vendorPaidInput, setVendorPaidInput] = useState<string>('0');
 
   useEffect(() => {
     if (paymentOrderTarget) {
       setPaymentAmountInput(paymentAmount > 0 ? String(paymentAmount) : '');
     }
   }, [paymentOrderTarget, paymentAmount]);
+
+  const openConfirmActualCostModal = (ord: PrintOrderData) => {
+    setCostOrderTarget(ord);
+    setActualVendorCostInput(
+      ord.actual_cost_confirmed
+        ? String(ord.actual_vendor_cost)
+        : String(ord.expected_vendor_cost),
+    );
+    setActualShippingInput(
+      ord.actual_cost_confirmed
+        ? String(ord.actual_shipping_fee)
+        : String(ord.expected_shipping_fee),
+    );
+    setActualExtraInput(
+      ord.actual_cost_confirmed
+        ? String(ord.actual_extra_cost)
+        : String(ord.expected_extra_cost),
+    );
+    setVendorPaidInput(String(ord.vendor_paid_amount ?? 0));
+  };
+
+  const handleConfirmActualCostSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!costOrderTarget) return;
+    const vCost = parseNumericDraftValue(actualVendorCostInput, {
+      allowDecimal: false,
+      min: 0,
+      integerOnly: true,
+    });
+    const vShip = parseNumericDraftValue(actualShippingInput, {
+      allowDecimal: false,
+      min: 0,
+      integerOnly: true,
+    });
+    const vExtra = parseNumericDraftValue(actualExtraInput, {
+      allowDecimal: false,
+      min: 0,
+      integerOnly: true,
+    });
+    const vPaid = parseNumericDraftValue(vendorPaidInput, {
+      allowDecimal: false,
+      min: 0,
+      integerOnly: true,
+    });
+    if (
+      !vCost.isValid ||
+      vCost.value === null ||
+      !vShip.isValid ||
+      vShip.value === null ||
+      !vExtra.isValid ||
+      vExtra.value === null ||
+      !vPaid.isValid ||
+      vPaid.value === null
+    ) {
+      return;
+    }
+    onUpdateOrderField(costOrderTarget.id, {
+      actual_cost_confirmed: true,
+      actual_vendor_cost: vCost.value,
+      actual_shipping_fee: vShip.value,
+      actual_extra_cost: vExtra.value,
+      vendor_paid_amount: vPaid.value,
+    });
+    setCostOrderTarget(null);
+  };
 
   const filteredOrders = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -327,6 +400,79 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                 </div>
               </div>
 
+              {/* 3-Tier Financial Separation Strip: Expected vs Confirmed Actual vs Cash Paid */}
+              <div
+                data-testid={`pq-order-financial-tiers-${ord.order_code}`}
+                style={{
+                  marginTop: '10px',
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  fontSize: '12px',
+                  ...tabularNumStyle,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span>
+                    Vốn dự kiến:{' '}
+                    <strong>{formatVnd(ord.expected_vendor_cost)}</strong>
+                  </span>
+                  <span>•</span>
+                  {ord.actual_cost_confirmed ? (
+                    <span style={{ color: 'var(--text-color)' }}>
+                      Chi phí thực tế đã xác nhận:{' '}
+                      <strong>
+                        {formatVnd(
+                          ord.actual_vendor_cost +
+                            ord.actual_shipping_fee +
+                            ord.actual_extra_cost,
+                        )}
+                      </strong>{' '}
+                      (Lời TT:{' '}
+                      <strong style={{ color: 'var(--success-text)' }}>
+                        {formatVnd(ord.actual_profit)}
+                      </strong>
+                      )
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--muted-color)' }}>
+                      Chi phí thực tế: <strong>Chưa xác nhận từ xưởng</strong>
+                    </span>
+                  )}
+                  <span>•</span>
+                  <span>
+                    Thực chi xưởng:{' '}
+                    <strong>{formatVnd(ord.vendor_paid_amount ?? 0)}</strong>
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  data-testid={`pq-order-confirm-cost-${ord.order_code}`}
+                  onClick={() => openConfirmActualCostModal(ord)}
+                  className="pq-btn pq-btn-secondary pq-btn-sm"
+                >
+                  <span>
+                    {ord.actual_cost_confirmed
+                      ? 'Cập nhật chi phí thực tế'
+                      : 'Xác nhận chi phí thực tế'}
+                  </span>
+                </button>
+              </div>
+
               {/* Independent Production & Delivery Status Controls */}
               <div
                 style={{
@@ -522,6 +668,132 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
             </button>
             <button type="submit" className="pq-btn pq-btn-primary">
               Xác nhận thu tiền
+            </button>
+          </div>
+        </form>
+      </CatalogModalDialog>
+
+      {/* Confirm Actual Vendor Cost & Cash Paid Modal */}
+      <CatalogModalDialog
+        open={costOrderTarget !== null}
+        ariaLabel="Xác nhận chi phí thực tế xưởng"
+        title={
+          costOrderTarget
+            ? `Chi phí thực tế & Thực chi xưởng — ${costOrderTarget.order_code}`
+            : 'Xác nhận chi phí thực tế'
+        }
+        subtitle="Tách bạch với giá vốn dự kiến lúc báo giá. Báo giá gốc giữ nguyên snapshot."
+        maxWidth="480px"
+        onClose={() => setCostOrderTarget(null)}
+      >
+        <form
+          onSubmit={handleConfirmActualCostSubmit}
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+        >
+          {costOrderTarget && (
+            <div
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
+                fontSize: '12px',
+                ...tabularNumStyle,
+              }}
+            >
+              Dự kiến lúc báo giá: Vốn{' '}
+              <strong>{formatVnd(costOrderTarget.expected_vendor_cost)}</strong>{' '}
+              • Ship{' '}
+              <strong>
+                {formatVnd(costOrderTarget.expected_shipping_fee)}
+              </strong>{' '}
+              • Lời dự kiến{' '}
+              <strong style={{ color: 'var(--success-text)' }}>
+                {formatVnd(costOrderTarget.expected_profit)}
+              </strong>
+            </div>
+          )}
+
+          <div>
+            <label style={labelStyle}>
+              Chi phí nhà in + gia công thực tế (VNĐ) *
+            </label>
+            <NumericDraftInput
+              dataTestId="pq-order-actual-vendor-cost-input"
+              ariaLabel="Chi phí nhà in thực tế"
+              allowDecimal={false}
+              style={{ ...inputStyle, ...tabularNumStyle }}
+              required
+              value={actualVendorCostInput}
+              onValueChange={setActualVendorCostInput}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '10px',
+            }}
+          >
+            <div>
+              <label style={labelStyle}>Phí giao hàng thực tế (VNĐ)</label>
+              <NumericDraftInput
+                dataTestId="pq-order-actual-shipping-input"
+                ariaLabel="Phí giao hàng thực tế"
+                allowDecimal={false}
+                style={{ ...inputStyle, ...tabularNumStyle }}
+                value={actualShippingInput}
+                onValueChange={setActualShippingInput}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Phí phát sinh thực tế (VNĐ)</label>
+              <NumericDraftInput
+                dataTestId="pq-order-actual-extra-input"
+                ariaLabel="Phí phát sinh thực tế"
+                allowDecimal={false}
+                style={{ ...inputStyle, ...tabularNumStyle }}
+                value={actualExtraInput}
+                onValueChange={setActualExtraInput}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Tiền đã thực chi cho xưởng (VNĐ)</label>
+            <NumericDraftInput
+              dataTestId="pq-order-vendor-paid-input"
+              ariaLabel="Tiền thực chi cho xưởng"
+              allowDecimal={false}
+              style={{ ...inputStyle, ...tabularNumStyle }}
+              value={vendorPaidInput}
+              onValueChange={setVendorPaidInput}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '8px',
+              marginTop: '4px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setCostOrderTarget(null)}
+              className="pq-btn pq-btn-secondary"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              data-testid="pq-order-confirm-cost-submit"
+              className="pq-btn pq-btn-primary"
+            >
+              Xác nhận chi phí thực tế
             </button>
           </div>
         </form>

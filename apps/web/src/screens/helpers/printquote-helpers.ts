@@ -2,6 +2,10 @@ import {
   AreaInputMode,
   assertCustomerSafePdfPayload,
   computeExactAreaSqm,
+  evaluateCatalogBatchQuantityCondition,
+  MAX_PRINTQUOTE_PERCENT,
+  MAX_PRINTQUOTE_QUANTITY,
+  MAX_PRINTQUOTE_RATE_VND,
   normalizeAreaSqm,
   normalizeStageKey,
   ProfitMode,
@@ -10,6 +14,7 @@ import {
   type AreaInputModeType,
   type LineCostSourceType,
   type PendingCostLineSummary,
+  type PrintVendorPriceItemData,
   type ProfitModeType,
   type ProfitScopeType,
   type QuoteAreaSpec,
@@ -248,6 +253,8 @@ export interface ValidatableFinishingStage {
 
 export interface ValidatableDraftLine {
   id: string;
+  vendorPriceItemId?: string | undefined;
+  baseCostSource?: LineCostSourceType | undefined;
   name: string;
   specification?: string | undefined;
   unit: string;
@@ -263,6 +270,7 @@ export interface ValidatableDraftLine {
   actualAreaInput?: string | undefined;
   billableAreaInput?: string | undefined;
   adjustBillableArea?: boolean | undefined;
+  areaAdjustmentReason?: string | undefined;
   finishingStages?: readonly ValidatableFinishingStage[] | undefined;
   ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;
@@ -318,12 +326,19 @@ export interface QuoteDraftValidationResult {
 export function validateQuoteDraftInputs(
   draftLines: ValidatableDraftLine[],
   shippingFeeInput?: string | number | null,
+  catalogPriceItems?: readonly PrintVendorPriceItemData[],
 ): QuoteDraftValidationResult {
   const errors: string[] = [];
   const structuralErrors: string[] = [];
   const pendingSummary: PendingCostLineSummary[] = [];
   const lineErrors: QuoteDraftValidationResult['lineErrors'] = {};
   const validatedLines: ValidatedQuoteLineNumbers[] = [];
+  const catalogById = new Map<string, PrintVendorPriceItemData>();
+  if (catalogPriceItems) {
+    for (const item of catalogPriceItems) {
+      catalogById.set(item.id, item);
+    }
+  }
 
   if (!draftLines || draftLines.length === 0) {
     const emptyMsg = 'Cần ít nhất 1 sản phẩm đặt in trong báo giá.';
@@ -352,6 +367,11 @@ export function validateQuoteDraftInputs(
       currentLineErr.quantity = msg;
       errors.push(msg);
       structuralErrors.push(msg);
+    } else if (qtyRes.value > MAX_PRINTQUOTE_QUANTITY) {
+      const msg = `${labelPrefix}: Số lượng vượt giới hạn cho phép (${MAX_PRINTQUOTE_QUANTITY.toLocaleString('vi-VN')}).`;
+      currentLineErr.quantity = msg;
+      errors.push(msg);
+      structuralErrors.push(msg);
     } else if (
       line.ambiguousLegacyCost &&
       qtyRes.value !== line.ambiguousLegacyCost.originalQuantity
@@ -361,6 +381,32 @@ export function validateQuoteDraftInputs(
       currentLineErr.costMode = msg;
       errors.push(msg);
       structuralErrors.push(msg);
+    } else if (
+      line.vendorPriceItemId &&
+      line.vendorPriceItemId.trim() !== '' &&
+      (line.baseCostSource ?? 'CATALOG') === 'CATALOG' &&
+      line.vendorCostMode === VendorCostMode.TOTAL_BATCH
+    ) {
+      const catItem = catalogById.get(line.vendorPriceItemId.trim());
+      if (catItem) {
+        const batchCheck = evaluateCatalogBatchQuantityCondition({
+          itemName: catItem.name,
+          itemCode: catItem.code,
+          itemType: catItem.item_type,
+          pricingMode: catItem.pricing_mode,
+          batchQuantity: catItem.batch_quantity,
+          structuredSpec: catItem.structured_spec,
+          costSource: line.baseCostSource,
+          lineQuantity: qtyRes.value,
+          unit: line.unit || catItem.unit,
+        });
+        if (!batchCheck.allowed && batchCheck.reason) {
+          const msg = `${labelPrefix}: ${batchCheck.reason}`;
+          currentLineErr.costMode = msg;
+          errors.push(msg);
+          structuralErrors.push(msg);
+        }
+      }
     }
 
     // Area (m²) validation when PER_SQM is used or explicit m² inputs are filled
@@ -515,6 +561,24 @@ export function validateQuoteDraftInputs(
           }
         }
       }
+      if (resolvedArea) {
+        const trimmedReason = line.areaAdjustmentReason?.trim() ?? '';
+        if (
+          Math.abs(resolvedArea.billableAreaSqm - resolvedArea.actualAreaSqm) >
+          1e-9
+        ) {
+          if (!trimmedReason) {
+            const msg = `${labelPrefix}: Khi sửa Diện tích tính tiền khác Diện tích thực tế, bắt buộc nhập lý do điều chỉnh.`;
+            currentLineErr.area = msg;
+            errors.push(msg);
+            structuralErrors.push(msg);
+          } else {
+            resolvedArea.adjustmentReason = trimmedReason;
+          }
+        } else if (trimmedReason) {
+          resolvedArea.adjustmentReason = trimmedReason;
+        }
+      }
     }
 
     // Base vendor cost validation ("" = pending cost vs "0" = 0đ explicit)
@@ -541,6 +605,11 @@ export function validateQuoteDraftInputs(
         errors.push(msg);
         structuralErrors.push(msg);
       }
+    } else if (costRes.value > MAX_PRINTQUOTE_RATE_VND) {
+      const msg = `${labelPrefix}: Giá nhà in vượt giới hạn cho phép.`;
+      currentLineErr.vendorCost = msg;
+      errors.push(msg);
+      structuralErrors.push(msg);
     }
 
     // Finishing stages validation (0..N stages, duplicate check, "" = pending stage cost)
@@ -567,6 +636,33 @@ export function validateQuoteDraftInputs(
           structuralErrors.push(msg);
         }
         seenStageIds.add(stg.priceItemId.trim());
+        if (
+          qtyRes.isValid &&
+          qtyRes.value !== null &&
+          (stg.costSource ?? 'CATALOG') === 'CATALOG' &&
+          stg.pricingMode === VendorCostMode.TOTAL_BATCH
+        ) {
+          const stgCatItem = catalogById.get(stg.priceItemId.trim());
+          if (stgCatItem) {
+            const stgBatchCheck = evaluateCatalogBatchQuantityCondition({
+              itemName: stgCatItem.name,
+              itemCode: stgCatItem.code,
+              itemType: stgCatItem.item_type,
+              pricingMode: stgCatItem.pricing_mode,
+              batchQuantity: stgCatItem.batch_quantity,
+              structuredSpec: stgCatItem.structured_spec,
+              costSource: stg.costSource,
+              lineQuantity: qtyRes.value,
+              unit: stg.unit || stgCatItem.unit,
+            });
+            if (!stgBatchCheck.allowed && stgBatchCheck.reason) {
+              const msg = `${labelPrefix}: ${stgBatchCheck.reason}`;
+              if (!currentLineErr.stages) currentLineErr.stages = msg;
+              errors.push(msg);
+              structuralErrors.push(msg);
+            }
+          }
+        }
       }
       const normKey = normalizeStageKey(sName);
       if (normKey) {
@@ -599,6 +695,12 @@ export function validateQuoteDraftInputs(
           structuralErrors.push(msg);
           validatedStageNums.push({ id: stg.id, rate: null });
         }
+      } else if (stgRes.value > MAX_PRINTQUOTE_RATE_VND) {
+        const msg = `${labelPrefix}: Giá công đoạn "${sName}" vượt giới hạn cho phép.`;
+        if (!currentLineErr.stages) currentLineErr.stages = msg;
+        errors.push(msg);
+        structuralErrors.push(msg);
+        validatedStageNums.push({ id: stg.id, rate: null });
       } else {
         validatedStageNums.push({ id: stg.id, rate: stgRes.value });
       }
@@ -634,6 +736,22 @@ export function validateQuoteDraftInputs(
         errors.push(msg);
         structuralErrors.push(msg);
       }
+    } else if (
+      line.profitMode === ProfitMode.PERCENTAGE &&
+      profitRes.value > MAX_PRINTQUOTE_PERCENT
+    ) {
+      const msg = `${labelPrefix}: Phần trăm lợi nhuận vượt giới hạn (${MAX_PRINTQUOTE_PERCENT}%).`;
+      currentLineErr.profit = msg;
+      errors.push(msg);
+      structuralErrors.push(msg);
+    } else if (
+      line.profitMode !== ProfitMode.PERCENTAGE &&
+      profitRes.value > MAX_PRINTQUOTE_RATE_VND
+    ) {
+      const msg = `${labelPrefix}: Tiền lời vượt giới hạn cho phép.`;
+      currentLineErr.profit = msg;
+      errors.push(msg);
+      structuralErrors.push(msg);
     }
 
     if (
@@ -671,6 +789,10 @@ export function validateQuoteDraftInputs(
     shippingError = shipRes.isEmpty
       ? 'Chưa nhập Phí giao hàng toàn đơn (nhập 0 nếu miễn phí giao hàng).'
       : 'Phí giao hàng không hợp lệ.';
+    errors.push(shippingError);
+    structuralErrors.push(shippingError);
+  } else if (shipRes.value > MAX_PRINTQUOTE_RATE_VND) {
+    shippingError = 'Phí giao hàng vượt giới hạn cho phép.';
     errors.push(shippingError);
     structuralErrors.push(shippingError);
   }

@@ -543,6 +543,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
       id: `STG-${Date.now()}-${existingStages.length + 1}`,
       priceItemId: item.id,
       code: item.code,
+      priceItemVersion: item.version,
+      vendorId: item.vendor_id,
+      vendorName: item.vendor_name ?? null,
       name: item.name,
       pricingMode: item.pricing_mode,
       rateValue: resolvedRate,
@@ -550,6 +553,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
       unit: item.unit || line.unit || 'tờ',
       costSource: LineCostSource.CATALOG,
       catalogOriginalRate: resolvedRate,
+      catalogBatchQuantity: item.batch_quantity ?? 1,
+      appliedAt: new Date().toISOString(),
       note: item.conditions_note || item.note || null,
     };
 
@@ -2134,7 +2139,10 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                               adjustBillableArea: checked,
                                               ...(checked
                                                 ? {}
-                                                : { billableAreaInput: '' }),
+                                                : {
+                                                    billableAreaInput: '',
+                                                    areaAdjustmentReason: '',
+                                                  }),
                                             }
                                           : l,
                                       ),
@@ -2152,39 +2160,84 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '6px',
-                                    maxWidth: '220px',
+                                    gap: '8px',
+                                    flexWrap: 'wrap',
+                                    flex: '1 1 320px',
                                   }}
                                 >
-                                  <NumericDraftInput
-                                    id={`pq-line-billable-area-${idx}`}
-                                    dataTestId={`pq-line-billable-area-${idx}`}
-                                    ariaLabel={`Diện tích tính tiền m2 dòng ${idx + 1}`}
-                                    allowDecimal={true}
-                                    placeholder="m² tính tiền"
-                                    style={{
-                                      ...inputStyle,
-                                      ...tabularNumStyle,
-                                      minHeight: '36px',
-                                    }}
-                                    value={line.billableAreaInput ?? ''}
-                                    onValueChange={(nextRaw) => {
-                                      onMarkTouched?.();
-                                      setDraftLines((prev) =>
-                                        prev.map((l, i) =>
-                                          i === idx
-                                            ? {
-                                                ...l,
-                                                billableAreaInput: nextRaw,
-                                              }
-                                            : l,
-                                        ),
-                                      );
-                                    }}
-                                  />
+                                  <div style={{ width: '150px' }}>
+                                    <NumericDraftInput
+                                      id={`pq-line-billable-area-${idx}`}
+                                      dataTestId={`pq-line-billable-area-${idx}`}
+                                      ariaLabel={`Diện tích tính tiền m2 dòng ${idx + 1}`}
+                                      allowDecimal={true}
+                                      placeholder="m² tính tiền"
+                                      style={{
+                                        ...inputStyle,
+                                        ...tabularNumStyle,
+                                        minHeight: '36px',
+                                      }}
+                                      value={line.billableAreaInput ?? ''}
+                                      onValueChange={(nextRaw) => {
+                                        onMarkTouched?.();
+                                        setDraftLines((prev) =>
+                                          prev.map((l, i) =>
+                                            i === idx
+                                              ? {
+                                                  ...l,
+                                                  billableAreaInput: nextRaw,
+                                                }
+                                              : l,
+                                          ),
+                                        );
+                                      }}
+                                    />
+                                  </div>
+                                  <div style={{ flex: '1 1 200px' }}>
+                                    <input
+                                      id={`pq-line-area-reason-${idx}`}
+                                      data-testid={`pq-line-area-reason-${idx}`}
+                                      aria-label={`Lý do điều chỉnh diện tích dòng ${idx + 1}`}
+                                      style={{
+                                        ...inputStyle,
+                                        minHeight: '36px',
+                                        fontSize: '12.5px',
+                                      }}
+                                      placeholder="Lý do điều chỉnh m² * (VD: Xưởng tính tối thiểu 1m²)"
+                                      value={line.areaAdjustmentReason ?? ''}
+                                      onChange={(e) => {
+                                        const reasonVal = e.target.value;
+                                        onMarkTouched?.();
+                                        setDraftLines((prev) =>
+                                          prev.map((l, i) =>
+                                            i === idx
+                                              ? {
+                                                  ...l,
+                                                  areaAdjustmentReason:
+                                                    reasonVal,
+                                                }
+                                              : l,
+                                          ),
+                                        );
+                                      }}
+                                    />
+                                  </div>
                                 </div>
                               )}
                             </div>
+                            {showValidationState && lineErr?.area && (
+                              <div
+                                role="alert"
+                                data-testid={`pq-line-area-error-${idx}`}
+                                style={{
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  color: 'var(--danger-text)',
+                                }}
+                              >
+                                {lineErr.area}
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -2780,6 +2833,15 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                         return {
                                           ...l,
                                           vendorCostMode: nextMode,
+                                          baseCostSource: l.vendorPriceItemId
+                                            ? selectedBaseCatalog &&
+                                              nextMode ===
+                                                selectedBaseCatalog.pricing_mode &&
+                                              l.vendorCostValue ===
+                                                l.baseCatalogOriginalRate
+                                              ? LineCostSource.CATALOG
+                                              : LineCostSource.CATALOG_OVERRIDDEN
+                                            : LineCostSource.MANUAL,
                                           areaMode:
                                             nextMode === VendorCostMode.PER_SQM
                                               ? (l.areaMode ??
@@ -2879,6 +2941,90 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                 />
                               </div>
                             </div>
+
+                            {/* Strict TOTAL_BATCH Catalog Quantity Condition Guard */}
+                            {lineErr?.costMode &&
+                              !line.ambiguousLegacyCost &&
+                              selectedBaseCatalog &&
+                              line.vendorCostMode ===
+                                VendorCostMode.TOTAL_BATCH && (
+                                <div
+                                  role="alert"
+                                  data-testid={`pq-batch-mismatch-guard-${idx}`}
+                                  style={{
+                                    marginTop: '8px',
+                                    padding: '8px 10px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--danger-text)',
+                                    backgroundColor: 'var(--bg-color)',
+                                    fontSize: '12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                  }}
+                                >
+                                  <span style={{ color: 'var(--danger-text)' }}>
+                                    {lineErr.costMode}
+                                  </span>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      gap: '6px',
+                                      flexWrap: 'wrap',
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      data-testid={`pq-batch-reset-qty-${idx}`}
+                                      onClick={() => {
+                                        const targetQty = Math.max(
+                                          1,
+                                          selectedBaseCatalog.batch_quantity ??
+                                            1,
+                                        );
+                                        onMarkTouched?.();
+                                        setDraftLines((prev) =>
+                                          prev.map((l, i) =>
+                                            i === idx
+                                              ? {
+                                                  ...l,
+                                                  quantity: targetQty,
+                                                  quantityInput:
+                                                    String(targetQty),
+                                                }
+                                              : l,
+                                          ),
+                                        );
+                                      }}
+                                      className="pq-btn pq-btn-secondary pq-btn-sm"
+                                    >
+                                      Đặt SL ={' '}
+                                      {selectedBaseCatalog.batch_quantity ?? 1}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      data-testid={`pq-batch-confirm-override-${idx}`}
+                                      onClick={() => {
+                                        onMarkTouched?.();
+                                        setDraftLines((prev) =>
+                                          prev.map((l, i) =>
+                                            i === idx
+                                              ? {
+                                                  ...l,
+                                                  baseCostSource:
+                                                    LineCostSource.CATALOG_OVERRIDDEN,
+                                                }
+                                              : l,
+                                          ),
+                                        );
+                                      }}
+                                      className="pq-btn pq-btn-accent pq-btn-sm"
+                                    >
+                                      Xác nhận dùng làm giá riêng báo giá này
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
 
                             {/* One-off override indicator + explicit Save Back to Catalog action */}
                             {isCatalogPriceOverridden && (
@@ -3255,6 +3401,20 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                     );
                                   }}
                                 />
+                                {line.profitMode === ProfitMode.PERCENTAGE && (
+                                  <div
+                                    data-testid={`pq-profit-basis-note-${idx}`}
+                                    style={{
+                                      marginTop: '6px',
+                                      fontSize: '12px',
+                                      color: 'var(--muted-color)',
+                                      lineHeight: 1.4,
+                                    }}
+                                  >
+                                    Mẫu số %: tính trên Tổng vốn SP (In cơ bản +
+                                    Gia công), không gồm phí giao hàng.
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>

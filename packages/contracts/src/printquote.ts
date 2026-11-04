@@ -60,6 +60,28 @@ export const AreaInputMode = {
 export type AreaInputModeType =
   (typeof AreaInputMode)[keyof typeof AreaInputMode];
 
+export const ProfitBasis = {
+  LINE_TOTAL_VENDOR_COST: 'LINE_TOTAL_VENDOR_COST',
+} as const;
+
+export type ProfitBasisType = (typeof ProfitBasis)[keyof typeof ProfitBasis];
+
+export const BatchQuantityPolicy = {
+  EXACT: 'EXACT',
+  MAX: 'MAX',
+  RANGE: 'RANGE',
+  ANY_QTY: 'ANY_QTY',
+} as const;
+
+export type BatchQuantityPolicyType =
+  (typeof BatchQuantityPolicy)[keyof typeof BatchQuantityPolicy];
+
+export const MAX_PRINTQUOTE_QUANTITY = 10_000_000;
+export const MAX_PRINTQUOTE_DIMENSION_M = 1_000;
+export const MAX_PRINTQUOTE_AREA_SQM = 1_000_000;
+export const MAX_PRINTQUOTE_RATE_VND = 100_000_000_000;
+export const MAX_PRINTQUOTE_PERCENT = 10_000;
+
 export interface QuoteAreaSpec {
   mode: AreaInputModeType;
   widthM: number | null;
@@ -67,6 +89,7 @@ export interface QuoteAreaSpec {
   sheetsCount: number;
   actualAreaSqm: number;
   billableAreaSqm: number;
+  adjustmentReason?: string | undefined;
 }
 
 export interface QuoteAreaSpecInput {
@@ -76,12 +99,19 @@ export interface QuoteAreaSpecInput {
   sheetsCount?: number | undefined;
   actualAreaSqm?: number | undefined;
   billableAreaSqm?: number | null | undefined;
+  adjustmentReason?: string | null | undefined;
 }
 
 export interface QuoteFinishingStageInput {
   id: string;
   priceItemId?: string | null | undefined;
   code?: string | null | undefined;
+  priceItemVersion?: number | null | undefined;
+  vendorId?: string | null | undefined;
+  vendorName?: string | null | undefined;
+  catalogOriginalRate?: number | null | undefined;
+  catalogBatchQuantity?: number | null | undefined;
+  appliedAt?: string | null | undefined;
   name: string;
   pricingMode: VendorCostModeType;
   rate: number;
@@ -95,6 +125,12 @@ export interface CalculatedFinishingStage {
   id: string;
   priceItemId: string | null;
   code: string | null;
+  priceItemVersion?: number | null | undefined;
+  vendorId?: string | null | undefined;
+  vendorName?: string | null | undefined;
+  catalogOriginalRate?: number | null | undefined;
+  catalogBatchQuantity?: number | null | undefined;
+  appliedAt?: string | null | undefined;
   name: string;
   pricingMode: VendorCostModeType;
   rate: number;
@@ -109,6 +145,12 @@ export interface PendingCostDraftStageSnapshot {
   id: string;
   priceItemId?: string | null | undefined;
   code?: string | null | undefined;
+  priceItemVersion?: number | null | undefined;
+  vendorId?: string | null | undefined;
+  vendorName?: string | null | undefined;
+  catalogOriginalRate?: number | null | undefined;
+  catalogBatchQuantity?: number | null | undefined;
+  appliedAt?: string | null | undefined;
   name: string;
   pricingMode: VendorCostModeType;
   rate: number | null;
@@ -155,6 +197,11 @@ export interface QuoteLineInput {
   vendorId?: string | null | undefined;
   vendorName?: string | null | undefined;
   vendorPriceItemId?: string | null | undefined;
+  vendorPriceItemCode?: string | null | undefined;
+  vendorPriceItemVersion?: number | null | undefined;
+  catalogOriginalRate?: number | null | undefined;
+  catalogBatchQuantity?: number | null | undefined;
+  priceAppliedAt?: string | null | undefined;
   unit?: string | undefined;
   quantity: number;
   vendorCostMode?: VendorCostModeType | undefined;
@@ -184,6 +231,7 @@ export interface QuoteCalculationInput {
   includeShippingInUnitPrice?: boolean | undefined;
   shippingAllocationStrategy?: ShippingAllocationStrategyType | undefined;
   roundingPolicy?: UnitPriceRoundingPolicy | undefined;
+  requireAreaAdjustmentReason?: boolean | undefined;
 }
 
 export interface ExactUnitPriceSplitSegment {
@@ -199,6 +247,11 @@ export interface QuoteLineBreakdown {
   vendorId: string | null;
   vendorName: string | null;
   vendorPriceItemId: string | null;
+  vendorPriceItemCode?: string | null | undefined;
+  vendorPriceItemVersion?: number | null | undefined;
+  catalogOriginalRate?: number | null | undefined;
+  catalogBatchQuantity?: number | null | undefined;
+  priceAppliedAt?: string | null | undefined;
   unit: string;
   quantity: number;
 
@@ -216,6 +269,7 @@ export interface QuoteLineBreakdown {
 
   profitMode: ProfitModeType;
   profitScope: ProfitScopeType;
+  profitBasis?: ProfitBasisType | undefined;
   profitInputValue: number;
   unitProfit: number;
   totalProfit: number;
@@ -341,6 +395,11 @@ export interface PersistedQuoteLineSnapshot {
   readonly vendorId?: string | null | undefined;
   readonly vendorName?: string | null | undefined;
   readonly vendorPriceItemId?: string | null | undefined;
+  readonly vendorPriceItemCode?: string | null | undefined;
+  readonly vendorPriceItemVersion?: number | null | undefined;
+  readonly catalogOriginalRate?: number | null | undefined;
+  readonly catalogBatchQuantity?: number | null | undefined;
+  readonly priceAppliedAt?: string | null | undefined;
   readonly unit: string;
   readonly quantity: number;
   readonly vendorCostMode?: VendorCostModeType | undefined;
@@ -359,6 +418,7 @@ export interface PersistedQuoteLineSnapshot {
   readonly totalVendorCost: number;
   readonly profitMode: ProfitModeType;
   readonly profitScope: ProfitScopeType;
+  readonly profitBasis?: ProfitBasisType | undefined;
   readonly profitInputValue: number;
   readonly unitProfit: number;
   readonly totalProfit: number;
@@ -607,6 +667,11 @@ export function normalizeAreaSqm(area: number): number {
   if (!Number.isFinite(area) || area <= 0) {
     throw new Error(`Diện tích m² phải lớn hơn 0, nhận được: ${area}`);
   }
+  if (area > MAX_PRINTQUOTE_AREA_SQM) {
+    throw new Error(
+      `Diện tích m² vượt giới hạn an toàn (${MAX_PRINTQUOTE_AREA_SQM} m²), nhận được: ${area}`,
+    );
+  }
   const microSqm = Math.round(area * 1_000_000);
   if (microSqm <= 0) {
     throw new Error(`Diện tích m² quá nhỏ hoặc không hợp lệ: ${area}`);
@@ -623,15 +688,31 @@ export function computeExactAreaSqm(
   heightM: number,
   sheetsCount: number = 1,
 ): number {
-  if (!Number.isFinite(widthM) || widthM <= 0) {
-    throw new Error(`Chiều ngang (m) phải lớn hơn 0, nhận được: ${widthM}`);
-  }
-  if (!Number.isFinite(heightM) || heightM <= 0) {
-    throw new Error(`Chiều cao (m) phải lớn hơn 0, nhận được: ${heightM}`);
-  }
-  if (!Number.isInteger(sheetsCount) || sheetsCount <= 0) {
+  if (
+    !Number.isFinite(widthM) ||
+    widthM <= 0 ||
+    widthM > MAX_PRINTQUOTE_DIMENSION_M
+  ) {
     throw new Error(
-      `Số tấm tính diện tích phải là số nguyên dương, nhận được: ${sheetsCount}`,
+      `Chiều ngang (m) phải nằm trong khoảng (0, ${MAX_PRINTQUOTE_DIMENSION_M}], nhận được: ${widthM}`,
+    );
+  }
+  if (
+    !Number.isFinite(heightM) ||
+    heightM <= 0 ||
+    heightM > MAX_PRINTQUOTE_DIMENSION_M
+  ) {
+    throw new Error(
+      `Chiều cao (m) phải nằm trong khoảng (0, ${MAX_PRINTQUOTE_DIMENSION_M}], nhận được: ${heightM}`,
+    );
+  }
+  if (
+    !Number.isInteger(sheetsCount) ||
+    sheetsCount <= 0 ||
+    sheetsCount > MAX_PRINTQUOTE_QUANTITY
+  ) {
+    throw new Error(
+      `Số tấm tính diện tích phải là số nguyên dương <= ${MAX_PRINTQUOTE_QUANTITY}, nhận được: ${sheetsCount}`,
     );
   }
   const wScaled = BigInt(Math.round(widthM * 10_000));
@@ -643,7 +724,13 @@ export function computeExactAreaSqm(
   // wScaled * hScaled is in 10^-8 m²; convert half-up to 10^-6 m² (micro-m²)
   const prod1e8 = wScaled * hScaled * cScaled;
   const microSqm = (prod1e8 + 50n) / 100n;
-  return Number(microSqm) / 1_000_000;
+  const resultSqm = Number(microSqm) / 1_000_000;
+  if (resultSqm <= 0 || resultSqm > MAX_PRINTQUOTE_AREA_SQM) {
+    throw new Error(
+      `Tổng diện tích tính ra (${resultSqm} m²) vượt giới hạn hợp lệ.`,
+    );
+  }
+  return resultSqm;
 }
 
 /**
@@ -655,15 +742,206 @@ export function multiplyRateByAreaSqmToVnd(
   ratePerSqm: number,
   billableAreaSqm: number,
 ): number {
-  if (!Number.isFinite(ratePerSqm) || ratePerSqm < 0) {
-    throw new Error(`Đơn giá / m² không được âm: ${ratePerSqm}`);
+  if (
+    !Number.isFinite(ratePerSqm) ||
+    ratePerSqm < 0 ||
+    ratePerSqm > MAX_PRINTQUOTE_RATE_VND
+  ) {
+    throw new Error(
+      `Đơn giá / m² phải nằm trong khoảng [0, ${MAX_PRINTQUOTE_RATE_VND}], nhận được: ${ratePerSqm}`,
+    );
   }
   const normalizedArea = normalizeAreaSqm(billableAreaSqm);
   if (ratePerSqm === 0) return 0;
   const areaMicro = BigInt(Math.round(normalizedArea * 1_000_000));
   const rateCents = BigInt(Math.round(ratePerSqm * 100));
   const prod = areaMicro * rateCents;
-  return Number((prod + 50_000_000n) / 100_000_000n);
+  const roundedVnd = (prod + 50_000_000n) / 100_000_000n;
+  if (roundedVnd > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error('Thành tiền diện tích vượt giới hạn số nguyên an toàn.');
+  }
+  return Number(roundedVnd);
+}
+
+export interface CatalogBatchConditionResult {
+  allowed: boolean;
+  policy: BatchQuantityPolicyType;
+  batchQuantity: number;
+  minQuantity: number;
+  maxQuantity: number | null;
+  reason: string | null;
+}
+
+export function resolveCatalogBatchQuantityPolicy(item: {
+  itemType?: PriceItemTypeValue | undefined;
+  pricingMode: VendorCostModeType;
+  batchQuantity: number;
+  structuredSpec?: Record<string, unknown> | null | undefined;
+}): {
+  policy: BatchQuantityPolicyType;
+  batchQuantity: number;
+  minQuantity: number;
+  maxQuantity: number | null;
+} {
+  const batchQuantity = Math.max(
+    1,
+    Math.trunc(Number(item.batchQuantity) || 1),
+  );
+  if (item.pricingMode !== VendorCostMode.TOTAL_BATCH) {
+    return {
+      policy: BatchQuantityPolicy.ANY_QTY,
+      batchQuantity,
+      minQuantity: 1,
+      maxQuantity: null,
+    };
+  }
+
+  const rawPolicy = item.structuredSpec?.['batch_qty_policy'];
+  let policy: BatchQuantityPolicyType;
+  if (
+    rawPolicy === BatchQuantityPolicy.EXACT ||
+    rawPolicy === BatchQuantityPolicy.MAX ||
+    rawPolicy === BatchQuantityPolicy.RANGE ||
+    rawPolicy === BatchQuantityPolicy.ANY_QTY
+  ) {
+    policy = rawPolicy;
+  } else if (item.itemType === PriceItemType.FINISHING && batchQuantity === 1) {
+    // Flat per-lot setup fee on finishing stages (e.g. "Khuôn bế 1 lô") applies once per job unless restricted
+    policy = BatchQuantityPolicy.ANY_QTY;
+  } else {
+    // Fail-closed default for BASE_PRINT TOTAL_BATCH and any multi-unit batch: exact batch quantity required
+    policy = BatchQuantityPolicy.EXACT;
+  }
+
+  if (policy === BatchQuantityPolicy.EXACT) {
+    return {
+      policy,
+      batchQuantity,
+      minQuantity: batchQuantity,
+      maxQuantity: batchQuantity,
+    };
+  }
+  if (policy === BatchQuantityPolicy.MAX) {
+    return {
+      policy,
+      batchQuantity,
+      minQuantity: 1,
+      maxQuantity: batchQuantity,
+    };
+  }
+  if (policy === BatchQuantityPolicy.RANGE) {
+    const rawMin = Number(item.structuredSpec?.['batch_min_qty']);
+    const rawMax = Number(item.structuredSpec?.['batch_max_qty']);
+    const minQuantity =
+      Number.isInteger(rawMin) && rawMin >= 1 ? rawMin : batchQuantity;
+    const maxQuantity =
+      Number.isInteger(rawMax) && rawMax >= minQuantity
+        ? rawMax
+        : batchQuantity;
+    return {
+      policy,
+      batchQuantity,
+      minQuantity,
+      maxQuantity,
+    };
+  }
+  return {
+    policy: BatchQuantityPolicy.ANY_QTY,
+    batchQuantity,
+    minQuantity: 1,
+    maxQuantity: null,
+  };
+}
+
+export function evaluateCatalogBatchQuantityCondition(params: {
+  itemName: string;
+  itemCode?: string | null | undefined;
+  itemType?: PriceItemTypeValue | undefined;
+  pricingMode: VendorCostModeType;
+  batchQuantity: number;
+  structuredSpec?: Record<string, unknown> | null | undefined;
+  costSource?: LineCostSourceType | undefined;
+  lineQuantity: number;
+  unit?: string | undefined;
+}): CatalogBatchConditionResult {
+  const resolved = resolveCatalogBatchQuantityPolicy({
+    itemType: params.itemType,
+    pricingMode: params.pricingMode,
+    batchQuantity: params.batchQuantity,
+    structuredSpec: params.structuredSpec,
+  });
+
+  if (
+    params.pricingMode !== VendorCostMode.TOTAL_BATCH ||
+    params.costSource === LineCostSource.MANUAL ||
+    params.costSource === LineCostSource.CATALOG_OVERRIDDEN ||
+    resolved.policy === BatchQuantityPolicy.ANY_QTY
+  ) {
+    return {
+      allowed: true,
+      policy: resolved.policy,
+      batchQuantity: resolved.batchQuantity,
+      minQuantity: resolved.minQuantity,
+      maxQuantity: resolved.maxQuantity,
+      reason: null,
+    };
+  }
+
+  const unitLabel = params.unit || 'đơn vị';
+  const codePrefix = params.itemCode ? `[${params.itemCode}] ` : '';
+
+  if (
+    resolved.policy === BatchQuantityPolicy.EXACT &&
+    params.lineQuantity !== resolved.batchQuantity
+  ) {
+    return {
+      allowed: false,
+      policy: resolved.policy,
+      batchQuantity: resolved.batchQuantity,
+      minQuantity: resolved.minQuantity,
+      maxQuantity: resolved.maxQuantity,
+      reason: `Mục giá trọn lô ${codePrefix}"${params.itemName}" chỉ áp dụng cho đúng ${resolved.batchQuantity} ${unitLabel} (hiện đang nhập ${params.lineQuantity} ${unitLabel}). Không tự áp dụng giá trọn lô cho số lượng khác — vui lòng đặt lại SL = ${resolved.batchQuantity}, hoặc xác nhận sửa giá riêng cho báo giá này.`,
+    };
+  }
+
+  if (
+    resolved.policy === BatchQuantityPolicy.MAX &&
+    (params.lineQuantity < 1 || params.lineQuantity > resolved.batchQuantity)
+  ) {
+    return {
+      allowed: false,
+      policy: resolved.policy,
+      batchQuantity: resolved.batchQuantity,
+      minQuantity: resolved.minQuantity,
+      maxQuantity: resolved.maxQuantity,
+      reason: `Mục giá trọn lô ${codePrefix}"${params.itemName}" chỉ áp dụng tối đa ${resolved.batchQuantity} ${unitLabel} (hiện đang nhập ${params.lineQuantity} ${unitLabel}). Vui lòng giảm SL <= ${resolved.batchQuantity} hoặc xác nhận giá riêng.`,
+    };
+  }
+
+  if (
+    resolved.policy === BatchQuantityPolicy.RANGE &&
+    (params.lineQuantity < resolved.minQuantity ||
+      (resolved.maxQuantity !== null &&
+        params.lineQuantity > resolved.maxQuantity))
+  ) {
+    return {
+      allowed: false,
+      policy: resolved.policy,
+      batchQuantity: resolved.batchQuantity,
+      minQuantity: resolved.minQuantity,
+      maxQuantity: resolved.maxQuantity,
+      reason: `Mục giá trọn lô ${codePrefix}"${params.itemName}" chỉ áp dụng cho khoảng ${resolved.minQuantity}–${resolved.maxQuantity} ${unitLabel} (hiện đang nhập ${params.lineQuantity} ${unitLabel}). Vui lòng điều chỉnh SL hoặc xác nhận giá riêng.`,
+    };
+  }
+
+  return {
+    allowed: true,
+    policy: resolved.policy,
+    batchQuantity: resolved.batchQuantity,
+    minQuantity: resolved.minQuantity,
+    maxQuantity: resolved.maxQuantity,
+    reason: null,
+  };
 }
 
 export function normalizeStageKey(raw: string): string {
@@ -965,8 +1243,15 @@ function resolveAreaSpec(
   areaInput: QuoteAreaSpecInput | null | undefined,
   lineQuantity: number,
   lineId: string,
+  options?: {
+    requireAdjustmentReason?: boolean | undefined;
+    lineName?: string | undefined;
+  },
 ): QuoteAreaSpec | null {
   if (!areaInput) return null;
+  const trimmedReason = String(areaInput.adjustmentReason ?? '').trim();
+  const label = options?.lineName ? `"${options.lineName}"` : `(${lineId})`;
+
   if (areaInput.mode === AreaInputMode.DIMENSIONS) {
     const w = Number(areaInput.widthM);
     const h = Number(areaInput.heightM);
@@ -980,6 +1265,12 @@ function resolveAreaSpec(
       areaInput.billableAreaSqm !== null
         ? normalizeAreaSqm(Number(areaInput.billableAreaSqm))
         : actualAreaSqm;
+    const hasDiff = Math.abs(billableAreaSqm - actualAreaSqm) > 1e-9;
+    if (hasDiff && options?.requireAdjustmentReason && !trimmedReason) {
+      throw new Error(
+        `Sản phẩm ${label} có diện tích tính tiền (${billableAreaSqm} m²) khác diện tích thực tế (${actualAreaSqm} m²) — bắt buộc nhập lý do điều chỉnh diện tích.`,
+      );
+    }
     return {
       mode: AreaInputMode.DIMENSIONS,
       widthM: Math.round(w * 10_000) / 10_000,
@@ -987,6 +1278,7 @@ function resolveAreaSpec(
       sheetsCount: sheets,
       actualAreaSqm,
       billableAreaSqm,
+      ...(trimmedReason ? { adjustmentReason: trimmedReason } : {}),
     };
   }
   if (areaInput.mode === AreaInputMode.DIRECT_AREA) {
@@ -1001,6 +1293,12 @@ function resolveAreaSpec(
       areaInput.billableAreaSqm !== null
         ? normalizeAreaSqm(Number(areaInput.billableAreaSqm))
         : actualAreaSqm;
+    const hasDiff = Math.abs(billableAreaSqm - actualAreaSqm) > 1e-9;
+    if (hasDiff && options?.requireAdjustmentReason && !trimmedReason) {
+      throw new Error(
+        `Sản phẩm ${label} có diện tích tính tiền (${billableAreaSqm} m²) khác diện tích thực tế (${actualAreaSqm} m²) — bắt buộc nhập lý do điều chỉnh diện tích.`,
+      );
+    }
     return {
       mode: AreaInputMode.DIRECT_AREA,
       widthM: null,
@@ -1008,6 +1306,7 @@ function resolveAreaSpec(
       sheetsCount: lineQuantity,
       actualAreaSqm,
       billableAreaSqm,
+      ...(trimmedReason ? { adjustmentReason: trimmedReason } : {}),
     };
   }
   throw new Error(
@@ -1018,6 +1317,7 @@ function resolveAreaSpec(
 function resolveLineCostAndProfit(
   item: QuoteLineInput,
   defaultProfit?: ProfitConfig,
+  requireAreaAdjustmentReason?: boolean,
 ): {
   vendorCostMode?: VendorCostModeType | undefined;
   baseCostRate?: number | undefined;
@@ -1030,6 +1330,7 @@ function resolveLineCostAndProfit(
   unitVendorCost: number;
   totalVendorCost: number;
   profitConfig: ProfitConfig;
+  profitBasis?: ProfitBasisType | undefined;
   unitProfit: number;
   totalProfit: number;
   lineExtraCost: number;
@@ -1037,13 +1338,20 @@ function resolveLineCostAndProfit(
   if (!item.id || !item.name) {
     throw new Error('Mỗi dòng sản phẩm phải có đầy đủ `id` và `name`.');
   }
-  if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+  if (
+    !Number.isInteger(item.quantity) ||
+    item.quantity <= 0 ||
+    item.quantity > MAX_PRINTQUOTE_QUANTITY
+  ) {
     throw new Error(
-      `Số lượng sản phẩm (${item.id}) phải là số nguyên dương, nhận được: ${item.quantity}`,
+      `Số lượng sản phẩm (${item.id}) phải là số nguyên dương <= ${MAX_PRINTQUOTE_QUANTITY}, nhận được: ${item.quantity}`,
     );
   }
 
-  const resolvedArea = resolveAreaSpec(item.areaSpec, item.quantity, item.id);
+  const resolvedArea = resolveAreaSpec(item.areaSpec, item.quantity, item.id, {
+    requireAdjustmentReason: requireAreaAdjustmentReason,
+    lineName: item.name,
+  });
   const hasExtendedPricing =
     item.vendorCostMode !== undefined ||
     item.baseCostRate !== undefined ||
@@ -1070,6 +1378,16 @@ function resolveLineCostAndProfit(
     }
 
     if (hasUnitCost && hasTotalCost) {
+      if (
+        !Number.isFinite(item.unitVendorCost!) ||
+        !Number.isFinite(item.totalVendorCost!) ||
+        item.unitVendorCost! > MAX_PRINTQUOTE_RATE_VND ||
+        item.totalVendorCost! > MAX_PRINTQUOTE_RATE_VND
+      ) {
+        throw new Error(
+          `Giá vốn nhà in (${item.id}) phải là số hợp lệ <= ${MAX_PRINTQUOTE_RATE_VND}.`,
+        );
+      }
       if (item.unitVendorCost! < 0 || item.totalVendorCost! < 0) {
         throw new Error(`Giá vốn nhà in (${item.id}) không được âm.`);
       }
@@ -1083,12 +1401,28 @@ function resolveLineCostAndProfit(
       unitVendorCost = item.unitVendorCost!;
       totalVendorCost = providedTotal;
     } else if (hasUnitCost) {
+      if (
+        !Number.isFinite(item.unitVendorCost!) ||
+        item.unitVendorCost! > MAX_PRINTQUOTE_RATE_VND
+      ) {
+        throw new Error(
+          `Giá vốn đơn vị (${item.id}) phải là số hợp lệ <= ${MAX_PRINTQUOTE_RATE_VND}.`,
+        );
+      }
       if (item.unitVendorCost! < 0) {
         throw new Error(`Giá vốn đơn vị (${item.id}) không được âm.`);
       }
       unitVendorCost = item.unitVendorCost!;
       totalVendorCost = Math.round(unitVendorCost * item.quantity);
     } else {
+      if (
+        !Number.isFinite(item.totalVendorCost!) ||
+        item.totalVendorCost! > MAX_PRINTQUOTE_RATE_VND
+      ) {
+        throw new Error(
+          `Tổng giá vốn (${item.id}) phải là số hợp lệ <= ${MAX_PRINTQUOTE_RATE_VND}.`,
+        );
+      }
       if (item.totalVendorCost! < 0) {
         throw new Error(`Tổng giá vốn (${item.id}) không được âm.`);
       }
@@ -1112,10 +1446,11 @@ function resolveLineCostAndProfit(
     if (
       candidateBaseRate === undefined ||
       !Number.isFinite(candidateBaseRate) ||
-      candidateBaseRate < 0
+      candidateBaseRate < 0 ||
+      candidateBaseRate > MAX_PRINTQUOTE_RATE_VND
     ) {
       throw new Error(
-        `Giá cơ bản của sản phẩm (${item.id}) phải là số không âm hợp lệ.`,
+        `Giá cơ bản của sản phẩm (${item.id}) phải là số hợp lệ trong khoảng [0, ${MAX_PRINTQUOTE_RATE_VND}].`,
       );
     }
     resolvedBaseRate = candidateBaseRate;
@@ -1170,9 +1505,13 @@ function resolveLineCostAndProfit(
         seenStageNameKeys.add(normNameKey);
       }
 
-      if (!Number.isFinite(stg.rate) || stg.rate < 0) {
+      if (
+        !Number.isFinite(stg.rate) ||
+        stg.rate < 0 ||
+        stg.rate > MAX_PRINTQUOTE_RATE_VND
+      ) {
         throw new Error(
-          `Giá công đoạn "${trimmedStageName}" trên sản phẩm (${item.id}) phải là số không âm hợp lệ.`,
+          `Giá công đoạn "${trimmedStageName}" trên sản phẩm (${item.id}) phải là số hợp lệ trong khoảng [0, ${MAX_PRINTQUOTE_RATE_VND}].`,
         );
       }
 
@@ -1205,6 +1544,18 @@ function resolveLineCostAndProfit(
         id: stg.id,
         priceItemId: stg.priceItemId ?? null,
         code: stg.code ?? null,
+        ...(stg.priceItemVersion !== undefined
+          ? { priceItemVersion: stg.priceItemVersion }
+          : {}),
+        ...(stg.vendorId !== undefined ? { vendorId: stg.vendorId } : {}),
+        ...(stg.vendorName !== undefined ? { vendorName: stg.vendorName } : {}),
+        ...(stg.catalogOriginalRate !== undefined
+          ? { catalogOriginalRate: stg.catalogOriginalRate }
+          : {}),
+        ...(stg.catalogBatchQuantity !== undefined
+          ? { catalogBatchQuantity: stg.catalogBatchQuantity }
+          : {}),
+        ...(stg.appliedAt !== undefined ? { appliedAt: stg.appliedAt } : {}),
         name: trimmedStageName,
         pricingMode: stg.pricingMode,
         rate: stg.rate,
@@ -1240,14 +1591,23 @@ function resolveLineCostAndProfit(
       `Dòng sản phẩm (${item.id}) chưa có cấu hình lợi nhuận (profit hoặc defaultProfit).`,
     );
   }
-  if (!Number.isFinite(profitConfig.value) || profitConfig.value < 0) {
+  const maxAllowedProfitVal =
+    profitConfig.mode === ProfitMode.PERCENTAGE
+      ? MAX_PRINTQUOTE_PERCENT
+      : MAX_PRINTQUOTE_RATE_VND;
+  if (
+    !Number.isFinite(profitConfig.value) ||
+    profitConfig.value < 0 ||
+    profitConfig.value > maxAllowedProfitVal
+  ) {
     throw new Error(
-      `Giá trị lợi nhuận của dòng (${item.id}) không được âm: ${profitConfig.value}`,
+      `Giá trị lợi nhuận của dòng (${item.id}) phải nằm trong khoảng [0, ${maxAllowedProfitVal}], nhận được: ${profitConfig.value}`,
     );
   }
 
   let unitProfit: number;
   let totalProfit: number;
+  let profitBasis: ProfitBasisType | undefined;
 
   if (profitConfig.mode === ProfitMode.FIXED_AMOUNT) {
     if (profitConfig.scope === ProfitScope.PER_UNIT) {
@@ -1278,6 +1638,7 @@ function resolveLineCostAndProfit(
       profitConfig.scope === ProfitScope.PER_SQM ||
       profitConfig.scope === ProfitScope.TOTAL_BATCH
     ) {
+      profitBasis = ProfitBasis.LINE_TOTAL_VENDOR_COST;
       totalProfit = Math.round((totalVendorCost * profitConfig.value) / 100);
       unitProfit =
         profitConfig.scope === ProfitScope.PER_UNIT
@@ -1293,8 +1654,10 @@ function resolveLineCostAndProfit(
   }
 
   const lineExtraCost = Math.round(item.extraCost ?? 0);
-  if (lineExtraCost < 0) {
-    throw new Error(`Chi phí phát sinh dòng (${item.id}) không được âm.`);
+  if (lineExtraCost < 0 || lineExtraCost > MAX_PRINTQUOTE_RATE_VND) {
+    throw new Error(
+      `Chi phí phát sinh dòng (${item.id}) phải nằm trong khoảng [0, ${MAX_PRINTQUOTE_RATE_VND}].`,
+    );
   }
 
   return {
@@ -1319,6 +1682,7 @@ function resolveLineCostAndProfit(
     unitVendorCost,
     totalVendorCost,
     profitConfig,
+    ...(profitBasis !== undefined ? { profitBasis } : {}),
     unitProfit,
     totalProfit,
     lineExtraCost,
@@ -1369,13 +1733,25 @@ export function calculatePrintQuote(
   }
 
   const shippingFee = Math.round(input.shippingFee ?? 0);
-  if (shippingFee < 0) {
-    throw new Error('Chi phí vận chuyển (shippingFee) không được âm.');
+  if (
+    !Number.isFinite(shippingFee) ||
+    shippingFee < 0 ||
+    shippingFee > MAX_PRINTQUOTE_RATE_VND
+  ) {
+    throw new Error(
+      `Chi phí vận chuyển (shippingFee) phải nằm trong khoảng [0, ${MAX_PRINTQUOTE_RATE_VND}].`,
+    );
   }
 
   const orderExtraCost = Math.round(input.extraCost ?? 0);
-  if (orderExtraCost < 0) {
-    throw new Error('Chi phí phát sinh đơn hàng (extraCost) không được âm.');
+  if (
+    !Number.isFinite(orderExtraCost) ||
+    orderExtraCost < 0 ||
+    orderExtraCost > MAX_PRINTQUOTE_RATE_VND
+  ) {
+    throw new Error(
+      `Chi phí phát sinh đơn hàng (extraCost) phải nằm trong khoảng [0, ${MAX_PRINTQUOTE_RATE_VND}].`,
+    );
   }
 
   const includeShippingInUnitPrice = input.includeShippingInUnitPrice ?? true;
@@ -1389,7 +1765,11 @@ export function calculatePrintQuote(
   };
 
   const prelimLines = input.items.map((item) => {
-    const resolved = resolveLineCostAndProfit(item, input.defaultProfit);
+    const resolved = resolveLineCostAndProfit(
+      item,
+      input.defaultProfit,
+      input.requireAreaAdjustmentReason,
+    );
     const prelimBase =
       resolved.totalVendorCost + resolved.totalProfit + resolved.lineExtraCost;
     return {
@@ -1478,6 +1858,21 @@ export function calculatePrintQuote(
       vendorId: l.item.vendorId ?? null,
       vendorName: l.item.vendorName ?? null,
       vendorPriceItemId: l.item.vendorPriceItemId ?? null,
+      ...(l.item.vendorPriceItemCode !== undefined
+        ? { vendorPriceItemCode: l.item.vendorPriceItemCode }
+        : {}),
+      ...(l.item.vendorPriceItemVersion !== undefined
+        ? { vendorPriceItemVersion: l.item.vendorPriceItemVersion }
+        : {}),
+      ...(l.item.catalogOriginalRate !== undefined
+        ? { catalogOriginalRate: l.item.catalogOriginalRate }
+        : {}),
+      ...(l.item.catalogBatchQuantity !== undefined
+        ? { catalogBatchQuantity: l.item.catalogBatchQuantity }
+        : {}),
+      ...(l.item.priceAppliedAt !== undefined
+        ? { priceAppliedAt: l.item.priceAppliedAt }
+        : {}),
       unit: l.item.unit ?? 'tờ',
       quantity: l.item.quantity,
       ...(l.vendorCostMode !== undefined
@@ -1498,6 +1893,7 @@ export function calculatePrintQuote(
       totalVendorCost: l.totalVendorCost,
       profitMode: l.profitConfig.mode,
       profitScope: l.profitConfig.scope,
+      ...(l.profitBasis !== undefined ? { profitBasis: l.profitBasis } : {}),
       profitInputValue: l.profitConfig.value,
       unitProfit: l.unitProfit,
       totalProfit: l.totalProfit,
@@ -1671,12 +2067,26 @@ export const FORBIDDEN_CUSTOMER_PDF_KEYS = new Set([
   'isPendingCost',
   'profitMode',
   'profitScope',
+  'profitBasis',
   'profitInputValue',
   'unitProfit',
   'totalProfit',
   'vendorId',
   'vendorName',
   'vendorPriceItemId',
+  'vendorPriceItemCode',
+  'vendorPriceItemVersion',
+  'priceItemVersion',
+  'catalogOriginalRate',
+  'catalogBatchQuantity',
+  'priceAppliedAt',
+  'adjustmentReason',
+  'expected_vendor_cost',
+  'expected_profit',
+  'actual_vendor_cost',
+  'actual_profit',
+  'actual_cost_confirmed',
+  'vendor_paid_amount',
   'originalShippingFee',
   'allocatedShippingFee',
   'lineExtraCost',
@@ -1865,6 +2275,21 @@ export function createQuoteOrderSnapshot(
       vendorId: line.vendorId,
       vendorName: line.vendorName,
       vendorPriceItemId: line.vendorPriceItemId,
+      ...(line.vendorPriceItemCode !== undefined
+        ? { vendorPriceItemCode: line.vendorPriceItemCode }
+        : {}),
+      ...(line.vendorPriceItemVersion !== undefined
+        ? { vendorPriceItemVersion: line.vendorPriceItemVersion }
+        : {}),
+      ...(line.catalogOriginalRate !== undefined
+        ? { catalogOriginalRate: line.catalogOriginalRate }
+        : {}),
+      ...(line.catalogBatchQuantity !== undefined
+        ? { catalogBatchQuantity: line.catalogBatchQuantity }
+        : {}),
+      ...(line.priceAppliedAt !== undefined
+        ? { priceAppliedAt: line.priceAppliedAt }
+        : {}),
       unit: line.unit,
       quantity: line.quantity,
       ...(line.vendorCostMode !== undefined
@@ -1887,6 +2312,9 @@ export function createQuoteOrderSnapshot(
       totalVendorCost: line.totalVendorCost,
       profitMode: line.profitMode,
       profitScope: line.profitScope,
+      ...(line.profitBasis !== undefined
+        ? { profitBasis: line.profitBasis }
+        : {}),
       profitInputValue: line.profitInputValue,
       unitProfit: line.unitProfit,
       totalProfit: line.totalProfit,
@@ -1940,6 +2368,11 @@ export interface PendingCostDraftLineInput {
   vendorId?: string | null | undefined;
   vendorName?: string | null | undefined;
   vendorPriceItemId?: string | null | undefined;
+  vendorPriceItemCode?: string | null | undefined;
+  vendorPriceItemVersion?: number | null | undefined;
+  catalogOriginalRate?: number | null | undefined;
+  catalogBatchQuantity?: number | null | undefined;
+  priceAppliedAt?: string | null | undefined;
   unit?: string | undefined;
   quantity: number;
   vendorCostMode?: VendorCostModeType | undefined;
@@ -1959,6 +2392,9 @@ export interface PendingCostDraftLineInput {
  */
 export function evaluatePendingCostDraftLines(
   lines: readonly PendingCostDraftLineInput[],
+  options?: {
+    requireAreaAdjustmentReason?: boolean | undefined;
+  },
 ): {
   hasPendingCost: boolean;
   pendingSummary: PendingCostLineSummary[];
@@ -1974,9 +2410,13 @@ export function evaluatePendingCostDraftLines(
     if (!item.id || !String(item.name || '').trim()) {
       throw new Error('Mỗi dòng sản phẩm phải có tên sản phẩm.');
     }
-    if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+    if (
+      !Number.isInteger(item.quantity) ||
+      item.quantity <= 0 ||
+      item.quantity > MAX_PRINTQUOTE_QUANTITY
+    ) {
       throw new Error(
-        `Số lượng sản phẩm "${item.name}" phải là số nguyên dương.`,
+        `Số lượng sản phẩm "${item.name}" phải là số nguyên dương <= ${MAX_PRINTQUOTE_QUANTITY}.`,
       );
     }
     const lineCostMode = item.vendorCostMode ?? VendorCostMode.PER_UNIT;
@@ -1985,7 +2425,15 @@ export function evaluatePendingCostDraftLines(
       scope: ProfitScope.PER_UNIT,
       value: 0,
     };
-    const resolvedArea = resolveAreaSpec(item.areaSpec, item.quantity, item.id);
+    const resolvedArea = resolveAreaSpec(
+      item.areaSpec,
+      item.quantity,
+      item.id,
+      {
+        requireAdjustmentReason: options?.requireAreaAdjustmentReason,
+        lineName: item.name,
+      },
+    );
     if (lineCostMode === VendorCostMode.PER_SQM && !resolvedArea) {
       throw new Error(
         `Sản phẩm "${item.name}" tính theo m² phải nhập kích thước hoặc tổng m² hợp lệ.`,
@@ -1995,13 +2443,25 @@ export function evaluatePendingCostDraftLines(
 
     if (
       item.baseCostRate !== null &&
-      (!Number.isFinite(item.baseCostRate) || item.baseCostRate < 0)
+      (!Number.isFinite(item.baseCostRate) ||
+        item.baseCostRate < 0 ||
+        item.baseCostRate > MAX_PRINTQUOTE_RATE_VND)
     ) {
-      throw new Error(`Giá cơ bản của sản phẩm "${item.name}" không được âm.`);
-    }
-    if (!Number.isFinite(lineProfit.value) || lineProfit.value < 0) {
       throw new Error(
-        `Giá trị lợi nhuận của sản phẩm "${item.name}" không được âm.`,
+        `Giá cơ bản của sản phẩm "${item.name}" phải nằm trong khoảng [0, ${MAX_PRINTQUOTE_RATE_VND}].`,
+      );
+    }
+    const maxProfit =
+      lineProfit.mode === ProfitMode.PERCENTAGE
+        ? MAX_PRINTQUOTE_PERCENT
+        : MAX_PRINTQUOTE_RATE_VND;
+    if (
+      !Number.isFinite(lineProfit.value) ||
+      lineProfit.value < 0 ||
+      lineProfit.value > maxProfit
+    ) {
+      throw new Error(
+        `Giá trị lợi nhuận của sản phẩm "${item.name}" phải nằm trong khoảng [0, ${maxProfit}].`,
       );
     }
     if (
@@ -2094,16 +2554,25 @@ export function createPendingCostQuoteSnapshot(params: {
   shippingFee: number;
   lines: readonly PendingCostDraftLineInput[];
   createdAt?: string | undefined;
+  requireAreaAdjustmentReason?: boolean | undefined;
 }): {
   snapshot: PersistedQuoteOrderSnapshot;
   pendingSummary: PendingCostLineSummary[];
   totalQuantity: number;
 } {
   const shippingFee = Math.round(params.shippingFee ?? 0);
-  if (shippingFee < 0) {
-    throw new Error('Chi phí vận chuyển (shippingFee) không được âm.');
+  if (
+    !Number.isFinite(shippingFee) ||
+    shippingFee < 0 ||
+    shippingFee > MAX_PRINTQUOTE_RATE_VND
+  ) {
+    throw new Error(
+      `Chi phí vận chuyển (shippingFee) phải nằm trong khoảng [0, ${MAX_PRINTQUOTE_RATE_VND}].`,
+    );
   }
-  const evalResult = evaluatePendingCostDraftLines(params.lines);
+  const evalResult = evaluatePendingCostDraftLines(params.lines, {
+    requireAreaAdjustmentReason: params.requireAreaAdjustmentReason,
+  });
   if (!evalResult.hasPendingCost) {
     throw new Error(
       'Tất cả sản phẩm đã có đủ giá xưởng — vui lòng dùng calculatePrintQuote để tính báo giá hoàn chỉnh.',
@@ -2206,6 +2675,21 @@ export function createPendingCostQuoteSnapshot(params: {
         vendorId: line.vendorId ?? null,
         vendorName: line.vendorName ?? null,
         vendorPriceItemId: line.vendorPriceItemId ?? null,
+        ...(line.vendorPriceItemCode !== undefined
+          ? { vendorPriceItemCode: line.vendorPriceItemCode }
+          : {}),
+        ...(line.vendorPriceItemVersion !== undefined
+          ? { vendorPriceItemVersion: line.vendorPriceItemVersion }
+          : {}),
+        ...(line.catalogOriginalRate !== undefined
+          ? { catalogOriginalRate: line.catalogOriginalRate }
+          : {}),
+        ...(line.catalogBatchQuantity !== undefined
+          ? { catalogBatchQuantity: line.catalogBatchQuantity }
+          : {}),
+        ...(line.priceAppliedAt !== undefined
+          ? { priceAppliedAt: line.priceAppliedAt }
+          : {}),
         unit: line.unit ?? 'tờ',
         quantity: line.quantity,
         vendorCostMode: lineCostMode,
@@ -2698,10 +3182,14 @@ export interface PrintOrderData {
   expected_shipping_fee: number;
   expected_extra_cost: number;
   expected_profit: number;
+  actual_cost_confirmed: boolean;
+  actual_cost_confirmed_at: string | null;
+  actual_cost_confirmed_by?: string | null | undefined;
   actual_vendor_cost: number;
   actual_shipping_fee: number;
   actual_extra_cost: number;
   actual_profit: number;
+  vendor_paid_amount: number;
   deposit_required: number;
   deposit_paid: number;
   total_paid_amount: number;
@@ -2722,12 +3210,14 @@ export interface PrintQuoteDashboardStats {
   total_quotes: number;
   finalized_quotes: number;
   total_orders: number;
+  confirmed_actual_orders_count?: number | undefined;
   total_order_revenue: number;
   total_expected_vendor_cost: number;
   total_actual_vendor_cost: number;
   total_expected_profit: number;
   total_actual_profit: number;
   total_paid_amount: number;
+  total_vendor_paid_amount?: number | undefined;
   total_remaining_debt: number;
   orders_by_production_status: Record<PrintProductionStatusType, number>;
   orders_by_delivery_status: Record<PrintDeliveryStatusType, number>;

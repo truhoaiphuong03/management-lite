@@ -39,6 +39,9 @@ export interface DraftFinishingStageState {
   id: string;
   priceItemId: string;
   code?: string | null | undefined;
+  priceItemVersion?: number | null | undefined;
+  vendorId?: string | null | undefined;
+  vendorName?: string | null | undefined;
   name: string;
   pricingMode: VendorCostModeType;
   rateValue: number;
@@ -46,12 +49,16 @@ export interface DraftFinishingStageState {
   unit: string;
   costSource: LineCostSourceType;
   catalogOriginalRate?: number | null | undefined;
+  catalogBatchQuantity?: number | null | undefined;
+  appliedAt?: string | null | undefined;
   note?: string | null | undefined;
 }
 
 export interface DraftLineState {
   id: string;
   vendorPriceItemId: string;
+  vendorPriceItemCode?: string | null | undefined;
+  vendorPriceItemVersion?: number | null | undefined;
   name: string;
   specification: string;
   unit: string;
@@ -62,6 +69,8 @@ export interface DraftLineState {
   vendorCostInput?: string | undefined;
   baseCostSource?: LineCostSourceType | undefined;
   baseCatalogOriginalRate?: number | null | undefined;
+  baseCatalogBatchQuantity?: number | null | undefined;
+  priceAppliedAt?: string | null | undefined;
   baseIncludedStages?: string[] | undefined;
   materialGroup?: string | undefined;
   areaMode?: AreaInputModeType | undefined;
@@ -71,6 +80,7 @@ export interface DraftLineState {
   actualAreaInput?: string | undefined;
   billableAreaInput?: string | undefined;
   adjustBillableArea?: boolean | undefined;
+  areaAdjustmentReason?: string | undefined;
   finishingStages?: DraftFinishingStageState[] | undefined;
   ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;

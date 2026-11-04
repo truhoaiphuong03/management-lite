@@ -47,6 +47,7 @@ export interface SaveCatalogPriceItemPayload {
   unit: string;
   pricing_mode: VendorCostModeType;
   unit_cost: number;
+  batch_quantity?: number;
   batch_total_cost: number;
   default_profit_mode: ProfitModeType;
   default_profit_scope: ProfitScopeType;
@@ -185,6 +186,10 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
 
   const [costRateInput, setCostRateInput] = useState<string>('');
   const [defaultProfitInput, setDefaultProfitInput] = useState<string>('');
+  const [batchQtyInput, setBatchQtyInput] = useState<string>('1');
+  const [batchQtyPolicy, setBatchQtyPolicy] = useState<
+    'EXACT' | 'MAX' | 'ANY_QTY'
+  >('EXACT');
 
   // History modal state
   const [historyModalItem, setHistoryModalItem] =
@@ -272,6 +277,10 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
     setPriceDefaultProfitVal(0);
     setCostRateInput('');
     setDefaultProfitInput('');
+    setBatchQtyInput('1');
+    setBatchQtyPolicy(
+      defaultType === PriceItemType.FINISHING ? 'ANY_QTY' : 'EXACT',
+    );
     setIncludedStages([]);
     setCustomIncludedStageInput('');
     setConditionsNote('');
@@ -299,6 +308,25 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
     setDefaultProfitInput(
       item.default_profit_value > 0 ? String(item.default_profit_value) : '0',
     );
+    const savedBatchQty = Math.max(1, Math.round(item.batch_quantity ?? 1));
+    setBatchQtyInput(String(savedBatchQty));
+    const rawPolicy =
+      typeof item.structured_spec?.['batch_qty_policy'] === 'string'
+        ? item.structured_spec['batch_qty_policy'].toUpperCase()
+        : '';
+    if (
+      rawPolicy === 'EXACT' ||
+      rawPolicy === 'MAX' ||
+      rawPolicy === 'ANY_QTY'
+    ) {
+      setBatchQtyPolicy(rawPolicy);
+    } else {
+      setBatchQtyPolicy(
+        item.item_type === PriceItemType.FINISHING && savedBatchQty === 1
+          ? 'ANY_QTY'
+          : 'EXACT',
+      );
+    }
     setIncludedStages([...(item.included_stages ?? [])]);
     setCustomIncludedStageInput('');
     setConditionsNote(item.conditions_note || '');
@@ -357,6 +385,20 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
       return;
     }
 
+    let resolvedBatchQuantity = 1;
+    if (priceCostMode === VendorCostMode.TOTAL_BATCH) {
+      const parsedBatchQty = parseNumericDraftValue(batchQtyInput, {
+        allowDecimal: false,
+        min: 1,
+        integerOnly: true,
+      });
+      if (!parsedBatchQty.isValid || parsedBatchQty.value === null) {
+        setDialogError('Số lượng chuẩn của lô phải từ 1 trở lên.');
+        return;
+      }
+      resolvedBatchQuantity = parsedBatchQty.value;
+    }
+
     setSubmitting(true);
     try {
       if (onSaveCatalogPriceItem) {
@@ -378,6 +420,13 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
         const activeGroup = WORKSHOP_MATERIAL_GROUPS.find(
           (g) => g.id === selectedMaterialGroupId,
         );
+        const nextStructuredSpec: Record<string, unknown> = {};
+        if (dialogItemType === PriceItemType.BASE_PRINT) {
+          nextStructuredSpec['materialGroup'] = selectedMaterialGroupId;
+        }
+        if (priceCostMode === VendorCostMode.TOTAL_BATCH) {
+          nextStructuredSpec['batch_qty_policy'] = batchQtyPolicy;
+        }
 
         const ok = await onSaveCatalogPriceItem(
           {
@@ -391,8 +440,8 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
             specification: priceSpec.trim() || null,
             included_stages: mergedIncluded,
             structured_spec:
-              dialogItemType === PriceItemType.BASE_PRINT
-                ? { materialGroup: selectedMaterialGroupId }
+              Object.keys(nextStructuredSpec).length > 0
+                ? nextStructuredSpec
                 : null,
             conditions_note: conditionsNote.trim() || null,
             unit: resolvedUnit,
@@ -401,6 +450,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
               priceCostMode === VendorCostMode.TOTAL_BATCH
                 ? 0
                 : parsedCost.value,
+            batch_quantity: resolvedBatchQuantity,
             batch_total_cost:
               priceCostMode === VendorCostMode.TOTAL_BATCH
                 ? parsedCost.value
@@ -1037,7 +1087,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                       {p.pricing_mode === VendorCostMode.PER_SQM
                         ? 'Tính theo diện tích m²'
                         : p.pricing_mode === VendorCostMode.TOTAL_BATCH
-                          ? 'Tính trọn lô'
+                          ? `Trọn lô (${p.batch_quantity ?? 1} ${p.unit})`
                           : `Tính theo 1 ${p.unit}`}
                       {!isFinishing && p.default_profit_value > 0
                         ? ` • +Lời mặc định: ${
@@ -1484,6 +1534,62 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
               />
             </div>
           </div>
+
+          {priceCostMode === VendorCostMode.TOTAL_BATCH && (
+            <div
+              data-testid="pq-dialog-batch-condition-row"
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+                gap: '10px',
+              }}
+            >
+              <div>
+                <label htmlFor="pq-dialog-batch-qty" style={labelStyle}>
+                  Số lượng chuẩn của lô *
+                </label>
+                <NumericDraftInput
+                  id="pq-dialog-batch-qty"
+                  dataTestId="pq-dialog-batch-qty"
+                  ariaLabel="Số lượng chuẩn của lô"
+                  allowDecimal={false}
+                  style={{ ...inputStyle, ...tabularNumStyle }}
+                  placeholder="VD: 500 hoặc 1000"
+                  value={batchQtyInput}
+                  onValueChange={(nextRaw) => setBatchQtyInput(nextRaw)}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="pq-dialog-batch-policy" style={labelStyle}>
+                  Điều kiện áp dụng khi khác số lượng lô
+                </label>
+                <select
+                  id="pq-dialog-batch-policy"
+                  data-testid="pq-dialog-batch-policy"
+                  aria-label="Điều kiện áp dụng giá trọn lô"
+                  style={inputStyle}
+                  value={batchQtyPolicy}
+                  onChange={(e) =>
+                    setBatchQtyPolicy(
+                      e.target.value as 'EXACT' | 'MAX' | 'ANY_QTY',
+                    )
+                  }
+                >
+                  <option value="EXACT">
+                    Chỉ áp dụng đúng bằng SL lô (chặn SL khác)
+                  </option>
+                  <option value="MAX">
+                    Áp dụng tối đa đến SL lô (chặn vượt lô)
+                  </option>
+                  <option value="ANY_QTY">
+                    Phí cố định 1 lô cho mọi số lượng
+                  </option>
+                </select>
+              </div>
+            </div>
+          )}
 
           {dialogItemType === PriceItemType.BASE_PRINT && (
             <div

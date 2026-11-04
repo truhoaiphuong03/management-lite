@@ -85,7 +85,10 @@ export async function handlePrintQuoteRoutes(
     requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
     const body = await parseJsonBody<QuoteCalculationInput>(req);
     try {
-      const calc = calculatePrintQuote(body);
+      const calc = calculatePrintQuote({
+        ...body,
+        requireAreaAdjustmentReason: body?.requireAreaAdjustmentReason ?? true,
+      });
       const customerPdf = buildCustomerSafePdfPayload(calc);
       sendJson(
         res,

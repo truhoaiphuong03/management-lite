@@ -40,6 +40,19 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   );
 
   const debtCount = orders.filter((o) => o.remaining_debt_amount > 0).length;
+  const confirmedOrdersCount =
+    stats?.confirmed_actual_orders_count ??
+    orders.filter((o) => o.actual_cost_confirmed === true).length;
+  const confirmedActualProfit =
+    confirmedOrdersCount > 0
+      ? (stats?.total_actual_profit ??
+        orders
+          .filter((o) => o.actual_cost_confirmed === true)
+          .reduce((sum, o) => sum + o.actual_profit, 0))
+      : null;
+  const totalVendorPaid =
+    stats?.total_vendor_paid_amount ??
+    orders.reduce((sum, o) => sum + (o.vendor_paid_amount ?? 0), 0);
 
   return (
     <div
@@ -112,7 +125,34 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           >
             {formatVnd(stats?.total_expected_profit ?? 0)}
           </div>
-          <div className="pq-stat-sub">Tính theo giá vốn báo giá ban đầu</div>
+          <div className="pq-stat-sub">
+            Vốn dự kiến: {formatVnd(stats?.total_expected_vendor_cost ?? 0)}
+          </div>
+        </div>
+
+        <div className="pq-stat-card" data-testid="pq-stat-confirmed-actual">
+          <div className="pq-stat-label">
+            Lời thực tế từ chi phí đã xác nhận
+          </div>
+          <div
+            className="pq-stat-value"
+            style={{
+              ...tabularNumStyle,
+              color:
+                confirmedActualProfit !== null
+                  ? 'var(--success-text)'
+                  : 'var(--muted-color)',
+            }}
+          >
+            {confirmedActualProfit !== null
+              ? formatVnd(confirmedActualProfit)
+              : 'Chưa xác nhận'}
+          </div>
+          <div className="pq-stat-sub">
+            {confirmedOrdersCount > 0
+              ? `Đã xác nhận chi phí ${confirmedOrdersCount}/${orders.length} đơn • Thực chi xưởng: ${formatVnd(totalVendorPaid)}`
+              : `0/${orders.length} đơn xác nhận chi phí xưởng`}
+          </div>
         </div>
 
         <div className="pq-stat-card">
@@ -201,6 +241,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   <th>Khách hàng</th>
                   <th style={{ textAlign: 'right' }}>Giá trị đơn</th>
                   <th style={{ textAlign: 'right' }}>Lời dự kiến (BG)</th>
+                  <th style={{ textAlign: 'right' }}>Lời thực tế xác nhận</th>
                   <th style={{ textAlign: 'right' }}>Đã thu</th>
                   <th style={{ textAlign: 'right' }}>Còn phải thu</th>
                 </tr>
@@ -226,6 +267,20 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       }}
                     >
                       {formatVnd(o.expected_profit)}
+                    </td>
+                    <td
+                      style={{
+                        textAlign: 'right',
+                        fontWeight: o.actual_cost_confirmed ? 700 : 500,
+                        color: o.actual_cost_confirmed
+                          ? 'var(--success-text)'
+                          : 'var(--muted-color)',
+                        ...tabularNumStyle,
+                      }}
+                    >
+                      {o.actual_cost_confirmed
+                        ? formatVnd(o.actual_profit)
+                        : 'Chưa xác nhận'}
                     </td>
                     <td style={{ textAlign: 'right', ...tabularNumStyle }}>
                       {formatVnd(o.total_paid_amount)}

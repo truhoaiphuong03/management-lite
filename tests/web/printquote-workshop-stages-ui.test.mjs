@@ -156,7 +156,11 @@ async function startEphemeralStagingServers(pool) {
   };
 }
 
-async function seedIsolatedOwnerOnly(pool, testOwnerPassword) {
+async function seedIsolatedOwnerOnly(
+  pool,
+  testOwnerUsername,
+  testOwnerPassword,
+) {
   const passwordHash = await hashPassword(testOwnerPassword);
   const workspaceId = crypto.randomUUID();
   const ownerUserId = crypto.randomUUID();
@@ -168,8 +172,12 @@ async function seedIsolatedOwnerOnly(pool, testOwnerPassword) {
   );
   await pool.query(
     `INSERT INTO users (id, username_normalized, email_normalized, status)
-     VALUES ($1, 'owner', 'owner@pq-stages-test.local', 'active')`,
-    [ownerUserId],
+     VALUES ($1, $2, $3, 'active')`,
+    [
+      ownerUserId,
+      testOwnerUsername,
+      `${testOwnerUsername}@pq-stages-test.local`,
+    ],
   );
   await pool.query(
     `INSERT INTO user_credentials (user_id, password_hash, credential_version)
@@ -714,6 +722,7 @@ test('Real-Browser Playwright E2E + Desktop/iPhone Overflow Audit: Bảng giá x
     path.resolve(process.cwd(), '.artifacts', 'pq-workshop-stages');
   fs.mkdirSync(screenshotDir, { recursive: true });
 
+  const testOwnerUsername = `owner_stages_${crypto.randomUUID().slice(0, 8)}`;
   const testOwnerPassword = 'TestOwnerStages#2026!';
   const pool = createDatabasePool(dbConfig);
   let ephemeral = null;
@@ -724,7 +733,7 @@ test('Real-Browser Playwright E2E + Desktop/iPhone Overflow Audit: Bảng giá x
       pool,
       loadMigrationFiles('packages/database/src/migrations'),
     );
-    await seedIsolatedOwnerOnly(pool, testOwnerPassword);
+    await seedIsolatedOwnerOnly(pool, testOwnerUsername, testOwnerPassword);
     ephemeral = await startEphemeralStagingServers(pool);
 
     browser = await chromium.launch({
@@ -769,7 +778,7 @@ test('Real-Browser Playwright E2E + Desktop/iPhone Overflow Audit: Bảng giá x
 
     // 1) Đăng nhập Owner
     await page.goto(`${ephemeral.webUrl}/login`, { waitUntil: 'networkidle' });
-    await page.fill('#identifier', 'owner');
+    await page.fill('#identifier', testOwnerUsername);
     await page.fill('#password', testOwnerPassword);
     await page.click('button[type="submit"]');
     await page.waitForSelector(
