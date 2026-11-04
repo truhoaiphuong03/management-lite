@@ -28,6 +28,12 @@ export default defineConfig(() => {
             if (id.includes('node_modules')) {
               return 'vendor-react';
             }
+            if (
+              id.includes('packages/contracts/src/printquote') ||
+              id.includes('packages\\contracts\\src\\printquote')
+            ) {
+              return 'printquote-contracts';
+            }
           },
         },
       },

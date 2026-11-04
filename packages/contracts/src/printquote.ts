@@ -3566,6 +3566,20 @@ export interface PrintOrderData {
   updated_at: string;
   payments?: PrintOrderPaymentData[];
   cost_history?: PrintOrderCostHistoryData[] | undefined;
+  ledger_scope?: import('./printquote-finance.js').LedgerScopeType | undefined;
+  net_ar_adjustment_amount?: number | undefined;
+  valid_receivable_amount?: number | undefined;
+  cancellation_settlement_status?:
+    | import('./printquote-finance.js').CancellationSettlementStatusType
+    | undefined;
+  agreed_customer_refund_amount?: number | undefined;
+  refunded_after_cancel_amount?: number | undefined;
+  retained_cancellation_fee?: number | undefined;
+  legacy_vendor_paid_reconciled?: boolean | undefined;
+  legacy_vendor_paid_reconciled_at?: string | null | undefined;
+  legacy_vendor_paid_reconciled_by?: string | null | undefined;
+  workshop_jobs?:
+    import('./printquote-finance.js').PrintWorkshopJobData[] | undefined;
 }
 
 export interface PrintQuoteDashboardStats {
@@ -3591,3 +3605,5 @@ export interface PrintQuoteDashboardStats {
   orders_by_delivery_status: Record<PrintDeliveryStatusType, number>;
   orders_by_payment_status: Record<PrintPaymentStatusType, number>;
 }
+
+export * from './printquote-finance.js';

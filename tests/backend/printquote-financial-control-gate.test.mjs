@@ -1419,7 +1419,8 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
 
       try {
         const allMigs = await loadMigrationFiles();
-        const pre0035 = allMigs.filter((m) => !m.id.startsWith('0035_'));
+        const pre0035 = allMigs.filter((m) => m.id < '0035_');
+        const upTo0035 = allMigs.filter((m) => m.id < '0036_');
         const only0035 = allMigs.filter((m) => m.id.startsWith('0035_'));
         assert.equal(only0035.length, 1);
 
@@ -1500,7 +1501,7 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
         );
 
         // 3. Apply 0035 forward
-        const applyRes = await runMigrations(tempPool, allMigs);
+        const applyRes = await runMigrations(tempPool, upTo0035);
         assert.equal(applyRes.appliedCount, 1);
 
         const checkOrders = await tempPool.query(
@@ -1557,9 +1558,9 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
         );
         await tempPool.query(rollbackSql);
 
-        const reapply1 = await runMigrations(tempPool, allMigs);
+        const reapply1 = await runMigrations(tempPool, upTo0035);
         assert.equal(reapply1.appliedCount, 1);
-        const reapply2 = await runMigrations(tempPool, allMigs);
+        const reapply2 = await runMigrations(tempPool, upTo0035);
         assert.equal(reapply2.appliedCount, 0);
       } finally {
         await tempPool.end();

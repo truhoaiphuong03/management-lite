@@ -19,6 +19,7 @@ import {
   type ServerA4PdfMeta,
 } from '../printquote/pdf-renderer.js';
 import type { RouteRequestContext } from './router.js';
+import { handlePrintQuoteLedgerSubRoutes } from './printquote-ledger-routes.js';
 
 export async function handlePrintQuoteRoutes(
   ctx: RouteRequestContext,
@@ -499,5 +500,11 @@ export async function handlePrintQuoteRoutes(
     }
   }
 
-  return false;
+  return handlePrintQuoteLedgerSubRoutes({
+    ctx,
+    sessionContext,
+    ledger: printQuoteService.ledger,
+    subPath,
+    idempotencyKey,
+  });
 }

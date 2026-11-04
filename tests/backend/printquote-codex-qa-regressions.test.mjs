@@ -370,7 +370,8 @@ describe('Codex QA Regressions — MGL-PRINTQUOTE DEV (Findings #1..#5)', () => 
 
     try {
       const allMigs = await loadMigrationFiles();
-      const pre0035 = allMigs.filter((m) => !m.id.startsWith('0035_'));
+      const pre0035 = allMigs.filter((m) => m.id < '0035_');
+      const upTo0035 = allMigs.filter((m) => m.id < '0036_');
       await runMigrations(tempPool, pre0035);
 
       const wsId = crypto.randomUUID();
@@ -445,7 +446,7 @@ describe('Codex QA Regressions — MGL-PRINTQUOTE DEV (Findings #1..#5)', () => 
         [orderDiffId, wsId, quoteId2, userId],
       );
 
-      await runMigrations(tempPool, allMigs);
+      await runMigrations(tempPool, upTo0035);
 
       const rowsRes = await tempPool.query(
         `SELECT * FROM print_orders ORDER BY order_code ASC`,
@@ -474,7 +475,7 @@ describe('Codex QA Regressions — MGL-PRINTQUOTE DEV (Findings #1..#5)', () => 
         'utf8',
       );
       await tempPool.query(rollbackSql);
-      const reapplyRes = await runMigrations(tempPool, allMigs);
+      const reapplyRes = await runMigrations(tempPool, upTo0035);
       assert.equal(reapplyRes.appliedCount, 1);
 
       const afterReapply = await tempPool.query(
@@ -854,7 +855,7 @@ describe('Codex QA Regressions — MGL-PRINTQUOTE DEV (Findings #1..#5)', () => 
       const allMigs = loadMigrationFiles(
         path.join(REPO_ROOT, 'packages/database/src/migrations'),
       );
-      const pre0035 = allMigs.filter((m) => !m.id.startsWith('0035_'));
+      const pre0035 = allMigs.filter((m) => m.id < '0035_');
       await runMigrations(tempPool, pre0035);
 
       // Ensure hp_app_runtime & hp_app_test exist on this cluster and hold baseline pre-0035 runtime grants
@@ -944,6 +945,13 @@ describe('Codex QA Regressions — MGL-PRINTQUOTE DEV (Findings #1..#5)', () => 
       }
 
       // 2. Test clean rollback + idempotent re-apply BEFORE inserting audit history rows
+      const rollback0036Sql = await fs.readFile(
+        path.join(
+          REPO_ROOT,
+          'scripts/db/rollback-0036-printquote-ar-ap-ledger.sql',
+        ),
+        'utf8',
+      );
       const rollbackSql = await fs.readFile(
         path.join(
           REPO_ROOT,
@@ -951,6 +959,7 @@ describe('Codex QA Regressions — MGL-PRINTQUOTE DEV (Findings #1..#5)', () => 
         ),
         'utf8',
       );
+      await tempPool.query(rollback0036Sql);
       await tempPool.query(rollbackSql);
       await execFileAsync(process.execPath, ['scripts/migrate.mjs'], {
         cwd: REPO_ROOT,

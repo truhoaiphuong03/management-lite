@@ -2715,7 +2715,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                           fontWeight: 700,
                                           color:
                                             stage.rateInput.trim() === ''
-                                              ? '#d97706'
+                                              ? 'var(--warning-text)'
                                               : 'var(--text-color)',
                                           ...tabularNumStyle,
                                         }}
@@ -2781,7 +2781,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                   style={{
                                     fontSize: '12px',
                                     fontWeight: 700,
-                                    color: '#d97706',
+                                    color: 'var(--warning-text)',
                                   }}
                                 >
                                   Chờ giá cơ bản

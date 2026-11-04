@@ -70,9 +70,37 @@ import {
 import { CustomersTab } from './printquote/CustomersTab.js';
 import { OrdersTab } from './printquote/OrdersTab.js';
 import { AnalyticsTab } from './printquote/AnalyticsTab.js';
+import type { ReceivablesLedgerPayload } from './printquote/ReceivablesTab.js';
+import type { PayablesLedgerPayload } from './printquote/PayablesTab.js';
 import { PdfPreviewModal } from './printquote/PdfPreviewModal.js';
 import { CatalogModalDialog } from './printquote/CatalogModalDialog.js';
 import { PqFileTextIcon } from './printquote/PrintQuoteIcons.js';
+import type {
+  UnifiedPrintLedgerItem,
+  PrintFinancialReportData,
+  PrintHistoricalImportBatchData,
+} from '../../../../packages/contracts/src/printquote-finance.js';
+
+const LazyReceivablesTab = React.lazy(() =>
+  import('./printquote/ReceivablesTab.js').then((m) => ({
+    default: m.ReceivablesTab,
+  })),
+);
+const LazyPayablesTab = React.lazy(() =>
+  import('./printquote/PayablesTab.js').then((m) => ({
+    default: m.PayablesTab,
+  })),
+);
+const LazyTransactionsTab = React.lazy(() =>
+  import('./printquote/TransactionsTab.js').then((m) => ({
+    default: m.TransactionsTab,
+  })),
+);
+const LazyHistoricalImportTab = React.lazy(() =>
+  import('./printquote/HistoricalImportTab.js').then((m) => ({
+    default: m.HistoricalImportTab,
+  })),
+);
 
 export type {
   PrintQuoteTabId,
@@ -117,6 +145,18 @@ function resolveViewAndQuoteId(
   }
   if (clean === '/print-quotes/orders') {
     return { viewMode: 'orders', quoteId: null };
+  }
+  if (clean === '/print-quotes/receivables') {
+    return { viewMode: 'receivables', quoteId: null };
+  }
+  if (clean === '/print-quotes/payables') {
+    return { viewMode: 'payables', quoteId: null };
+  }
+  if (clean === '/print-quotes/transactions') {
+    return { viewMode: 'transactions', quoteId: null };
+  }
+  if (clean === '/print-quotes/import-history') {
+    return { viewMode: 'import-history', quoteId: null };
   }
   if (
     clean === '/print-quotes/catalog' ||
@@ -353,6 +393,18 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   const [stats, setStats] = useState<PrintQuoteDashboardStats | null>(
     initialStats,
   );
+  const [receivablesSummary, setReceivablesSummary] =
+    useState<ReceivablesLedgerPayload | null>(null);
+  const [payablesSummary, setPayablesSummary] =
+    useState<PayablesLedgerPayload | null>(null);
+  const [unifiedTransactions, setUnifiedTransactions] = useState<
+    UnifiedPrintLedgerItem[]
+  >([]);
+  const [financialReport, setFinancialReport] =
+    useState<PrintFinancialReportData | null>(null);
+  const [importBatches, setImportBatches] = useState<
+    PrintHistoricalImportBatchData[]
+  >([]);
 
   // Hydrate initial editor state from RAM draft bridge if present, or initial edit quote on SSR/first mount, otherwise clean empty UX V2 state
   const initialDraft = useMemo(() => getPrintQuoteRamDraft(), []);
@@ -615,12 +667,93 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         const j = await sRes.json();
         setStats(j?.data || null);
       }
+
+      const [arRes, apRes, txRes, frRes, imRes] = await Promise.all([
+        fetch('/api/v1/print-quotes/receivables', {
+          credentials: 'include',
+        }),
+        fetch('/api/v1/print-quotes/payables', {
+          credentials: 'include',
+        }),
+        fetch('/api/v1/print-quotes/transactions', { credentials: 'include' }),
+        fetch('/api/v1/print-quotes/financial-report', {
+          credentials: 'include',
+        }),
+        fetch('/api/v1/print-quotes/import-history/batches', {
+          credentials: 'include',
+        }),
+      ]);
+      if (arRes.ok) {
+        const j = await arRes.json();
+        setReceivablesSummary(j?.data || null);
+      }
+      if (apRes.ok) {
+        const j = await apRes.json();
+        setPayablesSummary(j?.data || null);
+      }
+      if (txRes.ok) {
+        const j = await txRes.json();
+        setUnifiedTransactions(j?.data?.items || []);
+      }
+      if (frRes.ok) {
+        const j = await frRes.json();
+        setFinancialReport(j?.data || null);
+      }
+      if (imRes.ok) {
+        const j = await imRes.json();
+        setImportBatches(j?.data?.items || []);
+      }
     } catch {
       // Ignore fetch errors in offline/SSR test environments
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const handleMutateLedger = useCallback(
+    async (
+      endpoint: string,
+      body: Record<string, unknown>,
+      method: 'POST' | 'PATCH' = 'POST',
+    ): Promise<{
+      ok: boolean;
+      error?: string;
+      code?: string;
+      data?: unknown;
+    }> => {
+      try {
+        const csrf = await getCsrfToken();
+        const idemKey = `pq-fin-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const res = await fetch(endpoint, {
+          method,
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+            'Idempotency-Key': idemKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          return {
+            ok: false,
+            error: json?.error?.message || 'Thao tác sổ công nợ thất bại.',
+            code: json?.error?.code,
+          };
+        }
+        setBannerMessage({
+          type: 'success',
+          text: 'Đã cập nhật sổ công nợ & tài chính in ấn.',
+        });
+        await loadAllData();
+        return { ok: true, data: json?.data };
+      } catch {
+        return { ok: false, error: 'Lỗi kết nối máy chủ.' };
+      }
+    },
+    [getCsrfToken, loadAllData],
+  );
 
   useEffect(() => {
     void loadAllData();
@@ -2490,6 +2623,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       {viewMode === 'orders' && (
         <OrdersTab
           orders={orders}
+          vendors={vendors}
+          onMutateLedger={handleMutateLedger}
           onUpdateOrderField={handleUpdateOrderField}
           paymentOrderTarget={paymentOrderTarget}
           setPaymentOrderTarget={setPaymentOrderTarget}
@@ -2505,9 +2640,82 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         />
       )}
 
+      {/* CUSTOMER RECEIVABLES VIEW: /print-quotes/receivables */}
+      {viewMode === 'receivables' && (
+        <React.Suspense
+          fallback={
+            <div style={{ padding: '20px', color: 'var(--muted-color)' }}>
+              Đang tải sổ công nợ khách hàng…
+            </div>
+          }
+        >
+          <LazyReceivablesTab
+            data={receivablesSummary}
+            customers={customers}
+            orders={orders}
+            onMutateLedger={handleMutateLedger}
+            onRefresh={() => void loadAllData()}
+          />
+        </React.Suspense>
+      )}
+
+      {/* VENDOR PAYABLES VIEW: /print-quotes/payables */}
+      {viewMode === 'payables' && (
+        <React.Suspense
+          fallback={
+            <div style={{ padding: '20px', color: 'var(--muted-color)' }}>
+              Đang tải sổ công nợ xưởng…
+            </div>
+          }
+        >
+          <LazyPayablesTab
+            data={payablesSummary}
+            vendors={vendors}
+            orders={orders}
+            onMutateLedger={handleMutateLedger}
+          />
+        </React.Suspense>
+      )}
+
+      {/* UNIFIED PRINT TRANSACTIONS VIEW: /print-quotes/transactions */}
+      {viewMode === 'transactions' && (
+        <React.Suspense
+          fallback={
+            <div style={{ padding: '20px', color: 'var(--muted-color)' }}>
+              Đang tải sổ giao dịch…
+            </div>
+          }
+        >
+          <LazyTransactionsTab items={unifiedTransactions} />
+        </React.Suspense>
+      )}
+
+      {/* HISTORICAL DATA IMPORT VIEW: /print-quotes/import-history */}
+      {viewMode === 'import-history' && (
+        <React.Suspense
+          fallback={
+            <div style={{ padding: '20px', color: 'var(--muted-color)' }}>
+              Đang tải công cụ đối soát Sheet…
+            </div>
+          }
+        >
+          <LazyHistoricalImportTab
+            batches={importBatches}
+            onMutateLedger={handleMutateLedger}
+            onRefresh={() => void loadAllData()}
+          />
+        </React.Suspense>
+      )}
+
       {/* HONEST REPORTS VIEW: /print-quotes/reports */}
       {viewMode === 'reports' && (
-        <AnalyticsTab stats={stats} orders={orders} quotes={quotes} />
+        <AnalyticsTab
+          stats={stats}
+          orders={orders}
+          quotes={quotes}
+          financialReport={financialReport}
+          onNavigatePath={navigateInternal}
+        />
       )}
 
       {/* A4 PDF Preview & Print Modal */}
@@ -3583,6 +3791,14 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         }
 
         @media (max-width: 400px) {
+          .pq-module-nav-item {
+            flex: 0 0 auto;
+            padding: 6px 8px;
+            font-size: 12px;
+          }
+          .pq-module-nav-item svg {
+            display: none;
+          }
           .pq-page-head .pq-btn-cta {
             width: 100%;
           }

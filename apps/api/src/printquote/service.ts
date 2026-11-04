@@ -63,8 +63,21 @@ import {
   type CustomerSafePdfPayload,
   type PersistedQuoteOrderSnapshot,
   type PersistedQuoteLineSnapshot,
+  normalizeLedgerScopeInput,
+  CancellationSettlementStatus,
+  LedgerScope,
+  type LedgerScopeType,
+  type CancellationSettlementStatusType,
+  type PrintWorkshopJobData,
 } from '../../../../packages/contracts/src/printquote.js';
 import { AuthError, type AuthenticatedContext } from '../auth/service.js';
+import {
+  mirrorLegacyOrderPaymentToAr,
+  recomputeOrderReceivableState,
+  mapWorkshopJobRow,
+} from './ledger-helpers.js';
+import { initOrderWorkshopJobsTx } from './ledger-ar-ap-ops.js';
+import { PrintQuoteLedgerService } from './ledger-service.js';
 
 function toInt(val: unknown, fallback = 0): number {
   if (typeof val === 'number' && Number.isFinite(val)) return Math.round(val);
@@ -261,7 +274,11 @@ type ResolvedQuoteLinesOutcome =
     };
 
 export class PrintQuoteService {
-  constructor(private readonly pool: DatabasePool) {}
+  public readonly ledger: PrintQuoteLedgerService;
+
+  constructor(private readonly pool: DatabasePool) {
+    this.ledger = new PrintQuoteLedgerService(pool);
+  }
 
   private assertOwnerAccess(ctx: AuthenticatedContext): void {
     if (ctx.workspace.role !== 'owner') {
@@ -2553,15 +2570,39 @@ export class PrintQuoteService {
           }
         }
 
+        const stgExplicitVendorId =
+          typeof stgRaw['vendor_id'] === 'string' && stgRaw['vendor_id'].trim()
+            ? stgRaw['vendor_id'].trim()
+            : typeof stgRaw['vendorId'] === 'string' &&
+                stgRaw['vendorId'].trim()
+              ? stgRaw['vendorId'].trim()
+              : null;
+        const stgExplicitVendorName =
+          typeof stgRaw['vendor_name'] === 'string' &&
+          stgRaw['vendor_name'].trim()
+            ? stgRaw['vendor_name'].trim()
+            : typeof stgRaw['vendorName'] === 'string' &&
+                stgRaw['vendorName'].trim()
+              ? stgRaw['vendorName'].trim()
+              : null;
+        const resolvedStgVendorId =
+          stgExplicitVendorId ?? stgCat?.vendor_id ?? null;
+        const resolvedStgVendorName =
+          stgExplicitVendorName ?? stgCat?.vendor_name ?? null;
+
         resolvedStages.push({
           id: stgId,
           priceItemId: stgPriceItemId,
           code: stgCat?.code ?? null,
+          ...(resolvedStgVendorId !== null
+            ? { vendorId: resolvedStgVendorId }
+            : {}),
+          ...(resolvedStgVendorName !== null
+            ? { vendorName: resolvedStgVendorName }
+            : {}),
           ...(stgCat
             ? {
                 priceItemVersion: stgCat.version,
-                vendorId: stgCat.vendor_id,
-                vendorName: stgCat.vendor_name,
                 catalogOriginalRate: stgCatOrigRate,
                 catalogBatchQuantity:
                   stgCat.pricing_mode === VendorCostMode.TOTAL_BATCH
@@ -3897,7 +3938,7 @@ export class PrintQuoteService {
     );
     const orders = res.rows.map((r) => this.mapOrderRow(r));
     if (orders.length > 0) {
-      const [payRes, histRes] = await Promise.all([
+      const [payRes, histRes, jobsRes] = await Promise.all([
         this.pool.query(
           `SELECT * FROM print_order_payments WHERE workspace_id = $1 ORDER BY paid_at ASC`,
           [ctx.workspace.id],
@@ -3906,6 +3947,12 @@ export class PrintQuoteService {
           `SELECT * FROM print_order_cost_history WHERE workspace_id = $1 ORDER BY created_at DESC`,
           [ctx.workspace.id],
         ),
+        this.pool
+          .query(
+            `SELECT * FROM print_workshop_jobs WHERE workspace_id = $1 ORDER BY created_at ASC`,
+            [ctx.workspace.id],
+          )
+          .catch(() => ({ rows: [] as Record<string, unknown>[] })),
       ]);
       const paymentsByOrder = new Map<string, PrintOrderPaymentData[]>();
       for (const row of payRes.rows) {
@@ -3921,9 +3968,17 @@ export class PrintQuoteService {
         arr.push(h);
         historyByOrder.set(h.order_id, arr);
       }
+      const jobsByOrder = new Map<string, PrintWorkshopJobData[]>();
+      for (const row of jobsRes.rows) {
+        const j = mapWorkshopJobRow(row);
+        const arr = jobsByOrder.get(j.order_id) ?? [];
+        arr.push(j);
+        jobsByOrder.set(j.order_id, arr);
+      }
       for (const ord of orders) {
         ord.payments = paymentsByOrder.get(ord.id) ?? [];
         ord.cost_history = historyByOrder.get(ord.id) ?? [];
+        ord.workshop_jobs = jobsByOrder.get(ord.id) ?? [];
       }
     }
     return orders;
@@ -3942,7 +3997,7 @@ export class PrintQuoteService {
     if (!row) {
       throw new AuthError('NOT_FOUND', 'Không tìm thấy đơn hàng in ấn.', 404);
     }
-    const [payRes, histRes] = await Promise.all([
+    const [payRes, histRes, jobsRes] = await Promise.all([
       this.pool.query(
         `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC`,
         [orderId, ctx.workspace.id],
@@ -3951,10 +4006,17 @@ export class PrintQuoteService {
         `SELECT * FROM print_order_cost_history WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at DESC`,
         [orderId, ctx.workspace.id],
       ),
+      this.pool
+        .query(
+          `SELECT * FROM print_workshop_jobs WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at ASC`,
+          [orderId, ctx.workspace.id],
+        )
+        .catch(() => ({ rows: [] as Record<string, unknown>[] })),
     ]);
     const order = this.mapOrderRow(row);
     order.payments = payRes.rows.map((p) => this.mapPaymentRow(p));
     order.cost_history = histRes.rows.map((h) => this.mapCostHistoryRow(h));
+    order.workshop_jobs = jobsRes.rows.map(mapWorkshopJobRow);
     return order;
   }
 
@@ -4195,6 +4257,20 @@ export class PrintQuoteService {
           (input['delivery_status'] as PrintDeliveryStatusType | undefined) ??
           PrintDeliveryStatus.NOT_SHIPPED;
 
+        const ordScope = normalizeLedgerScopeInput(input['ledger_scope']);
+        const validReceivableAmount =
+          productionStatus === PrintProductionStatus.CANCELLED
+            ? 0
+            : totalQuoteAmount;
+        const cancelSettlementStatus =
+          productionStatus !== PrintProductionStatus.CANCELLED
+            ? CancellationSettlementStatus.NOT_APPLICABLE
+            : initialDepositPaid > 0 ||
+                vendorPaidAmount > 0 ||
+                (enteredVendorCost ?? 0) > 0
+              ? CancellationSettlementStatus.PENDING_SETTLEMENT
+              : CancellationSettlementStatus.SETTLED;
+
         const ordRes = await client.query(
           `INSERT INTO print_orders (
             workspace_id, order_code, quote_id, quote_code, quote_version,
@@ -4206,7 +4282,8 @@ export class PrintQuoteService {
             entered_vendor_cost, entered_shipping_fee, entered_extra_cost,
             actual_vendor_cost, actual_shipping_fee, actual_extra_cost, actual_profit, vendor_paid_amount,
             deposit_required, deposit_paid, total_paid_amount, remaining_debt_amount,
-            snapshot_json, integrity_hash, notes, created_by
+            snapshot_json, integrity_hash, notes, created_by,
+            ledger_scope, valid_receivable_amount, cancellation_settlement_status, legacy_vendor_paid_reconciled
           ) VALUES (
             $1, $2, $3, $4, $5,
             $6, $7, $8, $9,
@@ -4217,7 +4294,8 @@ export class PrintQuoteService {
             $28, $29, $30,
             $31, $32, $33, $34, $35,
             $36, $37, $38, $39,
-            $40::jsonb, $41, $42, $43
+            $40::jsonb, $41, $42, $43,
+            $44, $45, $46, $47
           ) RETURNING *`,
           [
             ctx.workspace.id,
@@ -4267,12 +4345,17 @@ export class PrintQuoteService {
               ? input['notes'].trim() || null
               : quoteRow['notes'],
             ctx.user.id,
+            ordScope,
+            validReceivableAmount,
+            cancelSettlementStatus,
+            vendorPaidAmount <= 0,
           ],
         );
 
         const createdOrder = this.mapOrderRow(ordRes.rows[0]!);
         createdOrder.payments = [];
         createdOrder.cost_history = [];
+        createdOrder.workshop_jobs = [];
 
         const costNote =
           typeof input['cost_note'] === 'string' && input['cost_note'].trim()
@@ -4340,7 +4423,22 @@ export class PrintQuoteService {
               ctx.user.id,
             ],
           );
+          await mirrorLegacyOrderPaymentToAr(client, {
+            workspaceId: ctx.workspace.id,
+            orderRow: ordRes.rows[0]!,
+            paymentRow: pRes.rows[0]!,
+          });
           createdOrder.payments = [this.mapPaymentRow(pRes.rows[0]!)];
+        }
+
+        if (input['init_workshop_jobs'] === true) {
+          createdOrder.workshop_jobs = await initOrderWorkshopJobsTx(
+            client,
+            ctx,
+            createdOrder.id,
+            {},
+            'create-order',
+          );
         }
 
         return createdOrder;
@@ -4454,6 +4552,20 @@ export class PrintQuoteService {
             400,
           );
         }
+        const unconfJobsRes = await client.query<{ cnt: string }>(
+          `SELECT COUNT(*)::text AS cnt
+           FROM print_workshop_jobs
+           WHERE workspace_id = $1 AND order_id = $2
+             AND job_status <> 'CANCELLED' AND cost_status <> 'CONFIRMED'`,
+          [ctx.workspace.id, orderId],
+        );
+        if (toInt(unconfJobsRes.rows[0]?.cnt, 0) > 0) {
+          throw new AuthError(
+            'INCOMPLETE_WORKSHOP_JOB_CONFIRMATION',
+            'Đơn hàng đang có phiếu đặt xưởng chưa xác nhận chi phí thực tế. Vui lòng xác nhận đủ các phiếu đặt xưởng trước khi chốt đối soát đơn.',
+            400,
+          );
+        }
         nextConfirmed = true;
         nextStatus = OrderCostReconciliationStatus.CONFIRMED;
       } else if (touchesCostFields) {
@@ -4528,6 +4640,15 @@ export class PrintQuoteService {
       const confirmTimestampRefresh =
         nextConfirmed && (!wasConfirmed || touchesCostFields);
 
+      const prevLegacyVendorPaidReconciled =
+        existing['legacy_vendor_paid_reconciled'] !== false;
+      const nextLegacyVendorPaidReconciled =
+        vendorPaidAmount > 0 && vendorPaidAmount !== prevVendorPaid
+          ? false
+          : vendorPaidAmount === 0
+            ? true
+            : prevLegacyVendorPaidReconciled;
+
       const updRes = await client.query(
         `UPDATE print_orders
          SET print_ordered_at = $1,
@@ -4554,6 +4675,7 @@ export class PrintQuoteService {
              actual_extra_cost = $12,
              actual_profit = $13,
              vendor_paid_amount = $21,
+             legacy_vendor_paid_reconciled = $22,
              deposit_required = $14,
              vendor_id = $15,
              vendor_name = $16,
@@ -4561,7 +4683,7 @@ export class PrintQuoteService {
              completed_at = CASE WHEN $3 = 'COMPLETED' AND completed_at IS NULL THEN now() ELSE completed_at END,
              delivered_at = CASE WHEN $4 = 'DELIVERED' AND delivered_at IS NULL THEN now() ELSE delivered_at END,
              updated_at = now()
-         WHERE id = $18 AND workspace_id = $22
+         WHERE id = $18 AND workspace_id = $23
          RETURNING *`,
         [
           printOrderedAt,
@@ -4599,6 +4721,7 @@ export class PrintQuoteService {
           confirmTimestampRefresh,
           ctx.user.id,
           vendorPaidAmount,
+          nextLegacyVendorPaidReconciled,
           ctx.workspace.id,
         ],
       );
@@ -4666,22 +4789,35 @@ export class PrintQuoteService {
         });
       }
 
-      const [payRes, histRes] = await Promise.all([
-        client.query(
-          `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC`,
-          [orderId, ctx.workspace.id],
-        ),
-        client.query(
-          `SELECT * FROM print_order_cost_history WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at DESC`,
-          [orderId, ctx.workspace.id],
-        ),
-      ]);
+      let finalOrderRow = updRes.rows[0]!;
+      if (productionStatus !== existing['production_status']) {
+        const arSync = await recomputeOrderReceivableState(
+          client,
+          ctx.workspace.id,
+          orderId,
+        );
+        finalOrderRow = arSync.orderRow;
+      }
+
+      const payRes = await client.query(
+        `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC`,
+        [orderId, ctx.workspace.id],
+      );
+      const histRes = await client.query(
+        `SELECT * FROM print_order_cost_history WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at DESC`,
+        [orderId, ctx.workspace.id],
+      );
+      const jobsRes = await client.query(
+        `SELECT * FROM print_workshop_jobs WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at ASC`,
+        [orderId, ctx.workspace.id],
+      );
 
       await client.query('COMMIT');
 
-      const mapped = this.mapOrderRow(updRes.rows[0]!);
+      const mapped = this.mapOrderRow(finalOrderRow);
       mapped.payments = payRes.rows.map((p) => this.mapPaymentRow(p));
       mapped.cost_history = histRes.rows.map((h) => this.mapCostHistoryRow(h));
+      mapped.workshop_jobs = jobsRes.rows.map(mapWorkshopJobRow);
       return mapped;
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -4795,10 +4931,11 @@ export class PrintQuoteService {
           }
         }
 
-        await client.query(
+        const pInsRes = await client.query(
           `INSERT INTO print_order_payments (
             workspace_id, order_id, payment_type, amount, payment_method, reference_code, note, recorded_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          RETURNING *`,
           [
             ctx.workspace.id,
             orderId,
@@ -4815,65 +4952,37 @@ export class PrintQuoteService {
           ],
         );
 
+        await mirrorLegacyOrderPaymentToAr(client, {
+          workspaceId: ctx.workspace.id,
+          orderRow: ord,
+          paymentRow: pInsRes.rows[0]!,
+        });
+
+        const refreshedOrdRes = await client.query(
+          `SELECT * FROM print_orders WHERE id = $1 AND workspace_id = $2`,
+          [orderId, ctx.workspace.id],
+        );
         const payListRes = await client.query(
           `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC, created_at ASC`,
           [orderId, ctx.workspace.id],
         );
-        const payments = payListRes.rows.map((p) => this.mapPaymentRow(p));
-
-        let depositPaid = 0;
-        let totalPaidAmount = 0;
-        for (const p of payments) {
-          if (p.payment_type === 'REFUND') {
-            totalPaidAmount = Math.max(0, totalPaidAmount - p.amount);
-            depositPaid = Math.min(depositPaid, totalPaidAmount);
-          } else {
-            if (p.payment_type === 'DEPOSIT') {
-              depositPaid += p.amount;
-            }
-            totalPaidAmount += p.amount;
-          }
-        }
-
-        const remainingDebtAmount = Math.max(
-          0,
-          totalQuoteAmount - totalPaidAmount,
-        );
-        const paymentStatus = this.computePaymentStatus(
-          totalQuoteAmount,
-          depositPaid,
-          totalPaidAmount,
-        );
-
-        const updRes = await client.query(
-          `UPDATE print_orders
-           SET deposit_paid = $1,
-               total_paid_amount = $2,
-               remaining_debt_amount = $3,
-               payment_status = $4,
-               updated_at = now()
-           WHERE id = $5 AND workspace_id = $6
-           RETURNING *`,
-          [
-            depositPaid,
-            totalPaidAmount,
-            remainingDebtAmount,
-            paymentStatus,
-            orderId,
-            ctx.workspace.id,
-          ],
-        );
-
         const histRes = await client.query(
           `SELECT * FROM print_order_cost_history WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at DESC`,
           [orderId, ctx.workspace.id],
         );
+        const jobsRes = await client.query(
+          `SELECT * FROM print_workshop_jobs WHERE order_id = $1 AND workspace_id = $2 ORDER BY created_at ASC`,
+          [orderId, ctx.workspace.id],
+        );
 
-        const updatedOrder = this.mapOrderRow(updRes.rows[0]!);
-        updatedOrder.payments = payments;
+        const updatedOrder = this.mapOrderRow(refreshedOrdRes.rows[0]!);
+        updatedOrder.payments = payListRes.rows.map((p) =>
+          this.mapPaymentRow(p),
+        );
         updatedOrder.cost_history = histRes.rows.map((h) =>
           this.mapCostHistoryRow(h),
         );
+        updatedOrder.workshop_jobs = jobsRes.rows.map(mapWorkshopJobRow);
         return updatedOrder;
       },
     );
@@ -4976,6 +5085,35 @@ export class PrintQuoteService {
       deposit_paid: toInt(r['deposit_paid'], 0),
       total_paid_amount: toInt(r['total_paid_amount'], 0),
       remaining_debt_amount: toInt(r['remaining_debt_amount'], 0),
+      ledger_scope:
+        (r['ledger_scope'] as LedgerScopeType) || LedgerScope.GENERAL,
+      net_ar_adjustment_amount: toInt(r['net_ar_adjustment_amount'], 0),
+      valid_receivable_amount:
+        r['valid_receivable_amount'] !== undefined &&
+        r['valid_receivable_amount'] !== null
+          ? toInt(r['valid_receivable_amount'], 0)
+          : toInt(r['total_quote_amount'], 0),
+      cancellation_settlement_status:
+        (r[
+          'cancellation_settlement_status'
+        ] as CancellationSettlementStatusType) ||
+        CancellationSettlementStatus.NOT_APPLICABLE,
+      agreed_customer_refund_amount: toInt(
+        r['agreed_customer_refund_amount'],
+        0,
+      ),
+      refunded_after_cancel_amount: toInt(r['refunded_after_cancel_amount'], 0),
+      retained_cancellation_fee: toInt(r['retained_cancellation_fee'], 0),
+      legacy_vendor_paid_reconciled:
+        r['legacy_vendor_paid_reconciled'] !== undefined
+          ? Boolean(r['legacy_vendor_paid_reconciled'])
+          : toInt(r['vendor_paid_amount'], 0) <= 0,
+      legacy_vendor_paid_reconciled_at: r['legacy_vendor_paid_reconciled_at']
+        ? toIso(r['legacy_vendor_paid_reconciled_at'])
+        : null,
+      legacy_vendor_paid_reconciled_by: r['legacy_vendor_paid_reconciled_by']
+        ? String(r['legacy_vendor_paid_reconciled_by'])
+        : null,
       snapshot_json: r['snapshot_json'] as PersistedQuoteOrderSnapshot,
       integrity_hash: String(r['integrity_hash']),
       notes: r['notes'] ? String(r['notes']) : null,

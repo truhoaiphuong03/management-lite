@@ -20,6 +20,10 @@ export type PrintQuoteViewMode =
   | 'detail'
   | 'edit'
   | 'orders'
+  | 'receivables'
+  | 'payables'
+  | 'transactions'
+  | 'import-history'
   | 'catalog-prices'
   | 'catalog-customers'
   | 'catalog-vendors'
@@ -27,8 +31,15 @@ export type PrintQuoteViewMode =
 
 export type CatalogSubPageId = 'prices' | 'customers' | 'vendors';
 
+export type FinanceSubPageId =
+  'receivables' | 'payables' | 'transactions' | 'import-history';
+
 export type PrintQuoteNavGroupId =
-  'quotes_group' | 'orders_group' | 'catalog_group' | 'analytics_group';
+  | 'quotes_group'
+  | 'orders_group'
+  | 'finance_group'
+  | 'catalog_group'
+  | 'analytics_group';
 
 export type CreateQuoteSectionId =
   'customer' | 'products' | 'summary' | 'actions';

@@ -7,6 +7,7 @@ import {
   type PrintProductionStatusType,
   type PrintDeliveryStatusType,
   type PrintOrderData,
+  type PrintVendorData,
   type OrderCostHistoryActionType,
 } from '../../../../../packages/contracts/src/printquote.js';
 import {
@@ -27,6 +28,14 @@ import {
 
 export interface OrdersTabProps {
   orders: PrintOrderData[];
+  vendors?: PrintVendorData[] | undefined;
+  onMutateLedger?:
+    | ((
+        endpoint: string,
+        body: Record<string, unknown>,
+        method?: 'POST' | 'PATCH',
+      ) => Promise<{ ok: boolean; error?: string; code?: string }>)
+    | undefined;
   onUpdateOrderField: (
     orderId: string,
     patch: Record<string, unknown>,
@@ -81,6 +90,8 @@ function hasCancelledObligation(ord: PrintOrderData): boolean {
 
 export const OrdersTab: React.FC<OrdersTabProps> = ({
   orders,
+  vendors = [],
+  onMutateLedger,
   onUpdateOrderField,
   paymentOrderTarget,
   setPaymentOrderTarget,
@@ -109,6 +120,23 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   const [vendorPaidInput, setVendorPaidInput] = useState<string>('0');
   const [costNoteInput, setCostNoteInput] = useState<string>('');
   const [costModalError, setCostModalError] = useState<string>('');
+
+  // Multi-Workshop Job Creation & Cancellation Settlement Modals
+  const [jobOrderTarget, setJobOrderTarget] = useState<PrintOrderData | null>(
+    null,
+  );
+  const [jobVendorId, setJobVendorId] = useState<string>('');
+  const [jobVendorName, setJobVendorName] = useState<string>('');
+  const [jobStageName, setJobStageName] = useState<string>('In cơ bản');
+  const [jobExpectedInput, setJobExpectedInput] = useState<string>('0');
+  const [jobModalError, setJobModalError] = useState<string>('');
+
+  const [settleCancelTarget, setSettleCancelTarget] =
+    useState<PrintOrderData | null>(null);
+  const [settleRefundInput, setSettleRefundInput] = useState<string>('0');
+  const [settleFeeInput, setSettleFeeInput] = useState<string>('0');
+  const [settleReasonInput, setSettleReasonInput] = useState<string>('');
+  const [settleModalError, setSettleModalError] = useState<string>('');
 
   useEffect(() => {
     if (paymentOrderTarget) {
@@ -755,6 +783,102 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                   </button>
                 </div>
 
+                {/* Multi-Workshop Jobs & Cancellation Settlement Strip */}
+                {onMutateLedger && (
+                  <div
+                    data-testid={`pq-order-workshop-jobs-${ord.order_code}`}
+                    style={{
+                      marginTop: '8px',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px dashed var(--border-color)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <strong style={{ color: 'var(--text-color)' }}>
+                        Phiếu đặt xưởng ({ord.workshop_jobs?.length ?? 0}):
+                      </strong>
+                      {ord.workshop_jobs && ord.workshop_jobs.length > 0 ? (
+                        ord.workshop_jobs.map((jb) => (
+                          <span
+                            key={jb.id}
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              backgroundColor: 'var(--surface-subtle)',
+                              border: '1px solid var(--border-color)',
+                              ...tabularNumStyle,
+                            }}
+                          >
+                            {jb.job_code} •{' '}
+                            {jb.vendor_name || 'Chưa chọn xưởng'} ({jb.title}) —{' '}
+                            {jb.cost_status === 'CONFIRMED' &&
+                            jb.confirmed_cost !== null
+                              ? `TT ${formatVnd(jb.confirmed_cost)}`
+                              : `DK ${formatVnd(jb.expected_cost)}`}
+                          </span>
+                        ))
+                      ) : (
+                        <span style={{ color: 'var(--muted-color)' }}>
+                          Chưa tách phiếu xưởng riêng
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}
+                    >
+                      {!isCancelled && (
+                        <button
+                          type="button"
+                          data-testid={`pq-order-add-job-${ord.order_code}`}
+                          className="pq-btn pq-btn-ghost pq-btn-sm"
+                          onClick={() => {
+                            setJobOrderTarget(ord);
+                            setJobVendorId(ord.vendor_id || '');
+                            setJobVendorName('');
+                            setJobStageName('In / Gia công');
+                            setJobExpectedInput('0');
+                            setJobModalError('');
+                          }}
+                        >
+                          + Đặt xưởng / Tách công đoạn
+                        </button>
+                      )}
+                      {isCancelled && ord.total_paid_amount > 0 && (
+                        <button
+                          type="button"
+                          data-testid={`pq-order-settle-cancel-${ord.order_code}`}
+                          className="pq-btn pq-btn-secondary pq-btn-sm"
+                          onClick={() => {
+                            setSettleCancelTarget(ord);
+                            setSettleRefundInput(String(ord.total_paid_amount));
+                            setSettleFeeInput('0');
+                            setSettleReasonInput('');
+                            setSettleModalError('');
+                          }}
+                        >
+                          Quyết toán hủy đơn
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Independent Production & Delivery Status Controls */}
                 <div
                   style={{
@@ -1235,6 +1359,250 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                 Xác nhận đủ 3 khoản
               </button>
             </div>
+          </div>
+        </form>
+      </CatalogModalDialog>
+
+      {/* Add Workshop Job Modal */}
+      <CatalogModalDialog
+        open={jobOrderTarget !== null}
+        ariaLabel="Tạo phiếu đặt xưởng"
+        title={
+          jobOrderTarget
+            ? `Đặt xưởng / Tách công đoạn — ${jobOrderTarget.order_code}`
+            : 'Tạo phiếu đặt xưởng'
+        }
+        maxWidth="460px"
+        onClose={() => setJobOrderTarget(null)}
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!jobOrderTarget || !onMutateLedger) return;
+            setJobModalError('');
+            const vend = vendors.find((v) => v.id === jobVendorId);
+            const vName = vend?.name || jobVendorName.trim();
+            if (!vName || !jobStageName.trim()) {
+              setJobModalError('Chọn xưởng và nhập tên công đoạn.');
+              return;
+            }
+            const expParsed = parseNumericDraftValue(
+              jobExpectedInput.trim() || '0',
+              { allowDecimal: false, min: 0, integerOnly: true },
+            );
+            const res = await onMutateLedger(
+              `/api/v1/print-quotes/orders/${encodeURIComponent(jobOrderTarget.id)}/workshop-jobs`,
+              {
+                vendor_id: jobVendorId || null,
+                vendor_name: vName,
+                title: jobStageName.trim(),
+                expected_cost:
+                  expParsed.isValid && expParsed.value !== null
+                    ? expParsed.value
+                    : 0,
+              },
+            );
+            if (!res.ok) {
+              setJobModalError(res.error || 'Không thể tạo phiếu đặt xưởng.');
+              return;
+            }
+            setJobOrderTarget(null);
+          }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+        >
+          {jobModalError && (
+            <div
+              role="alert"
+              style={{
+                padding: '8px 10px',
+                borderRadius: '8px',
+                border: '1px solid var(--danger-text)',
+                color: 'var(--danger-text)',
+                fontSize: '12px',
+              }}
+            >
+              {jobModalError}
+            </div>
+          )}
+          <div>
+            <label style={labelStyle}>Nhà in / Xưởng gia công *</label>
+            <select
+              aria-label="Chọn nhà in đặt hàng"
+              style={inputStyle}
+              value={jobVendorId}
+              onChange={(e) => setJobVendorId(e.target.value)}
+            >
+              <option value="">-- Nhập tên xưởng ngoài --</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {!jobVendorId && (
+            <div>
+              <label style={labelStyle}>Tên xưởng ngoài *</label>
+              <input
+                aria-label="Tên xưởng đặt hàng"
+                style={inputStyle}
+                value={jobVendorName}
+                onChange={(e) => setJobVendorName(e.target.value)}
+                placeholder="VD: Xưởng Cán màng Bế hộp…"
+              />
+            </div>
+          )}
+          <div>
+            <label style={labelStyle}>Công đoạn / Hạng mục giao xưởng *</label>
+            <input
+              aria-label="Tên công đoạn giao xưởng"
+              style={inputStyle}
+              value={jobStageName}
+              onChange={(e) => setJobStageName(e.target.value)}
+              placeholder="VD: Cán màng mờ + Ép kim"
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Giá vốn dự kiến (VNĐ)</label>
+            <NumericDraftInput
+              ariaLabel="Giá vốn dự kiến giao xưởng"
+              allowDecimal={false}
+              style={{ ...inputStyle, ...tabularNumStyle }}
+              value={jobExpectedInput}
+              onValueChange={setJobExpectedInput}
+            />
+          </div>
+          <div
+            style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}
+          >
+            <button
+              type="button"
+              className="pq-btn pq-btn-secondary"
+              onClick={() => setJobOrderTarget(null)}
+            >
+              Đóng
+            </button>
+            <button type="submit" className="pq-btn pq-btn-primary">
+              Tạo phiếu xưởng
+            </button>
+          </div>
+        </form>
+      </CatalogModalDialog>
+
+      {/* Settle Cancelled Order Modal */}
+      <CatalogModalDialog
+        open={settleCancelTarget !== null}
+        ariaLabel="Quyết toán đơn đã hủy"
+        title={
+          settleCancelTarget
+            ? `Quyết toán đơn hủy — ${settleCancelTarget.order_code}`
+            : 'Quyết toán đơn hủy'
+        }
+        subtitle="Tổng Hoàn trả khách + Phí hủy giữ lại phải khớp số tiền khách đang đóng trên đơn."
+        maxWidth="460px"
+        onClose={() => setSettleCancelTarget(null)}
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!settleCancelTarget || !onMutateLedger) return;
+            setSettleModalError('');
+            const rParsed = parseNumericDraftValue(
+              settleRefundInput.trim() || '0',
+              { allowDecimal: false, min: 0, integerOnly: true },
+            );
+            const fParsed = parseNumericDraftValue(
+              settleFeeInput.trim() || '0',
+              { allowDecimal: false, min: 0, integerOnly: true },
+            );
+            const res = await onMutateLedger(
+              `/api/v1/print-quotes/orders/${encodeURIComponent(settleCancelTarget.id)}/cancel-settlement`,
+              {
+                agreed_customer_refund_amount: rParsed.value ?? 0,
+                retained_cancellation_fee: fParsed.value ?? 0,
+                reason: settleReasonInput.trim(),
+              },
+            );
+            if (!res.ok) {
+              setSettleModalError(res.error || 'Không thể lưu quyết toán hủy.');
+              return;
+            }
+            setSettleCancelTarget(null);
+          }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+        >
+          {settleModalError && (
+            <div
+              role="alert"
+              style={{
+                padding: '8px 10px',
+                borderRadius: '8px',
+                border: '1px solid var(--danger-text)',
+                color: 'var(--danger-text)',
+                fontSize: '12px',
+              }}
+            >
+              {settleModalError}
+            </div>
+          )}
+          <div style={{ fontSize: '12.5px', ...tabularNumStyle }}>
+            Tiền cọc khách đang giữ:{' '}
+            <strong>
+              {formatVnd(settleCancelTarget?.total_paid_amount ?? 0)}
+            </strong>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '10px',
+            }}
+          >
+            <div>
+              <label style={labelStyle}>Thỏa thuận hoàn khách (VNĐ) *</label>
+              <NumericDraftInput
+                ariaLabel="Số tiền thỏa thuận hoàn khách"
+                allowDecimal={false}
+                style={{ ...inputStyle, ...tabularNumStyle }}
+                value={settleRefundInput}
+                onValueChange={setSettleRefundInput}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Phí hủy giữ lại (VNĐ) *</label>
+              <NumericDraftInput
+                ariaLabel="Phí hủy giữ lại"
+                allowDecimal={false}
+                style={{ ...inputStyle, ...tabularNumStyle }}
+                value={settleFeeInput}
+                onValueChange={setSettleFeeInput}
+              />
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Lý do / Thỏa thuận quyết toán *</label>
+            <input
+              aria-label="Lý do quyết toán hủy đơn"
+              style={inputStyle}
+              required
+              value={settleReasonInput}
+              onChange={(e) => setSettleReasonInput(e.target.value)}
+              placeholder="VD: Khách hủy sau khi bình bài, trừ 500k phí kẽm…"
+            />
+          </div>
+          <div
+            style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}
+          >
+            <button
+              type="button"
+              className="pq-btn pq-btn-secondary"
+              onClick={() => setSettleCancelTarget(null)}
+            >
+              Đóng
+            </button>
+            <button type="submit" className="pq-btn pq-btn-primary">
+              Xác nhận quyết toán
+            </button>
           </div>
         </form>
       </CatalogModalDialog>

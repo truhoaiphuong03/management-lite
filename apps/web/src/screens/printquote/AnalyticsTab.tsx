@@ -4,6 +4,10 @@ import type {
   PrintOrderData,
   PrintQuoteDashboardStats,
 } from '../../../../../packages/contracts/src/printquote.js';
+import type {
+  LedgerScopeType,
+  PrintFinancialReportData,
+} from '../../../../../packages/contracts/src/printquote-finance.js';
 import { formatVnd } from '../helpers/printquote-helpers.js';
 import { cardStyle, tabularNumStyle } from './types.js';
 import { PqShieldIcon } from './PrintQuoteIcons.js';
@@ -12,13 +16,20 @@ export interface AnalyticsTabProps {
   stats: PrintQuoteDashboardStats | null;
   orders: PrintOrderData[];
   quotes: PrintQuoteData[];
+  financialReport?: PrintFinancialReportData | null | undefined;
+  onNavigatePath?: ((path: string) => void) | undefined;
 }
 
 export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   stats,
   orders,
   quotes,
+  financialReport = null,
+  onNavigatePath,
 }) => {
+  const [reportMode, setReportMode] = useState<
+    'EXPECTED' | 'RECONCILED' | 'CASH_DEBT'
+  >('EXPECTED');
   const [tableFilter, setTableFilter] = useState<
     'ACTIVE' | 'DEBT' | 'CANCELLED'
   >('ACTIVE');
@@ -56,16 +67,19 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     (o) => o.remaining_debt_amount > 0,
   ).length;
   const confirmedOrdersCount =
+    financialReport?.reconciled.reconciled_orders_count ??
     stats?.confirmed_actual_orders_count ??
     activeOrders.filter((o) => o.actual_cost_confirmed === true).length;
   const confirmedActualProfit =
     confirmedOrdersCount > 0
-      ? (stats?.total_actual_profit ??
+      ? (financialReport?.reconciled.reconciled_profit ??
+        stats?.total_actual_profit ??
         activeOrders
           .filter((o) => o.actual_cost_confirmed === true)
           .reduce((sum, o) => sum + (o.actual_profit ?? 0), 0))
       : null;
   const totalVendorPaid =
+    financialReport?.cashflow_and_debt.net_allocated_vendor_payout ??
     stats?.total_vendor_paid_amount ??
     activeOrders.reduce((sum, o) => sum + (o.vendor_paid_amount ?? 0), 0);
 
@@ -130,11 +144,49 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     >
       <div className="pq-page-head">
         <div>
-          <h1 className="pq-page-title">Báo cáo lợi nhuận & phải thu</h1>
+          <h1 className="pq-page-title">Báo cáo lợi nhuận & công nợ in ấn</h1>
           <p className="pq-page-subtitle">
-            Tổng hợp giá trị đơn hoạt động, lợi nhuận dự kiến, lợi nhuận từ chi
-            phí xác nhận và các nghĩa vụ riêng trên đơn hủy
+            Tách rõ 3 góc nhìn: Dự kiến theo báo giá, Thực tế xác nhận và Dòng
+            tiền & Công nợ (không gộp chung Sổ thu chi /finance)
           </p>
+        </div>
+
+        {/* 3 Report Modes */}
+        <div
+          className="pq-filter-pills"
+          role="group"
+          aria-label="Chế độ xem báo cáo"
+        >
+          <button
+            type="button"
+            data-testid="pq-report-mode-expected"
+            aria-pressed={reportMode === 'EXPECTED'}
+            className="pq-filter-pill"
+            data-active={reportMode === 'EXPECTED' ? 'true' : 'false'}
+            onClick={() => setReportMode('EXPECTED')}
+          >
+            Dự kiến
+          </button>
+          <button
+            type="button"
+            data-testid="pq-report-mode-reconciled"
+            aria-pressed={reportMode === 'RECONCILED'}
+            className="pq-filter-pill"
+            data-active={reportMode === 'RECONCILED' ? 'true' : 'false'}
+            onClick={() => setReportMode('RECONCILED')}
+          >
+            Thực tế xác nhận
+          </button>
+          <button
+            type="button"
+            data-testid="pq-report-mode-cash-debt"
+            aria-pressed={reportMode === 'CASH_DEBT'}
+            className="pq-filter-pill"
+            data-active={reportMode === 'CASH_DEBT' ? 'true' : 'false'}
+            onClick={() => setReportMode('CASH_DEBT')}
+          >
+            Dòng tiền & Công nợ
+          </button>
         </div>
       </div>
 
@@ -161,16 +213,306 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           <strong style={{ color: 'var(--text-color)' }}>
             Phạm vi số liệu báo cáo:
           </strong>{' '}
-          Tách biệt <strong>lợi nhuận dự kiến</strong> lúc lập báo giá và{' '}
-          <strong>
-            lợi nhuận từ đơn đã xác nhận đủ 3 khoản chi phí thực tế
-          </strong>
-          . Khoản <em>Thực chi xưởng</em> là ghi chú tổng cấp đơn (chưa tách sổ
-          công nợ từng xưởng hay phiếu chi/hoàn tiền nhà in). Sổ Thu chi cá nhân
-          (<code>/finance</code>) hoạt động độc lập hoàn toàn.
+          Tách biệt <strong>lợi nhuận dự kiến</strong> lúc lập báo giá,{' '}
+          <strong>lợi nhuận từ đơn xác nhận đủ chi phí thực tế</strong> và{' '}
+          <strong>dòng tiền thu khách / chi xưởng</strong> (ghi chú trả xưởng
+          cấp đơn cũ không tự chuyển vào sổ công nợ AP trước khi đối soát). Sổ
+          Thu chi cá nhân (<code>/finance</code>) hoạt động độc lập hoàn toàn.
         </div>
       </div>
 
+      {/* Mode 2 Detail Banner: Reconciled Actual Profit */}
+      {reportMode === 'RECONCILED' && (
+        <div
+          data-testid="pq-report-reconciled-panel"
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+            gap: '12px',
+          }}
+        >
+          <div className="pq-stat-card">
+            <div className="pq-stat-label">Doanh thu đơn đủ xác nhận</div>
+            <div className="pq-stat-value" style={tabularNumStyle}>
+              {formatVnd(
+                financialReport?.reconciled.confirmed_total_revenue ?? 0,
+              )}
+            </div>
+            <div className="pq-stat-sub">
+              {confirmedOrdersCount} đơn xác nhận đủ chi phí
+            </div>
+          </div>
+          <div className="pq-stat-card">
+            <div className="pq-stat-label">Vốn in + Ship + Phát sinh TT</div>
+            <div className="pq-stat-value" style={tabularNumStyle}>
+              {formatVnd(
+                (financialReport?.reconciled.confirmed_vendor_cost ?? 0) +
+                  (financialReport?.reconciled.confirmed_shipping_fee ?? 0) +
+                  (financialReport?.reconciled.confirmed_extra_cost ?? 0),
+              )}
+            </div>
+            <div className="pq-stat-sub">
+              {financialReport?.reconciled
+                .pending_cost_confirmation_orders_count ??
+                activeOrders.length - confirmedOrdersCount}{' '}
+              đơn chưa đủ xác nhận bị loại riêng
+            </div>
+          </div>
+          <div className="pq-stat-card">
+            <div className="pq-stat-label">
+              {confirmedOrdersCount > 0
+                ? 'Lợi nhuận đã đối soát'
+                : 'Lợi nhuận thực tế xác nhận'}
+            </div>
+            <div
+              className="pq-stat-value"
+              style={{
+                ...tabularNumStyle,
+                color:
+                  confirmedActualProfit !== null
+                    ? 'var(--success-text)'
+                    : 'var(--muted-color)',
+              }}
+            >
+              {confirmedActualProfit !== null
+                ? formatVnd(confirmedActualProfit)
+                : 'Chưa xác nhận'}
+            </div>
+            <div className="pq-stat-sub">
+              Doanh thu xác nhận − Vốn in TT − Ship TT − Chi phí khác TT
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mode 3 Detail Banner: Cash & AR/AP Debt */}
+      {reportMode === 'CASH_DEBT' && (
+        <div
+          data-testid="pq-report-cash-debt-panel"
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+              gap: '12px',
+            }}
+          >
+            <div className="pq-stat-card">
+              <div className="pq-stat-label">Còn phải thu khách (AR)</div>
+              <div
+                className="pq-stat-value"
+                style={{ ...tabularNumStyle, color: 'var(--danger-text)' }}
+              >
+                {formatVnd(
+                  financialReport?.cashflow_and_debt
+                    .remaining_receivable_total ??
+                    stats?.total_remaining_debt ??
+                    0,
+                )}
+              </div>
+              <div className="pq-stat-sub">
+                Phải thu hợp lệ (
+                {formatVnd(
+                  financialReport?.cashflow_and_debt.valid_receivable_total ??
+                    0,
+                )}
+                ) − Thu ròng đã phân bổ (
+                {formatVnd(
+                  financialReport?.cashflow_and_debt
+                    .net_allocated_customer_receipt ?? 0,
+                )}
+                )
+              </div>
+            </div>
+
+            <div className="pq-stat-card">
+              <div className="pq-stat-label">Còn phải trả xưởng (AP)</div>
+              <div
+                className="pq-stat-value"
+                style={{ ...tabularNumStyle, color: 'var(--danger-text)' }}
+              >
+                {formatVnd(
+                  financialReport?.cashflow_and_debt.remaining_payable_total ??
+                    0,
+                )}
+              </div>
+              <div className="pq-stat-sub">
+                Phải trả hợp lệ (
+                {formatVnd(
+                  financialReport?.cashflow_and_debt.valid_payable_total ?? 0,
+                )}
+                ) − Chi ròng đã phân bổ (
+                {formatVnd(
+                  financialReport?.cashflow_and_debt
+                    .net_allocated_vendor_payout ?? 0,
+                )}
+                )
+              </div>
+            </div>
+
+            <div className="pq-stat-card">
+              <div className="pq-stat-label">Tiền dư / Ứng trước chưa gán</div>
+              <div
+                className="pq-stat-value"
+                style={{ ...tabularNumStyle, color: 'var(--accent-text)' }}
+              >
+                {formatVnd(
+                  financialReport?.cashflow_and_debt
+                    .customer_unallocated_advance_total ?? 0,
+                )}
+              </div>
+              <div className="pq-stat-sub">
+                Tạm ứng xưởng dư:{' '}
+                {formatVnd(
+                  financialReport?.cashflow_and_debt
+                    .vendor_unallocated_advance_total ?? 0,
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Separate Scope Breakdown: GENERAL vs RIENG vs HVGROUP (never netted) */}
+          {financialReport && (
+            <div style={cardStyle} data-testid="pq-report-scope-breakdown">
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  marginBottom: '10px',
+                }}
+              >
+                <h2 style={{ margin: 0, fontSize: '14.5px', fontWeight: 700 }}>
+                  Tách riêng theo nhóm sổ (Sổ chung • RIÊNG • HVGROUP không tự
+                  bù trừ)
+                </h2>
+                {onNavigatePath && (
+                  <div
+                    style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}
+                  >
+                    <button
+                      type="button"
+                      className="pq-btn pq-btn-secondary pq-btn-sm"
+                      onClick={() =>
+                        onNavigatePath('/print-quotes/receivables')
+                      }
+                    >
+                      Công nợ khách →
+                    </button>
+                    <button
+                      type="button"
+                      className="pq-btn pq-btn-secondary pq-btn-sm"
+                      onClick={() => onNavigatePath('/print-quotes/payables')}
+                    >
+                      Công nợ xưởng →
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                  gap: '10px',
+                }}
+              >
+                {(
+                  [
+                    ['GENERAL', 'Sổ chung'],
+                    ['RIENG', 'Sổ RIÊNG'],
+                    ['HVGROUP', 'Sổ HVGROUP'],
+                  ] as Array<[LedgerScopeType, string]>
+                ).map(([sc, label]) => {
+                  const s = financialReport.by_ledger_scope[sc];
+                  return (
+                    <div
+                      key={sc}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-subtle, transparent)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        fontSize: '13px',
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: '13.5px' }}>
+                        {label}
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                        }}
+                      >
+                        <span style={{ color: 'var(--muted-color)' }}>
+                          Còn phải thu (AR):
+                        </span>
+                        <strong style={tabularNumStyle}>
+                          {formatVnd(s.remaining_receivable)}
+                        </strong>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                        }}
+                      >
+                        <span style={{ color: 'var(--muted-color)' }}>
+                          Còn phải trả (AP):
+                        </span>
+                        <strong style={tabularNumStyle}>
+                          {formatVnd(s.remaining_payable)}
+                        </strong>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                        }}
+                      >
+                        <span style={{ color: 'var(--muted-color)' }}>
+                          Ứng trước KH dư:
+                        </span>
+                        <span style={tabularNumStyle}>
+                          {formatVnd(s.customer_unallocated)}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                        }}
+                      >
+                        <span style={{ color: 'var(--muted-color)' }}>
+                          Tạm ứng xưởng dư:
+                        </span>
+                        <span style={tabularNumStyle}>
+                          {formatVnd(s.vendor_unallocated)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Core Summary KPI Grid (Always accessible & preserves existing selectors) */}
       <div
         style={{
           display: 'grid',
@@ -223,7 +565,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </div>
           <div className="pq-stat-sub">
             {confirmedOrdersCount > 0
-              ? `Đã xác nhận đủ 3 khoản ${confirmedOrdersCount}/${activeOrders.length} đơn • Ghi chú chi xưởng cấp đơn: ${formatVnd(totalVendorPaid)}`
+              ? `Đã xác nhận đủ chi phí ${confirmedOrdersCount}/${activeOrders.length} đơn • Đã chi xưởng: ${formatVnd(totalVendorPaid)}`
               : `0/${activeOrders.length} đơn xác nhận đủ 3 khoản chi phí`}
             {needsReviewCount > 0
               ? ` • ${needsReviewCount} đơn cần rà soát`
@@ -331,14 +673,12 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               {formatVnd(cancelledSummary.cancelled_customer_paid_holding)}
             </div>
             <div className="pq-stat-sub">
-              Cần hoàn cọc (REFUND) hoặc thỏa thuận riêng
+              Cần hoàn cọc (REFUND) hoặc quyết toán phí hủy
             </div>
           </div>
 
           <div className="pq-stat-card">
-            <div className="pq-stat-label">
-              Ghi chú đã chi xưởng cấp đơn (Đơn hủy)
-            </div>
+            <div className="pq-stat-label">Đã chi xưởng trên đơn hủy</div>
             <div className="pq-stat-value">
               {formatVnd(cancelledSummary.cancelled_vendor_paid_amount)}
             </div>
