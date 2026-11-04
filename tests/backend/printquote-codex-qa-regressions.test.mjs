@@ -20,9 +20,12 @@ import { startServer } from '../../dist/apps/api/src/server.js';
 import { generateCsrfToken } from '../../dist/packages/security/src/csrf.js';
 import { hashToken } from '../../dist/packages/security/src/tokens.js';
 import {
+  AreaInputMode,
   ProfitMode,
   ProfitScope,
   VendorCostMode,
+  verifyQuoteSnapshotIntegrity,
+  formatCustomerAreaDisclosure,
 } from '../../dist/packages/contracts/src/printquote.js';
 import { OrdersTab } from '../../dist/apps/web/src/screens/printquote/OrdersTab.js';
 import { AnalyticsTab } from '../../dist/apps/web/src/screens/printquote/AnalyticsTab.js';
@@ -1215,5 +1218,182 @@ describe('Codex QA Regressions — MGL-PRINTQUOTE DEV (Findings #1..#5)', () => 
       await adminPool.query(`DROP DATABASE IF EXISTS "${tempDbName}"`);
       await adminPool.end();
     }
+  });
+
+  // =========================================================================
+  // Finding #7 (550935b + D-02): HTTP + PostgreSQL round-trip for 6-decimal
+  // area precision, equal/neutral/explained area disclosure, legacy JSON
+  // enrichment, and zero internalworkshop/cost/profit leakage.
+  // =========================================================================
+  it('Finding #7 + D-02: persists 6-decimal area & D-02 customerAreaNote via HTTP API, enriches legacy rows, and blocks adjustmentReason/cost/profit leaks on /pdf & /pdf-file', async () => {
+    const createRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/quotes',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: {
+          title: 'Báo giá kiểm thử D-02 + 6 chữ số thập phân',
+          customer_name: 'Công ty Kiểm Thử D-02',
+          shipping_fee: 0,
+          items: [
+            {
+              id: 'D02-EQUAL',
+              name: 'Decal PP cán bóng đúng khổ',
+              unit: 'tấm',
+              quantity: 2,
+              vendor_cost_mode: VendorCostMode.PER_SQM,
+              base_cost_rate: 150_000,
+              area_spec: {
+                mode: AreaInputMode.DIRECT_AREA,
+                actualAreaSqm: 2.5,
+                billableAreaSqm: 2.5,
+              },
+              profit_mode: ProfitMode.FIXED_AMOUNT,
+              profit_scope: ProfitScope.PER_SQM,
+              profit_value: 50_000,
+            },
+            {
+              id: 'D02-NEUTRAL',
+              name: 'Bạt Hiflex không ghi chú khách',
+              unit: 'tấm',
+              quantity: 1,
+              vendor_cost_mode: VendorCostMode.PER_SQM,
+              base_cost_rate: 100_000,
+              area_spec: {
+                mode: AreaInputMode.DIRECT_AREA,
+                actualAreaSqm: 2.88,
+                billableAreaSqm: 3,
+                adjustmentReason: 'NOI_BO_XUONG_EP_KHO_3M2_TUYET_MAT',
+              },
+              profit_mode: ProfitMode.FIXED_AMOUNT,
+              profit_scope: ProfitScope.PER_SQM,
+              profit_value: 50_000,
+            },
+            {
+              id: 'D02-EXPLAINED-6DEC',
+              name: 'Tem UV 6 chữ số thập phân',
+              unit: 'bộ',
+              quantity: 1,
+              vendor_cost_mode: VendorCostMode.PER_SQM,
+              base_cost_rate: 600_000,
+              area_spec: {
+                mode: AreaInputMode.DIRECT_AREA,
+                actualAreaSqm: 1.111111,
+                billableAreaSqm: 1.234567,
+                adjustmentReason: 'HAO_PHOI_LASER_NOI_BO_KHONG_XUAT',
+                customerAreaNote: 'Tính tiền tối thiểu 1,234567 m²',
+              },
+              profit_mode: ProfitMode.FIXED_AMOUNT,
+              profit_scope: ProfitScope.PER_SQM,
+              profit_value: 400_000,
+            },
+          ],
+        },
+      },
+    );
+    assert.equal(createRes.status, 201);
+    const quote = createRes.body.data;
+    const quoteId = quote.id;
+
+    // Totals remain exact integer VND:
+    // Line 1: 2.5 * (150k + 50k) = 500,000
+    // Line 2: 3 * (100k + 50k) = 450,000
+    // Line 3: 1.234567 * (600k + 400k) = 1,234,567
+    // Grand total = 2,184,567
+    assert.equal(quote.total_quote_amount, 2_184_567);
+    assert.equal(
+      verifyQuoteSnapshotIntegrity(quote.snapshot_json, quote.integrity_hash),
+      true,
+    );
+
+    // 1. GET /quotes/:id/pdf returns safe JSON with 6-dec areas, customerAreaNote only where entered, ZERO internal fields
+    const pdfJsonRes = await apiRequest(
+      baseUrl,
+      'GET',
+      `/api/v1/print-quotes/quotes/${quoteId}/pdf`,
+      { cookie: ownerCookie },
+    );
+    assert.equal(pdfJsonRes.status, 200);
+    const safePdf = pdfJsonRes.body.data;
+    assert.equal(safePdf.grandTotalPayable, 2_184_567);
+    const rawSafeJson = JSON.stringify(safePdf);
+    assert.ok(!rawSafeJson.includes('NOI_BO_XUONG_EP_KHO_3M2_TUYET_MAT'));
+    assert.ok(!rawSafeJson.includes('HAO_PHOI_LASER_NOI_BO_KHONG_XUAT'));
+    assert.ok(!rawSafeJson.includes('adjustmentReason'));
+    assert.ok(!rawSafeJson.includes('150000'));
+    assert.ok(!rawSafeJson.includes('600000'));
+
+    assert.equal(formatCustomerAreaDisclosure(safePdf.lines[0]), null);
+    assert.equal(
+      formatCustomerAreaDisclosure(safePdf.lines[1]),
+      'Thực tế 2,88 m² · Diện tích tính tiền: 3 m²',
+    );
+    assert.equal(
+      formatCustomerAreaDisclosure(safePdf.lines[2]),
+      'Thực tế 1,111111 m² · Tính tiền tối thiểu 1,234567 m²',
+    );
+
+    // 2. GET /quotes/:id/pdf-file returns real binary %PDF- matching quote total
+    const pdfFileRes = await fetch(
+      `${baseUrl}/api/v1/print-quotes/quotes/${quoteId}/pdf-file`,
+      {
+        method: 'GET',
+        headers: { Origin: ALLOWED_ORIGIN, Cookie: ownerCookie },
+      },
+    );
+    assert.equal(pdfFileRes.status, 200);
+    assert.equal(pdfFileRes.headers.get('content-type'), 'application/pdf');
+    const pdfBytes = Buffer.from(await pdfFileRes.arrayBuffer());
+    assert.equal(pdfBytes.subarray(0, 5).toString('latin1'), '%PDF-');
+    assert.ok(
+      !pdfBytes.toString('utf8').includes('NOI_BO_XUONG_EP_KHO_3M2_TUYET_MAT'),
+    );
+    assert.ok(
+      !pdfBytes.toString('utf8').includes('HAO_PHOI_LASER_NOI_BO_KHONG_XUAT'),
+    );
+
+    // 3. Simulate legacy pre-D-02 persisted customer_pdf_json missing actualAreaSqm/billableAreaSqm
+    await pool.query(
+      `UPDATE print_quotes
+       SET customer_pdf_json = jsonb_set(
+         customer_pdf_json,
+         '{lines}',
+         (
+           SELECT jsonb_agg(l - 'actualAreaSqm' - 'billableAreaSqm' - 'customerAreaNote')
+           FROM jsonb_array_elements(customer_pdf_json->'lines') AS l
+         )
+       )
+       WHERE id = $1`,
+      [quoteId],
+    );
+
+    const legacyPdfRes = await apiRequest(
+      baseUrl,
+      'GET',
+      `/api/v1/print-quotes/quotes/${quoteId}/pdf`,
+      { cookie: ownerCookie },
+    );
+    assert.equal(legacyPdfRes.status, 200);
+    const enrichedPdf = legacyPdfRes.body.data;
+    assert.equal(enrichedPdf.grandTotalPayable, 2_184_567);
+    assert.equal(enrichedPdf.lines[1].actualAreaSqm, 2.88);
+    assert.equal(enrichedPdf.lines[1].billableAreaSqm, 3);
+    assert.equal(
+      formatCustomerAreaDisclosure(enrichedPdf.lines[1]),
+      'Thực tế 2,88 m² · Diện tích tính tiền: 3 m²',
+    );
+    assert.equal(enrichedPdf.lines[2].actualAreaSqm, 1.111111);
+    assert.equal(enrichedPdf.lines[2].billableAreaSqm, 1.234567);
+    assert.equal(
+      formatCustomerAreaDisclosure(enrichedPdf.lines[2]),
+      'Thực tế 1,111111 m² · Tính tiền tối thiểu 1,234567 m²',
+    );
+    assert.ok(
+      !JSON.stringify(enrichedPdf).includes(
+        'NOI_BO_XUONG_EP_KHO_3M2_TUYET_MAT',
+      ),
+    );
   });
 });

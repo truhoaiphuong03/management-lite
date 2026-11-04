@@ -81,6 +81,7 @@ export interface DraftLineState {
   billableAreaInput?: string | undefined;
   adjustBillableArea?: boolean | undefined;
   areaAdjustmentReason?: string | undefined;
+  customerAreaNote?: string | undefined;
   finishingStages?: DraftFinishingStageState[] | undefined;
   ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;

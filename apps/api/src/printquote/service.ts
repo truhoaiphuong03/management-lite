@@ -25,6 +25,7 @@ import {
   createQuoteOrderSnapshot,
   createPendingCostQuoteSnapshot,
   buildCustomerSafePdfPayload,
+  enrichCustomerSafePdfWithAreaBounds,
   assertCustomerSafePdfPayload,
   verifyQuoteSnapshotIntegrity,
   buildQuoteLineFromVendorCatalogItem,
@@ -208,6 +209,11 @@ function parseAreaSpecInput(rawArea: unknown): QuoteAreaSpecInput | null {
     typeof reasonRaw === 'string' && reasonRaw.trim()
       ? reasonRaw.trim()
       : undefined;
+  const customerNoteRaw = obj['customerAreaNote'] ?? obj['customer_area_note'];
+  const customerAreaNote =
+    typeof customerNoteRaw === 'string' && customerNoteRaw.trim()
+      ? customerNoteRaw.trim()
+      : undefined;
 
   if (mode === AreaInputMode.DIRECT_AREA) {
     const actualRaw = obj['actualAreaSqm'] ?? obj['actual_area_sqm'];
@@ -216,6 +222,7 @@ function parseAreaSpecInput(rawArea: unknown): QuoteAreaSpecInput | null {
       actualAreaSqm: toNum(actualRaw, -1),
       ...(billableAreaSqm !== undefined ? { billableAreaSqm } : {}),
       ...(adjustmentReason !== undefined ? { adjustmentReason } : {}),
+      ...(customerAreaNote !== undefined ? { customerAreaNote } : {}),
     };
   }
 
@@ -234,6 +241,7 @@ function parseAreaSpecInput(rawArea: unknown): QuoteAreaSpecInput | null {
     ...(sheetsCount !== undefined ? { sheetsCount } : {}),
     ...(billableAreaSqm !== undefined ? { billableAreaSqm } : {}),
     ...(adjustmentReason !== undefined ? { adjustmentReason } : {}),
+    ...(customerAreaNote !== undefined ? { customerAreaNote } : {}),
   };
 }
 
@@ -1645,6 +1653,9 @@ export class PrintQuoteService {
                 ...(l.areaSpec.adjustmentReason
                   ? { adjustmentReason: l.areaSpec.adjustmentReason }
                   : {}),
+                ...(l.areaSpec.customerAreaNote
+                  ? { customerAreaNote: l.areaSpec.customerAreaNote }
+                  : {}),
               }
             : null,
           finishingStages: (l.finishingStages ?? []).map(
@@ -1749,6 +1760,9 @@ export class PrintQuoteService {
                 billableAreaSqm: l.areaSpec.billableAreaSqm,
                 ...(l.areaSpec.adjustmentReason
                   ? { adjustmentReason: l.areaSpec.adjustmentReason }
+                  : {}),
+                ...(l.areaSpec.customerAreaNote
+                  ? { customerAreaNote: l.areaSpec.customerAreaNote }
                   : {}),
               }
             : null,
@@ -3713,7 +3727,13 @@ export class PrintQuoteService {
       lines_json: (r['lines_json'] as PersistedQuoteLineSnapshot[]) ?? [],
       snapshot_json: r['snapshot_json'] as PersistedQuoteOrderSnapshot,
       customer_pdf_json: r['customer_pdf_json']
-        ? (r['customer_pdf_json'] as CustomerSafePdfPayload)
+        ? enrichCustomerSafePdfWithAreaBounds(
+            r['customer_pdf_json'] as CustomerSafePdfPayload,
+            ((r['lines_json'] as PersistedQuoteLineSnapshot[]) ??
+              (r['snapshot_json'] as PersistedQuoteOrderSnapshot | undefined)
+                ?.lines) ||
+              null,
+          )
         : null,
       integrity_hash: String(r['integrity_hash']),
       valid_until: toDateStr(r['valid_until']),
@@ -3752,7 +3772,11 @@ export class PrintQuoteService {
       total_rounding_adjustment: toInt(r['total_rounding_adjustment'], 0),
       snapshot_json: r['snapshot_json'] as PersistedQuoteOrderSnapshot,
       customer_pdf_json: r['customer_pdf_json']
-        ? (r['customer_pdf_json'] as CustomerSafePdfPayload)
+        ? enrichCustomerSafePdfWithAreaBounds(
+            r['customer_pdf_json'] as CustomerSafePdfPayload,
+            (r['snapshot_json'] as PersistedQuoteOrderSnapshot | undefined)
+              ?.lines ?? null,
+          )
         : null,
       integrity_hash: String(r['integrity_hash']),
       change_note: r['change_note'] ? String(r['change_note']) : null,

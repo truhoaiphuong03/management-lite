@@ -90,6 +90,7 @@ export interface QuoteAreaSpec {
   actualAreaSqm: number;
   billableAreaSqm: number;
   adjustmentReason?: string | undefined;
+  customerAreaNote?: string | undefined;
 }
 
 export interface QuoteAreaSpecInput {
@@ -100,6 +101,7 @@ export interface QuoteAreaSpecInput {
   actualAreaSqm?: number | undefined;
   billableAreaSqm?: number | null | undefined;
   adjustmentReason?: string | null | undefined;
+  customerAreaNote?: string | null | undefined;
 }
 
 export interface QuoteFinishingStageInput {
@@ -333,6 +335,9 @@ export interface QuotePdfLineItem {
   unit: string;
   quantity: number;
   displayAreaSqm?: number | undefined;
+  actualAreaSqm?: number | undefined;
+  billableAreaSqm?: number | undefined;
+  customerAreaNote?: string | undefined;
   unitPrice: number;
   billedSubtotal: number;
   roundingAdjustment: number;
@@ -761,6 +766,222 @@ export function multiplyRateByAreaSqmToVnd(
     throw new Error('Thành tiền diện tích vượt giới hạn số nguyên an toàn.');
   }
   return Number(roundedVnd);
+}
+
+/**
+ * Formats an integer (number or bigint) using Vietnamese `.` thousands grouping
+ * deterministically without depending on runtime ICU locale tables.
+ */
+export function formatPrintQuoteIntegerVn(
+  value: number | bigint | null | undefined,
+): string {
+  if (typeof value === 'bigint') {
+    const isNeg = value < 0n;
+    const absStr = (isNeg ? -value : value).toString();
+    const grouped = absStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return isNeg ? `-${grouped}` : grouped;
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return '0';
+  }
+  const rounded = Math.round(value);
+  if (Object.is(rounded, -0) || rounded === 0) {
+    return '0';
+  }
+  return formatPrintQuoteIntegerVn(BigInt(rounded));
+}
+
+function formatPrintQuoteExactCentsVn(cents: bigint): string {
+  const isNeg = cents < 0n;
+  const absCents = isNeg ? -cents : cents;
+  const whole = absCents / 100n;
+  const rem = absCents % 100n;
+  const sign = isNeg && absCents > 0n ? '-' : '';
+  const wholeStr = formatPrintQuoteIntegerVn(whole);
+  if (rem === 0n) {
+    return `${sign}${wholeStr} ₫`;
+  }
+  const fracStr = rem.toString().padStart(2, '0').replace(/0+$/, '');
+  return `${sign}${wholeStr},${fracStr} ₫`;
+}
+
+/**
+ * Formats billable/display area (m²) with full canonical precision up to 6 decimal
+ * places (`microSqm = 10^-6 m²`, stripping trailing zeros) so customer-facing PDFs
+ * and web previews reconcile with `multiplyRateByAreaSqmToVnd` without silent 4-decimal rounding.
+ */
+export function formatPrintQuoteAreaSqmVn(
+  area: number | null | undefined,
+): string {
+  if (typeof area !== 'number' || !Number.isFinite(area)) {
+    return '0';
+  }
+  const isNeg = area < 0;
+  const microSqm = BigInt(Math.round(Math.abs(area) * 1_000_000));
+  if (microSqm === 0n) {
+    return '0';
+  }
+  const whole = microSqm / 1_000_000n;
+  const frac = microSqm % 1_000_000n;
+  const sign = isNeg ? '-' : '';
+  const wholeStr = formatPrintQuoteIntegerVn(whole);
+  if (frac === 0n) {
+    return `${sign}${wholeStr}`;
+  }
+  const fracStr = frac.toString().padStart(6, '0').replace(/0+$/, '');
+  return `${sign}${wholeStr},${fracStr}`;
+}
+
+/**
+ * Approved D-02 Customer Area Disclosure:
+ * - When `actualAreaSqm` and `billableAreaSqm` are equal (within 1 micro-m²) or missing -> `null`.
+ * - When they differ:
+ *   - NEVER reads or exports internal workshop `adjustmentReason`.
+ *   - If an explicit `customerAreaNote` was entered for the customer:
+ *     - If it already states `${billableStr} m²` (e.g. "Tính tiền tối thiểu 3 m²") ->
+ *       `"Thực tế 2,88 m² · Tính tiền tối thiểu 3 m²"`
+ *     - Otherwise ->
+ *       `"Thực tế 2,88 m² · Diện tích tính tiền: 3 m² (<customerAreaNote>)"`
+ *   - If no customer explanation was provided -> neutral label without assuming minimum:
+ *     `"Thực tế 2,88 m² · Diện tích tính tiền: 3 m²"`
+ */
+export function formatCustomerAreaDisclosure(params: {
+  actualAreaSqm?: number | null | undefined;
+  billableAreaSqm?: number | null | undefined;
+  customerAreaNote?: string | null | undefined;
+}): string | null {
+  const actual = params.actualAreaSqm;
+  const billable = params.billableAreaSqm;
+  if (
+    typeof actual !== 'number' ||
+    !Number.isFinite(actual) ||
+    actual <= 0 ||
+    typeof billable !== 'number' ||
+    !Number.isFinite(billable) ||
+    billable <= 0
+  ) {
+    return null;
+  }
+  const actualMicro = Math.round(actual * 1_000_000);
+  const billableMicro = Math.round(billable * 1_000_000);
+  if (actualMicro <= 0 || billableMicro <= 0 || actualMicro === billableMicro) {
+    return null;
+  }
+
+  const actualStr = formatPrintQuoteAreaSqmVn(actual);
+  const billableStr = formatPrintQuoteAreaSqmVn(billable);
+  const cleanNote =
+    typeof params.customerAreaNote === 'string'
+      ? params.customerAreaNote.trim()
+      : '';
+
+  if (!cleanNote) {
+    return `Thực tế ${actualStr} m² · Diện tích tính tiền: ${billableStr} m²`;
+  }
+
+  const escapedBillable = billableStr
+    .replace(/\./g, '\\.')
+    .replace(/,/g, '[.,]');
+  const mentionsBillableArea = new RegExp(
+    `(?<![\\d.,])${escapedBillable}\\s*m(?:²|2)(?!\\w)`,
+    'i',
+  ).test(cleanNote);
+
+  if (mentionsBillableArea) {
+    return `Thực tế ${actualStr} m² · ${cleanNote}`;
+  }
+
+  return `Thực tế ${actualStr} m² · Diện tích tính tiền: ${billableStr} m² (${cleanNote})`;
+}
+
+export interface CustomerLinePricePresentation {
+  unitPriceDisplay: string;
+  priceSubNote: string | null;
+  isExact: boolean;
+}
+
+/**
+ * Formats customer-facing unit price across Server PDF, Web A4 preview, and Web
+ * Customer Summary card using exact BigInt arithmetic:
+ * 1. Exact integer VND rate (`displayedArea × rate === lineTotal`) -> `"1.000.000 ₫"`
+ * 2. Exact finite 1–2 decimal VND rate (`displayedArea × rate === lineTotal`) -> `"100.006,4 ₫"`
+ * 3. Non-exact / rounded / shipping-merged rate -> `"~333.333 ₫"` + `"Tính trọn gói 1,234567 m²"`
+ * Never alters `lineTotal` and never exposes vendor cost, profit, or accounting jargon.
+ */
+export function formatCustomerLinePricePresentation(
+  lineTotal: number,
+  quantity: number,
+  unitLabel?: string | null,
+  displayAreaSqm?: number | null,
+): CustomerLinePricePresentation {
+  const total = Math.round(lineTotal || 0);
+  const totalBig = BigInt(total);
+  const unit = (unitLabel || 'sp').trim() || 'sp';
+
+  if (
+    typeof displayAreaSqm === 'number' &&
+    Number.isFinite(displayAreaSqm) &&
+    displayAreaSqm > 0
+  ) {
+    const areaMicro = Math.round(displayAreaSqm * 1_000_000);
+    if (areaMicro > 0) {
+      const areaBig = BigInt(areaMicro);
+      if ((totalBig * 1_000_000n) % areaBig === 0n) {
+        const exactRate = (totalBig * 1_000_000n) / areaBig;
+        return {
+          unitPriceDisplay: `${formatPrintQuoteIntegerVn(exactRate)} ₫`,
+          priceSubNote: null,
+          isExact: true,
+        };
+      }
+      if ((totalBig * 100_000_000n) % areaBig === 0n) {
+        const exactRateCents = (totalBig * 100_000_000n) / areaBig;
+        return {
+          unitPriceDisplay: formatPrintQuoteExactCentsVn(exactRateCents),
+          priceSubNote: null,
+          isExact: true,
+        };
+      }
+      const absTotal = totalBig < 0n ? -totalBig : totalBig;
+      const approxAbs = (absTotal * 1_000_000n + areaBig / 2n) / areaBig;
+      const approxSigned = totalBig < 0n ? -approxAbs : approxAbs;
+      return {
+        unitPriceDisplay: `~${formatPrintQuoteIntegerVn(approxSigned)} ₫`,
+        priceSubNote: `Tính trọn gói ${formatPrintQuoteAreaSqmVn(displayAreaSqm)} ${unit}`,
+        isExact: false,
+      };
+    }
+  }
+
+  const qty = Math.max(1, Math.round(quantity || 1));
+  const qtyBig = BigInt(qty);
+
+  if (totalBig % qtyBig === 0n) {
+    return {
+      unitPriceDisplay: `${formatPrintQuoteIntegerVn(totalBig / qtyBig)} ₫`,
+      priceSubNote: null,
+      isExact: true,
+    };
+  }
+
+  if ((totalBig * 100n) % qtyBig === 0n) {
+    return {
+      unitPriceDisplay: formatPrintQuoteExactCentsVn(
+        (totalBig * 100n) / qtyBig,
+      ),
+      priceSubNote: null,
+      isExact: true,
+    };
+  }
+
+  const absTotal = totalBig < 0n ? -totalBig : totalBig;
+  const approxQtyAbs = (absTotal + qtyBig / 2n) / qtyBig;
+  const approxQtySigned = totalBig < 0n ? -approxQtyAbs : approxQtyAbs;
+  return {
+    unitPriceDisplay: `~${formatPrintQuoteIntegerVn(approxQtySigned)} ₫`,
+    priceSubNote: `Tính trọn gói ${formatPrintQuoteIntegerVn(qtyBig)} ${unit}`,
+    isExact: false,
+  };
 }
 
 export interface CatalogBatchConditionResult {
@@ -1250,6 +1471,7 @@ function resolveAreaSpec(
 ): QuoteAreaSpec | null {
   if (!areaInput) return null;
   const trimmedReason = String(areaInput.adjustmentReason ?? '').trim();
+  const trimmedCustomerNote = String(areaInput.customerAreaNote ?? '').trim();
   const label = options?.lineName ? `"${options.lineName}"` : `(${lineId})`;
 
   if (areaInput.mode === AreaInputMode.DIMENSIONS) {
@@ -1279,6 +1501,9 @@ function resolveAreaSpec(
       actualAreaSqm,
       billableAreaSqm,
       ...(trimmedReason ? { adjustmentReason: trimmedReason } : {}),
+      ...(hasDiff && trimmedCustomerNote
+        ? { customerAreaNote: trimmedCustomerNote }
+        : {}),
     };
   }
   if (areaInput.mode === AreaInputMode.DIRECT_AREA) {
@@ -1307,6 +1532,9 @@ function resolveAreaSpec(
       actualAreaSqm,
       billableAreaSqm,
       ...(trimmedReason ? { adjustmentReason: trimmedReason } : {}),
+      ...(hasDiff && trimmedCustomerNote
+        ? { customerAreaNote: trimmedCustomerNote }
+        : {}),
     };
   }
   throw new Error(
@@ -1981,10 +2209,18 @@ export function buildPdfQuotePayload(
   const pdfLines: QuotePdfLineItem[] = quote.lines.map((line, idx) => {
     const unitNorm = line.unit.trim().toLowerCase();
     const isSqmUnit = unitNorm === 'm²' || unitNorm === 'm2';
+    const hasValidArea =
+      Boolean(line.areaSpec) &&
+      typeof line.areaSpec?.actualAreaSqm === 'number' &&
+      line.areaSpec.actualAreaSqm > 0 &&
+      typeof line.areaSpec?.billableAreaSqm === 'number' &&
+      line.areaSpec.billableAreaSqm > 0;
     const displayAreaSqm =
-      isSqmUnit && line.areaSpec && line.areaSpec.billableAreaSqm > 0
-        ? line.areaSpec.billableAreaSqm
-        : undefined;
+      isSqmUnit && hasValidArea ? line.areaSpec!.billableAreaSqm : undefined;
+    const cleanCustomerAreaNote =
+      hasValidArea && line.areaSpec?.customerAreaNote
+        ? line.areaSpec.customerAreaNote.trim()
+        : '';
 
     return {
       index: idx + 1,
@@ -1994,6 +2230,15 @@ export function buildPdfQuotePayload(
       unit: line.unit,
       quantity: line.quantity,
       ...(displayAreaSqm !== undefined ? { displayAreaSqm } : {}),
+      ...(hasValidArea
+        ? {
+            actualAreaSqm: line.areaSpec!.actualAreaSqm,
+            billableAreaSqm: line.areaSpec!.billableAreaSqm,
+            ...(cleanCustomerAreaNote
+              ? { customerAreaNote: cleanCustomerAreaNote }
+              : {}),
+          }
+        : {}),
       unitPrice: line.finalUnitPrice,
       billedSubtotal: line.billedLineSubtotal,
       roundingAdjustment: line.roundingAdjustment,
@@ -2150,6 +2395,13 @@ export function buildCustomerSafePdfPayload(
       ...(l.displayAreaSqm !== undefined
         ? { displayAreaSqm: l.displayAreaSqm }
         : {}),
+      ...(l.actualAreaSqm !== undefined
+        ? { actualAreaSqm: l.actualAreaSqm }
+        : {}),
+      ...(l.billableAreaSqm !== undefined
+        ? { billableAreaSqm: l.billableAreaSqm }
+        : {}),
+      ...(l.customerAreaNote ? { customerAreaNote: l.customerAreaNote } : {}),
       unitPrice: l.unitPrice,
       billedSubtotal: l.billedSubtotal,
       roundingAdjustment: l.roundingAdjustment,
@@ -2164,6 +2416,65 @@ export function buildCustomerSafePdfPayload(
   };
   assertCustomerSafePdfPayload(safePayload);
   return safePayload;
+}
+
+/**
+ * Enriches pre-D-02 persisted `customer_pdf_json` payloads with customer-safe
+ * `actualAreaSqm`, `billableAreaSqm`, and optional `customerAreaNote` from stored
+ * quote lines, strictly WITHOUT copying internal `adjustmentReason` or altering totals.
+ */
+export function enrichCustomerSafePdfWithAreaBounds(
+  pdfPayload: CustomerSafePdfPayload,
+  sourceLines?:
+    | ReadonlyArray<{
+        id?: string | undefined;
+        areaSpec?: QuoteAreaSpec | null | undefined;
+      }>
+    | null
+    | undefined,
+): CustomerSafePdfPayload {
+  if (!sourceLines || sourceLines.length === 0) {
+    assertCustomerSafePdfPayload(pdfPayload);
+    return pdfPayload;
+  }
+  const byId = new Map<string, QuoteAreaSpec>();
+  for (const src of sourceLines) {
+    if (src?.id && src.areaSpec) {
+      byId.set(src.id, src.areaSpec);
+    }
+  }
+  const enriched: CustomerSafePdfPayload = {
+    ...pdfPayload,
+    lines: pdfPayload.lines.map((line, idx) => {
+      const srcArea =
+        (line.id ? byId.get(line.id) : undefined) ??
+        sourceLines[idx]?.areaSpec ??
+        null;
+      if (
+        !srcArea ||
+        typeof srcArea.actualAreaSqm !== 'number' ||
+        srcArea.actualAreaSqm <= 0 ||
+        typeof srcArea.billableAreaSqm !== 'number' ||
+        srcArea.billableAreaSqm <= 0
+      ) {
+        return line;
+      }
+      const cleanCustNote =
+        line.customerAreaNote ??
+        (typeof srcArea.customerAreaNote === 'string' &&
+        srcArea.customerAreaNote.trim()
+          ? srcArea.customerAreaNote.trim()
+          : undefined);
+      return {
+        ...line,
+        actualAreaSqm: line.actualAreaSqm ?? srcArea.actualAreaSqm,
+        billableAreaSqm: line.billableAreaSqm ?? srcArea.billableAreaSqm,
+        ...(cleanCustNote ? { customerAreaNote: cleanCustNote } : {}),
+      };
+    }),
+  };
+  assertCustomerSafePdfPayload(enriched);
+  return enriched;
 }
 
 function deepFreeze<T>(obj: T): Readonly<T> {

@@ -5,6 +5,7 @@ import {
   buildCompactProductSummary,
   computeExactAreaSqm,
   detectIncludedStageOverlaps,
+  formatCustomerAreaDisclosure,
   LineCostSource,
   multiplyRateByAreaSqmToVnd,
   normalizeAreaSqm,
@@ -159,7 +160,7 @@ function computeLineLiveAreaPreview(line: DraftLineState): {
     if (mode === AreaInputMode.DIRECT_AREA) {
       const directRes = parseNumericDraftValue(line.actualAreaInput ?? '', {
         allowDecimal: true,
-        min: 0.0001,
+        min: 0.000001,
         integerOnly: false,
       });
       if (!directRes.isValid || directRes.value === null) {
@@ -174,7 +175,7 @@ function computeLineLiveAreaPreview(line: DraftLineState): {
       ) {
         const billRes = parseNumericDraftValue(line.billableAreaInput, {
           allowDecimal: true,
-          min: 0.0001,
+          min: 0.000001,
           integerOnly: false,
         });
         if (billRes.isValid && billRes.value !== null) {
@@ -226,7 +227,7 @@ function computeLineLiveAreaPreview(line: DraftLineState): {
     ) {
       const billRes = parseNumericDraftValue(line.billableAreaInput, {
         allowDecimal: true,
-        min: 0.0001,
+        min: 0.000001,
         integerOnly: false,
       });
       if (billRes.isValid && billRes.value !== null) {
@@ -2142,6 +2143,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                                 : {
                                                     billableAreaInput: '',
                                                     areaAdjustmentReason: '',
+                                                    customerAreaNote: '',
                                                   }),
                                             }
                                           : l,
@@ -2197,13 +2199,13 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                     <input
                                       id={`pq-line-area-reason-${idx}`}
                                       data-testid={`pq-line-area-reason-${idx}`}
-                                      aria-label={`Lý do điều chỉnh diện tích dòng ${idx + 1}`}
+                                      aria-label={`Lý do điều chỉnh diện tích nội bộ dòng ${idx + 1}`}
                                       style={{
                                         ...inputStyle,
                                         minHeight: '36px',
                                         fontSize: '12.5px',
                                       }}
-                                      placeholder="Lý do điều chỉnh m² * (VD: Xưởng tính tối thiểu 1m²)"
+                                      placeholder="Lý do nội bộ * (không xuất PDF — VD: Xưởng tính tối thiểu 1m²)"
                                       value={line.areaAdjustmentReason ?? ''}
                                       onChange={(e) => {
                                         const reasonVal = e.target.value;
@@ -2215,6 +2217,34 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                                   ...l,
                                                   areaAdjustmentReason:
                                                     reasonVal,
+                                                }
+                                              : l,
+                                          ),
+                                        );
+                                      }}
+                                    />
+                                  </div>
+                                  <div style={{ flex: '1 1 220px' }}>
+                                    <input
+                                      id={`pq-line-customer-area-note-${idx}`}
+                                      data-testid={`pq-line-customer-area-note-${idx}`}
+                                      aria-label={`Giải thích diện tích gửi khách dòng ${idx + 1}`}
+                                      style={{
+                                        ...inputStyle,
+                                        minHeight: '36px',
+                                        fontSize: '12.5px',
+                                      }}
+                                      placeholder="Giải thích gửi khách (tùy chọn — để trống hiện trung tính)"
+                                      value={line.customerAreaNote ?? ''}
+                                      onChange={(e) => {
+                                        const noteVal = e.target.value;
+                                        onMarkTouched?.();
+                                        setDraftLines((prev) =>
+                                          prev.map((l, i) =>
+                                            i === idx
+                                              ? {
+                                                  ...l,
+                                                  customerAreaNote: noteVal,
                                                 }
                                               : l,
                                           ),
@@ -3839,6 +3869,16 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             (item, lineIdx) => {
                               const rawUnit =
                                 draftLines[lineIdx]?.unit || item.unit || 'tờ';
+                              const hasAreaQty =
+                                typeof item.displayAreaSqm === 'number' &&
+                                Number.isFinite(item.displayAreaSqm) &&
+                                item.displayAreaSqm > 0;
+                              const areaDisclosure =
+                                formatCustomerAreaDisclosure({
+                                  actualAreaSqm: item.actualAreaSqm,
+                                  billableAreaSqm: item.billableAreaSqm,
+                                  customerAreaNote: item.customerAreaNote,
+                                });
                               const priceDisplay =
                                 formatCustomerLinePriceDisplay(
                                   item.lineTotal,
@@ -3850,7 +3890,20 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                 <tr key={item.id}>
                                   <td style={{ fontWeight: 600 }}>
                                     <div>{item.name}</div>
-                                    {item.displayAreaSqm ? (
+                                    {areaDisclosure ? (
+                                      <div
+                                        style={{
+                                          fontSize: '12px',
+                                          color: 'var(--accent-text)',
+                                          fontWeight: 500,
+                                        }}
+                                      >
+                                        {hasAreaQty && item.quantity > 1
+                                          ? `${formatNumberVn(item.quantity)} tấm • `
+                                          : ''}
+                                        {areaDisclosure}
+                                      </div>
+                                    ) : hasAreaQty ? (
                                       <div
                                         style={{
                                           fontSize: '12px',
@@ -3858,6 +3911,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                           fontWeight: 400,
                                         }}
                                       >
+                                        {item.quantity > 1
+                                          ? `${formatNumberVn(item.quantity)} tấm • `
+                                          : ''}
                                         {formatAreaSqmVn(item.displayAreaSqm)}{' '}
                                         m²
                                       </div>
@@ -3869,7 +3925,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                       ...tabularNumStyle,
                                     }}
                                   >
-                                    {formatNumberVn(item.quantity)}
+                                    {hasAreaQty
+                                      ? `${formatAreaSqmVn(item.displayAreaSqm)} ${rawUnit}`
+                                      : formatNumberVn(item.quantity)}
                                   </td>
                                   <td
                                     style={{
@@ -4016,6 +4074,30 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                             livePricingResult.customerPdf
                               .shippingAmountToAddOnPdfFooter,
                           )}
+                    </strong>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginTop: '6px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>Tổng thanh toán:</span>
+                    <strong
+                      style={{
+                        color: 'var(--accent-text)',
+                        fontSize: '14px',
+                        ...tabularNumStyle,
+                      }}
+                    >
+                      {formatVnd(
+                        livePricingResult.customerPdf.grandTotalPayable,
+                      )}
                     </strong>
                   </div>
 

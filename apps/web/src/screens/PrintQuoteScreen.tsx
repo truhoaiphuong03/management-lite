@@ -17,6 +17,7 @@ import {
   RoundingMode,
   calculatePrintQuote,
   buildCustomerSafePdfPayload,
+  enrichCustomerSafePdfWithAreaBounds,
   type PendingCostLineSummary,
   type VendorCostModeType,
   type ShippingAllocationStrategyType,
@@ -250,6 +251,7 @@ function mapQuoteLinesToDraftLines(quote: PrintQuoteData): DraftLineState[] {
               : '',
             adjustBillableArea: hasCustomBillable,
             areaAdjustmentReason: area.adjustmentReason ?? '',
+            customerAreaNote: area.customerAreaNote ?? '',
           }
         : {}),
       ...(mappedStages ? { finishingStages: mappedStages } : {}),
@@ -1064,14 +1066,18 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   };
 
   const handleOpenSavedQuotePdf = (quote: PrintQuoteData) => {
-    const safePdf = quote.customer_pdf_json;
-    if (!safePdf || quote.pricing_status === QuotePricingStatus.PENDING_COST) {
+    const rawPdf = quote.customer_pdf_json;
+    if (!rawPdf || quote.pricing_status === QuotePricingStatus.PENDING_COST) {
       setBannerMessage({
         type: 'error',
         text: 'Báo giá đang ở trạng thái "Chờ giá xưởng" — vui lòng nhập đủ giá vốn trước khi xem/xuất PDF gửi khách.',
       });
       return;
     }
+    const safePdf = enrichCustomerSafePdfWithAreaBounds(
+      rawPdf,
+      quote.lines_json,
+    );
     const cust = customers.find((c) => c.id === quote.customer_id);
 
     const html = buildPrintQuoteA4Html(safePdf, {

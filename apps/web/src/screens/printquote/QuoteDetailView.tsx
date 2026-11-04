@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { StatusBadge } from '../../../../../packages/ui/src/components/index.js';
-import type {
-  PrintCustomerData,
-  PrintQuoteData,
+import {
+  enrichCustomerSafePdfWithAreaBounds,
+  type PrintCustomerData,
+  type PrintQuoteData,
 } from '../../../../../packages/contracts/src/printquote.js';
 import {
   buildPrintQuoteA4Html,
@@ -78,7 +79,11 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
 
   const a4Html = useMemo(() => {
     if (!quote || !quote.customer_pdf_json || isPendingCost) return '';
-    return buildPrintQuoteA4Html(quote.customer_pdf_json, {
+    const enrichedPdf = enrichCustomerSafePdfWithAreaBounds(
+      quote.customer_pdf_json,
+      quote.lines_json,
+    );
+    return buildPrintQuoteA4Html(enrichedPdf, {
       quoteCode: quote.quote_code,
       quoteTitle: quote.title,
       versionNo: quote.current_version,

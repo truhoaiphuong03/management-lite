@@ -3,6 +3,10 @@ import {
   assertCustomerSafePdfPayload,
   computeExactAreaSqm,
   evaluateCatalogBatchQuantityCondition,
+  formatCustomerAreaDisclosure,
+  formatCustomerLinePricePresentation,
+  formatPrintQuoteAreaSqmVn,
+  formatPrintQuoteIntegerVn,
   MAX_PRINTQUOTE_PERCENT,
   MAX_PRINTQUOTE_QUANTITY,
   MAX_PRINTQUOTE_RATE_VND,
@@ -12,6 +16,7 @@ import {
   ProfitScope,
   VendorCostMode,
   type AreaInputModeType,
+  type CustomerLinePricePresentation,
   type LineCostSourceType,
   type PendingCostLineSummary,
   type PrintVendorPriceItemData,
@@ -271,6 +276,7 @@ export interface ValidatableDraftLine {
   billableAreaInput?: string | undefined;
   adjustBillableArea?: boolean | undefined;
   areaAdjustmentReason?: string | undefined;
+  customerAreaNote?: string | undefined;
   finishingStages?: readonly ValidatableFinishingStage[] | undefined;
   ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;
@@ -428,7 +434,7 @@ export function validateQuoteDraftInputs(
       if (mode === AreaInputMode.DIRECT_AREA) {
         const directRes = parseNumericDraftValue(line.actualAreaInput ?? '', {
           allowDecimal: true,
-          min: 0.0001,
+          min: 0.000001,
           integerOnly: false,
         });
         if (!directRes.isValid || directRes.value === null) {
@@ -449,7 +455,7 @@ export function validateQuoteDraftInputs(
             ) {
               const billRes = parseNumericDraftValue(line.billableAreaInput, {
                 allowDecimal: true,
-                min: 0.0001,
+                min: 0.000001,
                 integerOnly: false,
               });
               if (!billRes.isValid || billRes.value === null) {
@@ -532,7 +538,7 @@ export function validateQuoteDraftInputs(
             ) {
               const billRes = parseNumericDraftValue(line.billableAreaInput, {
                 allowDecimal: true,
-                min: 0.0001,
+                min: 0.000001,
                 integerOnly: false,
               });
               if (!billRes.isValid || billRes.value === null) {
@@ -563,6 +569,7 @@ export function validateQuoteDraftInputs(
       }
       if (resolvedArea) {
         const trimmedReason = line.areaAdjustmentReason?.trim() ?? '';
+        const trimmedCustomerNote = line.customerAreaNote?.trim() ?? '';
         if (
           Math.abs(resolvedArea.billableAreaSqm - resolvedArea.actualAreaSqm) >
           1e-9
@@ -574,6 +581,9 @@ export function validateQuoteDraftInputs(
             structuralErrors.push(msg);
           } else {
             resolvedArea.adjustmentReason = trimmedReason;
+          }
+          if (trimmedCustomerNote) {
+            resolvedArea.customerAreaNote = trimmedCustomerNote;
           }
         } else if (trimmedReason) {
           resolvedArea.adjustmentReason = trimmedReason;
@@ -815,20 +825,11 @@ export function validateQuoteDraftInputs(
 }
 
 export function formatAreaSqmVn(area: number | null | undefined): string {
-  const safe = typeof area === 'number' && Number.isFinite(area) ? area : 0;
-  const rounded4 = Math.round(safe * 10_000) / 10_000;
-  return rounded4.toLocaleString('vi-VN', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 4,
-  });
+  return formatPrintQuoteAreaSqmVn(area);
 }
 
 export function formatVnd(amount: number | null | undefined): string {
-  const safe =
-    typeof amount === 'number' && Number.isFinite(amount)
-      ? Math.round(amount)
-      : 0;
-  return `${safe.toLocaleString('vi-VN')} ₫`;
+  return `${formatPrintQuoteIntegerVn(amount)} ₫`;
 }
 
 export function formatExactVnd(amount: number | null | undefined): string {
@@ -841,16 +842,12 @@ export function formatExactVnd(amount: number | null | undefined): string {
   })} ₫`;
 }
 
-export interface CustomerLinePriceDisplay {
-  unitPriceDisplay: string;
-  priceSubNote: string | null;
-  isExact: boolean;
-}
+export type CustomerLinePriceDisplay = CustomerLinePricePresentation;
 
 /**
  * Formats unit price on customer-facing A4 PDF and Customer Summary view so that:
- * 1. Exact integer unit price (e.g. 100.000 ÷ 100 = 1.000 ₫ or 144.000 ÷ 2,88m² = 50.000 ₫) -> exact VND
- * 2. Exact finite 2-decimal unit price (e.g. 76.316 ÷ 100 = 763,16 ₫) -> "763,16 ₫"
+ * 1. Exact integer unit price (e.g. 100.000 ÷ 100 = 1.000 ₫ or 1.234.567 ÷ 1,234567m² = 1.000.000 ₫) -> exact VND
+ * 2. Exact finite 2-decimal unit price (e.g. 76.316 ÷ 100 = 763,16 ₫ or 101.569 ÷ 1,015625m² = 100.006,4 ₫) -> exact decimal VND
  * 3. Non-terminating decimal unit price -> "~..." + "Tính trọn gói ..."
  * Never exposes technical accounting jargon like "Hiệu chỉnh làm tròn" to customers.
  */
@@ -860,72 +857,16 @@ export function formatCustomerLinePriceDisplay(
   unitLabel?: string | null,
   displayAreaSqm?: number | null,
 ): CustomerLinePriceDisplay {
-  const total = Math.round(lineTotal || 0);
-  const unit = (unitLabel || 'sp').trim() || 'sp';
-
-  if (
-    typeof displayAreaSqm === 'number' &&
-    Number.isFinite(displayAreaSqm) &&
-    displayAreaSqm > 0
-  ) {
-    const areaMicro = Math.round(displayAreaSqm * 1_000_000);
-    if (areaMicro > 0) {
-      const totalBig = BigInt(total);
-      const areaBig = BigInt(areaMicro);
-      if ((totalBig * 1_000_000n) % areaBig === 0n) {
-        const exactRate = Number((totalBig * 1_000_000n) / areaBig);
-        return {
-          unitPriceDisplay: formatVnd(exactRate),
-          priceSubNote: null,
-          isExact: true,
-        };
-      }
-      if ((totalBig * 100_000_000n) % areaBig === 0n) {
-        return {
-          unitPriceDisplay: formatExactVnd(total / displayAreaSqm),
-          priceSubNote: null,
-          isExact: true,
-        };
-      }
-      return {
-        unitPriceDisplay: `~${formatVnd(Math.round(total / displayAreaSqm))}`,
-        priceSubNote: `Tính trọn gói ${formatAreaSqmVn(displayAreaSqm)} ${unit}`,
-        isExact: false,
-      };
-    }
-  }
-
-  const qty = Math.max(1, Math.round(quantity || 1));
-
-  if (total % qty === 0) {
-    return {
-      unitPriceDisplay: formatVnd(total / qty),
-      priceSubNote: null,
-      isExact: true,
-    };
-  }
-
-  if ((total * 100) % qty === 0) {
-    return {
-      unitPriceDisplay: formatExactVnd(total / qty),
-      priceSubNote: null,
-      isExact: true,
-    };
-  }
-
-  return {
-    unitPriceDisplay: `~${formatVnd(Math.round(total / qty))}`,
-    priceSubNote: `Tính trọn gói ${formatNumberVn(qty)} ${unit}`,
-    isExact: false,
-  };
+  return formatCustomerLinePricePresentation(
+    lineTotal,
+    quantity,
+    unitLabel,
+    displayAreaSqm,
+  );
 }
 
 export function formatNumberVn(amount: number | null | undefined): string {
-  const safe =
-    typeof amount === 'number' && Number.isFinite(amount)
-      ? Math.round(amount)
-      : 0;
-  return safe.toLocaleString('vi-VN');
+  return formatPrintQuoteIntegerVn(amount);
 }
 
 export function formatDateVn(dateStr: string | null | undefined): string {
@@ -1126,6 +1067,14 @@ export function buildPrintQuoteA4Html(
       const specText = specRaw
         ? `<div class="item-spec">Quy cách: ${escapeHtml(specRaw)}</div>`
         : '';
+      const areaDisclosure = formatCustomerAreaDisclosure({
+        actualAreaSqm: item.actualAreaSqm,
+        billableAreaSqm: item.billableAreaSqm,
+        customerAreaNote: item.customerAreaNote,
+      });
+      const areaDisclosureHtml = areaDisclosure
+        ? `<div class="item-area-note">${escapeHtml(areaDisclosure)}</div>`
+        : '';
       const rawUnit = extra?.unit || item.unit || 'sp';
       const unitLabel = escapeHtml(rawUnit);
       const hasAreaQty =
@@ -1148,6 +1097,7 @@ export function buildPrintQuoteA4Html(
           <td class="col-name">
             <div class="item-title">${escapeHtml(item.name)}</div>
             ${specText}
+            ${areaDisclosureHtml}
           </td>
           <td class="col-unit">${unitLabel}</td>
           <td class="col-qty">${hasAreaQty ? formatAreaSqmVn(item.displayAreaSqm) : formatNumberVn(item.quantity)}</td>
@@ -1300,6 +1250,7 @@ export function buildPrintQuoteA4Html(
     .col-total { width: 135px; text-align: right; font-weight: 700; color: #0F172A; }
     .item-title { font-weight: 700; color: #0F172A; }
     .item-spec { font-size: 11.5px; color: #475569; margin-top: 2px; }
+    .item-area-note { font-size: 11px; color: #0F766E; margin-top: 2px; font-weight: 600; }
     .item-split-note { font-size: 11px; color: #0F766E; margin-top: 3px; font-style: italic; }
     .summary-row td {
       background: #F8FAFC;
