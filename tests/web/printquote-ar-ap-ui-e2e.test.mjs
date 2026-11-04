@@ -588,6 +588,122 @@ test('Real-Browser Playwright + Axe Audit: 5 Trang Công Nợ & Tài Chính In �
       production_status: 'CANCELLED',
     });
 
+    // Test ConvertOrderCustomerModal on a quote WITHOUT customer_id (inline quick customer creation)
+    const qNoCust = (
+      await pageApiPost(page, '/api/v1/print-quotes/quotes', {
+        title: 'Namecard khách vãng lai cần gắn mã khi lên đơn',
+        customer_name: ' Tiệm Hoa Xuân Mai ',
+        status: 'FINALIZED',
+        items: [
+          {
+            name: 'Namecard C300 cán mờ',
+            unit: 'hộp',
+            quantity: 5,
+            vendorCostMode: VendorCostMode.PER_UNIT,
+            baseCostRate: 30_000,
+            profitMode: ProfitMode.FIXED_AMOUNT,
+            profitScope: ProfitScope.PER_UNIT,
+            profitValue: 20_000,
+          },
+        ],
+      })
+    ).body.data;
+    await page.goto(`${ephemeral.webUrl}/print-quotes`, {
+      waitUntil: 'networkidle',
+    });
+    await page.waitForSelector(
+      `[data-testid="quote-row-${qNoCust.quote_code}"]`,
+    );
+    await page.click(
+      `[data-testid="pq-convert-order-btn-${qNoCust.quote_code}"]`,
+    );
+    await page.waitForSelector(
+      '[data-testid="pq-convert-order-customer-modal"]',
+    );
+    await page.click('[data-testid="pq-convert-cust-mode-quick"]');
+    await page.fill(
+      '[data-testid="pq-convert-quick-name"]',
+      'Tiệm Hoa Xuân Mai',
+    );
+    await page.fill('[data-testid="pq-convert-quick-phone"]', '0905123789');
+    await page.click('[data-testid="pq-convert-cust-submit"]');
+    await page.waitForSelector('[data-testid="panel-orders"]');
+
+    // Seed 1 pending legacy payment row in DB so Receivables renders the Legacy AR Reconciliation Gate across all 3 viewports × Light/Dark!
+    const wsLookup = await pool.query(
+      `SELECT wm.workspace_id, wm.user_id
+       FROM workspace_memberships wm
+       JOIN users u ON u.id = wm.user_id
+       WHERE u.username_normalized = $1 AND wm.role = 'owner'
+       LIMIT 1`,
+      [ownerUsername],
+    );
+    if (wsLookup.rows.length > 0) {
+      const wsId = wsLookup.rows[0].workspace_id;
+      const uId = wsLookup.rows[0].user_id;
+      const legPayId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO print_order_payments (id, workspace_id, order_id, payment_type, amount, payment_method, reference_code, note, recorded_by)
+         VALUES ($1, $2, $3, 'DEPOSIT', 100000, 'BANK_TRANSFER', 'LEG-UI-100', 'Phiếu thu cũ chờ đối chiếu trên UI', $4)`,
+        [legPayId, wsId, ord1.id, uId],
+      );
+      const recIns = await pool.query(
+        `INSERT INTO print_legacy_ar_reconciliations (
+           workspace_id, legacy_payment_id, order_id, status, anomaly_codes, pre_reconciliation_json
+         ) VALUES ($1, $2, $3, 'PENDING', '[]'::jsonb, $4::jsonb)
+         RETURNING id`,
+        [
+          wsId,
+          legPayId,
+          ord1.id,
+          JSON.stringify({
+            legacy_payment_id: legPayId,
+            amount: 100000,
+            payment_type: 'DEPOSIT',
+          }),
+        ],
+      );
+      await pool.query(
+        `INSERT INTO print_legacy_ar_reconciliation_history (workspace_id, reconciliation_id, legacy_payment_id, order_id, action, after_json)
+         VALUES ($1, $2, $3, $4, 'QUEUED_BY_MIGRATION', '{"status":"PENDING"}'::jsonb)`,
+        [wsId, recIns.rows[0].id, legPayId, ord1.id],
+      );
+    }
+
+    // Verify streamlined Receivables & Payables header (1 primary CTA + "Thao tác khác ▾" menu + single unified search/scope toolbar)
+    await page.goto(`${ephemeral.webUrl}/print-quotes/receivables`, {
+      waitUntil: 'networkidle',
+    });
+    await page.waitForSelector('[data-testid="pq-ar-new-receipt-btn"]');
+    await page.waitForSelector('[data-testid="pq-ar-toolbar"]');
+    await page.waitForSelector(
+      '[data-testid="pq-ar-legacy-reconciliation-section"]',
+    );
+    assert.equal(
+      await page.locator('[data-testid="pq-ar-adjustment-btn"]').count(),
+      0,
+      'Secondary AR actions must be tucked inside Thao tác khác menu by default',
+    );
+    await page.click('[data-testid="pq-ar-more-actions-btn"]');
+    await page.waitForSelector('[data-testid="pq-ar-adjustment-btn"]');
+    await page.waitForSelector('[data-testid="pq-ar-refund-btn"]');
+    await page.waitForSelector('[data-testid="pq-ar-opening-btn"]');
+
+    await page.goto(`${ephemeral.webUrl}/print-quotes/payables`, {
+      waitUntil: 'networkidle',
+    });
+    await page.waitForSelector('[data-testid="pq-ap-new-payout-btn"]');
+    await page.waitForSelector('[data-testid="pq-ap-toolbar"]');
+    assert.equal(
+      await page.locator('[data-testid="pq-ap-adjustment-btn"]').count(),
+      0,
+      'Secondary AP actions must be tucked inside Thao tác khác menu by default',
+    );
+    await page.click('[data-testid="pq-ap-more-actions-btn"]');
+    await page.waitForSelector('[data-testid="pq-ap-adjustment-btn"]');
+    await page.waitForSelector('[data-testid="pq-ap-refund-btn"]');
+    await page.waitForSelector('[data-testid="pq-ap-opening-btn"]');
+
     // Historical Import Preview via UI on /print-quotes/import-history!
     await page.goto(`${ephemeral.webUrl}/print-quotes/import-history`, {
       waitUntil: 'networkidle',

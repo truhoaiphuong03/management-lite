@@ -21,9 +21,12 @@ import {
   HistoricalImportBatchStatus,
   HistoricalImportRowStatus,
   HistoricalImportResolution,
+  LegacyArReconciliationStatus,
+  LegacyArAnomalyCode,
   computeOrderReceivableMetrics,
   computeOrderReconciledProfit,
   analyzeHistoricalSheetRows,
+  evaluateLegacyPaymentReconciliationAnomalies,
   normalizeLedgerScopeInput,
   assertSafePositiveVnd,
   type LedgerScopeType,
@@ -43,6 +46,13 @@ import {
   type PrintHistoricalImportRowData,
   type HistoricalImportResolutionType,
   type CancellationSettlementStatusType,
+  type LegacyArReconciliationStatusType,
+  type LegacyArAnomalyCodeType,
+  type LegacyArHistoryActionType,
+  type PrintLegacyArReconciliationOverview,
+  type PrintLegacyArReconciliationItem,
+  type LegacyOrderReconciliationGapItem,
+  type PrintLegacyArReconciliationHistoryItem,
 } from '../../../../packages/contracts/src/printquote.js';
 import { AuthError, type AuthenticatedContext } from '../auth/service.js';
 import {
@@ -78,6 +88,10 @@ import {
   voidApTransactionTx,
   reconcileLegacyVendorNoteTx,
   settleCancelledOrderTx,
+  linkCustomerToLegacyOrderTx,
+  reconcileLegacyOrderBalanceDiscrepancyTx,
+  confirmLegacyPaymentToArTx,
+  holdLegacyPaymentReconciliationTx,
 } from './ledger-ar-ap-ops.js';
 
 export class PrintQuoteLedgerService {
@@ -348,6 +362,137 @@ export class PrintQuoteLedgerService {
     );
   }
 
+  private async queryOrderArTransitionMaps(workspaceId: string): Promise<{
+    officialNetByOrder: Map<string, number>;
+    legacyByOrder: Map<
+      string,
+      {
+        totalRows: number;
+        pendingCount: number;
+        pendingReceipts: number;
+        pendingRefunds: number;
+        allReceipts: number;
+        allRefunds: number;
+      }
+    >;
+  }> {
+    const [arOrdAllocRes, legOrdRes] = await Promise.all([
+      this.pool.query<{ order_id: string; net_alloc: string }>(
+        `SELECT
+           order_id::text AS order_id,
+           (
+             COALESCE(SUM(amount) FILTER (WHERE direction = 'APPLY'), 0) -
+             COALESCE(SUM(amount) FILTER (WHERE direction IN ('UNAPPLY_REVERSAL', 'REFUND_RELEASE')), 0)
+           )::text AS net_alloc
+         FROM print_ar_allocations
+         WHERE workspace_id = $1 AND order_id IS NOT NULL
+         GROUP BY order_id`,
+        [workspaceId],
+      ),
+      this.pool.query<{
+        order_id: string;
+        total_rows: string;
+        pending_count: string;
+        pending_receipts: string;
+        pending_refunds: string;
+        all_receipts: string;
+        all_refunds: string;
+      }>(
+        `SELECT
+           p.order_id::text AS order_id,
+           COUNT(p.id)::text AS total_rows,
+           COUNT(r.id) FILTER (WHERE r.status IN ('PENDING', 'ON_HOLD'))::text AS pending_count,
+           COALESCE(SUM(p.amount) FILTER (WHERE r.status IN ('PENDING', 'ON_HOLD') AND p.payment_type <> 'REFUND'), 0)::text AS pending_receipts,
+           COALESCE(SUM(p.amount) FILTER (WHERE r.status IN ('PENDING', 'ON_HOLD') AND p.payment_type = 'REFUND'), 0)::text AS pending_refunds,
+           COALESCE(SUM(p.amount) FILTER (WHERE p.payment_type <> 'REFUND'), 0)::text AS all_receipts,
+           COALESCE(SUM(p.amount) FILTER (WHERE p.payment_type = 'REFUND'), 0)::text AS all_refunds
+         FROM print_order_payments p
+         LEFT JOIN print_legacy_ar_reconciliations r ON r.legacy_payment_id = p.id
+         WHERE p.workspace_id = $1
+         GROUP BY p.order_id`,
+        [workspaceId],
+      ),
+    ]);
+
+    const officialNetByOrder = new Map<string, number>();
+    for (const r of arOrdAllocRes.rows) {
+      officialNetByOrder.set(r.order_id, Math.max(0, toInt(r.net_alloc, 0)));
+    }
+    const legacyByOrder = new Map<
+      string,
+      {
+        totalRows: number;
+        pendingCount: number;
+        pendingReceipts: number;
+        pendingRefunds: number;
+        allReceipts: number;
+        allRefunds: number;
+      }
+    >();
+    for (const r of legOrdRes.rows) {
+      legacyByOrder.set(r.order_id, {
+        totalRows: toInt(r.total_rows, 0),
+        pendingCount: toInt(r.pending_count, 0),
+        pendingReceipts: toInt(r.pending_receipts, 0),
+        pendingRefunds: toInt(r.pending_refunds, 0),
+        allReceipts: toInt(r.all_receipts, 0),
+        allRefunds: toInt(r.all_refunds, 0),
+      });
+    }
+    return { officialNetByOrder, legacyByOrder };
+  }
+
+  private computeOrderTransitionAmounts(
+    orderRow: Record<string, unknown>,
+    officialNetByOrder: Map<string, number>,
+    legacyByOrder: Map<
+      string,
+      {
+        totalRows: number;
+        pendingCount: number;
+        pendingReceipts: number;
+        pendingRefunds: number;
+        allReceipts: number;
+        allRefunds: number;
+      }
+    >,
+  ): {
+    officialPaid: number;
+    pendingLegacyNet: number;
+    pendingLegacyCount: number;
+    effectivePaid: number;
+  } {
+    const orderId = String(orderRow['id']);
+    const officialPaid = officialNetByOrder.get(orderId) ?? 0;
+    const leg = legacyByOrder.get(orderId);
+    const totalRows = leg?.totalRows ?? 0;
+    const pendingLegacyCount = leg?.pendingCount ?? 0;
+    const hasPre0036Snapshot =
+      orderRow['pre0036_total_paid_snapshot'] !== null &&
+      orderRow['pre0036_total_paid_snapshot'] !== undefined;
+    const pre0036Paid = hasPre0036Snapshot
+      ? toInt(orderRow['pre0036_total_paid_snapshot'], 0)
+      : 0;
+    const orphanLegacyPaid =
+      hasPre0036Snapshot &&
+      !orderRow['legacy_balance_discrepancy_resolved'] &&
+      totalRows === 0 &&
+      pre0036Paid > 0
+        ? pre0036Paid
+        : 0;
+    const pendingLegacyNet =
+      (leg?.pendingReceipts ?? 0) -
+      (leg?.pendingRefunds ?? 0) +
+      orphanLegacyPaid;
+    const effectivePaid = Math.max(0, officialPaid + pendingLegacyNet);
+    return {
+      officialPaid,
+      pendingLegacyNet,
+      pendingLegacyCount,
+      effectivePaid,
+    };
+  }
+
   async listCustomerReceivables(
     ctx: AuthenticatedContext,
     filters?: { ledger_scope?: string | undefined },
@@ -356,53 +501,63 @@ export class PrintQuoteLedgerService {
     transactions: PrintArTransactionData[];
     adjustments: PrintArAdjustmentData[];
     opening_balances: PrintOpeningBalanceData[];
+    legacy_reconciliation: PrintLegacyArReconciliationOverview;
   }> {
     this.assertOwnerAccess(ctx);
     const scopeFilter = filters?.ledger_scope
       ? normalizeLedgerScopeInput(filters.ledger_scope)
       : null;
 
-    const [custRes, ordRes, obRes, txRes, allocRes, adjRes] = await Promise.all(
-      [
-        this.pool.query(
-          `SELECT id, code, name, phone FROM print_customers WHERE workspace_id = $1`,
-          [ctx.workspace.id],
-        ),
-        this.pool.query(
-          `SELECT * FROM print_orders WHERE workspace_id = $1 ORDER BY created_at DESC`,
-          [ctx.workspace.id],
-        ),
-        this.pool.query(
-          `SELECT * FROM print_opening_balances
+    const [
+      custRes,
+      ordRes,
+      obRes,
+      txRes,
+      allocRes,
+      adjRes,
+      transitionMaps,
+      legacyReconciliation,
+    ] = await Promise.all([
+      this.pool.query(
+        `SELECT id, code, name, phone FROM print_customers WHERE workspace_id = $1`,
+        [ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT * FROM print_orders WHERE workspace_id = $1 ORDER BY created_at DESC`,
+        [ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT * FROM print_opening_balances
            WHERE workspace_id = $1 AND direction = 'CUSTOMER_RECEIVABLE'
            ORDER BY as_of_date DESC`,
-          [ctx.workspace.id],
-        ),
-        this.pool.query(
-          `SELECT * FROM print_ar_transactions
+        [ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT * FROM print_ar_transactions
            WHERE workspace_id = $1
            ORDER BY occurred_at DESC, created_at DESC`,
-          [ctx.workspace.id],
-        ),
-        this.pool.query(
-          `SELECT a.*, o.order_code, ob.doc_code AS opening_doc_code
+        [ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT a.*, o.order_code, ob.doc_code AS opening_doc_code
            FROM print_ar_allocations a
            LEFT JOIN print_orders o ON o.id = a.order_id
            LEFT JOIN print_opening_balances ob ON ob.id = a.opening_balance_id
            WHERE a.workspace_id = $1
            ORDER BY a.created_at ASC`,
-          [ctx.workspace.id],
-        ),
-        this.pool.query(
-          `SELECT adj.*, o.order_code
+        [ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT adj.*, o.order_code
            FROM print_ar_adjustments adj
            LEFT JOIN print_orders o ON o.id = adj.order_id
            WHERE adj.workspace_id = $1
            ORDER BY adj.created_at DESC`,
-          [ctx.workspace.id],
-        ),
-      ],
-    );
+        [ctx.workspace.id],
+      ),
+      this.queryOrderArTransitionMaps(ctx.workspace.id),
+      this.getLegacyArReconciliationOverview(ctx, filters),
+    ]);
 
     const custMeta = new Map<
       string,
@@ -450,15 +605,17 @@ export class PrintQuoteLedgerService {
       customerPhone: string | null,
       scope: LedgerScopeType,
     ): CustomerReceivableSummaryItem => {
-      const normKey = customerId
-        ? `${scope}:ID:${customerId}`
+      const verifiedId =
+        customerId && custMeta.has(customerId) ? customerId : null;
+      const normKey = verifiedId
+        ? `${scope}:ID:${verifiedId}`
         : `${scope}:NAME:${customerName.trim().toLowerCase()}`;
       const existing = buckets.get(normKey);
       if (existing) return existing;
-      const meta = customerId ? custMeta.get(customerId) : undefined;
+      const meta = verifiedId ? custMeta.get(verifiedId) : undefined;
       const created: CustomerReceivableSummaryItem = {
         customer_key: normKey,
-        customer_id: customerId,
+        customer_id: verifiedId,
         customer_code: meta?.code ?? null,
         customer_name: meta?.name ?? customerName,
         customer_phone: meta?.phone ?? customerPhone,
@@ -468,6 +625,9 @@ export class PrintQuoteLedgerService {
         valid_receivable_total: 0,
         net_allocated_receipt_total: 0,
         remaining_receivable_total: 0,
+        legacy_pending_ar_total: 0,
+        effective_remaining_after_pending_total: 0,
+        missing_customer_id: !verifiedId,
         unallocated_credit_total: 0,
         cancelled_holding_pending_total: 0,
         cancelled_agreed_refund_remaining_total: 0,
@@ -492,7 +652,15 @@ export class PrintQuoteLedgerService {
           'cancellation_settlement_status'
         ] as CancellationSettlementStatusType) ||
         CancellationSettlementStatus.NOT_APPLICABLE;
-      const metrics = computeOrderReceivableMetrics({
+
+      const trans = this.computeOrderTransitionAmounts(
+        r,
+        transitionMaps.officialNetByOrder,
+        transitionMaps.legacyByOrder,
+      );
+
+      // Official AR strictly counts ONLY confirmed/posted AR allocations (`trans.officialPaid`)!
+      const officialMetrics = computeOrderReceivableMetrics({
         grossOrderAmount: toInt(r['total_quote_amount'], 0),
         isCancelled,
         cancellationSettlementStatus: cancelStatus,
@@ -503,22 +671,42 @@ export class PrintQuoteLedgerService {
         refundedAfterCancelAmount: toInt(r['refunded_after_cancel_amount'], 0),
         retainedCancellationFee: toInt(r['retained_cancellation_fee'], 0),
         netArAdjustmentAmount: toInt(r['net_ar_adjustment_amount'], 0),
-        netAllocatedReceiptAmount: toInt(r['total_paid_amount'], 0),
+        netAllocatedReceiptAmount: trans.officialPaid,
+      });
+
+      const effectiveMetrics = computeOrderReceivableMetrics({
+        grossOrderAmount: toInt(r['total_quote_amount'], 0),
+        isCancelled,
+        cancellationSettlementStatus: cancelStatus,
+        agreedCustomerRefundAmount: toInt(
+          r['agreed_customer_refund_amount'],
+          0,
+        ),
+        refundedAfterCancelAmount: toInt(r['refunded_after_cancel_amount'], 0),
+        retainedCancellationFee: toInt(r['retained_cancellation_fee'], 0),
+        netArAdjustmentAmount: toInt(r['net_ar_adjustment_amount'], 0),
+        netAllocatedReceiptAmount: trans.effectivePaid,
       });
 
       if (!isCancelled) {
         b.active_orders_count++;
       }
-      const effectiveSettled = Math.min(
-        metrics.validReceivableAmount,
-        toInt(r['total_paid_amount'], 0),
+      const officialSettled = Math.min(
+        officialMetrics.validReceivableAmount,
+        trans.officialPaid,
       );
-      b.valid_receivable_total += metrics.validReceivableAmount;
-      b.net_allocated_receipt_total += effectiveSettled;
-      b.remaining_receivable_total += metrics.remainingReceivableAmount;
-      b.cancelled_holding_pending_total += metrics.customerHoldingPendingAmount;
+      b.valid_receivable_total += officialMetrics.validReceivableAmount;
+      b.net_allocated_receipt_total += officialSettled;
+      b.remaining_receivable_total += officialMetrics.remainingReceivableAmount;
+      b.legacy_pending_ar_total =
+        (b.legacy_pending_ar_total ?? 0) + trans.pendingLegacyNet;
+      b.effective_remaining_after_pending_total =
+        (b.effective_remaining_after_pending_total ?? 0) +
+        effectiveMetrics.remainingReceivableAmount;
+      b.cancelled_holding_pending_total +=
+        effectiveMetrics.customerHoldingPendingAmount;
       b.cancelled_agreed_refund_remaining_total +=
-        metrics.remainingAgreedRefundAmount;
+        officialMetrics.remainingAgreedRefundAmount;
     }
 
     for (const ob of openingBalances) {
@@ -536,6 +724,8 @@ export class PrintQuoteLedgerService {
       b.valid_receivable_total += ob.valid_amount;
       b.net_allocated_receipt_total += effectiveSettled;
       b.remaining_receivable_total += ob.remaining_amount;
+      b.effective_remaining_after_pending_total =
+        (b.effective_remaining_after_pending_total ?? 0) + ob.remaining_amount;
     }
 
     for (const tx of transactions) {
@@ -564,7 +754,540 @@ export class PrintQuoteLedgerService {
       transactions,
       adjustments,
       opening_balances: openingBalances,
+      legacy_reconciliation: legacyReconciliation,
     };
+  }
+
+  async getLegacyArReconciliationOverview(
+    ctx: AuthenticatedContext,
+    filters?: {
+      ledger_scope?: string | undefined;
+      status?: string | undefined;
+    },
+  ): Promise<PrintLegacyArReconciliationOverview> {
+    this.assertOwnerAccess(ctx);
+    const scopeFilter = filters?.ledger_scope
+      ? normalizeLedgerScopeInput(filters.ledger_scope)
+      : null;
+    const statusFilter =
+      filters?.status && filters.status.trim() !== ''
+        ? filters.status.trim().toUpperCase()
+        : null;
+
+    const [recRowsRes, ordRowsRes, histRes, transitionMaps] = await Promise.all(
+      [
+        this.pool.query(
+          `SELECT
+             r.*,
+             p.payment_type,
+             p.amount,
+             p.payment_method,
+             p.paid_at,
+             p.reference_code,
+             p.note AS payment_note,
+             o.order_code,
+             o.quote_code,
+             o.production_status,
+             o.cancellation_settlement_status,
+             o.ledger_scope,
+             o.customer_id,
+             o.customer_name,
+             o.customer_phone,
+             o.total_quote_amount,
+             o.valid_receivable_amount,
+             o.pre0036_total_paid_snapshot,
+             o.pre0036_remaining_debt_snapshot,
+             o.legacy_balance_discrepancy_resolved,
+             c.id AS verified_customer_id,
+             c.code AS verified_customer_code,
+             c.name AS verified_customer_name,
+             c.phone AS verified_customer_phone,
+             t.tx_code AS posted_ar_tx_code
+           FROM print_legacy_ar_reconciliations r
+           JOIN print_order_payments p ON p.id = r.legacy_payment_id
+           JOIN print_orders o ON o.id = r.order_id
+           LEFT JOIN print_customers c ON c.id = o.customer_id AND c.workspace_id = o.workspace_id
+           LEFT JOIN print_ar_transactions t ON t.id = r.posted_ar_transaction_id
+           WHERE r.workspace_id = $1 AND r.status <> 'POSTED_DIRECT'
+           ORDER BY
+             CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ON_HOLD' THEN 1 ELSE 2 END ASC,
+             p.paid_at DESC,
+             r.created_at DESC`,
+          [ctx.workspace.id],
+        ),
+        this.pool.query(
+          `SELECT
+             o.id,
+             o.order_code,
+             o.quote_code,
+             o.customer_id,
+             o.customer_name,
+             o.customer_phone,
+             o.production_status,
+             o.cancellation_settlement_status,
+             o.ledger_scope,
+             o.total_quote_amount,
+             o.pre0036_total_paid_snapshot,
+             o.pre0036_remaining_debt_snapshot,
+             o.legacy_balance_discrepancy_resolved,
+             c.id AS verified_customer_id
+           FROM print_orders o
+           LEFT JOIN print_customers c ON c.id = o.customer_id AND c.workspace_id = o.workspace_id
+           WHERE o.workspace_id = $1
+           ORDER BY o.created_at DESC`,
+          [ctx.workspace.id],
+        ),
+        this.pool.query(
+          `SELECT * FROM print_legacy_ar_reconciliation_history
+           WHERE workspace_id = $1
+           ORDER BY created_at DESC
+           LIMIT 100`,
+          [ctx.workspace.id],
+        ),
+        this.queryOrderArTransitionMaps(ctx.workspace.id),
+      ],
+    );
+
+    const summary: PrintLegacyArReconciliationOverview['summary'] = {
+      legacy_payments_total_count: 0,
+      legacy_payments_gross_receipts: 0,
+      legacy_payments_gross_refunds: 0,
+      legacy_payments_net_amount: 0,
+      confirmed_to_ar_count: 0,
+      confirmed_to_ar_receipts: 0,
+      confirmed_to_ar_refunds: 0,
+      confirmed_to_ar_net_amount: 0,
+      pending_count: 0,
+      pending_receipts: 0,
+      pending_refunds: 0,
+      pending_net_amount: 0,
+      on_hold_count: 0,
+      on_hold_net_amount: 0,
+      anomalous_pending_count: 0,
+      confirmable_pending_count: 0,
+      orders_missing_customer_count: 0,
+      orders_balance_mismatch_count: 0,
+    };
+
+    const items: PrintLegacyArReconciliationItem[] = [];
+    for (const r of recRowsRes.rows) {
+      const scope = normalizeLedgerScopeInput(r['ledger_scope']);
+      if (scopeFilter && scope !== scopeFilter) continue;
+
+      const orderId = String(r['order_id']);
+      const legOrd = transitionMaps.legacyByOrder.get(orderId);
+      const trans = this.computeOrderTransitionAmounts(
+        {
+          id: orderId,
+          pre0036_total_paid_snapshot: r['pre0036_total_paid_snapshot'],
+          legacy_balance_discrepancy_resolved:
+            r['legacy_balance_discrepancy_resolved'],
+        },
+        transitionMaps.officialNetByOrder,
+        transitionMaps.legacyByOrder,
+      );
+
+      const grossReceipts = legOrd?.allReceipts ?? 0;
+      const grossRefunds = legOrd?.allRefunds ?? 0;
+      const paymentType = String(
+        r['payment_type'] || 'INSTALLMENT',
+      ) as PrintLegacyArReconciliationItem['payment_type'];
+      const amount = toInt(r['amount'], 0);
+      const isRefund = paymentType === 'REFUND';
+      const status = String(r['status']) as LegacyArReconciliationStatusType;
+      const grossQuote = toInt(r['total_quote_amount'], 0);
+      const prePaid =
+        r['pre0036_total_paid_snapshot'] !== null &&
+        r['pre0036_total_paid_snapshot'] !== undefined
+          ? toInt(r['pre0036_total_paid_snapshot'], 0)
+          : 0;
+      const preRem =
+        r['pre0036_remaining_debt_snapshot'] !== null &&
+        r['pre0036_remaining_debt_snapshot'] !== undefined
+          ? toInt(r['pre0036_remaining_debt_snapshot'], 0)
+          : Math.max(0, grossQuote - prePaid);
+
+      let anomalyCodes: LegacyArAnomalyCodeType[] = [];
+      let warningCodes: string[] = [];
+      let canConfirm = false;
+
+      if (status !== LegacyArReconciliationStatus.CONFIRMED) {
+        const evalRes = evaluateLegacyPaymentReconciliationAnomalies({
+          paymentType,
+          paymentAmount: amount,
+          hasValidSameWorkspaceCustomer: Boolean(r['verified_customer_id']),
+          isOrderCancelled:
+            r['production_status'] === PrintProductionStatus.CANCELLED,
+          cancellationSettlementStatus: String(
+            r['cancellation_settlement_status'] || 'NOT_APPLICABLE',
+          ),
+          orderGrossQuoteAmount: grossQuote,
+          orderValidReceivableAmount: toInt(
+            r['valid_receivable_amount'],
+            grossQuote,
+          ),
+          pre0036TotalPaidSnapshot: prePaid,
+          pre0036RemainingDebtSnapshot: preRem,
+          orderLegacyGrossReceipts: grossReceipts,
+          orderLegacyGrossRefunds: grossRefunds,
+          officialArNetAllocatedOnOrder: trans.officialPaid,
+          balanceDiscrepancyResolved: Boolean(
+            r['legacy_balance_discrepancy_resolved'],
+          ),
+        });
+        anomalyCodes = evalRes.anomalyCodes;
+        warningCodes = evalRes.warningCodes;
+        canConfirm =
+          status === LegacyArReconciliationStatus.PENDING && evalRes.canConfirm;
+      }
+
+      summary.legacy_payments_total_count++;
+      if (isRefund) {
+        summary.legacy_payments_gross_refunds += amount;
+        summary.legacy_payments_net_amount -= amount;
+      } else {
+        summary.legacy_payments_gross_receipts += amount;
+        summary.legacy_payments_net_amount += amount;
+      }
+
+      if (status === LegacyArReconciliationStatus.CONFIRMED) {
+        summary.confirmed_to_ar_count++;
+        if (isRefund) {
+          summary.confirmed_to_ar_refunds += amount;
+          summary.confirmed_to_ar_net_amount -= amount;
+        } else {
+          summary.confirmed_to_ar_receipts += amount;
+          summary.confirmed_to_ar_net_amount += amount;
+        }
+      } else if (status === LegacyArReconciliationStatus.ON_HOLD) {
+        summary.on_hold_count++;
+        summary.on_hold_net_amount += isRefund ? -amount : amount;
+      } else {
+        summary.pending_count++;
+        if (isRefund) {
+          summary.pending_refunds += amount;
+          summary.pending_net_amount -= amount;
+        } else {
+          summary.pending_receipts += amount;
+          summary.pending_net_amount += amount;
+        }
+        if (anomalyCodes.length > 0) {
+          summary.anomalous_pending_count++;
+        } else {
+          summary.confirmable_pending_count++;
+        }
+      }
+
+      if (statusFilter && status !== statusFilter) continue;
+
+      items.push({
+        reconciliation_id: String(r['id']),
+        legacy_payment_id: String(r['legacy_payment_id']),
+        order_id: orderId,
+        order_code: String(r['order_code']),
+        quote_code: String(r['quote_code']),
+        order_production_status: String(r['production_status']),
+        ledger_scope: scope,
+        customer_id: r['verified_customer_id']
+          ? String(r['verified_customer_id'])
+          : null,
+        customer_code: r['verified_customer_code']
+          ? String(r['verified_customer_code'])
+          : null,
+        customer_name: String(
+          r['verified_customer_name'] || r['customer_name'],
+        ),
+        customer_phone: r['verified_customer_phone']
+          ? String(r['verified_customer_phone'])
+          : r['customer_phone']
+            ? String(r['customer_phone'])
+            : null,
+        payment_type: paymentType,
+        amount,
+        payment_method:
+          (r[
+            'payment_method'
+          ] as PrintLegacyArReconciliationItem['payment_method']) ||
+          'BANK_TRANSFER',
+        paid_at:
+          r['paid_at'] instanceof Date
+            ? r['paid_at'].toISOString()
+            : String(r['paid_at']),
+        reference_code: r['reference_code']
+          ? String(r['reference_code'])
+          : null,
+        note: r['payment_note'] ? String(r['payment_note']) : null,
+        status,
+        anomaly_codes: anomalyCodes,
+        warning_codes: warningCodes,
+        can_confirm: canConfirm,
+        posted_ar_transaction_id: r['posted_ar_transaction_id']
+          ? String(r['posted_ar_transaction_id'])
+          : null,
+        posted_ar_tx_code: r['posted_ar_tx_code']
+          ? String(r['posted_ar_tx_code'])
+          : null,
+        hold_reason: r['hold_reason'] ? String(r['hold_reason']) : null,
+        resolution_note: r['resolution_note']
+          ? String(r['resolution_note'])
+          : null,
+        order_total_quote_amount: grossQuote,
+        order_valid_receivable_amount: toInt(
+          r['valid_receivable_amount'],
+          grossQuote,
+        ),
+        order_pre0036_paid_snapshot: prePaid,
+        order_pre0036_remaining_snapshot: preRem,
+        order_legacy_gross_receipts: grossReceipts,
+        order_legacy_gross_refunds: grossRefunds,
+        order_legacy_net_payments: grossReceipts - grossRefunds,
+        order_official_ar_allocated: trans.officialPaid,
+        order_legacy_pending_net: trans.pendingLegacyNet,
+        pre_reconciliation_json:
+          r['pre_reconciliation_json'] &&
+          typeof r['pre_reconciliation_json'] === 'object'
+            ? (r['pre_reconciliation_json'] as Record<string, unknown>)
+            : {},
+        post_reconciliation_json:
+          r['post_reconciliation_json'] &&
+          typeof r['post_reconciliation_json'] === 'object'
+            ? (r['post_reconciliation_json'] as Record<string, unknown>)
+            : null,
+        confirmed_at: r['confirmed_at']
+          ? r['confirmed_at'] instanceof Date
+            ? r['confirmed_at'].toISOString()
+            : String(r['confirmed_at'])
+          : null,
+        confirmed_by: r['confirmed_by'] ? String(r['confirmed_by']) : null,
+        created_at:
+          r['created_at'] instanceof Date
+            ? r['created_at'].toISOString()
+            : String(r['created_at']),
+        updated_at:
+          r['updated_at'] instanceof Date
+            ? r['updated_at'].toISOString()
+            : String(r['updated_at']),
+      });
+    }
+
+    const orderGaps: LegacyOrderReconciliationGapItem[] = [];
+    for (const o of ordRowsRes.rows) {
+      const scope = normalizeLedgerScopeInput(o['ledger_scope']);
+      if (scopeFilter && scope !== scopeFilter) continue;
+
+      const orderId = String(o['id']);
+      const leg = transitionMaps.legacyByOrder.get(orderId);
+      const totalRows = leg?.totalRows ?? 0;
+      const legacyNet = (leg?.allReceipts ?? 0) - (leg?.allRefunds ?? 0);
+      const hasValidCust = Boolean(o['verified_customer_id']);
+      const hasPre0036 =
+        o['pre0036_total_paid_snapshot'] !== null &&
+        o['pre0036_total_paid_snapshot'] !== undefined;
+      const prePaid = hasPre0036
+        ? toInt(o['pre0036_total_paid_snapshot'], 0)
+        : 0;
+      const grossQuote = toInt(o['total_quote_amount'], 0);
+      const preRem =
+        o['pre0036_remaining_debt_snapshot'] !== null &&
+        o['pre0036_remaining_debt_snapshot'] !== undefined
+          ? toInt(o['pre0036_remaining_debt_snapshot'], 0)
+          : Math.max(0, grossQuote - prePaid);
+      const isCancelled =
+        o['production_status'] === PrintProductionStatus.CANCELLED;
+      const resolved = Boolean(o['legacy_balance_discrepancy_resolved']);
+
+      const gapAnomalies: LegacyArAnomalyCodeType[] = [];
+      if (!hasValidCust) {
+        gapAnomalies.push(LegacyArAnomalyCode.MISSING_CUSTOMER_ID);
+        summary.orders_missing_customer_count++;
+      }
+
+      if (hasPre0036 && !resolved) {
+        if (totalRows === 0 && prePaid > 0) {
+          gapAnomalies.push(
+            LegacyArAnomalyCode.ORPHAN_PAID_WITHOUT_PAYMENT_ROWS,
+          );
+          summary.orders_balance_mismatch_count++;
+        } else if (
+          prePaid !== legacyNet ||
+          (!isCancelled && preRem !== Math.max(0, grossQuote - prePaid))
+        ) {
+          gapAnomalies.push(LegacyArAnomalyCode.ORDER_BALANCE_MISMATCH);
+          summary.orders_balance_mismatch_count++;
+        }
+      }
+
+      if (gapAnomalies.length > 0) {
+        orderGaps.push({
+          order_id: orderId,
+          order_code: String(o['order_code']),
+          quote_code: String(o['quote_code']),
+          customer_id: hasValidCust ? String(o['verified_customer_id']) : null,
+          customer_name: String(o['customer_name']),
+          customer_phone: o['customer_phone']
+            ? String(o['customer_phone'])
+            : null,
+          production_status: String(o['production_status']),
+          ledger_scope: scope,
+          total_quote_amount: grossQuote,
+          pre0036_total_paid_snapshot: prePaid,
+          pre0036_remaining_debt_snapshot: preRem,
+          legacy_payments_count: totalRows,
+          legacy_net_payments: legacyNet,
+          anomaly_codes: gapAnomalies,
+        });
+      }
+    }
+
+    const history: PrintLegacyArReconciliationHistoryItem[] = histRes.rows.map(
+      (h) => ({
+        id: String(h['id']),
+        workspace_id: String(h['workspace_id']),
+        reconciliation_id: h['reconciliation_id']
+          ? String(h['reconciliation_id'])
+          : null,
+        legacy_payment_id: h['legacy_payment_id']
+          ? String(h['legacy_payment_id'])
+          : null,
+        order_id: String(h['order_id']),
+        action: h['action'] as LegacyArHistoryActionType,
+        before_json:
+          h['before_json'] && typeof h['before_json'] === 'object'
+            ? (h['before_json'] as Record<string, unknown>)
+            : {},
+        after_json:
+          h['after_json'] && typeof h['after_json'] === 'object'
+            ? (h['after_json'] as Record<string, unknown>)
+            : {},
+        reason: h['reason'] ? String(h['reason']) : null,
+        actor_id: h['actor_id'] ? String(h['actor_id']) : null,
+        created_at:
+          h['created_at'] instanceof Date
+            ? h['created_at'].toISOString()
+            : String(h['created_at']),
+      }),
+    );
+
+    return {
+      summary,
+      items,
+      order_gaps: orderGaps,
+      history,
+    };
+  }
+
+  async linkCustomerToLegacyOrder(
+    ctx: AuthenticatedContext,
+    orderId: string,
+    input: Record<string, unknown>,
+    idempotencyKey?: string,
+    requestId = 'internal',
+  ): Promise<{
+    order_id: string;
+    order_code: string;
+    customer_id: string;
+    customer_code: string;
+    customer_name: string;
+  }> {
+    this.assertOwnerAccess(ctx);
+    return this.withIdempotentTransaction(
+      ctx,
+      'POST',
+      `/api/v1/print-quotes/orders/${orderId}/link-customer`,
+      input,
+      idempotencyKey,
+      200,
+      (client) =>
+        linkCustomerToLegacyOrderTx(client, ctx, orderId, input, requestId),
+    );
+  }
+
+  async reconcileLegacyOrderBalance(
+    ctx: AuthenticatedContext,
+    orderId: string,
+    input: Record<string, unknown>,
+    idempotencyKey?: string,
+    requestId = 'internal',
+  ): Promise<{
+    order_id: string;
+    order_code: string;
+    aligned_total_paid_amount: number;
+    aligned_remaining_debt_amount: number;
+  }> {
+    this.assertOwnerAccess(ctx);
+    return this.withIdempotentTransaction(
+      ctx,
+      'POST',
+      `/api/v1/print-quotes/orders/${orderId}/reconcile-legacy-balance`,
+      input,
+      idempotencyKey,
+      200,
+      (client) =>
+        reconcileLegacyOrderBalanceDiscrepancyTx(
+          client,
+          ctx,
+          orderId,
+          input,
+          requestId,
+        ),
+    );
+  }
+
+  async confirmLegacyPaymentToAr(
+    ctx: AuthenticatedContext,
+    targetId: string,
+    input: Record<string, unknown>,
+    idempotencyKey?: string,
+    requestId = 'internal',
+  ): Promise<{
+    reconciliation_id: string;
+    legacy_payment_id: string;
+    ar_transaction: PrintArTransactionData;
+    before_snapshot: Record<string, unknown>;
+    after_snapshot: Record<string, unknown>;
+  }> {
+    this.assertOwnerAccess(ctx);
+    return this.withIdempotentTransaction(
+      ctx,
+      'POST',
+      `/api/v1/print-quotes/receivables/legacy-payments/${targetId}/confirm`,
+      input,
+      idempotencyKey,
+      200,
+      (client) =>
+        confirmLegacyPaymentToArTx(client, ctx, targetId, input, requestId),
+    );
+  }
+
+  async holdLegacyPaymentReconciliation(
+    ctx: AuthenticatedContext,
+    targetId: string,
+    input: Record<string, unknown>,
+    idempotencyKey?: string,
+    requestId = 'internal',
+  ): Promise<{
+    reconciliation_id: string;
+    legacy_payment_id: string;
+    status: 'PENDING' | 'ON_HOLD';
+    hold_reason: string | null;
+  }> {
+    this.assertOwnerAccess(ctx);
+    return this.withIdempotentTransaction(
+      ctx,
+      'POST',
+      `/api/v1/print-quotes/receivables/legacy-payments/${targetId}/hold`,
+      input,
+      idempotencyKey,
+      200,
+      (client) =>
+        holdLegacyPaymentReconciliationTx(
+          client,
+          ctx,
+          targetId,
+          input,
+          requestId,
+        ),
+    );
   }
 
   async createCustomerReceipt(
@@ -1268,41 +1991,48 @@ export class PrintQuoteLedgerService {
       ? normalizeLedgerScopeInput(filters.ledger_scope)
       : null;
 
-    const [ordRes, jobsRes, obRes, arTxRes, apTxRes, cancelApAllocRes] =
-      await Promise.all([
-        this.pool.query(`SELECT * FROM print_orders WHERE workspace_id = $1`, [
-          ctx.workspace.id,
-        ]),
-        this.pool.query(
-          `SELECT * FROM print_workshop_jobs WHERE workspace_id = $1`,
-          [ctx.workspace.id],
-        ),
-        this.pool.query(
-          `SELECT * FROM print_opening_balances WHERE workspace_id = $1`,
-          [ctx.workspace.id],
-        ),
-        this.pool.query(
-          `SELECT * FROM print_ar_transactions WHERE workspace_id = $1 AND status = 'POSTED'`,
-          [ctx.workspace.id],
-        ),
-        this.pool.query(
-          `SELECT * FROM print_ap_transactions WHERE workspace_id = $1 AND status = 'POSTED'`,
-          [ctx.workspace.id],
-        ),
-        this.pool.query<{ order_id: string; net_paid: string }>(
-          `SELECT
+    const [
+      ordRes,
+      jobsRes,
+      obRes,
+      arTxRes,
+      apTxRes,
+      cancelApAllocRes,
+      transitionMaps,
+    ] = await Promise.all([
+      this.pool.query(`SELECT * FROM print_orders WHERE workspace_id = $1`, [
+        ctx.workspace.id,
+      ]),
+      this.pool.query(
+        `SELECT * FROM print_workshop_jobs WHERE workspace_id = $1`,
+        [ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT * FROM print_opening_balances WHERE workspace_id = $1`,
+        [ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT * FROM print_ar_transactions WHERE workspace_id = $1 AND status = 'POSTED'`,
+        [ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT * FROM print_ap_transactions WHERE workspace_id = $1 AND status = 'POSTED'`,
+        [ctx.workspace.id],
+      ),
+      this.pool.query<{ order_id: string; net_paid: string }>(
+        `SELECT
              order_id::text AS order_id,
-             COALESCE(
-               SUM(amount) FILTER (WHERE direction = 'APPLY') -
-               SUM(amount) FILTER (WHERE direction IN ('UNAPPLY_REVERSAL', 'VENDOR_REFUND_RELEASE')),
-               0
+             (
+               COALESCE(SUM(amount) FILTER (WHERE direction = 'APPLY'), 0) -
+               COALESCE(SUM(amount) FILTER (WHERE direction IN ('UNAPPLY_REVERSAL', 'VENDOR_REFUND_RELEASE')), 0)
              )::text AS net_paid
            FROM print_ap_allocations
            WHERE workspace_id = $1 AND order_id IS NOT NULL
            GROUP BY order_id`,
-          [ctx.workspace.id],
-        ),
-      ]);
+        [ctx.workspace.id],
+      ),
+      this.queryOrderArTransitionMaps(ctx.workspace.id),
+    ]);
 
     const apPaidByOrder = new Map<string, number>();
     for (const r of cancelApAllocRes.rows) {
@@ -1374,6 +2104,9 @@ export class PrintQuoteLedgerService {
       valid_receivable_total: 0,
       net_allocated_customer_receipt: 0,
       remaining_receivable_total: 0,
+      legacy_pending_ar_payments_count: 0,
+      legacy_pending_ar_net_total: 0,
+      effective_remaining_receivable_after_pending: 0,
       customer_cash_collected_gross: 0,
       customer_cash_refunded_total: 0,
       customer_cash_net_received: 0,
@@ -1411,13 +2144,19 @@ export class PrintQuoteLedgerService {
           'cancellation_settlement_status'
         ] as CancellationSettlementStatusType) ||
         CancellationSettlementStatus.NOT_APPLICABLE;
-      const netPaid = toInt(r['total_paid_amount'], 0);
       const gross = toInt(r['total_quote_amount'], 0);
       const netAdj = toInt(r['net_ar_adjustment_amount'], 0);
       const agreedRefund = toInt(r['agreed_customer_refund_amount'], 0);
       const refundedAfter = toInt(r['refunded_after_cancel_amount'], 0);
       const retainedFee = toInt(r['retained_cancellation_fee'], 0);
 
+      const trans = this.computeOrderTransitionAmounts(
+        r,
+        transitionMaps.officialNetByOrder,
+        transitionMaps.legacyByOrder,
+      );
+
+      // Official AR strictly counts ONLY confirmed/posted AR allocations (`trans.officialPaid`)!
       const arMetrics = computeOrderReceivableMetrics({
         grossOrderAmount: gross,
         isCancelled,
@@ -1426,7 +2165,18 @@ export class PrintQuoteLedgerService {
         refundedAfterCancelAmount: refundedAfter,
         retainedCancellationFee: retainedFee,
         netArAdjustmentAmount: netAdj,
-        netAllocatedReceiptAmount: netPaid,
+        netAllocatedReceiptAmount: trans.officialPaid,
+      });
+
+      const effectiveArMetrics = computeOrderReceivableMetrics({
+        grossOrderAmount: gross,
+        isCancelled,
+        cancellationSettlementStatus: cancelStatus,
+        agreedCustomerRefundAmount: agreedRefund,
+        refundedAfterCancelAmount: refundedAfter,
+        retainedCancellationFee: retainedFee,
+        netArAdjustmentAmount: netAdj,
+        netAllocatedReceiptAmount: trans.effectivePaid,
       });
 
       byScope[scope].valid_receivable += arMetrics.validReceivableAmount;
@@ -1471,7 +2221,7 @@ export class PrintQuoteLedgerService {
           cancelled.pending_settlement_orders_count++;
         }
         cancelled.customer_holding_pending_decision +=
-          arMetrics.customerHoldingPendingAmount;
+          effectiveArMetrics.customerHoldingPendingAmount;
         cancelled.agreed_customer_refund_remaining +=
           arMetrics.remainingAgreedRefundAmount;
         if (isConfirmed) {
@@ -1488,15 +2238,23 @@ export class PrintQuoteLedgerService {
         );
       }
 
-      // AR Debt aggregation (`Còn phải thu = Phải thu hợp lệ - Thu ròng đã phân bổ`)
-      const effectiveSettled = Math.min(
+      // Official AR Debt aggregation (`Còn phải thu sổ chính thức = Phải thu hợp lệ - Thu ròng đã phân bổ chính thức`)
+      const officialSettled = Math.min(
         arMetrics.validReceivableAmount,
-        netPaid,
+        trans.officialPaid,
       );
       cashflow.valid_receivable_total += arMetrics.validReceivableAmount;
-      cashflow.net_allocated_customer_receipt += effectiveSettled;
+      cashflow.net_allocated_customer_receipt += officialSettled;
       cashflow.remaining_receivable_total +=
         arMetrics.remainingReceivableAmount;
+      cashflow.legacy_pending_ar_payments_count =
+        (cashflow.legacy_pending_ar_payments_count ?? 0) +
+        trans.pendingLegacyCount;
+      cashflow.legacy_pending_ar_net_total =
+        (cashflow.legacy_pending_ar_net_total ?? 0) + trans.pendingLegacyNet;
+      cashflow.effective_remaining_receivable_after_pending =
+        (cashflow.effective_remaining_receivable_after_pending ?? 0) +
+        effectiveArMetrics.remainingReceivableAmount;
 
       // Reconciled profit evaluation
       const recon = computeOrderReconciledProfit({
@@ -1566,6 +2324,9 @@ export class PrintQuoteLedgerService {
           cashflow.valid_receivable_total += ob.valid_amount;
           cashflow.net_allocated_customer_receipt += effectiveSettled;
           cashflow.remaining_receivable_total += ob.remaining_amount;
+          cashflow.effective_remaining_receivable_after_pending =
+            (cashflow.effective_remaining_receivable_after_pending ?? 0) +
+            ob.remaining_amount;
         }
       } else {
         byScope[ob.ledger_scope].valid_payable += ob.valid_amount;

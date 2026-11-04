@@ -60,6 +60,21 @@ async function apiRequest(
 }
 
 async function createApprovedQuoteAndId(baseUrl, cookie, csrfToken, title) {
+  const custRes = await apiRequest(
+    baseUrl,
+    'POST',
+    '/api/v1/print-quotes/customers',
+    {
+      cookie,
+      csrfToken,
+      body: {
+        name: `Khách ${title}`,
+      },
+    },
+  );
+  assert.equal(custRes.status, 201);
+  const customerId = custRes.body.data.id;
+
   const createRes = await apiRequest(
     baseUrl,
     'POST',
@@ -69,6 +84,7 @@ async function createApprovedQuoteAndId(baseUrl, cookie, csrfToken, title) {
       csrfToken,
       body: {
         title,
+        customer_id: customerId,
         customer_name: `Khách ${title}`,
         shipping_fee: 70_000,
         items: [

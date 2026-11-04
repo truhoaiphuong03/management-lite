@@ -202,6 +202,14 @@ async function createFinalizedQuoteAndOrder(
       csrfToken: actor.csrf,
       body: {
         quote_id: quote.id,
+        customer_id: customerId ?? undefined,
+        ...(!customerId
+          ? {
+              quick_customer: {
+                name: customerName || `Khách ${title}`,
+              },
+            }
+          : {}),
         vendor_id: vendorId ?? null,
         deposit_required: depositRequired,
         due_date: '2026-11-20',
@@ -1855,7 +1863,7 @@ describe('MGL-PRINTQUOTE — Sổ Công Nợ Khách (AR), Công Nợ Xưởng (A
     assert.equal(rep.by_ledger_scope.GENERAL.remaining_receivable, 0);
   });
 
-  it('Test #8: Migration 0036 trên bản sao DB có báo giá & đơn cũ — giữ nguyên integrity_hash, mirror 1-1 payment cũ sang AR không nhân đôi, KHÔNG tự chuyển vendor_paid_amount sang AP, kiểm chứng rollback & quyền bất biến hp_app_runtime', async () => {
+  it('Test #8: Migration 0036 trên bản sao DB có báo giá & đơn cũ — giữ nguyên integrity_hash, đưa payment cũ vào hàng đợi chờ đối chiếu (KHÔNG tự ghi POSTED AR), KHÔNG tự chuyển vendor_paid_amount sang AP, kiểm chứng rollback & quyền bất biến hp_app_runtime', async () => {
     const baseCfg = loadTestDatabaseConfig();
     const parsedUrl = new URL(baseCfg.connectionString);
     const adminPw = (
@@ -2021,14 +2029,47 @@ describe('MGL-PRINTQUOTE — Sổ Công Nợ Khách (AR), Công Nợ Xưởng (A
         true,
       );
 
-      // 2. Legacy customer payment mirrored 1-to-1 into AR without doubling debt!
+      // 2. Legacy customer payment MUST NOT auto-create POSTED AR transactions/allocations — queued in PENDING reconciliation!
       const arCheck = await tempPool.query(
         `SELECT * FROM print_ar_transactions WHERE workspace_id = $1`,
         [wsId],
       );
-      assert.equal(arCheck.rows.length, 1);
-      assert.equal(Number(arCheck.rows[0].amount), 400_000);
-      assert.equal(arCheck.rows[0].legacy_order_payment_id, legacyPayId);
+      assert.equal(arCheck.rows.length, 0);
+      const arAllocCheck = await tempPool.query(
+        `SELECT COUNT(*)::int AS cnt FROM print_ar_allocations WHERE workspace_id = $1`,
+        [wsId],
+      );
+      assert.equal(arAllocCheck.rows[0].cnt, 0);
+
+      const recQueueCheck = await tempPool.query(
+        `SELECT r.status, r.anomaly_codes, r.pre_reconciliation_json, p.amount, p.payment_type
+         FROM print_legacy_ar_reconciliations r
+         JOIN print_order_payments p ON p.id = r.legacy_payment_id
+         WHERE r.workspace_id = $1 AND r.legacy_payment_id = $2`,
+        [wsId, legacyPayId],
+      );
+      assert.equal(recQueueCheck.rows.length, 1);
+      assert.equal(recQueueCheck.rows[0].status, 'PENDING');
+      assert.equal(Number(recQueueCheck.rows[0].amount), 400_000);
+      assert.equal(recQueueCheck.rows[0].payment_type, 'DEPOSIT');
+      assert.ok(
+        Array.isArray(recQueueCheck.rows[0].anomaly_codes) &&
+          recQueueCheck.rows[0].anomaly_codes.includes('MISSING_CUSTOMER_ID'),
+      );
+      assert.equal(
+        Number(
+          recQueueCheck.rows[0].pre_reconciliation_json
+            .pre0036_total_paid_snapshot,
+        ),
+        400_000,
+      );
+      assert.equal(
+        Number(
+          recQueueCheck.rows[0].pre_reconciliation_json
+            .pre0036_remaining_debt_snapshot,
+        ),
+        800_000,
+      );
 
       // 3. Legacy vendor_paid_amount (450,000) MUST NOT auto-create AP payouts!
       const apCheck = await tempPool.query(
@@ -2037,7 +2078,7 @@ describe('MGL-PRINTQUOTE — Sổ Công Nợ Khách (AR), Công Nợ Xưởng (A
       );
       assert.equal(apCheck.rows[0].cnt, 0);
       const ordCheck = await tempPool.query(
-        `SELECT valid_receivable_amount, remaining_debt_amount, vendor_paid_amount, legacy_vendor_paid_reconciled
+        `SELECT valid_receivable_amount, remaining_debt_amount, vendor_paid_amount, legacy_vendor_paid_reconciled, legacy_ar_reconciliation_status
          FROM print_orders WHERE id = $1`,
         [orderId],
       );
@@ -2045,8 +2086,9 @@ describe('MGL-PRINTQUOTE — Sổ Công Nợ Khách (AR), Công Nợ Xưởng (A
       assert.equal(Number(ordCheck.rows[0].remaining_debt_amount), 800_000);
       assert.equal(Number(ordCheck.rows[0].vendor_paid_amount), 450_000);
       assert.equal(ordCheck.rows[0].legacy_vendor_paid_reconciled, false);
+      assert.equal(ordCheck.rows[0].legacy_ar_reconciliation_status, 'PENDING');
 
-      // 4. Verify hp_app_runtime privileges: NO UPDATE/DELETE on append-only tables, NO DELETE on financial headers
+      // 4. Verify hp_app_runtime privileges: NO UPDATE/DELETE on append-only tables, NO DELETE on financial headers/reconciliation queue
       const privRes = await tempPool.query(`
         SELECT
           has_table_privilege('hp_app_runtime', 'print_workshop_job_history', 'UPDATE') AS jh_upd,
@@ -2055,6 +2097,9 @@ describe('MGL-PRINTQUOTE — Sổ Công Nợ Khách (AR), Công Nợ Xưởng (A
           has_table_privilege('hp_app_runtime', 'print_ar_allocations', 'DELETE') AS ara_del,
           has_table_privilege('hp_app_runtime', 'print_ap_allocations', 'UPDATE') AS apa_upd,
           has_table_privilege('hp_app_runtime', 'print_ap_allocations', 'DELETE') AS apa_del,
+          has_table_privilege('hp_app_runtime', 'print_legacy_ar_reconciliation_history', 'UPDATE') AS lrh_upd,
+          has_table_privilege('hp_app_runtime', 'print_legacy_ar_reconciliation_history', 'DELETE') AS lrh_del,
+          has_table_privilege('hp_app_runtime', 'print_legacy_ar_reconciliations', 'DELETE') AS lr_del,
           has_table_privilege('hp_app_runtime', 'print_order_cancellation_settlements', 'UPDATE') AS cs_upd,
           has_table_privilege('hp_app_runtime', 'print_ar_transactions', 'DELETE') AS artx_del,
           has_table_privilege('hp_app_runtime', 'print_ap_transactions', 'DELETE') AS aptx_del
@@ -2063,17 +2108,17 @@ describe('MGL-PRINTQUOTE — Sổ Công Nợ Khách (AR), Công Nợ Xưởng (A
         assert.equal(val, false, `Expected privilege ${k} to be false`);
       }
 
-      // Also verify DB-level append-only trigger blocks even superuser UPDATE/DELETE on print_ar_allocations!
+      // Also verify DB-level append-only trigger blocks even superuser UPDATE/DELETE on print_ar_allocations & print_legacy_ar_reconciliation_history!
       await assert.rejects(
         () =>
           tempPool.query(
-            `DELETE FROM print_ar_allocations WHERE workspace_id = $1`,
+            `DELETE FROM print_legacy_ar_reconciliation_history WHERE workspace_id = $1`,
             [wsId],
           ),
         /append-only/,
       );
 
-      // 5. Rollback cleanly when ONLY mirrored legacy payment exists -> succeeds & preserves print_order_payments!
+      // 5. Rollback cleanly when legacy queue is untouched PENDING -> succeeds & preserves print_order_payments!
       const rollbackSql = await fs.readFile(
         path.join(
           REPO_ROOT,

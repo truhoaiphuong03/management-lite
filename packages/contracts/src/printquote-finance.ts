@@ -190,6 +190,39 @@ export const HistoricalImportFlag = {
 export type HistoricalImportFlagType =
   (typeof HistoricalImportFlag)[keyof typeof HistoricalImportFlag];
 
+export const LegacyArReconciliationStatus = {
+  PENDING: 'PENDING',
+  CONFIRMED: 'CONFIRMED',
+  ON_HOLD: 'ON_HOLD',
+  POSTED_DIRECT: 'POSTED_DIRECT',
+} as const;
+export type LegacyArReconciliationStatusType =
+  (typeof LegacyArReconciliationStatus)[keyof typeof LegacyArReconciliationStatus];
+
+export const LegacyArAnomalyCode = {
+  MISSING_CUSTOMER_ID: 'MISSING_CUSTOMER_ID',
+  INVALID_AMOUNT: 'INVALID_AMOUNT',
+  ORDER_BALANCE_MISMATCH: 'ORDER_BALANCE_MISMATCH',
+  ORPHAN_PAID_WITHOUT_PAYMENT_ROWS: 'ORPHAN_PAID_WITHOUT_PAYMENT_ROWS',
+  REFUND_EXCEEDS_RECEIPTS: 'REFUND_EXCEEDS_RECEIPTS',
+  REFUND_AWAITING_CONFIRMED_RECEIPT: 'REFUND_AWAITING_CONFIRMED_RECEIPT',
+  EXCEEDS_VALID_RECEIVABLE: 'EXCEEDS_VALID_RECEIVABLE',
+  CANCELLED_ORDER_UNSETTLED: 'CANCELLED_ORDER_UNSETTLED',
+} as const;
+export type LegacyArAnomalyCodeType =
+  (typeof LegacyArAnomalyCode)[keyof typeof LegacyArAnomalyCode];
+
+export const LegacyArHistoryAction = {
+  QUEUED_BY_MIGRATION: 'QUEUED_BY_MIGRATION',
+  CUSTOMER_LINKED: 'CUSTOMER_LINKED',
+  BALANCE_DISCREPANCY_RESOLVED: 'BALANCE_DISCREPANCY_RESOLVED',
+  HELD: 'HELD',
+  UNHELD: 'UNHELD',
+  CONFIRMED_TO_AR: 'CONFIRMED_TO_AR',
+} as const;
+export type LegacyArHistoryActionType =
+  (typeof LegacyArHistoryAction)[keyof typeof LegacyArHistoryAction];
+
 // ============================================================================
 // 2. DATA TRANSFER INTERFACES (API & UI CONTRACTS)
 // ============================================================================
@@ -438,6 +471,9 @@ export interface CustomerReceivableSummaryItem {
   valid_receivable_total: number;
   net_allocated_receipt_total: number;
   remaining_receivable_total: number;
+  legacy_pending_ar_total?: number | undefined;
+  effective_remaining_after_pending_total?: number | undefined;
+  missing_customer_id?: boolean | undefined;
   unallocated_credit_total: number;
   cancelled_holding_pending_total: number;
   cancelled_agreed_refund_remaining_total: number;
@@ -523,6 +559,9 @@ export interface PrintFinancialReportData {
     valid_receivable_total: number;
     net_allocated_customer_receipt: number;
     remaining_receivable_total: number;
+    legacy_pending_ar_payments_count?: number | undefined;
+    legacy_pending_ar_net_total?: number | undefined;
+    effective_remaining_receivable_after_pending?: number | undefined;
     customer_cash_collected_gross: number;
     customer_cash_refunded_total: number;
     customer_cash_net_received: number;
@@ -1367,4 +1406,203 @@ export function analyzeHistoricalSheetRows(params: {
   }
 
   return analyzed;
+}
+
+// ============================================================================
+// 5. LEGACY print_order_payments -> OFFICIAL AR RECONCILIATION GATE (0036 QA)
+// ============================================================================
+
+export interface PrintLegacyArReconciliationHistoryItem {
+  id: string;
+  workspace_id: string;
+  reconciliation_id: string | null;
+  legacy_payment_id: string | null;
+  order_id: string;
+  action: LegacyArHistoryActionType;
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
+  reason: string | null;
+  actor_id: string | null;
+  created_at: string;
+}
+
+export interface PrintLegacyArReconciliationItem {
+  reconciliation_id: string;
+  legacy_payment_id: string;
+  order_id: string;
+  order_code: string;
+  quote_code: string;
+  order_production_status: string;
+  ledger_scope: LedgerScopeType;
+  customer_id: string | null;
+  customer_code: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  payment_type: 'DEPOSIT' | 'INSTALLMENT' | 'FINAL' | 'REFUND';
+  amount: number;
+  payment_method: 'BANK_TRANSFER' | 'CASH' | 'QR_VIETQR' | 'OTHER';
+  paid_at: string;
+  reference_code: string | null;
+  note: string | null;
+  status: LegacyArReconciliationStatusType;
+  anomaly_codes: LegacyArAnomalyCodeType[];
+  warning_codes: string[];
+  can_confirm: boolean;
+  posted_ar_transaction_id: string | null;
+  posted_ar_tx_code: string | null;
+  hold_reason: string | null;
+  resolution_note: string | null;
+  order_total_quote_amount: number;
+  order_valid_receivable_amount: number;
+  order_pre0036_paid_snapshot: number;
+  order_pre0036_remaining_snapshot: number;
+  order_legacy_gross_receipts: number;
+  order_legacy_gross_refunds: number;
+  order_legacy_net_payments: number;
+  order_official_ar_allocated: number;
+  order_legacy_pending_net: number;
+  pre_reconciliation_json: Record<string, unknown>;
+  post_reconciliation_json: Record<string, unknown> | null;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LegacyOrderReconciliationGapItem {
+  order_id: string;
+  order_code: string;
+  quote_code: string;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  production_status: string;
+  ledger_scope: LedgerScopeType;
+  total_quote_amount: number;
+  pre0036_total_paid_snapshot: number;
+  pre0036_remaining_debt_snapshot: number;
+  legacy_payments_count: number;
+  legacy_net_payments: number;
+  anomaly_codes: LegacyArAnomalyCodeType[];
+}
+
+export interface PrintLegacyArReconciliationSummary {
+  legacy_payments_total_count: number;
+  legacy_payments_gross_receipts: number;
+  legacy_payments_gross_refunds: number;
+  legacy_payments_net_amount: number;
+  confirmed_to_ar_count: number;
+  confirmed_to_ar_receipts: number;
+  confirmed_to_ar_refunds: number;
+  confirmed_to_ar_net_amount: number;
+  pending_count: number;
+  pending_receipts: number;
+  pending_refunds: number;
+  pending_net_amount: number;
+  on_hold_count: number;
+  on_hold_net_amount: number;
+  anomalous_pending_count: number;
+  confirmable_pending_count: number;
+  orders_missing_customer_count: number;
+  orders_balance_mismatch_count: number;
+}
+
+export interface PrintLegacyArReconciliationOverview {
+  summary: PrintLegacyArReconciliationSummary;
+  items: PrintLegacyArReconciliationItem[];
+  order_gaps: LegacyOrderReconciliationGapItem[];
+  history: PrintLegacyArReconciliationHistoryItem[];
+}
+
+export function evaluateLegacyPaymentReconciliationAnomalies(params: {
+  paymentType: string;
+  paymentAmount: number;
+  hasValidSameWorkspaceCustomer: boolean;
+  isOrderCancelled: boolean;
+  cancellationSettlementStatus: string;
+  orderGrossQuoteAmount: number;
+  orderValidReceivableAmount: number;
+  pre0036TotalPaidSnapshot: number;
+  pre0036RemainingDebtSnapshot: number;
+  orderLegacyGrossReceipts: number;
+  orderLegacyGrossRefunds: number;
+  officialArNetAllocatedOnOrder: number;
+  balanceDiscrepancyResolved: boolean;
+}): {
+  anomalyCodes: LegacyArAnomalyCodeType[];
+  warningCodes: string[];
+  canConfirm: boolean;
+} {
+  const anomalyCodes: LegacyArAnomalyCodeType[] = [];
+  const warningCodes: string[] = [];
+
+  if (!params.hasValidSameWorkspaceCustomer) {
+    anomalyCodes.push(LegacyArAnomalyCode.MISSING_CUSTOMER_ID);
+  }
+
+  if (
+    typeof params.paymentAmount !== 'number' ||
+    !Number.isFinite(params.paymentAmount) ||
+    !Number.isInteger(params.paymentAmount) ||
+    params.paymentAmount <= 0
+  ) {
+    anomalyCodes.push(LegacyArAnomalyCode.INVALID_AMOUNT);
+  }
+
+  const legacyNet =
+    params.orderLegacyGrossReceipts - params.orderLegacyGrossRefunds;
+  const expectedPre0036Remaining = Math.max(
+    0,
+    params.orderGrossQuoteAmount - params.pre0036TotalPaidSnapshot,
+  );
+  const hasHeaderPaidMismatch = params.pre0036TotalPaidSnapshot !== legacyNet;
+  const hasHeaderRemainingMismatch =
+    !params.isOrderCancelled &&
+    params.pre0036RemainingDebtSnapshot !== expectedPre0036Remaining;
+
+  if (
+    !params.balanceDiscrepancyResolved &&
+    (hasHeaderPaidMismatch || hasHeaderRemainingMismatch)
+  ) {
+    anomalyCodes.push(LegacyArAnomalyCode.ORDER_BALANCE_MISMATCH);
+  }
+
+  if (
+    params.orderLegacyGrossRefunds > params.orderLegacyGrossReceipts ||
+    (params.paymentType === 'REFUND' &&
+      params.paymentAmount > params.orderLegacyGrossReceipts)
+  ) {
+    anomalyCodes.push(LegacyArAnomalyCode.REFUND_EXCEEDS_RECEIPTS);
+  }
+
+  if (
+    params.paymentType === 'REFUND' &&
+    params.officialArNetAllocatedOnOrder < params.paymentAmount
+  ) {
+    anomalyCodes.push(LegacyArAnomalyCode.REFUND_AWAITING_CONFIRMED_RECEIPT);
+  }
+
+  const maxOrderCap = params.isOrderCancelled
+    ? params.orderGrossQuoteAmount
+    : params.orderValidReceivableAmount;
+
+  if (
+    params.paymentType !== 'REFUND' &&
+    params.officialArNetAllocatedOnOrder + params.paymentAmount > maxOrderCap
+  ) {
+    anomalyCodes.push(LegacyArAnomalyCode.EXCEEDS_VALID_RECEIVABLE);
+  }
+
+  if (
+    params.isOrderCancelled &&
+    params.cancellationSettlementStatus !== CancellationSettlementStatus.SETTLED
+  ) {
+    warningCodes.push(LegacyArAnomalyCode.CANCELLED_ORDER_UNSETTLED);
+  }
+
+  return {
+    anomalyCodes,
+    warningCodes,
+    canConfirm: anomalyCodes.length === 0,
+  };
 }

@@ -3578,6 +3578,12 @@ export interface PrintOrderData {
   legacy_vendor_paid_reconciled?: boolean | undefined;
   legacy_vendor_paid_reconciled_at?: string | null | undefined;
   legacy_vendor_paid_reconciled_by?: string | null | undefined;
+  official_ar_paid_amount?: number | undefined;
+  legacy_pending_ar_amount?: number | undefined;
+  pre0036_total_paid_snapshot?: number | null | undefined;
+  pre0036_remaining_debt_snapshot?: number | null | undefined;
+  legacy_ar_reconciliation_status?:
+    'NOT_REQUIRED' | 'PENDING' | 'RECONCILED' | undefined;
   workshop_jobs?:
     import('./printquote-finance.js').PrintWorkshopJobData[] | undefined;
 }

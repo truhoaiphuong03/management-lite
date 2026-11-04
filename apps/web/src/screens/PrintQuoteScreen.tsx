@@ -101,6 +101,11 @@ const LazyHistoricalImportTab = React.lazy(() =>
     default: m.HistoricalImportTab,
   })),
 );
+const LazyConvertOrderCustomerModal = React.lazy(() =>
+  import('./printquote/ConvertOrderCustomerModal.js').then((m) => ({
+    default: m.ConvertOrderCustomerModal,
+  })),
+);
 
 export type {
   PrintQuoteTabId,
@@ -1659,39 +1664,83 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     }
   };
 
-  const handleConvertQuoteToOrder = async (quote: PrintQuoteData) => {
-    const csrf = await getCsrfToken();
-    const depositDefault = Math.round(quote.total_quote_amount * 0.5);
-    const res = await fetch('/api/v1/print-quotes/orders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': csrf,
-        'Idempotency-Key': `ord-from-${quote.id}`,
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        quote_id: quote.id,
-        print_ordered_at: new Date().toISOString().slice(0, 10),
-        deposit_required: depositDefault,
-        deposit_paid: 0,
-      }),
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) {
-      setBannerMessage({
-        type: 'error',
-        text:
-          json?.error?.message || 'Không thể chuyển báo giá thành đơn hàng.',
+  const [pendingConvertQuote, setPendingConvertQuote] =
+    useState<PrintQuoteData | null>(null);
+  const [convertingOrder, setConvertingOrder] = useState<boolean>(false);
+  const [convertOrderError, setConvertOrderError] = useState<string>('');
+
+  const submitConvertQuoteToOrder = async (
+    quote: PrintQuoteData,
+    customerOpts: {
+      customer_id?: string | undefined;
+      quick_customer?:
+        | {
+            name: string;
+            phone?: string | null | undefined;
+            address?: string | null | undefined;
+          }
+        | undefined;
+    },
+  ): Promise<boolean> => {
+    setConvertingOrder(true);
+    setConvertOrderError('');
+    try {
+      const csrf = await getCsrfToken();
+      const depositDefault = Math.round(quote.total_quote_amount * 0.5);
+      const res = await fetch('/api/v1/print-quotes/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf,
+          'Idempotency-Key': `ord-from-${quote.id}-${customerOpts.customer_id || 'quick'}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          quote_id: quote.id,
+          ...(customerOpts.customer_id
+            ? { customer_id: customerOpts.customer_id }
+            : {}),
+          ...(customerOpts.quick_customer
+            ? { quick_customer: customerOpts.quick_customer }
+            : {}),
+          print_ordered_at: new Date().toISOString().slice(0, 10),
+          deposit_required: depositDefault,
+          deposit_paid: 0,
+        }),
       });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg =
+          json?.error?.message || 'Không thể chuyển báo giá thành đơn hàng.';
+        setConvertOrderError(msg);
+        setBannerMessage({ type: 'error', text: msg });
+        return false;
+      }
+      setPendingConvertQuote(null);
+      setBannerMessage({
+        type: 'success',
+        text: `Đã tạo đơn đặt in ${json.data.order_code} từ báo giá ${quote.quote_code}!`,
+      });
+      await loadAllData();
+      navigateInternal('/print-quotes/orders');
+      return true;
+    } finally {
+      setConvertingOrder(false);
+    }
+  };
+
+  const handleConvertQuoteToOrder = async (quote: PrintQuoteData) => {
+    const validActiveCust =
+      quote.customer_id &&
+      customers.some(
+        (c) => c.id === quote.customer_id && c.is_active !== false,
+      );
+    if (!validActiveCust) {
+      setConvertOrderError('');
+      setPendingConvertQuote(quote);
       return;
     }
-    setBannerMessage({
-      type: 'success',
-      text: `Đã tạo đơn đặt in ${json.data.order_code} từ báo giá ${quote.quote_code}!`,
-    });
-    await loadAllData();
-    navigateInternal('/print-quotes/orders');
+    await submitConvertQuoteToOrder(quote, { customer_id: quote.customer_id! });
   };
 
   const handleCreateVendor = async (e: React.FormEvent): Promise<boolean> => {
@@ -2821,6 +2870,26 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           </button>
         </div>
       </CatalogModalDialog>
+
+      {pendingConvertQuote && (
+        <React.Suspense fallback={null}>
+          <LazyConvertOrderCustomerModal
+            quote={pendingConvertQuote}
+            customers={customers}
+            submitting={convertingOrder}
+            errorMessage={convertOrderError}
+            onClose={() => {
+              if (!convertingOrder) {
+                setPendingConvertQuote(null);
+                setConvertOrderError('');
+              }
+            }}
+            onSubmit={async (payload) => {
+              await submitConvertQuoteToOrder(pendingConvertQuote, payload);
+            }}
+          />
+        </React.Suspense>
+      )}
 
       {loading && (
         <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>

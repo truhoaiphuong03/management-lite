@@ -126,6 +126,40 @@ export async function handlePrintQuoteLedgerSubRoutes(params: {
     return true;
   }
 
+  const linkLegacyCustMatch = subPath.match(
+    /^\/orders\/([a-zA-Z0-9_-]+)\/link-customer$/,
+  );
+  if (linkLegacyCustMatch && method === 'POST') {
+    requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+    const body = await parseJsonBody<Record<string, unknown>>(req);
+    const outcome = await ledger.linkCustomerToLegacyOrder(
+      sessionContext,
+      linkLegacyCustMatch[1]!,
+      body,
+      idempotencyKey,
+      requestId,
+    );
+    sendJson(res, 200, createSuccessEnvelope(outcome, requestId));
+    return true;
+  }
+
+  const reconLegacyBalanceMatch = subPath.match(
+    /^\/orders\/([a-zA-Z0-9_-]+)\/reconcile-legacy-balance$/,
+  );
+  if (reconLegacyBalanceMatch && method === 'POST') {
+    requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+    const body = await parseJsonBody<Record<string, unknown>>(req);
+    const outcome = await ledger.reconcileLegacyOrderBalance(
+      sessionContext,
+      reconLegacyBalanceMatch[1]!,
+      body,
+      idempotencyKey,
+      requestId,
+    );
+    sendJson(res, 200, createSuccessEnvelope(outcome, requestId));
+    return true;
+  }
+
   // 3. Opening Balances
   if (subPath === '/opening-balances' && method === 'GET') {
     const items = await ledger.listOpeningBalances(sessionContext, {
@@ -154,6 +188,49 @@ export async function handlePrintQuoteLedgerSubRoutes(params: {
       ledger_scope: searchParams.get('ledger_scope') ?? undefined,
     });
     sendJson(res, 200, createSuccessEnvelope(data, requestId));
+    return true;
+  }
+  if (subPath === '/receivables/legacy-reconciliation' && method === 'GET') {
+    const data = await ledger.getLegacyArReconciliationOverview(
+      sessionContext,
+      {
+        ledger_scope: searchParams.get('ledger_scope') ?? undefined,
+        status: searchParams.get('status') ?? undefined,
+      },
+    );
+    sendJson(res, 200, createSuccessEnvelope(data, requestId));
+    return true;
+  }
+  const legacyConfirmMatch = subPath.match(
+    /^\/receivables\/legacy-payments\/([a-zA-Z0-9_-]+)\/confirm$/,
+  );
+  if (legacyConfirmMatch && method === 'POST') {
+    requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+    const body = await parseJsonBody<Record<string, unknown>>(req);
+    const outcome = await ledger.confirmLegacyPaymentToAr(
+      sessionContext,
+      legacyConfirmMatch[1]!,
+      body,
+      idempotencyKey,
+      requestId,
+    );
+    sendJson(res, 200, createSuccessEnvelope(outcome, requestId));
+    return true;
+  }
+  const legacyHoldMatch = subPath.match(
+    /^\/receivables\/legacy-payments\/([a-zA-Z0-9_-]+)\/hold$/,
+  );
+  if (legacyHoldMatch && method === 'POST') {
+    requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+    const body = await parseJsonBody<Record<string, unknown>>(req);
+    const outcome = await ledger.holdLegacyPaymentReconciliation(
+      sessionContext,
+      legacyHoldMatch[1]!,
+      body,
+      idempotencyKey,
+      requestId,
+    );
+    sendJson(res, 200, createSuccessEnvelope(outcome, requestId));
     return true;
   }
   if (subPath === '/receivables/receipts' && method === 'POST') {

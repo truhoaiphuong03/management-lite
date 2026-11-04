@@ -1277,6 +1277,7 @@ describe('MGL-PRINTQUOTE — Cổng Kiểm Soát Tính Toán Tài Chính (Phase 
           csrfToken: ownerCsrf,
           body: {
             quote_id: quote.id,
+            quick_customer: { name: 'Khách Đối Soát 3 Tầng' },
             deposit_required: 300_000,
             deposit_paid: 300_000,
           },

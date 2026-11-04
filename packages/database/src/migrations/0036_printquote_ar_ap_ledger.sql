@@ -17,9 +17,22 @@ ALTER TABLE print_orders
   ADD COLUMN IF NOT EXISTS retained_cancellation_fee bigint NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS legacy_vendor_paid_reconciled boolean NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS legacy_vendor_paid_reconciled_at timestamptz NULL,
-  ADD COLUMN IF NOT EXISTS legacy_vendor_paid_reconciled_by uuid NULL REFERENCES users(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS legacy_vendor_paid_reconciled_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS pre0036_total_paid_snapshot bigint NULL,
+  ADD COLUMN IF NOT EXISTS pre0036_remaining_debt_snapshot bigint NULL,
+  ADD COLUMN IF NOT EXISTS pre0036_deposit_paid_snapshot bigint NULL,
+  ADD COLUMN IF NOT EXISTS legacy_balance_discrepancy_resolved boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS legacy_ar_reconciliation_status text NOT NULL DEFAULT 'NOT_REQUIRED';
 
--- Populate deterministic defaults on pre-0036 orders without guessing refunds or AP payouts:
+-- Capture immutable pre-0036 balance snapshots once without altering legacy order payment columns:
+UPDATE print_orders
+SET
+  pre0036_total_paid_snapshot = total_paid_amount,
+  pre0036_remaining_debt_snapshot = remaining_debt_amount,
+  pre0036_deposit_paid_snapshot = deposit_paid
+WHERE pre0036_total_paid_snapshot IS NULL;
+
+-- Populate deterministic defaults on pre-0036 orders without guessing refunds, customer IDs, or AP payouts:
 UPDATE print_orders
 SET
   valid_receivable_amount = CASE
@@ -49,7 +62,8 @@ ALTER TABLE print_orders
   DROP CONSTRAINT IF EXISTS chk_print_orders_ledger_scope,
   DROP CONSTRAINT IF EXISTS chk_print_orders_valid_receivable_nonneg,
   DROP CONSTRAINT IF EXISTS chk_print_orders_cancel_settlement_status,
-  DROP CONSTRAINT IF EXISTS chk_print_orders_cancel_amounts_nonneg;
+  DROP CONSTRAINT IF EXISTS chk_print_orders_cancel_amounts_nonneg,
+  DROP CONSTRAINT IF EXISTS chk_print_orders_legacy_ar_recon_status;
 
 ALTER TABLE print_orders
   ADD CONSTRAINT chk_print_orders_ledger_scope
@@ -64,7 +78,9 @@ ALTER TABLE print_orders
       AND refunded_after_cancel_amount >= 0
       AND retained_cancellation_fee >= 0
       AND refunded_after_cancel_amount <= agreed_customer_refund_amount
-    );
+    ),
+  ADD CONSTRAINT chk_print_orders_legacy_ar_recon_status
+    CHECK (legacy_ar_reconciliation_status IN ('NOT_REQUIRED', 'PENDING', 'RECONCILED'));
 
 -- ============================================================================
 -- 2. MULTI-WORKSHOP JOBS (print_workshop_jobs & print_workshop_job_history)
@@ -516,90 +532,12 @@ CREATE INDEX IF NOT EXISTS idx_print_cancel_settlements_order
   ON print_order_cancellation_settlements (workspace_id, order_id, created_at DESC);
 
 -- ============================================================================
--- 6. IDEMPOTENT 1-TO-1 MIGRATION OF EXISTING print_order_payments -> AR LEDGER
---    (NOTE: vendor_paid_amount on print_orders is NEVER auto-converted to AP!)
+-- 6. LEGACY print_order_payments RECONCILIATION QUEUE & IMMUTABLE HISTORY
+--    (Owner Approved Policy: NEVER auto-post legacy payments to Official AR;
+--     preserve 100% legacy data, inspect anomalies, and post ONLY on confirmation!)
 -- ============================================================================
 
-INSERT INTO print_ar_transactions (
-  workspace_id,
-  tx_code,
-  customer_id,
-  customer_name,
-  ledger_scope,
-  tx_kind,
-  receipt_subtype,
-  amount,
-  allocated_amount,
-  refunded_unallocated_amount,
-  unallocated_amount,
-  payment_method,
-  occurred_at,
-  reference_code,
-  note,
-  status,
-  related_order_id,
-  legacy_order_payment_id,
-  recorded_by,
-  created_at
-)
-SELECT
-  p.workspace_id,
-  'PT-MIG-' || upper(substr(replace(p.id::text, '-', ''), 1, 12)),
-  o.customer_id,
-  o.customer_name,
-  o.ledger_scope,
-  CASE WHEN p.payment_type = 'REFUND' THEN 'REFUND' ELSE 'RECEIPT' END,
-  CASE WHEN p.payment_type = 'REFUND' THEN NULL ELSE p.payment_type END,
-  p.amount,
-  p.amount,
-  0,
-  0,
-  p.payment_method,
-  p.paid_at,
-  p.reference_code,
-  p.note,
-  'POSTED',
-  p.order_id,
-  p.id,
-  p.recorded_by,
-  p.created_at
-FROM print_order_payments p
-JOIN print_orders o ON o.id = p.order_id
-WHERE NOT EXISTS (
-  SELECT 1
-  FROM print_ar_transactions existing
-  WHERE existing.legacy_order_payment_id = p.id
-);
-
-INSERT INTO print_ar_allocations (
-  workspace_id,
-  ar_transaction_id,
-  order_id,
-  direction,
-  amount,
-  note,
-  recorded_by,
-  created_at
-)
-SELECT
-  tx.workspace_id,
-  tx.id,
-  tx.related_order_id,
-  CASE WHEN tx.tx_kind = 'REFUND' THEN 'REFUND_RELEASE' ELSE 'APPLY' END,
-  tx.amount,
-  tx.note,
-  tx.recorded_by,
-  tx.created_at
-FROM print_ar_transactions tx
-WHERE tx.legacy_order_payment_id IS NOT NULL
-  AND tx.related_order_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1
-    FROM print_ar_allocations alloc
-    WHERE alloc.ar_transaction_id = tx.id
-  );
-
--- Harden print_order_payments foreign keys from CASCADE to RESTRICT
+-- Harden print_order_payments foreign keys from CASCADE to RESTRICT first
 DO $$
 DECLARE
   fk_rec record;
@@ -637,6 +575,198 @@ BEGIN
       FOREIGN KEY (order_id) REFERENCES print_orders(id) ON DELETE RESTRICT;
   END IF;
 END $$;
+
+CREATE TABLE IF NOT EXISTS print_legacy_ar_reconciliations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  legacy_payment_id uuid NOT NULL UNIQUE REFERENCES print_order_payments(id) ON DELETE RESTRICT,
+  order_id uuid NOT NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  status text NOT NULL DEFAULT 'PENDING' CHECK (
+    status IN ('PENDING', 'CONFIRMED', 'ON_HOLD', 'POSTED_DIRECT')
+  ),
+  anomaly_codes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  pre_reconciliation_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  post_reconciliation_json jsonb NULL,
+  posted_ar_transaction_id uuid NULL UNIQUE REFERENCES print_ar_transactions(id) ON DELETE RESTRICT,
+  hold_reason text NULL,
+  resolution_note text NULL,
+  confirmed_at timestamptz NULL,
+  confirmed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT chk_print_legacy_ar_recon_tx_link CHECK (
+    (status IN ('CONFIRMED', 'POSTED_DIRECT') AND posted_ar_transaction_id IS NOT NULL)
+    OR (status IN ('PENDING', 'ON_HOLD') AND posted_ar_transaction_id IS NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_legacy_ar_recon_workspace_status
+  ON print_legacy_ar_reconciliations (workspace_id, status, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_print_legacy_ar_recon_order
+  ON print_legacy_ar_reconciliations (workspace_id, order_id, status);
+
+CREATE TABLE IF NOT EXISTS print_legacy_ar_reconciliation_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  reconciliation_id uuid NULL REFERENCES print_legacy_ar_reconciliations(id) ON DELETE RESTRICT,
+  legacy_payment_id uuid NULL REFERENCES print_order_payments(id) ON DELETE RESTRICT,
+  order_id uuid NOT NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  action text NOT NULL CHECK (
+    action IN (
+      'QUEUED_BY_MIGRATION',
+      'CUSTOMER_LINKED',
+      'BALANCE_DISCREPANCY_RESOLVED',
+      'HELD',
+      'UNHELD',
+      'CONFIRMED_TO_AR'
+    )
+  ),
+  before_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  after_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  reason text NULL,
+  actor_id uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_legacy_ar_recon_hist_order
+  ON print_legacy_ar_reconciliation_history (workspace_id, order_id, created_at DESC);
+
+-- Idempotent seeding of pre-0036 print_order_payments into PENDING reconciliation queue (ZERO auto-posting!)
+WITH order_pay_totals AS (
+  SELECT
+    p.order_id,
+    COALESCE(SUM(p.amount) FILTER (WHERE p.payment_type <> 'REFUND'), 0)::bigint AS gross_receipts,
+    COALESCE(SUM(p.amount) FILTER (WHERE p.payment_type = 'REFUND'), 0)::bigint AS gross_refunds
+  FROM print_order_payments p
+  GROUP BY p.order_id
+)
+INSERT INTO print_legacy_ar_reconciliations (
+  workspace_id,
+  legacy_payment_id,
+  order_id,
+  status,
+  anomaly_codes,
+  pre_reconciliation_json,
+  created_at,
+  updated_at
+)
+SELECT
+  p.workspace_id,
+  p.id,
+  p.order_id,
+  'PENDING',
+  to_jsonb(
+    ARRAY_REMOVE(
+      ARRAY[
+        CASE WHEN o.customer_id IS NULL OR c.id IS NULL THEN 'MISSING_CUSTOMER_ID' END,
+        CASE WHEN p.amount <= 0 THEN 'INVALID_AMOUNT' END,
+        CASE WHEN COALESCE(o.pre0036_total_paid_snapshot, o.total_paid_amount) <> (opt.gross_receipts - opt.gross_refunds)
+          OR (
+            o.production_status <> 'CANCELLED'
+            AND COALESCE(o.pre0036_remaining_debt_snapshot, o.remaining_debt_amount)
+                <> GREATEST(0::bigint, o.total_quote_amount - COALESCE(o.pre0036_total_paid_snapshot, o.total_paid_amount))
+          )
+          THEN 'ORDER_BALANCE_MISMATCH'
+        END,
+        CASE WHEN opt.gross_refunds > opt.gross_receipts
+          OR (p.payment_type = 'REFUND' AND p.amount > opt.gross_receipts)
+          THEN 'REFUND_EXCEEDS_RECEIPTS'
+        END,
+        CASE WHEN p.payment_type = 'REFUND' THEN 'REFUND_AWAITING_CONFIRMED_RECEIPT' END,
+        CASE WHEN p.payment_type <> 'REFUND'
+          AND p.amount > (CASE WHEN o.production_status = 'CANCELLED' THEN o.total_quote_amount ELSE o.valid_receivable_amount END)
+          THEN 'EXCEEDS_VALID_RECEIVABLE'
+        END
+      ]::text[],
+      NULL
+    )
+  ),
+  jsonb_build_object(
+    'legacy_payment_id', p.id,
+    'order_id', o.id,
+    'order_code', o.order_code,
+    'quote_code', o.quote_code,
+    'payment_type', p.payment_type,
+    'amount', p.amount,
+    'payment_method', p.payment_method,
+    'paid_at', p.paid_at,
+    'reference_code', p.reference_code,
+    'customer_id', o.customer_id,
+    'customer_name', o.customer_name,
+    'order_total_quote_amount', o.total_quote_amount,
+    'order_valid_receivable_amount', o.valid_receivable_amount,
+    'pre0036_total_paid_snapshot', COALESCE(o.pre0036_total_paid_snapshot, o.total_paid_amount),
+    'pre0036_remaining_debt_snapshot', COALESCE(o.pre0036_remaining_debt_snapshot, o.remaining_debt_amount),
+    'order_legacy_gross_receipts', opt.gross_receipts,
+    'order_legacy_gross_refunds', opt.gross_refunds
+  ),
+  now(),
+  now()
+FROM print_order_payments p
+JOIN print_orders o ON o.id = p.order_id
+JOIN order_pay_totals opt ON opt.order_id = p.order_id
+LEFT JOIN print_customers c ON c.id = o.customer_id AND c.workspace_id = o.workspace_id
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM print_ar_transactions existing_tx
+  WHERE existing_tx.legacy_order_payment_id = p.id
+)
+ON CONFLICT (legacy_payment_id) DO NOTHING;
+
+INSERT INTO print_legacy_ar_reconciliation_history (
+  workspace_id,
+  reconciliation_id,
+  legacy_payment_id,
+  order_id,
+  action,
+  before_json,
+  after_json,
+  reason,
+  actor_id
+)
+SELECT
+  r.workspace_id,
+  r.id,
+  r.legacy_payment_id,
+  r.order_id,
+  'QUEUED_BY_MIGRATION',
+  r.pre_reconciliation_json,
+  jsonb_build_object(
+    'status', r.status,
+    'anomaly_codes', r.anomaly_codes
+  ),
+  'Đưa phiếu thu/hoàn cũ vào danh sách chờ đối chiếu theo chính sách migration 0036',
+  NULL
+FROM print_legacy_ar_reconciliations r
+WHERE r.status = 'PENDING'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM print_legacy_ar_reconciliation_history h
+    WHERE h.reconciliation_id = r.id
+      AND h.action = 'QUEUED_BY_MIGRATION'
+  );
+
+-- Flag pre-0036 orders that require reconciliation attention (pending payments, missing customer_id, or balance mismatch)
+UPDATE print_orders o
+SET legacy_ar_reconciliation_status = 'PENDING'
+WHERE o.legacy_ar_reconciliation_status = 'NOT_REQUIRED'
+  AND o.pre0036_total_paid_snapshot IS NOT NULL
+  AND (
+    o.customer_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM print_legacy_ar_reconciliations r
+      WHERE r.order_id = o.id AND r.status IN ('PENDING', 'ON_HOLD')
+    )
+    OR (
+      o.pre0036_total_paid_snapshot > 0
+      AND NOT EXISTS (SELECT 1 FROM print_order_payments p WHERE p.order_id = o.id)
+    )
+    OR (
+      o.production_status <> 'CANCELLED'
+      AND o.pre0036_remaining_debt_snapshot <> GREATEST(0::bigint, o.total_quote_amount - o.pre0036_total_paid_snapshot)
+    )
+  );
 
 -- ============================================================================
 -- 7. IMMUTABLE / APPEND-ONLY TRIGGERS & ROLE PRIVILEGES
@@ -703,6 +833,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION guard_print_legacy_ar_reconciliation_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'print_legacy_ar_reconciliations cannot be deleted'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.id <> OLD.id
+      OR NEW.workspace_id <> OLD.workspace_id
+      OR NEW.legacy_payment_id <> OLD.legacy_payment_id
+      OR NEW.order_id <> OLD.order_id
+    THEN
+      RAISE EXCEPTION 'print_legacy_ar_reconciliations identity fields are immutable'
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF OLD.status IN ('CONFIRMED', 'POSTED_DIRECT') AND (
+      NEW.status <> OLD.status
+      OR NEW.posted_ar_transaction_id IS DISTINCT FROM OLD.posted_ar_transaction_id
+    ) THEN
+      RAISE EXCEPTION 'Confirmed legacy AR reconciliation cannot be reverted; use Official AR VOID/Adjustment instead'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 DO $$
 DECLARE
   tbl text;
@@ -714,7 +875,8 @@ BEGIN
     'print_ap_allocations',
     'print_ap_adjustments',
     'print_order_cancellation_settlements',
-    'print_order_payments'
+    'print_order_payments',
+    'print_legacy_ar_reconciliation_history'
   ]
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS trg_%I_append_only ON %I', tbl, tbl);
@@ -763,13 +925,24 @@ CREATE TRIGGER trg_print_opening_balances_no_truncate
   BEFORE TRUNCATE ON print_opening_balances
   FOR EACH STATEMENT EXECUTE FUNCTION prevent_print_ledger_append_only_mutation();
 
+DROP TRIGGER IF EXISTS trg_print_legacy_ar_recon_guard ON print_legacy_ar_reconciliations;
+CREATE TRIGGER trg_print_legacy_ar_recon_guard
+  BEFORE UPDATE OR DELETE ON print_legacy_ar_reconciliations
+  FOR EACH ROW EXECUTE FUNCTION guard_print_legacy_ar_reconciliation_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_legacy_ar_recon_no_truncate ON print_legacy_ar_reconciliations;
+CREATE TRIGGER trg_print_legacy_ar_recon_no_truncate
+  BEFORE TRUNCATE ON print_legacy_ar_reconciliations
+  FOR EACH STATEMENT EXECUTE FUNCTION prevent_print_ledger_append_only_mutation();
+
 REVOKE ALL ON
   print_workshop_jobs,
   print_historical_import_batches,
   print_historical_import_rows,
   print_opening_balances,
   print_ar_transactions,
-  print_ap_transactions
+  print_ap_transactions,
+  print_legacy_ar_reconciliations
 FROM PUBLIC;
 
 DO $$
@@ -781,21 +954,21 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
       -- State tables allowing controlled INSERT + UPDATE (no DELETE/TRUNCATE on financial headers)
       EXECUTE format(
-        'GRANT SELECT, INSERT, UPDATE ON print_workshop_jobs, print_historical_import_batches, print_historical_import_rows, print_opening_balances, print_ar_transactions, print_ap_transactions TO %I',
+        'GRANT SELECT, INSERT, UPDATE ON print_workshop_jobs, print_historical_import_batches, print_historical_import_rows, print_opening_balances, print_ar_transactions, print_ap_transactions, print_legacy_ar_reconciliations TO %I',
         r
       );
       EXECUTE format(
-        'REVOKE DELETE, TRUNCATE ON print_workshop_jobs, print_historical_import_batches, print_historical_import_rows, print_opening_balances, print_ar_transactions, print_ap_transactions FROM %I',
+        'REVOKE DELETE, TRUNCATE ON print_workshop_jobs, print_historical_import_batches, print_historical_import_rows, print_opening_balances, print_ar_transactions, print_ap_transactions, print_legacy_ar_reconciliations FROM %I',
         r
       );
 
       -- Strictly append-only tables: SELECT + INSERT only!
       EXECUTE format(
-        'REVOKE UPDATE, DELETE, TRUNCATE ON print_workshop_job_history, print_ar_allocations, print_ar_adjustments, print_ap_allocations, print_ap_adjustments, print_order_cancellation_settlements, print_order_payments FROM %I',
+        'REVOKE UPDATE, DELETE, TRUNCATE ON print_workshop_job_history, print_ar_allocations, print_ar_adjustments, print_ap_allocations, print_ap_adjustments, print_order_cancellation_settlements, print_order_payments, print_legacy_ar_reconciliation_history FROM %I',
         r
       );
       EXECUTE format(
-        'GRANT SELECT, INSERT ON print_workshop_job_history, print_ar_allocations, print_ar_adjustments, print_ap_allocations, print_ap_adjustments, print_order_cancellation_settlements, print_order_payments TO %I',
+        'GRANT SELECT, INSERT ON print_workshop_job_history, print_ar_allocations, print_ar_adjustments, print_ap_allocations, print_ap_adjustments, print_order_cancellation_settlements, print_order_payments, print_legacy_ar_reconciliation_history TO %I',
         r
       );
     END IF;

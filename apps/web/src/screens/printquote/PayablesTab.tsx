@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type {
   PrintVendorData,
   PrintOrderData,
@@ -47,6 +47,29 @@ const SCOPE_LABELS: Record<LedgerScopeType, string> = {
   HVGROUP: 'Sổ HVGROUP',
 };
 
+const statusPillStyle = (
+  tone: 'success' | 'accent' | 'neutral',
+): React.CSSProperties => {
+  const color =
+    tone === 'success'
+      ? 'var(--success-text)'
+      : tone === 'accent'
+        ? 'var(--accent-text)'
+        : 'var(--muted-color)';
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: 700,
+    border: `1px solid ${tone === 'neutral' ? 'var(--border-color)' : color}`,
+    backgroundColor: 'var(--surface-color)',
+    color,
+    whiteSpace: 'nowrap',
+  };
+};
+
 export const PayablesTab: React.FC<PayablesTabProps> = ({
   data,
   vendors,
@@ -55,6 +78,10 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
   const [scopeFilter, setScopeFilter] = useState<'ALL' | LedgerScopeType>(
     'ALL',
   );
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [moreMenuOpen, setMoreMenuOpen] = useState<boolean>(false);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+
   const [modalMode, setModalMode] = useState<
     | null
     | 'PAYOUT'
@@ -90,17 +117,46 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
   const [modalError, setModalError] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') setMoreMenuOpen(false);
+    };
+    const onPointer = (ev: MouseEvent) => {
+      if (
+        moreMenuRef.current &&
+        ev.target instanceof Node &&
+        !moreMenuRef.current.contains(ev.target)
+      ) {
+        setMoreMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('mousedown', onPointer);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mousedown', onPointer);
+    };
+  }, [moreMenuOpen]);
+
+  const normQ = searchQuery.trim().toLowerCase();
+
   const openJobs = useMemo(
     () =>
       (data?.workshop_jobs ?? []).filter(
         (j: PrintWorkshopJobData) =>
           j.job_status !== 'CANCELLED' &&
-          (scopeFilter === 'ALL' || j.ledger_scope === scopeFilter),
+          (scopeFilter === 'ALL' || j.ledger_scope === scopeFilter) &&
+          (!normQ ||
+            [j.job_code, j.vendor_name ?? '', j.title, j.order_code ?? '']
+              .join(' ')
+              .toLowerCase()
+              .includes(normQ)),
       ),
-    [data, scopeFilter],
+    [data, scopeFilter, normQ],
   );
 
-  const filteredVendors = useMemo(
+  const scopeFilteredVendors = useMemo(
     () =>
       (data?.summaries ?? []).filter(
         (v: VendorPayableSummaryItem) =>
@@ -109,6 +165,16 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
     [data, scopeFilter],
   );
 
+  const filteredVendors = useMemo(() => {
+    if (!normQ) return scopeFilteredVendors;
+    return scopeFilteredVendors.filter((v) =>
+      [v.vendor_name, v.vendor_code, v.vendor_phone ?? '']
+        .join(' ')
+        .toLowerCase()
+        .includes(normQ),
+    );
+  }, [scopeFilteredVendors, normQ]);
+
   const unallocatedPayouts = useMemo(
     () =>
       (data?.transactions ?? []).filter(
@@ -116,9 +182,14 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
           tx.status === 'POSTED' &&
           tx.tx_kind === 'PAYOUT' &&
           tx.unallocated_amount > 0 &&
-          (scopeFilter === 'ALL' || tx.ledger_scope === scopeFilter),
+          (scopeFilter === 'ALL' || tx.ledger_scope === scopeFilter) &&
+          (!normQ ||
+            [tx.tx_code, tx.vendor_name, tx.reference_code ?? '']
+              .join(' ')
+              .toLowerCase()
+              .includes(normQ)),
       ),
-    [data, scopeFilter],
+    [data, scopeFilter, normQ],
   );
 
   const totals = useMemo(() => {
@@ -127,7 +198,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
     let remaining = 0;
     let advance = 0;
     let unconfirmed = 0;
-    for (const v of filteredVendors) {
+    for (const v of scopeFilteredVendors) {
       valid += v.valid_payable_total;
       paid += v.net_allocated_payout_total;
       remaining += v.remaining_payable_total;
@@ -135,7 +206,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
       unconfirmed += v.expected_unconfirmed_cost_total;
     }
     return { valid, paid, remaining, advance, unconfirmed };
-  }, [filteredVendors]);
+  }, [scopeFilteredVendors]);
 
   const legacyNotes = data?.legacy_unreconciled_notes ?? [];
 
@@ -158,6 +229,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
 
   const openModal = (mode: NonNullable<typeof modalMode>) => {
     resetForm();
+    setMoreMenuOpen(false);
     setModalMode(mode);
   };
 
@@ -369,17 +441,25 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
   return (
     <div
       data-testid="panel-pq-payables"
-      style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
     >
+      {/* Streamlined Header: 1 Primary CTA + Compact Secondary Menu */}
       <div className="pq-page-head">
         <div>
           <h1 className="pq-page-title">Công nợ xưởng in & gia công</h1>
           <p className="pq-page-subtitle">
-            Chỉ phát sinh phải trả khi chi phí phiếu xưởng đã xác nhận — tách rõ
-            với chi phí dự kiến và tiền thực chi
+            Tách rõ phải trả đã xác nhận, tạm ứng xưởng và chi phí dự kiến chưa
+            chốt
           </p>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+          }}
+        >
           <button
             type="button"
             data-testid="pq-ap-new-payout-btn"
@@ -389,52 +469,124 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
             <PqPlusIcon size={15} />
             <span>Chi tiền xưởng</span>
           </button>
-          <button
-            type="button"
-            data-testid="pq-ap-adjustment-btn"
-            className="pq-btn pq-btn-secondary"
-            onClick={() => openModal('ADJUSTMENT')}
-          >
-            <span>Điều chỉnh AP</span>
-          </button>
-          <button
-            type="button"
-            data-testid="pq-ap-refund-btn"
-            className="pq-btn pq-btn-secondary"
-            onClick={() => openModal('VENDOR_REFUND')}
-          >
-            <span>Xưởng hoàn tiền</span>
-          </button>
-          <button
-            type="button"
-            data-testid="pq-ap-opening-btn"
-            className="pq-btn pq-btn-ghost"
-            onClick={() => openModal('OPENING')}
-          >
-            <span>+ Dư đầu kỳ xưởng</span>
-          </button>
+
+          <div ref={moreMenuRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              data-testid="pq-ap-more-actions-btn"
+              aria-haspopup="menu"
+              aria-expanded={moreMenuOpen}
+              className="pq-btn pq-btn-secondary"
+              onClick={() => setMoreMenuOpen((prev) => !prev)}
+            >
+              <span>Thao tác khác ▾</span>
+            </button>
+            {moreMenuOpen && (
+              <div
+                role="menu"
+                aria-label="Thao tác phụ công nợ xưởng"
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 'calc(100% + 6px)',
+                  zIndex: 30,
+                  minWidth: '215px',
+                  maxWidth: 'min(260px, calc(100vw - 32px))',
+                  padding: '6px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--surface-color)',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: 'var(--shadow-md)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="pq-ap-adjustment-btn"
+                  className="pq-btn pq-btn-ghost pq-btn-sm"
+                  style={{ justifyContent: 'flex-start', width: '100%' }}
+                  onClick={() => openModal('ADJUSTMENT')}
+                >
+                  <span>Điều chỉnh phải trả (AP)</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="pq-ap-refund-btn"
+                  className="pq-btn pq-btn-ghost pq-btn-sm"
+                  style={{ justifyContent: 'flex-start', width: '100%' }}
+                  onClick={() => openModal('VENDOR_REFUND')}
+                >
+                  <span>Xưởng hoàn tiền</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="pq-ap-opening-btn"
+                  className="pq-btn pq-btn-ghost pq-btn-sm"
+                  style={{ justifyContent: 'flex-start', width: '100%' }}
+                  onClick={() => openModal('OPENING')}
+                >
+                  <span>+ Thêm dư đầu kỳ xưởng</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Scope Filter Pills */}
+      {/* Single Unified Search + Scope Control Row */}
       <div
-        className="pq-filter-pills"
-        role="group"
-        aria-label="Lọc nhóm sổ xưởng"
+        data-testid="pq-ap-toolbar"
+        style={{
+          ...cardStyle,
+          padding: '10px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px',
+        }}
       >
-        {(['ALL', 'GENERAL', 'RIENG', 'HVGROUP'] as const).map((sc) => (
-          <button
-            key={sc}
-            type="button"
-            data-testid={`pq-ap-scope-${sc}`}
-            aria-pressed={scopeFilter === sc}
-            className="pq-filter-pill"
-            data-active={scopeFilter === sc ? 'true' : 'false'}
-            onClick={() => setScopeFilter(sc)}
-          >
-            {sc === 'ALL' ? 'Tất cả sổ' : SCOPE_LABELS[sc]}
-          </button>
-        ))}
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          <input
+            type="search"
+            data-testid="pq-ap-search-input"
+            aria-label="Tìm nhà in, xưởng gia công hoặc mã phiếu"
+            autoComplete="off"
+            style={{
+              ...inputStyle,
+              minHeight: '38px',
+              padding: '6px 12px',
+            }}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm xưởng in, mã phiếu đặt xưởng…"
+          />
+        </div>
+        <div
+          className="pq-filter-pills"
+          role="group"
+          aria-label="Lọc nhóm sổ xưởng"
+          style={{ flex: '0 1 auto', maxWidth: '100%' }}
+        >
+          {(['ALL', 'GENERAL', 'RIENG', 'HVGROUP'] as const).map((sc) => (
+            <button
+              key={sc}
+              type="button"
+              data-testid={`pq-ap-scope-${sc}`}
+              aria-pressed={scopeFilter === sc}
+              className="pq-filter-pill"
+              data-active={scopeFilter === sc ? 'true' : 'false'}
+              onClick={() => setScopeFilter(sc)}
+            >
+              {sc === 'ALL' ? 'Tất cả sổ' : SCOPE_LABELS[sc]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Legacy Vendor Note Warning Banner (Never Auto-Converted) */}
@@ -707,9 +859,27 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                     </td>
                     <td style={{ textAlign: 'right', ...tabularNumStyle }}>
                       {job.cost_status === 'CONFIRMED' &&
-                      job.confirmed_cost !== null
-                        ? formatVnd(job.confirmed_cost)
-                        : 'Chưa xác nhận'}
+                      job.confirmed_cost !== null ? (
+                        <div>
+                          <div style={{ fontWeight: 700 }}>
+                            {formatVnd(job.confirmed_cost)}
+                          </div>
+                          <span style={statusPillStyle('success')}>
+                            Đã xác nhận
+                          </span>
+                        </div>
+                      ) : job.entered_cost !== null ? (
+                        <div>
+                          <div>{formatVnd(job.entered_cost)}</div>
+                          <span style={statusPillStyle('accent')}>
+                            Đã nhập • Chờ XN
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={statusPillStyle('neutral')}>
+                          Chưa xác nhận
+                        </span>
+                      )}
                     </td>
                     <td
                       style={{

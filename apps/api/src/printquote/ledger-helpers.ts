@@ -73,6 +73,187 @@ export function toDateStr(val: unknown): string | null {
   return null;
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUuid(val: unknown): val is string {
+  return typeof val === 'string' && UUID_REGEX.test(val.trim());
+}
+
+export interface VerifiedWorkspaceCustomer {
+  id: string;
+  code: string;
+  name: string;
+  phone: string | null;
+  address: string | null;
+}
+
+export async function createQuickCustomerInTx(
+  client: pg.PoolClient,
+  workspaceId: string,
+  quickRaw: Record<string, unknown>,
+): Promise<VerifiedWorkspaceCustomer> {
+  const name =
+    typeof quickRaw['name'] === 'string' ? quickRaw['name'].trim() : '';
+  if (!name) {
+    throw new AuthError(
+      'VALIDATION_ERROR',
+      'Tên khách hàng là bắt buộc khi tạo nhanh khách hàng.',
+      400,
+    );
+  }
+
+  let code =
+    typeof quickRaw['code'] === 'string' && quickRaw['code'].trim()
+      ? quickRaw['code'].trim().toUpperCase()
+      : '';
+
+  if (!code) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const counterRes = await client.query<{ last_value: string }>(
+        `INSERT INTO print_code_counters (workspace_id, counter_key, last_value, updated_at)
+         VALUES ($1, 'CUSTOMER', 1, now())
+         ON CONFLICT (workspace_id, counter_key)
+         DO UPDATE SET
+           last_value = print_code_counters.last_value + 1,
+           updated_at = now()
+         RETURNING last_value::text AS last_value`,
+        [workspaceId],
+      );
+      const seq = Number(counterRes.rows[0]?.last_value ?? 1);
+      const candidate = `KH${String(seq).padStart(3, '0')}`;
+      const existsRes = await client.query(
+        `SELECT 1 FROM print_customers WHERE workspace_id = $1 AND code = $2 LIMIT 1`,
+        [workspaceId, candidate],
+      );
+      if (existsRes.rows.length === 0) {
+        code = candidate;
+        break;
+      }
+    }
+    if (!code) {
+      code = `KH-${Date.now().toString(36).toUpperCase()}`;
+    }
+  }
+
+  const insRes = await client.query(
+    `INSERT INTO print_customers (
+       workspace_id, code, name, company_name, phone, email, address, tax_code, note, is_active
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
+     RETURNING id, code, name, phone, address`,
+    [
+      workspaceId,
+      code,
+      name,
+      typeof quickRaw['company_name'] === 'string'
+        ? quickRaw['company_name'].trim() || null
+        : null,
+      typeof quickRaw['phone'] === 'string'
+        ? quickRaw['phone'].trim() || null
+        : null,
+      typeof quickRaw['email'] === 'string'
+        ? quickRaw['email'].trim() || null
+        : null,
+      typeof quickRaw['address'] === 'string'
+        ? quickRaw['address'].trim() || null
+        : null,
+      typeof quickRaw['tax_code'] === 'string'
+        ? quickRaw['tax_code'].trim() || null
+        : null,
+      typeof quickRaw['note'] === 'string'
+        ? quickRaw['note'].trim() || null
+        : null,
+    ],
+  );
+  const row = insRes.rows[0]!;
+  return {
+    id: String(row['id']),
+    code: String(row['code']),
+    name: String(row['name']),
+    phone: row['phone'] ? String(row['phone']) : null,
+    address: row['address'] ? String(row['address']) : null,
+  };
+}
+
+export async function resolveMandatoryWorkspaceCustomerInTx(
+  client: pg.PoolClient,
+  workspaceId: string,
+  options: {
+    explicitCustomerId?: unknown;
+    fallbackQuoteCustomerId?: unknown;
+    quickCustomer?: unknown;
+  },
+): Promise<VerifiedWorkspaceCustomer> {
+  if (
+    options.quickCustomer &&
+    typeof options.quickCustomer === 'object' &&
+    !Array.isArray(options.quickCustomer)
+  ) {
+    return createQuickCustomerInTx(
+      client,
+      workspaceId,
+      options.quickCustomer as Record<string, unknown>,
+    );
+  }
+
+  const rawId =
+    options.explicitCustomerId !== undefined &&
+    options.explicitCustomerId !== null &&
+    String(options.explicitCustomerId).trim() !== ''
+      ? String(options.explicitCustomerId).trim()
+      : options.fallbackQuoteCustomerId !== undefined &&
+          options.fallbackQuoteCustomerId !== null &&
+          String(options.fallbackQuoteCustomerId).trim() !== ''
+        ? String(options.fallbackQuoteCustomerId).trim()
+        : '';
+
+  if (!rawId) {
+    throw new AuthError(
+      'CUSTOMER_REQUIRED_FOR_ORDER',
+      'Đơn hàng mới bắt buộc phải gắn khách hàng hợp lệ (customer_id) thuộc cùng không gian làm việc trước khi chuyển báo giá thành đơn. Vui lòng chọn khách hàng hoặc tạo nhanh khách hàng mới.',
+      400,
+    );
+  }
+
+  if (!isValidUuid(rawId)) {
+    throw new AuthError(
+      'INVALID_CUSTOMER_FOR_WORKSPACE',
+      'Mã khách hàng (customer_id) không đúng định dạng hợp lệ.',
+      400,
+    );
+  }
+
+  const custRes = await client.query(
+    `SELECT id, code, name, phone, address, is_active
+     FROM print_customers
+     WHERE id = $1 AND workspace_id = $2`,
+    [rawId, workspaceId],
+  );
+  const cust = custRes.rows[0];
+  if (!cust) {
+    throw new AuthError(
+      'INVALID_CUSTOMER_FOR_WORKSPACE',
+      'Khách hàng không tồn tại hoặc không thuộc không gian làm việc hiện tại.',
+      400,
+    );
+  }
+  if (cust['is_active'] === false) {
+    throw new AuthError(
+      'INACTIVE_CUSTOMER_FOR_ORDER',
+      'Khách hàng đang ngừng hoạt động nên không thể gắn vào đơn hàng mới.',
+      400,
+    );
+  }
+
+  return {
+    id: String(cust['id']),
+    code: String(cust['code']),
+    name: String(cust['name']),
+    phone: cust['phone'] ? String(cust['phone']) : null,
+    address: cust['address'] ? String(cust['address']) : null,
+  };
+}
+
 export function computeOrderPaymentStatus(
   validReceivable: number,
   depositPaid: number,
@@ -187,8 +368,9 @@ export async function allocateNextLedgerCode(
 }
 
 /**
- * Mirrors a `print_order_payments` row 1-to-1 into `print_ar_transactions` and `print_ar_allocations`
- * so legacy order payment endpoints and the dedicated AR ledger stay 100% synchronized.
+ * Posts a NEW post-0036 order-level payment directly into `print_ar_transactions` and `print_ar_allocations`
+ * and marks its `print_legacy_ar_reconciliations` record as `POSTED_DIRECT` so it is never queued
+ * as an unconfirmed legacy item or double-counted during transition.
  */
 export async function mirrorLegacyOrderPaymentToAr(
   client: pg.PoolClient,
@@ -198,8 +380,16 @@ export async function mirrorLegacyOrderPaymentToAr(
     paymentRow: Record<string, unknown>;
   },
 ): Promise<void> {
+  if (!params.orderRow['customer_id']) {
+    throw new AuthError(
+      'CUSTOMER_REQUIRED_BEFORE_PAYMENT',
+      'Đơn hàng chưa gắn mã khách hàng hợp lệ (customer_id) nên không thể ghi sổ AR chính thức.',
+      409,
+    );
+  }
+
   const paymentId = String(params.paymentRow['id']);
-  const existingRes = await client.query(
+  const existingRes = await client.query<{ id: string }>(
     `SELECT id FROM print_ar_transactions WHERE legacy_order_payment_id = $1 LIMIT 1`,
     [paymentId],
   );
@@ -216,7 +406,7 @@ export async function mirrorLegacyOrderPaymentToAr(
   const scope = normalizeLedgerScopeInput(params.orderRow['ledger_scope']);
 
   assertTransactionConservationInvariant({
-    label: `mirrorLegacyPayment(${txCode})`,
+    label: `postDirectOrderPayment(${txCode})`,
     amount,
     allocatedAmount: amount,
     refundedUnallocatedAmount: 0,
@@ -240,7 +430,7 @@ export async function mirrorLegacyOrderPaymentToAr(
     [
       params.workspaceId,
       txCode,
-      params.orderRow['customer_id'] ?? null,
+      String(params.orderRow['customer_id']),
       String(params.orderRow['customer_name']),
       scope,
       isRefund ? 'REFUND' : 'RECEIPT',
@@ -256,17 +446,50 @@ export async function mirrorLegacyOrderPaymentToAr(
     ],
   );
 
+  const txId = txRes.rows[0]!.id;
+
   await client.query(
     `INSERT INTO print_ar_allocations (
        workspace_id, ar_transaction_id, order_id, direction, amount, note, recorded_by
      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [
       params.workspaceId,
-      txRes.rows[0]!.id,
+      txId,
       String(params.orderRow['id']),
       isRefund ? 'REFUND_RELEASE' : 'APPLY',
       amount,
       params.paymentRow['note'] ?? null,
+      params.paymentRow['recorded_by'] ?? null,
+    ],
+  );
+
+  await client.query(
+    `INSERT INTO print_legacy_ar_reconciliations (
+       workspace_id, legacy_payment_id, order_id, status, anomaly_codes,
+       pre_reconciliation_json, post_reconciliation_json, posted_ar_transaction_id,
+       confirmed_at, confirmed_by
+     ) VALUES (
+       $1, $2, $3, 'POSTED_DIRECT', '[]'::jsonb,
+       $4::jsonb, $5::jsonb, $6,
+       now(), $7
+     )
+     ON CONFLICT (legacy_payment_id) DO NOTHING`,
+    [
+      params.workspaceId,
+      paymentId,
+      String(params.orderRow['id']),
+      JSON.stringify({
+        source: 'POST_0036_DIRECT_ORDER_PAYMENT',
+        payment_id: paymentId,
+        payment_type: pType,
+        amount,
+      }),
+      JSON.stringify({
+        posted_ar_transaction_id: txId,
+        tx_code: txCode,
+        amount,
+      }),
+      txId,
       params.paymentRow['recorded_by'] ?? null,
     ],
   );
@@ -286,6 +509,10 @@ export async function recomputeOrderReceivableState(
   orderRow: Record<string, unknown>;
   validReceivableAmount: number;
   netAllocatedReceiptAmount: number;
+  legacyPendingNetAmount: number;
+  pendingLegacyCount: number;
+  effectiveTotalPaidAmount: number;
+  officialRemainingReceivableAmount: number;
   remainingReceivableAmount: number;
   overAllocatedAmount: number;
 }> {
@@ -321,6 +548,30 @@ export async function recomputeOrderReceivableState(
     [workspaceId, orderId],
   );
 
+  // Transition anti-double-counting: query ONLY legacy payments NOT yet posted to Official AR
+  const legacyRes = await client.query<{
+    total_rows: string;
+    pending_count: string;
+    pending_receipts: string;
+    pending_refunds: string;
+    pending_deposits: string;
+    all_receipts: string;
+    all_refunds: string;
+  }>(
+    `SELECT
+       COUNT(p.id)::text AS total_rows,
+       COUNT(r.id) FILTER (WHERE r.status IN ('PENDING', 'ON_HOLD'))::text AS pending_count,
+       COALESCE(SUM(p.amount) FILTER (WHERE r.status IN ('PENDING', 'ON_HOLD') AND p.payment_type <> 'REFUND'), 0)::text AS pending_receipts,
+       COALESCE(SUM(p.amount) FILTER (WHERE r.status IN ('PENDING', 'ON_HOLD') AND p.payment_type = 'REFUND'), 0)::text AS pending_refunds,
+       COALESCE(SUM(p.amount) FILTER (WHERE r.status IN ('PENDING', 'ON_HOLD') AND p.payment_type = 'DEPOSIT'), 0)::text AS pending_deposits,
+       COALESCE(SUM(p.amount) FILTER (WHERE p.payment_type <> 'REFUND'), 0)::text AS all_receipts,
+       COALESCE(SUM(p.amount) FILTER (WHERE p.payment_type = 'REFUND'), 0)::text AS all_refunds
+     FROM print_order_payments p
+     LEFT JOIN print_legacy_ar_reconciliations r ON r.legacy_payment_id = p.id
+     WHERE p.workspace_id = $1 AND p.order_id = $2`,
+    [workspaceId, orderId],
+  );
+
   const netArAdj = toInt(adjRes.rows[0]?.net_adj, 0);
   const applySum = toInt(allocRes.rows[0]?.apply_sum, 0);
   const unapplySum = toInt(allocRes.rows[0]?.unapply_sum, 0);
@@ -331,12 +582,52 @@ export async function recomputeOrderReceivableState(
   if (rawNetAllocated < 0) {
     throw new AuthError(
       'VALIDATION_ERROR',
-      `Tổng hoàn/hủy phân bổ vượt quá số tiền đã thu trên đơn ${String(ord['order_code'])}.`,
+      `Tổng hoàn/hủy phân bổ vượt quá số tiền đã thu chính thức trên đơn ${String(ord['order_code'])}.`,
       400,
     );
   }
-  const netAllocatedReceipt = rawNetAllocated;
-  const depositPaid = Math.min(depositApplySum, netAllocatedReceipt);
+  const officialAllocatedReceipt = rawNetAllocated;
+
+  const totalLegacyRows = toInt(legacyRes.rows[0]?.total_rows, 0);
+  const pendingLegacyCount = toInt(legacyRes.rows[0]?.pending_count, 0);
+  const pendingLegacyReceipts = toInt(legacyRes.rows[0]?.pending_receipts, 0);
+  const pendingLegacyRefunds = toInt(legacyRes.rows[0]?.pending_refunds, 0);
+  const pendingLegacyDeposits = toInt(legacyRes.rows[0]?.pending_deposits, 0);
+  const allLegacyNet =
+    toInt(legacyRes.rows[0]?.all_receipts, 0) -
+    toInt(legacyRes.rows[0]?.all_refunds, 0);
+
+  const hasPre0036Snapshot =
+    ord['pre0036_total_paid_snapshot'] !== null &&
+    ord['pre0036_total_paid_snapshot'] !== undefined;
+  const pre0036PaidSnapshot = hasPre0036Snapshot
+    ? toInt(ord['pre0036_total_paid_snapshot'], 0)
+    : 0;
+  const balanceDiscrepancyResolved = Boolean(
+    ord['legacy_balance_discrepancy_resolved'],
+  );
+
+  const orphanLegacyPaid =
+    hasPre0036Snapshot &&
+    !balanceDiscrepancyResolved &&
+    totalLegacyRows === 0 &&
+    pre0036PaidSnapshot > 0
+      ? pre0036PaidSnapshot
+      : 0;
+
+  // Signed transition delta (`receipts - refunds + orphan`): can be negative when receipts on an order
+  // have already been confirmed into Official AR while a legacy REFUND row is still pending confirmation.
+  // Adding `officialAllocatedReceipt + legacyPendingNet` keeps `effectiveTotalPaid` 100% invariant!
+  const legacyPendingNet =
+    pendingLegacyReceipts - pendingLegacyRefunds + orphanLegacyPaid;
+  const effectiveTotalPaid = Math.max(
+    0,
+    officialAllocatedReceipt + legacyPendingNet,
+  );
+  const depositPaid = Math.min(
+    depositApplySum + pendingLegacyDeposits,
+    effectiveTotalPaid,
+  );
 
   const isCancelled =
     ord['production_status'] === PrintProductionStatus.CANCELLED;
@@ -355,7 +646,7 @@ export async function recomputeOrderReceivableState(
     cancelStatus = CancellationSettlementStatus.NOT_APPLICABLE;
   } else if (cancelStatus === CancellationSettlementStatus.NOT_APPLICABLE) {
     const hasObligation =
-      netAllocatedReceipt > 0 ||
+      effectiveTotalPaid > 0 ||
       toInt(ord['vendor_paid_amount'], 0) > 0 ||
       toInt(ord['entered_vendor_cost'], 0) > 0 ||
       toInt(ord['actual_vendor_cost'], 0) > 0;
@@ -364,9 +655,10 @@ export async function recomputeOrderReceivableState(
       : CancellationSettlementStatus.SETTLED;
   }
 
-  let metrics: ReturnType<typeof computeOrderReceivableMetrics>;
+  let effectiveMetrics: ReturnType<typeof computeOrderReceivableMetrics>;
+  let officialMetrics: ReturnType<typeof computeOrderReceivableMetrics>;
   try {
-    metrics = computeOrderReceivableMetrics({
+    effectiveMetrics = computeOrderReceivableMetrics({
       grossOrderAmount,
       isCancelled,
       cancellationSettlementStatus: cancelStatus,
@@ -374,7 +666,17 @@ export async function recomputeOrderReceivableState(
       refundedAfterCancelAmount: refundedAfterCancel,
       retainedCancellationFee: retainedFee,
       netArAdjustmentAmount: netArAdj,
-      netAllocatedReceiptAmount: netAllocatedReceipt,
+      netAllocatedReceiptAmount: effectiveTotalPaid,
+    });
+    officialMetrics = computeOrderReceivableMetrics({
+      grossOrderAmount,
+      isCancelled,
+      cancellationSettlementStatus: cancelStatus,
+      agreedCustomerRefundAmount: agreedRefund,
+      refundedAfterCancelAmount: refundedAfterCancel,
+      retainedCancellationFee: retainedFee,
+      netArAdjustmentAmount: netArAdj,
+      netAllocatedReceiptAmount: officialAllocatedReceipt,
     });
   } catch (err) {
     throw new AuthError(
@@ -387,9 +689,9 @@ export async function recomputeOrderReceivableState(
   }
 
   const paymentStatus = computeOrderPaymentStatus(
-    isCancelled ? grossOrderAmount : metrics.validReceivableAmount,
+    isCancelled ? grossOrderAmount : effectiveMetrics.validReceivableAmount,
     depositPaid,
-    netAllocatedReceipt,
+    effectiveTotalPaid,
   );
 
   const isConfirmed = Boolean(ord['actual_cost_confirmed']);
@@ -397,13 +699,40 @@ export async function recomputeOrderReceivableState(
     ? cancelStatus === CancellationSettlementStatus.SETTLED
       ? retainedFee
       : 0
-    : metrics.validReceivableAmount;
+    : effectiveMetrics.validReceivableAmount;
   const nextActualProfit = isConfirmed
     ? confirmedRev -
       toInt(ord['actual_vendor_cost'], 0) -
       toInt(ord['actual_shipping_fee'], 0) -
       toInt(ord['actual_extra_cost'], 0)
     : toInt(ord['actual_profit'], 0);
+
+  let nextLegacyArReconStatus =
+    typeof ord['legacy_ar_reconciliation_status'] === 'string'
+      ? ord['legacy_ar_reconciliation_status']
+      : 'NOT_REQUIRED';
+
+  if (hasPre0036Snapshot) {
+    const pre0036RemSnapshot = toInt(
+      ord['pre0036_remaining_debt_snapshot'],
+      Math.max(0, grossOrderAmount - pre0036PaidSnapshot),
+    );
+    const hasUnresolvedMismatch =
+      !balanceDiscrepancyResolved &&
+      (pre0036PaidSnapshot !== allLegacyNet ||
+        (!isCancelled &&
+          pre0036RemSnapshot !==
+            Math.max(0, grossOrderAmount - pre0036PaidSnapshot)));
+    if (
+      !ord['customer_id'] ||
+      pendingLegacyCount > 0 ||
+      hasUnresolvedMismatch
+    ) {
+      nextLegacyArReconStatus = 'PENDING';
+    } else if (nextLegacyArReconStatus === 'PENDING') {
+      nextLegacyArReconStatus = 'RECONCILED';
+    }
+  }
 
   const updRes = await client.query(
     `UPDATE print_orders
@@ -415,18 +744,20 @@ export async function recomputeOrderReceivableState(
          payment_status = $6,
          cancellation_settlement_status = $7,
          actual_profit = $8,
+         legacy_ar_reconciliation_status = $9,
          updated_at = now()
-     WHERE id = $9 AND workspace_id = $10
+     WHERE id = $10 AND workspace_id = $11
      RETURNING *`,
     [
       netArAdj,
-      metrics.validReceivableAmount,
+      effectiveMetrics.validReceivableAmount,
       depositPaid,
-      netAllocatedReceipt,
-      metrics.remainingReceivableAmount,
+      effectiveTotalPaid,
+      effectiveMetrics.remainingReceivableAmount,
       paymentStatus,
       cancelStatus,
       nextActualProfit,
+      nextLegacyArReconStatus,
       orderId,
       workspaceId,
     ],
@@ -434,10 +765,15 @@ export async function recomputeOrderReceivableState(
 
   return {
     orderRow: updRes.rows[0]!,
-    validReceivableAmount: metrics.validReceivableAmount,
-    netAllocatedReceiptAmount: netAllocatedReceipt,
-    remainingReceivableAmount: metrics.remainingReceivableAmount,
-    overAllocatedAmount: metrics.overAllocatedAmount,
+    validReceivableAmount: effectiveMetrics.validReceivableAmount,
+    netAllocatedReceiptAmount: officialAllocatedReceipt,
+    legacyPendingNetAmount: legacyPendingNet,
+    pendingLegacyCount,
+    effectiveTotalPaidAmount: effectiveTotalPaid,
+    officialRemainingReceivableAmount:
+      officialMetrics.remainingReceivableAmount,
+    remainingReceivableAmount: effectiveMetrics.remainingReceivableAmount,
+    overAllocatedAmount: effectiveMetrics.overAllocatedAmount,
   };
 }
 

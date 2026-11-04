@@ -325,6 +325,10 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     .net_allocated_customer_receipt ?? 0,
                 )}
                 )
+                {(financialReport?.cashflow_and_debt
+                  .legacy_pending_ar_payments_count ?? 0) > 0
+                  ? ` • Chờ đối chiếu cũ: ${formatVnd(financialReport?.cashflow_and_debt.legacy_pending_ar_net_total ?? 0)}`
+                  : ''}
               </div>
             </div>
 

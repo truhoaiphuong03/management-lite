@@ -75,6 +75,8 @@ import {
   mirrorLegacyOrderPaymentToAr,
   recomputeOrderReceivableState,
   mapWorkshopJobRow,
+  isValidUuid,
+  resolveMandatoryWorkspaceCustomerInTx,
 } from './ledger-helpers.js';
 import { initOrderWorkshopJobsTx } from './ledger-ar-ap-ops.js';
 import { PrintQuoteLedgerService } from './ledger-service.js';
@@ -4028,10 +4030,10 @@ export class PrintQuoteService {
     this.assertOwnerAccess(ctx);
     const quoteId =
       typeof input['quote_id'] === 'string' ? input['quote_id'].trim() : '';
-    if (!quoteId) {
+    if (!quoteId || !isValidUuid(quoteId)) {
       throw new AuthError(
         'VALIDATION_ERROR',
-        'Mã báo giá (quote_id) là bắt buộc để tạo đơn hàng.',
+        'Mã báo giá (quote_id) là bắt buộc và phải đúng định dạng UUID để tạo đơn hàng.',
         400,
       );
     }
@@ -4096,14 +4098,26 @@ export class PrintQuoteService {
           );
         }
 
-        // Khóa báo giá sang trạng thái CONVERTED (chốt bất biến)
+        // Bắt buộc gắn customer_id hợp lệ thuộc cùng workspace cho đơn MỚI (hỗ trợ tạo nhanh quick_customer)
+        const verifiedCustomer = await resolveMandatoryWorkspaceCustomerInTx(
+          client,
+          ctx.workspace.id,
+          {
+            explicitCustomerId: input['customer_id'],
+            fallbackQuoteCustomerId: quoteRow['customer_id'],
+            quickCustomer: input['quick_customer'],
+          },
+        );
+
+        // Khóa báo giá sang trạng thái CONVERTED (chốt bất biến, đồng bộ customer_id nếu trước đó chưa gắn)
         await client.query(
           `UPDATE print_quotes
            SET status = 'CONVERTED',
+               customer_id = COALESCE(customer_id, $3),
                finalized_at = COALESCE(finalized_at, now()),
                updated_at = now()
            WHERE id = $1 AND workspace_id = $2`,
-          [quoteId, ctx.workspace.id],
+          [quoteId, ctx.workspace.id, verifiedCustomer.id],
         );
 
         const orderCode = await this.allocateNextCode(
@@ -4303,10 +4317,10 @@ export class PrintQuoteService {
             quoteId,
             String(quoteRow['quote_code']),
             toInt(quoteRow['current_version'], 1),
-            quoteRow['customer_id'],
-            String(quoteRow['customer_name']),
-            quoteRow['customer_phone'],
-            quoteRow['customer_address'],
+            verifiedCustomer.id,
+            verifiedCustomer.name,
+            quoteRow['customer_phone'] ?? verifiedCustomer.phone,
+            quoteRow['customer_address'] ?? verifiedCustomer.address,
             vendorId,
             vendorName,
             typeof input['title'] === 'string' && input['title'].trim()
@@ -4884,48 +4898,70 @@ export class PrintQuoteService {
           );
         }
 
-        const totalQuoteAmount = toInt(ord['total_quote_amount'], 0);
+        if (!ord['customer_id']) {
+          throw new AuthError(
+            'CUSTOMER_REQUIRED_BEFORE_PAYMENT',
+            'Đơn hàng cũ chưa gắn mã khách hàng hợp lệ (customer_id). Vui lòng gắn khách hàng trong danh sách chờ đối chiếu trước khi ghi nhận thu/hoàn mới.',
+            409,
+          );
+        }
 
-        const existingPayRes = await client.query(
-          `SELECT * FROM print_order_payments WHERE order_id = $1 AND workspace_id = $2 ORDER BY paid_at ASC, created_at ASC`,
-          [orderId, ctx.workspace.id],
-        );
-        const existingPayments = existingPayRes.rows.map((p) =>
-          this.mapPaymentRow(p),
-        );
-
-        let runningDepositPaid = 0;
-        let runningTotalPaid = 0;
-        for (const p of existingPayments) {
-          if (p.payment_type === 'REFUND') {
-            runningTotalPaid = Math.max(0, runningTotalPaid - p.amount);
-            runningDepositPaid = Math.min(runningDepositPaid, runningTotalPaid);
-          } else {
-            if (p.payment_type === 'DEPOSIT') {
-              runningDepositPaid += p.amount;
-            }
-            runningTotalPaid += p.amount;
+        if (
+          ord['pre0036_total_paid_snapshot'] !== null &&
+          ord['pre0036_total_paid_snapshot'] !== undefined &&
+          !ord['legacy_balance_discrepancy_resolved']
+        ) {
+          const legPayCheck = await client.query<{
+            rec_sum: string;
+            ref_sum: string;
+          }>(
+            `SELECT
+               COALESCE(SUM(amount) FILTER (WHERE payment_type <> 'REFUND'), 0)::text AS rec_sum,
+               COALESCE(SUM(amount) FILTER (WHERE payment_type = 'REFUND'), 0)::text AS ref_sum
+             FROM print_order_payments
+             WHERE workspace_id = $1 AND order_id = $2`,
+            [ctx.workspace.id, orderId],
+          );
+          const legNet =
+            toInt(legPayCheck.rows[0]?.rec_sum, 0) -
+            toInt(legPayCheck.rows[0]?.ref_sum, 0);
+          const prePaid = toInt(ord['pre0036_total_paid_snapshot'], 0);
+          const preRem = toInt(ord['pre0036_remaining_debt_snapshot'], 0);
+          const grossAmt = toInt(ord['total_quote_amount'], 0);
+          if (
+            prePaid !== legNet ||
+            (ord['production_status'] !== PrintProductionStatus.CANCELLED &&
+              preRem !== Math.max(0, grossAmt - prePaid))
+          ) {
+            throw new AuthError(
+              'LEGACY_BALANCE_MISMATCH_UNRESOLVED',
+              'Đơn hàng cũ có chênh lệch số dư lịch sử chưa đối chiếu. Vui lòng đối chiếu số dư trên màn hình Công nợ khách hàng trước khi ghi nhận thanh toán mới.',
+              409,
+            );
           }
         }
 
-        const currentRemainingDebt = Math.max(
-          0,
-          totalQuoteAmount - runningTotalPaid,
+        const arState = await recomputeOrderReceivableState(
+          client,
+          ctx.workspace.id,
+          orderId,
         );
 
         if (paymentType === 'REFUND') {
-          if (amount > runningTotalPaid) {
+          if (amount > arState.netAllocatedReceiptAmount) {
             throw new AuthError(
               'VALIDATION_ERROR',
-              `Số tiền hoàn trả (${amount} VND) không được vượt quá tổng số tiền khách đã thanh toán (${runningTotalPaid} VND).`,
+              arState.legacyPendingNetAmount > 0
+                ? `Số tiền hoàn trả (${amount} VND) vượt quá số tiền đã xác nhận vào sổ AR chính thức (${arState.netAllocatedReceiptAmount} VND). Đơn đang có ${arState.legacyPendingNetAmount} VND phiếu cũ chờ đối chiếu — vui lòng xác nhận đối chiếu phiếu thu gốc trước khi hoàn tiền.`
+                : `Số tiền hoàn trả (${amount} VND) không được vượt quá tổng số tiền khách đã xác nhận thanh toán (${arState.netAllocatedReceiptAmount} VND).`,
               400,
             );
           }
         } else {
-          if (amount > currentRemainingDebt) {
+          if (amount > arState.remainingReceivableAmount) {
             throw new AuthError(
               'VALIDATION_ERROR',
-              `Số tiền thanh toán (${amount} VND) vượt quá công nợ còn lại của đơn hàng (${currentRemainingDebt} VND).`,
+              `Số tiền thanh toán (${amount} VND) vượt quá công nợ còn lại của đơn hàng (${arState.remainingReceivableAmount} VND).`,
               400,
             );
           }
@@ -5114,6 +5150,21 @@ export class PrintQuoteService {
       legacy_vendor_paid_reconciled_by: r['legacy_vendor_paid_reconciled_by']
         ? String(r['legacy_vendor_paid_reconciled_by'])
         : null,
+      pre0036_total_paid_snapshot:
+        r['pre0036_total_paid_snapshot'] !== undefined &&
+        r['pre0036_total_paid_snapshot'] !== null
+          ? toInt(r['pre0036_total_paid_snapshot'], 0)
+          : null,
+      pre0036_remaining_debt_snapshot:
+        r['pre0036_remaining_debt_snapshot'] !== undefined &&
+        r['pre0036_remaining_debt_snapshot'] !== null
+          ? toInt(r['pre0036_remaining_debt_snapshot'], 0)
+          : null,
+      legacy_ar_reconciliation_status:
+        r['legacy_ar_reconciliation_status'] === 'PENDING' ||
+        r['legacy_ar_reconciliation_status'] === 'RECONCILED'
+          ? r['legacy_ar_reconciliation_status']
+          : 'NOT_REQUIRED',
       snapshot_json: r['snapshot_json'] as PersistedQuoteOrderSnapshot,
       integrity_hash: String(r['integrity_hash']),
       notes: r['notes'] ? String(r['notes']) : null,

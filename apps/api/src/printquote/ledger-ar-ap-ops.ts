@@ -19,6 +19,9 @@ import {
   assertSafeNonNegativeVnd,
   assertTransactionConservationInvariant,
   normalizeLedgerScopeInput,
+  evaluateLegacyPaymentReconciliationAnomalies,
+  LegacyArHistoryAction,
+  LegacyArReconciliationStatus,
   type PersistedQuoteLineSnapshot,
   type WorkshopJobLineRef,
   type WorkshopJobStatusType,
@@ -54,6 +57,8 @@ import {
   mapApAllocationRow,
   mapApAdjustmentRow,
   mapCancellationSettlementRow,
+  isValidUuid,
+  resolveMandatoryWorkspaceCustomerInTx,
 } from './ledger-helpers.js';
 
 function normalizePaymentMethod(
@@ -1075,6 +1080,13 @@ async function applyArAllocationsInternal(
         throw new AuthError(
           'ORDER_CANCELLED',
           `Không thể phân bổ thu tiền vào đơn đã hủy (${String(ord['order_code'])}).`,
+          409,
+        );
+      }
+      if (!ord['customer_id']) {
+        throw new AuthError(
+          'CUSTOMER_REQUIRED_BEFORE_PAYMENT',
+          `Đơn hàng cũ ${String(ord['order_code'])} chưa gắn mã khách hàng (customer_id). Vui lòng gắn khách hàng trong phần Đối chiếu công nợ trước khi phân bổ phiếu thu.`,
           409,
         );
       }
@@ -3200,6 +3212,14 @@ export async function settleCancelledOrderTx(
     );
   }
 
+  if (state.pendingLegacyCount > 0) {
+    throw new AuthError(
+      'LEGACY_AR_RECONCILIATION_REQUIRED',
+      `Đơn hủy ${String(ord['order_code'])} đang còn ${state.pendingLegacyCount} phiếu thu/hoàn cũ chờ đối chiếu. Vui lòng đối chiếu và xác nhận vào sổ AR chính thức trước khi lập biên bản quyết toán hủy.`,
+      409,
+    );
+  }
+
   const holding = state.netAllocatedReceiptAmount;
   const agreedRefund = assertSafeNonNegativeVnd(
     toInt(input['agreed_customer_refund_amount'], -1),
@@ -3291,4 +3311,845 @@ export async function settleCancelledOrderTx(
   });
 
   return settlement;
+}
+
+// ============================================================================
+// 5. LEGACY print_order_payments -> OFFICIAL AR RECONCILIATION GATE (0036 QA)
+// ============================================================================
+
+export async function refreshOrderPendingLegacyAnomaliesTx(
+  client: pg.PoolClient,
+  workspaceId: string,
+  orderId: string,
+): Promise<void> {
+  const ordRes = await client.query(
+    `SELECT o.*, c.id AS verified_customer_id
+     FROM print_orders o
+     LEFT JOIN print_customers c ON c.id = o.customer_id AND c.workspace_id = o.workspace_id
+     WHERE o.id = $1 AND o.workspace_id = $2`,
+    [orderId, workspaceId],
+  );
+  const ord = ordRes.rows[0];
+  if (!ord) return;
+
+  const payTotalsRes = await client.query<{
+    rec_sum: string;
+    ref_sum: string;
+  }>(
+    `SELECT
+       COALESCE(SUM(amount) FILTER (WHERE payment_type <> 'REFUND'), 0)::text AS rec_sum,
+       COALESCE(SUM(amount) FILTER (WHERE payment_type = 'REFUND'), 0)::text AS ref_sum
+     FROM print_order_payments
+     WHERE workspace_id = $1 AND order_id = $2`,
+    [workspaceId, orderId],
+  );
+  const arAllocRes = await client.query<{
+    apply_sum: string;
+    unapply_sum: string;
+    refund_sum: string;
+  }>(
+    `SELECT
+       COALESCE(SUM(amount) FILTER (WHERE direction = 'APPLY'), 0)::text AS apply_sum,
+       COALESCE(SUM(amount) FILTER (WHERE direction = 'UNAPPLY_REVERSAL'), 0)::text AS unapply_sum,
+       COALESCE(SUM(amount) FILTER (WHERE direction = 'REFUND_RELEASE'), 0)::text AS refund_sum
+     FROM print_ar_allocations
+     WHERE workspace_id = $1 AND order_id = $2`,
+    [workspaceId, orderId],
+  );
+  const pendingRowsRes = await client.query<{
+    reconciliation_id: string;
+    payment_type: string;
+    amount: string;
+  }>(
+    `SELECT r.id AS reconciliation_id, p.payment_type, p.amount::text AS amount
+     FROM print_legacy_ar_reconciliations r
+     JOIN print_order_payments p ON p.id = r.legacy_payment_id
+     WHERE r.workspace_id = $1 AND r.order_id = $2 AND r.status IN ('PENDING', 'ON_HOLD')`,
+    [workspaceId, orderId],
+  );
+
+  const grossReceipts = toInt(payTotalsRes.rows[0]?.rec_sum, 0);
+  const grossRefunds = toInt(payTotalsRes.rows[0]?.ref_sum, 0);
+  const officialNet = Math.max(
+    0,
+    toInt(arAllocRes.rows[0]?.apply_sum, 0) -
+      toInt(arAllocRes.rows[0]?.unapply_sum, 0) -
+      toInt(arAllocRes.rows[0]?.refund_sum, 0),
+  );
+  const grossQuote = toInt(ord['total_quote_amount'], 0);
+  const validRec = toInt(ord['valid_receivable_amount'], grossQuote);
+  const prePaid =
+    ord['pre0036_total_paid_snapshot'] !== null &&
+    ord['pre0036_total_paid_snapshot'] !== undefined
+      ? toInt(ord['pre0036_total_paid_snapshot'], 0)
+      : toInt(ord['total_paid_amount'], 0);
+  const preRem =
+    ord['pre0036_remaining_debt_snapshot'] !== null &&
+    ord['pre0036_remaining_debt_snapshot'] !== undefined
+      ? toInt(ord['pre0036_remaining_debt_snapshot'], 0)
+      : Math.max(0, grossQuote - prePaid);
+
+  for (const row of pendingRowsRes.rows) {
+    const evalRes = evaluateLegacyPaymentReconciliationAnomalies({
+      paymentType: row.payment_type,
+      paymentAmount: toInt(row.amount, 0),
+      hasValidSameWorkspaceCustomer: Boolean(ord['verified_customer_id']),
+      isOrderCancelled:
+        ord['production_status'] === PrintProductionStatus.CANCELLED,
+      cancellationSettlementStatus: String(
+        ord['cancellation_settlement_status'] || 'NOT_APPLICABLE',
+      ),
+      orderGrossQuoteAmount: grossQuote,
+      orderValidReceivableAmount: validRec,
+      pre0036TotalPaidSnapshot: prePaid,
+      pre0036RemainingDebtSnapshot: preRem,
+      orderLegacyGrossReceipts: grossReceipts,
+      orderLegacyGrossRefunds: grossRefunds,
+      officialArNetAllocatedOnOrder: officialNet,
+      balanceDiscrepancyResolved: Boolean(
+        ord['legacy_balance_discrepancy_resolved'],
+      ),
+    });
+
+    await client.query(
+      `UPDATE print_legacy_ar_reconciliations
+       SET anomaly_codes = $1::jsonb,
+           updated_at = now()
+       WHERE id = $2 AND workspace_id = $3`,
+      [
+        JSON.stringify(evalRes.anomalyCodes),
+        row.reconciliation_id,
+        workspaceId,
+      ],
+    );
+  }
+}
+
+export async function linkCustomerToLegacyOrderTx(
+  client: pg.PoolClient,
+  ctx: AuthenticatedContext,
+  orderId: string,
+  input: Record<string, unknown>,
+  requestId: string,
+): Promise<{
+  order_id: string;
+  order_code: string;
+  customer_id: string;
+  customer_code: string;
+  customer_name: string;
+}> {
+  if (!isValidUuid(orderId)) {
+    throw new AuthError('VALIDATION_ERROR', 'Mã đơn hàng không hợp lệ.', 400);
+  }
+  const reason = requireNonEmptyReason(
+    input['reason'],
+    'Lý do gắn khách hàng cho đơn hàng cũ',
+  );
+
+  const ordRes = await client.query(
+    `SELECT * FROM print_orders WHERE id = $1 AND workspace_id = $2 FOR UPDATE`,
+    [orderId, ctx.workspace.id],
+  );
+  const ord = ordRes.rows[0];
+  if (!ord) {
+    throw new AuthError('NOT_FOUND', 'Không tìm thấy đơn hàng in ấn.', 404);
+  }
+
+  if (ord['customer_id']) {
+    throw new AuthError(
+      'ORDER_ALREADY_HAS_CUSTOMER',
+      `Đơn hàng ${String(ord['order_code'])} đã có mã khách hàng (${String(ord['customer_id'])}), không thể ghi đè tự động.`,
+      409,
+    );
+  }
+
+  const verifiedCustomer = await resolveMandatoryWorkspaceCustomerInTx(
+    client,
+    ctx.workspace.id,
+    {
+      explicitCustomerId: input['customer_id'],
+      quickCustomer: input['quick_customer'],
+    },
+  );
+
+  const beforeJson = {
+    order_id: orderId,
+    order_code: String(ord['order_code']),
+    customer_id: null,
+    customer_name: String(ord['customer_name']),
+    customer_phone: ord['customer_phone'] ?? null,
+  };
+
+  await client.query(
+    `UPDATE print_orders
+     SET customer_id = $1,
+         customer_phone = COALESCE(customer_phone, $2),
+         customer_address = COALESCE(customer_address, $3),
+         updated_at = now()
+     WHERE id = $4 AND workspace_id = $5`,
+    [
+      verifiedCustomer.id,
+      verifiedCustomer.phone,
+      verifiedCustomer.address,
+      orderId,
+      ctx.workspace.id,
+    ],
+  );
+
+  if (ord['quote_id']) {
+    await client.query(
+      `UPDATE print_quotes
+       SET customer_id = COALESCE(customer_id, $1)
+       WHERE id = $2 AND workspace_id = $3`,
+      [verifiedCustomer.id, String(ord['quote_id']), ctx.workspace.id],
+    );
+  }
+
+  await refreshOrderPendingLegacyAnomaliesTx(client, ctx.workspace.id, orderId);
+  await recomputeOrderReceivableState(client, ctx.workspace.id, orderId);
+
+  const afterJson = {
+    order_id: orderId,
+    order_code: String(ord['order_code']),
+    customer_id: verifiedCustomer.id,
+    customer_code: verifiedCustomer.code,
+    linked_customer_name: verifiedCustomer.name,
+  };
+
+  await client.query(
+    `INSERT INTO print_legacy_ar_reconciliation_history (
+       workspace_id, reconciliation_id, legacy_payment_id, order_id,
+       action, before_json, after_json, reason, actor_id
+     ) VALUES ($1, NULL, NULL, $2, $3, $4::jsonb, $5::jsonb, $6, $7)`,
+    [
+      ctx.workspace.id,
+      orderId,
+      LegacyArHistoryAction.CUSTOMER_LINKED,
+      JSON.stringify(beforeJson),
+      JSON.stringify(afterJson),
+      reason,
+      ctx.user.id,
+    ],
+  );
+
+  await recordAuditEvent(client, {
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    action: 'printquote.legacy_ar.link_customer',
+    entityType: 'print_order',
+    entityId: orderId,
+    requestId,
+    metadata: { ...afterJson, reason },
+  });
+
+  return {
+    order_id: orderId,
+    order_code: String(ord['order_code']),
+    customer_id: verifiedCustomer.id,
+    customer_code: verifiedCustomer.code,
+    customer_name: verifiedCustomer.name,
+  };
+}
+
+export async function reconcileLegacyOrderBalanceDiscrepancyTx(
+  client: pg.PoolClient,
+  ctx: AuthenticatedContext,
+  orderId: string,
+  input: Record<string, unknown>,
+  requestId: string,
+): Promise<{
+  order_id: string;
+  order_code: string;
+  aligned_total_paid_amount: number;
+  aligned_remaining_debt_amount: number;
+}> {
+  if (!isValidUuid(orderId)) {
+    throw new AuthError('VALIDATION_ERROR', 'Mã đơn hàng không hợp lệ.', 400);
+  }
+  const reason = requireNonEmptyReason(
+    input['reason'],
+    'Biên bản/lý do xác nhận đối chiếu chênh lệch số dư đơn cũ',
+  );
+
+  const ordRes = await client.query(
+    `SELECT * FROM print_orders WHERE id = $1 AND workspace_id = $2 FOR UPDATE`,
+    [orderId, ctx.workspace.id],
+  );
+  const ord = ordRes.rows[0];
+  if (!ord) {
+    throw new AuthError('NOT_FOUND', 'Không tìm thấy đơn hàng.', 404);
+  }
+  if (!ord['customer_id']) {
+    throw new AuthError(
+      'MISSING_CUSTOMER_ID_FOR_RECONCILIATION',
+      'Phải gắn mã khách hàng hợp lệ (customer_id) cho đơn cũ trước khi chốt đối chiếu chênh lệch số dư.',
+      409,
+    );
+  }
+
+  const payTotalsRes = await client.query<{
+    rec_sum: string;
+    ref_sum: string;
+  }>(
+    `SELECT
+       COALESCE(SUM(amount) FILTER (WHERE payment_type <> 'REFUND'), 0)::text AS rec_sum,
+       COALESCE(SUM(amount) FILTER (WHERE payment_type = 'REFUND'), 0)::text AS ref_sum
+     FROM print_order_payments
+     WHERE workspace_id = $1 AND order_id = $2`,
+    [ctx.workspace.id, orderId],
+  );
+  const grossReceipts = toInt(payTotalsRes.rows[0]?.rec_sum, 0);
+  const grossRefunds = toInt(payTotalsRes.rows[0]?.ref_sum, 0);
+  const legacyNet = grossReceipts - grossRefunds;
+  const grossQuote = toInt(ord['total_quote_amount'], 0);
+  const maxCap =
+    ord['production_status'] === PrintProductionStatus.CANCELLED
+      ? grossQuote
+      : toInt(ord['valid_receivable_amount'], grossQuote);
+
+  if (grossRefunds > grossReceipts || legacyNet > maxCap) {
+    throw new AuthError(
+      'UNRESOLVABLE_LEGACY_OVERFLOW',
+      `Các dòng thanh toán cũ của đơn ${String(ord['order_code'])} vượt giới hạn hợp lệ (thu=${grossReceipts}, hoàn=${grossRefunds}, phải thu tối đa=${maxCap}). Vui lòng tạm giữ dòng sai lệch thay vì đồng bộ số dư.`,
+      409,
+    );
+  }
+
+  const beforeJson = {
+    pre0036_total_paid_snapshot: toInt(ord['pre0036_total_paid_snapshot'], 0),
+    pre0036_remaining_debt_snapshot: toInt(
+      ord['pre0036_remaining_debt_snapshot'],
+      0,
+    ),
+    current_total_paid_amount: toInt(ord['total_paid_amount'], 0),
+    current_remaining_debt_amount: toInt(ord['remaining_debt_amount'], 0),
+    legacy_gross_receipts: grossReceipts,
+    legacy_gross_refunds: grossRefunds,
+    legacy_net_payments: legacyNet,
+  };
+
+  await client.query(
+    `UPDATE print_orders
+     SET legacy_balance_discrepancy_resolved = true,
+         updated_at = now()
+     WHERE id = $1 AND workspace_id = $2`,
+    [orderId, ctx.workspace.id],
+  );
+
+  await refreshOrderPendingLegacyAnomaliesTx(client, ctx.workspace.id, orderId);
+  const stateAfter = await recomputeOrderReceivableState(
+    client,
+    ctx.workspace.id,
+    orderId,
+  );
+
+  const afterJson = {
+    legacy_balance_discrepancy_resolved: true,
+    aligned_total_paid_amount: stateAfter.effectiveTotalPaidAmount,
+    aligned_remaining_debt_amount: stateAfter.remainingReceivableAmount,
+    official_ar_allocated: stateAfter.netAllocatedReceiptAmount,
+    legacy_pending_net: stateAfter.legacyPendingNetAmount,
+  };
+
+  await client.query(
+    `INSERT INTO print_legacy_ar_reconciliation_history (
+       workspace_id, reconciliation_id, legacy_payment_id, order_id,
+       action, before_json, after_json, reason, actor_id
+     ) VALUES ($1, NULL, NULL, $2, $3, $4::jsonb, $5::jsonb, $6, $7)`,
+    [
+      ctx.workspace.id,
+      orderId,
+      LegacyArHistoryAction.BALANCE_DISCREPANCY_RESOLVED,
+      JSON.stringify(beforeJson),
+      JSON.stringify(afterJson),
+      reason,
+      ctx.user.id,
+    ],
+  );
+
+  await recordAuditEvent(client, {
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    action: 'printquote.legacy_ar.resolve_balance_discrepancy',
+    entityType: 'print_order',
+    entityId: orderId,
+    requestId,
+    metadata: { ...afterJson, reason },
+  });
+
+  return {
+    order_id: orderId,
+    order_code: String(ord['order_code']),
+    aligned_total_paid_amount: stateAfter.effectiveTotalPaidAmount,
+    aligned_remaining_debt_amount: stateAfter.remainingReceivableAmount,
+  };
+}
+
+export async function confirmLegacyPaymentToArTx(
+  client: pg.PoolClient,
+  ctx: AuthenticatedContext,
+  targetId: string,
+  input: Record<string, unknown>,
+  requestId: string,
+): Promise<{
+  reconciliation_id: string;
+  legacy_payment_id: string;
+  ar_transaction: PrintArTransactionData;
+  before_snapshot: Record<string, unknown>;
+  after_snapshot: Record<string, unknown>;
+}> {
+  if (!isValidUuid(targetId)) {
+    throw new AuthError(
+      'VALIDATION_ERROR',
+      'Mã phiếu đối chiếu không hợp lệ.',
+      400,
+    );
+  }
+
+  const lookupRes = await client.query<{
+    reconciliation_id: string;
+    order_id: string;
+  }>(
+    `SELECT id AS reconciliation_id, order_id
+     FROM print_legacy_ar_reconciliations
+     WHERE workspace_id = $1 AND (id = $2 OR legacy_payment_id = $2)
+     LIMIT 1`,
+    [ctx.workspace.id, targetId],
+  );
+  const lookup = lookupRes.rows[0];
+  if (!lookup) {
+    throw new AuthError(
+      'NOT_FOUND',
+      'Không tìm thấy phiếu thu/hoàn cũ trong danh sách đối chiếu.',
+      404,
+    );
+  }
+
+  // Lock parent order first, then reconciliation row in deterministic order
+  const ordLockRes = await client.query(
+    `SELECT o.*, c.id AS verified_customer_id, c.name AS verified_customer_name
+     FROM print_orders o
+     LEFT JOIN print_customers c ON c.id = o.customer_id AND c.workspace_id = o.workspace_id
+     WHERE o.id = $1 AND o.workspace_id = $2
+     FOR UPDATE OF o`,
+    [lookup.order_id, ctx.workspace.id],
+  );
+  const ord = ordLockRes.rows[0];
+  if (!ord) {
+    throw new AuthError('NOT_FOUND', 'Không tìm thấy đơn hàng liên kết.', 404);
+  }
+
+  const recRes = await client.query(
+    `SELECT r.*,
+            p.payment_type, p.amount, p.payment_method, p.paid_at,
+            p.reference_code, p.note AS payment_note, p.recorded_by AS payment_recorded_by
+     FROM print_legacy_ar_reconciliations r
+     JOIN print_order_payments p ON p.id = r.legacy_payment_id
+     WHERE r.id = $1 AND r.workspace_id = $2
+     FOR UPDATE OF r`,
+    [lookup.reconciliation_id, ctx.workspace.id],
+  );
+  const rec = recRes.rows[0]!;
+
+  if (
+    rec['status'] === LegacyArReconciliationStatus.CONFIRMED ||
+    rec['status'] === LegacyArReconciliationStatus.POSTED_DIRECT
+  ) {
+    throw new AuthError(
+      'ALREADY_CONFIRMED_TO_AR',
+      'Phiếu thu/hoàn cũ này đã được xác nhận vào sổ AR chính thức trước đó, không ghi nhận trùng.',
+      409,
+    );
+  }
+
+  const stateBefore = await recomputeOrderReceivableState(
+    client,
+    ctx.workspace.id,
+    lookup.order_id,
+  );
+
+  const payTotalsRes = await client.query<{
+    rec_sum: string;
+    ref_sum: string;
+  }>(
+    `SELECT
+       COALESCE(SUM(amount) FILTER (WHERE payment_type <> 'REFUND'), 0)::text AS rec_sum,
+       COALESCE(SUM(amount) FILTER (WHERE payment_type = 'REFUND'), 0)::text AS ref_sum
+     FROM print_order_payments
+     WHERE workspace_id = $1 AND order_id = $2`,
+    [ctx.workspace.id, lookup.order_id],
+  );
+
+  const grossReceipts = toInt(payTotalsRes.rows[0]?.rec_sum, 0);
+  const grossRefunds = toInt(payTotalsRes.rows[0]?.ref_sum, 0);
+  const paymentType = String(rec['payment_type'] || 'INSTALLMENT');
+  const paymentAmount = toInt(rec['amount'], 0);
+  const grossQuote = toInt(ord['total_quote_amount'], 0);
+  const prePaid =
+    ord['pre0036_total_paid_snapshot'] !== null &&
+    ord['pre0036_total_paid_snapshot'] !== undefined
+      ? toInt(ord['pre0036_total_paid_snapshot'], 0)
+      : toInt(ord['total_paid_amount'], 0);
+  const preRem =
+    ord['pre0036_remaining_debt_snapshot'] !== null &&
+    ord['pre0036_remaining_debt_snapshot'] !== undefined
+      ? toInt(ord['pre0036_remaining_debt_snapshot'], 0)
+      : Math.max(0, grossQuote - prePaid);
+
+  const evalRes = evaluateLegacyPaymentReconciliationAnomalies({
+    paymentType,
+    paymentAmount,
+    hasValidSameWorkspaceCustomer: Boolean(ord['verified_customer_id']),
+    isOrderCancelled:
+      ord['production_status'] === PrintProductionStatus.CANCELLED,
+    cancellationSettlementStatus: String(
+      ord['cancellation_settlement_status'] || 'NOT_APPLICABLE',
+    ),
+    orderGrossQuoteAmount: grossQuote,
+    orderValidReceivableAmount: stateBefore.validReceivableAmount,
+    pre0036TotalPaidSnapshot: prePaid,
+    pre0036RemainingDebtSnapshot: preRem,
+    orderLegacyGrossReceipts: grossReceipts,
+    orderLegacyGrossRefunds: grossRefunds,
+    officialArNetAllocatedOnOrder: stateBefore.netAllocatedReceiptAmount,
+    balanceDiscrepancyResolved: Boolean(
+      ord['legacy_balance_discrepancy_resolved'],
+    ),
+  });
+
+  if (!evalRes.canConfirm) {
+    if (evalRes.anomalyCodes.includes('MISSING_CUSTOMER_ID')) {
+      throw new AuthError(
+        'MISSING_CUSTOMER_ID_FOR_RECONCILIATION',
+        'Đơn hàng cũ chưa gắn mã khách hàng hợp lệ (customer_id) thuộc cùng workspace. Vui lòng gắn khách hàng trước khi xác nhận vào sổ AR chính thức.',
+        409,
+      );
+    }
+    if (
+      evalRes.anomalyCodes.length === 1 &&
+      evalRes.anomalyCodes[0] === 'REFUND_AWAITING_CONFIRMED_RECEIPT'
+    ) {
+      throw new AuthError(
+        'REFUND_REQUIRES_CONFIRMED_RECEIPT',
+        'Phải xác nhận phiếu thu gốc trên đơn hàng này vào sổ AR chính thức trước khi xác nhận phiếu hoàn tiền.',
+        409,
+      );
+    }
+    throw new AuthError(
+      'LEGACY_ANOMALY_BLOCKS_CONFIRMATION',
+      `Không thể xác nhận dòng phiếu cũ đang có bất thường (${evalRes.anomalyCodes.join(', ')}). Hệ thống không tự xác nhận dòng không khớp.`,
+      409,
+    );
+  }
+
+  const paymentId = String(rec['legacy_payment_id']);
+  const isRefund = paymentType === 'REFUND';
+  const scope = normalizeLedgerScopeInput(ord['ledger_scope']);
+  const resolutionNote =
+    typeof input['note'] === 'string' && input['note'].trim()
+      ? input['note'].trim()
+      : typeof input['reason'] === 'string' && input['reason'].trim()
+        ? input['reason'].trim()
+        : null;
+
+  const preferredTxCode = `${isRefund ? 'HT-MIG-' : 'PT-MIG-'}${paymentId.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
+  const codeCollisionRes = await client.query(
+    `SELECT 1 FROM print_ar_transactions WHERE workspace_id = $1 AND tx_code = $2 LIMIT 1`,
+    [ctx.workspace.id, preferredTxCode],
+  );
+  const txCode =
+    codeCollisionRes.rows.length === 0
+      ? preferredTxCode
+      : await allocateNextLedgerCode(client, ctx.workspace.id, 'AR_TX');
+
+  assertTransactionConservationInvariant({
+    label: `confirmLegacyPayment(${txCode})`,
+    amount: paymentAmount,
+    allocatedAmount: paymentAmount,
+    refundedUnallocatedAmount: 0,
+    unallocatedAmount: 0,
+  });
+
+  const beforeSnapshot: Record<string, unknown> = {
+    status: String(rec['status']),
+    order_code: String(ord['order_code']),
+    official_ar_allocated_before: stateBefore.netAllocatedReceiptAmount,
+    legacy_pending_net_before: stateBefore.legacyPendingNetAmount,
+    effective_order_paid_before: stateBefore.effectiveTotalPaidAmount,
+    order_remaining_before: stateBefore.remainingReceivableAmount,
+  };
+
+  const txInsRes = await client.query(
+    `INSERT INTO print_ar_transactions (
+       workspace_id, tx_code, customer_id, customer_name, ledger_scope,
+       tx_kind, receipt_subtype, amount, allocated_amount,
+       refunded_unallocated_amount, unallocated_amount,
+       payment_method, occurred_at, reference_code, note,
+       status, related_order_id, legacy_order_payment_id, recorded_by
+     ) VALUES (
+       $1, $2, $3, $4, $5,
+       $6, $7, $8, $8,
+       0, 0,
+       $9, $10, $11, $12,
+       'POSTED', $13, $14, $15
+     ) RETURNING *`,
+    [
+      ctx.workspace.id,
+      txCode,
+      String(ord['verified_customer_id']),
+      String(ord['verified_customer_name'] || ord['customer_name']),
+      scope,
+      isRefund ? ArTransactionKind.REFUND : ArTransactionKind.RECEIPT,
+      isRefund ? null : paymentType,
+      paymentAmount,
+      normalizePaymentMethod(rec['payment_method']),
+      rec['paid_at'] ?? new Date(),
+      rec['reference_code'] ?? null,
+      resolutionNote ??
+        (rec['payment_note'] ? String(rec['payment_note']) : null),
+      lookup.order_id,
+      paymentId,
+      ctx.user.id,
+    ],
+  );
+
+  const arTx = mapArTransactionRow(txInsRes.rows[0]!);
+
+  const allocInsRes = await client.query(
+    `INSERT INTO print_ar_allocations (
+       workspace_id, ar_transaction_id, order_id, direction, amount, note, recorded_by
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING *`,
+    [
+      ctx.workspace.id,
+      arTx.id,
+      lookup.order_id,
+      isRefund ? 'REFUND_RELEASE' : 'APPLY',
+      paymentAmount,
+      resolutionNote ??
+        (rec['payment_note'] ? String(rec['payment_note']) : null),
+      ctx.user.id,
+    ],
+  );
+  arTx.allocations = [
+    mapArAllocationRow({
+      ...allocInsRes.rows[0]!,
+      order_code: ord['order_code'],
+    }),
+  ];
+
+  // Mark reconciliation row CONFIRMED BEFORE recomputing order receivable state so legacyPendingNet drops atomically!
+  await client.query(
+    `UPDATE print_legacy_ar_reconciliations
+     SET status = 'CONFIRMED',
+         anomaly_codes = '[]'::jsonb,
+         posted_ar_transaction_id = $1,
+         resolution_note = $2,
+         confirmed_at = now(),
+         confirmed_by = $3,
+         updated_at = now()
+     WHERE id = $4 AND workspace_id = $5`,
+    [
+      arTx.id,
+      resolutionNote,
+      ctx.user.id,
+      lookup.reconciliation_id,
+      ctx.workspace.id,
+    ],
+  );
+
+  const stateAfter = await recomputeOrderReceivableState(
+    client,
+    ctx.workspace.id,
+    lookup.order_id,
+  );
+  await refreshOrderPendingLegacyAnomaliesTx(
+    client,
+    ctx.workspace.id,
+    lookup.order_id,
+  );
+
+  // Hard runtime guard: transition confirmation MUST NEVER double-count on the order!
+  if (
+    stateAfter.effectiveTotalPaidAmount !== stateBefore.effectiveTotalPaidAmount
+  ) {
+    throw new AuthError(
+      'INTERNAL_ERROR',
+      `Vi phạm bất biến chống cộng trùng khi đối chiếu đơn ${String(ord['order_code'])}: trước=${stateBefore.effectiveTotalPaidAmount}, sau=${stateAfter.effectiveTotalPaidAmount}.`,
+      500,
+    );
+  }
+
+  const afterSnapshot: Record<string, unknown> = {
+    status: LegacyArReconciliationStatus.CONFIRMED,
+    posted_ar_transaction_id: arTx.id,
+    posted_ar_tx_code: arTx.tx_code,
+    official_ar_allocated_after: stateAfter.netAllocatedReceiptAmount,
+    legacy_pending_net_after: stateAfter.legacyPendingNetAmount,
+    effective_order_paid_after: stateAfter.effectiveTotalPaidAmount,
+    order_remaining_after: stateAfter.remainingReceivableAmount,
+  };
+
+  await client.query(
+    `UPDATE print_legacy_ar_reconciliations
+     SET post_reconciliation_json = $1::jsonb,
+         updated_at = now()
+     WHERE id = $2 AND workspace_id = $3`,
+    [JSON.stringify(afterSnapshot), lookup.reconciliation_id, ctx.workspace.id],
+  );
+
+  await client.query(
+    `INSERT INTO print_legacy_ar_reconciliation_history (
+       workspace_id, reconciliation_id, legacy_payment_id, order_id,
+       action, before_json, after_json, reason, actor_id
+     ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)`,
+    [
+      ctx.workspace.id,
+      lookup.reconciliation_id,
+      paymentId,
+      lookup.order_id,
+      LegacyArHistoryAction.CONFIRMED_TO_AR,
+      JSON.stringify(beforeSnapshot),
+      JSON.stringify(afterSnapshot),
+      resolutionNote ?? 'Xác nhận đối chiếu phiếu cũ vào sổ AR chính thức',
+      ctx.user.id,
+    ],
+  );
+
+  await recordAuditEvent(client, {
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    action: 'printquote.legacy_ar.confirm',
+    entityType: 'print_ar_transaction',
+    entityId: arTx.id,
+    requestId,
+    metadata: {
+      reconciliation_id: lookup.reconciliation_id,
+      legacy_payment_id: paymentId,
+      tx_code: arTx.tx_code,
+      amount: paymentAmount,
+      tx_kind: arTx.tx_kind,
+      ...afterSnapshot,
+    },
+  });
+
+  return {
+    reconciliation_id: lookup.reconciliation_id,
+    legacy_payment_id: paymentId,
+    ar_transaction: arTx,
+    before_snapshot: beforeSnapshot,
+    after_snapshot: afterSnapshot,
+  };
+}
+
+export async function holdLegacyPaymentReconciliationTx(
+  client: pg.PoolClient,
+  ctx: AuthenticatedContext,
+  targetId: string,
+  input: Record<string, unknown>,
+  requestId: string,
+): Promise<{
+  reconciliation_id: string;
+  legacy_payment_id: string;
+  status: 'PENDING' | 'ON_HOLD';
+  hold_reason: string | null;
+}> {
+  if (!isValidUuid(targetId)) {
+    throw new AuthError(
+      'VALIDATION_ERROR',
+      'Mã phiếu đối chiếu không hợp lệ.',
+      400,
+    );
+  }
+  const unhold = input['unhold'] === true;
+  const reason = requireNonEmptyReason(
+    input['reason'],
+    unhold
+      ? 'Lý do mở lại đối chiếu phiếu cũ'
+      : 'Lý do tạm giữ phiếu cũ chưa đưa vào sổ AR',
+  );
+
+  const recRes = await client.query(
+    `SELECT * FROM print_legacy_ar_reconciliations
+     WHERE workspace_id = $1 AND (id = $2 OR legacy_payment_id = $2)
+     FOR UPDATE`,
+    [ctx.workspace.id, targetId],
+  );
+  const rec = recRes.rows[0];
+  if (!rec) {
+    throw new AuthError(
+      'NOT_FOUND',
+      'Không tìm thấy phiếu cũ trong danh sách đối chiếu.',
+      404,
+    );
+  }
+
+  if (
+    rec['status'] === LegacyArReconciliationStatus.CONFIRMED ||
+    rec['status'] === LegacyArReconciliationStatus.POSTED_DIRECT
+  ) {
+    throw new AuthError(
+      'ALREADY_CONFIRMED_TO_AR',
+      'Phiếu này đã được xác nhận vào sổ AR chính thức nên không thể chuyển sang tạm giữ.',
+      409,
+    );
+  }
+
+  const nextStatus = unhold ? 'PENDING' : 'ON_HOLD';
+  const nextHoldReason = unhold ? null : reason;
+  const recId = String(rec['id']);
+  const paymentId = String(rec['legacy_payment_id']);
+  const orderId = String(rec['order_id']);
+
+  await client.query(
+    `UPDATE print_legacy_ar_reconciliations
+     SET status = $1,
+         hold_reason = $2,
+         updated_at = now()
+     WHERE id = $3 AND workspace_id = $4`,
+    [nextStatus, nextHoldReason, recId, ctx.workspace.id],
+  );
+
+  await client.query(
+    `INSERT INTO print_legacy_ar_reconciliation_history (
+       workspace_id, reconciliation_id, legacy_payment_id, order_id,
+       action, before_json, after_json, reason, actor_id
+     ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)`,
+    [
+      ctx.workspace.id,
+      recId,
+      paymentId,
+      orderId,
+      unhold ? LegacyArHistoryAction.UNHELD : LegacyArHistoryAction.HELD,
+      JSON.stringify({
+        status: rec['status'],
+        hold_reason: rec['hold_reason'] ?? null,
+      }),
+      JSON.stringify({
+        status: nextStatus,
+        hold_reason: nextHoldReason,
+      }),
+      reason,
+      ctx.user.id,
+    ],
+  );
+
+  await recordAuditEvent(client, {
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    action: unhold
+      ? 'printquote.legacy_ar.unhold'
+      : 'printquote.legacy_ar.hold',
+    entityType: 'print_legacy_ar_reconciliation',
+    entityId: recId,
+    requestId,
+    metadata: { legacy_payment_id: paymentId, order_id: orderId, reason },
+  });
+
+  return {
+    reconciliation_id: recId,
+    legacy_payment_id: paymentId,
+    status: nextStatus,
+    hold_reason: nextHoldReason,
+  };
 }
