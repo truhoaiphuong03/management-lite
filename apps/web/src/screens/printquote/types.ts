@@ -3,6 +3,8 @@ import {
   ProfitMode,
   ProfitScope,
   VendorCostMode,
+  type AreaInputModeType,
+  type LineCostSourceType,
   type ProfitModeType,
   type ProfitScopeType,
   type VendorCostModeType,
@@ -33,6 +35,20 @@ export type CreateQuoteSectionId =
 
 export type SummaryViewMode = 'customer' | 'internal';
 
+export interface DraftFinishingStageState {
+  id: string;
+  priceItemId: string;
+  code?: string | null | undefined;
+  name: string;
+  pricingMode: VendorCostModeType;
+  rateValue: number;
+  rateInput: string;
+  unit: string;
+  costSource: LineCostSourceType;
+  catalogOriginalRate?: number | null | undefined;
+  note?: string | null | undefined;
+}
+
 export interface DraftLineState {
   id: string;
   vendorPriceItemId: string;
@@ -44,6 +60,18 @@ export interface DraftLineState {
   vendorCostMode: VendorCostModeType;
   vendorCostValue: number;
   vendorCostInput?: string | undefined;
+  baseCostSource?: LineCostSourceType | undefined;
+  baseCatalogOriginalRate?: number | null | undefined;
+  baseIncludedStages?: string[] | undefined;
+  materialGroup?: string | undefined;
+  areaMode?: AreaInputModeType | undefined;
+  widthMInput?: string | undefined;
+  heightMInput?: string | undefined;
+  sheetsCountInput?: string | undefined;
+  actualAreaInput?: string | undefined;
+  billableAreaInput?: string | undefined;
+  adjustBillableArea?: boolean | undefined;
+  finishingStages?: DraftFinishingStageState[] | undefined;
   ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;
   profitScope: ProfitScopeType;

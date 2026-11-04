@@ -120,6 +120,7 @@ async function verifyAndResetPrintQuoteTablesInTestDb(pool, env = process.env) {
     DELETE FROM print_orders;
     DELETE FROM print_quote_versions;
     DELETE FROM print_quotes;
+    DELETE FROM print_vendor_price_item_history;
     DELETE FROM print_vendor_price_items;
     DELETE FROM print_customers;
     DELETE FROM print_vendors;

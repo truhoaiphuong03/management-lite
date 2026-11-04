@@ -1,11 +1,22 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { StatusBadge } from '../../../../../packages/ui/src/components/index.js';
 import {
+  PriceItemType,
+  ProfitMode,
+  ProfitScope,
   VendorCostMode,
+  WORKSHOP_FINISHING_SUGGESTIONS,
+  WORKSHOP_MATERIAL_GROUPS,
+  type PriceItemTypeValue,
+  type ProfitModeType,
+  type ProfitScopeType,
   type VendorCostModeType,
   type PrintVendorData,
   type PrintVendorPriceItemData,
+  type PrintVendorPriceItemHistoryData,
 } from '../../../../../packages/contracts/src/printquote.js';
 import {
+  formatDateVn,
   formatVnd,
   parseNumericDraftValue,
 } from '../helpers/printquote-helpers.js';
@@ -13,12 +24,35 @@ import { cardStyle, inputStyle, labelStyle, tabularNumStyle } from './types.js';
 import { NumericDraftInput } from './NumericDraftInput.js';
 import { CatalogModalDialog } from './CatalogModalDialog.js';
 import {
+  PqCheckIcon,
+  PqEditIcon,
+  PqHistoryIcon,
   PqLockIcon,
   PqPlusIcon,
   PqSearchIcon,
   PqStoreIcon,
   PqTagIcon,
+  PqTrashIcon,
 } from './PrintQuoteIcons.js';
+
+export interface SaveCatalogPriceItemPayload {
+  vendor_id: string | null;
+  name: string;
+  item_type: PriceItemTypeValue;
+  category: string | null;
+  specification: string | null;
+  included_stages: string[];
+  structured_spec: Record<string, unknown> | null;
+  conditions_note: string | null;
+  unit: string;
+  pricing_mode: VendorCostModeType;
+  unit_cost: number;
+  batch_total_cost: number;
+  default_profit_mode: ProfitModeType;
+  default_profit_scope: ProfitScopeType;
+  default_profit_value: number;
+  change_note?: string | null;
+}
 
 export interface VendorsCatalogTabProps {
   mode: 'prices' | 'vendors';
@@ -50,9 +84,46 @@ export interface VendorsCatalogTabProps {
   priceDefaultProfitVal: number;
   setPriceDefaultProfitVal: (v: number) => void;
   onCreatePriceItem: (e: React.FormEvent) => Promise<boolean> | void;
+  onSaveCatalogPriceItem?:
+    | ((
+        payload: SaveCatalogPriceItemPayload,
+        editingId: string | null,
+      ) => Promise<boolean>)
+    | undefined;
+  onDeactivatePriceItem?: ((itemId: string) => Promise<void>) | undefined;
+  onRestorePriceItem?: ((itemId: string) => Promise<void>) | undefined;
+  onDeletePriceItem?: ((itemId: string) => Promise<void>) | undefined;
+  onFetchPriceItemHistory?:
+    | ((itemId: string) => Promise<PrintVendorPriceItemHistoryData[]>)
+    | undefined;
   onQuickQuotePriceItem?:
     ((item: PrintVendorPriceItemData) => void) | undefined;
   onNavigateCatalogSubPage?: ((sub: 'prices' | 'vendors') => void) | undefined;
+}
+
+const QUICK_INCLUDED_STAGE_OPTIONS = [
+  'Cán màng 1 mặt',
+  'Cán màng 2 mặt',
+  'Cắt thành phẩm',
+  'Bế demi',
+  'Đóng khoen 4 góc',
+] as const;
+
+type PriceTypeFilter = 'ACTIVE_ALL' | 'BASE_PRINT' | 'FINISHING' | 'INACTIVE';
+
+function appendSpecChip(current: string, chip: string): string {
+  const cleanChip = chip.trim();
+  if (!cleanChip || cleanChip === 'Khác') return current;
+  const parts = current
+    .split(/[·,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.some((p) => p.toLowerCase() === cleanChip.toLowerCase())) {
+    return parts
+      .filter((p) => p.toLowerCase() !== cleanChip.toLowerCase())
+      .join(' · ');
+  }
+  return [...parts, cleanChip].join(' · ');
 }
 
 export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
@@ -78,78 +149,103 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
   setPriceUnit,
   priceCostMode,
   setPriceCostMode,
-  priceUnitCost,
   setPriceUnitCost,
-  priceBatchCost,
   setPriceBatchCost,
-  priceDefaultProfitVal,
   setPriceDefaultProfitVal,
   onCreatePriceItem,
+  onSaveCatalogPriceItem,
+  onDeactivatePriceItem,
+  onRestorePriceItem,
+  onDeletePriceItem,
+  onFetchPriceItemHistory,
   onQuickQuotePriceItem,
   onNavigateCatalogSubPage,
 }) => {
   const [filterVendorId, setFilterVendorId] = useState<string>('ALL');
+  const [typeFilter, setTypeFilter] = useState<PriceTypeFilter>('ACTIVE_ALL');
   const [catalogSearch, setCatalogSearch] = useState<string>('');
   const [vendorSearch, setVendorSearch] = useState<string>('');
   const [isPriceDialogOpen, setIsPriceDialogOpen] = useState<boolean>(false);
   const [isVendorDialogOpen, setIsVendorDialogOpen] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const [unitCostInput, setUnitCostInput] = useState<string>(
-    priceUnitCost > 0 ? String(priceUnitCost) : '',
+  // Extended Workshop Price Dialog states
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [dialogItemType, setDialogItemType] = useState<PriceItemTypeValue>(
+    PriceItemType.BASE_PRINT,
   );
-  const [batchCostInput, setBatchCostInput] = useState<string>(
-    priceBatchCost > 0 ? String(priceBatchCost) : '',
+  const [selectedMaterialGroupId, setSelectedMaterialGroupId] =
+    useState<string>('GIAY');
+  const [includedStages, setIncludedStages] = useState<string[]>([]);
+  const [customIncludedStageInput, setCustomIncludedStageInput] =
+    useState<string>('');
+  const [conditionsNote, setConditionsNote] = useState<string>('');
+  const [changeNote, setChangeNote] = useState<string>('');
+  const [dialogError, setDialogError] = useState<string | null>(null);
+
+  const [costRateInput, setCostRateInput] = useState<string>('');
+  const [defaultProfitInput, setDefaultProfitInput] = useState<string>('');
+
+  // History modal state
+  const [historyModalItem, setHistoryModalItem] =
+    useState<PrintVendorPriceItemData | null>(null);
+  const [historyRecords, setHistoryRecords] = useState<
+    PrintVendorPriceItemHistoryData[]
+  >([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+
+  // Delete confirmation modal state
+  const [deleteTargetItem, setDeleteTargetItem] =
+    useState<PrintVendorPriceItemData | null>(null);
+  const [busyItemId, setBusyItemId] = useState<string | null>(null);
+
+  const activeItems = useMemo(
+    () => priceItems.filter((p) => p.is_active !== false),
+    [priceItems],
   );
-  const [defaultProfitInput, setDefaultProfitInput] = useState<string>(
-    priceDefaultProfitVal > 0 ? String(priceDefaultProfitVal) : '',
+  const inactiveItems = useMemo(
+    () => priceItems.filter((p) => p.is_active === false),
+    [priceItems],
   );
-
-  useEffect(() => {
-    setUnitCostInput((prev) =>
-      prev === ''
-        ? prev
-        : Number(prev) === priceUnitCost
-          ? prev
-          : String(priceUnitCost),
-    );
-  }, [priceUnitCost]);
-
-  useEffect(() => {
-    setBatchCostInput((prev) =>
-      prev === ''
-        ? prev
-        : Number(prev) === priceBatchCost
-          ? prev
-          : String(priceBatchCost),
-    );
-  }, [priceBatchCost]);
-
-  useEffect(() => {
-    setDefaultProfitInput((prev) =>
-      prev === ''
-        ? prev
-        : Number(prev) === priceDefaultProfitVal
-          ? prev
-          : String(priceDefaultProfitVal),
-    );
-  }, [priceDefaultProfitVal]);
 
   const filteredPriceItems = useMemo(() => {
     const q = catalogSearch.trim().toLowerCase();
     return priceItems.filter((item) => {
-      if (filterVendorId !== 'ALL' && item.vendor_id !== filterVendorId) {
+      const isActive = item.is_active !== false;
+      const itemType = item.item_type || PriceItemType.BASE_PRINT;
+
+      if (typeFilter === 'INACTIVE') {
+        if (isActive) return false;
+      } else {
+        if (!isActive) return false;
+        if (
+          typeFilter === 'BASE_PRINT' &&
+          itemType !== PriceItemType.BASE_PRINT
+        )
+          return false;
+        if (typeFilter === 'FINISHING' && itemType !== PriceItemType.FINISHING)
+          return false;
+      }
+
+      if (filterVendorId === '__GENERAL__') {
+        if (item.vendor_id) return false;
+      } else if (
+        filterVendorId !== 'ALL' &&
+        item.vendor_id !== filterVendorId
+      ) {
         return false;
       }
+
       if (!q) return true;
       return (
         item.name.toLowerCase().includes(q) ||
         item.code.toLowerCase().includes(q) ||
         (item.specification || '').toLowerCase().includes(q) ||
+        (item.conditions_note || '').toLowerCase().includes(q) ||
         (item.vendor_name || '').toLowerCase().includes(q)
       );
     });
-  }, [priceItems, filterVendorId, catalogSearch]);
+  }, [priceItems, typeFilter, filterVendorId, catalogSearch]);
 
   const filteredVendors = useMemo(() => {
     const q = vendorSearch.trim().toLowerCase();
@@ -163,17 +259,176 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
     );
   }, [vendors, vendorSearch]);
 
+  const openCreateDialog = (defaultType: PriceItemTypeValue = 'BASE_PRINT') => {
+    setEditingItemId(null);
+    setDialogItemType(defaultType);
+    setPriceVendorId('');
+    setPriceItemName('');
+    setPriceSpec('');
+    setPriceUnit?.(defaultType === PriceItemType.FINISHING ? 'tờ' : 'tờ');
+    setPriceCostMode(VendorCostMode.PER_UNIT);
+    setPriceUnitCost(0);
+    setPriceBatchCost(0);
+    setPriceDefaultProfitVal(0);
+    setCostRateInput('');
+    setDefaultProfitInput('');
+    setIncludedStages([]);
+    setCustomIncludedStageInput('');
+    setConditionsNote('');
+    setChangeNote('');
+    setDialogError(null);
+    setIsPriceDialogOpen(true);
+  };
+
+  const openEditDialog = (item: PrintVendorPriceItemData) => {
+    setEditingItemId(item.id);
+    setDialogItemType(item.item_type || PriceItemType.BASE_PRINT);
+    setPriceVendorId(item.vendor_id || '');
+    setPriceItemName(item.name);
+    setPriceSpec(item.specification || '');
+    setPriceUnit?.(item.unit || 'tờ');
+    setPriceCostMode(item.pricing_mode);
+    const currentRate =
+      item.pricing_mode === VendorCostMode.TOTAL_BATCH
+        ? item.batch_total_cost
+        : item.unit_cost;
+    setPriceUnitCost(item.unit_cost);
+    setPriceBatchCost(item.batch_total_cost);
+    setPriceDefaultProfitVal(item.default_profit_value);
+    setCostRateInput(String(currentRate));
+    setDefaultProfitInput(
+      item.default_profit_value > 0 ? String(item.default_profit_value) : '0',
+    );
+    setIncludedStages([...(item.included_stages ?? [])]);
+    setCustomIncludedStageInput('');
+    setConditionsNote(item.conditions_note || '');
+    setChangeNote('');
+    setDialogError(null);
+    setIsPriceDialogOpen(true);
+  };
+
+  const handleOpenHistory = async (item: PrintVendorPriceItemData) => {
+    setHistoryModalItem(item);
+    setHistoryRecords([]);
+    if (!onFetchPriceItemHistory) return;
+    setHistoryLoading(true);
+    try {
+      const rows = await onFetchPriceItemHistory(item.id);
+      setHistoryRecords(rows);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handlePriceDialogSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    setDialogError(null);
+
+    if (!priceItemName.trim()) {
+      setDialogError('Vui lòng nhập tên hạng mục giá xưởng.');
+      return;
+    }
+
+    const parsedCost = parseNumericDraftValue(costRateInput, {
+      allowDecimal: false,
+      min: 0,
+      integerOnly: true,
+    });
+    if (!parsedCost.isValid || parsedCost.value === null) {
+      setDialogError(
+        parsedCost.isEmpty
+          ? 'Vui lòng nhập đơn giá xưởng (nhập 0 nếu miễn phí).'
+          : 'Đơn giá xưởng không hợp lệ.',
+      );
+      return;
+    }
+
+    const parsedProfit =
+      defaultProfitInput.trim() === ''
+        ? { isValid: true, value: 0 }
+        : parseNumericDraftValue(defaultProfitInput, {
+            allowDecimal: false,
+            min: 0,
+            integerOnly: true,
+          });
+    if (!parsedProfit.isValid || parsedProfit.value === null) {
+      setDialogError('Mức lời mặc định không hợp lệ.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const ok = await onCreatePriceItem(e);
-      if (ok !== false) {
-        setIsPriceDialogOpen(false);
-        setUnitCostInput('');
-        setBatchCostInput('');
-        setDefaultProfitInput('');
+      if (onSaveCatalogPriceItem) {
+        const resolvedUnit =
+          (priceUnit || '').trim() ||
+          (priceCostMode === VendorCostMode.PER_SQM
+            ? 'm²'
+            : priceCostMode === VendorCostMode.TOTAL_BATCH
+              ? 'lô'
+              : 'tờ');
+        const extraCustomStages = customIncludedStageInput
+          .split(/[,;·]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const mergedIncluded =
+          dialogItemType === PriceItemType.BASE_PRINT
+            ? Array.from(new Set([...includedStages, ...extraCustomStages]))
+            : [];
+        const activeGroup = WORKSHOP_MATERIAL_GROUPS.find(
+          (g) => g.id === selectedMaterialGroupId,
+        );
+
+        const ok = await onSaveCatalogPriceItem(
+          {
+            vendor_id: priceVendorId.trim() || null,
+            name: priceItemName.trim(),
+            item_type: dialogItemType,
+            category:
+              dialogItemType === PriceItemType.FINISHING
+                ? 'Công đoạn gia công'
+                : (activeGroup?.label ?? 'Ấn phẩm in'),
+            specification: priceSpec.trim() || null,
+            included_stages: mergedIncluded,
+            structured_spec:
+              dialogItemType === PriceItemType.BASE_PRINT
+                ? { materialGroup: selectedMaterialGroupId }
+                : null,
+            conditions_note: conditionsNote.trim() || null,
+            unit: resolvedUnit,
+            pricing_mode: priceCostMode,
+            unit_cost:
+              priceCostMode === VendorCostMode.TOTAL_BATCH
+                ? 0
+                : parsedCost.value,
+            batch_total_cost:
+              priceCostMode === VendorCostMode.TOTAL_BATCH
+                ? parsedCost.value
+                : parsedCost.value,
+            default_profit_mode: ProfitMode.FIXED_AMOUNT,
+            default_profit_scope:
+              priceCostMode === VendorCostMode.PER_SQM
+                ? ProfitScope.PER_SQM
+                : priceCostMode === VendorCostMode.TOTAL_BATCH
+                  ? ProfitScope.TOTAL_BATCH
+                  : ProfitScope.PER_UNIT,
+            default_profit_value:
+              dialogItemType === PriceItemType.FINISHING
+                ? 0
+                : parsedProfit.value,
+            change_note: changeNote.trim() || null,
+          },
+          editingItemId,
+        );
+        if (ok !== false) {
+          setIsPriceDialogOpen(false);
+          setEditingItemId(null);
+        }
+      } else {
+        const ok = await onCreatePriceItem(e);
+        if (ok !== false) {
+          setIsPriceDialogOpen(false);
+        }
       }
     } finally {
       setSubmitting(false);
@@ -261,8 +516,8 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                   Chưa có nhà in đối tác
                 </div>
                 <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
-                  Tạo hồ sơ xưởng in để quản lý bảng giá gốc và thông tin thanh
-                  toán đơn hàng.
+                  Tạo hồ sơ xưởng in để quản lý bảng giá theo xưởng và thông tin
+                  thanh toán đơn hàng.
                 </div>
                 <button
                   type="button"
@@ -290,7 +545,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
           >
             {filteredVendors.map((v) => {
               const vendorPriceCount = priceItems.filter(
-                (p) => p.vendor_id === v.id,
+                (p) => p.vendor_id === v.id && p.is_active !== false,
               ).length;
               return (
                 <div
@@ -463,6 +718,32 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
     );
   }
 
+  const activeMaterialGroup =
+    WORKSHOP_MATERIAL_GROUPS.find((g) => g.id === selectedMaterialGroupId) ||
+    WORKSHOP_MATERIAL_GROUPS[0];
+
+  const baseActiveCount = activeItems.filter(
+    (p) => (p.item_type || 'BASE_PRINT') === PriceItemType.BASE_PRINT,
+  ).length;
+  const finishingActiveCount = activeItems.filter(
+    (p) => p.item_type === PriceItemType.FINISHING,
+  ).length;
+
+  const typeFilterTabs: Array<{
+    id: PriceTypeFilter;
+    label: string;
+    count: number;
+  }> = [
+    { id: 'ACTIVE_ALL', label: 'Đang dùng', count: activeItems.length },
+    { id: 'BASE_PRINT', label: 'Giá in cơ bản', count: baseActiveCount },
+    {
+      id: 'FINISHING',
+      label: 'Công đoạn gia công',
+      count: finishingActiveCount,
+    },
+    { id: 'INACTIVE', label: 'Đã ngừng dùng', count: inactiveItems.length },
+  ];
+
   return (
     <div
       data-testid="panel-catalog-prices"
@@ -471,7 +752,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
       <div className="pq-page-head">
         <div>
           <h1 className="pq-page-title">
-            Bảng giá gốc nhà in ({priceItems.length})
+            Bảng giá xưởng ({activeItems.length})
           </h1>
           <p
             className="pq-page-subtitle"
@@ -479,81 +760,96 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
           >
             <PqLockIcon size={13} />
             <span>
-              Cập nhật bảng giá tại đây không làm thay đổi các báo giá & đơn
-              hàng đã lưu trước đó
+              Tách rõ giá in cơ bản và giá gia công — sửa bảng giá không làm đổi
+              báo giá đã lưu
             </span>
           </p>
         </div>
 
-        <button
-          type="button"
-          data-testid="pq-open-price-dialog-btn"
-          onClick={() => {
-            if (!priceVendorId && vendors[0]) {
-              setPriceVendorId(vendors[0].id);
-            }
-            setIsPriceDialogOpen(true);
-          }}
-          className="pq-btn pq-btn-primary pq-btn-cta"
-        >
-          <PqPlusIcon size={15} />
-          <span>Thêm bảng giá</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            data-testid="pq-open-finishing-price-dialog-btn"
+            onClick={() => openCreateDialog(PriceItemType.FINISHING)}
+            className="pq-btn pq-btn-secondary"
+          >
+            <PqPlusIcon size={14} />
+            <span>Thêm giá gia công</span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="pq-open-price-dialog-btn"
+            onClick={() => openCreateDialog(PriceItemType.BASE_PRINT)}
+            className="pq-btn pq-btn-primary pq-btn-cta"
+          >
+            <PqPlusIcon size={15} />
+            <span>Thêm giá cơ bản</span>
+          </button>
+        </div>
       </div>
 
-      {/* Unified Search & Vendor Filter Bar */}
+      {/* Unified Search, Type Segmented Pills & Optional Vendor Filter */}
       <div className="pq-toolbar-card">
-        <div className="pq-search-wrap" style={{ flex: '1 1 240px' }}>
+        <div className="pq-search-wrap" style={{ flex: '1 1 230px' }}>
           <PqSearchIcon size={15} className="pq-search-icon" />
           <input
             id="pq-price-search-input"
             type="search"
-            aria-label="Tìm kiếm hạng mục bảng giá"
+            aria-label="Tìm kiếm hạng mục bảng giá xưởng"
             style={{ ...inputStyle, paddingLeft: '36px', minHeight: '40px' }}
-            placeholder="Tìm tên ấn phẩm, quy cách hoặc tên nhà in…"
+            placeholder="Tìm tên giá cơ bản, gia công, quy cách hoặc xưởng…"
             value={catalogSearch}
             onChange={(e) => setCatalogSearch(e.target.value)}
           />
         </div>
 
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            flexWrap: 'wrap',
-          }}
+          className="pq-filter-pills"
+          role="group"
+          aria-label="Lọc loại bảng giá xưởng"
         >
+          {typeFilterTabs.map((tab) => {
+            const active = typeFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                data-testid={`pq-price-filter-${tab.id}`}
+                aria-pressed={active}
+                className="pq-filter-pill"
+                data-active={active ? 'true' : 'false'}
+                onClick={() => setTypeFilter(tab.id)}
+              >
+                <span>{tab.label}</span>
+                <span className="pq-filter-pill-count">{tab.count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {vendors.length > 0 && (
           <select
             id="pq-price-vendor-filter"
-            aria-label="Lọc theo nhà in"
+            aria-label="Lọc theo xưởng in"
             style={{
               ...inputStyle,
-              minHeight: '40px',
+              minHeight: '38px',
               width: 'auto',
-              minWidth: '190px',
+              minWidth: '175px',
             }}
             value={filterVendorId}
             onChange={(e) => setFilterVendorId(e.target.value)}
           >
-            <option value="ALL">Tất cả nhà in ({vendors.length})</option>
+            <option value="ALL">Tất cả nguồn giá</option>
+            <option value="__GENERAL__">Giá xưởng chung</option>
             {vendors.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.code} — {v.name}
               </option>
             ))}
           </select>
-
-          {filterVendorId !== 'ALL' && (
-            <button
-              type="button"
-              onClick={() => setFilterVendorId('ALL')}
-              className="pq-btn pq-btn-ghost"
-            >
-              Bỏ lọc
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {filteredPriceItems.length === 0 ? (
@@ -571,7 +867,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '12px',
-                maxWidth: '420px',
+                maxWidth: '440px',
                 margin: '0 auto',
               }}
             >
@@ -579,162 +875,501 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 <PqTagIcon size={24} />
               </div>
               <div style={{ fontWeight: 700, fontSize: '15px' }}>
-                Chưa có hạng mục bảng giá
+                Chưa có mục giá xưởng nào được lưu
               </div>
               <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
-                Lưu đơn giá gốc của nhà in và mức lời mặc định để chọn 1 chạm
-                khi lập báo giá.
+                Thiết lập <strong>Giá in cơ bản</strong> (VD: A4 C200, in màu 2
+                mặt) và <strong>Giá gia công</strong> (VD: Cán màng 1 mặt) để
+                chọn nhanh khi tạo báo giá. Hệ thống không tự thêm giá mẫu.
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!priceVendorId && vendors[0]) {
-                    setPriceVendorId(vendors[0].id);
-                  }
-                  setIsPriceDialogOpen(true);
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
                 }}
-                className="pq-btn pq-btn-primary"
               >
-                <PqPlusIcon size={15} />
-                <span>Thêm hạng mục đầu tiên</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => openCreateDialog(PriceItemType.BASE_PRINT)}
+                  className="pq-btn pq-btn-primary"
+                >
+                  <PqPlusIcon size={15} />
+                  <span>Thêm giá cơ bản</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openCreateDialog(PriceItemType.FINISHING)}
+                  className="pq-btn pq-btn-secondary"
+                >
+                  <PqPlusIcon size={15} />
+                  <span>Thêm giá gia công</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{ color: 'var(--muted-color)', fontSize: '13.5px' }}>
-              Không tìm thấy hạng mục bảng giá phù hợp.
+              Không có mục giá xưởng phù hợp với bộ lọc đang chọn.
             </div>
           )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {filteredPriceItems.map((p) => (
-            <div
-              key={p.id}
-              data-testid={`price-item-row-${p.code}`}
-              className="pq-quote-card"
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '12px',
-              }}
-            >
-              <div style={{ minWidth: 0, flex: '1 1 240px' }}>
+          {filteredPriceItems.map((p) => {
+            const isFinishing = p.item_type === PriceItemType.FINISHING;
+            const isActive = p.is_active !== false;
+            const isUsed = Boolean(p.is_used_in_quotes);
+            const busy = busyItemId === p.id;
+
+            const rateLabel =
+              p.pricing_mode === VendorCostMode.TOTAL_BATCH
+                ? `${formatVnd(p.batch_total_cost)} / lô`
+                : p.pricing_mode === VendorCostMode.PER_SQM
+                  ? `${formatVnd(p.unit_cost)} / m²`
+                  : `${formatVnd(p.unit_cost)} / ${p.unit}`;
+
+            return (
+              <div
+                key={p.id}
+                data-testid={`price-item-row-${p.code}`}
+                className="pq-quote-card"
+                style={{
+                  opacity: isActive ? 1 : 0.78,
+                }}
+              >
                 <div
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
                     flexWrap: 'wrap',
+                    gap: '12px',
                   }}
                 >
-                  <span className="pq-code-pill">{p.code}</span>
-                  <strong style={{ fontSize: '14.5px' }}>{p.name}</strong>
-                  <span className="pq-version-pill">
-                    {p.vendor_name || 'Nhà in'} • v{p.version}
-                  </span>
-                </div>
-                {p.specification && (
-                  <div
-                    style={{
-                      color: 'var(--muted-color)',
-                      fontSize: '12.5px',
-                      marginTop: '4px',
-                    }}
-                  >
-                    Quy cách: {p.specification}
-                  </div>
-                )}
-              </div>
+                  <div style={{ minWidth: 0, flex: '1 1 250px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '7px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span className="pq-code-pill">{p.code}</span>
+                      <StatusBadge
+                        status={isFinishing ? 'neutral' : 'success'}
+                        label={isFinishing ? 'Gia công' : 'Giá cơ bản'}
+                      />
+                      {!isActive && (
+                        <StatusBadge status="muted" label="Đã ngừng dùng" />
+                      )}
+                      <strong style={{ fontSize: '14.5px' }}>{p.name}</strong>
+                      <span className="pq-version-pill">
+                        {p.vendor_name || 'Xưởng chung'} • v{p.version}
+                      </span>
+                    </div>
 
+                    {p.specification && (
+                      <div
+                        style={{
+                          color: 'var(--muted-color)',
+                          fontSize: '12.5px',
+                          marginTop: '5px',
+                        }}
+                      >
+                        Quy cách: {p.specification}
+                      </div>
+                    )}
+
+                    {p.included_stages && p.included_stages.length > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          flexWrap: 'wrap',
+                          marginTop: '6px',
+                          fontSize: '12px',
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: 'var(--muted-color)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Đã bao gồm:
+                        </span>
+                        {p.included_stages.map((stg) => (
+                          <span key={stg} className="pq-safe-pill">
+                            <PqCheckIcon size={11} />
+                            <span>{stg}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {p.conditions_note && (
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--muted-color)',
+                          marginTop: '4px',
+                        }}
+                      >
+                        Điều kiện áp dụng: {p.conditions_note}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ textAlign: 'right', ...tabularNumStyle }}>
+                    <div style={{ fontSize: '15px', fontWeight: 800 }}>
+                      {rateLabel}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--muted-color)',
+                        marginTop: '2px',
+                      }}
+                    >
+                      {p.pricing_mode === VendorCostMode.PER_SQM
+                        ? 'Tính theo diện tích m²'
+                        : p.pricing_mode === VendorCostMode.TOTAL_BATCH
+                          ? 'Tính trọn lô'
+                          : `Tính theo 1 ${p.unit}`}
+                      {!isFinishing && p.default_profit_value > 0
+                        ? ` • +Lời mặc định: ${
+                            p.default_profit_mode === 'PERCENTAGE'
+                              ? `${p.default_profit_value}%`
+                              : formatVnd(p.default_profit_value)
+                          }`
+                        : ''}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pq-quote-card-actions">
+                  <div className="pq-action-group-left">
+                    {isActive && !isFinishing && onQuickQuotePriceItem && (
+                      <button
+                        type="button"
+                        data-testid={`pq-quick-quote-price-${p.code}`}
+                        onClick={() => onQuickQuotePriceItem(p)}
+                        className="pq-btn pq-btn-accent pq-btn-sm"
+                      >
+                        <PqPlusIcon size={13} />
+                        <span>Báo giá</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      data-testid={`pq-edit-price-${p.code}`}
+                      onClick={() => openEditDialog(p)}
+                      className="pq-btn pq-btn-secondary pq-btn-sm"
+                    >
+                      <PqEditIcon size={13} />
+                      <span>Sửa</span>
+                    </button>
+
+                    {onFetchPriceItemHistory && (
+                      <button
+                        type="button"
+                        data-testid={`pq-history-price-${p.code}`}
+                        onClick={() => void handleOpenHistory(p)}
+                        className="pq-btn pq-btn-ghost pq-btn-sm"
+                      >
+                        <PqHistoryIcon size={13} />
+                        <span>Lịch sử (v{p.version})</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="pq-action-group-right">
+                    {isActive
+                      ? onDeactivatePriceItem && (
+                          <button
+                            type="button"
+                            data-testid={`pq-deactivate-price-${p.code}`}
+                            disabled={busy}
+                            onClick={async () => {
+                              setBusyItemId(p.id);
+                              try {
+                                await onDeactivatePriceItem(p.id);
+                              } finally {
+                                setBusyItemId(null);
+                              }
+                            }}
+                            className="pq-btn pq-btn-ghost pq-btn-sm"
+                          >
+                            <span>Ngừng dùng</span>
+                          </button>
+                        )
+                      : onRestorePriceItem && (
+                          <button
+                            type="button"
+                            data-testid={`pq-restore-price-${p.code}`}
+                            disabled={busy}
+                            onClick={async () => {
+                              setBusyItemId(p.id);
+                              try {
+                                await onRestorePriceItem(p.id);
+                              } finally {
+                                setBusyItemId(null);
+                              }
+                            }}
+                            className="pq-btn pq-btn-accent pq-btn-sm"
+                          >
+                            <span>Khôi phục</span>
+                          </button>
+                        )}
+
+                    {onDeletePriceItem && (
+                      <button
+                        type="button"
+                        data-testid={`pq-delete-price-${p.code}`}
+                        disabled={busy || isUsed}
+                        title={
+                          isUsed
+                            ? 'Mục giá đã được tham chiếu trong báo giá — chỉ được Ngừng dùng để bảo toàn lịch sử'
+                            : 'Xóa mục giá chưa từng dùng trong báo giá'
+                        }
+                        onClick={() => setDeleteTargetItem(p)}
+                        className="pq-btn pq-btn-danger-ghost pq-btn-sm"
+                      >
+                        <PqTrashIcon size={13} />
+                        <span>{isUsed ? 'Đã dùng (Không xóa)' : 'Xóa'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add / Edit Workshop Price Item Dialog */}
+      <CatalogModalDialog
+        open={isPriceDialogOpen}
+        title={
+          editingItemId
+            ? 'Cập nhật mục Giá xưởng'
+            : dialogItemType === PriceItemType.FINISHING
+              ? 'Thêm Công đoạn gia công'
+              : 'Thêm Giá in cơ bản'
+        }
+        subtitle="Thiết lập giá vốn thực tế của xưởng. Thay đổi tại đây sẽ tăng phiên bản mục giá và KHÔNG sửa các báo giá cũ."
+        testId="pq-price-dialog"
+        maxWidth="580px"
+        onClose={() => setIsPriceDialogOpen(false)}
+      >
+        <form
+          onSubmit={handlePriceDialogSubmit}
+          style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}
+        >
+          {/* Segmented Type Selector: BASE_PRINT vs FINISHING */}
+          <div
+            role="group"
+            aria-label="Phân loại mục giá xưởng"
+            className="pq-segmented-switch"
+            style={{ alignSelf: 'flex-start' }}
+          >
+            <button
+              type="button"
+              data-testid="pq-dialog-type-base"
+              aria-pressed={dialogItemType === PriceItemType.BASE_PRINT}
+              data-active={
+                dialogItemType === PriceItemType.BASE_PRINT ? 'true' : 'false'
+              }
+              className="pq-segmented-btn"
+              onClick={() => setDialogItemType(PriceItemType.BASE_PRINT)}
+            >
+              <span>Giá in cơ bản</span>
+            </button>
+            <button
+              type="button"
+              data-testid="pq-dialog-type-finishing"
+              aria-pressed={dialogItemType === PriceItemType.FINISHING}
+              data-active={
+                dialogItemType === PriceItemType.FINISHING ? 'true' : 'false'
+              }
+              className="pq-segmented-btn"
+              onClick={() => setDialogItemType(PriceItemType.FINISHING)}
+            >
+              <span>Công đoạn gia công</span>
+            </button>
+          </div>
+
+          {/* Quick Guided Chips (Compact — never a long table) */}
+          {dialogItemType === PriceItemType.FINISHING ? (
+            <div
+              style={{
+                padding: '10px 12px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'var(--muted-color)',
+                }}
+              >
+                Gợi ý công đoạn nhanh (hoặc tự gõ vào ô Tên bên dưới):
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {WORKSHOP_FINISHING_SUGGESTIONS.map((sug) => (
+                  <button
+                    key={sug.name}
+                    type="button"
+                    onClick={() => {
+                      setPriceItemName(sug.name);
+                      setPriceUnit?.(sug.defaultUnit);
+                      setPriceCostMode(sug.defaultMode);
+                    }}
+                    className="pq-filter-pill"
+                    data-active={priceItemName === sug.name ? 'true' : 'false'}
+                    style={{ minHeight: '30px', padding: '4px 10px' }}
+                  >
+                    {sug.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: '10px 12px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+              }}
+            >
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '14px',
+                  justifyContent: 'space-between',
+                  gap: '8px',
                   flexWrap: 'wrap',
                 }}
               >
-                <div style={{ textAlign: 'right', ...tabularNumStyle }}>
-                  <div style={{ fontSize: '13.5px' }}>
-                    Giá vốn:{' '}
-                    <strong>
-                      {p.pricing_mode === 'TOTAL_BATCH'
-                        ? `${formatVnd(p.batch_total_cost)} / lô`
-                        : `${formatVnd(p.unit_cost)} / ${p.unit}`}
-                    </strong>
-                  </div>
-                  <div
-                    style={{
-                      color: 'var(--success-text)',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      marginTop: '2px',
-                    }}
-                  >
-                    Lời mặc định:{' '}
-                    {p.default_profit_mode === 'PERCENTAGE'
-                      ? `${p.default_profit_value}%`
-                      : formatVnd(p.default_profit_value)}
-                  </div>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--muted-color)',
+                  }}
+                >
+                  Nhóm chất liệu gợi ý:
+                </span>
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                  {WORKSHOP_MATERIAL_GROUPS.map((grp) => (
+                    <button
+                      key={grp.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedMaterialGroupId(grp.id);
+                        if (!editingItemId) {
+                          setPriceUnit?.(grp.defaultUnit);
+                          if (grp.defaultUnit === 'm²') {
+                            setPriceCostMode(VendorCostMode.PER_SQM);
+                          }
+                        }
+                      }}
+                      className="pq-filter-pill"
+                      data-active={
+                        selectedMaterialGroupId === grp.id ? 'true' : 'false'
+                      }
+                      style={{ minHeight: '28px', padding: '3px 9px' }}
+                    >
+                      {grp.label}
+                    </button>
+                  ))}
                 </div>
-
-                {onQuickQuotePriceItem && (
-                  <button
-                    type="button"
-                    data-testid={`pq-quick-quote-price-${p.code}`}
-                    onClick={() => onQuickQuotePriceItem(p)}
-                    className="pq-btn pq-btn-accent"
-                  >
-                    <PqPlusIcon size={14} />
-                    <span>Báo giá</span>
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
 
-      <CatalogModalDialog
-        open={isPriceDialogOpen}
-        title="Thêm hạng mục vào Bảng giá nhà in"
-        subtitle="Lưu đơn giá gốc của xưởng in và mức lời mặc định để chọn nhanh khi lập báo giá."
-        testId="pq-price-dialog"
-        onClose={() => setIsPriceDialogOpen(false)}
-      >
-        {vendors.length === 0 ? (
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
-          >
-            <div style={{ fontSize: '13.5px', color: 'var(--muted-color)' }}>
-              Bạn cần thêm ít nhất 1 Nhà in đối tác trước khi tạo hạng mục bảng
-              giá.
+              {activeMaterialGroup.id !== 'KHAC' && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {[
+                    ...activeMaterialGroup.subtypes,
+                    ...(activeMaterialGroup.gsmBySubtype.default ?? []),
+                    ...activeMaterialGroup.sizes,
+                    ...activeMaterialGroup.printColors,
+                  ]
+                    .filter((tok) => tok !== 'Khác')
+                    .slice(0, 14)
+                    .map((chip) => {
+                      const activeChip = priceSpec
+                        .toLowerCase()
+                        .includes(chip.toLowerCase());
+                      return (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() =>
+                            setPriceSpec(appendSpecChip(priceSpec, chip))
+                          }
+                          className="pq-filter-pill"
+                          data-active={activeChip ? 'true' : 'false'}
+                          style={{
+                            minHeight: '28px',
+                            padding: '2px 8px',
+                            fontSize: '12px',
+                          }}
+                        >
+                          + {chip}
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
             </div>
-            {onNavigateCatalogSubPage && (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPriceDialogOpen(false);
-                  onNavigateCatalogSubPage('vendors');
-                }}
-                className="pq-btn pq-btn-primary"
-                style={{ alignSelf: 'flex-start' }}
-              >
-                <PqStoreIcon size={15} />
-                <span>Chuyển sang trang Nhà in đối tác</span>
-              </button>
-            )}
-          </div>
-        ) : (
-          <form
-            onSubmit={handlePriceDialogSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+          )}
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
+              gap: '12px',
+            }}
           >
             <div>
+              <label htmlFor="pq-dialog-price-name" style={labelStyle}>
+                {dialogItemType === PriceItemType.FINISHING
+                  ? 'Tên công đoạn gia công *'
+                  : 'Tên hạng mục giá cơ bản *'}
+              </label>
+              <input
+                id="pq-dialog-price-name"
+                aria-label="Tên hạng mục bảng giá"
+                style={inputStyle}
+                placeholder={
+                  dialogItemType === PriceItemType.FINISHING
+                    ? 'VD: Cán màng 1 mặt…'
+                    : 'VD: A4 C200, in màu 2 mặt…'
+                }
+                value={priceItemName}
+                onChange={(e) => setPriceItemName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
               <label htmlFor="pq-dialog-price-vendor" style={labelStyle}>
-                Nhà in đối tác *
+                Xưởng áp dụng (Không bắt buộc)
               </label>
               <select
                 id="pq-dialog-price-vendor"
@@ -742,9 +1377,8 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 style={inputStyle}
                 value={priceVendorId}
                 onChange={(e) => setPriceVendorId(e.target.value)}
-                required
               >
-                <option value="">-- Chọn Nhà in --</option>
+                <option value="">-- Giá xưởng chung --</option>
                 {vendors.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.code} — {v.name}
@@ -752,154 +1386,124 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                 ))}
               </select>
             </div>
+          </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-                gap: '12px',
-              }}
-            >
-              <div>
-                <label htmlFor="pq-dialog-price-name" style={labelStyle}>
-                  Tên ấn phẩm / Hạng mục *
-                </label>
-                <input
-                  id="pq-dialog-price-name"
-                  aria-label="Tên hạng mục bảng giá"
-                  style={inputStyle}
-                  placeholder="VD: Tờ rơi A5 Couche 150gsm…"
-                  value={priceItemName}
-                  onChange={(e) => setPriceItemName(e.target.value)}
-                  required
-                />
-              </div>
+          <div>
+            <label htmlFor="pq-dialog-price-spec" style={labelStyle}>
+              Quy cách / Chất liệu (Sửa hoặc tự nhập Khác)
+            </label>
+            <input
+              id="pq-dialog-price-spec"
+              aria-label="Quy cách in bảng giá"
+              style={inputStyle}
+              placeholder="VD: A4 · Couche C200 · In màu 2 mặt…"
+              value={priceSpec}
+              onChange={(e) => setPriceSpec(e.target.value)}
+            />
+          </div>
 
-              <div>
-                <label htmlFor="pq-dialog-price-unit" style={labelStyle}>
-                  Đơn vị tính
-                </label>
-                <input
-                  id="pq-dialog-price-unit"
-                  aria-label="Đơn vị tính bảng giá"
-                  style={inputStyle}
-                  placeholder="VD: tờ, hộp, cuốn…"
-                  value={priceUnit}
-                  onChange={(e) => setPriceUnit?.(e.target.value)}
-                />
-              </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
+              gap: '10px',
+            }}
+          >
+            <div>
+              <label htmlFor="pq-dialog-price-mode" style={labelStyle}>
+                Cách tính giá xưởng
+              </label>
+              <select
+                id="pq-dialog-price-mode"
+                aria-label="Kiểu tính giá nhà in"
+                style={inputStyle}
+                value={priceCostMode}
+                onChange={(e) => {
+                  const nextMode = e.target.value as VendorCostModeType;
+                  setPriceCostMode(nextMode);
+                  if (nextMode === VendorCostMode.PER_SQM) {
+                    setPriceUnit?.('m²');
+                  } else if (
+                    nextMode === VendorCostMode.TOTAL_BATCH &&
+                    priceUnit === 'm²'
+                  ) {
+                    setPriceUnit?.('lô');
+                  }
+                }}
+              >
+                <option value={VendorCostMode.PER_UNIT}>Theo 1 đơn vị</option>
+                <option value={VendorCostMode.PER_SQM}>
+                  Theo diện tích (m²)
+                </option>
+                <option value={VendorCostMode.TOTAL_BATCH}>Trọn lô</option>
+              </select>
             </div>
 
             <div>
-              <label htmlFor="pq-dialog-price-spec" style={labelStyle}>
-                Quy cách / Chất liệu in
+              <label htmlFor="pq-dialog-price-unit" style={labelStyle}>
+                Đơn vị tính
               </label>
               <input
-                id="pq-dialog-price-spec"
-                aria-label="Quy cách in bảng giá"
+                id="pq-dialog-price-unit"
+                aria-label="Đơn vị tính bảng giá"
                 style={inputStyle}
-                placeholder="VD: In Offset 4 màu, 2 mặt, cán bóng…"
-                value={priceSpec}
-                onChange={(e) => setPriceSpec(e.target.value)}
+                placeholder="tờ, m², hộp, lô…"
+                value={priceUnit}
+                onChange={(e) => setPriceUnit?.(e.target.value)}
               />
             </div>
 
+            <div>
+              <label htmlFor="pq-dialog-price-unit-cost" style={labelStyle}>
+                {priceCostMode === VendorCostMode.TOTAL_BATCH
+                  ? 'Giá xưởng trọn lô (đ) *'
+                  : priceCostMode === VendorCostMode.PER_SQM
+                    ? 'Giá xưởng / 1 m² (đ) *'
+                    : `Giá xưởng / 1 ${priceUnit || 'đv'} (đ) *`}
+              </label>
+              <NumericDraftInput
+                id="pq-dialog-price-unit-cost"
+                ariaLabel="Đơn giá vốn nhà in"
+                allowDecimal={false}
+                style={{ ...inputStyle, ...tabularNumStyle }}
+                placeholder="VD: 4000"
+                value={costRateInput}
+                onValueChange={(nextRaw) => {
+                  setCostRateInput(nextRaw);
+                  const parsed = parseNumericDraftValue(nextRaw, {
+                    allowDecimal: false,
+                    min: 0,
+                    integerOnly: true,
+                  });
+                  if (parsed.isValid && parsed.value !== null) {
+                    setPriceUnitCost(parsed.value);
+                    setPriceBatchCost(parsed.value);
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {dialogItemType === PriceItemType.BASE_PRINT && (
             <div
               style={{
                 display: 'grid',
                 gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 160px), 1fr))',
+                  'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
                 gap: '12px',
               }}
             >
               <div>
-                <label htmlFor="pq-dialog-price-mode" style={labelStyle}>
-                  Kiểu tính giá nhà in
-                </label>
-                <select
-                  id="pq-dialog-price-mode"
-                  aria-label="Kiểu tính giá nhà in"
-                  style={inputStyle}
-                  value={priceCostMode}
-                  onChange={(e) =>
-                    setPriceCostMode(e.target.value as VendorCostModeType)
-                  }
-                >
-                  <option value={VendorCostMode.PER_UNIT}>
-                    Giá theo 1 đơn vị
-                  </option>
-                  <option value={VendorCostMode.TOTAL_BATCH}>
-                    Giá trọn lô
-                  </option>
-                </select>
-              </div>
-
-              {priceCostMode === VendorCostMode.PER_UNIT ? (
-                <div>
-                  <label htmlFor="pq-dialog-price-unit-cost" style={labelStyle}>
-                    Đơn giá vốn nhà in (đ) *
-                  </label>
-                  <NumericDraftInput
-                    id="pq-dialog-price-unit-cost"
-                    ariaLabel="Đơn giá vốn nhà in"
-                    allowDecimal={false}
-                    style={inputStyle}
-                    placeholder="VD: 300"
-                    value={unitCostInput}
-                    onValueChange={(nextRaw) => {
-                      setUnitCostInput(nextRaw);
-                      const parsed = parseNumericDraftValue(nextRaw, {
-                        allowDecimal: false,
-                        min: 0,
-                        integerOnly: true,
-                      });
-                      if (parsed.isValid && parsed.value !== null) {
-                        setPriceUnitCost(parsed.value);
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label
-                    htmlFor="pq-dialog-price-batch-cost"
-                    style={labelStyle}
-                  >
-                    Giá vốn trọn lô (đ) *
-                  </label>
-                  <NumericDraftInput
-                    id="pq-dialog-price-batch-cost"
-                    ariaLabel="Giá vốn trọn lô nhà in"
-                    allowDecimal={false}
-                    style={inputStyle}
-                    placeholder="VD: 300000"
-                    value={batchCostInput}
-                    onValueChange={(nextRaw) => {
-                      setBatchCostInput(nextRaw);
-                      const parsed = parseNumericDraftValue(nextRaw, {
-                        allowDecimal: false,
-                        min: 0,
-                        integerOnly: true,
-                      });
-                      if (parsed.isValid && parsed.value !== null) {
-                        setPriceBatchCost(parsed.value);
-                      }
-                    }}
-                  />
-                </div>
-              )}
-
-              <div>
                 <label htmlFor="pq-dialog-price-profit" style={labelStyle}>
-                  Lời mặc định / đơn vị (đ)
+                  Lời mặc định gợi ý (đ — Không bắt buộc)
                 </label>
                 <NumericDraftInput
                   id="pq-dialog-price-profit"
                   ariaLabel="Lợi nhuận mặc định"
                   allowDecimal={false}
-                  style={inputStyle}
-                  placeholder="VD: 200"
+                  style={{ ...inputStyle, ...tabularNumStyle }}
+                  placeholder="Để trống hoặc 0"
                   value={defaultProfitInput}
                   onValueChange={(nextRaw) => {
                     setDefaultProfitInput(nextRaw);
@@ -914,34 +1518,286 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
                   }}
                 />
               </div>
-            </div>
 
+              <div>
+                <label htmlFor="pq-dialog-conditions-note" style={labelStyle}>
+                  Điều kiện áp dụng
+                </label>
+                <input
+                  id="pq-dialog-conditions-note"
+                  aria-label="Điều kiện áp dụng giá xưởng"
+                  style={inputStyle}
+                  placeholder="VD: Áp dụng từ 100 tờ, lấy trong ngày…"
+                  value={conditionsNote}
+                  onChange={(e) => setConditionsNote(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {dialogItemType === PriceItemType.FINISHING && (
+            <div>
+              <label htmlFor="pq-dialog-conditions-note" style={labelStyle}>
+                Điều kiện áp dụng / Ghi chú gia công
+              </label>
+              <input
+                id="pq-dialog-conditions-note"
+                aria-label="Điều kiện áp dụng giá gia công"
+                style={inputStyle}
+                placeholder="VD: Khuôn bế có sẵn, từ 500 tờ trở lên…"
+                value={conditionsNote}
+                onChange={(e) => setConditionsNote(e.target.value)}
+              />
+            </div>
+          )}
+
+          {dialogItemType === PriceItemType.BASE_PRINT && (
             <div
               style={{
+                padding: '10px 12px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
                 display: 'flex',
-                justifyContent: 'flex-end',
+                flexDirection: 'column',
                 gap: '8px',
-                marginTop: '4px',
               }}
             >
-              <button
-                type="button"
-                onClick={() => setIsPriceDialogOpen(false)}
-                className="pq-btn pq-btn-secondary"
+              <div
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'var(--muted-color)',
+                }}
               >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                data-testid="pq-submit-price-item-btn"
-                disabled={submitting}
-                className="pq-btn pq-btn-primary"
-              >
-                {submitting ? 'Đang lưu…' : 'Lưu vào Bảng giá'}
-              </button>
+                Công đoạn đã bao gồm sẵn trong giá cơ bản này (để cảnh báo tránh
+                cộng trùng):
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {QUICK_INCLUDED_STAGE_OPTIONS.map((opt) => {
+                  const active = includedStages.includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      data-testid={`pq-included-stage-chip-${opt}`}
+                      onClick={() =>
+                        setIncludedStages((prev) =>
+                          prev.includes(opt)
+                            ? prev.filter((x) => x !== opt)
+                            : [...prev, opt],
+                        )
+                      }
+                      className="pq-filter-pill"
+                      data-active={active ? 'true' : 'false'}
+                      style={{ minHeight: '30px', padding: '4px 10px' }}
+                    >
+                      {active ? `✓ ${opt}` : `+ ${opt}`}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                aria-label="Công đoạn khác đã bao gồm"
+                style={{ ...inputStyle, minHeight: '36px', fontSize: '12.5px' }}
+                placeholder="Hoặc nhập thêm công đoạn đã gộp (cách nhau bằng dấu phẩy)…"
+                value={customIncludedStageInput}
+                onChange={(e) => setCustomIncludedStageInput(e.target.value)}
+              />
             </div>
-          </form>
+          )}
+
+          {editingItemId && (
+            <div>
+              <label htmlFor="pq-dialog-change-note" style={labelStyle}>
+                Lý do điều chỉnh giá (lưu vào lịch sử giá)
+              </label>
+              <input
+                id="pq-dialog-change-note"
+                aria-label="Lý do điều chỉnh giá xưởng"
+                style={inputStyle}
+                placeholder="VD: Xưởng báo giá giấy mới tháng 11…"
+                value={changeNote}
+                onChange={(e) => setChangeNote(e.target.value)}
+              />
+            </div>
+          )}
+
+          {dialogError && (
+            <div
+              role="alert"
+              style={{
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--danger-text)',
+                color: 'var(--danger-text)',
+                fontSize: '12.5px',
+                fontWeight: 600,
+              }}
+            >
+              {dialogError}
+            </div>
+          )}
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '8px',
+              marginTop: '4px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setIsPriceDialogOpen(false)}
+              className="pq-btn pq-btn-secondary"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              data-testid="pq-submit-price-item-btn"
+              disabled={submitting}
+              className="pq-btn pq-btn-primary"
+            >
+              {submitting
+                ? 'Đang lưu…'
+                : editingItemId
+                  ? 'Lưu cập nhật giá'
+                  : 'Lưu vào Bảng giá xưởng'}
+            </button>
+          </div>
+        </form>
+      </CatalogModalDialog>
+
+      {/* Immutable Price History Modal */}
+      <CatalogModalDialog
+        open={historyModalItem !== null}
+        title={`Lịch sử thay đổi giá — ${historyModalItem?.code || ''} ${historyModalItem?.name || ''}`}
+        subtitle="Mọi lần tạo, cập nhật, ngừng dùng và khôi phục đều được lưu vết kèm thời gian và người thực hiện."
+        testId="pq-price-history-dialog"
+        maxWidth="560px"
+        onClose={() => setHistoryModalItem(null)}
+      >
+        {historyLoading ? (
+          <div style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
+            Đang tải lịch sử thay đổi giá…
+          </div>
+        ) : historyRecords.length === 0 ? (
+          <div style={{ fontSize: '13px', color: 'var(--muted-color)' }}>
+            Chưa có bản ghi lịch sử thay đổi.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              maxHeight: '360px',
+              overflowY: 'auto',
+            }}
+          >
+            {historyRecords.map((rec) => {
+              const afterMode = String(
+                rec.after_json?.['pricing_mode'] || 'PER_UNIT',
+              );
+              const afterRate =
+                afterMode === 'TOTAL_BATCH'
+                  ? Number(rec.after_json?.['batch_total_cost'] ?? 0)
+                  : Number(rec.after_json?.['unit_cost'] ?? 0);
+              const actionLabel =
+                rec.action === 'CREATED'
+                  ? 'Tạo mới'
+                  : rec.action === 'UPDATED'
+                    ? 'Cập nhật giá'
+                    : rec.action === 'DEACTIVATED'
+                      ? 'Ngừng dùng'
+                      : 'Khôi phục';
+              return (
+                <div key={rec.id} className="pq-version-card">
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <strong>
+                      v{rec.version} • {actionLabel}
+                    </strong>
+                    <span
+                      style={{
+                        color: 'var(--accent-text)',
+                        fontWeight: 700,
+                        ...tabularNumStyle,
+                      }}
+                    >
+                      {formatVnd(afterRate)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '3px',
+                    }}
+                  >
+                    {rec.change_note ? `${rec.change_note} • ` : ''}
+                    {rec.changed_by_name ? `Bởi ${rec.changed_by_name} • ` : ''}
+                    {formatDateVn(rec.changed_at)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
+      </CatalogModalDialog>
+
+      {/* Delete Unused Price Item Confirmation Modal */}
+      <CatalogModalDialog
+        open={deleteTargetItem !== null}
+        title="Xóa mục giá xưởng?"
+        subtitle={`Mục "${deleteTargetItem?.name || ''}" chưa từng dùng trong báo giá nào. Nếu chỉ muốn tạm ẩn, hãy chọn "Ngừng dùng".`}
+        testId="pq-delete-price-dialog"
+        maxWidth="440px"
+        onClose={() => setDeleteTargetItem(null)}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '8px',
+            marginTop: '8px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setDeleteTargetItem(null)}
+            className="pq-btn pq-btn-secondary"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            data-testid="pq-confirm-delete-price-btn"
+            onClick={async () => {
+              const target = deleteTargetItem;
+              setDeleteTargetItem(null);
+              if (!target || !onDeletePriceItem) return;
+              setBusyItemId(target.id);
+              try {
+                await onDeletePriceItem(target.id);
+              } finally {
+                setBusyItemId(null);
+              }
+            }}
+            className="pq-btn pq-btn-danger-ghost"
+          >
+            Xác nhận xóa
+          </button>
+        </div>
       </CatalogModalDialog>
     </div>
   );

@@ -70,14 +70,58 @@ function formatExactVnd(amount: number | null | undefined): string {
   })} ₫`;
 }
 
+function formatDecimalVn(amount: number | null | undefined): string {
+  const safe =
+    typeof amount === 'number' && Number.isFinite(amount) ? amount : 0;
+  const rounded4 = Math.round(safe * 10_000) / 10_000;
+  return rounded4.toLocaleString('vi-VN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
+}
+
 function formatCustomerLinePriceDisplay(
   lineTotal: number,
   quantity: number,
   unitLabel?: string | null,
+  displayAreaSqm?: number | null,
 ): { unitPriceDisplay: string; priceSubNote: string | null; isExact: boolean } {
-  const qty = Math.max(1, Math.round(quantity || 1));
   const total = Math.round(lineTotal || 0);
   const unit = (unitLabel || 'sp').trim() || 'sp';
+
+  if (
+    typeof displayAreaSqm === 'number' &&
+    Number.isFinite(displayAreaSqm) &&
+    displayAreaSqm > 0
+  ) {
+    const areaMicro = Math.round(displayAreaSqm * 1_000_000);
+    if (areaMicro > 0) {
+      const totalBig = BigInt(total);
+      const areaBig = BigInt(areaMicro);
+      if ((totalBig * 1_000_000n) % areaBig === 0n) {
+        const exactRate = Number((totalBig * 1_000_000n) / areaBig);
+        return {
+          unitPriceDisplay: formatVnd(exactRate),
+          priceSubNote: null,
+          isExact: true,
+        };
+      }
+      if ((totalBig * 100_000_000n) % areaBig === 0n) {
+        return {
+          unitPriceDisplay: formatExactVnd(total / displayAreaSqm),
+          priceSubNote: null,
+          isExact: true,
+        };
+      }
+      return {
+        unitPriceDisplay: `~${formatVnd(Math.round(total / displayAreaSqm))}`,
+        priceSubNote: `Tính trọn gói ${formatDecimalVn(displayAreaSqm)} ${unit}`,
+        isExact: false,
+      };
+    }
+  }
+
+  const qty = Math.max(1, Math.round(quantity || 1));
 
   if (total % qty === 0) {
     return {
@@ -232,10 +276,15 @@ export function buildServerA4Html(
         : '';
       const rawUnit = item.unit || 'sp';
       const unitLabel = escapeHtml(rawUnit);
+      const hasAreaQty =
+        typeof item.displayAreaSqm === 'number' &&
+        Number.isFinite(item.displayAreaSqm) &&
+        item.displayAreaSqm > 0;
       const pricePresentation = formatCustomerLinePriceDisplay(
         item.lineTotal,
         item.quantity,
         rawUnit,
+        item.displayAreaSqm,
       );
       const priceNoteHtml = pricePresentation.priceSubNote
         ? `<div class="item-split-note">(${escapeHtml(pricePresentation.priceSubNote)})</div>`
@@ -249,7 +298,7 @@ export function buildServerA4Html(
             ${specText}
           </td>
           <td class="col-unit">${unitLabel}</td>
-          <td class="col-qty">${formatNumberVn(item.quantity)}</td>
+          <td class="col-qty">${hasAreaQty ? formatDecimalVn(item.displayAreaSqm) : formatNumberVn(item.quantity)}</td>
           <td class="col-price">
             <div>${escapeHtml(pricePresentation.unitPriceDisplay)}</div>
             ${priceNoteHtml}

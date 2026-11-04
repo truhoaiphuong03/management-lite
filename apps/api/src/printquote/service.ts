@@ -10,6 +10,10 @@ import {
   ProfitMode,
   ProfitScope,
   VendorCostMode,
+  PriceItemType,
+  QuotePricingStatus,
+  LineCostSource,
+  AreaInputMode,
   ShippingAllocationStrategy,
   RoundingMode,
   QuoteOrderStatus,
@@ -18,6 +22,7 @@ import {
   PrintPaymentStatus,
   calculatePrintQuote,
   createQuoteOrderSnapshot,
+  createPendingCostQuoteSnapshot,
   buildCustomerSafePdfPayload,
   assertCustomerSafePdfPayload,
   verifyQuoteSnapshotIntegrity,
@@ -25,15 +30,24 @@ import {
   type ProfitModeType,
   type ProfitScopeType,
   type VendorCostModeType,
+  type PriceItemTypeValue,
+  type QuotePricingStatusType,
+  type LineCostSourceType,
   type ShippingAllocationStrategyType,
   type RoundingModeType,
   type QuoteOrderStatusType,
   type PrintProductionStatusType,
   type PrintDeliveryStatusType,
   type PrintPaymentStatusType,
+  type QuoteAreaSpecInput,
+  type QuoteFinishingStageInput,
   type QuoteLineInput,
+  type PendingCostDraftLineInput,
+  type PendingCostDraftStageSnapshot,
+  type PendingCostLineSummary,
   type PrintVendorData,
   type PrintVendorPriceItemData,
+  type PrintVendorPriceItemHistoryData,
   type PrintCustomerData,
   type PrintQuoteData,
   type PrintQuoteVersionData,
@@ -85,9 +99,146 @@ function toDateStr(val: unknown): string | null {
   return null;
 }
 
+function normalizeStringArray(val: unknown): string[] {
+  if (!Array.isArray(val)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of val) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+function normalizeJsonObject(val: unknown): Record<string, unknown> | null {
+  if (val && typeof val === 'object' && !Array.isArray(val)) {
+    return val as Record<string, unknown>;
+  }
+  return null;
+}
+
+function parseVendorCostMode(
+  val: unknown,
+  fallback: VendorCostModeType = VendorCostMode.PER_UNIT,
+): VendorCostModeType {
+  if (val === VendorCostMode.TOTAL_BATCH) return VendorCostMode.TOTAL_BATCH;
+  if (val === VendorCostMode.PER_SQM) return VendorCostMode.PER_SQM;
+  if (val === VendorCostMode.PER_UNIT) return VendorCostMode.PER_UNIT;
+  return fallback;
+}
+
+function parseProfitScope(
+  val: unknown,
+  fallback: ProfitScopeType = ProfitScope.PER_UNIT,
+): ProfitScopeType {
+  if (val === ProfitScope.TOTAL_BATCH) return ProfitScope.TOTAL_BATCH;
+  if (val === ProfitScope.PER_SQM) return ProfitScope.PER_SQM;
+  if (val === ProfitScope.PER_UNIT) return ProfitScope.PER_UNIT;
+  return fallback;
+}
+
+/**
+ * Distinguishes:
+ * - 'OMITTED': field not sent (`undefined`) -> caller may fallback to catalog
+ * - null: explicitly empty/missing (`null` or `""`) -> "Chờ giá xưởng" (`PENDING_COST`)
+ * - number (>= 0): explicit non-negative rate, including intentional `0` (`0` or `"0"`)
+ */
+function parseExplicitOrPendingRate(
+  val: unknown,
+  label: string,
+): number | null | 'OMITTED' {
+  if (val === undefined) return 'OMITTED';
+  if (val === null) return null;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (trimmed === '') return null;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        `${label} không hợp lệ hoặc bị âm.`,
+        400,
+      );
+    }
+    return parsed;
+  }
+  if (typeof val === 'number') {
+    if (!Number.isFinite(val) || val < 0) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        `${label} không hợp lệ hoặc bị âm.`,
+        400,
+      );
+    }
+    return val;
+  }
+  throw new AuthError('VALIDATION_ERROR', `${label} không hợp lệ.`, 400);
+}
+
+function parseAreaSpecInput(rawArea: unknown): QuoteAreaSpecInput | null {
+  if (!rawArea || typeof rawArea !== 'object' || Array.isArray(rawArea)) {
+    return null;
+  }
+  const obj = rawArea as Record<string, unknown>;
+  const mode =
+    obj['mode'] === AreaInputMode.DIRECT_AREA
+      ? AreaInputMode.DIRECT_AREA
+      : obj['mode'] === AreaInputMode.DIMENSIONS
+        ? AreaInputMode.DIMENSIONS
+        : null;
+  if (!mode) return null;
+
+  const billableRaw = obj['billableAreaSqm'] ?? obj['billable_area_sqm'];
+  const billableAreaSqm =
+    billableRaw !== undefined && billableRaw !== null && billableRaw !== ''
+      ? toNum(billableRaw, -1)
+      : undefined;
+
+  if (mode === AreaInputMode.DIRECT_AREA) {
+    const actualRaw = obj['actualAreaSqm'] ?? obj['actual_area_sqm'];
+    return {
+      mode: AreaInputMode.DIRECT_AREA,
+      actualAreaSqm: toNum(actualRaw, -1),
+      ...(billableAreaSqm !== undefined ? { billableAreaSqm } : {}),
+    };
+  }
+
+  const widthM = toNum(obj['widthM'] ?? obj['width_m'], -1);
+  const heightM = toNum(obj['heightM'] ?? obj['height_m'], -1);
+  const sheetsRaw = obj['sheetsCount'] ?? obj['sheets_count'];
+  const sheetsCount =
+    sheetsRaw !== undefined && sheetsRaw !== null && sheetsRaw !== ''
+      ? toInt(sheetsRaw, -1)
+      : undefined;
+
+  return {
+    mode: AreaInputMode.DIMENSIONS,
+    widthM,
+    heightM,
+    ...(sheetsCount !== undefined ? { sheetsCount } : {}),
+    ...(billableAreaSqm !== undefined ? { billableAreaSqm } : {}),
+  };
+}
+
 type StoredQuoteLineJson = PersistedQuoteLineSnapshot & {
   vendorCostMode?: VendorCostModeType | undefined;
 };
+
+type ResolvedQuoteLinesOutcome =
+  | {
+      pricingStatus: 'COMPLETE';
+      lines: QuoteLineInput[];
+      costModes: Array<VendorCostModeType | undefined>;
+    }
+  | {
+      pricingStatus: 'PENDING_COST';
+      draftLines: PendingCostDraftLineInput[];
+    };
 
 export class PrintQuoteService {
   constructor(private readonly pool: DatabasePool) {}
@@ -438,29 +589,136 @@ export class PrintQuoteService {
   }
 
   // ==========================================================================
-  // 2. VENDOR PRICE CATALOG (BẢNG GIÁ NHÀ IN)
+  // 2. WORKSHOP & VENDOR PRICE CATALOG (BẢNG GIÁ XƯỞNG: CƠ BẢN & GIA CÔNG)
   // ==========================================================================
+
+  private async collectUsedPriceItemIds(
+    queryable: {
+      query: (
+        text: string,
+        values?: unknown[],
+      ) => Promise<{ rows: Record<string, unknown>[] }>;
+    },
+    workspaceId: string,
+  ): Promise<Set<string>> {
+    const res = await queryable.query(
+      `SELECT DISTINCT ref_id FROM (
+         SELECT elem->>'vendorPriceItemId' AS ref_id
+         FROM print_quotes q,
+              LATERAL jsonb_array_elements(COALESCE(q.lines_json, '[]'::jsonb)) AS elem
+         WHERE q.workspace_id = $1
+         UNION
+         SELECT stg->>'priceItemId' AS ref_id
+         FROM print_quotes q,
+              LATERAL jsonb_array_elements(COALESCE(q.lines_json, '[]'::jsonb)) AS elem,
+              LATERAL jsonb_array_elements(COALESCE(elem->'finishingStages', '[]'::jsonb)) AS stg
+         WHERE q.workspace_id = $1
+         UNION
+         SELECT elem->>'vendorPriceItemId' AS ref_id
+         FROM print_quote_versions v,
+              LATERAL jsonb_array_elements(COALESCE(v.snapshot_json->'lines', '[]'::jsonb)) AS elem
+         WHERE v.workspace_id = $1
+         UNION
+         SELECT stg->>'priceItemId' AS ref_id
+         FROM print_quote_versions v,
+              LATERAL jsonb_array_elements(COALESCE(v.snapshot_json->'lines', '[]'::jsonb)) AS elem,
+              LATERAL jsonb_array_elements(COALESCE(elem->'finishingStages', '[]'::jsonb)) AS stg
+         WHERE v.workspace_id = $1
+       ) refs
+       WHERE ref_id IS NOT NULL AND ref_id <> ''`,
+      [workspaceId],
+    );
+    const used = new Set<string>();
+    for (const r of res.rows) {
+      if (typeof r['ref_id'] === 'string' && r['ref_id']) {
+        used.add(r['ref_id']);
+      }
+    }
+    return used;
+  }
+
+  private async recordPriceItemHistory(
+    client: pg.PoolClient,
+    params: {
+      workspaceId: string;
+      priceItemId: string;
+      version: number;
+      action: 'CREATED' | 'UPDATED' | 'DEACTIVATED' | 'RESTORED';
+      beforeJson: PrintVendorPriceItemData | null;
+      afterJson: PrintVendorPriceItemData;
+      changeNote: string | null;
+      changedBy: string;
+    },
+  ): Promise<void> {
+    await client.query(
+      `INSERT INTO print_vendor_price_item_history (
+         workspace_id, price_item_id, version, action,
+         before_json, after_json, change_note, changed_by
+       ) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8)`,
+      [
+        params.workspaceId,
+        params.priceItemId,
+        params.version,
+        params.action,
+        params.beforeJson ? JSON.stringify(params.beforeJson) : null,
+        JSON.stringify(params.afterJson),
+        params.changeNote,
+        params.changedBy,
+      ],
+    );
+  }
 
   async listPriceItems(
     ctx: AuthenticatedContext,
-    vendorId?: string | null,
+    vendorIdOrFilter?:
+      | string
+      | null
+      | {
+          vendorId?: string | null | undefined;
+          itemType?: string | null | undefined;
+          includeInactive?: boolean | undefined;
+        },
   ): Promise<PrintVendorPriceItemData[]> {
     this.assertOwnerAccess(ctx);
+    const filterObj =
+      typeof vendorIdOrFilter === 'object' && vendorIdOrFilter !== null
+        ? vendorIdOrFilter
+        : { vendorId: vendorIdOrFilter };
+
     const params: unknown[] = [ctx.workspace.id];
     let whereSql = `p.workspace_id = $1`;
-    if (vendorId) {
-      params.push(vendorId);
-      whereSql += ` AND p.vendor_id = $2`;
+    if (filterObj.vendorId) {
+      params.push(filterObj.vendorId);
+      whereSql += ` AND p.vendor_id = $${params.length}`;
     }
-    const res = await this.pool.query(
-      `SELECT p.*, v.name AS vendor_name
-       FROM print_vendor_price_items p
-       JOIN print_vendors v ON v.id = p.vendor_id
-       WHERE ${whereSql}
-       ORDER BY p.is_active DESC, v.name ASC, p.name ASC`,
-      params,
-    );
-    return res.rows.map((r) => this.mapPriceItemRow(r));
+    if (
+      filterObj.itemType === PriceItemType.BASE_PRINT ||
+      filterObj.itemType === PriceItemType.FINISHING
+    ) {
+      params.push(filterObj.itemType);
+      whereSql += ` AND p.item_type = $${params.length}`;
+    }
+    if (filterObj.includeInactive === false) {
+      whereSql += ` AND p.is_active = true`;
+    }
+
+    const [res, usedIds] = await Promise.all([
+      this.pool.query(
+        `SELECT p.*, v.name AS vendor_name
+         FROM print_vendor_price_items p
+         LEFT JOIN print_vendors v ON v.id = p.vendor_id
+         WHERE ${whereSql}
+         ORDER BY p.is_active DESC, p.item_type ASC, COALESCE(v.name, '') ASC, p.name ASC`,
+        params,
+      ),
+      this.collectUsedPriceItemIds(this.pool, ctx.workspace.id),
+    ]);
+
+    return res.rows.map((r) => {
+      const mapped = this.mapPriceItemRow(r);
+      mapped.is_used_in_quotes = usedIds.has(mapped.id);
+      return mapped;
+    });
   }
 
   async createPriceItem(
@@ -469,35 +727,59 @@ export class PrintQuoteService {
     idempotencyKey?: string,
   ): Promise<PrintVendorPriceItemData> {
     this.assertOwnerAccess(ctx);
-    const vendorId =
+    const vendorIdRaw =
       typeof input['vendor_id'] === 'string' ? input['vendor_id'].trim() : '';
+    const vendorId = vendorIdRaw ? vendorIdRaw : null;
     const name = typeof input['name'] === 'string' ? input['name'].trim() : '';
-    if (!vendorId || !name) {
+    if (!name) {
       throw new AuthError(
         'VALIDATION_ERROR',
-        'Nhà in (vendor_id) và Tên hạng mục in (name) là bắt buộc.',
+        'Tên mục giá xưởng (name) là bắt buộc.',
         400,
       );
     }
 
-    const pricingMode: VendorCostModeType =
-      input['pricing_mode'] === VendorCostMode.TOTAL_BATCH
-        ? VendorCostMode.TOTAL_BATCH
-        : VendorCostMode.PER_UNIT;
+    const rawItemType = input['item_type'] ?? input['itemType'];
+    if (
+      rawItemType !== undefined &&
+      rawItemType !== PriceItemType.BASE_PRINT &&
+      rawItemType !== PriceItemType.FINISHING
+    ) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Phân loại mục giá (item_type) phải là BASE_PRINT hoặc FINISHING.',
+        400,
+      );
+    }
+    const itemType: PriceItemTypeValue =
+      rawItemType === PriceItemType.FINISHING
+        ? PriceItemType.FINISHING
+        : PriceItemType.BASE_PRINT;
+
+    const pricingMode = parseVendorCostMode(
+      input['pricing_mode'],
+      VendorCostMode.PER_UNIT,
+    );
     const unitCost = toInt(input['unit_cost'], 0);
     const batchQuantity = Math.max(1, toInt(input['batch_quantity'], 1));
     const batchTotalCost = toInt(
       input['batch_total_cost'],
-      unitCost * batchQuantity,
+      pricingMode === VendorCostMode.TOTAL_BATCH
+        ? unitCost
+        : unitCost * batchQuantity,
     );
     const defaultProfitMode: ProfitModeType =
       input['default_profit_mode'] === ProfitMode.PERCENTAGE
         ? ProfitMode.PERCENTAGE
         : ProfitMode.FIXED_AMOUNT;
-    const defaultProfitScope: ProfitScopeType =
-      input['default_profit_scope'] === ProfitScope.TOTAL_BATCH
-        ? ProfitScope.TOTAL_BATCH
-        : ProfitScope.PER_UNIT;
+    const defaultProfitScope = parseProfitScope(
+      input['default_profit_scope'],
+      pricingMode === VendorCostMode.PER_SQM
+        ? ProfitScope.PER_SQM
+        : pricingMode === VendorCostMode.TOTAL_BATCH
+          ? ProfitScope.TOTAL_BATCH
+          : ProfitScope.PER_UNIT,
+    );
     const defaultProfitValue = Math.max(
       0,
       toNum(input['default_profit_value'], 0),
@@ -506,10 +788,32 @@ export class PrintQuoteService {
     if (unitCost < 0 || batchTotalCost < 0) {
       throw new AuthError(
         'VALIDATION_ERROR',
-        'Giá vốn nhà in không được âm.',
+        'Giá vốn xưởng không được âm.',
         400,
       );
     }
+
+    const includedStages =
+      itemType === PriceItemType.BASE_PRINT
+        ? normalizeStringArray(
+            input['included_stages'] ?? input['includedStages'],
+          )
+        : [];
+    const structuredSpec = normalizeJsonObject(
+      input['structured_spec'] ?? input['structuredSpec'],
+    );
+    const conditionsNote =
+      typeof input['conditions_note'] === 'string'
+        ? input['conditions_note'].trim() || null
+        : typeof input['conditionsNote'] === 'string'
+          ? input['conditionsNote'].trim() || null
+          : null;
+    const defaultUnit =
+      pricingMode === VendorCostMode.PER_SQM
+        ? 'm²'
+        : pricingMode === VendorCostMode.TOTAL_BATCH
+          ? 'lô'
+          : 'tờ';
 
     return this.withIdempotentTransaction(
       ctx,
@@ -519,16 +823,20 @@ export class PrintQuoteService {
       idempotencyKey,
       201,
       async (client) => {
-        const vRes = await client.query<{ name: string }>(
-          `SELECT name FROM print_vendors WHERE id = $1 AND workspace_id = $2`,
-          [vendorId, ctx.workspace.id],
-        );
-        if (vRes.rows.length === 0) {
-          throw new AuthError(
-            'NOT_FOUND',
-            'Không tìm thấy nhà in thuộc workspace.',
-            404,
+        let vendorName: string | null = null;
+        if (vendorId) {
+          const vRes = await client.query<{ name: string }>(
+            `SELECT name FROM print_vendors WHERE id = $1 AND workspace_id = $2`,
+            [vendorId, ctx.workspace.id],
           );
+          if (vRes.rows.length === 0) {
+            throw new AuthError(
+              'NOT_FOUND',
+              'Không tìm thấy nhà in thuộc workspace.',
+              404,
+            );
+          }
+          vendorName = vRes.rows[0]!.name;
         }
 
         let code =
@@ -536,35 +844,71 @@ export class PrintQuoteService {
             ? input['code'].trim().toUpperCase()
             : '';
         if (!code) {
+          const prefix =
+            itemType === PriceItemType.FINISHING
+              ? 'GC'
+              : vendorId
+                ? 'BG'
+                : 'GX';
           const countRes = await client.query<{ cnt: string }>(
-            `SELECT COUNT(*)::text AS cnt FROM print_vendor_price_items WHERE workspace_id = $1 AND vendor_id = $2`,
-            [ctx.workspace.id, vendorId],
+            `SELECT COUNT(*)::text AS cnt FROM print_vendor_price_items WHERE workspace_id = $1`,
+            [ctx.workspace.id],
           );
-          const nextNum = Number(countRes.rows[0]?.cnt ?? 0) + 1;
-          code = `BG-${String(nextNum).padStart(3, '0')}`;
+          let seq = Number(countRes.rows[0]?.cnt ?? 0) + 1;
+          for (let attempt = 0; attempt < 500; attempt++) {
+            const candidate = `${prefix}-${String(seq).padStart(3, '0')}`;
+            const dupRes = await client.query(
+              `SELECT 1 FROM print_vendor_price_items
+               WHERE workspace_id = $1
+                 AND COALESCE(vendor_id, '00000000-0000-0000-0000-000000000000'::uuid) = COALESCE($2::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
+                 AND code = $3
+               LIMIT 1`,
+              [ctx.workspace.id, vendorId, candidate],
+            );
+            if (dupRes.rows.length === 0) {
+              code = candidate;
+              break;
+            }
+            seq++;
+          }
+          if (!code) {
+            code = `${prefix}-${Date.now().toString(36).toUpperCase()}`;
+          }
         }
 
         const res = await client.query(
           `INSERT INTO print_vendor_price_items (
-            workspace_id, vendor_id, code, name, category, specification, unit,
+            workspace_id, vendor_id, code, name, item_type, category, specification,
+            included_stages, structured_spec, conditions_note, unit,
             pricing_mode, unit_cost, batch_quantity, batch_total_cost,
-            default_profit_mode, default_profit_scope, default_profit_value, note, is_active
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            default_profit_mode, default_profit_scope, default_profit_value,
+            note, is_active, updated_by
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7,
+            $8::jsonb, $9::jsonb, $10, $11,
+            $12, $13, $14, $15,
+            $16, $17, $18,
+            $19, $20, $21
+          )
           RETURNING *`,
           [
             ctx.workspace.id,
             vendorId,
             code,
             name,
+            itemType,
             typeof input['category'] === 'string'
               ? input['category'].trim() || null
               : null,
             typeof input['specification'] === 'string'
               ? input['specification'].trim() || null
               : null,
+            JSON.stringify(includedStages),
+            structuredSpec ? JSON.stringify(structuredSpec) : null,
+            conditionsNote,
             typeof input['unit'] === 'string' && input['unit'].trim()
               ? input['unit'].trim()
-              : 'tờ',
+              : defaultUnit,
             pricingMode,
             unitCost,
             batchQuantity,
@@ -578,13 +922,32 @@ export class PrintQuoteService {
             input['is_active'] === undefined
               ? true
               : Boolean(input['is_active']),
+            ctx.user.id,
           ],
         );
 
-        return this.mapPriceItemRow({
+        const created = this.mapPriceItemRow({
           ...res.rows[0],
-          vendor_name: vRes.rows[0]!.name,
+          vendor_name: vendorName,
         });
+        created.is_used_in_quotes = false;
+
+        await this.recordPriceItemHistory(client, {
+          workspaceId: ctx.workspace.id,
+          priceItemId: created.id,
+          version: created.version,
+          action: 'CREATED',
+          beforeJson: null,
+          afterJson: created,
+          changeNote:
+            typeof input['change_note'] === 'string' &&
+            input['change_note'].trim()
+              ? input['change_note'].trim()
+              : 'Tạo mục giá xưởng mới',
+          changedBy: ctx.user.id,
+        });
+
+        return created;
       },
     );
   }
@@ -595,156 +958,418 @@ export class PrintQuoteService {
     input: Record<string, unknown>,
   ): Promise<PrintVendorPriceItemData> {
     this.assertOwnerAccess(ctx);
-    const existingRes = await this.pool.query(
-      `SELECT p.*, v.name AS vendor_name
-       FROM print_vendor_price_items p
-       JOIN print_vendors v ON v.id = p.vendor_id
-       WHERE p.id = $1 AND p.workspace_id = $2`,
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const existingRes = await client.query(
+        `SELECT p.*, v.name AS vendor_name
+         FROM print_vendor_price_items p
+         LEFT JOIN print_vendors v ON v.id = p.vendor_id
+         WHERE p.id = $1 AND p.workspace_id = $2
+         FOR UPDATE OF p`,
+        [priceItemId, ctx.workspace.id],
+      );
+      const existing = existingRes.rows[0];
+      if (!existing) {
+        throw new AuthError(
+          'NOT_FOUND',
+          'Không tìm thấy hạng mục bảng giá xưởng.',
+          404,
+        );
+      }
+
+      const beforeMapped = this.mapPriceItemRow(existing);
+
+      let nextVendorId: string | null = beforeMapped.vendor_id;
+      let nextVendorName: string | null = beforeMapped.vendor_name;
+      if (input['vendor_id'] !== undefined) {
+        const trimmedVid =
+          typeof input['vendor_id'] === 'string'
+            ? input['vendor_id'].trim()
+            : '';
+        if (trimmedVid) {
+          const vRes = await client.query<{ name: string }>(
+            `SELECT name FROM print_vendors WHERE id = $1 AND workspace_id = $2`,
+            [trimmedVid, ctx.workspace.id],
+          );
+          if (vRes.rows.length === 0) {
+            throw new AuthError(
+              'NOT_FOUND',
+              'Không tìm thấy nhà in thuộc workspace.',
+              404,
+            );
+          }
+          nextVendorId = trimmedVid;
+          nextVendorName = vRes.rows[0]!.name;
+        } else {
+          nextVendorId = null;
+          nextVendorName = null;
+        }
+      }
+
+      const name =
+        typeof input['name'] === 'string'
+          ? input['name'].trim()
+          : beforeMapped.name;
+      if (!name) {
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          'Tên mục giá xưởng không được để trống.',
+          400,
+        );
+      }
+
+      const rawItemType = input['item_type'] ?? input['itemType'];
+      const itemType: PriceItemTypeValue =
+        rawItemType !== undefined
+          ? rawItemType === PriceItemType.FINISHING
+            ? PriceItemType.FINISHING
+            : PriceItemType.BASE_PRINT
+          : beforeMapped.item_type;
+
+      const pricingMode =
+        input['pricing_mode'] !== undefined
+          ? parseVendorCostMode(
+              input['pricing_mode'],
+              beforeMapped.pricing_mode,
+            )
+          : beforeMapped.pricing_mode;
+      const unitCost =
+        input['unit_cost'] !== undefined
+          ? toInt(input['unit_cost'], 0)
+          : beforeMapped.unit_cost;
+      const batchQuantity =
+        input['batch_quantity'] !== undefined
+          ? Math.max(1, toInt(input['batch_quantity'], 1))
+          : beforeMapped.batch_quantity;
+      const batchTotalCost =
+        input['batch_total_cost'] !== undefined
+          ? toInt(input['batch_total_cost'], 0)
+          : beforeMapped.batch_total_cost;
+      const defaultProfitMode: ProfitModeType =
+        input['default_profit_mode'] !== undefined
+          ? input['default_profit_mode'] === ProfitMode.PERCENTAGE
+            ? ProfitMode.PERCENTAGE
+            : ProfitMode.FIXED_AMOUNT
+          : beforeMapped.default_profit_mode;
+      const defaultProfitScope =
+        input['default_profit_scope'] !== undefined
+          ? parseProfitScope(
+              input['default_profit_scope'],
+              beforeMapped.default_profit_scope,
+            )
+          : beforeMapped.default_profit_scope;
+      const defaultProfitValue =
+        input['default_profit_value'] !== undefined
+          ? Math.max(0, toNum(input['default_profit_value'], 0))
+          : beforeMapped.default_profit_value;
+
+      if (unitCost < 0 || batchTotalCost < 0) {
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          'Giá vốn xưởng không được âm.',
+          400,
+        );
+      }
+
+      const rawIncluded = input['included_stages'] ?? input['includedStages'];
+      const includedStages =
+        itemType === PriceItemType.FINISHING
+          ? []
+          : rawIncluded !== undefined
+            ? normalizeStringArray(rawIncluded)
+            : beforeMapped.included_stages;
+
+      const rawStructured = input['structured_spec'] ?? input['structuredSpec'];
+      const structuredSpec =
+        rawStructured !== undefined
+          ? normalizeJsonObject(rawStructured)
+          : beforeMapped.structured_spec;
+
+      const rawCond = input['conditions_note'] ?? input['conditionsNote'];
+      const conditionsNote =
+        rawCond !== undefined
+          ? typeof rawCond === 'string'
+            ? rawCond.trim() || null
+            : null
+          : beforeMapped.conditions_note;
+
+      const nextIsActive =
+        input['is_active'] !== undefined
+          ? Boolean(input['is_active'])
+          : beforeMapped.is_active;
+
+      const res = await client.query(
+        `UPDATE print_vendor_price_items
+         SET vendor_id = $1,
+             name = $2,
+             item_type = $3,
+             category = $4,
+             specification = $5,
+             included_stages = $6::jsonb,
+             structured_spec = $7::jsonb,
+             conditions_note = $8,
+             unit = $9,
+             pricing_mode = $10,
+             unit_cost = $11,
+             batch_quantity = $12,
+             batch_total_cost = $13,
+             default_profit_mode = $14,
+             default_profit_scope = $15,
+             default_profit_value = $16,
+             note = $17,
+             is_active = $18,
+             updated_by = $19,
+             version = version + 1,
+             updated_at = now()
+         WHERE id = $20 AND workspace_id = $21
+         RETURNING *`,
+        [
+          nextVendorId,
+          name,
+          itemType,
+          input['category'] !== undefined
+            ? typeof input['category'] === 'string'
+              ? input['category'].trim() || null
+              : null
+            : existing['category'],
+          input['specification'] !== undefined
+            ? typeof input['specification'] === 'string'
+              ? input['specification'].trim() || null
+              : null
+            : existing['specification'],
+          JSON.stringify(includedStages),
+          structuredSpec ? JSON.stringify(structuredSpec) : null,
+          conditionsNote,
+          input['unit'] !== undefined &&
+          typeof input['unit'] === 'string' &&
+          input['unit'].trim()
+            ? input['unit'].trim()
+            : existing['unit'],
+          pricingMode,
+          unitCost,
+          batchQuantity,
+          batchTotalCost,
+          defaultProfitMode,
+          defaultProfitScope,
+          defaultProfitValue,
+          input['note'] !== undefined
+            ? typeof input['note'] === 'string'
+              ? input['note'].trim() || null
+              : null
+            : existing['note'],
+          nextIsActive,
+          ctx.user.id,
+          priceItemId,
+          ctx.workspace.id,
+        ],
+      );
+
+      const usedIds = await this.collectUsedPriceItemIds(
+        client,
+        ctx.workspace.id,
+      );
+      const updated = this.mapPriceItemRow({
+        ...res.rows[0],
+        vendor_name: nextVendorName,
+      });
+      updated.is_used_in_quotes = usedIds.has(updated.id);
+
+      const action: 'UPDATED' | 'DEACTIVATED' | 'RESTORED' =
+        beforeMapped.is_active && !nextIsActive
+          ? 'DEACTIVATED'
+          : !beforeMapped.is_active && nextIsActive
+            ? 'RESTORED'
+            : 'UPDATED';
+
+      await this.recordPriceItemHistory(client, {
+        workspaceId: ctx.workspace.id,
+        priceItemId: updated.id,
+        version: updated.version,
+        action,
+        beforeJson: beforeMapped,
+        afterJson: updated,
+        changeNote:
+          typeof input['change_note'] === 'string' &&
+          input['change_note'].trim()
+            ? input['change_note'].trim()
+            : action === 'DEACTIVATED'
+              ? 'Ngừng sử dụng mục giá xưởng'
+              : action === 'RESTORED'
+                ? 'Khôi phục mục giá xưởng'
+                : 'Cập nhật mục giá xưởng',
+        changedBy: ctx.user.id,
+      });
+
+      await client.query('COMMIT');
+      return updated;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deactivatePriceItem(
+    ctx: AuthenticatedContext,
+    priceItemId: string,
+    changeNote?: string | null,
+  ): Promise<PrintVendorPriceItemData> {
+    this.assertOwnerAccess(ctx);
+    return this.updatePriceItem(ctx, priceItemId, {
+      is_active: false,
+      change_note: changeNote || 'Ngừng sử dụng mục giá xưởng',
+    });
+  }
+
+  async restorePriceItem(
+    ctx: AuthenticatedContext,
+    priceItemId: string,
+    changeNote?: string | null,
+  ): Promise<PrintVendorPriceItemData> {
+    this.assertOwnerAccess(ctx);
+    return this.updatePriceItem(ctx, priceItemId, {
+      is_active: true,
+      change_note: changeNote || 'Khôi phục mục giá xưởng',
+    });
+  }
+
+  async deletePriceItem(
+    ctx: AuthenticatedContext,
+    priceItemId: string,
+  ): Promise<{ deleted: true; id: string }> {
+    this.assertOwnerAccess(ctx);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const existingRes = await client.query(
+        `SELECT id, name FROM print_vendor_price_items WHERE id = $1 AND workspace_id = $2 FOR UPDATE`,
+        [priceItemId, ctx.workspace.id],
+      );
+      if (existingRes.rows.length === 0) {
+        throw new AuthError('NOT_FOUND', 'Không tìm thấy mục giá xưởng.', 404);
+      }
+
+      const usedIds = await this.collectUsedPriceItemIds(
+        client,
+        ctx.workspace.id,
+      );
+      if (usedIds.has(priceItemId)) {
+        throw new AuthError(
+          'PRICE_ITEM_IN_USE',
+          `Mục giá "${String(existingRes.rows[0]?.['name'] ?? '')}" đã được dùng trong báo giá nên không thể xóa vĩnh viễn. Vui lòng chọn "Ngừng dùng" để ẩn khỏi danh sách chọn mới mà không mất lịch sử báo giá cũ.`,
+          409,
+        );
+      }
+
+      await client.query(
+        `DELETE FROM print_vendor_price_item_history WHERE price_item_id = $1 AND workspace_id = $2`,
+        [priceItemId, ctx.workspace.id],
+      );
+      await client.query(
+        `DELETE FROM print_vendor_price_items WHERE id = $1 AND workspace_id = $2`,
+        [priceItemId, ctx.workspace.id],
+      );
+      await client.query('COMMIT');
+      return { deleted: true, id: priceItemId };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listPriceItemHistory(
+    ctx: AuthenticatedContext,
+    priceItemId: string,
+  ): Promise<PrintVendorPriceItemHistoryData[]> {
+    this.assertOwnerAccess(ctx);
+    const checkRes = await this.pool.query(
+      `SELECT 1 FROM print_vendor_price_items WHERE id = $1 AND workspace_id = $2`,
       [priceItemId, ctx.workspace.id],
     );
-    const existing = existingRes.rows[0];
-    if (!existing) {
-      throw new AuthError(
-        'NOT_FOUND',
-        'Không tìm thấy hạng mục bảng giá nhà in.',
-        404,
-      );
-    }
-
-    const name =
-      typeof input['name'] === 'string'
-        ? input['name'].trim()
-        : String(existing['name']);
-    const pricingMode: VendorCostModeType =
-      input['pricing_mode'] !== undefined
-        ? input['pricing_mode'] === VendorCostMode.TOTAL_BATCH
-          ? VendorCostMode.TOTAL_BATCH
-          : VendorCostMode.PER_UNIT
-        : (existing['pricing_mode'] as VendorCostModeType);
-    const unitCost =
-      input['unit_cost'] !== undefined
-        ? toInt(input['unit_cost'], 0)
-        : toInt(existing['unit_cost'], 0);
-    const batchQuantity =
-      input['batch_quantity'] !== undefined
-        ? Math.max(1, toInt(input['batch_quantity'], 1))
-        : Math.max(1, toInt(existing['batch_quantity'], 1));
-    const batchTotalCost =
-      input['batch_total_cost'] !== undefined
-        ? toInt(input['batch_total_cost'], 0)
-        : toInt(existing['batch_total_cost'], 0);
-    const defaultProfitMode: ProfitModeType =
-      input['default_profit_mode'] !== undefined
-        ? input['default_profit_mode'] === ProfitMode.PERCENTAGE
-          ? ProfitMode.PERCENTAGE
-          : ProfitMode.FIXED_AMOUNT
-        : (existing['default_profit_mode'] as ProfitModeType);
-    const defaultProfitScope: ProfitScopeType =
-      input['default_profit_scope'] !== undefined
-        ? input['default_profit_scope'] === ProfitScope.TOTAL_BATCH
-          ? ProfitScope.TOTAL_BATCH
-          : ProfitScope.PER_UNIT
-        : (existing['default_profit_scope'] as ProfitScopeType);
-    const defaultProfitValue =
-      input['default_profit_value'] !== undefined
-        ? Math.max(0, toNum(input['default_profit_value'], 0))
-        : toNum(existing['default_profit_value'], 0);
-
-    if (unitCost < 0 || batchTotalCost < 0) {
-      throw new AuthError(
-        'VALIDATION_ERROR',
-        'Giá vốn nhà in không được âm.',
-        400,
-      );
+    if (checkRes.rows.length === 0) {
+      throw new AuthError('NOT_FOUND', 'Không tìm thấy mục giá xưởng.', 404);
     }
 
     const res = await this.pool.query(
-      `UPDATE print_vendor_price_items
-       SET name = $1,
-           category = $2,
-           specification = $3,
-           unit = $4,
-           pricing_mode = $5,
-           unit_cost = $6,
-           batch_quantity = $7,
-           batch_total_cost = $8,
-           default_profit_mode = $9,
-           default_profit_scope = $10,
-           default_profit_value = $11,
-           note = $12,
-           is_active = $13,
-           version = version + 1,
-           updated_at = now()
-       WHERE id = $14 AND workspace_id = $15
-       RETURNING *`,
-      [
-        name,
-        input['category'] !== undefined
-          ? typeof input['category'] === 'string'
-            ? input['category'].trim() || null
-            : null
-          : existing['category'],
-        input['specification'] !== undefined
-          ? typeof input['specification'] === 'string'
-            ? input['specification'].trim() || null
-            : null
-          : existing['specification'],
-        input['unit'] !== undefined &&
-        typeof input['unit'] === 'string' &&
-        input['unit'].trim()
-          ? input['unit'].trim()
-          : existing['unit'],
-        pricingMode,
-        unitCost,
-        batchQuantity,
-        batchTotalCost,
-        defaultProfitMode,
-        defaultProfitScope,
-        defaultProfitValue,
-        input['note'] !== undefined
-          ? typeof input['note'] === 'string'
-            ? input['note'].trim() || null
-            : null
-          : existing['note'],
-        input['is_active'] !== undefined
-          ? Boolean(input['is_active'])
-          : Boolean(existing['is_active']),
-        priceItemId,
-        ctx.workspace.id,
-      ],
+      `SELECT h.*, COALESCE(e.full_name, u.username_normalized, u.email_normalized) AS changed_by_name
+       FROM print_vendor_price_item_history h
+       LEFT JOIN users u ON u.id = h.changed_by
+       LEFT JOIN employees e ON e.user_id = h.changed_by AND e.workspace_id = h.workspace_id
+       WHERE h.price_item_id = $1 AND h.workspace_id = $2
+       ORDER BY h.version DESC, h.changed_at DESC`,
+      [priceItemId, ctx.workspace.id],
     );
 
-    return this.mapPriceItemRow({
-      ...res.rows[0],
-      vendor_name: existing['vendor_name'],
-    });
+    return res.rows.map((r) => ({
+      id: String(r['id']),
+      workspace_id: String(r['workspace_id']),
+      price_item_id: String(r['price_item_id']),
+      version: toInt(r['version'], 1),
+      action:
+        r['action'] === 'CREATED' ||
+        r['action'] === 'DEACTIVATED' ||
+        r['action'] === 'RESTORED'
+          ? r['action']
+          : 'UPDATED',
+      before_json: normalizeJsonObject(r['before_json']),
+      after_json: normalizeJsonObject(r['after_json']) ?? {},
+      change_note: r['change_note'] ? String(r['change_note']) : null,
+      changed_by: r['changed_by'] ? String(r['changed_by']) : null,
+      changed_by_name: r['changed_by_name']
+        ? String(r['changed_by_name'])
+        : null,
+      changed_at: toIso(r['changed_at']),
+    }));
   }
 
   private mapPriceItemRow(
     r: Record<string, unknown>,
   ): PrintVendorPriceItemData {
+    const rawIncluded = r['included_stages'];
+    const includedStages = Array.isArray(rawIncluded)
+      ? normalizeStringArray(rawIncluded)
+      : [];
     return {
       id: String(r['id']),
       workspace_id: String(r['workspace_id']),
-      vendor_id: String(r['vendor_id']),
+      vendor_id: r['vendor_id'] ? String(r['vendor_id']) : null,
       vendor_name: r['vendor_name'] ? String(r['vendor_name']) : null,
       code: String(r['code']),
       name: String(r['name']),
+      item_type:
+        r['item_type'] === PriceItemType.FINISHING
+          ? PriceItemType.FINISHING
+          : PriceItemType.BASE_PRINT,
       category: r['category'] ? String(r['category']) : null,
       specification: r['specification'] ? String(r['specification']) : null,
+      included_stages: includedStages,
+      structured_spec: normalizeJsonObject(r['structured_spec']),
+      conditions_note: r['conditions_note']
+        ? String(r['conditions_note'])
+        : null,
       unit: String(r['unit'] || 'tờ'),
-      pricing_mode: (r['pricing_mode'] as VendorCostModeType) || 'PER_UNIT',
+      pricing_mode: parseVendorCostMode(
+        r['pricing_mode'],
+        VendorCostMode.PER_UNIT,
+      ),
       unit_cost: toInt(r['unit_cost'], 0),
       batch_quantity: Math.max(1, toInt(r['batch_quantity'], 1)),
       batch_total_cost: toInt(r['batch_total_cost'], 0),
       default_profit_mode:
         (r['default_profit_mode'] as ProfitModeType) || 'FIXED_AMOUNT',
-      default_profit_scope:
-        (r['default_profit_scope'] as ProfitScopeType) || 'PER_UNIT',
+      default_profit_scope: parseProfitScope(
+        r['default_profit_scope'],
+        ProfitScope.PER_UNIT,
+      ),
       default_profit_value: toNum(r['default_profit_value'], 0),
       note: r['note'] ? String(r['note']) : null,
       is_active: Boolean(r['is_active']),
       version: toInt(r['version'], 1),
+      updated_by: r['updated_by'] ? String(r['updated_by']) : null,
       created_at: toIso(r['created_at']),
       updated_at: toIso(r['updated_at']),
     };
@@ -940,14 +1565,194 @@ export class PrintQuoteService {
   // 4. QUOTES & QUOTE VERSION HISTORY (BÁO GIÁ & LỊCH SỬ PHIÊN BẢN)
   // ==========================================================================
 
+  private reconstructStoredLinesOutcome(
+    existingLines: StoredQuoteLineJson[],
+    existingPricingStatus: unknown,
+  ): ResolvedQuoteLinesOutcome {
+    const isPending =
+      existingPricingStatus === QuotePricingStatus.PENDING_COST ||
+      existingLines.some(
+        (l) =>
+          l.isPendingCost === true ||
+          l.baseCostPending === true ||
+          l.baseCostRate === null ||
+          (l.finishingStages ?? []).some((s) => s.rate === null),
+      );
+
+    if (isPending) {
+      const draftLines: PendingCostDraftLineInput[] = existingLines.map(
+        (l) => ({
+          id: l.id,
+          name: l.name,
+          specification: l.specification ?? '',
+          vendorId: l.vendorId ?? null,
+          vendorName: l.vendorName ?? null,
+          vendorPriceItemId: l.vendorPriceItemId ?? null,
+          unit: l.unit,
+          quantity: l.quantity,
+          vendorCostMode: l.vendorCostMode ?? VendorCostMode.PER_UNIT,
+          baseCostRate:
+            l.baseCostPending === true || l.baseCostRate === null
+              ? null
+              : l.baseCostRate !== undefined
+                ? l.baseCostRate
+                : l.vendorCostMode === VendorCostMode.TOTAL_BATCH
+                  ? l.totalVendorCost
+                  : l.unitVendorCost,
+          baseCostSource: l.baseCostSource ?? LineCostSource.MANUAL,
+          ...(l.baseIncludedStages && l.baseIncludedStages.length > 0
+            ? { baseIncludedStages: [...l.baseIncludedStages] }
+            : {}),
+          areaSpec: l.areaSpec
+            ? {
+                mode: l.areaSpec.mode,
+                ...(l.areaSpec.widthM !== null
+                  ? { widthM: l.areaSpec.widthM }
+                  : {}),
+                ...(l.areaSpec.heightM !== null
+                  ? { heightM: l.areaSpec.heightM }
+                  : {}),
+                sheetsCount: l.areaSpec.sheetsCount,
+                actualAreaSqm: l.areaSpec.actualAreaSqm,
+                billableAreaSqm: l.areaSpec.billableAreaSqm,
+              }
+            : null,
+          finishingStages: (l.finishingStages ?? []).map(
+            (s): PendingCostDraftStageSnapshot => ({
+              id: s.id,
+              priceItemId: s.priceItemId ?? null,
+              code: s.code ?? null,
+              name: s.name,
+              pricingMode: s.pricingMode,
+              rate: s.rate,
+              unit: s.unit,
+              billableAreaSqm: s.billableAreaSqm ?? null,
+              ...('vendorCost' in s && typeof s.vendorCost === 'number'
+                ? { vendorCost: s.vendorCost }
+                : {}),
+              costSource: s.costSource,
+              note: s.note ?? null,
+            }),
+          ),
+          profit: {
+            mode: l.profitMode,
+            scope: l.profitScope,
+            value: l.profitInputValue,
+          },
+        }),
+      );
+      return {
+        pricingStatus: QuotePricingStatus.PENDING_COST,
+        draftLines,
+      };
+    }
+
+    const lines: QuoteLineInput[] = existingLines.map((l): QuoteLineInput => {
+      const hasExtended =
+        l.baseCostRate !== undefined ||
+        l.vendorCostMode === VendorCostMode.PER_SQM ||
+        Boolean(l.areaSpec) ||
+        Boolean(l.finishingStages && l.finishingStages.length > 0) ||
+        Boolean(l.baseIncludedStages && l.baseIncludedStages.length > 0);
+
+      if (hasExtended) {
+        return {
+          id: l.id,
+          name: l.name,
+          specification: l.specification ?? '',
+          vendorId: l.vendorId ?? null,
+          vendorName: l.vendorName ?? null,
+          vendorPriceItemId: l.vendorPriceItemId ?? null,
+          unit: l.unit,
+          quantity: l.quantity,
+          vendorCostMode: l.vendorCostMode ?? VendorCostMode.PER_UNIT,
+          baseCostRate:
+            typeof l.baseCostRate === 'number'
+              ? l.baseCostRate
+              : l.vendorCostMode === VendorCostMode.TOTAL_BATCH
+                ? l.totalVendorCost
+                : l.unitVendorCost,
+          ...(l.baseCostSource ? { baseCostSource: l.baseCostSource } : {}),
+          ...(l.baseIncludedStages && l.baseIncludedStages.length > 0
+            ? { baseIncludedStages: [...l.baseIncludedStages] }
+            : {}),
+          areaSpec: l.areaSpec
+            ? {
+                mode: l.areaSpec.mode,
+                ...(l.areaSpec.widthM !== null
+                  ? { widthM: l.areaSpec.widthM }
+                  : {}),
+                ...(l.areaSpec.heightM !== null
+                  ? { heightM: l.areaSpec.heightM }
+                  : {}),
+                sheetsCount: l.areaSpec.sheetsCount,
+                actualAreaSqm: l.areaSpec.actualAreaSqm,
+                billableAreaSqm: l.areaSpec.billableAreaSqm,
+              }
+            : null,
+          finishingStages: (l.finishingStages ?? []).map(
+            (s): QuoteFinishingStageInput => ({
+              id: s.id,
+              priceItemId: s.priceItemId ?? null,
+              code: s.code ?? null,
+              name: s.name,
+              pricingMode: s.pricingMode,
+              rate: typeof s.rate === 'number' ? s.rate : 0,
+              unit: s.unit,
+              billableAreaSqm: s.billableAreaSqm ?? null,
+              costSource: s.costSource,
+              note: s.note ?? null,
+            }),
+          ),
+          profit: {
+            mode: l.profitMode,
+            scope: l.profitScope,
+            value: l.profitInputValue,
+          },
+          extraCost: l.totalExtraCost,
+        };
+      }
+
+      const base: QuoteLineInput = {
+        id: l.id,
+        name: l.name,
+        specification: l.specification ?? '',
+        vendorId: l.vendorId ?? null,
+        vendorName: l.vendorName ?? null,
+        vendorPriceItemId: l.vendorPriceItemId ?? null,
+        unit: l.unit,
+        quantity: l.quantity,
+        profit: {
+          mode: l.profitMode,
+          scope: l.profitScope,
+          value: l.profitInputValue,
+        },
+        extraCost: l.totalExtraCost,
+      };
+      if (l.vendorCostMode === VendorCostMode.TOTAL_BATCH) {
+        base.totalVendorCost = l.totalVendorCost;
+      } else if (l.vendorCostMode === VendorCostMode.PER_UNIT) {
+        base.unitVendorCost = l.unitVendorCost;
+      } else {
+        base.unitVendorCost = l.unitVendorCost;
+        base.totalVendorCost = l.totalVendorCost;
+      }
+      return base;
+    });
+
+    return {
+      pricingStatus: QuotePricingStatus.COMPLETE,
+      lines,
+      costModes: existingLines.map((l) => l.vendorCostMode),
+    };
+  }
+
   private async resolveQuoteLinesWithCatalog(
     client: pg.PoolClient,
     workspaceId: string,
     rawItems: unknown,
-  ): Promise<{
-    lines: QuoteLineInput[];
-    costModes: Array<VendorCostModeType | undefined>;
-  }> {
+    allowedInactiveCatalogIds?: ReadonlySet<string>,
+  ): Promise<ResolvedQuoteLinesOutcome> {
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
       throw new AuthError(
         'VALIDATION_ERROR',
@@ -956,8 +1761,326 @@ export class PrintQuoteService {
       );
     }
 
-    const lines: QuoteLineInput[] = [];
-    const costModes: Array<VendorCostModeType | undefined> = [];
+    const catalogById = new Map<string, PrintVendorPriceItemData>();
+    const loadCatalogItem = async (
+      itemId: string,
+    ): Promise<PrintVendorPriceItemData> => {
+      const cached = catalogById.get(itemId);
+      if (cached) return cached;
+      const catRes = await client.query(
+        `SELECT p.*, v.name AS vendor_name
+         FROM print_vendor_price_items p
+         LEFT JOIN print_vendors v ON v.id = p.vendor_id
+         WHERE p.id = $1 AND p.workspace_id = $2`,
+        [itemId, workspaceId],
+      );
+      const cat = catRes.rows[0];
+      if (!cat) {
+        throw new AuthError(
+          'NOT_FOUND',
+          `Không tìm thấy hạng mục bảng giá xưởng (${itemId}).`,
+          404,
+        );
+      }
+      const mapped = this.mapPriceItemRow(cat);
+      if (!mapped.is_active && !allowedInactiveCatalogIds?.has(mapped.id)) {
+        throw new AuthError(
+          'PRICE_ITEM_INACTIVE',
+          `Mục giá xưởng "${mapped.name}" đã ngừng dùng, không thể gắn mới vào báo giá.`,
+          409,
+        );
+      }
+      catalogById.set(itemId, mapped);
+      return mapped;
+    };
+
+    // Preload base catalog items and detect whether any line uses V2 workshop/stage/m2/pending features
+    let anyExtended = false;
+    for (let i = 0; i < rawItems.length; i++) {
+      const raw = (rawItems[i] ?? {}) as Record<string, unknown>;
+      const vendorPriceItemId =
+        typeof raw['vendor_price_item_id'] === 'string' &&
+        raw['vendor_price_item_id'].trim()
+          ? raw['vendor_price_item_id'].trim()
+          : typeof raw['vendorPriceItemId'] === 'string' &&
+              raw['vendorPriceItemId'].trim()
+            ? raw['vendorPriceItemId'].trim()
+            : null;
+      let mappedCat: PrintVendorPriceItemData | null = null;
+      if (vendorPriceItemId) {
+        mappedCat = await loadCatalogItem(vendorPriceItemId);
+        if (mappedCat.item_type === PriceItemType.FINISHING) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `Mục "${mappedCat.name}" là giá gia công, không thể chọn làm giá in cơ bản.`,
+            400,
+          );
+        }
+      }
+
+      const rawProfit = raw['profit'] as Record<string, unknown> | undefined;
+      const profitScopeCandidate =
+        rawProfit?.['scope'] ?? raw['profit_scope'] ?? raw['profitScope'];
+      const rawStages = raw['finishingStages'] ?? raw['finishing_stages'];
+      const rawIncluded =
+        raw['baseIncludedStages'] ?? raw['base_included_stages'];
+
+      if (
+        raw['baseCostPending'] === true ||
+        raw['base_cost_pending'] === true ||
+        raw['baseCostRate'] !== undefined ||
+        raw['base_cost_rate'] !== undefined ||
+        raw['unitVendorCost'] === null ||
+        raw['unit_vendor_cost'] === null ||
+        raw['unitVendorCost'] === '' ||
+        raw['unit_vendor_cost'] === '' ||
+        raw['totalVendorCost'] === null ||
+        raw['total_vendor_cost'] === null ||
+        raw['totalVendorCost'] === '' ||
+        raw['total_vendor_cost'] === '' ||
+        (raw['vendorCostMode'] ?? raw['vendor_cost_mode']) ===
+          VendorCostMode.PER_SQM ||
+        profitScopeCandidate === ProfitScope.PER_SQM ||
+        (raw['areaSpec'] !== undefined && raw['areaSpec'] !== null) ||
+        (raw['area_spec'] !== undefined && raw['area_spec'] !== null) ||
+        (Array.isArray(rawStages) && rawStages.length > 0) ||
+        (Array.isArray(rawIncluded) && rawIncluded.length > 0) ||
+        mappedCat?.pricing_mode === VendorCostMode.PER_SQM ||
+        (mappedCat?.included_stages.length ?? 0) > 0
+      ) {
+        anyExtended = true;
+      }
+    }
+
+    if (!anyExtended) {
+      // Legacy V1/V2 fast path (preserves exact snapshot hash & error messages)
+      const lines: QuoteLineInput[] = [];
+      const costModes: Array<VendorCostModeType | undefined> = [];
+      for (let i = 0; i < rawItems.length; i++) {
+        const raw = rawItems[i] as Record<string, unknown>;
+        const lineId =
+          typeof raw['id'] === 'string' && raw['id'].trim()
+            ? raw['id'].trim()
+            : `LINE-${i + 1}`;
+        const quantity = toInt(raw['quantity'], 0);
+        if (quantity <= 0) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `Số lượng sản phẩm dòng #${i + 1} phải > 0.`,
+            400,
+          );
+        }
+
+        const vendorPriceItemId =
+          typeof raw['vendor_price_item_id'] === 'string' &&
+          raw['vendor_price_item_id'].trim()
+            ? raw['vendor_price_item_id'].trim()
+            : typeof raw['vendorPriceItemId'] === 'string' &&
+                raw['vendorPriceItemId'].trim()
+              ? raw['vendorPriceItemId'].trim()
+              : null;
+
+        if (
+          vendorPriceItemId &&
+          raw['unitVendorCost'] === undefined &&
+          raw['totalVendorCost'] === undefined &&
+          raw['unit_vendor_cost'] === undefined &&
+          raw['total_vendor_cost'] === undefined
+        ) {
+          const mappedCat = await loadCatalogItem(vendorPriceItemId);
+          const rawProfit = raw['profit'] as
+            Record<string, unknown> | undefined;
+          const explicitProfitVal =
+            rawProfit?.['value'] ?? raw['profit_value'] ?? raw['profitValue'];
+          const explicitProfitMode =
+            rawProfit?.['mode'] ?? raw['profit_mode'] ?? raw['profitMode'];
+          const explicitProfitScope =
+            rawProfit?.['scope'] ?? raw['profit_scope'] ?? raw['profitScope'];
+          const profitOverride =
+            rawProfit !== undefined ||
+            explicitProfitVal !== undefined ||
+            explicitProfitMode !== undefined ||
+            explicitProfitScope !== undefined
+              ? {
+                  mode:
+                    explicitProfitMode === ProfitMode.PERCENTAGE
+                      ? ProfitMode.PERCENTAGE
+                      : ProfitMode.FIXED_AMOUNT,
+                  scope:
+                    explicitProfitScope === ProfitScope.TOTAL_BATCH
+                      ? ProfitScope.TOTAL_BATCH
+                      : ProfitScope.PER_UNIT,
+                  value: Math.max(
+                    0,
+                    toNum(explicitProfitVal, mappedCat.default_profit_value),
+                  ),
+                }
+              : undefined;
+
+          const catalogPricingMode: VendorCostModeType = mappedCat.pricing_mode;
+
+          lines.push(
+            buildQuoteLineFromVendorCatalogItem(
+              {
+                id: mappedCat.id,
+                vendorId: mappedCat.vendor_id,
+                vendorName: mappedCat.vendor_name,
+                code: mappedCat.code,
+                name:
+                  typeof raw['name'] === 'string' && raw['name'].trim()
+                    ? raw['name'].trim()
+                    : mappedCat.name,
+                specification:
+                  typeof raw['specification'] === 'string'
+                    ? raw['specification'].trim()
+                    : (mappedCat.specification ?? ''),
+                unit:
+                  typeof raw['unit'] === 'string' && raw['unit'].trim()
+                    ? raw['unit'].trim()
+                    : mappedCat.unit,
+                pricingMode: catalogPricingMode,
+                unitCost: mappedCat.unit_cost,
+                batchQuantity: mappedCat.batch_quantity,
+                batchTotalCost: mappedCat.batch_total_cost,
+                defaultProfitMode: mappedCat.default_profit_mode,
+                defaultProfitScope: mappedCat.default_profit_scope,
+                defaultProfitValue: mappedCat.default_profit_value,
+              },
+              {
+                lineId,
+                quantity,
+                ...(profitOverride ? { profitOverride } : {}),
+                extraCost: Math.max(
+                  0,
+                  toInt(raw['extraCost'] ?? raw['extra_cost'], 0),
+                ),
+              },
+            ),
+          );
+          costModes.push(catalogPricingMode);
+          continue;
+        }
+
+        const name = typeof raw['name'] === 'string' ? raw['name'].trim() : '';
+        if (!name) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `Tên sản phẩm dòng #${i + 1} không được để trống.`,
+            400,
+          );
+        }
+
+        const hasUnit =
+          raw['unitVendorCost'] !== undefined ||
+          raw['unit_vendor_cost'] !== undefined;
+        const hasTotal =
+          raw['totalVendorCost'] !== undefined ||
+          raw['total_vendor_cost'] !== undefined;
+        if (!hasUnit && !hasTotal) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `Dòng sản phẩm "${name}" phải có giá vốn đơn vị (unitVendorCost) hoặc giá vốn cả lô (totalVendorCost).`,
+            400,
+          );
+        }
+
+        const explicitCostModeRaw =
+          raw['vendorCostMode'] ?? raw['vendor_cost_mode'];
+        const resolvedCostMode: VendorCostModeType | undefined =
+          explicitCostModeRaw === VendorCostMode.TOTAL_BATCH
+            ? VendorCostMode.TOTAL_BATCH
+            : explicitCostModeRaw === VendorCostMode.PER_UNIT
+              ? VendorCostMode.PER_UNIT
+              : hasTotal && !hasUnit
+                ? VendorCostMode.TOTAL_BATCH
+                : hasUnit && !hasTotal
+                  ? VendorCostMode.PER_UNIT
+                  : undefined;
+
+        const rawProfit = raw['profit'] as Record<string, unknown> | undefined;
+        const profitMode: ProfitModeType =
+          (rawProfit?.['mode'] ?? raw['profit_mode'] ?? raw['profitMode']) ===
+          ProfitMode.PERCENTAGE
+            ? ProfitMode.PERCENTAGE
+            : ProfitMode.FIXED_AMOUNT;
+        const profitScope: ProfitScopeType =
+          (rawProfit?.['scope'] ??
+            raw['profit_scope'] ??
+            raw['profitScope']) === ProfitScope.TOTAL_BATCH
+            ? ProfitScope.TOTAL_BATCH
+            : ProfitScope.PER_UNIT;
+        const profitVal = Math.max(
+          0,
+          toNum(
+            rawProfit?.['value'] ?? raw['profit_value'] ?? raw['profitValue'],
+            0,
+          ),
+        );
+
+        const lineItem: QuoteLineInput = {
+          id: lineId,
+          name,
+          specification:
+            typeof raw['specification'] === 'string'
+              ? raw['specification'].trim()
+              : '',
+          vendorId:
+            typeof raw['vendor_id'] === 'string'
+              ? raw['vendor_id']
+              : typeof raw['vendorId'] === 'string'
+                ? raw['vendorId']
+                : null,
+          vendorName:
+            typeof raw['vendor_name'] === 'string'
+              ? raw['vendor_name']
+              : typeof raw['vendorName'] === 'string'
+                ? raw['vendorName']
+                : null,
+          vendorPriceItemId,
+          unit:
+            typeof raw['unit'] === 'string' && raw['unit'].trim()
+              ? raw['unit'].trim()
+              : 'tờ',
+          quantity,
+          profit: {
+            mode: profitMode,
+            scope: profitScope,
+            value: profitVal,
+          },
+          extraCost: Math.max(
+            0,
+            toInt(raw['extraCost'] ?? raw['extra_cost'], 0),
+          ),
+        };
+
+        if (hasUnit && resolvedCostMode !== VendorCostMode.TOTAL_BATCH) {
+          lineItem.unitVendorCost = Math.max(
+            0,
+            toNum(raw['unitVendorCost'] ?? raw['unit_vendor_cost'], 0),
+          );
+        }
+        if (hasTotal && resolvedCostMode !== VendorCostMode.PER_UNIT) {
+          lineItem.totalVendorCost = Math.max(
+            0,
+            toInt(raw['totalVendorCost'] ?? raw['total_vendor_cost'], 0),
+          );
+        }
+
+        lines.push(lineItem);
+        costModes.push(resolvedCostMode);
+      }
+
+      return {
+        pricingStatus: QuotePricingStatus.COMPLETE,
+        lines,
+        costModes,
+      };
+    }
+
+    // Extended multi-stage / m² / pending-cost resolution path
+    const draftLines: Array<PendingCostDraftLineInput & { extraCost: number }> =
+      [];
+
     for (let i = 0; i < rawItems.length; i++) {
       const raw = rawItems[i] as Record<string, unknown>;
       const lineId =
@@ -981,131 +2104,14 @@ export class PrintQuoteService {
               raw['vendorPriceItemId'].trim()
             ? raw['vendorPriceItemId'].trim()
             : null;
+      const mappedCat = vendorPriceItemId
+        ? await loadCatalogItem(vendorPriceItemId)
+        : null;
 
-      // Nếu chọn từ bảng giá nhà in và chưa truyền giá vốn tay, lấy snapshot tại thời điểm tạo
-      if (
-        vendorPriceItemId &&
-        raw['unitVendorCost'] === undefined &&
-        raw['totalVendorCost'] === undefined &&
-        raw['unit_vendor_cost'] === undefined &&
-        raw['total_vendor_cost'] === undefined
-      ) {
-        const catRes = await client.query(
-          `SELECT p.*, v.name AS vendor_name
-           FROM print_vendor_price_items p
-           JOIN print_vendors v ON v.id = p.vendor_id
-           WHERE p.id = $1 AND p.workspace_id = $2`,
-          [vendorPriceItemId, workspaceId],
-        );
-        const cat = catRes.rows[0];
-        if (!cat) {
-          throw new AuthError(
-            'NOT_FOUND',
-            `Không tìm thấy hạng mục bảng giá (${vendorPriceItemId}).`,
-            404,
-          );
-        }
-        const mappedCat = this.mapPriceItemRow(cat);
-        const rawProfit = raw['profit'] as Record<string, unknown> | undefined;
-        const explicitProfitVal =
-          rawProfit?.['value'] ?? raw['profit_value'] ?? raw['profitValue'];
-        const explicitProfitMode =
-          rawProfit?.['mode'] ?? raw['profit_mode'] ?? raw['profitMode'];
-        const explicitProfitScope =
-          rawProfit?.['scope'] ?? raw['profit_scope'] ?? raw['profitScope'];
-        const profitOverride =
-          rawProfit !== undefined ||
-          explicitProfitVal !== undefined ||
-          explicitProfitMode !== undefined ||
-          explicitProfitScope !== undefined
-            ? {
-                mode:
-                  explicitProfitMode === ProfitMode.PERCENTAGE
-                    ? ProfitMode.PERCENTAGE
-                    : ProfitMode.FIXED_AMOUNT,
-                scope:
-                  explicitProfitScope === ProfitScope.TOTAL_BATCH
-                    ? ProfitScope.TOTAL_BATCH
-                    : ProfitScope.PER_UNIT,
-                value: Math.max(
-                  0,
-                  toNum(explicitProfitVal, mappedCat.default_profit_value),
-                ),
-              }
-            : undefined;
-
-        const catalogPricingMode: VendorCostModeType =
-          raw['unitVendorCost'] !== undefined ||
-          raw['unit_vendor_cost'] !== undefined
-            ? VendorCostMode.PER_UNIT
-            : raw['totalVendorCost'] !== undefined ||
-                raw['total_vendor_cost'] !== undefined
-              ? VendorCostMode.TOTAL_BATCH
-              : mappedCat.pricing_mode;
-
-        lines.push(
-          buildQuoteLineFromVendorCatalogItem(
-            {
-              id: mappedCat.id,
-              vendorId: mappedCat.vendor_id,
-              vendorName: mappedCat.vendor_name,
-              code: mappedCat.code,
-              name:
-                typeof raw['name'] === 'string' && raw['name'].trim()
-                  ? raw['name'].trim()
-                  : mappedCat.name,
-              specification:
-                typeof raw['specification'] === 'string'
-                  ? raw['specification'].trim()
-                  : (mappedCat.specification ?? ''),
-              unit:
-                typeof raw['unit'] === 'string' && raw['unit'].trim()
-                  ? raw['unit'].trim()
-                  : mappedCat.unit,
-              pricingMode: catalogPricingMode,
-              unitCost:
-                raw['unitVendorCost'] !== undefined ||
-                raw['unit_vendor_cost'] !== undefined
-                  ? Math.max(
-                      0,
-                      toNum(
-                        raw['unitVendorCost'] ?? raw['unit_vendor_cost'],
-                        mappedCat.unit_cost,
-                      ),
-                    )
-                  : mappedCat.unit_cost,
-              batchQuantity: mappedCat.batch_quantity,
-              batchTotalCost:
-                raw['totalVendorCost'] !== undefined ||
-                raw['total_vendor_cost'] !== undefined
-                  ? Math.max(
-                      0,
-                      toInt(
-                        raw['totalVendorCost'] ?? raw['total_vendor_cost'],
-                        mappedCat.batch_total_cost,
-                      ),
-                    )
-                  : mappedCat.batch_total_cost,
-              defaultProfitMode: mappedCat.default_profit_mode,
-              defaultProfitScope: mappedCat.default_profit_scope,
-              defaultProfitValue: mappedCat.default_profit_value,
-            },
-            {
-              lineId,
-              quantity,
-              ...(profitOverride ? { profitOverride } : {}),
-              extraCost: Math.max(
-                0,
-                toInt(raw['extraCost'] ?? raw['extra_cost'], 0),
-              ),
-            },
-          ),
-        );
-        costModes.push(catalogPricingMode);
-        continue;
-      }
-
-      const name = typeof raw['name'] === 'string' ? raw['name'].trim() : '';
+      const name =
+        typeof raw['name'] === 'string' && raw['name'].trim()
+          ? raw['name'].trim()
+          : (mappedCat?.name ?? '');
       if (!name) {
         throw new AuthError(
           'VALIDATION_ERROR',
@@ -1114,103 +2120,336 @@ export class PrintQuoteService {
         );
       }
 
-      const hasUnit =
-        raw['unitVendorCost'] !== undefined ||
-        raw['unit_vendor_cost'] !== undefined;
-      const hasTotal =
-        raw['totalVendorCost'] !== undefined ||
-        raw['total_vendor_cost'] !== undefined;
-      if (!hasUnit && !hasTotal) {
-        throw new AuthError(
-          'VALIDATION_ERROR',
-          `Dòng sản phẩm "${name}" phải có giá vốn đơn vị (unitVendorCost) hoặc giá vốn cả lô (totalVendorCost).`,
-          400,
+      const explicitCostMode = raw['vendorCostMode'] ?? raw['vendor_cost_mode'];
+      const vendorCostMode: VendorCostModeType =
+        explicitCostMode !== undefined
+          ? parseVendorCostMode(explicitCostMode, VendorCostMode.PER_UNIT)
+          : mappedCat
+            ? mappedCat.pricing_mode
+            : (raw['totalVendorCost'] ?? raw['total_vendor_cost']) !==
+                  undefined &&
+                (raw['unitVendorCost'] ?? raw['unit_vendor_cost']) === undefined
+              ? VendorCostMode.TOTAL_BATCH
+              : VendorCostMode.PER_UNIT;
+
+      let baseCostRate: number | null;
+      if (
+        raw['baseCostPending'] === true ||
+        raw['base_cost_pending'] === true
+      ) {
+        baseCostRate = null;
+      } else {
+        const rawRateField =
+          raw['baseCostRate'] !== undefined ||
+          raw['base_cost_rate'] !== undefined
+            ? (raw['baseCostRate'] ?? raw['base_cost_rate'])
+            : vendorCostMode === VendorCostMode.TOTAL_BATCH &&
+                (raw['totalVendorCost'] !== undefined ||
+                  raw['total_vendor_cost'] !== undefined)
+              ? (raw['totalVendorCost'] ?? raw['total_vendor_cost'])
+              : (raw['unitVendorCost'] ?? raw['unit_vendor_cost']);
+
+        const parsedBase = parseExplicitOrPendingRate(
+          rawRateField,
+          `Giá cơ bản dòng "${name}"`,
         );
+        if (parsedBase === 'OMITTED') {
+          if (mappedCat) {
+            baseCostRate =
+              vendorCostMode === VendorCostMode.TOTAL_BATCH
+                ? mappedCat.batch_total_cost
+                : mappedCat.unit_cost;
+          } else {
+            throw new AuthError(
+              'VALIDATION_ERROR',
+              `Dòng sản phẩm "${name}" phải có giá cơ bản (hoặc đánh dấu Chờ giá xưởng).`,
+              400,
+            );
+          }
+        } else {
+          baseCostRate = parsedBase;
+        }
       }
 
-      const explicitCostModeRaw =
-        raw['vendorCostMode'] ?? raw['vendor_cost_mode'];
-      const resolvedCostMode: VendorCostModeType | undefined =
-        explicitCostModeRaw === VendorCostMode.TOTAL_BATCH
-          ? VendorCostMode.TOTAL_BATCH
-          : explicitCostModeRaw === VendorCostMode.PER_UNIT
-            ? VendorCostMode.PER_UNIT
-            : hasTotal && !hasUnit
-              ? VendorCostMode.TOTAL_BATCH
-              : hasUnit && !hasTotal
-                ? VendorCostMode.PER_UNIT
-                : undefined;
+      const rawBaseSource = raw['baseCostSource'] ?? raw['base_cost_source'];
+      let baseCostSource: LineCostSourceType;
+      if (
+        rawBaseSource === LineCostSource.CATALOG ||
+        rawBaseSource === LineCostSource.MANUAL ||
+        rawBaseSource === LineCostSource.CATALOG_OVERRIDDEN
+      ) {
+        baseCostSource = rawBaseSource;
+      } else if (mappedCat) {
+        const catRate =
+          mappedCat.pricing_mode === VendorCostMode.TOTAL_BATCH
+            ? mappedCat.batch_total_cost
+            : mappedCat.unit_cost;
+        baseCostSource =
+          baseCostRate === null ||
+          baseCostRate !== catRate ||
+          vendorCostMode !== mappedCat.pricing_mode
+            ? LineCostSource.CATALOG_OVERRIDDEN
+            : LineCostSource.CATALOG;
+      } else {
+        baseCostSource = LineCostSource.MANUAL;
+      }
+
+      const rawIncluded =
+        raw['baseIncludedStages'] ?? raw['base_included_stages'];
+      const baseIncludedStages =
+        rawIncluded !== undefined
+          ? normalizeStringArray(rawIncluded)
+          : (mappedCat?.included_stages ?? []);
+
+      const unit =
+        typeof raw['unit'] === 'string' && raw['unit'].trim()
+          ? raw['unit'].trim()
+          : (mappedCat?.unit ??
+            (vendorCostMode === VendorCostMode.PER_SQM ? 'm²' : 'tờ'));
+
+      const areaSpec = parseAreaSpecInput(raw['areaSpec'] ?? raw['area_spec']);
+
+      const rawStagesArr = Array.isArray(
+        raw['finishingStages'] ?? raw['finishing_stages'],
+      )
+        ? ((raw['finishingStages'] ?? raw['finishing_stages']) as unknown[])
+        : [];
+      const resolvedStages: PendingCostDraftStageSnapshot[] = [];
+
+      for (let sIdx = 0; sIdx < rawStagesArr.length; sIdx++) {
+        const stgRaw = (rawStagesArr[sIdx] ?? {}) as Record<string, unknown>;
+        const stgId =
+          typeof stgRaw['id'] === 'string' && stgRaw['id'].trim()
+            ? stgRaw['id'].trim()
+            : `STG-${i + 1}-${sIdx + 1}`;
+        const stgPriceItemId =
+          typeof stgRaw['priceItemId'] === 'string' &&
+          stgRaw['priceItemId'].trim()
+            ? stgRaw['priceItemId'].trim()
+            : typeof stgRaw['price_item_id'] === 'string' &&
+                stgRaw['price_item_id'].trim()
+              ? stgRaw['price_item_id'].trim()
+              : null;
+        const stgCat = stgPriceItemId
+          ? await loadCatalogItem(stgPriceItemId)
+          : null;
+        if (stgCat && stgCat.item_type !== PriceItemType.FINISHING) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `Mục "${stgCat.name}" là giá in cơ bản, không thể chọn làm công đoạn gia công.`,
+            400,
+          );
+        }
+
+        const stgModeRaw = stgRaw['pricingMode'] ?? stgRaw['pricing_mode'];
+        const stgMode =
+          stgModeRaw !== undefined
+            ? parseVendorCostMode(stgModeRaw, VendorCostMode.PER_UNIT)
+            : (stgCat?.pricing_mode ?? VendorCostMode.PER_UNIT);
+
+        const stgName =
+          typeof stgRaw['name'] === 'string' && stgRaw['name'].trim()
+            ? stgRaw['name'].trim()
+            : (stgCat?.name ?? '');
+        if (!stgName) {
+          throw new AuthError(
+            'VALIDATION_ERROR',
+            `Công đoạn gia công #${sIdx + 1} của "${name}" phải có tên rõ ràng.`,
+            400,
+          );
+        }
+
+        let stgRate: number | null;
+        if (stgRaw['ratePending'] === true || stgRaw['rate_pending'] === true) {
+          stgRate = null;
+        } else {
+          const parsedStgRate = parseExplicitOrPendingRate(
+            stgRaw['rate'],
+            `Giá công đoạn "${stgName}"`,
+          );
+          if (parsedStgRate === 'OMITTED') {
+            stgRate = stgCat
+              ? stgMode === VendorCostMode.TOTAL_BATCH
+                ? stgCat.batch_total_cost
+                : stgCat.unit_cost
+              : null;
+          } else {
+            stgRate = parsedStgRate;
+          }
+        }
+
+        const rawStgSource = stgRaw['costSource'] ?? stgRaw['cost_source'];
+        let stgCostSource: LineCostSourceType;
+        if (
+          rawStgSource === LineCostSource.CATALOG ||
+          rawStgSource === LineCostSource.MANUAL ||
+          rawStgSource === LineCostSource.CATALOG_OVERRIDDEN
+        ) {
+          stgCostSource = rawStgSource;
+        } else if (stgCat) {
+          const catStgRate =
+            stgCat.pricing_mode === VendorCostMode.TOTAL_BATCH
+              ? stgCat.batch_total_cost
+              : stgCat.unit_cost;
+          stgCostSource =
+            stgRate === null ||
+            stgRate !== catStgRate ||
+            stgMode !== stgCat.pricing_mode
+              ? LineCostSource.CATALOG_OVERRIDDEN
+              : LineCostSource.CATALOG;
+        } else {
+          stgCostSource = LineCostSource.MANUAL;
+        }
+
+        const rawStgArea =
+          stgRaw['billableAreaSqm'] ?? stgRaw['billable_area_sqm'];
+        const stgBillableArea =
+          rawStgArea !== undefined && rawStgArea !== null && rawStgArea !== ''
+            ? toNum(rawStgArea, -1)
+            : null;
+
+        resolvedStages.push({
+          id: stgId,
+          priceItemId: stgPriceItemId,
+          code: stgCat?.code ?? null,
+          name: stgName,
+          pricingMode: stgMode,
+          rate: stgRate,
+          unit:
+            typeof stgRaw['unit'] === 'string' && stgRaw['unit'].trim()
+              ? stgRaw['unit'].trim()
+              : (stgCat?.unit ??
+                (stgMode === VendorCostMode.PER_SQM ? 'm²' : unit)),
+          billableAreaSqm: stgBillableArea,
+          costSource: stgCostSource,
+          note:
+            typeof stgRaw['note'] === 'string'
+              ? stgRaw['note'].trim() || null
+              : (stgCat?.conditions_note ?? null),
+        });
+      }
 
       const rawProfit = raw['profit'] as Record<string, unknown> | undefined;
+      const explicitProfitMode =
+        rawProfit?.['mode'] ?? raw['profit_mode'] ?? raw['profitMode'];
+      const explicitProfitScope =
+        rawProfit?.['scope'] ?? raw['profit_scope'] ?? raw['profitScope'];
+      const explicitProfitVal =
+        rawProfit?.['value'] ?? raw['profit_value'] ?? raw['profitValue'];
+
       const profitMode: ProfitModeType =
-        (rawProfit?.['mode'] ?? raw['profit_mode'] ?? raw['profitMode']) ===
-        ProfitMode.PERCENTAGE
-          ? ProfitMode.PERCENTAGE
-          : ProfitMode.FIXED_AMOUNT;
+        explicitProfitMode !== undefined
+          ? explicitProfitMode === ProfitMode.PERCENTAGE
+            ? ProfitMode.PERCENTAGE
+            : ProfitMode.FIXED_AMOUNT
+          : (mappedCat?.default_profit_mode ?? ProfitMode.FIXED_AMOUNT);
       const profitScope: ProfitScopeType =
-        (rawProfit?.['scope'] ?? raw['profit_scope'] ?? raw['profitScope']) ===
-        ProfitScope.TOTAL_BATCH
-          ? ProfitScope.TOTAL_BATCH
-          : ProfitScope.PER_UNIT;
+        explicitProfitScope !== undefined
+          ? parseProfitScope(explicitProfitScope, ProfitScope.PER_UNIT)
+          : (mappedCat?.default_profit_scope ??
+            (vendorCostMode === VendorCostMode.PER_SQM
+              ? ProfitScope.PER_SQM
+              : ProfitScope.PER_UNIT));
       const profitVal = Math.max(
         0,
-        toNum(
-          rawProfit?.['value'] ?? raw['profit_value'] ?? raw['profitValue'],
-          0,
-        ),
+        toNum(explicitProfitVal, mappedCat?.default_profit_value ?? 0),
       );
 
-      const lineItem: QuoteLineInput = {
+      draftLines.push({
         id: lineId,
         name,
         specification:
           typeof raw['specification'] === 'string'
             ? raw['specification'].trim()
-            : '',
+            : (mappedCat?.specification ?? ''),
         vendorId:
-          typeof raw['vendor_id'] === 'string'
-            ? raw['vendor_id']
-            : typeof raw['vendorId'] === 'string'
-              ? raw['vendorId']
-              : null,
+          typeof raw['vendor_id'] === 'string' && raw['vendor_id'].trim()
+            ? raw['vendor_id'].trim()
+            : typeof raw['vendorId'] === 'string' && raw['vendorId'].trim()
+              ? raw['vendorId'].trim()
+              : (mappedCat?.vendor_id ?? null),
         vendorName:
-          typeof raw['vendor_name'] === 'string'
-            ? raw['vendor_name']
-            : typeof raw['vendorName'] === 'string'
-              ? raw['vendorName']
-              : null,
+          typeof raw['vendor_name'] === 'string' && raw['vendor_name'].trim()
+            ? raw['vendor_name'].trim()
+            : typeof raw['vendorName'] === 'string' && raw['vendorName'].trim()
+              ? raw['vendorName'].trim()
+              : (mappedCat?.vendor_name ?? null),
         vendorPriceItemId,
-        unit:
-          typeof raw['unit'] === 'string' && raw['unit'].trim()
-            ? raw['unit'].trim()
-            : 'tờ',
+        unit,
         quantity,
+        vendorCostMode,
+        baseCostRate,
+        baseCostSource,
+        ...(baseIncludedStages.length > 0 ? { baseIncludedStages } : {}),
+        areaSpec,
+        finishingStages: resolvedStages,
         profit: {
           mode: profitMode,
           scope: profitScope,
           value: profitVal,
         },
         extraCost: Math.max(0, toInt(raw['extraCost'] ?? raw['extra_cost'], 0)),
-      };
-
-      if (hasUnit && resolvedCostMode !== VendorCostMode.TOTAL_BATCH) {
-        lineItem.unitVendorCost = Math.max(
-          0,
-          toNum(raw['unitVendorCost'] ?? raw['unit_vendor_cost'], 0),
-        );
-      }
-      if (hasTotal && resolvedCostMode !== VendorCostMode.PER_UNIT) {
-        lineItem.totalVendorCost = Math.max(
-          0,
-          toInt(raw['totalVendorCost'] ?? raw['total_vendor_cost'], 0),
-        );
-      }
-
-      lines.push(lineItem);
-      costModes.push(resolvedCostMode);
+      });
     }
 
-    return { lines, costModes };
+    const hasPending = draftLines.some(
+      (dl) =>
+        dl.baseCostRate === null ||
+        (dl.finishingStages ?? []).some((s) => s.rate === null),
+    );
+
+    if (hasPending) {
+      return {
+        pricingStatus: QuotePricingStatus.PENDING_COST,
+        draftLines: draftLines.map((dl) => {
+          const copy: PendingCostDraftLineInput & { extraCost?: number } = {
+            ...dl,
+          };
+          delete copy.extraCost;
+          return copy;
+        }),
+      };
+    }
+
+    const completeLines: QuoteLineInput[] = draftLines.map((dl) => ({
+      id: dl.id,
+      name: dl.name,
+      specification: dl.specification ?? '',
+      vendorId: dl.vendorId ?? null,
+      vendorName: dl.vendorName ?? null,
+      vendorPriceItemId: dl.vendorPriceItemId ?? null,
+      unit: dl.unit ?? 'tờ',
+      quantity: dl.quantity,
+      vendorCostMode: dl.vendorCostMode,
+      baseCostRate: dl.baseCostRate!,
+      ...(dl.baseCostSource ? { baseCostSource: dl.baseCostSource } : {}),
+      ...(dl.baseIncludedStages && dl.baseIncludedStages.length > 0
+        ? { baseIncludedStages: [...dl.baseIncludedStages] }
+        : {}),
+      areaSpec: dl.areaSpec ?? null,
+      finishingStages: (dl.finishingStages ?? []).map(
+        (s): QuoteFinishingStageInput => ({
+          id: s.id,
+          priceItemId: s.priceItemId ?? null,
+          code: s.code ?? null,
+          name: s.name,
+          pricingMode: s.pricingMode,
+          rate: s.rate!,
+          unit: s.unit,
+          billableAreaSqm: s.billableAreaSqm ?? null,
+          costSource: s.costSource,
+          note: s.note ?? null,
+        }),
+      ),
+      profit: dl.profit,
+      extraCost: dl.extraCost,
+    }));
+
+    return {
+      pricingStatus: QuotePricingStatus.COMPLETE,
+      lines: completeLines,
+      costModes: completeLines.map((l) => l.vendorCostMode),
+    };
   }
 
   async listQuotes(ctx: AuthenticatedContext): Promise<PrintQuoteData[]> {
@@ -1250,6 +2489,16 @@ export class PrintQuoteService {
   ): Promise<CustomerSafePdfPayload> {
     this.assertOwnerAccess(ctx);
     const quote = await this.getQuote(ctx, quoteId);
+    if (
+      quote.pricing_status === QuotePricingStatus.PENDING_COST ||
+      !quote.customer_pdf_json
+    ) {
+      throw new AuthError(
+        'QUOTE_PENDING_VENDOR_COST',
+        'Báo giá đang ở trạng thái Chờ giá xưởng nên chưa thể xem hoặc xuất PDF báo khách. Vui lòng bổ sung đầy đủ giá xưởng trước.',
+        409,
+      );
+    }
     const pdfPayload = quote.customer_pdf_json;
     assertCustomerSafePdfPayload(pdfPayload);
     return pdfPayload;
@@ -1324,12 +2573,11 @@ export class PrintQuoteService {
             ? input['title'].trim()
             : `Báo giá in ấn — ${customerName}`;
 
-        const { lines: items, costModes } =
-          await this.resolveQuoteLinesWithCatalog(
-            client,
-            ctx.workspace.id,
-            input['items'],
-          );
+        const resolvedOutcome = await this.resolveQuoteLinesWithCatalog(
+          client,
+          ctx.workspace.id,
+          input['items'],
+        );
 
         const includeShippingInUnitPrice =
           input['include_shipping_in_unit_price'] !== undefined
@@ -1367,6 +2615,120 @@ export class PrintQuoteService {
           toInt(input['extra_cost'] ?? input['extraCost'], 0),
         );
 
+        const validUntil = toDateStr(input['valid_until']);
+        const notes =
+          typeof input['notes'] === 'string'
+            ? input['notes'].trim() || null
+            : null;
+
+        if (resolvedOutcome.pricingStatus === QuotePricingStatus.PENDING_COST) {
+          if (
+            input['status'] !== undefined &&
+            input['status'] !== QuoteOrderStatus.DRAFT
+          ) {
+            throw new AuthError(
+              'QUOTE_PENDING_VENDOR_COST',
+              'Báo giá đang có khoản Chờ giá xưởng nên chỉ được lưu ở trạng thái Bản nháp (DRAFT), chưa thể chốt hoặc gửi khách.',
+              409,
+            );
+          }
+
+          const pendingBuilt = createPendingCostQuoteSnapshot({
+            quoteId: quoteCode,
+            orderId: `SNAP-${quoteCode}-V1`,
+            customerName,
+            includeShippingInUnitPrice,
+            shippingAllocationStrategy,
+            shippingFee,
+            lines: resolvedOutcome.draftLines,
+          });
+          if (!verifyQuoteSnapshotIntegrity(pendingBuilt.snapshot)) {
+            throw new AuthError(
+              'INTERNAL_ERROR',
+              'Pending-cost snapshot integrity check failed.',
+              500,
+            );
+          }
+
+          const insertPendingRes = await client.query(
+            `INSERT INTO print_quotes (
+              workspace_id, quote_code, title, customer_id, customer_name, customer_phone, customer_address,
+              status, pricing_status, pending_cost_summary, current_version,
+              include_shipping_in_unit_price, shipping_allocation_strategy,
+              rounding_mode, rounding_step, total_quantity, total_vendor_cost, total_profit,
+              shipping_fee, total_extra_cost, total_quote_amount, total_rounding_adjustment,
+              single_product_final_unit_price, lines_json, snapshot_json, customer_pdf_json,
+              integrity_hash, valid_until, notes, created_by, finalized_at
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7,
+              'DRAFT', 'PENDING_COST', $8::jsonb, 1,
+              $9, $10,
+              $11, $12, $13, 0, 0,
+              $14, $15, 0, 0,
+              NULL, $16::jsonb, $17::jsonb, NULL,
+              $18, $19, $20, $21, NULL
+            ) RETURNING *`,
+            [
+              ctx.workspace.id,
+              quoteCode,
+              title,
+              customerId,
+              customerName,
+              customerPhone,
+              customerAddress,
+              JSON.stringify(pendingBuilt.pendingSummary),
+              includeShippingInUnitPrice,
+              shippingAllocationStrategy,
+              roundingMode,
+              roundingStep,
+              pendingBuilt.totalQuantity,
+              shippingFee,
+              extraCost,
+              JSON.stringify(pendingBuilt.snapshot.lines),
+              JSON.stringify(pendingBuilt.snapshot),
+              pendingBuilt.snapshot.integrityHash,
+              validUntil,
+              notes,
+              ctx.user.id,
+            ],
+          );
+
+          const createdPendingRow = insertPendingRes.rows[0]!;
+          const verPendingRes = await client.query(
+            `INSERT INTO print_quote_versions (
+              workspace_id, quote_id, version_number, status, pricing_status, pending_cost_summary,
+              total_quantity, total_vendor_cost, total_profit, shipping_fee,
+              total_extra_cost, total_quote_amount, total_rounding_adjustment,
+              snapshot_json, customer_pdf_json, integrity_hash, change_note, created_by
+            ) VALUES (
+              $1, $2, 1, 'DRAFT', 'PENDING_COST', $3::jsonb,
+              $4, 0, 0, $5,
+              $6, 0, 0,
+              $7::jsonb, NULL, $8, $9, $10
+            ) RETURNING *`,
+            [
+              ctx.workspace.id,
+              createdPendingRow['id'],
+              JSON.stringify(pendingBuilt.pendingSummary),
+              pendingBuilt.totalQuantity,
+              shippingFee,
+              extraCost,
+              JSON.stringify(pendingBuilt.snapshot),
+              pendingBuilt.snapshot.integrityHash,
+              'Lưu bản nháp Chờ giá xưởng (v1)',
+              ctx.user.id,
+            ],
+          );
+
+          const mappedPending = this.mapQuoteRow(createdPendingRow);
+          mappedPending.versions = [
+            this.mapQuoteVersionRow(verPendingRes.rows[0]!),
+          ];
+          return mappedPending;
+        }
+
+        const { lines: items, costModes } = resolvedOutcome;
+
         const calcResult = calculatePrintQuote({
           quoteId: quoteCode,
           customerName,
@@ -1398,12 +2760,6 @@ export class PrintQuoteService {
           );
         }
 
-        const validUntil = toDateStr(input['valid_until']);
-        const notes =
-          typeof input['notes'] === 'string'
-            ? input['notes'].trim() || null
-            : null;
-
         const customerPdf = buildCustomerSafePdfPayload(calcResult, {
           quoteCode,
           customerPhone,
@@ -1422,14 +2778,16 @@ export class PrintQuoteService {
         const insertRes = await client.query(
           `INSERT INTO print_quotes (
             workspace_id, quote_code, title, customer_id, customer_name, customer_phone, customer_address,
-            status, current_version, include_shipping_in_unit_price, shipping_allocation_strategy,
+            status, pricing_status, pending_cost_summary, current_version,
+            include_shipping_in_unit_price, shipping_allocation_strategy,
             rounding_mode, rounding_step, total_quantity, total_vendor_cost, total_profit,
             shipping_fee, total_extra_cost, total_quote_amount, total_rounding_adjustment,
             single_product_final_unit_price, lines_json, snapshot_json, customer_pdf_json,
             integrity_hash, valid_until, notes, created_by, finalized_at
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7,
-            $8, 1, $9, $10,
+            $8, 'COMPLETE', '[]'::jsonb, 1,
+            $9, $10,
             $11, $12, $13, $14, $15,
             $16, $17, $18, $19,
             $20, $21::jsonb, $22::jsonb, $23::jsonb,
@@ -1470,12 +2828,12 @@ export class PrintQuoteService {
         const createdQuoteRow = insertRes.rows[0]!;
         const verRes = await client.query(
           `INSERT INTO print_quote_versions (
-            workspace_id, quote_id, version_number, status,
+            workspace_id, quote_id, version_number, status, pricing_status, pending_cost_summary,
             total_quantity, total_vendor_cost, total_profit, shipping_fee,
             total_extra_cost, total_quote_amount, total_rounding_adjustment,
             snapshot_json, customer_pdf_json, integrity_hash, change_note, created_by
           ) VALUES (
-            $1, $2, 1, $3,
+            $1, $2, 1, $3, 'COMPLETE', '[]'::jsonb,
             $4, $5, $6, $7,
             $8, $9, $10,
             $11::jsonb, $12::jsonb, $13, $14, $15
@@ -1563,48 +2921,28 @@ export class PrintQuoteService {
           ? input['title'].trim()
           : String(existing['title']);
 
-      const resolvedItemsResult =
+      const existingStoredLines =
+        (existing['lines_json'] as StoredQuoteLineJson[]) ?? [];
+      const existingCatalogIds = new Set<string>();
+      for (const l of existingStoredLines) {
+        if (l.vendorPriceItemId) existingCatalogIds.add(l.vendorPriceItemId);
+        for (const s of l.finishingStages ?? []) {
+          if (s.priceItemId) existingCatalogIds.add(s.priceItemId);
+        }
+      }
+
+      const resolvedOutcome =
         input['items'] !== undefined
           ? await this.resolveQuoteLinesWithCatalog(
               client,
               ctx.workspace.id,
               input['items'],
+              existingCatalogIds,
             )
-          : (() => {
-              const existingLines =
-                (existing['lines_json'] as StoredQuoteLineJson[]) ?? [];
-              return {
-                lines: existingLines.map((l): QuoteLineInput => {
-                  const base: QuoteLineInput = {
-                    id: l.id,
-                    name: l.name,
-                    specification: l.specification ?? '',
-                    vendorId: l.vendorId ?? null,
-                    vendorName: l.vendorName ?? null,
-                    vendorPriceItemId: l.vendorPriceItemId ?? null,
-                    unit: l.unit,
-                    quantity: l.quantity,
-                    profit: {
-                      mode: l.profitMode,
-                      scope: l.profitScope,
-                      value: l.profitInputValue,
-                    },
-                    extraCost: l.totalExtraCost,
-                  };
-                  if (l.vendorCostMode === VendorCostMode.TOTAL_BATCH) {
-                    base.totalVendorCost = l.totalVendorCost;
-                  } else if (l.vendorCostMode === VendorCostMode.PER_UNIT) {
-                    base.unitVendorCost = l.unitVendorCost;
-                  } else {
-                    base.unitVendorCost = l.unitVendorCost;
-                    base.totalVendorCost = l.totalVendorCost;
-                  }
-                  return base;
-                }),
-                costModes: existingLines.map((l) => l.vendorCostMode),
-              };
-            })();
-      const { lines: items, costModes } = resolvedItemsResult;
+          : this.reconstructStoredLinesOutcome(
+              existingStoredLines,
+              existing['pricing_status'],
+            );
 
       const includeShippingInUnitPrice =
         input['include_shipping_in_unit_price'] !== undefined
@@ -1633,7 +2971,145 @@ export class PrintQuoteService {
       const extraCost =
         input['extra_cost'] !== undefined
           ? Math.max(0, toInt(input['extra_cost'], 0))
-          : 0;
+          : Math.max(0, toInt(existing['total_extra_cost'], 0));
+
+      const validUntil =
+        input['valid_until'] !== undefined
+          ? toDateStr(input['valid_until'])
+          : toDateStr(existing['valid_until']);
+      const notes =
+        input['notes'] !== undefined
+          ? typeof input['notes'] === 'string'
+            ? input['notes'].trim() || null
+            : null
+          : existing['notes']
+            ? String(existing['notes'])
+            : null;
+
+      if (resolvedOutcome.pricingStatus === QuotePricingStatus.PENDING_COST) {
+        if (
+          input['status'] !== undefined &&
+          input['status'] !== QuoteOrderStatus.DRAFT
+        ) {
+          throw new AuthError(
+            'QUOTE_PENDING_VENDOR_COST',
+            'Báo giá đang còn khoản Chờ giá xưởng nên chưa thể chuyển sang trạng thái gửi khách hoặc chốt báo giá.',
+            409,
+          );
+        }
+
+        const pendingBuilt = createPendingCostQuoteSnapshot({
+          quoteId: quoteCode,
+          orderId: `SNAP-${quoteCode}-V${nextVersion}`,
+          customerName,
+          includeShippingInUnitPrice,
+          shippingAllocationStrategy,
+          shippingFee,
+          lines: resolvedOutcome.draftLines,
+        });
+
+        const updPendingRes = await client.query(
+          `UPDATE print_quotes
+           SET title = $1,
+               customer_name = $2,
+               customer_phone = $3,
+               customer_address = $4,
+               status = 'DRAFT',
+               pricing_status = 'PENDING_COST',
+               pending_cost_summary = $5::jsonb,
+               current_version = $6,
+               include_shipping_in_unit_price = $7,
+               shipping_allocation_strategy = $8,
+               rounding_mode = $9,
+               rounding_step = $10,
+               total_quantity = $11,
+               total_vendor_cost = 0,
+               total_profit = 0,
+               shipping_fee = $12,
+               total_extra_cost = $13,
+               total_quote_amount = 0,
+               total_rounding_adjustment = 0,
+               single_product_final_unit_price = NULL,
+               lines_json = $14::jsonb,
+               snapshot_json = $15::jsonb,
+               customer_pdf_json = NULL,
+               integrity_hash = $16,
+               valid_until = $17,
+               notes = $18,
+               updated_at = now()
+           WHERE id = $19 AND workspace_id = $20
+           RETURNING *`,
+          [
+            title,
+            customerName,
+            customerPhone,
+            customerAddress,
+            JSON.stringify(pendingBuilt.pendingSummary),
+            nextVersion,
+            includeShippingInUnitPrice,
+            shippingAllocationStrategy,
+            roundingMode,
+            roundingStep,
+            pendingBuilt.totalQuantity,
+            shippingFee,
+            extraCost,
+            JSON.stringify(pendingBuilt.snapshot.lines),
+            JSON.stringify(pendingBuilt.snapshot),
+            pendingBuilt.snapshot.integrityHash,
+            validUntil,
+            notes,
+            quoteId,
+            ctx.workspace.id,
+          ],
+        );
+
+        const pendingChangeNote =
+          typeof input['change_note'] === 'string' &&
+          input['change_note'].trim()
+            ? input['change_note'].trim()
+            : `Lưu nháp Chờ giá xưởng v${nextVersion}`;
+
+        await client.query(
+          `INSERT INTO print_quote_versions (
+            workspace_id, quote_id, version_number, status, pricing_status, pending_cost_summary,
+            total_quantity, total_vendor_cost, total_profit, shipping_fee,
+            total_extra_cost, total_quote_amount, total_rounding_adjustment,
+            snapshot_json, customer_pdf_json, integrity_hash, change_note, created_by
+          ) VALUES (
+            $1, $2, $3, 'DRAFT', 'PENDING_COST', $4::jsonb,
+            $5, 0, 0, $6,
+            $7, 0, 0,
+            $8::jsonb, NULL, $9, $10, $11
+          )`,
+          [
+            ctx.workspace.id,
+            quoteId,
+            nextVersion,
+            JSON.stringify(pendingBuilt.pendingSummary),
+            pendingBuilt.totalQuantity,
+            shippingFee,
+            extraCost,
+            JSON.stringify(pendingBuilt.snapshot),
+            pendingBuilt.snapshot.integrityHash,
+            pendingChangeNote,
+            ctx.user.id,
+          ],
+        );
+
+        const verPendingRes = await client.query(
+          `SELECT * FROM print_quote_versions WHERE quote_id = $1 AND workspace_id = $2 ORDER BY version_number DESC`,
+          [quoteId, ctx.workspace.id],
+        );
+
+        await client.query('COMMIT');
+        const mappedPending = this.mapQuoteRow(updPendingRes.rows[0]!);
+        mappedPending.versions = verPendingRes.rows.map((v) =>
+          this.mapQuoteVersionRow(v),
+        );
+        return mappedPending;
+      }
+
+      const { lines: items, costModes } = resolvedOutcome;
 
       const calcResult = calculatePrintQuote({
         quoteId: quoteCode,
@@ -1656,25 +3132,14 @@ export class PrintQuoteService {
             ? QuoteOrderStatus.SENT
             : input['status'] === QuoteOrderStatus.APPROVED
               ? QuoteOrderStatus.APPROVED
-              : (existing['status'] as QuoteOrderStatusType);
+              : input['status'] === QuoteOrderStatus.DRAFT
+                ? QuoteOrderStatus.DRAFT
+                : (existing['status'] as QuoteOrderStatusType);
 
       const snapshot = createQuoteOrderSnapshot(calcResult, {
         orderId: `SNAP-${quoteCode}-V${nextVersion}`,
         status: nextStatus,
       });
-
-      const validUntil =
-        input['valid_until'] !== undefined
-          ? toDateStr(input['valid_until'])
-          : toDateStr(existing['valid_until']);
-      const notes =
-        input['notes'] !== undefined
-          ? typeof input['notes'] === 'string'
-            ? input['notes'].trim() || null
-            : null
-          : existing['notes']
-            ? String(existing['notes'])
-            : null;
 
       const customerPdf = buildCustomerSafePdfPayload(calcResult, {
         quoteCode,
@@ -1698,6 +3163,8 @@ export class PrintQuoteService {
              customer_phone = $3,
              customer_address = $4,
              status = $5,
+             pricing_status = 'COMPLETE',
+             pending_cost_summary = '[]'::jsonb,
              current_version = $6,
              include_shipping_in_unit_price = $7,
              shipping_allocation_strategy = $8,
@@ -1758,12 +3225,12 @@ export class PrintQuoteService {
 
       await client.query(
         `INSERT INTO print_quote_versions (
-          workspace_id, quote_id, version_number, status,
+          workspace_id, quote_id, version_number, status, pricing_status, pending_cost_summary,
           total_quantity, total_vendor_cost, total_profit, shipping_fee,
           total_extra_cost, total_quote_amount, total_rounding_adjustment,
           snapshot_json, customer_pdf_json, integrity_hash, change_note, created_by
         ) VALUES (
-          $1, $2, $3, $4,
+          $1, $2, $3, $4, 'COMPLETE', '[]'::jsonb,
           $5, $6, $7, $8,
           $9, $10, $11,
           $12::jsonb, $13::jsonb, $14, $15, $16
@@ -1805,6 +3272,57 @@ export class PrintQuoteService {
     }
   }
 
+  async deleteQuote(
+    ctx: AuthenticatedContext,
+    quoteId: string,
+  ): Promise<{ deleted: true; id: string }> {
+    this.assertOwnerAccess(ctx);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const existingRes = await client.query(
+        `SELECT id, quote_code, status FROM print_quotes WHERE id = $1 AND workspace_id = $2 FOR UPDATE`,
+        [quoteId, ctx.workspace.id],
+      );
+      const existing = existingRes.rows[0];
+      if (!existing) {
+        throw new AuthError('NOT_FOUND', 'Không tìm thấy báo giá.', 404);
+      }
+
+      const ordRes = await client.query(
+        `SELECT order_code FROM print_orders WHERE workspace_id = $1 AND quote_id = $2 LIMIT 1`,
+        [ctx.workspace.id, quoteId],
+      );
+      if (ordRes.rows.length > 0) {
+        throw new AuthError(
+          'QUOTE_DELETE_FORBIDDEN',
+          `Báo giá ${String(existing['quote_code'])} đã có đơn hàng (${String(ordRes.rows[0]?.['order_code'])}) nên không được phép xóa.`,
+          409,
+        );
+      }
+
+      if (existing['status'] !== QuoteOrderStatus.DRAFT) {
+        throw new AuthError(
+          'QUOTE_DELETE_FORBIDDEN',
+          `Chỉ được phép xóa báo giá ở trạng thái Bản nháp (DRAFT). Báo giá ${String(existing['quote_code'])} đang ở trạng thái ${String(existing['status'])} nên phải giữ nguyên lịch sử.`,
+          409,
+        );
+      }
+
+      await client.query(
+        `DELETE FROM print_quotes WHERE id = $1 AND workspace_id = $2`,
+        [quoteId, ctx.workspace.id],
+      );
+      await client.query('COMMIT');
+      return { deleted: true, id: quoteId };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   async finalizeQuote(
     ctx: AuthenticatedContext,
     quoteId: string,
@@ -1817,6 +3335,14 @@ export class PrintQuoteService {
   }
 
   private mapQuoteRow(r: Record<string, unknown>): PrintQuoteData {
+    const pricingStatus: QuotePricingStatusType =
+      r['pricing_status'] === QuotePricingStatus.PENDING_COST
+        ? QuotePricingStatus.PENDING_COST
+        : QuotePricingStatus.COMPLETE;
+    const pendingSummary = Array.isArray(r['pending_cost_summary'])
+      ? (r['pending_cost_summary'] as PendingCostLineSummary[])
+      : [];
+
     return {
       id: String(r['id']),
       workspace_id: String(r['workspace_id']),
@@ -1829,6 +3355,8 @@ export class PrintQuoteService {
         ? String(r['customer_address'])
         : null,
       status: (r['status'] as QuoteOrderStatusType) || QuoteOrderStatus.DRAFT,
+      pricing_status: pricingStatus,
+      pending_cost_summary: pendingSummary,
       current_version: toInt(r['current_version'], 1),
       include_shipping_in_unit_price: Boolean(
         r['include_shipping_in_unit_price'],
@@ -1853,7 +3381,9 @@ export class PrintQuoteService {
           : null,
       lines_json: (r['lines_json'] as PersistedQuoteLineSnapshot[]) ?? [],
       snapshot_json: r['snapshot_json'] as PersistedQuoteOrderSnapshot,
-      customer_pdf_json: r['customer_pdf_json'] as CustomerSafePdfPayload,
+      customer_pdf_json: r['customer_pdf_json']
+        ? (r['customer_pdf_json'] as CustomerSafePdfPayload)
+        : null,
       integrity_hash: String(r['integrity_hash']),
       valid_until: toDateStr(r['valid_until']),
       notes: r['notes'] ? String(r['notes']) : null,
@@ -1867,11 +3397,21 @@ export class PrintQuoteService {
   private mapQuoteVersionRow(
     r: Record<string, unknown>,
   ): PrintQuoteVersionData {
+    const pricingStatus: QuotePricingStatusType =
+      r['pricing_status'] === QuotePricingStatus.PENDING_COST
+        ? QuotePricingStatus.PENDING_COST
+        : QuotePricingStatus.COMPLETE;
+    const pendingSummary = Array.isArray(r['pending_cost_summary'])
+      ? (r['pending_cost_summary'] as PendingCostLineSummary[])
+      : [];
+
     return {
       id: String(r['id']),
       quote_id: String(r['quote_id']),
       version_number: toInt(r['version_number'], 1),
       status: (r['status'] as QuoteOrderStatusType) || QuoteOrderStatus.DRAFT,
+      pricing_status: pricingStatus,
+      pending_cost_summary: pendingSummary,
       total_quantity: toInt(r['total_quantity'], 0),
       total_vendor_cost: toInt(r['total_vendor_cost'], 0),
       total_profit: toInt(r['total_profit'], 0),
@@ -1880,7 +3420,9 @@ export class PrintQuoteService {
       total_quote_amount: toInt(r['total_quote_amount'], 0),
       total_rounding_adjustment: toInt(r['total_rounding_adjustment'], 0),
       snapshot_json: r['snapshot_json'] as PersistedQuoteOrderSnapshot,
-      customer_pdf_json: r['customer_pdf_json'] as CustomerSafePdfPayload,
+      customer_pdf_json: r['customer_pdf_json']
+        ? (r['customer_pdf_json'] as CustomerSafePdfPayload)
+        : null,
       integrity_hash: String(r['integrity_hash']),
       change_note: r['change_note'] ? String(r['change_note']) : null,
       created_by: r['created_by'] ? String(r['created_by']) : null,
@@ -1997,6 +3539,17 @@ export class PrintQuoteService {
             'VALIDATION_ERROR',
             'Không thể chuyển báo giá đã hủy thành đơn hàng.',
             400,
+          );
+        }
+
+        if (
+          quoteRow['pricing_status'] === QuotePricingStatus.PENDING_COST ||
+          !quoteRow['customer_pdf_json']
+        ) {
+          throw new AuthError(
+            'QUOTE_PENDING_VENDOR_COST',
+            `Báo giá ${String(quoteRow['quote_code'])} đang ở trạng thái Chờ giá xưởng nên chưa thể chuyển thành đơn hàng. Vui lòng nhập đầy đủ giá xưởng và hoàn tất báo giá trước.`,
+            409,
           );
         }
 
