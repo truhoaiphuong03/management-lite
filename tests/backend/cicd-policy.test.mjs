@@ -362,38 +362,330 @@ test('P0 Release Gate Static Policy & Guard Verification (Linux & Windows): veri
   );
 });
 
-test('ci-web-db helper fails closed outside disposable GitHub Actions CI and when build artifacts are missing', async () => {
-  const { assertDisposableGitHubCiEnv, assertBuildArtifactsReady } =
-    await import('../../scripts/deployment/ci-web-db.mjs');
-
-  assert.throws(
-    () =>
-      assertDisposableGitHubCiEnv({
-        GITHUB_ACTIONS: 'false',
-        CI: 'true',
-        CI_DATABASE_PASSWORD: 'ci-only-secret',
-      }),
-    /restricted to GitHub-hosted disposable CI containers/,
+test('ci-web-db helper loads with zero node_modules and rejects invalid hosts/environments BEFORE connecting or mutating PostgreSQL', async () => {
+  // 1. Reproduce Windows P0 pre-`npm ci` environment: copy ci-web-db.mjs to an isolated temp directory
+  // outside any node_modules tree and prove both ESM import and CLI invocation succeed without `pg`.
+  const srcHelper = fileURLToPath(
+    new URL('../../scripts/deployment/ci-web-db.mjs', import.meta.url),
   );
-  assert.throws(
-    () =>
-      assertDisposableGitHubCiEnv({
-        GITHUB_ACTIONS: 'true',
-        CI: 'true',
-        CI_DATABASE_PASSWORD: '',
-      }),
-    /restricted to GitHub-hosted disposable CI containers/,
-  );
-
-  const emptyDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'management-lite-ci-web-db-'),
+  const isolatedNoDepsDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'management-lite-no-node-modules-'),
   );
   try {
-    assert.throws(
-      () => assertBuildArtifactsReady(emptyDir),
-      /Required build artifact missing/,
+    const copiedHelper = path.join(isolatedNoDepsDir, 'ci-web-db.mjs');
+    fs.copyFileSync(srcHelper, copiedHelper);
+
+    const mod = await import(pathToFileURL(copiedHelper).href);
+    assert.equal(typeof mod.assertDisposableGitHubCiHost, 'function');
+    assert.equal(typeof mod.verifyDisposableCiPostgresCluster, 'function');
+
+    const cliRun = spawnSync(process.execPath, [copiedHelper, 'prepare'], {
+      cwd: isolatedNoDepsDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GITHUB_ACTIONS: 'true',
+        CI: 'true',
+        RUNNER_OS: 'Windows',
+        CI_DATABASE_PASSWORD: 'ci-only-999-1',
+      },
+    });
+    assert.notEqual(cliRun.status, 0);
+    const combinedOut = `${cliRun.stdout || ''}\n${cliRun.stderr || ''}`;
+    assert.equal(
+      combinedOut.includes('Cannot find package'),
+      false,
+      `ci-web-db.mjs must never fail with ERR_MODULE_NOT_FOUND before preflight checks: ${combinedOut}`,
     );
+    assert.match(combinedOut, /SECURITY_VIOLATION_/);
   } finally {
-    fs.rmSync(emptyDir, { recursive: true, force: true });
+    fs.rmSync(isolatedNoDepsDir, { recursive: true, force: true });
   }
+
+  const {
+    prepareWebCiDatabases,
+    verifySentinelUntouched,
+    cleanupWebCiDatabases,
+  } = await import('../../scripts/deployment/ci-web-db.mjs');
+
+  // 2. Prove invalid host/OS/filesystem/env cases are rejected BEFORE opening any DB connection (connectAttempts === 0)
+  let connectAttempts = 0;
+  const forbidConnect = () => {
+    connectAttempts++;
+    throw new Error('UNEXPECTED_DB_CONNECTION_ATTEMPT');
+  };
+
+  const validLinuxCiEnv = {
+    NODE_ENV: 'test',
+    GITHUB_ACTIONS: 'true',
+    CI: 'true',
+    RUNNER_OS: 'Linux',
+    GITHUB_RUN_ID: '41933741589',
+    GITHUB_RUN_ATTEMPT: '1',
+    CI_DATABASE_PASSWORD: 'ci-only-41933741589-1',
+    GITHUB_WORKSPACE: '/home/runner/work/management-lite/management-lite',
+    RUNNER_TEMP: '/home/runner/work/_temp',
+  };
+
+  const validLinuxPaths = new Set([
+    '/home/runner/work/management-lite/management-lite',
+    '/home/runner/work/_temp',
+    '/proc/version',
+    path.resolve('/repo', 'dist/packages/database/src/migrator.js'),
+    path.resolve('/repo', 'dist/packages/database/src/config.js'),
+    path.resolve('/repo', 'apps/web/dist/index.html'),
+  ]);
+
+  const preConnectionCases = [
+    {
+      name: 'Windows host even with forged GitHub Actions env vars',
+      env: validLinuxCiEnv,
+      runtime: {
+        cwd: '/repo',
+        platform: 'win32',
+        pathExists: (p) => validLinuxPaths.has(p),
+        readText: () => 'Linux version 6.8.0-1021-azure',
+        createPool: forbidConnect,
+      },
+      pattern: /SECURITY_VIOLATION_NON_LINUX_HOST/,
+    },
+    {
+      name: 'WSL mount exposing C:\\HoaiPhuong-Server on Linux',
+      env: validLinuxCiEnv,
+      runtime: {
+        cwd: '/repo',
+        platform: 'linux',
+        pathExists: (p) =>
+          p === '/mnt/c/HoaiPhuong-Server' || validLinuxPaths.has(p),
+        readText: () => 'Linux version 6.8.0-1021-azure',
+        createPool: forbidConnect,
+      },
+      pattern: /SECURITY_VIOLATION_PRODUCTION_HOST_DETECTED/,
+    },
+    {
+      name: 'WSL2 kernel signature in /proc/version',
+      env: validLinuxCiEnv,
+      runtime: {
+        cwd: '/repo',
+        platform: 'linux',
+        pathExists: (p) => validLinuxPaths.has(p),
+        readText: () =>
+          'Linux version 5.15.153.1-microsoft-standard-WSL2 (root@build)',
+        createPool: forbidConnect,
+      },
+      pattern: /SECURITY_VIOLATION_WSL_HOST_FORBIDDEN/,
+    },
+    {
+      name: 'Arbitrary password not bound to GITHUB_RUN_ID',
+      env: { ...validLinuxCiEnv, CI_DATABASE_PASSWORD: 'arbitrary-password' },
+      runtime: {
+        cwd: '/repo',
+        platform: 'linux',
+        pathExists: (p) => validLinuxPaths.has(p),
+        readText: () => 'Linux version 6.8.0-1021-azure',
+        createPool: forbidConnect,
+      },
+      pattern: /SECURITY_VIOLATION_INVALID_CI_DB_TOKEN/,
+    },
+    {
+      name: 'Missing runner workspace directory on filesystem',
+      env: validLinuxCiEnv,
+      runtime: {
+        cwd: '/repo',
+        platform: 'linux',
+        pathExists: (p) =>
+          p !== '/home/runner/work/management-lite/management-lite' &&
+          validLinuxPaths.has(p),
+        readText: () => 'Linux version 6.8.0-1021-azure',
+        createPool: forbidConnect,
+      },
+      pattern: /SECURITY_VIOLATION_MISSING_RUNNER_FILESYSTEM/,
+    },
+    {
+      name: 'NODE_ENV=production',
+      env: { ...validLinuxCiEnv, NODE_ENV: 'production' },
+      runtime: {
+        cwd: '/repo',
+        platform: 'linux',
+        pathExists: (p) => validLinuxPaths.has(p),
+        readText: () => 'Linux version 6.8.0-1021-azure',
+        createPool: forbidConnect,
+      },
+      pattern: /SECURITY_VIOLATION_PROHIBITED_NODE_ENV/,
+    },
+    {
+      name: 'Missing build artifacts before prepare',
+      env: validLinuxCiEnv,
+      runtime: {
+        cwd: '/empty-unbuilt-repo',
+        platform: 'linux',
+        pathExists: (p) => validLinuxPaths.has(p),
+        readText: () => 'Linux version 6.8.0-1021-azure',
+        createPool: forbidConnect,
+      },
+      pattern: /Required build artifact missing/,
+    },
+  ];
+
+  for (const tc of preConnectionCases) {
+    await assert.rejects(
+      () => prepareWebCiDatabases(tc.env, tc.runtime),
+      tc.pattern,
+      `prepare must reject: ${tc.name}`,
+    );
+    if (tc.name !== 'Missing build artifacts before prepare') {
+      await assert.rejects(
+        () => verifySentinelUntouched(tc.env, tc.runtime),
+        tc.pattern,
+        `verify-sentinel must reject: ${tc.name}`,
+      );
+      await assert.rejects(
+        () => cleanupWebCiDatabases(tc.env, tc.runtime),
+        tc.pattern,
+        `cleanup must reject: ${tc.name}`,
+      );
+    }
+  }
+  assert.equal(
+    connectAttempts,
+    0,
+    'Zero PostgreSQL connection attempts may occur when preflight validation fails',
+  );
+
+  // 3. Prove server-side PostgreSQL cluster checks reject Production/Windows clusters on port 55432
+  // BEFORE any CREATE DATABASE or DROP DATABASE statement is ever issued!
+  const buildMockPoolRuntime = (overrides) => {
+    const executedSql = [];
+    let ended = false;
+    const runtime = {
+      cwd: '/repo',
+      platform: 'linux',
+      pathExists: (p) => validLinuxPaths.has(p),
+      readText: () => 'Linux version 6.8.0-1021-azure',
+      createPool: () => ({
+        query: async (sql) => {
+          executedSql.push(String(sql).trim());
+          if (sql.includes('SELECT current_user AS usr')) {
+            return {
+              rows: [
+                {
+                  usr: overrides.usr ?? 'ci_test',
+                  db: overrides.db ?? 'postgres',
+                  ver:
+                    overrides.ver ??
+                    'PostgreSQL 18.1 (Debian 18.1-1.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc',
+                },
+              ],
+            };
+          }
+          if (sql.includes('FROM pg_roles')) {
+            return { rows: overrides.roles ?? [] };
+          }
+          if (sql.includes('FROM pg_database')) {
+            return { rows: overrides.databases ?? [] };
+          }
+          if (sql.includes('FROM pg_tables')) {
+            return { rows: [{ cnt: overrides.publicTables ?? 0 }] };
+          }
+          return { rows: [] };
+        },
+        end: async () => {
+          ended = true;
+        },
+      }),
+    };
+    return { runtime, executedSql, isEnded: () => ended };
+  };
+
+  const clusterRejectionCases = [
+    {
+      name: 'Windows PostgreSQL binary listening on port 55432',
+      overrides: {
+        ver: 'PostgreSQL 18.6, compiled by Visual C++ build 1942, 64-bit',
+      },
+      pattern: /SECURITY_VIOLATION_NON_LINUX_POSTGRES/,
+    },
+    {
+      name: 'Production role hp_test_admin present in pg_roles',
+      overrides: { roles: [{ rolname: 'hp_test_admin' }] },
+      pattern: /SECURITY_VIOLATION_PRODUCTION_ROLE_PRESENT/,
+    },
+    {
+      name: 'Production database management_lite present in pg_database',
+      overrides: { databases: [{ datname: 'management_lite' }] },
+      pattern: /SECURITY_VIOLATION_PRODUCTION_DB_PRESENT/,
+    },
+    {
+      name: 'Unexpected connected user',
+      overrides: { usr: 'postgres' },
+      pattern: /SECURITY_VIOLATION_UNEXPECTED_PG_IDENTITY/,
+    },
+    {
+      name: 'Non-empty postgres.public schema',
+      overrides: { publicTables: 3 },
+      pattern: /SECURITY_VIOLATION_NON_EMPTY_ADMIN_DB/,
+    },
+  ];
+
+  for (const tc of clusterRejectionCases) {
+    for (const fn of [prepareWebCiDatabases, cleanupWebCiDatabases]) {
+      const mock = buildMockPoolRuntime(tc.overrides);
+      await assert.rejects(
+        () => fn(validLinuxCiEnv, mock.runtime),
+        tc.pattern,
+        `${fn.name} must reject cluster: ${tc.name}`,
+      );
+      const ddlExecuted = mock.executedSql.filter((q) =>
+        /\b(?:CREATE|DROP)\s+DATABASE\b/i.test(q),
+      );
+      assert.deepEqual(
+        ddlExecuted,
+        [],
+        `Zero CREATE/DROP DATABASE statements may execute when cluster check fails (${tc.name})`,
+      );
+      assert.equal(mock.isEnded(), true, 'Pool must be closed on rejection');
+    }
+  }
+
+  // 4. Verify positive Linux CI container happy path executes verify -> DDL -> migrate -> sentinel -> cleanup cleanly
+  const happyMock = buildMockPoolRuntime({});
+  let migratedCount = 0;
+  const happyRuntime = {
+    ...happyMock.runtime,
+    databaseConfigModule: {
+      loadTestDatabaseConfig: (e) => ({
+        connectionString: e.TEST_DATABASE_URL,
+      }),
+      assertSafeTestDatabase: () => {},
+    },
+    databasePoolModule: {
+      createDatabasePool: () => ({
+        end: async () => {},
+      }),
+    },
+    migratorModule: {
+      loadMigrationFiles: () => [{ id: '0001_init' }],
+      runMigrations: async () => {
+        migratedCount++;
+        return { appliedCount: 36, alreadyAppliedCount: 0 };
+      },
+    },
+  };
+
+  await prepareWebCiDatabases(validLinuxCiEnv, happyRuntime);
+  assert.equal(migratedCount, 1);
+  await verifySentinelUntouched(validLinuxCiEnv, happyRuntime);
+  await cleanupWebCiDatabases(validLinuxCiEnv, happyRuntime);
+
+  const happyDdl = happyMock.executedSql.filter((q) =>
+    /\b(?:CREATE|DROP)\s+DATABASE\b/i.test(q),
+  );
+  assert.deepEqual(happyDdl, [
+    'DROP DATABASE IF EXISTS web_test_ci_sentinel WITH (FORCE)',
+    'DROP DATABASE IF EXISTS web_e2e_ci_test WITH (FORCE)',
+    'CREATE DATABASE web_test_ci_sentinel',
+    'CREATE DATABASE web_e2e_ci_test',
+    'DROP DATABASE IF EXISTS web_e2e_ci_test WITH (FORCE)',
+    'DROP DATABASE IF EXISTS web_test_ci_sentinel WITH (FORCE)',
+  ]);
 });
