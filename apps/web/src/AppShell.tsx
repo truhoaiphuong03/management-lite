@@ -4,6 +4,7 @@ import {
   MobileBottomNav,
   NAV_ITEMS,
   NAV_GROUPS,
+  resolveSidebarUserSummary,
   BuildingIcon,
   CrownIcon,
   UserIcon,
@@ -12,21 +13,34 @@ import {
   NavIcon,
   Breadcrumb,
   LockIcon,
+  SunIcon,
+  MoonIcon,
 } from '../../../packages/ui/src/components/index.js';
 import type { UserRole } from './types.js';
 import { ReportBugWidget } from './components/ReportBugWidget.js';
 import { SYSTEM_VERSION } from '../../../packages/contracts/src/version.js';
 import { enableResponsiveTables } from './responsive-tables.js';
 import { enableFormLabelling } from './a11y-forms.js';
+import {
+  getStoredTheme,
+  resolveEffectiveTheme,
+  setThemePreference,
+  type ThemePreference,
+} from './theme.js';
 
 export interface AppShellProps {
   currentPath: string;
   onNavigate: (path: string) => void;
   role: UserRole;
+  subRole?: 'admin' | undefined;
   isOwnerVerified?: boolean | undefined;
   onLogout?: () => void;
   csrfToken?: string | undefined;
   userId?: string | undefined;
+  userFullName?: string | undefined;
+  userUsername?: string | undefined;
+  userEmail?: string | undefined;
+  employeeCode?: string | undefined;
   workspaceId?: string | undefined;
   children: React.ReactNode;
 }
@@ -43,6 +57,19 @@ const NON_KEYBOARD_INPUT_TYPES = new Set([
   'color',
   'image',
 ]);
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'mglite_sidebar_collapsed';
+
+export function readStoredSidebarCollapsed(): boolean {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === '1';
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+  return false;
+}
 
 function isMobileKeyboardEditableTarget(el: Element | null): el is HTMLElement {
   if (!el || !(el instanceof HTMLElement)) return false;
@@ -62,15 +89,94 @@ export const AppShell: React.FC<AppShellProps> = ({
   currentPath,
   onNavigate,
   role,
+  subRole,
   isOwnerVerified,
   onLogout,
   csrfToken,
   userId,
+  userFullName,
+  userUsername,
+  userEmail,
+  employeeCode,
   workspaceId,
   children,
 }) => {
+  const userSummary = resolveSidebarUserSummary({
+    role,
+    subRole,
+    userFullName,
+    userUsername,
+    userEmail,
+    employeeCode,
+  });
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isMobileKeyboardOpen, setIsMobileKeyboardOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() =>
+    readStoredSidebarCollapsed(),
+  );
+  const [themePref, setThemePref] = useState<ThemePreference>(() =>
+    getStoredTheme(),
+  );
+  const [effectiveTheme, setEffectiveTheme] = useState<'dark' | 'light'>(() =>
+    resolveEffectiveTheme(getStoredTheme()),
+  );
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.addEventListener !== 'function'
+    ) {
+      return;
+    }
+    const syncThemeState = (e?: Event) => {
+      const detail = (
+        e as CustomEvent<{
+          theme?: ThemePreference;
+          effectiveTheme?: 'dark' | 'light';
+        }>
+      )?.detail;
+      const nextPref = detail?.theme ?? getStoredTheme();
+      const nextEffective =
+        detail?.effectiveTheme ?? resolveEffectiveTheme(nextPref);
+      setThemePref(nextPref);
+      setEffectiveTheme(nextEffective);
+    };
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'mglite_theme' || e.key === null) {
+        syncThemeState();
+      }
+      if (e.key === SIDEBAR_COLLAPSED_STORAGE_KEY || e.key === null) {
+        setSidebarCollapsed(readStoredSidebarCollapsed());
+      }
+    };
+    syncThemeState();
+    window.addEventListener('mglite:theme-change', syncThemeState);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('mglite:theme-change', syncThemeState);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  const handleToggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, next ? '1' : '0');
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  const handleToggleTheme = () => {
+    const nextTheme: ThemePreference =
+      effectiveTheme === 'dark' ? 'light' : 'dark';
+    setThemePreference(nextTheme);
+  };
 
   useEffect(
     () => enableResponsiveTables(document.getElementById('main-content')),
@@ -465,9 +571,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             ) : (
               <UserIcon size={13} />
             )}
-            <span className="app-shell-role-text">
-              {role === 'owner' ? 'Chủ sở hữu' : 'Nhân viên'}
-            </span>
+            <span className="app-shell-role-text">{userSummary.roleLabel}</span>
           </span>
         </div>
         <div
@@ -479,6 +583,53 @@ export const AppShell: React.FC<AppShellProps> = ({
             flexShrink: 0,
           }}
         >
+          <button
+            type="button"
+            data-testid="header-btn-theme-toggle"
+            data-theme-pref={themePref}
+            data-effective-theme={effectiveTheme}
+            aria-label={
+              effectiveTheme === 'dark'
+                ? 'Chuyển sang giao diện sáng'
+                : 'Chuyển sang giao diện tối'
+            }
+            title={
+              effectiveTheme === 'dark'
+                ? themePref === 'system'
+                  ? 'Đang theo hệ điều hành (Tối) — Bấm để chuyển sang giao diện sáng'
+                  : 'Đang dùng giao diện tối — Bấm để chuyển sang giao diện sáng'
+                : themePref === 'system'
+                  ? 'Đang theo hệ điều hành (Sáng) — Bấm để chuyển sang giao diện tối'
+                  : 'Đang dùng giao diện sáng — Bấm để chuyển sang giao diện tối'
+            }
+            onClick={handleToggleTheme}
+            className="app-shell-header-btn"
+            style={{
+              boxSizing: 'border-box',
+              minHeight: '36px',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'transparent',
+              color: 'var(--text-color)',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap',
+              transition:
+                'background-color 0.15s ease, border-color 0.15s ease',
+            }}
+          >
+            {effectiveTheme === 'dark' ? (
+              <SunIcon size={14} style={{ color: 'var(--warning-text)' }} />
+            ) : (
+              <MoonIcon size={14} style={{ color: 'var(--accent-text)' }} />
+            )}
+            <span>{effectiveTheme === 'dark' ? 'Sáng' : 'Tối'}</span>
+          </button>
           <button
             type="button"
             data-testid="header-btn-settings"
@@ -552,7 +703,14 @@ export const AppShell: React.FC<AppShellProps> = ({
           currentPath={currentPath}
           onNavigate={onNavigate}
           role={role}
+          subRole={subRole}
           isOwnerVerified={isOwnerVerified === true}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={handleToggleSidebarCollapse}
+          userFullName={userFullName}
+          userUsername={userUsername}
+          userEmail={userEmail}
+          employeeCode={employeeCode}
         />
       </div>
 
@@ -794,6 +952,117 @@ export const AppShell: React.FC<AppShellProps> = ({
               >
                 <CloseIcon size={20} />
               </button>
+            </div>
+
+            <div
+              data-testid="mobile-more-user-card"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                padding: '12px',
+                marginBottom: '16px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--bg-color)',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  minWidth: 0,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '999px',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--accent-text)',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  {userSummary.initials}
+                </span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: 'var(--text-color)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {userSummary.displayName}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    {userSummary.secondaryText}
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '8px',
+                }}
+              >
+                <button
+                  type="button"
+                  data-testid="mobile-user-edit-profile"
+                  onClick={() => handleMobileNav('/settings#profile')}
+                  style={{
+                    boxSizing: 'border-box',
+                    minHeight: '38px',
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--surface-color)',
+                    color: 'var(--text-color)',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Hồ sơ & Đổi tên
+                </button>
+                <button
+                  type="button"
+                  data-testid="mobile-user-change-password"
+                  onClick={() => handleMobileNav('/settings#password')}
+                  style={{
+                    boxSizing: 'border-box',
+                    minHeight: '38px',
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--surface-color)',
+                    color: 'var(--text-color)',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Đổi mật khẩu
+                </button>
+              </div>
             </div>
 
             {moreGroups.map((group, groupIndex) => (

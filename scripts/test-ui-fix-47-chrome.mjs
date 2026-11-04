@@ -1,10 +1,13 @@
-import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  createBoundedCdpSender,
+  installScriptWatchdog,
+  launchHeadlessChrome,
+  waitForAppStartupSettled,
+} from './qa-chrome-harness.mjs';
 
-const port = 9249;
-const runId = Math.random().toString(36).substring(2, 8);
 const targetUrl = process.env.QA_WEB_BASE;
 if (!targetUrl) throw new Error('Explicit isolated QA_WEB_BASE is required');
 const qaTarget = new URL(targetUrl);
@@ -14,42 +17,38 @@ if (
   ['3017', '3018', '3027', '3028', '3008'].includes(qaTarget.port)
 )
   throw new Error('Operational/nonlocal browser endpoint refused');
-// Portable repo root (no hard-coded absolute path); used for Vite /@fs imports.
+// Portable repo root (no hard-coded absolute path); normalized to POSIX for Vite /@fs imports.
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const appButtonFsPath = `/@fs${repoRoot}/packages/ui/src/components/AppButton.tsx`;
+const posixRepoRoot = repoRoot.replaceAll('\\', '/');
+const appButtonFsPath = `/@fs${posixRepoRoot.startsWith('/') ? '' : '/'}${posixRepoRoot}/packages/ui/src/components/AppButton.tsx`;
 
 async function run() {
+  const clearWatchdog = installScriptWatchdog('test-ui-fix-47-chrome', 75_000);
   console.log('=== STARTING UI-FIX-49 LIVE CHROME SUITE (FAIL-CLOSED) ===');
-  const chrome = spawn(
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    [
-      '--headless=new',
-      `--remote-debugging-port=${port}`,
-      '--disable-gpu',
-      '--no-first-run',
-      '--no-default-browser-check',
-      `--user-data-dir=/tmp/chrome-fix-49-${runId}`,
-    ],
-  );
+  const { port, cleanup } = await launchHeadlessChrome({
+    preferredPort: 9249,
+    prefix: 'chrome-fix-49-',
+  });
+  let ws = null;
 
   try {
-    await new Promise((r) => setTimeout(r, 1500));
-
     // 1. Open about:blank FIRST (never navigate to app before interception is installed)
     const newTab = await fetch(
       `http://127.0.0.1:${port}/json/new?about:blank`,
       { method: 'PUT' },
     ).then((r) => r.json());
 
-    const ws = new WebSocket(newTab.webSocketDebuggerUrl);
+    ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
 
-    let msgId = 1;
     const callbacks = new Map();
     const unmockedCdpBlocked = [];
     const cdpErrors = [];
 
     let currentCdpPhase = 'startup';
+    const send = createBoundedCdpSender(ws, callbacks, {
+      commandTimeoutMs: 40_000,
+    });
 
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
@@ -74,13 +73,6 @@ async function run() {
         else res(msg.result);
       }
     };
-
-    const send = (method, params = {}) =>
-      new Promise((res, rej) => {
-        const id = msgId++;
-        callbacks.set(id, { res, rej });
-        ws.send(JSON.stringify({ id, method, params }));
-      });
 
     const evaluate = async (exp) => {
       const r = await send('Runtime.evaluate', {
@@ -145,7 +137,7 @@ async function run() {
 
     // 4. Navigate to local web dev server with pre-document fail-closed script installed
     await send('Page.navigate', { url: targetUrl });
-    await new Promise((r) => setTimeout(r, 1200));
+    await waitForAppStartupSettled(evaluate);
 
     // 5. Controlled Probe: verify that unmocked API requests are strictly fail-closed
     currentCdpPhase = 'probe';
@@ -222,6 +214,17 @@ async function run() {
               }),
             },
             {
+              matches: (url) => url.includes('/api/v1/work-items'),
+              handle: async () => ({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                  success: true,
+                  data: { items: [] },
+                }),
+              }),
+            },
+            {
               matches: (url) => url.includes('/api/v1/reports/daily'),
               handle: async () => ({
                 ok: true,
@@ -275,12 +278,20 @@ async function run() {
             throw new Error('Initial "Tải thêm báo cáo" button not found');
           }
 
+          const waitNextMyReportRequest = async () => {
+            const deadline = Date.now() + 5000;
+            while (pendingMyReportsRequests.length === 0) {
+              if (Date.now() > deadline) {
+                throw new Error('Timed out waiting for /api/v1/reports/me request');
+              }
+              await new Promise(r => setTimeout(r, 10));
+            }
+            return pendingMyReportsRequests.shift();
+          };
+
           // Trigger Request A (load more)
           initialLoadMoreBtn.click();
-          while (pendingMyReportsRequests.length === 0) {
-            await new Promise(r => setTimeout(r, 10));
-          }
-          const reqA = pendingMyReportsRequests.shift();
+          const reqA = await waitNextMyReportRequest();
 
           let resolveDelayedJsonA;
           const delayedJsonPromiseA = new Promise((res) => {
@@ -316,10 +327,7 @@ async function run() {
           const saveDraftBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Lưu bản nháp'));
           saveDraftBtn.click();
 
-          while (pendingMyReportsRequests.length === 0) {
-            await new Promise(r => setTimeout(r, 10));
-          }
-          const reqB = pendingMyReportsRequests.shift();
+          const reqB = await waitNextMyReportRequest();
 
           reqB.resolve({
             ok: true,
@@ -1561,7 +1569,9 @@ async function run() {
     console.log('\n=== ALL UI-FIX-47 TESTS PASSED WITH 100% CONFORMANCE ===');
     console.log('=== ALL UI-FIX-49 TESTS PASSED WITH 100% CONFORMANCE ===\n');
   } finally {
-    chrome.kill();
+    clearWatchdog();
+    ws?.close();
+    await cleanup();
   }
 }
 

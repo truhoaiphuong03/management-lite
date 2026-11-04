@@ -2468,9 +2468,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       >
         <div>
           <h1
+            className="page-header-title"
             style={{
-              fontSize: '22px',
-              fontWeight: 700,
+              fontSize: 'var(--heading-page-size, 22px)',
+              fontWeight: 800,
+              letterSpacing: 'var(--heading-tracking, -0.02em)',
+              lineHeight: 1.25,
               color: 'var(--text-color)',
               margin: '0 0 4px 0',
             }}
@@ -2479,7 +2482,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           </h1>
           <p
             className="page-header-subtitle"
-            style={{ fontSize: '14px', color: 'var(--muted-color)', margin: 0 }}
+            style={{
+              fontSize: 'var(--subtitle-size, 13.5px)',
+              lineHeight: 1.45,
+              color: 'var(--muted-color)',
+              margin: 0,
+            }}
           >
             {role === 'owner'
               ? 'Giao việc, theo dõi tiến độ và nghiệm thu kết quả cửa hàng'

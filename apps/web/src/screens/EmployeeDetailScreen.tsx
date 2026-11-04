@@ -1094,9 +1094,11 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                       style={{
                         fontSize: '15px',
                         fontWeight: 600,
-                        fontFamily: employee.bank_account_number
-                          ? 'monospace'
-                          : 'inherit',
+                        fontFamily: 'var(--font-sans)',
+                        fontVariantNumeric: 'tabular-nums',
+                        letterSpacing: employee.bank_account_number
+                          ? '0.015em'
+                          : 'normal',
                         color: employee.bank_account_number
                           ? 'var(--text-color)'
                           : 'var(--muted-color)',

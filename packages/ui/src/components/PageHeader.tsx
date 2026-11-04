@@ -27,22 +27,27 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         borderBottom: '1px solid var(--border-color, #334155)',
       }}
     >
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: '1 1 240px' }}>
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
             flexWrap: 'wrap',
+            minWidth: 0,
           }}
         >
           <h1
             className="page-header-title"
+            title={title}
             style={{
-              fontSize: '20px',
-              fontWeight: 700,
+              fontSize: 'var(--heading-page-size, 22px)',
+              fontWeight: 800,
+              lineHeight: 1.25,
               color: 'var(--text-color, #F8FAFC)',
-              letterSpacing: '-0.02em',
+              letterSpacing: 'var(--heading-tracking, -0.02em)',
+              overflowWrap: 'break-word',
+              minWidth: 0,
               margin: 0,
             }}
           >
@@ -55,7 +60,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             className="page-header-subtitle"
             style={{
               margin: '4px 0 0 0',
-              fontSize: '13px',
+              fontSize: 'var(--subtitle-size, 13.5px)',
               lineHeight: 1.45,
               color: 'var(--muted-color, #94A3B8)',
             }}

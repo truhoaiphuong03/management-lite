@@ -617,6 +617,54 @@ export function Trash2Icon(props: IconProps) {
   return <TrashIcon {...props} />;
 }
 
+export function SunIcon({ size = 16, style, ...props }: IconProps) {
+  const base = baseSvgProps(size);
+  return (
+    <svg {...base} {...props} style={{ ...base.style, ...style }}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" />
+      <path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" />
+      <path d="m19.07 4.93-1.41 1.41" />
+    </svg>
+  );
+}
+
+export function MoonIcon({ size = 16, style, ...props }: IconProps) {
+  const base = baseSvgProps(size);
+  return (
+    <svg {...base} {...props} style={{ ...base.style, ...style }}>
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+    </svg>
+  );
+}
+
+export function PanelLeftCloseIcon({ size = 16, style, ...props }: IconProps) {
+  const base = baseSvgProps(size);
+  return (
+    <svg {...base} {...props} style={{ ...base.style, ...style }}>
+      <rect x="3" y="3" width="18" height="18" rx="2.5" />
+      <path d="M9 3v18" />
+      <path d="m16 15-3-3 3-3" />
+    </svg>
+  );
+}
+
+export function PanelLeftOpenIcon({ size = 16, style, ...props }: IconProps) {
+  const base = baseSvgProps(size);
+  return (
+    <svg {...base} {...props} style={{ ...base.style, ...style }}>
+      <rect x="3" y="3" width="18" height="18" rx="2.5" />
+      <path d="M9 3v18" />
+      <path d="m14 9 3 3-3 3" />
+    </svg>
+  );
+}
+
 export function NavIcon({
   name,
   id,

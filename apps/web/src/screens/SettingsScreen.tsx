@@ -174,6 +174,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             }
           : prev,
       );
+      if (
+        typeof window !== 'undefined' &&
+        typeof window.dispatchEvent === 'function' &&
+        typeof CustomEvent === 'function'
+      ) {
+        window.dispatchEvent(
+          new CustomEvent('mglite:profile-updated', {
+            detail: {
+              full_name: data.data.full_name ?? editName.trim(),
+              email: data.data.email,
+            },
+          }),
+        );
+      }
       setProfileMsg({
         type: 'success',
         text:
@@ -254,6 +268,101 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     applyTheme(theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.addEventListener !== 'function'
+    ) {
+      return;
+    }
+    const syncExternalTheme = (e: Event) => {
+      const detailTheme = (e as CustomEvent<{ theme?: string }>).detail?.theme;
+      let next = detailTheme;
+      if (!next) {
+        try {
+          next = localStorage.getItem('mglite_theme') || 'dark';
+        } catch {
+          next = 'dark';
+        }
+      }
+      if (next === 'dark' || next === 'light' || next === 'system') {
+        setTheme((prev) => (prev !== next ? next : prev));
+      }
+    };
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'mglite_theme' || e.key === null) {
+        syncExternalTheme(e);
+      }
+    };
+    window.addEventListener('mglite:theme-change', syncExternalTheme);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('mglite:theme-change', syncExternalTheme);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      loading ||
+      typeof window === 'undefined' ||
+      typeof document === 'undefined'
+    ) {
+      return;
+    }
+    const scrollToRequestedSection = (rawHash?: string) => {
+      const hash = (rawHash ?? window.location.hash ?? '').toLowerCase();
+      if (hash !== '#profile' && hash !== '#password') return;
+
+      const targetId =
+        hash === '#password'
+          ? 'settings-password-section'
+          : profile
+            ? 'settings-profile-section'
+            : 'settings-account-overview';
+      const targetEl = document.getElementById(targetId);
+      if (targetEl && typeof targetEl.scrollIntoView === 'function') {
+        try {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch {
+          targetEl.scrollIntoView();
+        }
+      }
+
+      const focusSelector =
+        hash === '#password'
+          ? '#currentPassword'
+          : profile
+            ? '[data-testid="edit-profile-name"]'
+            : null;
+      if (focusSelector && typeof document.querySelector === 'function') {
+        const inputEl = document.querySelector(
+          focusSelector,
+        ) as HTMLElement | null;
+        if (inputEl && typeof inputEl.focus === 'function') {
+          try {
+            inputEl.focus({ preventScroll: true });
+          } catch {
+            inputEl.focus();
+          }
+        }
+      }
+    };
+
+    scrollToRequestedSection();
+    const handleHashChange = () => scrollToRequestedSection();
+    const handleCustomSection = (e: Event) => {
+      const nextHash = (e as CustomEvent<string>).detail;
+      scrollToRequestedSection(typeof nextHash === 'string' ? nextHash : '');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('mglite:hash-navigate', handleCustomSection);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('mglite:hash-navigate', handleCustomSection);
+    };
+  }, [loading, profile]);
+
   const handleSavePreferences = (
     newTheme: string,
     newTimezone: string,
@@ -262,7 +371,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setTheme(newTheme);
     setTimezone(newTimezone);
     setCurrency(newCurrency);
-    applyTheme(newTheme);
     try {
       localStorage.setItem('mglite_theme', newTheme);
       localStorage.setItem('mglite_timezone', newTimezone);
@@ -270,6 +378,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     } catch {
       // Ignored: fallback to memory state
     }
+    applyTheme(newTheme);
     setPrefSavedMessage(
       'Đã lưu tùy chọn giao diện, múi giờ và tiền tệ thành công.',
     );
@@ -552,113 +661,125 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {/* Real Profile Card */}
-        <AppCard padding="20px">
-          <h3
-            style={{
-              fontSize: '16px',
-              fontWeight: 600,
-              color: 'var(--text-color)',
-              marginBottom: '8px',
-            }}
-          >
-            Hồ sơ nhân sự của tôi
-          </h3>
-          <p
-            style={{
-              fontSize: '13px',
-              color: 'var(--muted-color)',
-              marginBottom: '16px',
-            }}
-          >
-            Thông tin nhân sự gắn liền với tài khoản của bạn trong không gian
-            làm việc hiện tại.
-          </p>
-
-          {loading ? (
-            <div style={{ color: 'var(--muted-color)', fontSize: '14px' }}>
-              Đang tải thông tin cá nhân…
-            </div>
-          ) : profile ? (
-            <div
+        <div id="settings-account-overview" style={{ scrollMarginTop: '64px' }}>
+          <AppCard padding="20px">
+            <h3
               style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
-                gap: '12px',
-                backgroundColor: 'var(--bg-color)',
-                padding: '16px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
+                fontSize: '16px',
+                fontWeight: 600,
+                color: 'var(--text-color)',
+                marginBottom: '8px',
               }}
             >
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Mã nhân viên
+              Hồ sơ nhân sự của tôi
+            </h3>
+            <p
+              style={{
+                fontSize: '13px',
+                color: 'var(--muted-color)',
+                marginBottom: '16px',
+              }}
+            >
+              Thông tin nhân sự gắn liền với tài khoản của bạn trong không gian
+              làm việc hiện tại.
+            </p>
+
+            {loading ? (
+              <div style={{ color: 'var(--muted-color)', fontSize: '14px' }}>
+                Đang tải thông tin cá nhân…
+              </div>
+            ) : profile ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+                  gap: '12px',
+                  backgroundColor: 'var(--bg-color)',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <div>
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Mã nhân viên
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: 'var(--accent-text)',
+                      marginTop: '2px',
+                    }}
+                  >
+                    {profile.employee_code}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    color: 'var(--accent-text)',
-                    marginTop: '2px',
-                  }}
-                >
-                  {profile.employee_code}
+                <div>
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Họ và tên
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: 'var(--text-color)',
+                      marginTop: '2px',
+                    }}
+                  >
+                    {profile.full_name}
+                  </div>
+                </div>
+                <div>
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Email tài khoản
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      color: 'var(--text-color)',
+                      marginTop: '2px',
+                    }}
+                  >
+                    {profile.user?.email || '—'}
+                  </div>
+                </div>
+                <div>
+                  <div
+                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                  >
+                    Trạng thái hồ sơ
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      color: 'var(--success-text)',
+                      fontWeight: 600,
+                      marginTop: '2px',
+                    }}
+                  >
+                    {profile.employment_status === 'active'
+                      ? 'Đang hoạt động'
+                      : profile.employment_status}
+                  </div>
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Họ và tên
-                </div>
-                <div
-                  style={{
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    color: 'var(--text-color)',
-                    marginTop: '2px',
-                  }}
-                >
-                  {profile.full_name}
-                </div>
+            ) : (
+              <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
+                {role === 'owner'
+                  ? 'Tài khoản đang đăng nhập với vai trò Quản trị viên (Chủ sở hữu).'
+                  : 'Tài khoản đang đăng nhập chưa gắn hồ sơ nhân sự trong không gian làm việc này. Bạn vẫn có thể đổi mật khẩu bên dưới.'}
               </div>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Email tài khoản
-                </div>
-                <div
-                  style={{
-                    fontSize: '14px',
-                    color: 'var(--text-color)',
-                    marginTop: '2px',
-                  }}
-                >
-                  {profile.user?.email || '—'}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  Trạng thái hồ sơ
-                </div>
-                <div
-                  style={{
-                    fontSize: '14px',
-                    color: 'var(--success-text)',
-                    fontWeight: 600,
-                    marginTop: '2px',
-                  }}
-                >
-                  {profile.employment_status === 'active'
-                    ? 'Đang hoạt động'
-                    : profile.employment_status}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
-              Tài khoản đang đăng nhập với vai trò Quản trị viên (Chủ sở hữu).
-            </div>
-          )}
-        </AppCard>
+            )}
+          </AppCard>
+        </div>
 
         {/* Workspace context card (C06 invariant) */}
         <AppCard padding="20px">
@@ -728,698 +849,705 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </AppCard>
 
         {/* Edit Profile Card */}
-        <AppCard padding="20px">
-          <h3
-            style={{
-              fontSize: '16px',
-              fontWeight: 600,
-              color: 'var(--text-color)',
-              margin: '0 0 8px',
-            }}
-          >
-            Chỉnh sửa thông tin cá nhân
-          </h3>
-          <p
-            style={{
-              fontSize: '13px',
-              color: 'var(--muted-color)',
-              marginBottom: '16px',
-            }}
-          >
-            Cập nhật họ tên, số điện thoại và email đăng nhập. Đổi mật khẩu ở
-            mục bên dưới.
-          </p>
-          {profile ? (
-            <form
-              onSubmit={handleSaveProfile}
-              data-testid="edit-profile-form"
-              style={{ maxWidth: '680px' }}
-            >
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
-                  gap: '14px',
-                }}
-              >
-                <label
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: 'var(--muted-color)',
-                  }}
-                >
-                  Họ và tên
-                  <input
-                    data-testid="edit-profile-name"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    maxLength={120}
-                    style={{
-                      width: '100%',
-                      height: '42px',
-                      boxSizing: 'border-box',
-                      marginTop: '4px',
-                      padding: '0 12px',
-                      fontSize: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-hover)',
-                      backgroundColor: 'var(--surface-hover)',
-                      color: 'var(--text-color)',
-                    }}
-                  />
-                </label>
-                <label
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: 'var(--muted-color)',
-                  }}
-                >
-                  Số điện thoại
-                  <input
-                    data-testid="edit-profile-phone"
-                    type="tel"
-                    inputMode="tel"
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    placeholder="VD: 0901234567"
-                    style={{
-                      width: '100%',
-                      height: '42px',
-                      boxSizing: 'border-box',
-                      marginTop: '4px',
-                      padding: '0 12px',
-                      fontSize: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-hover)',
-                      backgroundColor: 'var(--surface-hover)',
-                      color: 'var(--text-color)',
-                    }}
-                  />
-                </label>
-                <label
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: 'var(--muted-color)',
-                  }}
-                >
-                  Ngày sinh (Không bắt buộc)
-                  <VnDateOfBirthSelect
-                    testId="edit-profile-dob"
-                    value={editDateOfBirth}
-                    onChange={setEditDateOfBirth}
-                  />
-                </label>
-                <label
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: 'var(--muted-color)',
-                  }}
-                >
-                  Giới tính
-                  <select
-                    data-testid="edit-profile-gender"
-                    value={editGender}
-                    onChange={(e) => setEditGender(e.target.value)}
-                    style={{
-                      width: '100%',
-                      height: '42px',
-                      boxSizing: 'border-box',
-                      marginTop: '4px',
-                      padding: '0 12px',
-                      fontSize: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-hover)',
-                      backgroundColor: 'var(--surface-hover)',
-                      color: 'var(--text-color)',
-                    }}
-                  >
-                    <option value="">-- Chọn --</option>
-                    <option value="Nam">Nam</option>
-                    <option value="Nữ">Nữ</option>
-                    <option value="Khác">Khác</option>
-                  </select>
-                </label>
-                <label
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: 'var(--muted-color)',
-                  }}
-                >
-                  Số CCCD / CMND (Không bắt buộc)
-                  <input
-                    data-testid="edit-profile-national-id"
-                    type="text"
-                    value={editNationalId}
-                    onChange={(e) => setEditNationalId(e.target.value)}
-                    placeholder="VD: 079200012345"
-                    style={{
-                      width: '100%',
-                      height: '42px',
-                      boxSizing: 'border-box',
-                      marginTop: '4px',
-                      padding: '0 12px',
-                      fontSize: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-hover)',
-                      backgroundColor: 'var(--surface-hover)',
-                      color: 'var(--text-color)',
-                    }}
-                  />
-                </label>
-                <label
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: 'var(--muted-color)',
-                  }}
-                >
-                  Chức danh / Vị trí
-                  <input
-                    data-testid="edit-profile-position"
-                    type="text"
-                    value={editPositionTitle}
-                    onChange={(e) => setEditPositionTitle(e.target.value)}
-                    placeholder="VD: Editor, Kịch bản…"
-                    style={{
-                      width: '100%',
-                      height: '42px',
-                      boxSizing: 'border-box',
-                      marginTop: '4px',
-                      padding: '0 12px',
-                      fontSize: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-hover)',
-                      backgroundColor: 'var(--surface-hover)',
-                      color: 'var(--text-color)',
-                    }}
-                  />
-                </label>
-              </div>
-              <div style={{ height: '14px' }} />
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
-                  gap: '14px',
-                }}
-              >
-                <label
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: 'var(--muted-color)',
-                  }}
-                >
-                  Địa chỉ nơi ở hiện tại (Không bắt buộc)
-                  <input
-                    data-testid="edit-profile-address"
-                    type="text"
-                    value={editAddress}
-                    onChange={(e) => setEditAddress(e.target.value)}
-                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
-                    style={{
-                      width: '100%',
-                      height: '42px',
-                      boxSizing: 'border-box',
-                      marginTop: '4px',
-                      padding: '0 12px',
-                      fontSize: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-hover)',
-                      backgroundColor: 'var(--surface-hover)',
-                      color: 'var(--text-color)',
-                    }}
-                  />
-                </label>
-                <label
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: 'var(--muted-color)',
-                  }}
-                >
-                  Liên hệ khẩn cấp (Họ tên & SĐT người thân)
-                  <input
-                    data-testid="edit-profile-emergency"
-                    type="text"
-                    value={editEmergencyContact}
-                    onChange={(e) => setEditEmergencyContact(e.target.value)}
-                    placeholder="VD: Nguyễn Thị B (Mẹ) - 0912345678"
-                    style={{
-                      width: '100%',
-                      height: '42px',
-                      boxSizing: 'border-box',
-                      marginTop: '4px',
-                      padding: '0 12px',
-                      fontSize: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-hover)',
-                      backgroundColor: 'var(--surface-hover)',
-                      color: 'var(--text-color)',
-                    }}
-                  />
-                </label>
-              </div>
-              <div
-                style={{
-                  marginTop: '14px',
-                  padding: '14px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--bg-color)',
-                  border: '1px solid var(--border-color)',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--accent-text)',
-                    marginBottom: '10px',
-                  }}
-                >
-                  Thông tin ngân hàng nhận lương
-                </div>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
-                    gap: '12px',
-                  }}
-                >
-                  <label
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'flex-end',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      color: 'var(--muted-color)',
-                    }}
-                  >
-                    Ngân hàng (Không bắt buộc)
-                    <div style={{ marginTop: '4px' }}>
-                      <VnBankAutocompleteInput
-                        testId="edit-profile-bank-name"
-                        value={editBankName}
-                        onChange={setEditBankName}
-                        placeholder="Tìm tên ngân hàng (MB, VCB…)"
-                      />
-                    </div>
-                  </label>
-                  <label
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'flex-end',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      color: 'var(--muted-color)',
-                    }}
-                  >
-                    Số tài khoản
-                    <input
-                      data-testid="edit-profile-bank-number"
-                      type="text"
-                      value={editBankAccountNumber}
-                      onChange={(e) => setEditBankAccountNumber(e.target.value)}
-                      placeholder="VD: 1023456789"
-                      style={{
-                        width: '100%',
-                        height: '42px',
-                        boxSizing: 'border-box',
-                        marginTop: '4px',
-                        padding: '0 12px',
-                        fontSize: '14px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-hover)',
-                        backgroundColor: 'var(--surface-hover)',
-                        color: 'var(--text-color)',
-                      }}
-                    />
-                  </label>
-                  <label
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'flex-end',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      color: 'var(--muted-color)',
-                    }}
-                  >
-                    Chủ tài khoản (in hoa)
-                    <input
-                      data-testid="edit-profile-bank-holder"
-                      type="text"
-                      value={editBankAccountHolder}
-                      onChange={(e) =>
-                        setEditBankAccountHolder(e.target.value.toUpperCase())
-                      }
-                      placeholder="VD: NGUYEN VAN A"
-                      style={{
-                        width: '100%',
-                        height: '42px',
-                        boxSizing: 'border-box',
-                        marginTop: '4px',
-                        padding: '0 12px',
-                        fontSize: '14px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-hover)',
-                        backgroundColor: 'var(--surface-hover)',
-                        color: 'var(--text-color)',
-                      }}
-                    />
-                  </label>
-                </div>
-              </div>
-              <div style={{ height: '14px' }} />
-              <label
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'flex-end',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: 'var(--muted-color)',
-                }}
-              >
-                Email tài khoản
-                <input
-                  data-testid="edit-profile-email"
-                  type="email"
-                  value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: '42px',
-                    boxSizing: 'border-box',
-                    marginTop: '4px',
-                    padding: '0 12px',
-                    fontSize: '14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-hover)',
-                    backgroundColor: 'var(--surface-hover)',
-                    color: 'var(--text-color)',
-                  }}
-                />
-              </label>
-              {editEmail.trim().toLowerCase() !==
-                (profile.user?.email || '').toLowerCase() && (
-                <>
-                  <div style={{ height: '12px' }} />
-                  <label
-                    style={{ fontSize: '12px', color: 'var(--warning-text)' }}
-                  >
-                    Mật khẩu hiện tại (bắt buộc khi đổi email — email mới sẽ cần
-                    xác minh lại)
-                    <input
-                      data-testid="edit-profile-email-password"
-                      type="password"
-                      autoComplete="current-password"
-                      value={editEmailPassword}
-                      onChange={(e) => setEditEmailPassword(e.target.value)}
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        marginTop: '4px',
-                        padding: '10px 12px',
-                        fontSize: '16px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-hover)',
-                        backgroundColor: 'var(--surface-hover)',
-                        color: 'var(--text-color)',
-                      }}
-                    />
-                  </label>
-                </>
-              )}
-              {profileMsg && (
-                <div
-                  role={profileMsg.type === 'error' ? 'alert' : 'status'}
-                  style={{
-                    marginTop: '12px',
-                    fontSize: '13px',
-                    color:
-                      profileMsg.type === 'error'
-                        ? 'var(--danger-text)'
-                        : 'var(--success-text)',
-                  }}
-                >
-                  {profileMsg.text}
-                </div>
-              )}
-              <div style={{ marginTop: '16px' }}>
-                <AppButton
-                  type="submit"
-                  variant="primary"
-                  disabled={profileSaving}
-                  data-testid="btn-save-profile"
-                >
-                  {profileSaving ? 'Đang lưu…' : 'Lưu thay đổi'}
-                </AppButton>
-              </div>
-            </form>
-          ) : (
-            <div style={{ color: 'var(--muted-color)', fontSize: '14px' }}>
-              Không có hồ sơ nhân sự để chỉnh sửa.
-            </div>
-          )}
-        </AppCard>
-
-        {/* Change Password Card (UI20) */}
-        <AppCard padding="20px">
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '8px',
-            }}
-          >
-            <LockIcon size={18} style={{ color: 'var(--accent-text)' }} />
+        <div id="settings-profile-section" style={{ scrollMarginTop: '64px' }}>
+          <AppCard padding="20px">
             <h3
               style={{
                 fontSize: '16px',
                 fontWeight: 600,
                 color: 'var(--text-color)',
-                margin: 0,
+                margin: '0 0 8px',
               }}
             >
-              Đổi mật khẩu tài khoản (UI20)
+              Chỉnh sửa thông tin cá nhân
             </h3>
-          </div>
-          <p
-            style={{
-              fontSize: '13px',
-              color: 'var(--muted-color)',
-              marginBottom: '16px',
-              lineHeight: 1.5,
-            }}
-          >
-            Yêu cầu mật khẩu mới tối thiểu 8 ký tự. Khi đổi mật khẩu thành công,
-            toàn bộ phiên đăng nhập cũ trên các thiết bị khác sẽ được tự động
-            thu hồi theo chuẩn SEC-02.
-          </p>
-
-          {passwordSuccess && (
-            <div
-              data-testid="alert-password-success"
+            <p
               style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                marginBottom: '16px',
                 fontSize: '13px',
-                color: 'var(--success-text)',
+                color: 'var(--muted-color)',
+                marginBottom: '16px',
+              }}
+            >
+              Cập nhật họ tên, số điện thoại và email đăng nhập. Đổi mật khẩu ở
+              mục bên dưới.
+            </p>
+            {profile ? (
+              <form
+                onSubmit={handleSaveProfile}
+                data-testid="edit-profile-form"
+                style={{ maxWidth: '680px' }}
+              >
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+                    gap: '14px',
+                  }}
+                >
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    Họ và tên
+                    <input
+                      data-testid="edit-profile-name"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      maxLength={120}
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '0 12px',
+                        fontSize: '14px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
+                      }}
+                    />
+                  </label>
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    Số điện thoại
+                    <input
+                      data-testid="edit-profile-phone"
+                      type="tel"
+                      inputMode="tel"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="VD: 0901234567"
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '0 12px',
+                        fontSize: '14px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
+                      }}
+                    />
+                  </label>
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    Ngày sinh (Không bắt buộc)
+                    <VnDateOfBirthSelect
+                      testId="edit-profile-dob"
+                      value={editDateOfBirth}
+                      onChange={setEditDateOfBirth}
+                    />
+                  </label>
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    Giới tính
+                    <select
+                      data-testid="edit-profile-gender"
+                      value={editGender}
+                      onChange={(e) => setEditGender(e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '0 12px',
+                        fontSize: '14px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
+                      }}
+                    >
+                      <option value="">-- Chọn --</option>
+                      <option value="Nam">Nam</option>
+                      <option value="Nữ">Nữ</option>
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </label>
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    Số CCCD / CMND (Không bắt buộc)
+                    <input
+                      data-testid="edit-profile-national-id"
+                      type="text"
+                      value={editNationalId}
+                      onChange={(e) => setEditNationalId(e.target.value)}
+                      placeholder="VD: 079200012345"
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '0 12px',
+                        fontSize: '14px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
+                      }}
+                    />
+                  </label>
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    Chức danh / Vị trí
+                    <input
+                      data-testid="edit-profile-position"
+                      type="text"
+                      value={editPositionTitle}
+                      onChange={(e) => setEditPositionTitle(e.target.value)}
+                      placeholder="VD: Editor, Kịch bản…"
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '0 12px',
+                        fontSize: '14px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
+                      }}
+                    />
+                  </label>
+                </div>
+                <div style={{ height: '14px' }} />
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+                    gap: '14px',
+                  }}
+                >
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    Địa chỉ nơi ở hiện tại (Không bắt buộc)
+                    <input
+                      data-testid="edit-profile-address"
+                      type="text"
+                      value={editAddress}
+                      onChange={(e) => setEditAddress(e.target.value)}
+                      placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '0 12px',
+                        fontSize: '14px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
+                      }}
+                    />
+                  </label>
+                  <label
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    Liên hệ khẩn cấp (Họ tên & SĐT người thân)
+                    <input
+                      data-testid="edit-profile-emergency"
+                      type="text"
+                      value={editEmergencyContact}
+                      onChange={(e) => setEditEmergencyContact(e.target.value)}
+                      placeholder="VD: Nguyễn Thị B (Mẹ) - 0912345678"
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '0 12px',
+                        fontSize: '14px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-hover)',
+                        backgroundColor: 'var(--surface-hover)',
+                        color: 'var(--text-color)',
+                      }}
+                    />
+                  </label>
+                </div>
+                <div
+                  style={{
+                    marginTop: '14px',
+                    padding: '14px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-color)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--accent-text)',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    Thông tin ngân hàng nhận lương
+                  </div>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns:
+                        'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+                      gap: '12px',
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-end',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: 'var(--muted-color)',
+                      }}
+                    >
+                      Ngân hàng (Không bắt buộc)
+                      <div style={{ marginTop: '4px' }}>
+                        <VnBankAutocompleteInput
+                          testId="edit-profile-bank-name"
+                          value={editBankName}
+                          onChange={setEditBankName}
+                          placeholder="Tìm tên ngân hàng (MB, VCB…)"
+                        />
+                      </div>
+                    </label>
+                    <label
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-end',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: 'var(--muted-color)',
+                      }}
+                    >
+                      Số tài khoản
+                      <input
+                        data-testid="edit-profile-bank-number"
+                        type="text"
+                        value={editBankAccountNumber}
+                        onChange={(e) =>
+                          setEditBankAccountNumber(e.target.value)
+                        }
+                        placeholder="VD: 1023456789"
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          boxSizing: 'border-box',
+                          marginTop: '4px',
+                          padding: '0 12px',
+                          fontSize: '14px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-hover)',
+                          backgroundColor: 'var(--surface-hover)',
+                          color: 'var(--text-color)',
+                        }}
+                      />
+                    </label>
+                    <label
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-end',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: 'var(--muted-color)',
+                      }}
+                    >
+                      Chủ tài khoản (in hoa)
+                      <input
+                        data-testid="edit-profile-bank-holder"
+                        type="text"
+                        value={editBankAccountHolder}
+                        onChange={(e) =>
+                          setEditBankAccountHolder(e.target.value.toUpperCase())
+                        }
+                        placeholder="VD: NGUYEN VAN A"
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          boxSizing: 'border-box',
+                          marginTop: '4px',
+                          padding: '0 12px',
+                          fontSize: '14px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-hover)',
+                          backgroundColor: 'var(--surface-hover)',
+                          color: 'var(--text-color)',
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div style={{ height: '14px' }} />
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--muted-color)',
+                  }}
+                >
+                  Email tài khoản
+                  <input
+                    data-testid="edit-profile-email"
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      boxSizing: 'border-box',
+                      marginTop: '4px',
+                      padding: '0 12px',
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-hover)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--text-color)',
+                    }}
+                  />
+                </label>
+                {editEmail.trim().toLowerCase() !==
+                  (profile.user?.email || '').toLowerCase() && (
+                  <>
+                    <div style={{ height: '12px' }} />
+                    <label
+                      style={{ fontSize: '12px', color: 'var(--warning-text)' }}
+                    >
+                      Mật khẩu hiện tại (bắt buộc khi đổi email — email mới sẽ
+                      cần xác minh lại)
+                      <input
+                        data-testid="edit-profile-email-password"
+                        type="password"
+                        autoComplete="current-password"
+                        value={editEmailPassword}
+                        onChange={(e) => setEditEmailPassword(e.target.value)}
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          marginTop: '4px',
+                          padding: '10px 12px',
+                          fontSize: '16px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-hover)',
+                          backgroundColor: 'var(--surface-hover)',
+                          color: 'var(--text-color)',
+                        }}
+                      />
+                    </label>
+                  </>
+                )}
+                {profileMsg && (
+                  <div
+                    role={profileMsg.type === 'error' ? 'alert' : 'status'}
+                    style={{
+                      marginTop: '12px',
+                      fontSize: '13px',
+                      color:
+                        profileMsg.type === 'error'
+                          ? 'var(--danger-text)'
+                          : 'var(--success-text)',
+                    }}
+                  >
+                    {profileMsg.text}
+                  </div>
+                )}
+                <div style={{ marginTop: '16px' }}>
+                  <AppButton
+                    type="submit"
+                    variant="primary"
+                    disabled={profileSaving}
+                    data-testid="btn-save-profile"
+                  >
+                    {profileSaving ? 'Đang lưu…' : 'Lưu thay đổi'}
+                  </AppButton>
+                </div>
+              </form>
+            ) : (
+              <div style={{ color: 'var(--muted-color)', fontSize: '14px' }}>
+                Không có hồ sơ nhân sự để chỉnh sửa. Bạn vẫn có thể đổi mật khẩu
+                tài khoản ở mục bên dưới.
+              </div>
+            )}
+          </AppCard>
+        </div>
+
+        {/* Change Password Card (UI20) */}
+        <div id="settings-password-section" style={{ scrollMarginTop: '64px' }}>
+          <AppCard padding="20px">
+            <div
+              style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
+                marginBottom: '8px',
               }}
             >
-              <CheckCircleIcon size={18} />
-              <span>{passwordSuccess}</span>
+              <LockIcon size={18} style={{ color: 'var(--accent-text)' }} />
+              <h3
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: 'var(--text-color)',
+                  margin: 0,
+                }}
+              >
+                Đổi mật khẩu tài khoản (UI20)
+              </h3>
             </div>
-          )}
-
-          {passwordError && (
-            <div
-              data-testid="alert-password-error"
+            <p
               style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                marginBottom: '16px',
                 fontSize: '13px',
-                color: 'var(--danger-text)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
+                color: 'var(--muted-color)',
+                marginBottom: '16px',
+                lineHeight: 1.5,
               }}
             >
-              <AlertTriangleIcon size={18} />
-              <span>{passwordError}</span>
-            </div>
-          )}
+              Yêu cầu mật khẩu mới tối thiểu 8 ký tự. Khi đổi mật khẩu thành
+              công, toàn bộ phiên đăng nhập cũ trên các thiết bị khác sẽ được tự
+              động thu hồi theo chuẩn SEC-02.
+            </p>
 
-          <form onSubmit={handleChangePassword} style={{ maxWidth: '480px' }}>
-            <div style={{ marginBottom: '14px' }}>
-              <label
-                htmlFor="currentPassword"
+            {passwordSuccess && (
+              <div
+                data-testid="alert-password-success"
                 style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  marginBottom: '6px',
-                  color: 'var(--muted-color)',
-                }}
-              >
-                Mật khẩu hiện tại{' '}
-                <span style={{ color: 'var(--danger-text)' }}>*</span>
-              </label>
-              <input
-                id="currentPassword"
-                data-testid="input-current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Nhập mật khẩu hiện tại"
-                disabled={passwordLoading}
-                autoComplete="current-password"
-                style={{
-                  width: '100%',
-                  minHeight: '40px',
-                  padding: '0 12px',
+                  padding: '12px 16px',
                   borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-color)',
-                  color: 'var(--text-color)',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '14px' }}>
-              <label
-                htmlFor="newPassword"
-                style={{
-                  display: 'block',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  marginBottom: '16px',
                   fontSize: '13px',
-                  marginBottom: '6px',
-                  color: 'var(--muted-color)',
+                  color: 'var(--success-text)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
                 }}
               >
-                Mật khẩu mới (tối thiểu 8 ký tự){' '}
-                <span style={{ color: 'var(--danger-text)' }}>*</span>
-              </label>
-              <input
-                id="newPassword"
-                data-testid="input-new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Nhập mật khẩu mới"
-                disabled={passwordLoading}
-                autoComplete="new-password"
-                style={{
-                  width: '100%',
-                  minHeight: '40px',
-                  padding: '0 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-color)',
-                  color: 'var(--text-color)',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
+                <CheckCircleIcon size={18} />
+                <span>{passwordSuccess}</span>
+              </div>
+            )}
 
-            <div style={{ marginBottom: '18px' }}>
-              <label
-                htmlFor="confirmPassword"
+            {passwordError && (
+              <div
+                data-testid="alert-password-error"
                 style={{
-                  display: 'block',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  marginBottom: '16px',
                   fontSize: '13px',
-                  marginBottom: '6px',
-                  color: 'var(--muted-color)',
+                  color: 'var(--danger-text)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
                 }}
               >
-                Xác nhận mật khẩu mới{' '}
-                <span style={{ color: 'var(--danger-text)' }}>*</span>
-              </label>
-              <input
-                id="confirmPassword"
-                data-testid="input-confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Nhập lại mật khẩu mới"
-                disabled={passwordLoading}
-                autoComplete="new-password"
-                style={{
-                  width: '100%',
-                  minHeight: '40px',
-                  padding: '0 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-color)',
-                  color: 'var(--text-color)',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
+                <AlertTriangleIcon size={18} />
+                <span>{passwordError}</span>
+              </div>
+            )}
 
-            <div style={{ maxWidth: '200px' }}>
-              <AppButton
-                type="submit"
-                variant="primary"
-                fullWidth
-                disabled={passwordLoading}
-                data-testid="btn-change-password"
-              >
-                {passwordLoading ? 'Đang cập nhật…' : 'Đổi mật khẩu'}
-              </AppButton>
-            </div>
-          </form>
-        </AppCard>
+            <form onSubmit={handleChangePassword} style={{ maxWidth: '480px' }}>
+              <div style={{ marginBottom: '14px' }}>
+                <label
+                  htmlFor="currentPassword"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '6px',
+                    color: 'var(--muted-color)',
+                  }}
+                >
+                  Mật khẩu hiện tại{' '}
+                  <span style={{ color: 'var(--danger-text)' }}>*</span>
+                </label>
+                <input
+                  id="currentPassword"
+                  data-testid="input-current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu hiện tại"
+                  disabled={passwordLoading}
+                  autoComplete="current-password"
+                  style={{
+                    width: '100%',
+                    minHeight: '40px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label
+                  htmlFor="newPassword"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '6px',
+                    color: 'var(--muted-color)',
+                  }}
+                >
+                  Mật khẩu mới (tối thiểu 8 ký tự){' '}
+                  <span style={{ color: 'var(--danger-text)' }}>*</span>
+                </label>
+                <input
+                  id="newPassword"
+                  data-testid="input-new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu mới"
+                  disabled={passwordLoading}
+                  autoComplete="new-password"
+                  style={{
+                    width: '100%',
+                    minHeight: '40px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '18px' }}>
+                <label
+                  htmlFor="confirmPassword"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    marginBottom: '6px',
+                    color: 'var(--muted-color)',
+                  }}
+                >
+                  Xác nhận mật khẩu mới{' '}
+                  <span style={{ color: 'var(--danger-text)' }}>*</span>
+                </label>
+                <input
+                  id="confirmPassword"
+                  data-testid="input-confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Nhập lại mật khẩu mới"
+                  disabled={passwordLoading}
+                  autoComplete="new-password"
+                  style={{
+                    width: '100%',
+                    minHeight: '40px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ maxWidth: '200px' }}>
+                <AppButton
+                  type="submit"
+                  variant="primary"
+                  fullWidth
+                  disabled={passwordLoading}
+                  data-testid="btn-change-password"
+                >
+                  {passwordLoading ? 'Đang cập nhật…' : 'Đổi mật khẩu'}
+                </AppButton>
+              </div>
+            </form>
+          </AppCard>
+        </div>
 
         {/* Interface & Localization Preferences Card (SET-002, SET-003) */}
         <AppCard padding="20px">
@@ -1681,7 +1809,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   fontSize: '14px',
                   fontWeight: 600,
                   color: 'var(--text-color)',
-                  fontFamily: 'monospace',
+                  fontFamily: 'var(--font-mono)',
                   marginTop: '2px',
                 }}
               >
@@ -1916,7 +2044,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                             <span
                               style={{
                                 fontSize: '12px',
-                                fontFamily: 'monospace',
+                                fontFamily: 'var(--font-mono)',
                                 color: 'var(--text-color)',
                                 backgroundColor: 'var(--surface-hover)',
                                 padding: '2px 8px',

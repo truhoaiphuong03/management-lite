@@ -131,7 +131,7 @@ const td: React.CSSProperties = {
   verticalAlign: 'top',
 };
 const mono: React.CSSProperties = {
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  fontFamily: 'var(--font-mono)',
   fontSize: 12,
 };
 

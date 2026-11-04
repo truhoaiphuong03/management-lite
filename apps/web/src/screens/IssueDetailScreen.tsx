@@ -762,7 +762,8 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   backgroundColor: 'rgba(20, 184, 166, 0.15)',
                   color: 'var(--accent-text)',
                   border: '1px solid rgba(20, 184, 166, 0.4)',
-                  fontFamily: 'monospace',
+                  fontFamily: 'var(--font-sans)',
+                  fontVariantNumeric: 'tabular-nums',
                   fontSize: '13px',
                   fontWeight: 700,
                 }}
@@ -1064,7 +1065,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                   style={{
                     fontSize: '12px',
                     color: 'var(--muted-color)',
-                    fontFamily: 'monospace',
+                    fontFamily: 'var(--font-mono)',
                     padding: '2px 8px',
                     borderRadius: '4px',
                     backgroundColor: 'rgba(51, 65, 85, 0.4)',
@@ -1215,7 +1216,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                             borderRadius: '4px',
                             backgroundColor: 'var(--surface-subtle)',
                             border: '1px solid var(--border-color)',
-                            fontFamily: 'monospace',
+                            fontFamily: 'var(--font-mono)',
                             fontSize: '12px',
                             color: 'var(--info-text)',
                           }}
@@ -1411,7 +1412,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     backgroundColor: 'var(--surface-subtle)',
                     border: '1px solid var(--border-color)',
                     color: '#A5B4FC',
-                    fontFamily: 'monospace',
+                    fontFamily: 'var(--font-mono)',
                     fontSize: '12px',
                   }}
                 >
@@ -1503,7 +1504,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 borderRadius: '6px',
                 backgroundColor: 'rgba(51, 65, 85, 0.4)',
                 color: 'var(--text-color)',
-                fontFamily: 'monospace',
+                fontFamily: 'var(--font-mono)',
                 fontSize: '13px',
                 display: 'inline-block',
               }}
@@ -1667,7 +1668,12 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     <span style={{ color: 'var(--muted-color)' }}>
                       Release SHA:{' '}
                     </span>
-                    <code style={{ color: '#A5B4FC', fontFamily: 'monospace' }}>
+                    <code
+                      style={{
+                        color: '#A5B4FC',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
                       {String(issue.metadata_context.release_sha).slice(0, 12)}
                     </code>
                   </div>
@@ -1680,7 +1686,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     <code
                       style={{
                         color: 'var(--danger-text)',
-                        fontFamily: 'monospace',
+                        fontFamily: 'var(--font-mono)',
                       }}
                     >
                       {String(issue.metadata_context.error_id)}
@@ -1695,7 +1701,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     <code
                       style={{
                         color: 'var(--muted-color)',
-                        fontFamily: 'monospace',
+                        fontFamily: 'var(--font-mono)',
                       }}
                     >
                       {String(issue.metadata_context.request_id)}
