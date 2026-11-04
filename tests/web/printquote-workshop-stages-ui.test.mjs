@@ -150,6 +150,8 @@ async function startEphemeralStagingServers(pool) {
   return {
     webUrl: webOrigin,
     close: async () => {
+      webServer.closeAllConnections?.();
+      apiServer.closeAllConnections?.();
       await new Promise((resolve) => webServer.close(resolve));
       await new Promise((resolve) => apiServer.close(resolve));
     },

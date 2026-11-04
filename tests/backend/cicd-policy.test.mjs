@@ -157,6 +157,40 @@ test('Option 1 CI/CD architecture: automatic CI on push/PR without deploy, manda
         true,
         `Workflow ${file} must lock exact Node version via .nvmrc (22.14.0) and npm@10.9.2 required by scripts/check-toolchain.mjs`,
       );
+      const buildIdx = content.indexOf('npm run build\n');
+      const buildWebIdx = content.indexOf('npm run build:web');
+      const webDbPrepIdx = content.indexOf(
+        'node scripts/deployment/ci-web-db.mjs prepare',
+      );
+      const testWebIdx = content.indexOf('npm run test:web');
+      const webDbSentinelIdx = content.indexOf(
+        'node scripts/deployment/ci-web-db.mjs verify-sentinel',
+      );
+      const webDbCleanupIdx = content.indexOf(
+        'node scripts/deployment/ci-web-db.mjs cleanup',
+      );
+      assert.equal(
+        buildIdx > 0 &&
+          buildWebIdx > buildIdx &&
+          webDbPrepIdx > buildWebIdx &&
+          testWebIdx > webDbPrepIdx &&
+          webDbSentinelIdx > testWebIdx &&
+          webDbCleanupIdx > webDbSentinelIdx,
+        true,
+        `Workflow ${file} must enforce strict ordering: build -> build:web -> ci-web-db prepare -> test:web -> ci-web-db verify-sentinel -> ci-web-db cleanup`,
+      );
+      assert.equal(
+        content.includes(
+          'DATABASE_URL: postgresql://ci_test:${{ env.CI_DATABASE_PASSWORD }}@127.0.0.1:55432/web_test_ci_sentinel',
+        ) &&
+          content.includes(
+            'TEST_DATABASE_URL: postgresql://ci_test:${{ env.CI_DATABASE_PASSWORD }}@127.0.0.1:55432/web_e2e_ci_test',
+          ) &&
+          content.includes("CONFIRM_ISOLATED_TEST_DB: 'true'") &&
+          content.includes("CONFIRM_PRINTQUOTE_E2E_RESET: 'true'"),
+        true,
+        `Workflow ${file} must configure isolated TEST_DATABASE_URL (web_e2e_ci_test), sentinel DATABASE_URL (web_test_ci_sentinel), and explicit E2E confirmations for test:web`,
+      );
       const usesMatches = [...content.matchAll(/^\s*-?\s*uses:\s*([^\s#]+)/gm)];
       for (const m of usesMatches) {
         assert.match(
@@ -326,4 +360,40 @@ test('P0 Release Gate Static Policy & Guard Verification (Linux & Windows): veri
   verifyStaticInvariants((s) =>
     s.replace(/\r\n?/g, '\n').replace(/\n/g, '\r\n'),
   );
+});
+
+test('ci-web-db helper fails closed outside disposable GitHub Actions CI and when build artifacts are missing', async () => {
+  const { assertDisposableGitHubCiEnv, assertBuildArtifactsReady } =
+    await import('../../scripts/deployment/ci-web-db.mjs');
+
+  assert.throws(
+    () =>
+      assertDisposableGitHubCiEnv({
+        GITHUB_ACTIONS: 'false',
+        CI: 'true',
+        CI_DATABASE_PASSWORD: 'ci-only-secret',
+      }),
+    /restricted to GitHub-hosted disposable CI containers/,
+  );
+  assert.throws(
+    () =>
+      assertDisposableGitHubCiEnv({
+        GITHUB_ACTIONS: 'true',
+        CI: 'true',
+        CI_DATABASE_PASSWORD: '',
+      }),
+    /restricted to GitHub-hosted disposable CI containers/,
+  );
+
+  const emptyDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'management-lite-ci-web-db-'),
+  );
+  try {
+    assert.throws(
+      () => assertBuildArtifactsReady(emptyDir),
+      /Required build artifact missing/,
+    );
+  } finally {
+    fs.rmSync(emptyDir, { recursive: true, force: true });
+  }
 });

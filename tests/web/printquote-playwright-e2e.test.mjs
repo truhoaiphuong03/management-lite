@@ -119,57 +119,50 @@ async function verifyAndResetPrintQuoteTablesInTestDb(
 
   assertSafeTestDatabase(dbConfig, env);
 
-  if (workspaceId) {
-    await pool.query(
-      `DELETE FROM print_order_payments WHERE workspace_id = $1`,
-      [workspaceId],
+  if (!workspaceId) {
+    throw new Error(
+      '[PrintQuote E2E Safety Guard] Scoped workspaceId is mandatory when resetting PrintQuote tables so parallel test suites never delete sibling workspace data.',
     );
-    await pool.query(`DELETE FROM print_orders WHERE workspace_id = $1`, [
-      workspaceId,
-    ]);
-    await pool.query(
-      `DELETE FROM print_quote_versions WHERE workspace_id = $1`,
-      [workspaceId],
-    );
-    await pool.query(`DELETE FROM print_quotes WHERE workspace_id = $1`, [
-      workspaceId,
-    ]);
-    await pool.query(
-      `DELETE FROM print_vendor_price_item_history WHERE workspace_id = $1`,
-      [workspaceId],
-    );
-    await pool.query(
-      `DELETE FROM print_vendor_price_items WHERE workspace_id = $1`,
-      [workspaceId],
-    );
-    await pool.query(`DELETE FROM print_customers WHERE workspace_id = $1`, [
-      workspaceId,
-    ]);
-    await pool.query(`DELETE FROM print_vendors WHERE workspace_id = $1`, [
-      workspaceId,
-    ]);
-    await pool.query(
-      `DELETE FROM print_code_counters WHERE workspace_id = $1`,
-      [workspaceId],
-    );
-    return;
   }
 
-  await pool.query(`
-    DELETE FROM print_order_payments;
-    DELETE FROM print_orders;
-    DELETE FROM print_quote_versions;
-    DELETE FROM print_quotes;
-    DELETE FROM print_vendor_price_item_history;
-    DELETE FROM print_vendor_price_items;
-    DELETE FROM print_customers;
-    DELETE FROM print_vendors;
-    DELETE FROM print_code_counters;
-  `);
+  await pool.query(`DELETE FROM print_order_payments WHERE workspace_id = $1`, [
+    workspaceId,
+  ]);
+  await pool.query(`DELETE FROM print_orders WHERE workspace_id = $1`, [
+    workspaceId,
+  ]);
+  await pool.query(`DELETE FROM print_quote_versions WHERE workspace_id = $1`, [
+    workspaceId,
+  ]);
+  await pool.query(`DELETE FROM print_quotes WHERE workspace_id = $1`, [
+    workspaceId,
+  ]);
+  await pool.query(
+    `DELETE FROM print_vendor_price_item_history WHERE workspace_id = $1`,
+    [workspaceId],
+  );
+  await pool.query(
+    `DELETE FROM print_vendor_price_items WHERE workspace_id = $1`,
+    [workspaceId],
+  );
+  await pool.query(`DELETE FROM print_customers WHERE workspace_id = $1`, [
+    workspaceId,
+  ]);
+  await pool.query(`DELETE FROM print_vendors WHERE workspace_id = $1`, [
+    workspaceId,
+  ]);
+  await pool.query(`DELETE FROM print_code_counters WHERE workspace_id = $1`, [
+    workspaceId,
+  ]);
 }
 
-async function ensureIsolatedTestOwner(pool, testOwnerPassword) {
+async function ensureIsolatedTestOwner(
+  pool,
+  testOwnerUsername,
+  testOwnerPassword,
+) {
   const passwordHash = await hashPassword(testOwnerPassword);
+  const normalizedUsername = testOwnerUsername.trim().toLowerCase();
 
   const workspaceId = crypto.randomUUID();
   await pool.query(
@@ -179,7 +172,8 @@ async function ensureIsolatedTestOwner(pool, testOwnerPassword) {
   );
 
   const userRes = await pool.query(
-    `SELECT id FROM users WHERE username_normalized = 'owner' LIMIT 1`,
+    `SELECT id FROM users WHERE username_normalized = $1 LIMIT 1`,
+    [normalizedUsername],
   );
   let ownerUserId;
   if (userRes.rows.length > 0) {
@@ -197,8 +191,12 @@ async function ensureIsolatedTestOwner(pool, testOwnerPassword) {
     ownerUserId = crypto.randomUUID();
     await pool.query(
       `INSERT INTO users (id, username_normalized, email_normalized, status)
-       VALUES ($1, 'owner', 'owner@isolated-test.local', 'active')`,
-      [ownerUserId],
+       VALUES ($1, $2, $3, 'active')`,
+      [
+        ownerUserId,
+        normalizedUsername,
+        `${normalizedUsername}@isolated-test.local`,
+      ],
     );
     await pool.query(
       `INSERT INTO user_credentials (user_id, password_hash, credential_version)
@@ -356,6 +354,8 @@ async function startEphemeralStagingServers(pool) {
     apiPort,
     webPort,
     close: async () => {
+      webServer.closeAllConnections?.();
+      apiServer.closeAllConnections?.();
       await new Promise((resolve) => webServer.close(resolve));
       await new Promise((resolve) => apiServer.close(resolve));
     },
@@ -489,54 +489,17 @@ test('Task WIN-1: Fail-Closed E2E Safety Guard — Rejects DATABASE_URL fallback
   );
 });
 
-async function prepareE2ERuntimeEnv() {
-  if (
-    process.env.GITHUB_ACTIONS === 'true' &&
-    process.env.CI === 'true' &&
-    process.platform === 'linux' &&
-    process.env.CI_DATABASE_PASSWORD &&
-    !process.env.TEST_DATABASE_URL
-  ) {
-    const ciAdminUrl = new URL('postgresql://ci_test@127.0.0.1:55432/postgres');
-    ciAdminUrl.password = process.env.CI_DATABASE_PASSWORD;
-    const ciAdminPool = createDatabasePool({
-      connectionString: ciAdminUrl.href,
-      max: 2,
-      idleTimeoutMillis: 5000,
-      connectionTimeoutMillis: 5000,
-    });
-    const ciDbName = 'management_lite_printquote_ci_test';
-    try {
-      const checkDb = await ciAdminPool.query(
-        `SELECT 1 FROM pg_database WHERE datname = $1`,
-        [ciDbName],
-      );
-      if (checkDb.rows.length === 0) {
-        await ciAdminPool.query(`CREATE DATABASE ${ciDbName}`);
-      }
-    } finally {
-      await ciAdminPool.end();
-    }
-    const ciTargetUrl = new URL(ciAdminUrl.href);
-    ciTargetUrl.pathname = `/${ciDbName}`;
-    return {
-      ...process.env,
-      TEST_DATABASE_URL: ciTargetUrl.href,
-      CONFIRM_ISOLATED_TEST_DB: 'true',
-      CONFIRM_PRINTQUOTE_E2E_RESET: 'true',
-    };
-  }
-  return process.env;
-}
-
 test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step PrintQuote Workflow, Vietnamese Unicode A4 PDF & Responsive Viewports on Windows', async () => {
-  const runtimeEnv = await prepareE2ERuntimeEnv();
+  const runtimeEnv = process.env;
   const dbConfig = assertSafePrintQuoteE2ETarget(runtimeEnv);
   const artifactDir =
     runtimeEnv.QA_ARTIFACT_DIR ||
     path.resolve(process.cwd(), '.artifacts', 'printquote-win-qa');
   fs.mkdirSync(artifactDir, { recursive: true });
 
+  const testOwnerUsername = runtimeEnv.QA_WEB_URL?.trim()
+    ? runtimeEnv.QA_OWNER_USERNAME?.trim() || 'owner'
+    : `owner_pqv1_${crypto.randomUUID().slice(0, 8)}`;
   const testOwnerPassword =
     runtimeEnv.QA_OWNER_PASSWORD || 'TestOwnerPrintQuote#2026!';
   const pool = createDatabasePool(dbConfig);
@@ -551,6 +514,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     );
     const e2eWorkspaceId = await ensureIsolatedTestOwner(
       pool,
+      testOwnerUsername,
       testOwnerPassword,
     );
     await verifyAndResetPrintQuoteTablesInTestDb(
@@ -586,7 +550,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
 
     // Step 1: Login as Owner
     await page.goto(`${targetWebUrl}/login`, { waitUntil: 'networkidle' });
-    await page.fill('#identifier', 'owner');
+    await page.fill('#identifier', testOwnerUsername);
     await page.fill('#password', testOwnerPassword);
     await page.click('button[type="submit"]');
 
@@ -1247,7 +1211,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     await page.click('button[aria-label="Đăng xuất"]');
     await page.waitForSelector('#identifier', { timeout: 10000 });
 
-    await page.fill('#identifier', 'owner');
+    await page.fill('#identifier', testOwnerUsername);
     await page.fill('#password', testOwnerPassword);
     await page.click('button[type="submit"]');
     await page.waitForSelector(navPrintQuoteBtn, { timeout: 15000 });
