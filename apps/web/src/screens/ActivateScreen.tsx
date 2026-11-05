@@ -187,7 +187,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
                     fontSize: '14px',
                     outline: 'none',
                     boxSizing: 'border-box',
-                    fontFamily: 'monospace',
+                    fontFamily: 'var(--font-mono)',
                   }}
                 />
               </div>

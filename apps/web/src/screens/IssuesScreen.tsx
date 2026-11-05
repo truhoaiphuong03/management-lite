@@ -1193,7 +1193,8 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                           backgroundColor: 'rgba(20, 184, 166, 0.15)',
                           color: 'var(--accent-text)',
                           border: '1px solid rgba(20, 184, 166, 0.4)',
-                          fontFamily: 'monospace',
+                          fontFamily: 'var(--font-sans)',
+                          fontVariantNumeric: 'tabular-nums',
                           fontSize: '12px',
                           fontWeight: 700,
                         }}
@@ -1271,7 +1272,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                         borderRadius: '4px',
                         backgroundColor: 'rgba(51, 65, 85, 0.4)',
                         color: 'var(--muted-color)',
-                        fontFamily: 'monospace',
+                        fontFamily: 'var(--font-mono)',
                         fontSize: '12px',
                       }}
                     >

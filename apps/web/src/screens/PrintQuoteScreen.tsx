@@ -3047,15 +3047,18 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         }
         .pq-page-title {
           margin: 0;
-          font-size: 22px;
-          font-weight: 800;
-          letter-spacing: -0.02em;
+          font-family: var(--font-sans);
+          font-size: var(--heading-page-size, 22px);
+          font-weight: var(--heading-page-weight, 800);
+          letter-spacing: var(--heading-tracking, -0.02em);
           line-height: 1.25;
           color: var(--text-color);
+          overflow-wrap: break-word;
         }
         .pq-page-subtitle {
           margin: 4px 0 0;
-          font-size: 13.5px;
+          font-family: var(--font-sans);
+          font-size: var(--subtitle-size, 13.5px);
           line-height: 1.45;
           color: var(--muted-color);
         }

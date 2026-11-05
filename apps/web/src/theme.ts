@@ -1,6 +1,96 @@
+export type ThemePreference = 'dark' | 'light' | 'system';
+
 let activeMediaQuery: MediaQueryList | null = null;
 let activeMediaListener:
   ((e: MediaQueryListEvent | MediaQueryList) => void) | null = null;
+
+export function normalizeThemePreference(
+  raw: string | null | undefined,
+): ThemePreference {
+  if (raw === 'light' || raw === 'system' || raw === 'dark') {
+    return raw;
+  }
+  return 'dark';
+}
+
+export function getStoredTheme(): ThemePreference {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return normalizeThemePreference(localStorage.getItem('mglite_theme'));
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+  return 'dark';
+}
+
+export function resolveEffectiveTheme(
+  selectedTheme?: string | null,
+): 'dark' | 'light' {
+  const fallbackAttr =
+    typeof document !== 'undefined' &&
+    document.documentElement &&
+    typeof document.documentElement.getAttribute === 'function'
+      ? document.documentElement.getAttribute('data-theme')
+      : null;
+  const pref = normalizeThemePreference(
+    selectedTheme ?? fallbackAttr ?? getStoredTheme(),
+  );
+  if (pref === 'light') return 'light';
+  if (pref === 'dark') return 'dark';
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function'
+  ) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+  }
+  return 'dark';
+}
+
+function syncThemeColorMeta(effectiveTheme: 'dark' | 'light'): void {
+  if (
+    typeof document !== 'undefined' &&
+    typeof document.querySelector === 'function'
+  ) {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta && typeof meta.setAttribute === 'function') {
+      meta.setAttribute(
+        'content',
+        effectiveTheme === 'light' ? '#F8FAFC' : '#0B1220',
+      );
+    }
+  }
+}
+
+function notifyThemeChanged(selectedTheme: string): void {
+  const theme = normalizeThemePreference(selectedTheme);
+  const effectiveTheme = resolveEffectiveTheme(theme);
+  syncThemeColorMeta(effectiveTheme);
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.dispatchEvent === 'function' &&
+    typeof CustomEvent === 'function'
+  ) {
+    window.dispatchEvent(
+      new CustomEvent('mglite:theme-change', {
+        detail: { theme, effectiveTheme },
+      }),
+    );
+  }
+}
+
+export function setThemePreference(nextTheme: ThemePreference): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('mglite_theme', nextTheme);
+    }
+  } catch {
+    // Fallback to in-memory DOM state when storage is unavailable
+  }
+  applyTheme(nextTheme);
+}
 
 export function removeThemeListener(): void {
   if (activeMediaQuery && activeMediaListener) {
@@ -73,6 +163,7 @@ export function applyTheme(selectedTheme: string): void {
                 ? activeMediaQuery.matches
                 : false;
           updateSystemVisuals(matchesDark);
+          notifyThemeChanged('system');
         }
       };
 
@@ -93,4 +184,6 @@ export function applyTheme(selectedTheme: string): void {
       document.body.style.color = '#F8FAFC';
     }
   }
+
+  notifyThemeChanged(selectedTheme);
 }

@@ -144,11 +144,21 @@ export const App: React.FC = () => {
     return '';
   });
   const [role, setRole] = useState<UserRole>('owner');
+  const [subRole, setSubRole] = useState<'admin' | undefined>(undefined);
   const [verifiedOwnerSession, setVerifiedOwnerSession] =
     useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [userUsername, setUserUsername] = useState<string | undefined>(
+    undefined,
+  );
   const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+  const [profileFullName, setProfileFullName] = useState<string | undefined>(
+    undefined,
+  );
+  const [profileEmployeeCode, setProfileEmployeeCode] = useState<
+    string | undefined
+  >(undefined);
   const [emailVerified, setEmailVerified] = useState<boolean | undefined>(
     undefined,
   );
@@ -255,7 +265,9 @@ export const App: React.FC = () => {
     verifiedOwnerSession: false,
     isLoggedIn: false,
     role: 'owner',
+    subRole: undefined,
     userId: undefined,
+    userUsername: undefined,
     userEmail: undefined,
     emailVerified: undefined,
     workspaceId: undefined,
@@ -268,12 +280,18 @@ export const App: React.FC = () => {
     setVerifiedOwnerSession(t.verifiedOwnerSession);
     setIsLoggedIn(t.isLoggedIn);
     setRole(t.role);
+    setSubRole(t.subRole);
     setUserId(t.userId);
+    setUserUsername(t.userUsername);
     setUserEmail(t.userEmail);
     setEmailVerified(t.emailVerified);
     setWorkspaceId(t.workspaceId);
     setWorkspaceName(t.workspaceName);
     setCsrfToken(t.csrfToken);
+    if (!t.isLoggedIn) {
+      setProfileFullName(undefined);
+      setProfileEmployeeCode(undefined);
+    }
   };
 
   // 2. Synchronize with browser Back and Forward buttons (popstate)
@@ -391,10 +409,12 @@ export const App: React.FC = () => {
     };
   }, [verifySession]);
 
-  // Check if authenticated employee is missing phone number -> show popup window to fill it in
+  // Load employee profile for sidebar identity & check if non-owner employee is missing phone number
   useEffect(() => {
-    if (!isLoggedIn || !userId || missingPhoneDismissed) {
+    if (!isLoggedIn || !userId) {
       setMissingPhoneOpen(false);
+      setProfileFullName(undefined);
+      setProfileEmployeeCode(undefined);
       return;
     }
     let active = true;
@@ -403,28 +423,50 @@ export const App: React.FC = () => {
         const res = await fetch('/api/v1/employees/me', {
           credentials: 'include',
         });
-        if (!active || !res.ok) return;
+        if (!active) return;
+        if (!res.ok) {
+          setProfileFullName(undefined);
+          setProfileEmployeeCode(undefined);
+          setMissingPhoneOpen(false);
+          return;
+        }
         const json = await res.json().catch(() => null);
+        if (!active) return;
         const emp = json?.data;
-        if (
-          emp &&
-          typeof emp.id === 'string' &&
-          typeof emp.employee_code === 'string' &&
-          emp.employee_code !== 'OWNER'
-        ) {
-          const currentPhone =
-            typeof emp.phone === 'string' ? emp.phone.trim() : '';
-          if (!currentPhone) {
-            setPromptPhone('');
-            setPromptDob(emp.date_of_birth || '');
-            setPromptGender(emp.gender || '');
-            setPromptNationalId(emp.national_id || '');
-            setPromptAddress(emp.address || '');
-            setPromptBankName(emp.bank_name || '');
-            setPromptBankNumber(emp.bank_account_number || '');
-            setPromptBankHolder(emp.bank_account_holder || '');
-            setPromptError(null);
-            setMissingPhoneOpen(true);
+        if (emp && typeof emp.id === 'string') {
+          const resolvedName =
+            typeof emp.full_name === 'string' && emp.full_name.trim().length > 0
+              ? emp.full_name.trim()
+              : undefined;
+          const resolvedCode =
+            typeof emp.employee_code === 'string' &&
+            emp.employee_code.trim().length > 0
+              ? emp.employee_code.trim()
+              : undefined;
+          setProfileFullName(resolvedName);
+          setProfileEmployeeCode(resolvedCode);
+
+          if (
+            !missingPhoneDismissed &&
+            typeof emp.employee_code === 'string' &&
+            emp.employee_code !== 'OWNER'
+          ) {
+            const currentPhone =
+              typeof emp.phone === 'string' ? emp.phone.trim() : '';
+            if (!currentPhone) {
+              setPromptPhone('');
+              setPromptDob(emp.date_of_birth || '');
+              setPromptGender(emp.gender || '');
+              setPromptNationalId(emp.national_id || '');
+              setPromptAddress(emp.address || '');
+              setPromptBankName(emp.bank_name || '');
+              setPromptBankNumber(emp.bank_account_number || '');
+              setPromptBankHolder(emp.bank_account_holder || '');
+              setPromptError(null);
+              setMissingPhoneOpen(true);
+            } else {
+              setMissingPhoneOpen(false);
+            }
           } else {
             setMissingPhoneOpen(false);
           }
@@ -438,6 +480,37 @@ export const App: React.FC = () => {
       active = false;
     };
   }, [isLoggedIn, userId, missingPhoneDismissed]);
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.addEventListener !== 'function'
+    ) {
+      return;
+    }
+    const handleProfileUpdated = (e: Event) => {
+      const detail = (
+        e as CustomEvent<{ full_name?: unknown; email?: unknown }>
+      )?.detail;
+      if (
+        typeof detail?.full_name === 'string' &&
+        detail.full_name.trim().length > 0
+      ) {
+        setProfileFullName(detail.full_name.trim());
+      }
+      if (typeof detail?.email === 'string' && detail.email.trim().length > 0) {
+        sessionTrackerRef.current.userEmail = detail.email.trim();
+        setUserEmail(detail.email.trim());
+      }
+    };
+    window.addEventListener('mglite:profile-updated', handleProfileUpdated);
+    return () => {
+      window.removeEventListener(
+        'mglite:profile-updated',
+        handleProfileUpdated,
+      );
+    };
+  }, []);
 
   // 4. Navigation handler synchronizes browser URL (History API)
   const handleNavigate = (rawPath: string) => {
@@ -490,7 +563,21 @@ export const App: React.FC = () => {
         qIdx >= 0 ? rawTarget.slice(qIdx, hIdx >= qIdx ? hIdx : undefined) : '',
       );
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const hashIdx = rawTarget.indexOf('#');
+    const explicitHash = hashIdx >= 0 ? rawTarget.slice(hashIdx) : '';
+    if (explicitHash) {
+      if (
+        typeof window !== 'undefined' &&
+        typeof window.dispatchEvent === 'function' &&
+        typeof CustomEvent === 'function'
+      ) {
+        window.dispatchEvent(
+          new CustomEvent('mglite:hash-navigate', { detail: explicitHash }),
+        );
+      }
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleLogin = async (selectedRole: UserRole) => {
@@ -959,10 +1046,15 @@ export const App: React.FC = () => {
         currentPath={currentPath}
         onNavigate={handleNavigate}
         role={role}
+        subRole={subRole}
         isOwnerVerified={verifiedOwnerSession}
         onLogout={handleLogout}
         csrfToken={csrfToken}
         userId={userId}
+        userFullName={profileFullName}
+        userUsername={userUsername}
+        userEmail={userEmail}
+        employeeCode={profileEmployeeCode}
         workspaceId={workspaceId}
       >
         {!isOnline && (

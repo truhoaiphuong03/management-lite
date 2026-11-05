@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavIcon } from './Icons.js';
+import { NavIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from './Icons.js';
 import { SYSTEM_VERSION } from '../../../contracts/src/version.js';
 
 export interface NavItem {
@@ -169,12 +169,79 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+export interface SidebarUserIdentityInput {
+  role: 'owner' | 'admin' | 'staff';
+  subRole?: 'admin' | undefined;
+  userFullName?: string | undefined;
+  userUsername?: string | undefined;
+  userEmail?: string | undefined;
+  employeeCode?: string | undefined;
+}
+
+export interface SidebarUserSummary {
+  displayName: string;
+  roleLabel: string;
+  initials: string;
+  secondaryText: string;
+  hasEmployeeProfile: boolean;
+}
+
+export function resolveSidebarUserSummary(
+  input: SidebarUserIdentityInput,
+): SidebarUserSummary {
+  const roleLabel =
+    input.role === 'owner'
+      ? 'Chủ sở hữu'
+      : input.role === 'admin' || input.subRole === 'admin'
+        ? 'Quản lý'
+        : 'Nhân viên';
+
+  const trimmedFullName = input.userFullName?.trim() || '';
+  const trimmedUsername = input.userUsername?.trim() || '';
+  const rawEmail = input.userEmail?.trim() || '';
+  const emailPrefix = rawEmail.includes('@')
+    ? rawEmail.split('@')[0]?.trim() || ''
+    : rawEmail;
+
+  const displayName =
+    trimmedFullName || trimmedUsername || emailPrefix || roleLabel;
+
+  const words = displayName.split(/\s+/).filter((w) => w.length > 0);
+  const firstWord = words[0] ?? '';
+  const lastWord = words[words.length - 1] ?? '';
+  const initials =
+    words.length >= 2 && firstWord.length > 0 && lastWord.length > 0
+      ? `${firstWord[0]}${lastWord[0]}`.toUpperCase()
+      : displayName.slice(0, 2).toUpperCase() || 'U';
+
+  const cleanCode = input.employeeCode?.trim() || '';
+  const secondaryText =
+    cleanCode && cleanCode !== 'OWNER'
+      ? `${roleLabel} · ${cleanCode}`
+      : roleLabel;
+
+  return {
+    displayName,
+    roleLabel,
+    initials,
+    secondaryText,
+    hasEmployeeProfile: Boolean(trimmedFullName || cleanCode),
+  };
+}
+
 export interface DesktopSidebarProps {
   currentPath: string;
   onNavigate: (path: string) => void;
   role: 'owner' | 'admin' | 'staff';
+  subRole?: 'admin' | undefined;
   isOwnerVerified?: boolean | undefined;
   version?: string;
+  collapsed?: boolean | undefined;
+  onToggleCollapse?: (() => void) | undefined;
+  userFullName?: string | undefined;
+  userUsername?: string | undefined;
+  userEmail?: string | undefined;
+  employeeCode?: string | undefined;
 }
 
 export const isGroupActiveForPath = (
@@ -200,9 +267,24 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   currentPath,
   onNavigate,
   role,
+  subRole,
   isOwnerVerified,
   version = SYSTEM_VERSION,
+  collapsed = false,
+  onToggleCollapse,
+  userFullName,
+  userUsername,
+  userEmail,
+  employeeCode,
 }) => {
+  const userSummary = resolveSidebarUserSummary({
+    role,
+    subRole,
+    userFullName,
+    userUsername,
+    userEmail,
+    employeeCode,
+  });
   const isItemVisible = (item: NavItem) => {
     if (
       (item.id === 'issues' ||
@@ -235,8 +317,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
   return (
     <aside
+      className="desktop-sidebar-aside"
+      data-testid="desktop-sidebar"
+      data-collapsed={collapsed ? 'true' : 'false'}
       style={{
-        width: '224px',
+        width: collapsed ? '64px' : '224px',
         backgroundColor: 'var(--surface-color)',
         borderRight: '1px solid var(--border-color)',
         display: 'flex',
@@ -246,15 +331,66 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         top: '44px',
         flexShrink: 0,
         boxSizing: 'border-box',
+        transition: 'width 0.15s ease',
       }}
     >
-      <nav
+      <div
         style={{
-          padding: '12px 10px',
+          padding: collapsed ? '8px 8px 6px 8px' : '8px 10px 6px 10px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-end',
+          borderBottom: '1px solid var(--border-subtle)',
+        }}
+      >
+        <button
+          type="button"
+          data-testid="sidebar-collapse-toggle"
+          aria-expanded={!collapsed}
+          aria-controls="desktop-sidebar-nav"
+          aria-label={
+            collapsed ? 'Mở rộng menu bên trái' : 'Thu gọn menu bên trái'
+          }
+          title={collapsed ? 'Mở rộng menu bên trái' : 'Thu gọn menu bên trái'}
+          onClick={() => onToggleCollapse?.()}
+          className="desktop-sidebar-toggle-btn"
+          style={{
+            boxSizing: 'border-box',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'space-between',
+            gap: '6px',
+            width: collapsed ? '40px' : '100%',
+            minHeight: '34px',
+            padding: collapsed ? '6px' : '6px 10px',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: 'transparent',
+            color: 'var(--muted-color)',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'background-color 0.15s ease, color 0.15s ease',
+          }}
+        >
+          {!collapsed && <span>Thu gọn menu</span>}
+          {collapsed ? (
+            <PanelLeftOpenIcon size={17} />
+          ) : (
+            <PanelLeftCloseIcon size={17} />
+          )}
+        </button>
+      </div>
+
+      <nav
+        id="desktop-sidebar-nav"
+        style={{
+          padding: collapsed ? '10px 8px' : '10px',
           display: 'flex',
           flexDirection: 'column',
           gap: '4px',
           overflowY: 'auto',
+          overflowX: 'hidden',
           flex: 1,
         }}
         aria-label="Desktop navigation"
@@ -265,18 +401,27 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             group,
             itemMap,
           );
+          const itemsSummary = group.items.map((i) => i.label).join(', ');
           return (
             <button
               key={group.id}
               type="button"
+              data-testid={`sidebar-nav-${group.id}`}
+              data-active={isGroupActive ? 'true' : 'false'}
+              aria-label={group.title}
+              aria-current={isGroupActive ? 'page' : undefined}
               onClick={() => onNavigate(group.items[0]?.path || group.path)}
-              title={group.items.map((i) => i.label).join(', ')}
+              title={
+                collapsed ? `${group.title} — ${itemsSummary}` : itemsSummary
+              }
+              className="desktop-sidebar-nav-btn"
               style={{
                 boxSizing: 'border-box',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px',
-                padding: '9px 12px',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                gap: collapsed ? '0px' : '10px',
+                padding: collapsed ? '9px 0' : '9px 12px',
                 borderRadius: '8px',
                 border: 'none',
                 backgroundColor: isGroupActive
@@ -295,17 +440,22 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             >
               <NavIcon id={group.icon} size={18} />
               <span
-                style={{
-                  fontSize: '13.5px',
-                  lineHeight: 1.2,
-                  color: isGroupActive
-                    ? 'var(--accent-text)'
-                    : 'var(--text-color)',
-                  fontWeight: isGroupActive ? 600 : 500,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
+                className={collapsed ? 'sr-only' : undefined}
+                style={
+                  collapsed
+                    ? undefined
+                    : {
+                        fontSize: '13.5px',
+                        lineHeight: 1.2,
+                        color: isGroupActive
+                          ? 'var(--accent-text)'
+                          : 'var(--text-color)',
+                        fontWeight: isGroupActive ? 600 : 500,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }
+                }
               >
                 {group.title}
               </span>
@@ -315,39 +465,205 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       </nav>
 
       <div
+        data-testid="sidebar-user-footer"
         style={{
-          padding: '12px 14px',
+          padding: collapsed ? '10px 8px' : '10px 10px 8px 10px',
           borderTop: '1px solid var(--border-color)',
           fontSize: '12px',
           color: 'var(--muted-color)',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '8px',
+          flexDirection: 'column',
+          gap: '6px',
         }}
       >
-        <span
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <span style={{ color: 'var(--success-text)', fontSize: '11px' }}>
-            ●
-          </span>
-          <strong style={{ color: 'var(--text-color)', fontWeight: 500 }}>
-            {role === 'owner'
-              ? 'Chủ sở hữu'
-              : role === 'admin'
-                ? 'Quản lý'
-                : 'Nhân viên'}
-          </strong>
-        </span>
-        <span
+        <button
+          type="button"
+          data-testid="sidebar-user-profile-btn"
+          onClick={() => onNavigate('/settings#profile')}
+          aria-label={`${userSummary.displayName} ${userSummary.secondaryText} — Hồ sơ cá nhân & Đổi mật khẩu`}
+          title={
+            collapsed
+              ? `${userSummary.displayName} (${userSummary.secondaryText}) — Bấm để mở Hồ sơ cá nhân & Đổi mật khẩu`
+              : 'Mở hồ sơ cá nhân, đổi tên hiển thị & mật khẩu'
+          }
+          className="desktop-sidebar-user-btn"
           style={{
-            fontSize: '11px',
-            color: 'var(--muted-color)',
+            boxSizing: 'border-box',
+            width: '100%',
+            minHeight: '42px',
+            padding: collapsed ? '4px 0' : '6px 8px',
+            borderRadius: '8px',
+            border: '1px solid transparent',
+            backgroundColor:
+              currentPath === '/settings'
+                ? 'var(--accent-soft)'
+                : 'transparent',
+            color: 'var(--text-color)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: collapsed ? '0px' : '10px',
+            textAlign: 'left',
+            cursor: 'pointer',
+            transition: 'background-color 0.15s ease, color 0.15s ease',
           }}
         >
-          v{version}
-        </span>
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'relative',
+              width: '32px',
+              height: '32px',
+              borderRadius: '999px',
+              backgroundColor: 'var(--surface-subtle)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--accent-text)',
+              fontSize: '12px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            {userSummary.initials}
+            <span
+              style={{
+                position: 'absolute',
+                right: '-1px',
+                bottom: '-1px',
+                width: '8px',
+                height: '8px',
+                borderRadius: '999px',
+                backgroundColor: 'var(--success-color)',
+                border: '1.5px solid var(--surface-color)',
+              }}
+            />
+          </span>
+          <span
+            className={collapsed ? 'sr-only' : undefined}
+            style={
+              collapsed
+                ? undefined
+                : {
+                    minWidth: 0,
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1px',
+                  }
+            }
+          >
+            <strong
+              data-testid="sidebar-user-display-name"
+              style={{
+                fontSize: '13px',
+                lineHeight: 1.25,
+                fontWeight: 600,
+                color: 'var(--text-color)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {userSummary.displayName}
+            </strong>
+            <span
+              data-testid="sidebar-user-role-label"
+              style={{
+                fontSize: '12px',
+                lineHeight: 1.2,
+                color:
+                  currentPath === '/settings'
+                    ? 'var(--text-secondary)'
+                    : 'var(--muted-color)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {userSummary.secondaryText}
+            </span>
+          </span>
+        </button>
+
+        {!collapsed && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '4px',
+            }}
+          >
+            <button
+              type="button"
+              data-testid="sidebar-user-edit-profile"
+              onClick={() => onNavigate('/settings#profile')}
+              className="desktop-sidebar-user-btn"
+              style={{
+                boxSizing: 'border-box',
+                minHeight: '30px',
+                padding: '4px 6px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--surface-subtle)',
+                color: 'var(--text-secondary)',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                transition: 'background-color 0.15s ease, color 0.15s ease',
+              }}
+            >
+              Hồ sơ / Tên
+            </button>
+            <button
+              type="button"
+              data-testid="sidebar-user-change-password"
+              onClick={() => onNavigate('/settings#password')}
+              className="desktop-sidebar-user-btn"
+              style={{
+                boxSizing: 'border-box',
+                minHeight: '30px',
+                padding: '4px 6px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--surface-subtle)',
+                color: 'var(--text-secondary)',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                transition: 'background-color 0.15s ease, color 0.15s ease',
+              }}
+            >
+              Mật khẩu
+            </button>
+          </div>
+        )}
+
+        <div
+          className={collapsed ? 'sr-only' : undefined}
+          style={
+            collapsed
+              ? undefined
+              : {
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '2px 4px 0 4px',
+                  fontSize: '11px',
+                  color: 'var(--muted-color)',
+                }
+          }
+        >
+          <span>Management Lite</span>
+          <span>v{version}</span>
+        </div>
       </div>
     </aside>
   );

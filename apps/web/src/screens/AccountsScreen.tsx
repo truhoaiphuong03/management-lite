@@ -4450,7 +4450,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         borderRadius: '6px',
                         color: 'var(--text-color)',
                         fontSize: '12px',
-                        fontFamily: 'monospace',
+                        fontFamily: 'var(--font-mono)',
                       }}
                     />
                   </div>
@@ -6110,7 +6110,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       </div>
                       <div
                         style={{
-                          fontFamily: 'monospace',
+                          fontFamily: 'var(--font-mono)',
                           fontSize: '26px',
                           fontWeight: 800,
                           color: 'var(--text-color)',
@@ -6164,7 +6164,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 >
                   <code
                     style={{
-                      fontFamily: 'monospace',
+                      fontFamily: 'var(--font-mono)',
                       fontSize: '16px',
                       fontWeight: 700,
                       color: 'var(--text-color)',

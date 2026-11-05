@@ -5334,7 +5334,9 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       <strong
                         style={{
                           color: 'var(--success-text)',
-                          fontFamily: 'monospace',
+                          fontFamily: 'var(--font-sans)',
+                          fontVariantNumeric: 'tabular-nums',
+                          letterSpacing: '0.015em',
                           fontSize: '14px',
                         }}
                       >

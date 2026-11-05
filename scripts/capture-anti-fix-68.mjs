@@ -1,9 +1,14 @@
 /* global document, window, sessionStorage, Storage, DOMException, setTimeout */
-import { spawn } from 'node:child_process';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+import {
+  createBoundedCdpSender,
+  installScriptWatchdog,
+  launchHeadlessChrome,
+  waitForAppStartupSettled,
+} from './qa-chrome-harness.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,8 +16,6 @@ const root = resolve(__dirname, '..');
 const handoffDir = resolve(root, 'docs/handoff/FIX-72');
 mkdirSync(handoffDir, { recursive: true });
 
-const port = 9470;
-const runId = Math.random().toString(36).substring(2, 8);
 const targetUrl = process.env.QA_WEB_BASE;
 if (!targetUrl) throw new Error('Explicit isolated QA_WEB_BASE is required');
 const qaTarget = new URL(targetUrl);
@@ -185,6 +188,11 @@ async function pageSuite() {
         }
         return okJson(authBody());
       },
+    },
+    {
+      matches: (u, o) =>
+        o && o.method === 'POST' && u === '/api/v1/auth/refresh',
+      handle: async () => okJson({ success: false }, 401),
     },
     {
       matches: (u, o) => o && o.method === 'POST' && u === DISB_PATH,
@@ -920,41 +928,31 @@ async function pageSuite() {
 }
 
 async function run() {
+  const clearWatchdog = installScriptWatchdog('capture-anti-fix-68', 110_000);
   console.log(
     '=== ANTI-FIX-72 STRICT MOUNTED PRODUCTION SUITE (FAIL-CLOSED) ===\n',
   );
-  const chrome = spawn(
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    [
-      '--headless=new',
-      `--remote-debugging-port=${port}`,
-      '--disable-gpu',
-      '--no-first-run',
-      '--no-default-browser-check',
-      `--user-data-dir=/tmp/chrome-fix-70-${runId}`,
-    ],
-  );
+  const { port, cleanup } = await launchHeadlessChrome({
+    preferredPort: 9470,
+    prefix: 'chrome-fix-70-',
+  });
+  let ws = null;
   try {
-    await new Promise((r) => setTimeout(r, 1500));
     const newTab = await fetch(
       `http://127.0.0.1:${port}/json/new?about:blank`,
       { method: 'PUT' },
     ).then((r) => r.json());
-    const ws = new WebSocket(newTab.webSocketDebuggerUrl);
+    ws = new WebSocket(newTab.webSocketDebuggerUrl);
     await new Promise((r) => (ws.onopen = r));
 
-    let msgId = 1;
     const callbacks = new Map();
     const protocolBlocked = [];
     const cdpErrors = [];
     const runtimeErrors = [];
     let phase = 'startup';
-    const send = (method, params = {}) =>
-      new Promise((res, rej) => {
-        const id = msgId++;
-        callbacks.set(id, { res, rej });
-        ws.send(JSON.stringify({ id, method, params }));
-      });
+    const send = createBoundedCdpSender(ws, callbacks, {
+      commandTimeoutMs: 90_000,
+    });
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.method === 'Fetch.requestPaused') {
@@ -1038,7 +1036,7 @@ async function run() {
       `,
     });
     await send('Page.navigate', { url: targetUrl });
-    await new Promise((r) => setTimeout(r, 1200));
+    await waitForAppStartupSettled(evaluate);
 
     phase = 'probe';
     await evaluate(`window.__CURRENT_PHASE__ = 'probe'`);
@@ -1309,7 +1307,9 @@ async function run() {
       `\n✔ ALL ${result.cases.length} MOUNTED PRODUCTION SCENARIOS + ${result.fnTests.length} FUNCTION CHECKS PASSED (strict)`,
     );
   } finally {
-    chrome.kill();
+    clearWatchdog();
+    ws?.close();
+    await cleanup();
   }
 }
 

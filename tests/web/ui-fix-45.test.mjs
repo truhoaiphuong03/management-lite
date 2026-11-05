@@ -4,6 +4,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import {
+  findChromeBinary,
+  withIsolatedViteDevServer,
+} from '../../scripts/qa-chrome-harness.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -146,17 +150,26 @@ test('UI-FIX-45 — Finding 3: EmployeesScreen pagination error boundary retains
   );
 });
 
-test('UI-FIX-45 — Finding 4: Headless Chrome mounted live browser suite (CDP execution)', (t) => {
-  if (!process.env.QA_WEB_BASE) {
-    t.skip('Requires live QA_WEB_BASE server');
+test('UI-FIX-45 — Finding 4: Headless Chrome mounted live browser suite (CDP execution)', async (t) => {
+  if (!process.env.QA_WEB_BASE && !findChromeBinary()) {
+    t.skip('Headless Chrome/Chromium binary not available');
     return;
   }
-  // Execute live Chrome CDP test suite
+  // Execute live Chrome CDP test suite against isolated DEV server
   const scriptPath = resolve(root, 'scripts/test-ui-fix-45-chrome.mjs');
-  const output = execFileSync('node', [scriptPath], {
-    encoding: 'utf8',
-    cwd: root,
-  });
+  const runWithBase = (qaWebBase) =>
+    execFileSync(process.execPath, [scriptPath], {
+      encoding: 'utf8',
+      cwd: root,
+      timeout: 90_000,
+      env: { ...process.env, QA_WEB_BASE: qaWebBase },
+    });
+
+  const output = process.env.QA_WEB_BASE
+    ? runWithBase(process.env.QA_WEB_BASE)
+    : await withIsolatedViteDevServer(root, async (qaWebBase) =>
+        runWithBase(qaWebBase),
+      );
 
   assert.ok(
     output.includes('LoginScreen Focus Verification: ALL 3 SUB-TESTS PASS'),
