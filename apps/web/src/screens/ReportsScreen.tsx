@@ -200,12 +200,18 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
     null,
   );
   const [loadingMoreMyReports, setLoadingMoreMyReports] = useState(false);
+  const [myReportsLoadMoreError, setMyReportsLoadMoreError] = useState<
+    string | null
+  >(null);
   const myReportsSeqRef = useRef<number>(0);
 
   const [allReportsNextCursor, setAllReportsNextCursor] = useState<
     string | null
   >(null);
   const [loadingMoreAllReports, setLoadingMoreAllReports] = useState(false);
+  const [allReportsLoadMoreError, setAllReportsLoadMoreError] = useState<
+    string | null
+  >(null);
   const allReportsSeqRef = useRef<number>(0);
 
   // Pagination states (REP-006)
@@ -398,6 +404,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
 
   // Fetch CSRF token and data on mount
   useEffect(() => {
+    if (role !== 'owner') {
+      setActiveTab('my_reports');
+    }
     const controller = new AbortController();
     initData(controller.signal);
     return () => {
@@ -444,6 +453,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
 
   const fetchMyReports = async (cursor?: string, append = false) => {
     const currentSeq = ++myReportsSeqRef.current;
+    setMyReportsLoadMoreError(null);
     if (append) {
       setLoadingMoreMyReports(true);
     } else {
@@ -472,10 +482,18 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             : newItems,
         );
         setMyReportsNextCursor(data.data?.next_cursor || null);
+      } else if (append) {
+        setMyReportsLoadMoreError(
+          `Không thể tải thêm báo cáo (HTTP ${res.status}). Vui lòng thử lại.`,
+        );
       }
     } catch {
       if (currentSeq !== myReportsSeqRef.current) return;
-      // Ignored: error handled by wrapper
+      if (append) {
+        setMyReportsLoadMoreError(
+          'Không thể kết nối máy chủ khi tải thêm báo cáo. Vui lòng thử lại.',
+        );
+      }
     } finally {
       if (currentSeq === myReportsSeqRef.current) {
         setLoadingMoreMyReports(false);
@@ -571,6 +589,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
 
   const fetchAllReports = async (cursor?: string, append = false) => {
     const currentSeq = ++allReportsSeqRef.current;
+    setAllReportsLoadMoreError(null);
     if (append) {
       setLoadingMoreAllReports(true);
     } else {
@@ -615,10 +634,18 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             : newItems,
         );
         setAllReportsNextCursor(data.data?.next_cursor || null);
+      } else if (append) {
+        setAllReportsLoadMoreError(
+          `Không thể tải thêm báo cáo (HTTP ${res.status}). Vui lòng thử lại.`,
+        );
       }
     } catch {
       if (currentSeq !== allReportsSeqRef.current) return;
-      // Ignored
+      if (append) {
+        setAllReportsLoadMoreError(
+          'Không thể kết nối máy chủ khi tải thêm báo cáo. Vui lòng thử lại.',
+        );
+      }
     } finally {
       if (currentSeq === allReportsSeqRef.current) {
         setLoadingMoreAllReports(false);
@@ -1871,6 +1898,21 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               </AppCard>
             );
           })}
+          <ListFooter
+            itemCount={allReports.length}
+            hasNextPage={Boolean(allReportsNextCursor)}
+            onLoadMore={() =>
+              allReportsNextCursor &&
+              fetchAllReports(allReportsNextCursor, true)
+            }
+            isLoadingMore={loadingMoreAllReports}
+            loadMoreLabel="Tải thêm báo cáo"
+            error={allReportsLoadMoreError}
+            onRetry={() =>
+              allReportsNextCursor &&
+              fetchAllReports(allReportsNextCursor, true)
+            }
+          />
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -2093,6 +2135,11 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               }
               isLoadingMore={loadingMoreAllReports}
               loadMoreLabel="Tải thêm báo cáo"
+              error={allReportsLoadMoreError}
+              onRetry={() =>
+                allReportsNextCursor &&
+                fetchAllReports(allReportsNextCursor, true)
+              }
             />
           )}
           {activeTab === 'my_reports' && (
@@ -2104,6 +2151,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               }
               isLoadingMore={loadingMoreMyReports}
               loadMoreLabel="Tải thêm báo cáo"
+              error={myReportsLoadMoreError}
+              onRetry={() =>
+                myReportsNextCursor && fetchMyReports(myReportsNextCursor, true)
+              }
             />
           )}
         </div>

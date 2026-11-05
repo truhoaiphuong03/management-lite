@@ -236,7 +236,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 color: 'var(--accent-text)',
                 fontSize: '13px',
                 wordBreak: 'break-all',
-                fontFamily: 'monospace',
+                fontFamily: 'var(--font-mono)',
               }}
             >
               {createdInviteUrl}

@@ -90,10 +90,21 @@
 
   /* Aliases used by shared CSS */
   --brand-color: var(--accent-text);
+  --accent-soft: var(--primary-subtle);
   --surface-subtle-color: var(--surface-subtle);
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
     sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+
+  /* Shared typography hierarchy tokens (aligned with PrintQuote v0.8.4) */
+  --heading-page-size: 22px;
+  --heading-page-weight: 800;
+  --heading-tracking: -0.02em;
+  --heading-section-tracking: -0.015em;
+  --subtitle-size: 13.5px;
 
   /* Touch target */
   --touch-target-min: 44px;
@@ -245,14 +256,58 @@
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
-    sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   max-width: 100%;
   overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-sans);
+  letter-spacing: var(--heading-section-tracking, -0.015em);
+}
+
+.page-header-title {
+  font-family: var(--font-sans);
+  font-size: var(--heading-page-size, 22px);
+  font-weight: var(--heading-page-weight, 800);
+  letter-spacing: var(--heading-tracking, -0.02em);
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+
+.page-header-subtitle {
+  font-family: var(--font-sans);
+  font-size: var(--subtitle-size, 13.5px);
+  line-height: 1.45;
+}
+
+/* Justified monospace exception token for OTP, cryptographic keys, commit SHAs & technical logs */
+code,
+kbd,
+samp,
+pre,
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Shared tabular numeric presentation across tables, KPI cards & numeric inputs */
+.tabular-nums,
+table td,
+table th,
+.kpi-grid-4 > div > div:nth-child(2),
+.work-kpi-strip > div > div:nth-child(2),
+.payroll-earnings-grid strong,
+input[type='number'],
+input[inputmode='numeric'],
+input[inputmode='decimal'] {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Layout stability for interactive elements without shifts or horizontal overflow */
@@ -437,6 +492,31 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   transform: translateY(0);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.desktop-sidebar-toggle-btn:hover,
+.desktop-sidebar-nav-btn[data-active='false']:hover,
+.desktop-sidebar-user-btn:hover {
+  background-color: var(--surface-hover) !important;
+  color: var(--text-color) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-sidebar-aside {
+    transition: none !important;
+  }
+}
+
 /* Sub-navigation pill bar inside AppShell */
 .app-subnav-bar {
   display: flex;
@@ -502,6 +582,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   .work-schedule-badge,
   .page-header-root:has(.page-header-actions) .page-header-badge {
     display: none !important;
+  }
+  .app-shell-header {
+    padding: 0 10px !important;
+  }
+  .app-shell-header-actions {
+    gap: 6px !important;
   }
   .app-shell-header-btn {
     padding: 6px 8px !important;

@@ -295,7 +295,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     borderRadius: '8px',
                     color: 'var(--text-color)',
                     fontSize: '14px',
-                    fontFamily: 'monospace',
+                    fontFamily: 'var(--font-mono)',
                     boxSizing: 'border-box',
                     outline: 'none',
                     transition: 'border-color 0.15s ease',

@@ -747,7 +747,8 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                     <span
                       style={{
                         fontSize: '12px',
-                        fontFamily: 'monospace',
+                        fontFamily: 'var(--font-sans)',
+                        fontVariantNumeric: 'tabular-nums',
                         color: THEME_COLORS.muted,
                         backgroundColor: THEME_COLORS.background,
                         padding: '3px 8px',
@@ -777,7 +778,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                       style={{
                         fontSize: '12px',
                         color: THEME_COLORS.muted,
-                        fontFamily: 'monospace',
+                        fontFamily: 'var(--font-mono)',
                       }}
                     >
                       ({evt.action})
@@ -837,7 +838,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                     {evt.entity_id && (
                       <span
                         style={{
-                          fontFamily: 'monospace',
+                          fontFamily: 'var(--font-mono)',
                           fontSize: '12px',
                           marginLeft: '6px',
                           color: '#93C5FD',
@@ -952,8 +953,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                       style={{
                         margin: 0,
                         fontSize: '12px',
-                        fontFamily:
-                          'SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        fontFamily: 'var(--font-mono)',
                         color: '#A7F3D0',
                         overflowX: 'auto',
                         whiteSpace: 'pre-wrap',

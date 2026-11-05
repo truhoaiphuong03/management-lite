@@ -108,6 +108,13 @@ export const TOKENS = {
       normal: 1.5,
       relaxed: 1.6,
     },
+    letterSpacing: {
+      tight: '-0.02em',
+      snug: '-0.015em',
+      normal: '0em',
+      wide: '0.04em',
+    },
+    numericVariant: 'tabular-nums',
   },
   shadows: {
     sm: '0 1px 2px 0 rgba(0, 0, 0, 0.3)',

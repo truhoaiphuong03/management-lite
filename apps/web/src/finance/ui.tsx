@@ -197,8 +197,10 @@ export function FinanceHeader({
         <h1
           style={{
             margin: 0,
-            fontSize: TOKENS.typography.fontSize['2xl'],
-            fontWeight: TOKENS.typography.fontWeight.bold,
+            fontSize: 'var(--heading-page-size, 22px)',
+            fontWeight: TOKENS.typography.fontWeight.extrabold,
+            letterSpacing: TOKENS.typography.letterSpacing.tight,
+            lineHeight: 1.25,
             color: THEME_COLORS.text,
           }}
         >
@@ -263,6 +265,7 @@ export function FinanceStat({
           fontSize: 28,
           lineHeight: 1.2,
           fontWeight: TOKENS.typography.fontWeight.bold,
+          fontVariantNumeric: TOKENS.typography.numericVariant,
           color,
           overflowWrap: 'anywhere',
         }}

@@ -1,9 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import {
+  findChromeBinary,
+  withIsolatedViteDevServer,
+} from '../../scripts/qa-chrome-harness.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -67,35 +71,64 @@ test('ANTI-FIX-68/70 — Close QA-67/QA-69 Pay Findings & Mounted Browser Regres
   // 2. Mounted Headless Chrome Suite Execution (CDP fail-closed verification)
   await t.test(
     '2. Live Chrome CDP suite execution (strict FIX-72 suite)',
-    (subT) => {
-      if (!process.env.QA_WEB_BASE) {
-        subT.skip('Requires live QA_WEB_BASE server');
+    async (subT) => {
+      if (!process.env.QA_WEB_BASE && !findChromeBinary()) {
+        subT.skip('Headless Chrome/Chromium binary not available');
         return;
       }
+
       const scriptPath = resolve(root, 'scripts/capture-anti-fix-68.mjs');
-      const output = execFileSync('node', [scriptPath], {
-        encoding: 'utf8',
-        cwd: root,
-      });
-
-      assert.ok(
-        output.includes('✔ Controlled probe blocked'),
-        'Controlled probe must fail-closed',
-      );
-      assert.match(
-        output,
-        /✔ ALL \d+ MOUNTED PRODUCTION SCENARIOS \+ \d+ FUNCTION CHECKS PASSED \(strict\)/,
-        'All mounted scenarios and function checks must pass',
-      );
-
       const artifactPath = resolve(
         root,
         'docs/handoff/FIX-72/browser-pay.json',
       );
-      assert.ok(
-        existsSync(artifactPath),
-        'browser-pay.json must be written to docs/handoff/FIX-72',
-      );
+      const artifactDir = dirname(artifactPath);
+      const hadDirBefore = existsSync(artifactDir);
+      const hadArtifactBefore = existsSync(artifactPath);
+
+      const runWithBase = (qaWebBase) =>
+        execFileSync(process.execPath, [scriptPath], {
+          encoding: 'utf8',
+          cwd: root,
+          timeout: 120_000,
+          env: { ...process.env, QA_WEB_BASE: qaWebBase },
+        });
+
+      try {
+        const output = process.env.QA_WEB_BASE
+          ? runWithBase(process.env.QA_WEB_BASE)
+          : await withIsolatedViteDevServer(root, async (qaWebBase) =>
+              runWithBase(qaWebBase),
+            );
+
+        assert.ok(
+          output.includes('✔ Controlled probe blocked'),
+          'Controlled probe must fail-closed',
+        );
+        assert.match(
+          output,
+          /✔ ALL \d+ MOUNTED PRODUCTION SCENARIOS \+ \d+ FUNCTION CHECKS PASSED \(strict\)/,
+          'All mounted scenarios and function checks must pass',
+        );
+
+        assert.ok(
+          existsSync(artifactPath),
+          'browser-pay.json must be written to docs/handoff/FIX-72',
+        );
+        const parsedArtifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+        assert.ok(
+          Array.isArray(parsedArtifact.cases) &&
+            parsedArtifact.cases.length >= 43,
+          'browser-pay.json must contain all mounted scenario results',
+        );
+      } finally {
+        if (!hadArtifactBefore) {
+          rmSync(artifactPath, { force: true });
+        }
+        if (!hadDirBefore) {
+          rmSync(artifactDir, { recursive: true, force: true });
+        }
+      }
     },
   );
 });

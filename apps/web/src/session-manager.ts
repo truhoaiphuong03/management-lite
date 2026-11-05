@@ -14,7 +14,9 @@ export interface ParsedSessionData {
   verified: boolean;
   isOwner: boolean;
   role: UserRole;
+  subRole?: 'admin' | undefined;
   userId?: string | undefined;
+  userUsername?: string | undefined;
   userEmail?: string | undefined;
   emailVerified?: boolean | undefined;
   workspaceId?: string | undefined;
@@ -27,8 +29,18 @@ export function parseSessionPayload(body: unknown): ParsedSessionData | null {
   const b = body as {
     success?: boolean;
     data?: {
-      user?: { id?: unknown; email?: unknown; email_verified?: unknown };
-      active_workspace?: { id?: unknown; name?: unknown; role?: unknown };
+      user?: {
+        id?: unknown;
+        username?: unknown;
+        email?: unknown;
+        email_verified?: unknown;
+      };
+      active_workspace?: {
+        id?: unknown;
+        name?: unknown;
+        role?: unknown;
+        sub_role?: unknown;
+      };
       csrf_token?: unknown;
     };
   };
@@ -45,11 +57,17 @@ export function parseSessionPayload(body: unknown): ParsedSessionData | null {
 
   const isOwner = activeWs.role === 'owner';
   const role = activeWs.role as UserRole;
+  const subRole = activeWs.sub_role === 'admin' ? 'admin' : undefined;
   const csrfToken =
     typeof b.data.csrf_token === 'string' ? b.data.csrf_token : undefined;
   const userId =
     typeof b.data.user?.id === 'string' && b.data.user.id.length > 0
       ? b.data.user.id
+      : undefined;
+  const userUsername =
+    typeof b.data.user?.username === 'string' &&
+    b.data.user.username.trim().length > 0
+      ? b.data.user.username.trim()
       : undefined;
   const userEmail =
     typeof b.data.user?.email === 'string' &&
@@ -73,7 +91,9 @@ export function parseSessionPayload(body: unknown): ParsedSessionData | null {
     verified: true,
     isOwner,
     role,
+    subRole,
     userId,
+    userUsername,
     userEmail,
     emailVerified,
     workspaceId,
@@ -87,7 +107,9 @@ export interface SessionStateTracker {
   verifiedOwnerSession: boolean;
   isLoggedIn: boolean;
   role: UserRole;
+  subRole?: 'admin' | undefined;
   userId?: string | undefined;
+  userUsername?: string | undefined;
   userEmail?: string | undefined;
   emailVerified?: boolean | undefined;
   workspaceId?: string | undefined;
@@ -98,7 +120,9 @@ export interface SessionStateTracker {
 function resetSessionTrackerClosed(tracker: SessionStateTracker): void {
   tracker.verifiedOwnerSession = false;
   tracker.isLoggedIn = false;
+  tracker.subRole = undefined;
   tracker.userId = undefined;
+  tracker.userUsername = undefined;
   tracker.userEmail = undefined;
   tracker.emailVerified = undefined;
   tracker.workspaceId = undefined;
@@ -180,7 +204,9 @@ export async function executeSessionVerification(
         clearFrontendQueryCache();
       }
       tracker.role = parsed.role;
+      tracker.subRole = parsed.subRole;
       tracker.userId = parsed.userId;
+      tracker.userUsername = parsed.userUsername;
       tracker.userEmail = parsed.userEmail;
       tracker.emailVerified = parsed.emailVerified;
       tracker.workspaceId = parsed.workspaceId;

@@ -4,6 +4,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import {
+  findChromeBinary,
+  withIsolatedViteDevServer,
+} from '../../scripts/qa-chrome-harness.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -53,16 +57,25 @@ test('UI-FIX-47 — Finding 1: EmployeesScreen pagination error uses canonical d
   );
 });
 
-test('UI-FIX-47 — Finding 2: Chrome fail-closed suite (Reports Staff, Employees unmount, FIX-41, Issue retry/copy)', (t) => {
-  if (!process.env.QA_WEB_BASE) {
-    t.skip('Requires live QA_WEB_BASE server');
+test('UI-FIX-47 — Finding 2: Chrome fail-closed suite (Reports Staff, Employees unmount, FIX-41, Issue retry/copy)', async (t) => {
+  if (!process.env.QA_WEB_BASE && !findChromeBinary()) {
+    t.skip('Headless Chrome/Chromium binary not available');
     return;
   }
   const scriptPath = resolve(root, 'scripts/test-ui-fix-47-chrome.mjs');
-  const output = execFileSync('node', [scriptPath], {
-    encoding: 'utf8',
-    cwd: root,
-  });
+  const runWithBase = (qaWebBase) =>
+    execFileSync(process.execPath, [scriptPath], {
+      encoding: 'utf8',
+      cwd: root,
+      timeout: 90_000,
+      env: { ...process.env, QA_WEB_BASE: qaWebBase },
+    });
+
+  const output = process.env.QA_WEB_BASE
+    ? runWithBase(process.env.QA_WEB_BASE)
+    : await withIsolatedViteDevServer(root, async (qaWebBase) =>
+        runWithBase(qaWebBase),
+      );
 
   assert.ok(
     output.includes('ReportsScreen Staff Stale JSON Guard Verification: PASS'),
