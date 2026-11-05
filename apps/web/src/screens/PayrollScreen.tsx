@@ -2376,8 +2376,7 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
     <div
       style={{
         padding: '0',
-        maxWidth: '1200px',
-        margin: '0 auto',
+        width: '100%',
         color: 'var(--text-color)',
       }}
     >

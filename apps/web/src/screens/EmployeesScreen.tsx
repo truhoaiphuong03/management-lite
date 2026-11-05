@@ -519,21 +519,21 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               style={{
                 boxSizing: 'border-box',
                 minHeight: '34px',
-                padding: '6px 8px',
-                borderRadius: '6px',
+                padding: '6px 12px',
+                borderRadius: '999px',
                 border: '1px solid',
                 borderColor:
-                  statusFilter === tab.key ? '#14B8A6' : 'var(--border-color)',
+                  statusFilter === tab.key ? '#14B8A6' : 'var(--border-subtle)',
                 backgroundColor:
                   statusFilter === tab.key
-                    ? 'rgba(20, 184, 166, 0.15)'
-                    : 'var(--surface-hover)',
+                    ? 'var(--primary-subtle)'
+                    : 'var(--surface-subtle)',
                 color:
                   statusFilter === tab.key
                     ? 'var(--accent-text)'
                     : 'var(--muted-color)',
                 fontSize: '12px',
-                fontWeight: 600,
+                fontWeight: statusFilter === tab.key ? 600 : 500,
                 lineHeight: 1.2,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',

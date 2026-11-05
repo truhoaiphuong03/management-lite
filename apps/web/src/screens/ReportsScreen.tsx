@@ -997,9 +997,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   }
 
   return (
-    <div
-      style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '40px' }}
-    >
+    <div style={{ width: '100%', paddingBottom: '40px' }}>
       {/* Header */}
       <PageHeader
         title={

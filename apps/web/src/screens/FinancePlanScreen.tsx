@@ -416,11 +416,11 @@ export function FinancePlanScreen({
 
   return (
     <section style={financePageStyle}>
+      <FinanceNav onNavigate={onNavigate} />
       <FinanceHeader
         title="Kế hoạch thu chi cố định"
         description="Sổ kế hoạch: nhập số tiền dự kiến mỗi tháng. Đây không phải giao dịch thực tế và không làm thay đổi Tổng hợp thu chi."
       />
-      <FinanceNav onNavigate={onNavigate} />
       <ReadStatus {...r} />
 
       <div

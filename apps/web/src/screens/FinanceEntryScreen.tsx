@@ -22,6 +22,7 @@ import {
 } from '../../../../packages/ui/src/index.js';
 import {
   FinanceNav,
+  FinanceHeader,
   ReadStatus,
   useFinanceRead,
   useFinanceMutation,
@@ -265,21 +266,12 @@ export function FinanceEntryScreen({
   }
   const content = (
     <section style={financeStyle}>
-      {!inDialog && (
-        <h1
-          style={{
-            margin: 0,
-            fontSize: 'var(--heading-page-size, 22px)',
-            fontWeight: TOKENS.typography.fontWeight.extrabold,
-            letterSpacing: TOKENS.typography.letterSpacing.tight,
-            lineHeight: 1.25,
-            color: THEME_COLORS.text,
-          }}
-        >
-          {entryId ? 'Chi tiết giao dịch' : 'Thêm khoản thu/chi'}
-        </h1>
-      )}
       {!inDialog && <FinanceNav onNavigate={onNavigate} />}
+      {!inDialog && (
+        <FinanceHeader
+          title={entryId ? 'Chi tiết giao dịch' : 'Thêm khoản thu/chi'}
+        />
+      )}
       {inDialog && confirmDiscard && (
         <div
           ref={discardRef}

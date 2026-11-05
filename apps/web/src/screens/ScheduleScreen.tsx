@@ -516,10 +516,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
     <div
       className="schedule-screen-root"
       style={{
-        maxWidth: '960px',
         width: '100%',
         minWidth: 0,
-        margin: '0 auto',
         boxSizing: 'border-box',
       }}
     >

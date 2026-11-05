@@ -189,21 +189,17 @@ export function FinanceOverviewScreen({
 
   return (
     <section style={financePageStyle}>
+      <FinanceNav onNavigate={onNavigate} />
+
       <FinanceHeader
         title="Tổng hợp thu chi"
         description="Tổng thu, tổng chi và chênh lệch theo kỳ đã chọn."
         action={
-          <AppButton
-            variant="primary"
-            size="sm"
-            onClick={() => setEntryOpen(true)}
-          >
+          <AppButton variant="primary" onClick={() => setEntryOpen(true)}>
             + Thêm thu/chi
           </AppButton>
         }
       />
-
-      <FinanceNav onNavigate={onNavigate} />
 
       {entryOpen && (
         <FinanceEntryScreen

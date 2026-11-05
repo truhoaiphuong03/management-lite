@@ -123,11 +123,11 @@ export function FinanceCategoriesScreen({
 
   return (
     <section style={financePageStyle}>
+      <FinanceNav onNavigate={onNavigate} />
       <FinanceHeader
         title="Danh mục thu chi"
         description="Quản lý nguồn thu và khoản chi dùng khi ghi giao dịch."
       />
-      <FinanceNav onNavigate={onNavigate} />
 
       {/* Một khối điều khiển: tab Khoản chi / Nguồn thu + thêm danh mục mới */}
       <AppCard padding="12px 14px">

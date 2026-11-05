@@ -5,6 +5,7 @@ export interface PageHeaderProps {
   subtitle?: string;
   badge?: React.ReactNode;
   actions?: React.ReactNode;
+  style?: React.CSSProperties;
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
@@ -12,6 +13,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   subtitle,
   badge,
   actions,
+  style,
 }) => {
   return (
     <div
@@ -22,12 +24,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: '12px',
-        marginBottom: '16px',
-        paddingBottom: '14px',
-        borderBottom: '1px solid var(--border-color, #334155)',
+        marginBottom: '20px',
+        ...style,
       }}
     >
-      <div style={{ minWidth: 0, flex: '1 1 240px' }}>
+      <div style={{ minWidth: 0, flex: '1 1 180px' }}>
         <div
           style={{
             display: 'flex',
@@ -42,10 +43,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             title={title}
             style={{
               fontSize: 'var(--heading-page-size, 22px)',
-              fontWeight: 800,
-              lineHeight: 1.25,
+              fontWeight: 700,
+              lineHeight: 'var(--heading-page-lh, 1.3)',
               color: 'var(--text-color, #F8FAFC)',
-              letterSpacing: 'var(--heading-tracking, -0.02em)',
+              letterSpacing: 'var(--heading-tracking, -0.015em)',
               overflowWrap: 'break-word',
               minWidth: 0,
               margin: 0,
@@ -61,7 +62,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             style={{
               margin: '4px 0 0 0',
               fontSize: 'var(--subtitle-size, 13.5px)',
-              lineHeight: 1.45,
+              lineHeight: 'var(--subtitle-lh, 1.45)',
               color: 'var(--muted-color, #94A3B8)',
             }}
           >

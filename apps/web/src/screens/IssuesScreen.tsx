@@ -623,7 +623,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+    <div style={{ width: '100%' }}>
       {/* Header */}
       <PageHeader
         title="Sổ tay Vấn đề & Lỗi (Issues)"
@@ -662,6 +662,8 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
               variant="secondary"
               onClick={handleRefresh}
               disabled={loading}
+              aria-label="Làm mới danh sách lỗi"
+              title="Làm mới danh sách lỗi"
               data-testid="btn-refresh-issues"
               style={{
                 minHeight: '44px',
@@ -672,7 +674,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
               }}
             >
               <RotateCcwIcon size={16} />
-              <span>Làm mới</span>
+              <span className="mobile-hide-label">Làm mới</span>
             </AppButton>
           </div>
         }
@@ -699,14 +701,17 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           </div>
         </AppCard>
       )}
-      {/* 4 Group Quick Filter Tabs */}
+      {/* 4 Group Quick Filter Chips (harmonized with /work focus chips) */}
       <div
         style={{
           display: 'flex',
-          gap: '8px',
+          flexWrap: 'nowrap',
+          gap: '6px',
           overflowX: 'auto',
-          paddingBottom: '8px',
-          marginBottom: '16px',
+          paddingBottom: '4px',
+          marginBottom: '12px',
+          alignItems: 'center',
+          scrollbarWidth: 'none',
         }}
       >
         {STATUS_TABS.map((tab) => {
@@ -721,21 +726,22 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '8px 16px',
-                borderRadius: '20px',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '999px',
                 border: isActive
                   ? '1px solid #14B8A6'
-                  : '1px solid var(--border-color)',
+                  : '1px solid var(--border-subtle)',
                 backgroundColor: isActive
-                  ? 'rgba(20, 184, 166, 0.15)'
+                  ? 'var(--primary-subtle)'
                   : 'var(--surface-subtle)',
                 color: isActive ? 'var(--accent-text)' : 'var(--muted-color)',
-                fontSize: '13px',
+                fontSize: '12px',
                 fontWeight: isActive ? 600 : 500,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                minHeight: '40px',
+                flexShrink: 0,
+                minHeight: '34px',
                 transition:
                   'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease',
               }}
@@ -744,16 +750,17 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
               {count !== undefined && (
                 <span
                   style={{
-                    padding: '2px 8px',
-                    borderRadius: '10px',
+                    padding: '1px 7px',
+                    borderRadius: '999px',
                     backgroundColor: isActive
-                      ? 'var(--primary-color)'
+                      ? 'rgba(20, 184, 166, 0.18)'
                       : 'var(--surface-hover)',
                     color: isActive
-                      ? 'var(--inverse-text, #0B1220)'
+                      ? 'var(--accent-text)'
                       : 'var(--text-secondary)',
                     fontSize: '12px',
-                    fontWeight: 700,
+                    fontWeight: 600,
+                    fontVariantNumeric: 'tabular-nums',
                   }}
                 >
                   {count}
@@ -1023,8 +1030,9 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              backgroundColor: copied ? '#10B981' : undefined,
-              borderColor: copied ? '#10B981' : undefined,
+              ...(copied
+                ? { backgroundColor: '#10B981', borderColor: '#10B981' }
+                : {}),
             }}
           >
             {copied ? (

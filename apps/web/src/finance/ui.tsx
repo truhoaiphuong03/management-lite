@@ -4,6 +4,8 @@ import {
   actionIconsRowStyle,
   AppButton,
   AppToast,
+  NavIcon,
+  PageHeader,
   Pagination,
   TOKENS,
   THEME_COLORS,
@@ -101,29 +103,34 @@ export function FinanceNav({
   return (
     <nav
       aria-label="Thu chi cá nhân"
-      style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}
+      className="app-subnav-bar"
+      data-testid="finance-subnav-bar"
+      style={{ marginBottom: 0 }}
     >
       {(
         [
-          ['/finance', 'Tổng hợp'],
-          ['/finance/history', 'Lịch sử'],
-          ['/finance/categories', 'Danh mục'],
-          ['/finance/plan', 'Kế hoạch thu chi cố định'],
+          ['/finance', 'Tổng hợp', 'finance'],
+          ['/finance/history', 'Lịch sử', 'attendance'],
+          ['/finance/categories', 'Danh mục', 'storage'],
+          ['/finance/plan', 'Kế hoạch thu chi cố định', 'schedule'],
         ] as const
-      ).map(([p, l]) => {
+      ).map(([p, l, iconId]) => {
         const isActive =
           p === '/finance'
             ? currentPath === '/finance' || currentPath === '/finance/'
             : currentPath.startsWith(p);
         return (
-          <AppButton
+          <button
             key={p}
-            variant={isActive ? 'primary' : 'secondary'}
-            size="sm"
+            type="button"
+            className="app-subnav-item"
+            data-active={isActive ? 'true' : 'false'}
+            aria-current={isActive ? 'page' : undefined}
             onClick={() => onNavigate(p)}
           >
-            {l}
-          </AppButton>
+            <NavIcon id={iconId} size={15} />
+            <span>{l}</span>
+          </button>
         );
       })}
     </nav>
@@ -184,42 +191,12 @@ export function FinanceHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        flexWrap: 'wrap',
-        gap: 12,
-      }}
-    >
-      <div style={{ minWidth: 0, flex: '1 1 260px' }}>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: 'var(--heading-page-size, 22px)',
-            fontWeight: TOKENS.typography.fontWeight.extrabold,
-            letterSpacing: TOKENS.typography.letterSpacing.tight,
-            lineHeight: 1.25,
-            color: THEME_COLORS.text,
-          }}
-        >
-          {title}
-        </h1>
-        {description && (
-          <p
-            style={{
-              margin: '4px 0 0',
-              fontSize: TOKENS.typography.fontSize.sm,
-              color: THEME_COLORS.muted,
-            }}
-          >
-            {description}
-          </p>
-        )}
-      </div>
-      {action}
-    </div>
+    <PageHeader
+      title={title}
+      {...(description !== undefined ? { subtitle: description } : {})}
+      {...(action !== undefined ? { actions: action } : {})}
+      style={{ marginBottom: 4 }}
+    />
   );
 }
 /** Shared KPI tile (label + large amount + optional hint). */

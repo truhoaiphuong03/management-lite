@@ -371,13 +371,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
   }
 
   return (
-    <div
-      style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: TOKENS.spacing[4],
-      }}
-    >
+    <div style={{ width: '100%' }}>
       <div data-testid="audit-header">
         <PageHeader
           title="Nhật ký kiểm toán hệ thống"

@@ -690,23 +690,33 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       ]);
       if (arRes.ok) {
         const j = await arRes.json();
-        setReceivablesSummary(j?.data || null);
+        setReceivablesSummary(
+          j?.data && Array.isArray(j.data.summaries) ? j.data : null,
+        );
       }
       if (apRes.ok) {
         const j = await apRes.json();
-        setPayablesSummary(j?.data || null);
+        setPayablesSummary(
+          j?.data && Array.isArray(j.data.summaries) ? j.data : null,
+        );
       }
       if (txRes.ok) {
         const j = await txRes.json();
-        setUnifiedTransactions(j?.data?.items || []);
+        setUnifiedTransactions(
+          Array.isArray(j?.data?.items) ? j.data.items : [],
+        );
       }
       if (frRes.ok) {
         const j = await frRes.json();
-        setFinancialReport(j?.data || null);
+        setFinancialReport(
+          j?.data && j.data.reconciled && j.data.cashflow_and_debt
+            ? j.data
+            : null,
+        );
       }
       if (imRes.ok) {
         const j = await imRes.json();
-        setImportBatches(j?.data?.items || []);
+        setImportBatches(Array.isArray(j?.data?.items) ? j.data.items : []);
       }
     } catch {
       // Ignore fetch errors in offline/SSR test environments
@@ -2927,20 +2937,22 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           }
         }
 
-        /* Module Segmented Navigation */
+        /* Module Sub-Navigation (unified to /work .app-subnav-bar standard) */
         .pq-module-nav {
-          display: inline-flex;
+          display: flex;
           align-items: center;
-          gap: 4px;
-          padding: 4px;
-          border-radius: 12px;
-          background: var(--surface-color);
-          border: 1px solid var(--border-color);
-          box-shadow: var(--shadow-sm);
+          gap: 6px;
+          width: 100%;
           max-width: 100%;
+          padding: 0 0 8px 0;
+          margin: 0;
+          border-radius: 0;
+          background: transparent;
+          border: none;
+          border-bottom: 1px solid var(--border-subtle);
+          box-shadow: none;
           overflow-x: auto;
           scrollbar-width: none;
-          align-self: flex-start;
         }
         .pq-module-nav::-webkit-scrollbar {
           display: none;
@@ -2949,55 +2961,52 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           display: inline-flex;
           align-items: center;
           gap: 7px;
-          min-height: 38px;
-          padding: 6px 14px;
-          border-radius: 9px;
+          padding: 6px 12px;
+          border-radius: 8px;
           border: 1px solid transparent;
           background: transparent;
           color: var(--muted-color);
-          font-size: 13.5px;
-          font-weight: 600;
+          font-size: 13px;
+          font-weight: 500;
           white-space: nowrap;
+          flex-shrink: 0;
           cursor: pointer;
           transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
         }
         .pq-module-nav-item:hover {
           color: var(--text-color);
-          background: var(--surface-subtle);
+          background: rgba(148, 163, 184, 0.08);
         }
         .pq-module-nav-item[data-active="true"] {
-          background: var(--primary-color);
-          color: var(--inverse-text);
-          font-weight: 700;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+          background: var(--primary-subtle);
+          color: var(--accent-text);
+          border-color: transparent;
+          font-weight: 600;
+          box-shadow: none;
         }
         .pq-nav-count-pill {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 20px;
-          height: 20px;
+          min-width: 18px;
+          height: 18px;
           padding: 0 6px;
           border-radius: 999px;
           font-size: 12px;
-          font-weight: 700;
+          font-weight: 600;
+          line-height: 1;
           font-variant-numeric: tabular-nums;
           background: var(--surface-subtle);
-          color: var(--text-color);
-          border: 1px solid var(--border-color);
+          color: var(--muted-color);
+          border: 1px solid var(--border-subtle);
         }
         .pq-nav-count-pill[data-active="true"] {
-          background: rgba(0, 0, 0, 0.18);
-          color: var(--inverse-text);
+          background: rgba(20, 184, 166, 0.18);
+          color: var(--accent-text);
           border-color: transparent;
         }
-        :root[data-theme="light"] .pq-nav-count-pill[data-active="true"],
-        [data-theme="light"] .pq-nav-count-pill[data-active="true"] {
-          background: rgba(255, 255, 255, 0.22);
-          color: #FFFFFF;
-        }
 
-        /* Catalog Sub-Navigation */
+        /* Catalog Secondary Filter Chips (harmonized with /work focus chips) */
         .pq-catalog-subnav {
           display: flex;
           align-items: center;
@@ -3014,15 +3023,16 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          min-height: 36px;
+          min-height: 34px;
           padding: 6px 12px;
           border-radius: 999px;
-          border: 1px solid var(--border-color);
-          background: var(--surface-color);
+          border: 1px solid var(--border-subtle);
+          background: var(--surface-subtle);
           color: var(--muted-color);
-          font-size: 13px;
-          font-weight: 600;
+          font-size: 12px;
+          font-weight: 500;
           white-space: nowrap;
+          flex-shrink: 0;
           cursor: pointer;
           transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
         }
@@ -3031,27 +3041,32 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           border-color: var(--border-hover);
         }
         .pq-catalog-subnav-item[data-active="true"] {
-          background: var(--accent-soft);
+          background: var(--primary-subtle);
           color: var(--accent-text);
-          border-color: var(--accent-text);
-          font-weight: 700;
+          border-color: #14B8A6;
+          font-weight: 600;
         }
 
-        /* Clean Page Head */
+        /* Clean Page Head (unified to /work PageHeader standard) */
         .pq-page-head {
           display: flex;
           justify-content: space-between;
           align-items: center;
           flex-wrap: wrap;
           gap: 12px;
+          margin-bottom: 4px;
+        }
+        .pq-page-head > div:first-child {
+          min-width: 0;
+          flex: 1 1 180px;
         }
         .pq-page-title {
           margin: 0;
           font-family: var(--font-sans);
           font-size: var(--heading-page-size, 22px);
-          font-weight: var(--heading-page-weight, 800);
-          letter-spacing: var(--heading-tracking, -0.02em);
-          line-height: 1.25;
+          font-weight: var(--heading-page-weight, 700);
+          letter-spacing: var(--heading-tracking, -0.015em);
+          line-height: var(--heading-page-lh, 1.3);
           color: var(--text-color);
           overflow-wrap: break-word;
         }
@@ -3059,7 +3074,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           margin: 4px 0 0;
           font-family: var(--font-sans);
           font-size: var(--subtitle-size, 13.5px);
-          line-height: 1.45;
+          line-height: var(--subtitle-lh, 1.45);
           color: var(--muted-color);
         }
 
@@ -3102,13 +3117,19 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           border-radius: 8px;
           font-size: 12.5px;
         }
-        .pq-btn-lg,
-        .pq-btn-cta {
+        .pq-btn-lg {
           min-height: 44px;
           padding: 10px 18px;
           border-radius: 11px;
           font-size: 13.5px;
           font-weight: 700;
+        }
+        .pq-btn-cta {
+          min-height: 44px;
+          padding: 0 16px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
         }
         .pq-btn-primary {
           background: var(--primary-color);
@@ -3797,25 +3818,35 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
             font-size: 16px !important;
             min-width: 0;
           }
+          .pq-page-head {
+            gap: 8px;
+            margin-bottom: 0;
+          }
           .pq-page-title {
-            font-size: 19px;
+            font-size: 17.5px;
           }
           .pq-page-subtitle {
-            font-size: 12.5px;
+            display: none !important;
           }
           .pq-module-nav {
             width: 100%;
+            max-width: 100%;
             display: flex;
+            flex-wrap: wrap;
+            overflow-x: hidden;
+            gap: 4px;
+            margin-bottom: 12px;
+            padding: 0 0 8px 0;
           }
           .pq-module-nav .pq-nav-count-pill {
             display: none;
           }
           .pq-module-nav-item {
-            flex: 1 1 0;
-            justify-content: center;
-            padding: 6px 8px;
+            padding: 5px 9px;
             gap: 5px;
-            font-size: 12.5px;
+            font-size: 12px;
+            border-radius: 8px;
+            max-width: 100%;
           }
           .pq-customer-grid,
           .pq-two-col-fields,
@@ -3865,14 +3896,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         @media (max-width: 400px) {
           .pq-module-nav-item {
             flex: 0 0 auto;
-            padding: 6px 8px;
+            padding: 5px 8px;
             font-size: 12px;
           }
           .pq-module-nav-item svg {
             display: none;
-          }
-          .pq-page-head .pq-btn-cta {
-            width: 100%;
           }
           .pq-qty-unit-pair {
             grid-template-columns: minmax(0, 1fr);
