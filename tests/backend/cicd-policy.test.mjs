@@ -706,8 +706,8 @@ test('Rollback-Release.ps1 -Simulation fails closed with non-zero exit code, std
     return;
   }
 
-  const tmpDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'management-lite-rb-exitcode-qa-'),
+  const tmpDir = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'management-lite-rb-exitcode-qa-')),
   );
   try {
     const rbScript = fileURLToPath(
@@ -918,8 +918,8 @@ test('Rollback-Release.ps1 -Simulation fails closed with non-zero exit code, std
     );
     assert.equal(resValid.stderr.trim(), '');
     assert.equal(
-      path.resolve(readPointer()),
-      path.resolve(validTargetDir),
+      fs.realpathSync.native(readPointer()),
+      fs.realpathSync.native(validTargetDir),
       'Valid rollback must update simulation-current.txt to target release',
     );
     const recordedState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
