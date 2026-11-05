@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.0';
-export const SYSTEM_COMMIT = 'a66a292';
+export const SYSTEM_VERSION = '0.9.1';
+export const SYSTEM_COMMIT = '5134bff';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.0',
+    version: '0.9.1',
     commit: 'latest',
+    released_at: '2026-11-05',
+    summary:
+      'Mặc định giao diện Sáng (màu trắng) khi mở trang & đăng nhập, đồng thời sửa tương phản huy hiệu mã nhân viên (NV002) và các nhãn phụ ở chế độ Sáng',
+    added: [],
+    improved: [
+      'Đặt giao diện Sáng (light) làm chế độ hiển thị mặc định khi khởi động và sau mỗi lần đăng nhập mới; người dùng vẫn có thể chuyển nhanh Sáng/Tối/Hệ thống trên thanh tiêu đề hoặc trong Cài đặt.',
+      'Bổ sung đầy đủ biến màu --secondary-color, --secondary-hover, --secondary-active và đổ bóng nhẹ chuẩn chế độ Sáng trong tokens.css.',
+    ],
+    fixed: [
+      'Sửa lỗi huy hiệu mã nhân viên (NV001/NV002…) trên màn hình Nhân sự (/employees) bị nền tối chữ tối khó đọc khi dùng giao diện Sáng.',
+      'Chuẩn hóa màu chữ var(--info-text) và viền var(--border-color) cho nhãn Quản lý phụ, Chức danh, nút Chi lương vô hiệu hóa và ô nhập Đăng nhập ở chế độ Sáng.',
+    ],
+  },
+  {
+    version: '0.9.0',
+    commit: '5134bff',
     released_at: '2026-11-05',
     summary:
       'Hoàn thiện Sổ Công nợ & Tài chính In ấn độc lập AR/AP (migrations 0034–0036), Danh mục Giá xưởng & Công đoạn gia công đa tầng, Cổng kiểm soát chi phí thực tế 3 tầng và Hàng đợi đối chiếu công nợ lịch sử an toàn',

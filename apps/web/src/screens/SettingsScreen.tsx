@@ -220,9 +220,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Preferences states (SET-002, SET-003)
   const [theme, setTheme] = useState<string>(() => {
     try {
-      return localStorage.getItem('mglite_theme') || 'dark';
+      return localStorage.getItem('mglite_theme') || 'light';
     } catch {
-      return 'dark';
+      return 'light';
     }
   });
   const [timezone, setTimezone] = useState<string>(() => {
@@ -280,9 +280,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       let next = detailTheme;
       if (!next) {
         try {
-          next = localStorage.getItem('mglite_theme') || 'dark';
+          next = localStorage.getItem('mglite_theme') || 'light';
         } catch {
-          next = 'dark';
+          next = 'light';
         }
       }
       if (next === 'dark' || next === 'light' || next === 'system') {
@@ -1646,10 +1646,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   boxSizing: 'border-box',
                 }}
               >
-                <option value="dark">
-                  Giao diện tối (Mặc định doanh nghiệp)
-                </option>
-                <option value="light">Giao diện sáng (Thử nghiệm)</option>
+                <option value="light">Giao diện sáng (Mặc định)</option>
+                <option value="dark">Giao diện tối</option>
                 <option value="system">Theo cấu hình hệ điều hành</option>
               </select>
             </div>

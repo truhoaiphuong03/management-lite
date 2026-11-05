@@ -766,11 +766,13 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                     }}
                   >
                     <span
+                      data-testid={`emp-code-${emp.id}`}
                       style={{
                         fontSize: '12px',
                         padding: '2px 8px',
                         borderRadius: '4px',
-                        backgroundColor: '#334155',
+                        backgroundColor: 'var(--surface-hover)',
+                        border: '1px solid var(--border-color)',
                         color: 'var(--text-color)',
                         fontWeight: 600,
                       }}
@@ -796,7 +798,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                               : 'staff')) === 'owner'
                             ? 'rgba(20, 184, 166, 0.15)'
                             : (emp.role || emp.user?.role) === 'admin'
-                              ? 'rgba(59, 130, 246, 0.15)'
+                              ? 'var(--info-subtle)'
                               : 'var(--surface-hover)',
                         color:
                           (emp.role ||
@@ -806,7 +808,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                               : 'staff')) === 'owner'
                             ? 'var(--accent-text)'
                             : (emp.role || emp.user?.role) === 'admin'
-                              ? '#60A5FA'
+                              ? 'var(--info-text)'
                               : 'var(--muted-color)',
                         border: '1px solid var(--border-subtle)',
                         fontWeight: 600,
@@ -848,8 +850,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                             fontSize: '12px',
                             padding: '2px 8px',
                             borderRadius: '999px',
-                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                            color: '#60A5FA',
+                            backgroundColor: 'var(--info-subtle)',
+                            color: 'var(--info-text)',
+                            border: '1px solid var(--border-subtle)',
                             fontWeight: 600,
                           }}
                         >

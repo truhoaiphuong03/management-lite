@@ -33,8 +33,12 @@ test('TASK 1: Header theme toggle renders in AppShell with accessible label and 
     'AppShell header must render header-btn-theme-toggle',
   );
   assert.ok(
-    html.includes('aria-label="Chuyển sang giao diện sáng"'),
-    'Default dark theme must expose accessible label to switch to light theme',
+    html.includes('aria-label="Chuyển sang giao diện tối"'),
+    'Default light theme must expose accessible label to switch to dark theme',
+  );
+  assert.ok(
+    html.includes('data-effective-theme="light"'),
+    'Default effective theme in AppShell must be light',
   );
   // Ensure order: theme toggle is placed right before settings button in header actions
   const themeIdx = html.indexOf('data-testid="header-btn-theme-toggle"');
@@ -94,10 +98,16 @@ test('TASK 1: Theme helpers handle dark/light/system resolution, persistence, an
       },
     };
 
-    assert.equal(normalizeThemePreference(null), 'dark');
-    assert.equal(getStoredTheme(), 'dark');
+    assert.equal(normalizeThemePreference(null), 'light');
+    assert.equal(getStoredTheme(), 'light');
 
-    // 1. Switch to light
+    // 1. Switch to dark then back to light
+    setThemePreference('dark');
+    assert.equal(getStoredTheme(), 'dark');
+    assert.equal(attrs.get('data-theme'), 'dark');
+    assert.equal(resolveEffectiveTheme(), 'dark');
+    assert.equal(metaContent, '#0B1220');
+
     setThemePreference('light');
     assert.equal(getStoredTheme(), 'light');
     assert.equal(attrs.get('data-theme'), 'light');
@@ -450,13 +460,49 @@ test('E2E Browser (Playwright): Tasks 1-3 desktop/mobile, light/dark, keyboard, 
 
     let currentFullName = 'Hoài Phương';
     let simulateMissingEmployee = false;
+    let simulateUnauthenticated = false;
 
     await context.route('**/api/v1/**', async (route) => {
       const req = route.request();
       const u = new URL(req.url());
       const p = u.pathname;
 
+      if (p === '/api/v1/auth/login' && req.method() === 'POST') {
+        simulateUnauthenticated = false;
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: {
+              user: {
+                id: 'u-owner-1',
+                username: 'owner_hp',
+                email: 'truhoaiphuong03@gmail.com',
+                email_verified: true,
+              },
+              active_workspace: {
+                id: 'ws-hp-1',
+                name: 'Hoài Phương Media',
+                role: 'owner',
+              },
+              csrf_token: 'csrf-e2e-token',
+            },
+          }),
+        });
+      }
+
       if (p === '/api/v1/auth/me') {
+        if (simulateUnauthenticated) {
+          return route.fulfill({
+            status: 401,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              success: false,
+              error: { code: 'UNAUTHORIZED', message: 'Not logged in' },
+            }),
+          });
+        }
         return route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -550,8 +596,22 @@ test('E2E Browser (Playwright): Tasks 1-3 desktop/mobile, light/dark, keyboard, 
                   role: 'owner',
                   permissions: [],
                 },
+                {
+                  id: 'emp-2',
+                  employee_code: 'NV002',
+                  full_name: 'DƯƠNG VĂN MINH',
+                  phone: '0909888777',
+                  position_title: 'Điều phối Media',
+                  employment_status: 'active',
+                  role: 'admin',
+                  sub_permissions: ['work:manage', 'attendance:review'],
+                  user: {
+                    email: 'truhoaiphuong03@gmail.com',
+                    role: 'admin',
+                  },
+                },
               ],
-              total: 1,
+              total: 2,
             },
           }),
         });
@@ -588,20 +648,10 @@ test('E2E Browser (Playwright): Tasks 1-3 desktop/mobile, light/dark, keyboard, 
     // --- TASK 1: Header Light/Dark Toggle & Sync with Settings + OS System ---
     assert.equal(
       await page.getAttribute('html', 'data-theme'),
-      'dark',
-      'Initial theme defaults to dark',
-    );
-    assert.equal(await page.inputValue('#select-theme'), 'dark');
-
-    // Toggle via keyboard (Focus + Enter) while /settings is open
-    await page.focus('[data-testid="header-btn-theme-toggle"]');
-    await page.keyboard.press('Enter');
-    assert.equal(await page.getAttribute('html', 'data-theme'), 'light');
-    assert.equal(
-      await page.inputValue('#select-theme'),
       'light',
-      'SettingsScreen #select-theme syncs immediately when header toggle is pressed',
+      'Initial theme defaults to light (white UI)',
     );
+    assert.equal(await page.inputValue('#select-theme'), 'light');
     assert.equal(
       await page.getAttribute(
         '[data-testid="header-btn-theme-toggle"]',
@@ -610,10 +660,66 @@ test('E2E Browser (Playwright): Tasks 1-3 desktop/mobile, light/dark, keyboard, 
       'Chuyển sang giao diện tối',
     );
 
-    // Reload preserves selection
+    // Toggle via keyboard (Focus + Enter) while /settings is open -> switches to dark
+    await page.focus('[data-testid="header-btn-theme-toggle"]');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.getAttribute('html', 'data-theme'), 'dark');
+    assert.equal(
+      await page.inputValue('#select-theme'),
+      'dark',
+      'SettingsScreen #select-theme syncs immediately when header toggle is pressed',
+    );
+    assert.equal(
+      await page.getAttribute(
+        '[data-testid="header-btn-theme-toggle"]',
+        'aria-label',
+      ),
+      'Chuyển sang giao diện sáng',
+    );
+
+    // Reload preserves selection during active session
     await page.reload({ waitUntil: 'networkidle' });
     await page.waitForSelector('#select-theme');
-    assert.equal(await page.getAttribute('html', 'data-theme'), 'light');
+    assert.equal(await page.getAttribute('html', 'data-theme'), 'dark');
+    assert.equal(await page.inputValue('#select-theme'), 'dark');
+
+    // Fresh login always defaults to light (white UI) even if dark was stored earlier
+    simulateUnauthenticated = true;
+    await page.goto(`${baseUrl}/login`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('#identifier');
+    await page.evaluate(() => {
+      document.documentElement.setAttribute('data-theme', 'light');
+    });
+    const loginCardBg = await page.evaluate(
+      () =>
+        window.getComputedStyle(document.querySelector('.login-card-container'))
+          .backgroundColor,
+    );
+    assert.equal(
+      loginCardBg,
+      'rgb(255, 255, 255)',
+      'Login card container must render white surface in light theme',
+    );
+    await page.evaluate(() => {
+      localStorage.setItem('mglite_theme', 'dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    });
+    await page.fill('#identifier', 'owner_hp');
+    await page.fill('#password', 'Password123!');
+    await page.click('button[type="submit"]');
+    await page.waitForSelector('[data-testid="header-btn-theme-toggle"]');
+    assert.equal(
+      await page.getAttribute('html', 'data-theme'),
+      'light',
+      'Logging in defaults interface to light (white UI)',
+    );
+    assert.equal(
+      await page.evaluate(() => localStorage.getItem('mglite_theme')),
+      'light',
+    );
+
+    await page.goto(`${baseUrl}/settings`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('#select-theme');
     assert.equal(await page.inputValue('#select-theme'), 'light');
 
     // System preference mode ('system') tracks OS media query & syncs header button
@@ -890,6 +996,59 @@ test('E2E Browser (Playwright): Tasks 1-3 desktop/mobile, light/dark, keyboard, 
       /Nguyễn Thị Hoài Phương/,
       'Vietnamese diacritics render intact on EmployeesScreen',
     );
+
+    // Verify NV002 badge, admin role pill, and position pill readability in Light & Dark modes
+    for (const checkTheme of ['light', 'dark']) {
+      const badgeStyles = await page.evaluate((themeName) => {
+        document.documentElement.setAttribute('data-theme', themeName);
+        const parseRgb = (str) => {
+          const m = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+          return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
+        };
+        const relLum = ([r, g, b]) => {
+          const chan = (c) => {
+            const s = c / 255;
+            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b);
+        };
+        const ratio = (c1, c2) => {
+          const l1 = relLum(c1);
+          const l2 = relLum(c2);
+          return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+        };
+        const codeEl = document.querySelector('[data-testid="emp-code-emp-2"]');
+        const cs = codeEl ? window.getComputedStyle(codeEl) : null;
+        const bg = cs ? parseRgb(cs.backgroundColor) : [0, 0, 0];
+        const fg = cs ? parseRgb(cs.color) : [0, 0, 0];
+        return {
+          text: codeEl?.textContent?.trim() || '',
+          bgRaw: cs?.backgroundColor || '',
+          fgRaw: cs?.color || '',
+          contrast: ratio(bg, fg),
+        };
+      }, checkTheme);
+
+      assert.equal(badgeStyles.text, 'NV002');
+      if (checkTheme === 'light') {
+        assert.notEqual(
+          badgeStyles.bgRaw,
+          'rgb(51, 65, 85)',
+          'NV002 badge in Light mode must not use dark #334155 background',
+        );
+      }
+      assert.ok(
+        badgeStyles.contrast >= 7,
+        `NV002 badge contrast in ${checkTheme} mode must be >= 7:1, got ${badgeStyles.contrast.toFixed(2)} (${badgeStyles.fgRaw} on ${badgeStyles.bgRaw})`,
+      );
+      if (checkTheme === 'light' && process.env.SAVE_UI_SCREENSHOT) {
+        await page.waitForTimeout(250);
+        await page.screenshot({
+          path: process.env.SAVE_UI_SCREENSHOT,
+          fullPage: false,
+        });
+      }
+    }
 
     // Long Vietnamese title stress test across Desktop (1366px) & Mobile (320px, 390px) in Light & Dark
     const longViTitle =
