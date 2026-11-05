@@ -652,3 +652,23 @@
 11. **Commit / PR:** Nhánh `feature/printquote-module-v1` (Draft PR `#22`: `https://github.com/truhoaiphuong03/management-lite/pull/22`)
 12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Đã được Owner phê duyệt chuẩn bị `v0.8.0` & rà soát PR `#22`; chờ Owner phê duyệt merge `main` và phát hành Production)_
 13. **NEXT_ACTION:** Owner xem báo cáo rà soát PR `#22`, phê duyệt merge `main` và thực thi lộ trình phát hành **Phương án B (`v0.7.2` ➔ `v0.8.0`)** qua cổng `Owner-Locked Release Gate`.
+
+---
+
+## PHASE PQ-ARAP — GIÁ XƯỞNG ĐA CÔNG ĐOẠN, KIỂM SOÁT CHI PHÍ 3 TẦNG, SỔ CÔNG NỢ AR/AP CÔ LẬP & CHUẨN BỊ PHÁT HÀNH `v0.9.0` (PR `#31`)
+
+### Task `PQ-ARAP-090` — Chuẩn Bị Phiên Bản `v0.9.0`, Diễn Tập Migration `0036` Trên DB Staging Cô Lập & Kiểm Tra Rollback Fail-Closed
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-ARAP` (`v0.9.0`)
+3. **Task ID:** `PQ-ARAP-090`
+4. **Mô tả:** (1) Nâng phiên bản nhánh PR `#31` (`codex/printquote-arap-qa-release`, tách từ `origin/main` `0f78bee` — `v0.8.4`) lên `0.9.0` đồng bộ trong `package.json`, `packages/contracts/src/version.ts` (`SYSTEM_VERSION` & `RELEASE_NOTES_CATALOG`), `AGENTS.md`, `PROJECT_STATUS.md` và sổ cái này; (2) Thực hiện diễn tập toàn trình migration `0036_printquote_ar_ap_ledger` trên cụm PostgreSQL 18 TEST/Staging cô lập `127.0.0.1:55433` (`tests/database/phase-pq090-staging-migration0036-rehearsal.test.mjs`) với bộ dữ liệu lịch sử giả lập gồm 8 đơn hàng (`DH-STG-001`..`DH-STG-006`) và 9 phiếu `print_order_payments` (`23.500.000 ₫` thu gộp, `4.000.000 ₫` hoàn gộp, `19.500.000 ₫` ròng: phiếu thu/hoàn hợp lệ, hoàn vượt thu `2.5M > 2.0M`, đơn thiếu `customer_id` trùng tên, đơn lệch số dư `5.5M` vs `4.0M`, đơn mồ côi `1.8M` không có dòng phiếu, đơn hủy có cọc `3M` + chi phí xưởng `1.2M`/`1M` và đơn hủy `0 ₫`) kèm dữ liệu canh gác `/finance` (`fin_entries`); (3) Kiểm chứng đối chiếu trước/sau migration, hàng đợi `PENDING` (`0` dòng tự động `POSTED`), chống cộng trùng giữa sổ cũ và sổ AR chính thức trong suốt quá trình xác nhận từng dòng, quyết toán đơn hủy và kiểm tra 3 lớp rollback fail-closed (`scripts/db/rollback-0036-printquote-ar-ap-ledger.sql`, trigger bất biến PostgreSQL, `Rollback-Release.ps1 -Simulation` chặn hạ cấp mã nguồn khi lệch `schemaIdentity` + khôi phục `pg_dump`/`pg_restore` bản sao lưu trước `0036`); (4) Ghi nhận trung thực chưa có bản sao dữ liệu thật đã làm sạch được phép dùng trên staging (`C:\ML-Test`), tuyệt đối không truy cập hoặc sao chép Production (`C:\HoaiPhuong-Server\`, `:55432`).
+5. **Phụ thuộc:** `v0.8.4` (`0f78bee`) & Codex QA CI check `a66a292` (`PASS`).
+6. **Acceptance Criteria:** `0` dòng `POSTED` tự sinh ngay sau migration `0036`; đối chiếu khớp tuyệt đối trước/sau và không cộng trùng; chặn `409` mọi thao tác xác nhận sớm/dòng lỗi/thiếu `customer_id`; rollback sạch trước xác nhận và khóa fail-closed (`ROLLBACK_BLOCKED` + `Schema mismatch`) sau xác nhận; `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle`, `canonical:verify` và GitHub Actions CI (`Windows P0 Security Gate` + `ci`) trên PR `#31` đạt `PASS`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`WIN-1`)
+9. **Kết quả test:** `PASS` — `phase-pq090-staging-migration0036-rehearsal.test.mjs` (`1/1 PASS`), `printquote-codex-qa-0036-reconciliation.test.mjs` (`3/3 PASS`), `version.test.mjs` + `cicd-policy.test.mjs` (`10/10 PASS`), `check:bundle` (`423.5 KB raw / 124.5 KB gzip`), `canonical:verify` (`59` hashes `PASS`). _(Lưu ý giới hạn: chưa kiểm chứng trên bản sao dữ liệu Production thật do chưa có bản dump staging được Owner cấp phép)._
+10. **Evidence (`VERIFIED`):** `package.json`, `packages/contracts/src/version.ts`, `tests/database/phase-pq090-staging-migration0036-rehearsal.test.mjs`, `tests/backend/printquote-codex-qa-0036-reconciliation.test.mjs`, `scripts/deployment/ci-isolated-tests.mjs`, `scripts/db/rollback-0036-printquote-ar-ap-ledger.sql`.
+11. **Commit / PR:** Nhánh `codex/printquote-arap-qa-release` (Draft PR `#31`: `https://github.com/truhoaiphuong03/management-lite/pull/31`)
+12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Chờ Codex QA kiểm tra độc lập và Owner phê duyệt merge `main` + chạy cổng `Owner-Locked Release Gate`)_
+13. **NEXT_ACTION:** Codex kiểm tra độc lập commit chuẩn bị phát hành `v0.9.0` trên PR `#31`; nếu Owner muốn diễn tập trên bản sao dữ liệu thật đã làm sạch thì cấp bản dump cho staging, sau đó Owner ký và thực thi `Owner-Locked Release Gate` theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`.

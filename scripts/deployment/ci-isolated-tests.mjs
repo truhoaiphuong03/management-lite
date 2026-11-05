@@ -61,6 +61,8 @@ try {
     'tests/database/integration.test.mjs',
     'tests/database/attendance-version-qa.test.mjs',
     'tests/database/audit-upgrade-qa.test.mjs',
+    'tests/database/phase-pq090-staging-migration0036-rehearsal.test.mjs',
+    'tests/backend/printquote-codex-qa-0036-reconciliation.test.mjs',
     'tests/web/settings-screen.test.mjs',
   ];
   // Suites that expect an already migrated database (they do not migrate themselves).

@@ -266,15 +266,22 @@ describe('Codex QA Remediation — Migration 0036 Legacy AR Reconciliation Gate 
   it('1. Migration 0036 trên DB có dữ liệu cũ: KHÔNG tự ghi POSTED AR, giữ nguyên dữ liệu gốc, phát hiện đủ bất thường, chạy lại idempotent & đối chiếu từng dòng (thu hợp lệ, hoàn tiền, thiếu customer_id, lệch số dư, chặn dòng sai)', async () => {
     const baseCfg = loadTestDatabaseConfig();
     const parsedUrl = new URL(baseCfg.connectionString);
-    const adminPw = (
-      await fs.readFile('C:\\ML-Test\\secrets\\admin.pw', 'utf8')
-    ).trim();
-    const tempDbName = `mglite_qa0036_${crypto.randomUUID().slice(0, 8)}`;
+    let adminUser = decodeURIComponent(parsedUrl.username || 'postgres');
+    let adminPw = decodeURIComponent(parsedUrl.password || '');
+    try {
+      adminPw = (
+        await fs.readFile('C:\\ML-Test\\secrets\\admin.pw', 'utf8')
+      ).trim();
+      adminUser = 'ml_test_admin';
+    } catch {
+      // On disposable Linux CI containers, parsedUrl already carries ci_test superuser credentials.
+    }
+    const tempDbName = `mglite_qa0036_test_${crypto.randomUUID().slice(0, 8)}`;
 
     const adminPool = createDatabasePool({
       host: parsedUrl.hostname,
       port: Number(parsedUrl.port || 55433),
-      user: 'ml_test_admin',
+      user: adminUser,
       password: adminPw,
       database: 'postgres',
       max: 2,
@@ -282,13 +289,13 @@ describe('Codex QA Remediation — Migration 0036 Legacy AR Reconciliation Gate 
       connectionTimeoutMillis: 5_000,
     });
     await adminPool.query(
-      `CREATE DATABASE "${tempDbName}" OWNER ml_test_admin`,
+      `CREATE DATABASE "${tempDbName}" OWNER "${adminUser}"`,
     );
 
     const tempPool = createDatabasePool({
       host: parsedUrl.hostname,
       port: Number(parsedUrl.port || 55433),
-      user: 'ml_test_admin',
+      user: adminUser,
       password: adminPw,
       database: tempDbName,
       max: 6,
