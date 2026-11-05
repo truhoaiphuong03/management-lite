@@ -46,9 +46,11 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     released_at: '2026-11-05',
     summary:
       'Mặc định giao diện Sáng (màu trắng) khi mở trang & đăng nhập, đồng thời sửa tương phản huy hiệu mã nhân viên (NV002) và các nhãn phụ ở chế độ Sáng',
-    added: [],
+    added: [
+      'Tự động kích hoạt chế độ Giao diện Sáng (màu trắng) làm mặc định ngay khi khởi động và sau mỗi lần đăng nhập thành công.',
+    ],
     improved: [
-      'Đặt giao diện Sáng (light) làm chế độ hiển thị mặc định khi khởi động và sau mỗi lần đăng nhập mới; người dùng vẫn có thể chuyển nhanh Sáng/Tối/Hệ thống trên thanh tiêu đề hoặc trong Cài đặt.',
+      'Người dùng vẫn có thể chuyển nhanh Sáng / Tối / Hệ thống trên thanh tiêu đề hoặc trong Cài đặt và lưu tùy chọn riêng cho phiên hiện tại.',
       'Bổ sung đầy đủ biến màu --secondary-color, --secondary-hover, --secondary-active và đổ bóng nhẹ chuẩn chế độ Sáng trong tokens.css.',
     ],
     fixed: [

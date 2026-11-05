@@ -620,7 +620,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   minHeight: '44px',
                   padding: '0 14px',
                   borderRadius: '8px',
-                  border: `1px solid ${invalidField === 'identifier' || invalidField === 'both' ? '#EF4444' : 'var(--border-color)'}`,
+                  border: `1px solid ${invalidField === 'identifier' || invalidField === 'both' ? '#EF4444' : 'var(--border-color, #334155)'}`,
                   backgroundColor: 'var(--bg-color, #F8FAFC)',
                   color: 'var(--text-color)',
                   fontSize: '14px',
@@ -633,7 +633,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   (e.target.style.borderColor =
                     invalidField === 'identifier' || invalidField === 'both'
                       ? '#EF4444'
-                      : 'var(--border-color)')
+                      : 'var(--border-color, #334155)')
                 }
               />
             </div>
@@ -697,7 +697,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     minHeight: '44px',
                     padding: '0 46px 0 14px',
                     borderRadius: '8px',
-                    border: `1px solid ${invalidField === 'password' || invalidField === 'both' ? '#EF4444' : 'var(--border-color)'}`,
+                    border: `1px solid ${invalidField === 'password' || invalidField === 'both' ? '#EF4444' : 'var(--border-color, #334155)'}`,
                     backgroundColor: 'var(--bg-color, #F8FAFC)',
                     color: 'var(--text-color)',
                     fontSize: '14px',
@@ -710,7 +710,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     (e.target.style.borderColor =
                       invalidField === 'password' || invalidField === 'both'
                         ? '#EF4444'
-                        : 'var(--border-color)')
+                        : 'var(--border-color, #334155)')
                   }
                 />
                 <button
@@ -1053,8 +1053,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           flex-direction: row;
           width: 100%;
           max-width: 920px;
-          background-color: var(--surface-color);
-          border: 1px solid var(--border-color);
+          background-color: var(--surface-color, #151F30);
+          border: 1px solid var(--border-color, #334155);
           border-radius: 20px;
           overflow: hidden;
           box-shadow: var(--shadow-xl);
