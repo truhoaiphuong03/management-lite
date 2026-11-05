@@ -786,7 +786,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                           : 'staff')) === 'owner'
                         ? 'rgba(20, 184, 166, 0.15)'
                         : (employee.role || employee.user?.role) === 'admin'
-                          ? 'rgba(59, 130, 246, 0.15)'
+                          ? 'var(--info-subtle)'
                           : 'var(--surface-hover)',
                     color:
                       (employee.role ||
@@ -796,7 +796,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                           : 'staff')) === 'owner'
                         ? 'var(--accent-text)'
                         : (employee.role || employee.user?.role) === 'admin'
-                          ? '#60A5FA'
+                          ? 'var(--info-text)'
                           : 'var(--text-color)',
                     border: '1px solid var(--border-subtle)',
                   }}

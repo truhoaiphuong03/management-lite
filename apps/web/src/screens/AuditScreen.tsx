@@ -835,7 +835,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                           fontFamily: 'var(--font-mono)',
                           fontSize: '12px',
                           marginLeft: '6px',
-                          color: '#93C5FD',
+                          color: 'var(--info-text)',
                         }}
                       >
                         #{evt.entity_id.slice(0, 8)}...

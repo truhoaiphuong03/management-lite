@@ -10,7 +10,7 @@ export function normalizeThemePreference(
   if (raw === 'light' || raw === 'system' || raw === 'dark') {
     return raw;
   }
-  return 'dark';
+  return 'light';
 }
 
 export function getStoredTheme(): ThemePreference {
@@ -21,7 +21,7 @@ export function getStoredTheme(): ThemePreference {
   } catch {
     // Ignore storage access errors
   }
-  return 'dark';
+  return 'light';
 }
 
 export function resolveEffectiveTheme(
@@ -46,7 +46,7 @@ export function resolveEffectiveTheme(
       ? 'dark'
       : 'light';
   }
-  return 'dark';
+  return 'light';
 }
 
 function syncThemeColorMeta(effectiveTheme: 'dark' | 'light'): void {
@@ -180,8 +180,8 @@ export function applyTheme(selectedTheme: string): void {
         }
       }
     } else if (document.body) {
-      document.body.style.backgroundColor = '#0B1220';
-      document.body.style.color = '#F8FAFC';
+      document.body.style.backgroundColor = '#F8FAFC';
+      document.body.style.color = '#0F172A';
     }
   }
 

@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0B1220" />
+    <meta name="theme-color" content="#F8FAFC" />
     <!-- Inline icon: avoids a /favicon.ico request that would otherwise 404 on every visit. -->
     <link
       rel="icon"
@@ -16,7 +16,7 @@
     <script>
       (function () {
         try {
-          var t = localStorage.getItem('mglite_theme') || 'dark';
+          var t = localStorage.getItem('mglite_theme') || 'light';
           document.documentElement.setAttribute('data-theme', t);
           if (t === 'light') {
             document.documentElement.style.colorScheme = 'light';
@@ -31,10 +31,10 @@
   </head>
   <body
     style="
-      background-color: var(--bg-color, #0b1220);
+      background-color: var(--bg-color, #f8fafc);
       margin: 0;
       padding: 0;
-      color: var(--text-color, #f8fafc);
+      color: var(--text-color, #0f172a);
     "
   >
     <div id="root"></div>

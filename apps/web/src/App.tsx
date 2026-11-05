@@ -348,13 +348,13 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Initialize visual theme from preferences
+  // Initialize visual theme from preferences (defaulting to light)
   useEffect(() => {
     try {
-      const savedTheme = localStorage.getItem('mglite_theme') || 'dark';
+      const savedTheme = localStorage.getItem('mglite_theme') || 'light';
       applyTheme(savedTheme);
     } catch {
-      // Ignored
+      applyTheme('light');
     }
     return () => {
       removeThemeListener();
@@ -587,6 +587,13 @@ export const App: React.FC = () => {
     const verified = await verifySession();
     setIsCheckingSession(false);
     if (verified) {
+      try {
+        localStorage.setItem('mglite_theme', 'light');
+      } catch {
+        // Ignore storage errors
+      }
+      applyTheme('light');
+
       const ssoTarget = managementSsoContinuation(window.location.search);
       if (ssoTarget) {
         window.location.assign(ssoTarget);

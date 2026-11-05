@@ -3293,15 +3293,17 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                                   ? '#D97706'
                                   : canDisburse
                                     ? 'var(--primary-color)'
-                                    : '#334155',
+                                    : 'var(--surface-hover)',
                                 border: itemUnresolved
                                   ? '1px solid #F59E0B'
-                                  : 'none',
+                                  : canDisburse
+                                    ? 'none'
+                                    : '1px solid var(--border-color)',
                                 borderRadius: '6px',
                                 color: itemUnresolved
                                   ? '#FFFFFF'
                                   : canDisburse
-                                    ? 'var(--inverse-text, #0B1220)'
+                                    ? 'var(--inverse-text, #FFFFFF)'
                                     : 'var(--muted-color)',
                                 cursor: canDisburse ? 'pointer' : 'not-allowed',
                                 fontSize: '12px',

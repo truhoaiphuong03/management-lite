@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.1';
-export const SYSTEM_COMMIT = '9c010ce';
+export const SYSTEM_VERSION = '0.9.2';
+export const SYSTEM_COMMIT = 'aefeaec';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,26 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.1',
+    version: '0.9.2',
     commit: 'latest',
+    released_at: '2026-11-05',
+    summary:
+      'Mặc định giao diện Sáng (màu trắng) khi mở trang & đăng nhập, đồng thời sửa tương phản huy hiệu mã nhân viên (NV002) và các nhãn phụ ở chế độ Sáng',
+    added: [
+      'Tự động kích hoạt chế độ Giao diện Sáng (màu trắng) làm mặc định ngay khi khởi động và sau mỗi lần đăng nhập thành công.',
+    ],
+    improved: [
+      'Người dùng vẫn có thể chuyển nhanh Sáng / Tối / Hệ thống trên thanh tiêu đề hoặc trong Cài đặt và lưu tùy chọn riêng cho phiên hiện tại.',
+      'Bổ sung đầy đủ biến màu --secondary-color, --secondary-hover, --secondary-active và đổ bóng nhẹ chuẩn chế độ Sáng trong tokens.css.',
+    ],
+    fixed: [
+      'Sửa lỗi huy hiệu mã nhân viên (NV001/NV002…) trên màn hình Nhân sự (/employees) bị nền tối chữ tối khó đọc khi dùng giao diện Sáng.',
+      'Chuẩn hóa màu chữ var(--info-text) và viền var(--border-color, #334155) cho nhãn Quản lý phụ, Chức danh, nút Chi lương vô hiệu hóa và ô nhập Đăng nhập ở chế độ Sáng.',
+    ],
+  },
+  {
+    version: '0.9.1',
+    commit: 'aefeaec',
     released_at: '2026-11-05',
     summary:
       'Thống nhất giao diện toàn hệ thống theo chuẩn phân hệ Công việc (/work), đồng bộ tiêu đề, phụ đề và thanh điều hướng phân hệ trên máy tính & điện thoại (Sáng/Tối), và khử triệt để race kiểm thử Chrome',

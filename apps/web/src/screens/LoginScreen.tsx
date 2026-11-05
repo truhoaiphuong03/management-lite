@@ -620,8 +620,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   minHeight: '44px',
                   padding: '0 14px',
                   borderRadius: '8px',
-                  border: `1px solid ${invalidField === 'identifier' || invalidField === 'both' ? '#EF4444' : '#334155'}`,
-                  backgroundColor: 'var(--bg-color, #0B1220)',
+                  border: `1px solid ${invalidField === 'identifier' || invalidField === 'both' ? '#EF4444' : 'var(--border-color, #334155)'}`,
+                  backgroundColor: 'var(--bg-color, #F8FAFC)',
                   color: 'var(--text-color)',
                   fontSize: '14px',
                   outline: 'none',
@@ -633,7 +633,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   (e.target.style.borderColor =
                     invalidField === 'identifier' || invalidField === 'both'
                       ? '#EF4444'
-                      : '#334155')
+                      : 'var(--border-color, #334155)')
                 }
               />
             </div>
@@ -697,8 +697,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     minHeight: '44px',
                     padding: '0 46px 0 14px',
                     borderRadius: '8px',
-                    border: `1px solid ${invalidField === 'password' || invalidField === 'both' ? '#EF4444' : '#334155'}`,
-                    backgroundColor: 'var(--bg-color, #0B1220)',
+                    border: `1px solid ${invalidField === 'password' || invalidField === 'both' ? '#EF4444' : 'var(--border-color, #334155)'}`,
+                    backgroundColor: 'var(--bg-color, #F8FAFC)',
                     color: 'var(--text-color)',
                     fontSize: '14px',
                     outline: 'none',
@@ -710,7 +710,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     (e.target.style.borderColor =
                       invalidField === 'password' || invalidField === 'both'
                         ? '#EF4444'
-                        : '#334155')
+                        : 'var(--border-color, #334155)')
                   }
                 />
                 <button
@@ -1053,11 +1053,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           flex-direction: row;
           width: 100%;
           max-width: 920px;
-          background-color: #151F30;
-          border: 1px solid var(--border-color);
+          background-color: var(--surface-color, #151F30);
+          border: 1px solid var(--border-color, #334155);
           border-radius: 20px;
           overflow: hidden;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+          box-shadow: var(--shadow-xl);
           box-sizing: border-box;
         }
         .login-brand-panel {
@@ -1069,6 +1069,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           background: linear-gradient(145deg, #0F172A 0%, #0B1322 100%);
           border-right: 1px solid var(--border-subtle);
           box-sizing: border-box;
+        }
+        :root[data-theme="light"] .login-brand-panel,
+        [data-theme="light"] .login-brand-panel {
+          background: linear-gradient(145deg, #F0FDFA 0%, #F1F5F9 100%);
+        }
+        @media (prefers-color-scheme: light) {
+          :root[data-theme="system"] .login-brand-panel,
+          [data-theme="system"] .login-brand-panel {
+            background: linear-gradient(145deg, #F0FDFA 0%, #F1F5F9 100%);
+          }
         }
         .login-form-panel {
           width: 56%;
