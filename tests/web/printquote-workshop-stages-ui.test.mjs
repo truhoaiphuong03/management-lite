@@ -808,6 +808,9 @@ test('Real-Browser Playwright E2E + Desktop/iPhone Overflow Audit: Bảng giá x
     await page.fill('#pq-dialog-price-profit', '1000');
     await page.fill('#pq-dialog-conditions-note', 'Áp dụng từ 50 tờ trở lên');
     await page.click('[data-testid="pq-price-dialog"] button[type="submit"]');
+    await page.waitForSelector('[data-testid="pq-price-dialog"]', {
+      state: 'detached',
+    });
     await page.waitForSelector('text=A4 C200, in màu 2 mặt');
 
     // 4) Tạo Công đoạn gia công: "Cán màng 1 mặt" — 2.000đ/tờ
@@ -818,6 +821,9 @@ test('Real-Browser Playwright E2E + Desktop/iPhone Overflow Audit: Bảng giá x
     await page.fill('#pq-dialog-price-unit', 'tờ');
     await page.fill('#pq-dialog-price-unit-cost', '2000');
     await page.click('[data-testid="pq-price-dialog"] button[type="submit"]');
+    await page.waitForSelector('[data-testid="pq-price-dialog"]', {
+      state: 'detached',
+    });
     await page.waitForSelector('text=Cán màng 1 mặt');
 
     await assertNoHorizontalOverflow('Desktop Catalog Prices');
@@ -831,6 +837,13 @@ test('Real-Browser Playwright E2E + Desktop/iPhone Overflow Audit: Bảng giá x
       waitUntil: 'networkidle',
     });
     await page.waitForSelector('#pq-line-catalog-0');
+    await page.waitForSelector('#pq-line-catalog-0 option:nth-child(2)', {
+      state: 'attached',
+    });
+    await page.waitForSelector(
+      '[data-testid="pq-stage-catalog-select-0"] option:nth-child(2)',
+      { state: 'attached' },
+    );
     await page.fill(
       '#pq-title-input',
       'Báo giá tờ rơi A4 C200 cán màng (100 tờ)',
