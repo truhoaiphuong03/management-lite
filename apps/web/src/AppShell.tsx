@@ -435,25 +435,19 @@ export const AppShell: React.FC<AppShellProps> = ({
         .map((id) => itemMap.get(id))
         .filter(
           (item): item is (typeof NAV_ITEMS)[number] =>
-            Boolean(item) &&
-            isItemVisibleForRole(item!) &&
-            item!.id !== 'audit' &&
-            item!.id !== 'system-logs',
+            Boolean(item) && isItemVisibleForRole(item!),
         )
     : [];
-  const isIssuesOrLogsRoute =
-    role === 'owner' &&
-    (currentPath === '/issues' ||
-      currentPath.startsWith('/issues/') ||
-      currentPath === '/system-logs' ||
-      currentPath === '/audit');
   const isDetailSubRoute =
     /^\/(work|employees|accounts|storage|issues|payroll|finance)\/[^/]+/.test(
       currentPath,
     ) &&
     currentPath !== '/attendance/review' &&
     currentPath !== '/attendance/corrections' &&
-    currentPath !== '/reports/new';
+    currentPath !== '/reports/new' &&
+    currentPath !== '/finance/history' &&
+    currentPath !== '/finance/categories' &&
+    currentPath !== '/finance/plan';
 
   const moreGroups = NAV_GROUPS.map((group) => {
     const items = group.itemIds
@@ -760,19 +754,15 @@ export const AppShell: React.FC<AppShellProps> = ({
                 const isItemActive =
                   item.path === '/attendance'
                     ? currentPath === '/attendance'
-                    : item.path === '/issues'
-                      ? currentPath === '/issues' ||
-                        currentPath.startsWith('/issues/') ||
-                        currentPath === '/system-logs' ||
-                        currentPath === '/audit'
-                      : currentPath === item.path ||
-                        currentPath.startsWith(item.path + '/');
+                    : currentPath === item.path ||
+                      currentPath.startsWith(item.path + '/');
                 return (
                   <button
                     key={item.id}
                     type="button"
                     className="app-subnav-item"
                     data-active={isItemActive ? 'true' : 'false'}
+                    aria-current={isItemActive ? 'page' : undefined}
                     onClick={() => onNavigate(item.path)}
                   >
                     <NavIcon id={item.id} size={15} />
@@ -781,72 +771,6 @@ export const AppShell: React.FC<AppShellProps> = ({
                 );
               })}
             </nav>
-          )}
-          {isIssuesOrLogsRoute && (
-            <div
-              data-testid="issues-logs-subswitcher"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                flexWrap: 'wrap',
-                padding: '4px',
-                marginBottom: '14px',
-                borderRadius: '8px',
-                backgroundColor: 'var(--surface-subtle)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              {[
-                {
-                  id: 'issues',
-                  label: 'Phiếu báo lỗi',
-                  path: '/issues',
-                  active:
-                    currentPath === '/issues' ||
-                    currentPath.startsWith('/issues/'),
-                },
-                {
-                  id: 'system-logs',
-                  label: 'Nhật ký hệ thống',
-                  path: '/system-logs',
-                  active: currentPath === '/system-logs',
-                },
-                {
-                  id: 'audit',
-                  label: 'Nhật ký Audit (Bảo mật)',
-                  path: '/audit',
-                  active: currentPath === '/audit',
-                },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  data-testid={`subswitch-${tab.id}`}
-                  onClick={() => onNavigate(tab.path)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: tab.active
-                      ? 'rgba(20, 184, 166, 0.16)'
-                      : 'transparent',
-                    color: tab.active
-                      ? 'var(--accent-text)'
-                      : 'var(--muted-color)',
-                  }}
-                >
-                  <NavIcon id={tab.id} size={14} />
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </div>
           )}
           {children}
         </div>

@@ -240,370 +240,405 @@ test('MOBILE-P0-05: Audited screens use responsive grid minmax(min(100%, ...), 1
   }
 });
 
-test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/1024px, scroll, tabs, modal, keyboard focus, and light/dark themes', async (t) => {
-  const candidates = [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-  ];
-  const browserBin = candidates.find((p) => fs.existsSync(p));
-  const webDistIndex = path.join(ROOT_DIR, 'apps/web/dist/index.html');
+test(
+  'MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/1024px, scroll, tabs, modal, keyboard focus, and light/dark themes',
+  { timeout: 90_000 },
+  async (t) => {
+    const candidates = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+    ];
+    const browserBin = candidates.find((p) => fs.existsSync(p));
+    const webDistIndex = path.join(ROOT_DIR, 'apps/web/dist/index.html');
 
-  if (!browserBin || !fs.existsSync(webDistIndex)) {
-    t.skip(
-      'Headless browser or apps/web/dist not available in this environment',
-    );
-    return;
-  }
+    if (!browserBin || !fs.existsSync(webDistIndex)) {
+      t.skip(
+        'Headless browser or apps/web/dist not available in this environment',
+      );
+      return;
+    }
 
-  const distDir = path.join(ROOT_DIR, 'apps/web/dist');
-  const server = http.createServer((req, res) => {
-    const u = new URL(req.url || '/', 'http://127.0.0.1');
-    const p = u.pathname;
-    if (p === '/api/v1/auth/me') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          data: {
-            user: {
-              id: '11111111-1111-4111-8111-111111111111',
-              username: 'owner',
-              email: 'owner@hoaiphuong.local',
-              display_name: 'Chủ sở hữu Hoài Phương',
+    const distDir = path.join(ROOT_DIR, 'apps/web/dist');
+    const server = http.createServer((req, res) => {
+      const u = new URL(req.url || '/', 'http://127.0.0.1');
+      const p = u.pathname;
+      if (p === '/api/v1/auth/me') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            success: true,
+            data: {
+              user: {
+                id: '11111111-1111-4111-8111-111111111111',
+                username: 'owner',
+                email: 'owner@hoaiphuong.local',
+                display_name: 'Chủ sở hữu Hoài Phương',
+              },
+              active_workspace: {
+                id: '22222222-2222-4222-8222-222222222222',
+                code: 'HP-MAIN',
+                name: 'Hoài Phương Studio',
+                role: 'owner',
+              },
+              csrf_token: 'csrf-token-123',
+              session_id: '33333333-3333-4333-8333-333333333333',
             },
-            active_workspace: {
-              id: '22222222-2222-4222-8222-222222222222',
-              code: 'HP-MAIN',
-              name: 'Hoài Phương Studio',
-              role: 'owner',
-            },
-            csrf_token: 'csrf-token-123',
-            session_id: '33333333-3333-4333-8333-333333333333',
-          },
-        }),
-      );
-      return;
-    }
-    if (p === '/api/v1/schedules/me') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          data: { schedule: null, entries: [], revisions: [] },
-        }),
-      );
-      return;
-    }
-    if (p.startsWith('/api/')) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          data: { items: [], total_count: 0, has_next_page: false },
-        }),
-      );
-      return;
-    }
-    let filePath = path.join(distDir, p === '/' ? 'index.html' : p);
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(distDir, 'index.html');
-    }
-    const ext = path.extname(filePath);
-    const mime =
-      ext === '.html'
-        ? 'text/html; charset=utf-8'
-        : ext === '.js'
-          ? 'application/javascript; charset=utf-8'
-          : ext === '.css'
-            ? 'text/css; charset=utf-8'
-            : 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': mime });
-    res.end(fs.readFileSync(filePath));
-  });
-
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const port = server.address().port;
-  const baseUrl = `http://127.0.0.1:${port}`;
-  const primaryBrowsers = [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/microsoft-edge',
-  ].filter((p) => fs.existsSync(p));
-  const availableBrowsers =
-    primaryBrowsers.length > 0
-      ? primaryBrowsers
-      : ['/usr/bin/chromium'].filter((p) => fs.existsSync(p));
-
-  const allocateFreePort = () =>
-    new Promise((resolve, reject) => {
-      const probe = http.createServer();
-      probe.once('error', reject);
-      probe.listen(0, '127.0.0.1', () => {
-        const freePort = probe.address().port;
-        probe.close(() => resolve(freePort));
-      });
-    });
-
-  const terminateBrowserProcess = async (proc) => {
-    if (!proc) return;
-    if (proc.exitCode === null) {
-      try {
-        if (process.platform !== 'win32' && proc.pid) {
-          process.kill(-proc.pid, 'SIGTERM');
-        } else {
-          proc.kill('SIGTERM');
-        }
-      } catch {
-        // ignore if already exited
+          }),
+        );
+        return;
       }
-      await Promise.race([
-        new Promise((resolve) => proc.once('exit', resolve)),
-        new Promise((resolve) => setTimeout(resolve, 1500)),
-      ]);
-    }
-    if (proc.exitCode === null) {
-      try {
-        if (process.platform !== 'win32' && proc.pid) {
-          process.kill(-proc.pid, 'SIGKILL');
-        } else {
-          proc.kill('SIGKILL');
-        }
-      } catch {
-        // ignore if already exited
+      if (p === '/api/v1/schedules/me') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            success: true,
+            data: { schedule: null, entries: [], revisions: [] },
+          }),
+        );
+        return;
       }
-      await Promise.race([
-        new Promise((resolve) => proc.once('exit', resolve)),
-        new Promise((resolve) => setTimeout(resolve, 1000)),
-      ]);
-    }
-    proc.stderr?.removeAllListeners();
-    proc.stderr?.destroy();
-    proc.unref?.();
-  };
-
-  const launchProfiles = [];
-  for (const bin of availableBrowsers) {
-    launchProfiles.push({
-      bin,
-      extraArgs: ['--headless=new', '--ozone-platform=headless'],
-    });
-    launchProfiles.push({
-      bin,
-      extraArgs: ['--headless=new'],
-    });
-  }
-
-  let chrome = null;
-  let activeUserDataDir = null;
-  let list = null;
-  let lastDiagnostics = '';
-
-  for (let pIdx = 0; pIdx < launchProfiles.length; pIdx++) {
-    const profile = launchProfiles[pIdx];
-    const debugPort = await allocateFreePort();
-    const userDataDir = path.join(
-      process.env.TEMP || '/tmp',
-      `chrome-mobile-p0-${process.pid}-${Date.now()}-${pIdx}`,
-    );
-    fs.mkdirSync(userDataDir, { recursive: true });
-
-    let stderrBuf = '';
-    let exitCode = null;
-    const proc = spawn(
-      profile.bin,
-      [
-        ...profile.extraArgs,
-        `--remote-debugging-port=${debugPort}`,
-        '--remote-debugging-address=127.0.0.1',
-        `--user-data-dir=${userDataDir}`,
-        `--crash-dumps-dir=${userDataDir}`,
-        '--disable-crash-reporter',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-        '--password-store=basic',
-        '--use-mock-keychain',
-        '--disable-extensions',
-        '--disable-background-networking',
-        '--disable-sync',
-        '--disable-translate',
-        '--mute-audio',
-        '--remote-allow-origins=*',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--window-size=390,844',
-        `${baseUrl}/schedule`,
-      ],
-      {
-        detached: process.platform !== 'win32',
-        stdio: ['ignore', 'ignore', 'pipe'],
-        env: {
-          ...process.env,
-          HOME: userDataDir,
-          DBUS_SESSION_BUS_ADDRESS: '/dev/null',
-        },
-      },
-    );
-    proc.stderr.on('data', (chunk) => {
-      if (stderrBuf.length < 3000) stderrBuf += chunk.toString();
-    });
-    proc.on('exit', (code) => {
-      exitCode = code;
+      if (p.startsWith('/api/')) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            success: true,
+            data: { items: [], total_count: 0, has_next_page: false },
+          }),
+        );
+        return;
+      }
+      let filePath = path.join(distDir, p === '/' ? 'index.html' : p);
+      if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+        filePath = path.join(distDir, 'index.html');
+      }
+      const ext = path.extname(filePath);
+      const mime =
+        ext === '.html'
+          ? 'text/html; charset=utf-8'
+          : ext === '.js'
+            ? 'application/javascript; charset=utf-8'
+            : ext === '.css'
+              ? 'text/css; charset=utf-8'
+              : 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': mime });
+      res.end(fs.readFileSync(filePath));
     });
 
-    let foundList = null;
-    for (let i = 0; i < 80; i++) {
-      if (exitCode !== null) break;
-      try {
-        foundList = await new Promise((resolve, reject) => {
-          const req = http.get(
-            `http://127.0.0.1:${debugPort}/json/list`,
-            { timeout: 1500 },
-            (res) => {
-              let data = '';
-              res.on('data', (c) => (data += c));
-              res.on('end', () => {
-                try {
-                  resolve(JSON.parse(data));
-                } catch (err) {
-                  reject(err);
-                }
-              });
-            },
-          );
-          req.on('timeout', () => req.destroy(new Error('CDP list timeout')));
-          req.on('error', reject);
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const baseUrl = `http://127.0.0.1:${port}`;
+    const primaryBrowsers = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      '/usr/bin/google-chrome',
+      '/usr/bin/microsoft-edge',
+    ].filter((p) => fs.existsSync(p));
+    const availableBrowsers =
+      primaryBrowsers.length > 0
+        ? primaryBrowsers
+        : ['/usr/bin/chromium'].filter((p) => fs.existsSync(p));
+
+    const allocateFreePort = () =>
+      new Promise((resolve, reject) => {
+        const probe = http.createServer();
+        probe.once('error', reject);
+        probe.listen(0, '127.0.0.1', () => {
+          const freePort = probe.address().port;
+          probe.close(() => resolve(freePort));
         });
-        if (Array.isArray(foundList) && foundList.length === 0) {
-          // Create a new tab via PUT /json/new if list is empty
-          const created = await new Promise((resolve, reject) => {
-            const req = http.request(
-              `http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(`${baseUrl}/schedule`)}`,
-              { method: 'PUT', timeout: 1500 },
+      });
+
+    const terminateBrowserProcess = async (proc) => {
+      if (!proc) return;
+      if (proc.exitCode === null) {
+        try {
+          if (process.platform !== 'win32' && proc.pid) {
+            process.kill(-proc.pid, 'SIGTERM');
+          } else {
+            proc.kill('SIGTERM');
+          }
+        } catch {
+          // ignore if already exited
+        }
+        await Promise.race([
+          new Promise((resolve) => proc.once('exit', resolve)),
+          new Promise((resolve) => setTimeout(resolve, 1500)),
+        ]);
+      }
+      if (proc.exitCode === null) {
+        try {
+          if (process.platform !== 'win32' && proc.pid) {
+            process.kill(-proc.pid, 'SIGKILL');
+          } else {
+            proc.kill('SIGKILL');
+          }
+        } catch {
+          // ignore if already exited
+        }
+        await Promise.race([
+          new Promise((resolve) => proc.once('exit', resolve)),
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+        ]);
+      }
+      proc.stderr?.removeAllListeners();
+      proc.stderr?.destroy();
+      proc.unref?.();
+    };
+
+    const launchProfiles = [];
+    for (const bin of availableBrowsers) {
+      launchProfiles.push({
+        bin,
+        extraArgs: ['--headless=new', '--ozone-platform=headless'],
+      });
+      launchProfiles.push({
+        bin,
+        extraArgs: ['--headless=new'],
+      });
+    }
+
+    let chrome = null;
+    let activeUserDataDir = null;
+    let list = null;
+    let lastDiagnostics = '';
+
+    for (let pIdx = 0; pIdx < launchProfiles.length; pIdx++) {
+      const profile = launchProfiles[pIdx];
+      const debugPort = await allocateFreePort();
+      const userDataDir = path.join(
+        process.env.TEMP || '/tmp',
+        `chrome-mobile-p0-${process.pid}-${Date.now()}-${pIdx}`,
+      );
+      fs.mkdirSync(userDataDir, { recursive: true });
+
+      let stderrBuf = '';
+      let exitCode = null;
+      const proc = spawn(
+        profile.bin,
+        [
+          ...profile.extraArgs,
+          `--remote-debugging-port=${debugPort}`,
+          '--remote-debugging-address=127.0.0.1',
+          `--user-data-dir=${userDataDir}`,
+          `--crash-dumps-dir=${userDataDir}`,
+          '--disable-crash-reporter',
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+          '--password-store=basic',
+          '--use-mock-keychain',
+          '--disable-extensions',
+          '--disable-background-networking',
+          '--disable-sync',
+          '--disable-translate',
+          '--mute-audio',
+          '--remote-allow-origins=*',
+          '--no-first-run',
+          '--no-default-browser-check',
+          '--window-size=390,844',
+          `${baseUrl}/schedule`,
+        ],
+        {
+          detached: process.platform !== 'win32',
+          stdio: ['ignore', 'ignore', 'pipe'],
+          env: {
+            ...process.env,
+            HOME: userDataDir,
+            DBUS_SESSION_BUS_ADDRESS: '/dev/null',
+          },
+        },
+      );
+      proc.stderr.on('data', (chunk) => {
+        if (stderrBuf.length < 3000) stderrBuf += chunk.toString();
+      });
+      proc.on('exit', (code) => {
+        exitCode = code;
+      });
+
+      let foundList = null;
+      for (let i = 0; i < 80; i++) {
+        if (exitCode !== null) break;
+        try {
+          foundList = await new Promise((resolve, reject) => {
+            const req = http.get(
+              `http://127.0.0.1:${debugPort}/json/list`,
+              { timeout: 1500 },
               (res) => {
-                let d = '';
-                res.on('data', (c) => (d += c));
+                let data = '';
+                res.on('data', (c) => (data += c));
                 res.on('end', () => {
                   try {
-                    resolve(JSON.parse(d));
+                    resolve(JSON.parse(data));
                   } catch (err) {
                     reject(err);
                   }
                 });
               },
             );
-            req.on('timeout', () => req.destroy(new Error('CDP new timeout')));
+            req.on('timeout', () => req.destroy(new Error('CDP list timeout')));
             req.on('error', reject);
-            req.end();
           });
-          if (created && created.webSocketDebuggerUrl) {
-            foundList = [created];
+          if (Array.isArray(foundList) && foundList.length === 0) {
+            // Create a new tab via PUT /json/new if list is empty
+            const created = await new Promise((resolve, reject) => {
+              const req = http.request(
+                `http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(`${baseUrl}/schedule`)}`,
+                { method: 'PUT', timeout: 1500 },
+                (res) => {
+                  let d = '';
+                  res.on('data', (c) => (d += c));
+                  res.on('end', () => {
+                    try {
+                      resolve(JSON.parse(d));
+                    } catch (err) {
+                      reject(err);
+                    }
+                  });
+                },
+              );
+              req.on('timeout', () =>
+                req.destroy(new Error('CDP new timeout')),
+              );
+              req.on('error', reject);
+              req.end();
+            });
+            if (created && created.webSocketDebuggerUrl) {
+              foundList = [created];
+            }
           }
+          if (foundList && foundList.length > 0) break;
+        } catch {
+          // Wait for CDP endpoint
         }
-        if (foundList && foundList.length > 0) break;
-      } catch {
-        // Wait for CDP endpoint
+        await new Promise((r) => setTimeout(r, 250));
       }
-      await new Promise((r) => setTimeout(r, 250));
+
+      if (foundList && foundList.length > 0) {
+        chrome = proc;
+        activeUserDataDir = userDataDir;
+        list = foundList;
+        break;
+      }
+      lastDiagnostics = `bin=${profile.bin} args=${profile.extraArgs.join(',')} exit=${exitCode} stderr=${stderrBuf.slice(0, 400)}`;
+      await terminateBrowserProcess(proc);
+      fs.rmSync(userDataDir, { recursive: true, force: true });
     }
 
-    if (foundList && foundList.length > 0) {
-      chrome = proc;
-      activeUserDataDir = userDataDir;
-      list = foundList;
-      break;
-    }
-    lastDiagnostics = `bin=${profile.bin} args=${profile.extraArgs.join(',')} exit=${exitCode} stderr=${stderrBuf.slice(0, 400)}`;
-    await terminateBrowserProcess(proc);
-    fs.rmSync(userDataDir, { recursive: true, force: true });
-  }
-
-  let ws;
-  try {
-    if (
-      (!list || list.length === 0) &&
-      (lastDiagnostics.includes('Operation not permitted') ||
-        lastDiagnostics.includes('Permission denied'))
-    ) {
-      t.skip(
-        `Headless browser blocked by OS sandbox restrictions (${lastDiagnostics.slice(0, 180)})`,
-      );
-      return;
-    }
-    assert.ok(
-      list && list.length > 0,
-      `Chrome CDP endpoint must respond (${lastDiagnostics})`,
-    );
-
-    const pageTab = list.find((item) => item.type === 'page') || list[0];
-    ws = new WebSocket(pageTab.webSocketDebuggerUrl);
-    let msgId = 1;
-    const send = (method, params = {}) =>
-      new Promise((resolve, reject) => {
-        const curId = msgId++;
-        const timer = setTimeout(
-          () => reject(new Error(`CDP timeout: ${method}`)),
-          10000,
+    let ws;
+    try {
+      if (
+        (!list || list.length === 0) &&
+        (lastDiagnostics.includes('Operation not permitted') ||
+          lastDiagnostics.includes('Permission denied'))
+      ) {
+        t.skip(
+          `Headless browser blocked by OS sandbox restrictions (${lastDiagnostics.slice(0, 180)})`,
         );
-        const handler = (evt) => {
-          const resp = JSON.parse(evt.data);
-          if (resp.id === curId) {
-            clearTimeout(timer);
-            ws.removeEventListener('message', handler);
-            resolve(resp.result);
-          }
+        return;
+      }
+      assert.ok(
+        list && list.length > 0,
+        `Chrome CDP endpoint must respond (${lastDiagnostics})`,
+      );
+
+      const pageTab = list.find((item) => item.type === 'page') || list[0];
+      ws = new WebSocket(pageTab.webSocketDebuggerUrl);
+      let msgId = 1;
+      const send = (method, params = {}) =>
+        new Promise((resolve, reject) => {
+          const curId = msgId++;
+          const timer = setTimeout(
+            () => reject(new Error(`CDP timeout: ${method}`)),
+            10000,
+          );
+          const handler = (evt) => {
+            const resp = JSON.parse(evt.data);
+            if (resp.id === curId) {
+              clearTimeout(timer);
+              ws.removeEventListener('message', handler);
+              resolve(resp.result);
+            }
+          };
+          ws.addEventListener('message', handler);
+          ws.send(JSON.stringify({ id: curId, method, params }));
+        });
+
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error('CDP WebSocket open timeout (10000ms)')),
+          10_000,
+        );
+        const onOpen = () => {
+          clearTimeout(timer);
+          ws.removeEventListener('error', onErr);
+          ws.removeEventListener('close', onClose);
+          resolve();
         };
-        ws.addEventListener('message', handler);
-        ws.send(JSON.stringify({ id: curId, method, params }));
+        const onErr = (err) => {
+          clearTimeout(timer);
+          ws.removeEventListener('open', onOpen);
+          ws.removeEventListener('close', onClose);
+          reject(
+            new Error(
+              `CDP WebSocket error before open: ${err?.message || 'unknown'}`,
+            ),
+          );
+        };
+        const onClose = () => {
+          clearTimeout(timer);
+          ws.removeEventListener('open', onOpen);
+          ws.removeEventListener('error', onErr);
+          reject(new Error('CDP WebSocket closed before open'));
+        };
+        ws.addEventListener('open', onOpen, { once: true });
+        ws.addEventListener('error', onErr, { once: true });
+        ws.addEventListener('close', onClose, { once: true });
       });
+      await send('Page.enable');
+      await send('Runtime.enable');
 
-    await new Promise((r) => ws.addEventListener('open', r, { once: true }));
-    await send('Page.enable');
-    await send('Runtime.enable');
+      for (const vp of [
+        { w: 320, h: 667 },
+        { w: 375, h: 812 },
+        { w: 390, h: 844 },
+        { w: 430, h: 932 },
+        { w: 768, h: 1024 },
+        { w: 1024, h: 768 },
+      ]) {
+        await send('Emulation.setDeviceMetricsOverride', {
+          width: vp.w,
+          height: vp.h,
+          deviceScaleFactor: 2,
+          mobile: vp.w <= 768,
+        });
+        await send('Page.navigate', { url: `${baseUrl}/schedule` });
+        await new Promise((r) => setTimeout(r, 600));
 
-    for (const vp of [
-      { w: 320, h: 667 },
-      { w: 375, h: 812 },
-      { w: 390, h: 844 },
-      { w: 430, h: 932 },
-      { w: 768, h: 1024 },
-      { w: 1024, h: 768 },
-    ]) {
-      await send('Emulation.setDeviceMetricsOverride', {
-        width: vp.w,
-        height: vp.h,
-        deviceScaleFactor: 2,
-        mobile: vp.w <= 768,
-      });
-      await send('Page.navigate', { url: `${baseUrl}/schedule` });
-      await new Promise((r) => setTimeout(r, 600));
-
-      // Click "Chọn T2 – T6 (08:00)" so all working inputs are active
-      await send('Runtime.evaluate', {
-        expression: `
+        // Click "Chọn T2 – T6 (08:00)" so all working inputs are active
+        await send('Runtime.evaluate', {
+          expression: `
           (() => {
             const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Chọn T2 – T6'));
             if (btn) btn.click();
           })()
         `,
-      });
-      await new Promise((r) => setTimeout(r, 200));
+        });
+        await new Promise((r) => setTimeout(r, 200));
 
-      const result = (
-        await send('Runtime.evaluate', {
-          expression: `
+        const result = (
+          await send('Runtime.evaluate', {
+            expression: `
             (() => {
               const docW = document.documentElement.clientWidth;
               const scrollW = document.documentElement.scrollWidth;
@@ -618,72 +653,74 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
               return { docW, scrollW, clippedLeft, overflowRight };
             })()
           `,
-          returnByValue: true,
-        })
-      ).result.value;
+            returnByValue: true,
+          })
+        ).result.value;
 
-      assert.ok(
-        result.scrollW <= result.docW + 1,
-        `Viewport ${vp.w}px must have zero horizontal scroll overflow (got scrollW=${result.scrollW}, docW=${result.docW})`,
-      );
-      assert.equal(
-        result.clippedLeft,
-        0,
-        `Viewport ${vp.w}px must have zero left-clipped elements`,
-      );
-      assert.equal(
-        result.overflowRight,
-        0,
-        `Viewport ${vp.w}px must have zero right-overflowing elements`,
-      );
-    }
+        assert.ok(
+          result.scrollW <= result.docW + 1,
+          `Viewport ${vp.w}px must have zero horizontal scroll overflow (got scrollW=${result.scrollW}, docW=${result.docW})`,
+        );
+        assert.equal(
+          result.clippedLeft,
+          0,
+          `Viewport ${vp.w}px must have zero left-clipped elements`,
+        );
+        assert.equal(
+          result.overflowRight,
+          0,
+          `Viewport ${vp.w}px must have zero right-overflowing elements`,
+        );
+      }
 
-    // Verify 320px zero-overflow across primary Admin routes
-    await send('Emulation.setDeviceMetricsOverride', {
-      width: 320,
-      height: 667,
-      deviceScaleFactor: 2,
-      mobile: true,
-    });
-    for (const adminRoute of [
-      '/',
-      '/employees',
-      '/finance',
-      '/work',
-      '/settings',
-    ]) {
-      await send('Page.navigate', { url: `${baseUrl}${adminRoute}` });
-      await new Promise((r) => setTimeout(r, 450));
-      const routeRes = (
-        await send('Runtime.evaluate', {
-          expression: `
+      // Verify 320px zero-overflow across primary Admin routes
+      await send('Emulation.setDeviceMetricsOverride', {
+        width: 320,
+        height: 667,
+        deviceScaleFactor: 2,
+        mobile: true,
+      });
+      for (const adminRoute of [
+        '/',
+        '/employees',
+        '/finance',
+        '/work',
+        '/settings',
+      ]) {
+        await send('Page.navigate', { url: `${baseUrl}${adminRoute}` });
+        await new Promise((r) => setTimeout(r, 450));
+        const routeRes = (
+          await send('Runtime.evaluate', {
+            expression: `
             (() => {
               const docW = document.documentElement.clientWidth;
               const scrollW = document.documentElement.scrollWidth;
               return { docW, scrollW };
             })()
           `,
-          returnByValue: true,
-        })
-      ).result.value;
-      assert.ok(
-        routeRes.scrollW <= routeRes.docW + 1,
-        `Admin route ${adminRoute} at 320px must have zero horizontal scroll overflow (got scrollW=${routeRes.scrollW}, docW=${routeRes.docW})`,
-      );
-    }
+            returnByValue: true,
+          })
+        ).result.value;
+        assert.ok(
+          routeRes.scrollW <= routeRes.docW + 1,
+          `Admin route ${adminRoute} at 320px must have zero horizontal scroll overflow (got scrollW=${routeRes.scrollW}, docW=${routeRes.docW})`,
+        );
+      }
 
-    // At 390px: verify vertical card stacking, CTA vs ReportBugWidget non-overlap, modal open, tab switch, keyboard focus, and light/dark mode
-    await send('Emulation.setDeviceMetricsOverride', {
-      width: 390,
-      height: 844,
-      deviceScaleFactor: 2,
-      mobile: true,
-    });
-    await send('Page.navigate', { url: `${baseUrl}/schedule?t=${Date.now()}` });
-    await new Promise((r) => setTimeout(r, 800));
+      // At 390px: verify vertical card stacking, CTA vs ReportBugWidget non-overlap, modal open, tab switch, keyboard focus, and light/dark mode
+      await send('Emulation.setDeviceMetricsOverride', {
+        width: 390,
+        height: 844,
+        deviceScaleFactor: 2,
+        mobile: true,
+      });
+      await send('Page.navigate', {
+        url: `${baseUrl}/schedule?t=${Date.now()}`,
+      });
+      await new Promise((r) => setTimeout(r, 800));
 
-    const evalRes = await send('Runtime.evaluate', {
-      expression: `
+      const evalRes = await send('Runtime.evaluate', {
+        expression: `
         (async () => {
           for (let i = 0; i < 20; i++) {
             if (document.querySelector('[data-testid="schedule-day-card-1"]')) break;
@@ -732,42 +769,49 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
           };
         })()
       `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    const interactiveCheck = evalRes.result.value;
+        awaitPromise: true,
+        returnByValue: true,
+      });
+      const interactiveCheck = evalRes.result.value;
 
-    assert.equal(
-      interactiveCheck.isStackedVertically,
-      true,
-      'Mobile schedule card must stack day header, start time, and notes vertically',
-    );
-    assert.equal(
-      interactiveCheck.intersectsSubmit,
-      false,
-      'Báo lỗi button must never overlap Đăng ký lịch tuần button',
-    );
-    assert.equal(
-      interactiveCheck.intersectsNav,
-      false,
-      'Báo lỗi button at bottom of page must sit cleanly above MobileBottomNav',
-    );
-    assert.ok(
-      interactiveCheck.lightScrollW <= 390,
-      'Light mode at 390px must have zero horizontal overflow',
-    );
-    assert.equal(
-      interactiveCheck.modalFitsViewport,
-      true,
-      'ReportBugWidget modal must fit cleanly inside 390px mobile viewport',
-    );
-  } finally {
-    if (ws) ws.close();
-    if (chrome) await terminateBrowserProcess(chrome);
-    if (activeUserDataDir) {
-      fs.rmSync(activeUserDataDir, { recursive: true, force: true });
+      assert.equal(
+        interactiveCheck.isStackedVertically,
+        true,
+        'Mobile schedule card must stack day header, start time, and notes vertically',
+      );
+      assert.equal(
+        interactiveCheck.intersectsSubmit,
+        false,
+        'Báo lỗi button must never overlap Đăng ký lịch tuần button',
+      );
+      assert.equal(
+        interactiveCheck.intersectsNav,
+        false,
+        'Báo lỗi button at bottom of page must sit cleanly above MobileBottomNav',
+      );
+      assert.ok(
+        interactiveCheck.lightScrollW <= 390,
+        'Light mode at 390px must have zero horizontal overflow',
+      );
+      assert.equal(
+        interactiveCheck.modalFitsViewport,
+        true,
+        'ReportBugWidget modal must fit cleanly inside 390px mobile viewport',
+      );
+    } finally {
+      if (ws) {
+        try {
+          ws.close();
+        } catch {
+          // ignore close errors
+        }
+      }
+      if (chrome) await terminateBrowserProcess(chrome);
+      if (activeUserDataDir) {
+        fs.rmSync(activeUserDataDir, { recursive: true, force: true });
+      }
+      server.closeAllConnections?.();
+      await new Promise((resolve) => server.close(() => resolve()));
     }
-    server.closeAllConnections?.();
-    server.close();
-  }
-});
+  },
+);

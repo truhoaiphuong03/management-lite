@@ -246,14 +246,16 @@ export function createBoundedCdpSender(
 
 export async function waitForAppStartupSettled(
   evaluate,
-  { timeoutMs = 15_000 } = {},
+  { timeoutMs = 30_000 } = {},
 ) {
   const deadline = Date.now() + timeoutMs;
   let startupAuthSeen = false;
+  let lastState = null;
   while (Date.now() < deadline) {
     const state = await evaluate(`
       ({
         readyState: document.readyState,
+        href: location.href,
         authSeen:
           Array.isArray(window.__FAIL_CLOSED_VIOLATIONS__) &&
           window.__FAIL_CLOSED_VIOLATIONS__.some((v) =>
@@ -261,6 +263,7 @@ export async function waitForAppStartupSettled(
           ),
       })
     `);
+    lastState = state;
     if (state?.readyState === 'complete' && state?.authSeen) {
       startupAuthSeen = true;
       break;
@@ -269,7 +272,7 @@ export async function waitForAppStartupSettled(
   }
   if (!startupAuthSeen) {
     throw new Error(
-      `Timed out (${timeoutMs}ms) waiting for initial App /api/v1/auth/me startup check`,
+      `Timed out (${timeoutMs}ms) waiting for initial App /api/v1/auth/me startup check (lastState=${JSON.stringify(lastState)})`,
     );
   }
   // Allow App.tsx unauthenticated redirect microtasks to settle, then detach #root
@@ -366,6 +369,10 @@ export async function withIsolatedViteDevServer(
 
     if (ready) {
       try {
+        await Promise.all([
+          fetch(`${baseUrl}/src/main.tsx`).catch(() => {}),
+          fetch(`${baseUrl}/src/App.tsx`).catch(() => {}),
+        ]);
         return await fn(baseUrl);
       } finally {
         killProcessTree(viteProc);

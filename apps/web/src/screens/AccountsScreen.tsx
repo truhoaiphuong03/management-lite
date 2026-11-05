@@ -13,6 +13,7 @@ import {
   LoadingState,
   EmptyState,
   ErrorState,
+  NavIcon,
   LockIcon,
   EyeIcon,
   PlusIcon,
@@ -2320,9 +2321,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   return (
     <div
       style={{
-        maxWidth: accountId ? '900px' : '1200px',
-        margin: '0 auto',
-        padding: '24px 16px',
+        maxWidth: accountId ? '900px' : '100%',
+        width: '100%',
+        margin: accountId ? '0 auto' : '0',
+        padding: accountId ? '8px 0 24px 0' : '0',
         color: 'var(--text-color)',
       }}
     >
@@ -2330,6 +2332,54 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         renderDetailView()
       ) : (
         <>
+          {/* 0. Module View Sub-Navigation (unified to /work .app-subnav-bar standard) */}
+          <nav
+            aria-label="Chế độ xem tài khoản"
+            className="app-subnav-bar"
+            data-testid="accounts-view-tabs"
+          >
+            {(
+              [
+                {
+                  id: 'all',
+                  icon: 'accounts',
+                  label: `Danh sách (${filteredAccounts.length})`,
+                },
+                {
+                  id: 'clusters',
+                  icon: 'storage',
+                  label: `Theo Gmail (${gmailClustersData.clusters.length})`,
+                },
+                {
+                  id: 'phones',
+                  icon: 'employees',
+                  label: `Theo SĐT (${phoneClustersData.phones.length})`,
+                },
+                {
+                  id: 'protection',
+                  icon: 'audit',
+                  label: `Bảo mật & 2FA (${protectionClustersData.authenticators.length + protectionClustersData.recoveries.length})`,
+                },
+              ] as const
+            ).map((tab) => {
+              const active = viewMode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className="app-subnav-item"
+                  data-testid={`tab-view-${tab.id}`}
+                  data-active={active ? 'true' : 'false'}
+                  aria-current={active ? 'page' : undefined}
+                  onClick={() => setViewMode(tab.id)}
+                >
+                  <NavIcon id={tab.icon} size={15} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
           {/* 1. Page Header — Gọn gàng, thân thiện với người dùng */}
           <PageHeader
             title="Quản lý Tài khoản"
@@ -2561,117 +2611,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             </div>
           )}
 
-          {/* 3. Unified View Tabs + Search & Filter Toolbar */}
+          {/* 3. Search & Filter Toolbar */}
           <AppCard style={{ padding: '12px 14px', marginBottom: '14px' }}>
-            {/* Top Row: Clean Segmented View Switcher + Refresh */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'nowrap',
-                gap: '6px',
-                paddingBottom: '10px',
-                marginBottom: '10px',
-                borderBottom: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div
-                data-testid="accounts-view-tabs"
-                style={{
-                  display: 'flex',
-                  gap: '4px',
-                  flexWrap: 'nowrap',
-                  overflowX: 'auto',
-                  flex: '1 1 0',
-                  minWidth: 0,
-                  maxWidth: '100%',
-                  padding: '3px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-color)',
-                  scrollbarWidth: 'none',
-                }}
-              >
-                {(
-                  [
-                    {
-                      id: 'all',
-                      label: `Danh sách (${filteredAccounts.length})`,
-                    },
-                    {
-                      id: 'clusters',
-                      label: `Theo Gmail (${gmailClustersData.clusters.length})`,
-                    },
-                    {
-                      id: 'phones',
-                      label: `Theo SĐT (${phoneClustersData.phones.length})`,
-                    },
-                    {
-                      id: 'protection',
-                      label: `Bảo mật & 2FA (${protectionClustersData.authenticators.length + protectionClustersData.recoveries.length})`,
-                    },
-                  ] as const
-                ).map((tab) => {
-                  const active = viewMode === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      data-testid={`tab-view-${tab.id}`}
-                      onClick={() => setViewMode(tab.id)}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        backgroundColor: active
-                          ? 'rgba(20, 184, 166, 0.16)'
-                          : 'transparent',
-                        color: active
-                          ? 'var(--accent-text)'
-                          : 'var(--muted-color)',
-                        fontSize: '12px',
-                        fontWeight: active ? 700 : 500,
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                type="button"
-                aria-label="Làm mới danh sách"
-                onClick={loadData}
-                disabled={loading || actionLoading}
-                title="Làm mới danh sách"
-                style={{
-                  boxSizing: 'border-box',
-                  height: '34px',
-                  padding: '0 10px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  flexShrink: 0,
-                }}
-              >
-                <RotateCcwIcon size={13} />
-                <span className="mobile-hide-label">Làm mới</span>
-              </button>
-            </div>
-
-            {/* Bottom Row: Primary Search + Platform Filter + Collapsible Advanced Filter Toggle */}
+            {/* Primary Search + Platform Filter + Collapsible Advanced Filter Toggle + Refresh */}
             <div
               style={{
                 display: 'flex',
@@ -2808,6 +2750,33 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 }}
               >
                 {showAdvancedFilters ? '▲ Ẩn bộ lọc' : '▾ Lọc nâng cao'}
+              </button>
+
+              <button
+                type="button"
+                aria-label="Làm mới danh sách"
+                onClick={loadData}
+                disabled={loading || actionLoading}
+                title="Làm mới danh sách"
+                style={{
+                  boxSizing: 'border-box',
+                  height: '36px',
+                  padding: '0 12px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--text-color)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
+                  flexShrink: 0,
+                }}
+              >
+                <RotateCcwIcon size={13} />
+                <span className="mobile-hide-label">Làm mới</span>
               </button>
             </div>
 

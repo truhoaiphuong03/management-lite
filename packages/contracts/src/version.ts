@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.0';
-export const SYSTEM_COMMIT = 'a66a292';
+export const SYSTEM_VERSION = '0.9.1';
+export const SYSTEM_COMMIT = '9c010ce';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,25 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.0',
+    version: '0.9.1',
     commit: 'latest',
+    released_at: '2026-11-05',
+    summary:
+      'Thống nhất giao diện toàn hệ thống theo chuẩn phân hệ Công việc (/work), đồng bộ tiêu đề, phụ đề và thanh điều hướng phân hệ trên máy tính & điện thoại (Sáng/Tối), và khử triệt để race kiểm thử Chrome',
+    added: [
+      'Bộ kiểm thử trình duyệt thực tế đối chiếu chuẩn /work (tests/web/ui-unify-work-standard.test.mjs): kiểm chứng font thực tế qua CDP, cấp chữ, thanh điều hướng .app-subnav-bar, phân quyền RBAC, điều hướng bàn phím và chống tràn ngang trên 7 phân hệ.',
+    ],
+    improved: [
+      'Chuẩn hóa tiêu đề trang (22px/700 trên máy tính, 17.5px trên điện thoại), phụ đề và thanh điều hướng phân hệ (.app-subnav-bar & .pq-module-nav) đồng bộ theo /work trên Chấm công, Nhân sự, Tài khoản, Thu chi, Báo giá in ấn, Sổ tay lỗi và Quản trị.',
+      'Gỡ bỏ giới hạn chiều rộng lệch nhau (maxWidth 800–1200px) trên các màn hình con để thẳng mép trái – phải với khung chuẩn AppShell 1280px, đồng thời giữ nguyên 100% bố cục PDF A4 tiếng Việt và Sổ Công nợ AR/AP v0.9.0.',
+    ],
+    fixed: [
+      'Khắc phục triệt để lỗi race theo bộ đếm thời gian cố định trong kiểm thử Chrome (scripts/test-ui-fix-47-chrome.mjs & scripts/qa-chrome-harness.mjs) bằng cơ chế chờ theo điều kiện thực tế và làm nóng module entry trước khi mở tab.',
+    ],
+  },
+  {
+    version: '0.9.0',
+    commit: '5134bff',
     released_at: '2026-11-05',
     summary:
       'Hoàn thiện Sổ Công nợ & Tài chính In ấn độc lập AR/AP (migrations 0034–0036), Danh mục Giá xưởng & Công đoạn gia công đa tầng, Cổng kiểm soát chi phí thực tế 3 tầng và Hàng đợi đối chiếu công nợ lịch sử an toàn',

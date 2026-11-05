@@ -26,7 +26,7 @@ async function run() {
   const clearWatchdog = installScriptWatchdog('test-ui-fix-47-chrome', 75_000);
   console.log('=== STARTING UI-FIX-49 LIVE CHROME SUITE (FAIL-CLOSED) ===');
   const { port, cleanup } = await launchHeadlessChrome({
-    preferredPort: 9249,
+    preferredPort: 0,
     prefix: 'chrome-fix-49-',
   });
   let ws = null;
@@ -106,6 +106,39 @@ async function run() {
           window.__FAIL_CLOSED_VIOLATIONS__ = [];
           window.__mockFetchRegistry__ = [];
           window.__lastCopiedText__ = null;
+
+          window.__waitFor__ = async (predicate, description, opts = {}) => {
+            const timeoutMs = opts.timeoutMs ?? 5000;
+            const pollMs = opts.pollMs ?? 15;
+            const startedAt = performance.now();
+            let lastErr = null;
+            while (performance.now() - startedAt < timeoutMs) {
+              try {
+                const value = predicate();
+                if (value) return value;
+              } catch (err) {
+                lastErr = err;
+              }
+              await new Promise((r) => setTimeout(r, pollMs));
+            }
+            let diag = '';
+            if (typeof opts.diagnose === 'function') {
+              try {
+                diag = String(opts.diagnose() || '').trim();
+              } catch {
+                diag = '';
+              }
+            }
+            const errSuffix = lastErr ? ' (last error: ' + lastErr.message + ')' : '';
+            throw new Error(
+              'Timed out after ' +
+                timeoutMs +
+                'ms waiting for ' +
+                description +
+                (diag ? ' [state: ' + diag + ']' : '') +
+                errSuffix
+            );
+          };
 
           if (!navigator.clipboard) {
             navigator.clipboard = {};
@@ -196,7 +229,7 @@ async function run() {
           const root = ReactDOM.createRoot(container);
 
           let pendingMyReportsRequests = [];
-          let isInitialMounted = false;
+          let initialReportsServed = false;
 
           window.__mockFetchRegistry__ = [
             {
@@ -238,7 +271,8 @@ async function run() {
             {
               matches: (url) => url.includes('/api/v1/reports/me'),
               handle: async (url, opts) => {
-                if (!isInitialMounted) {
+                if (!initialReportsServed && !url.includes('cursor=')) {
+                  initialReportsServed = true;
                   return {
                     ok: true,
                     status: 200,
@@ -267,27 +301,29 @@ async function run() {
           ];
 
           root.render(React.createElement(ReportsScreen, { role: 'staff' }));
-          await new Promise(r => setTimeout(r, 200));
-          isInitialMounted = true;
 
           const getCardText = () => container.innerText || '';
           const getLoadMoreBtn = () => Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Tải thêm báo cáo'));
 
-          const initialLoadMoreBtn = getLoadMoreBtn();
-          if (!initialLoadMoreBtn) {
-            throw new Error('Initial "Tải thêm báo cáo" button not found');
-          }
-
-          const waitNextMyReportRequest = async () => {
-            const deadline = Date.now() + 5000;
-            while (pendingMyReportsRequests.length === 0) {
-              if (Date.now() > deadline) {
-                throw new Error('Timed out waiting for /api/v1/reports/me request');
-              }
-              await new Promise(r => setTimeout(r, 10));
+          const initialLoadMoreBtn = await window.__waitFor__(
+            () => getLoadMoreBtn(),
+            'Initial "Tải thêm báo cáo" button',
+            {
+              diagnose: () =>
+                'initialReportsServed=' +
+                initialReportsServed +
+                ', pending=' +
+                pendingMyReportsRequests.length +
+                ', text=' +
+                JSON.stringify(getCardText().slice(0, 160)),
             }
-            return pendingMyReportsRequests.shift();
-          };
+          );
+
+          const waitNextMyReportRequest = async () =>
+            window.__waitFor__(
+              () => (pendingMyReportsRequests.length > 0 ? pendingMyReportsRequests.shift() : null),
+              '/api/v1/reports/me request'
+            );
 
           // Trigger Request A (load more)
           initialLoadMoreBtn.click();
@@ -320,11 +356,18 @@ async function run() {
           await new Promise(r => setTimeout(r, 30));
 
           // Trigger Request B (create draft report while A is waiting for json)
-          const createReportBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Tạo báo cáo ngày'));
+          const createReportBtn = await window.__waitFor__(
+            () => Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Tạo báo cáo ngày')),
+            '"Tạo báo cáo ngày" button',
+            { diagnose: () => JSON.stringify(getCardText().slice(0, 160)) }
+          );
           createReportBtn.click();
-          await new Promise(r => setTimeout(r, 80));
 
-          const saveDraftBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Lưu bản nháp'));
+          const saveDraftBtn = await window.__waitFor__(
+            () => Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Lưu bản nháp')),
+            '"Lưu bản nháp" modal button',
+            { diagnose: () => JSON.stringify(getCardText().slice(0, 160)) }
+          );
           saveDraftBtn.click();
 
           const reqB = await waitNextMyReportRequest();
@@ -348,7 +391,14 @@ async function run() {
               },
             }),
           });
-          await new Promise(r => setTimeout(r, 150));
+          await window.__waitFor__(
+            () => {
+              const txt = getCardText();
+              return txt.includes('Winner Staff Report B') || txt.includes('2026-10-03');
+            },
+            'Winner Staff Report B render',
+            { diagnose: () => JSON.stringify(getCardText().slice(0, 160)) }
+          );
 
           const textAfterB = getCardText();
           const hasB_BeforeAResolve = textAfterB.includes('Winner Staff Report B') || textAfterB.includes('2026-10-03');
@@ -472,7 +522,10 @@ async function run() {
           const root1 = ReactDOM.createRoot(container1);
 
           root1.render(React.createElement(EmployeesScreen, { onNavigate: () => {} }));
-          await new Promise(r => setTimeout(r, 60));
+          await window.__waitFor__(
+            () => Boolean(initialResolve && initialSignal),
+            'Test 2A initial /api/v1/employees pending request'
+          );
 
           const initialSignalBeforeUnmountAborted = initialSignal?.aborted;
           root1.unmount();
@@ -496,7 +549,7 @@ async function run() {
           // --- 2B: UNMOUNT DURING LOAD-MORE PENDING ---
           let loadMoreSignal = null;
           let loadMoreResolve = null;
-          let initialLoadDone = false;
+          let initialEmployeesServed = false;
 
           window.__mockFetchRegistry__ = [
             {
@@ -510,7 +563,8 @@ async function run() {
             {
               matches: (url) => url.includes('/api/v1/employees'),
               handle: async (url, opts) => {
-                if (!initialLoadDone) {
+                if (!initialEmployeesServed && !url.includes('cursor=')) {
+                  initialEmployeesServed = true;
                   return {
                     ok: true,
                     status: 200,
@@ -536,16 +590,18 @@ async function run() {
           const root2 = ReactDOM.createRoot(container2);
 
           root2.render(React.createElement(EmployeesScreen, { onNavigate: () => {} }));
-          await new Promise(r => setTimeout(r, 120));
-          initialLoadDone = true;
 
-          const loadMoreBtn = Array.from(container2.querySelectorAll('button')).find(b => b.textContent.includes('Tải thêm nhân sự'));
-          if (!loadMoreBtn) {
-            throw new Error('Load more button not found for Test 2B');
-          }
+          const loadMoreBtn = await window.__waitFor__(
+            () => Array.from(container2.querySelectorAll('button')).find(b => b.textContent.includes('Tải thêm nhân sự')),
+            'Load more button for Test 2B',
+            { diagnose: () => JSON.stringify((container2.innerText || '').slice(0, 160)) }
+          );
 
           loadMoreBtn.click();
-          await new Promise(r => setTimeout(r, 60));
+          await window.__waitFor__(
+            () => Boolean(loadMoreResolve && loadMoreSignal),
+            'Test 2B load-more /api/v1/employees pending request'
+          );
 
           const loadMoreSignalBeforeUnmountAborted = loadMoreSignal?.aborted;
           root2.unmount();
@@ -591,10 +647,15 @@ async function run() {
           document.body.appendChild(container3);
           const root3 = ReactDOM.createRoot(container3);
 
-          root3.render(React.createElement(EmployeesScreen, { onNavigate: () => {} }));
-          await new Promise(r => setTimeout(r, 60));
+          const waitNextFilterReq = (label) =>
+            window.__waitFor__(
+              () => (filterPendingRequests.length > 0 ? filterPendingRequests.shift() : null),
+              label
+            );
 
-          const reqFilter1 = filterPendingRequests.shift();
+          root3.render(React.createElement(EmployeesScreen, { onNavigate: () => {} }));
+
+          const reqFilter1 = await waitNextFilterReq('Test 2C initial /api/v1/employees request');
           reqFilter1.res({
             ok: true,
             status: 200,
@@ -603,23 +664,27 @@ async function run() {
               data: { items: [{ id: 'emp-all', employee_code: 'ALL', full_name: 'All Emp', employment_status: 'active' }] },
             }),
           });
-          await new Promise(r => setTimeout(r, 100));
 
           // Click 'Tạm ngưng' filter tab -> starts Request A
-          const suspendedTab = Array.from(container3.querySelectorAll('button')).find(b => b.textContent.includes('Tạm ngưng'));
+          const suspendedTab = await window.__waitFor__(
+            () => Array.from(container3.querySelectorAll('button')).find(b => b.textContent.includes('Tạm ngưng')),
+            'Test 2C "Tạm ngưng" filter tab',
+            { diagnose: () => JSON.stringify((container3.innerText || '').slice(0, 160)) }
+          );
           suspendedTab.click();
-          await new Promise(r => setTimeout(r, 60));
 
-          const reqA = filterPendingRequests.shift();
+          const reqA = await waitNextFilterReq('Test 2C "Tạm ngưng" request A');
           const reqASignalBeforeCleanupAborted = reqA.opts?.signal?.aborted;
 
           // Click 'Đang hoạt động' filter tab before A resolves -> effect cleanup runs
-          const activeTab = Array.from(container3.querySelectorAll('button')).find(b => b.textContent.includes('Đang hoạt động'));
+          const activeTab = await window.__waitFor__(
+            () => Array.from(container3.querySelectorAll('button')).find(b => b.textContent.includes('Đang hoạt động')),
+            'Test 2C "Đang hoạt động" filter tab'
+          );
           activeTab.click();
-          await new Promise(r => setTimeout(r, 60));
 
+          const reqB = await waitNextFilterReq('Test 2C "Đang hoạt động" request B');
           const reqASignalAfterCleanupAborted = reqA.opts?.signal?.aborted;
-          const reqB = filterPendingRequests.shift();
 
           // Request B finishes first
           reqB.res({
@@ -630,7 +695,11 @@ async function run() {
               data: { items: [{ id: 'emp-active-winner', employee_code: 'ACT', full_name: 'Active Winner Emp', employment_status: 'active' }] },
             }),
           });
-          await new Promise(r => setTimeout(r, 100));
+          await window.__waitFor__(
+            () => (container3.innerText || '').includes('Active Winner Emp'),
+            'Test 2C "Active Winner Emp" render',
+            { diagnose: () => JSON.stringify((container3.innerText || '').slice(0, 160)) }
+          );
 
           const textAfterB = container3.innerText;
           const hasActiveWinner = textAfterB.includes('Active Winner Emp');
@@ -708,12 +777,21 @@ async function run() {
           const root4 = ReactDOM.createRoot(container4);
 
           root4.render(React.createElement(EmployeesScreen, { onNavigate: () => {} }));
-          await new Promise(r => setTimeout(r, 150));
 
-          const btnLoadMoreRetry = Array.from(container4.querySelectorAll('button')).find(b => b.textContent.includes('Tải thêm nhân sự'));
+          const btnLoadMoreRetry = await window.__waitFor__(
+            () => Array.from(container4.querySelectorAll('button')).find(b => b.textContent.includes('Tải thêm nhân sự')),
+            'Test 2D "Tải thêm nhân sự" button',
+            { diagnose: () => JSON.stringify((container4.innerText || '').slice(0, 160)) }
+          );
           // First click -> fails with 500
           btnLoadMoreRetry.click();
-          await new Promise(r => setTimeout(r, 150));
+          await window.__waitFor__(
+            () =>
+              container4.querySelector('[role="alert"]')?.textContent?.includes('Máy chủ quá tải') ||
+              (container4.innerText || '').includes('Máy chủ quá tải'),
+            'Test 2D pagination error alert',
+            { diagnose: () => JSON.stringify((container4.innerText || '').slice(0, 160)) }
+          );
 
           const textAfterLoadMoreFail = container4.innerText;
           const hasP1AfterFail = textAfterLoadMoreFail.includes('Page 1 Emp');
@@ -721,8 +799,16 @@ async function run() {
           const hasLoadMoreBtnAfterFail = Boolean(Array.from(container4.querySelectorAll('button')).find(b => b.textContent.includes('Tải thêm nhân sự')));
 
           // Second click -> retry succeeds
-          btnLoadMoreRetry.click();
-          await new Promise(r => setTimeout(r, 150));
+          const btnLoadMoreRetry2 = await window.__waitFor__(
+            () => Array.from(container4.querySelectorAll('button')).find(b => b.textContent.includes('Tải thêm nhân sự')),
+            'Test 2D retry "Tải thêm nhân sự" button'
+          );
+          btnLoadMoreRetry2.click();
+          await window.__waitFor__(
+            () => (container4.innerText || '').includes('Page 2 Emp'),
+            'Test 2D "Page 2 Emp" after retry',
+            { diagnose: () => JSON.stringify((container4.innerText || '').slice(0, 160)) }
+          );
 
           const textAfterRetrySuccess = container4.innerText;
           const hasP1AfterSuccess = textAfterRetrySuccess.includes('Page 1 Emp');
@@ -760,7 +846,10 @@ async function run() {
           ];
 
           root5.render(React.createElement(EmployeesScreen));
-          await new Promise(r => setTimeout(r, 60));
+          await window.__waitFor__(
+            () => Boolean(resolveDelayedEmpReq && unmountTestSignal),
+            'Test 2E pending /api/v1/employees request'
+          );
 
           const unmountSignalBefore = Boolean(unmountTestSignal?.aborted);
 
@@ -823,7 +912,10 @@ async function run() {
           ];
 
           root6.render(React.createElement(EmployeesScreen));
-          await new Promise(r => setTimeout(r, 60));
+          await window.__waitFor__(
+            () => Boolean(resolveJson6),
+            'Test 2E-1 pending .json() continuation'
+          );
 
           // Component unmounts while JSON is pending
           root6.unmount();
@@ -872,7 +964,10 @@ async function run() {
           ];
 
           root7.render(React.createElement(EmployeesScreen));
-          await new Promise(r => setTimeout(r, 60));
+          await window.__waitFor__(
+            () => Boolean(rejectEmpReq7),
+            'Test 2E-2 pending /api/v1/employees rejectable request'
+          );
 
           // Component unmounts while request is pending
           root7.unmount();
@@ -1095,7 +1190,13 @@ async function run() {
             )
           );
 
-          await new Promise(r => setTimeout(r, 100));
+          await window.__waitFor__(
+            () => {
+              const b = document.getElementById('btn-norm-before');
+              return b && b.getBoundingClientRect().width > 0;
+            },
+            'FIX-41 buttons rendered with non-zero width'
+          );
 
           const btnBefore = document.getElementById('btn-norm-before');
           const btnLoading = document.getElementById('btn-norm-loading');
@@ -1289,38 +1390,58 @@ async function run() {
           ];
 
           root.render(React.createElement(IssuesScreen, { onNavigate: () => {} }));
-          await new Promise(r => setTimeout(r, 200));
+          await window.__waitFor__(
+            () => {
+              const txt = container.innerText || '';
+              const title = container.querySelector('h2, h3, [role="alert"]')?.textContent || '';
+              return title.includes('Máy chủ quá tải') || txt.includes('Máy chủ quá tải');
+            },
+            'IssuesScreen initial ErrorState',
+            { diagnose: () => JSON.stringify((container.innerText || '').slice(0, 160)) }
+          );
 
           // 1. Initial 500 failure renders ErrorState
           const errorStateTitle = container.querySelector('h2, h3, [role="alert"]')?.textContent || '';
           const hasInitialError = errorStateTitle.includes('Máy chủ quá tải') || container.innerText.includes('Máy chủ quá tải');
 
           // 2. Click "Thử lại" button
-          const retryBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Thử lại'));
-          if (retryBtn) {
-            retryBtn.click();
-          }
-          await new Promise(r => setTimeout(r, 200));
+          const retryBtn = await window.__waitFor__(
+            () => Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Thử lại')),
+            'IssuesScreen "Thử lại" button'
+          );
+          retryBtn.click();
+
+          await window.__waitFor__(
+            () => (container.innerText || '').includes('Lỗi vỡ layout thanh điều hướng'),
+            'IssuesScreen item rendered after retry',
+            { diagnose: () => JSON.stringify((container.innerText || '').slice(0, 160)) }
+          );
 
           const hasItemAfterRetry = container.innerText.includes('Lỗi vỡ layout thanh điều hướng');
 
           // 3. Select Item and Copy Prompt
-          const selectAllCheckbox = container.querySelector('[data-testid="checkbox-select-all"]') || container.querySelector('[data-testid="checkbox-issue-ISS-001"]');
-          if (selectAllCheckbox) {
-            selectAllCheckbox.click();
-          }
-          await new Promise(r => setTimeout(r, 100));
+          const selectAllCheckbox = await window.__waitFor__(
+            () =>
+              container.querySelector('[data-testid="checkbox-select-all"]') ||
+              container.querySelector('[data-testid="checkbox-issue-ISS-001"]'),
+            'IssuesScreen selection checkbox'
+          );
+          selectAllCheckbox.click();
 
-          const copyBtn = container.querySelector('[data-testid="btn-copy-selected-issues"]');
+          const copyBtn = await window.__waitFor__(
+            () => container.querySelector('[data-testid="btn-copy-selected-issues"]'),
+            'IssuesScreen copy selected issues button'
+          );
           let copiedPromptContent = null;
           let btnTextAfterCopy = null;
 
-          if (copyBtn) {
-            copyBtn.click();
-            await new Promise(r => setTimeout(r, 200));
-            copiedPromptContent = window.__lastCopiedText__;
-            btnTextAfterCopy = copyBtn.textContent;
-          }
+          copyBtn.click();
+          await window.__waitFor__(
+            () => Boolean(window.__lastCopiedText__),
+            'IssuesScreen clipboard text populated'
+          );
+          copiedPromptContent = window.__lastCopiedText__;
+          btnTextAfterCopy = copyBtn.textContent;
 
           root.unmount();
           container.remove();
@@ -1375,35 +1496,42 @@ async function run() {
             workspaceId: 'ws-bug-qa',
             csrfToken: 'csrf-bug',
           }));
-          await new Promise(r => setTimeout(r, 150));
 
           // Open widget
-          const openBtn = widgetContainer.querySelector('[data-testid="btn-open-report-bug"]');
-          if (openBtn) {
-            openBtn.click();
-          }
-          await new Promise(r => setTimeout(r, 150));
+          const openBtn = await window.__waitFor__(
+            () => widgetContainer.querySelector('[data-testid="btn-open-report-bug"]'),
+            'ReportBugWidget open button'
+          );
+          openBtn.click();
 
           // Fill description using React native setter
-          const textarea = widgetContainer.querySelector('textarea');
-          if (textarea) {
-            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-            if (nativeSetter) {
-              nativeSetter.call(textarea, 'Description for retry testing');
-            } else {
-              textarea.value = 'Description for retry testing';
-            }
-            textarea.dispatchEvent(new Event('input', { bubbles: true }));
-            textarea.dispatchEvent(new Event('change', { bubbles: true }));
+          const textarea = await window.__waitFor__(
+            () => widgetContainer.querySelector('textarea'),
+            'ReportBugWidget description textarea'
+          );
+          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+          if (nativeSetter) {
+            nativeSetter.call(textarea, 'Description for retry testing');
+          } else {
+            textarea.value = 'Description for retry testing';
           }
-          await new Promise(r => setTimeout(r, 80));
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.dispatchEvent(new Event('change', { bubbles: true }));
 
           // First submit -> network failure
-          const form = widgetContainer.querySelector('form');
-          if (form) {
-            form.requestSubmit();
-          }
-          await new Promise(r => setTimeout(r, 200));
+          const form = await window.__waitFor__(
+            () => widgetContainer.querySelector('form'),
+            'ReportBugWidget form'
+          );
+          form.requestSubmit();
+          await window.__waitFor__(
+            () => {
+              const txt = widgetContainer.innerText || '';
+              return txt.includes('Mất kết nối') || txt.includes('Gửi lại');
+            },
+            'ReportBugWidget network disruption feedback',
+            { diagnose: () => JSON.stringify((widgetContainer.innerText || '').slice(0, 160)) }
+          );
 
           const textAfterNetworkDrop = widgetContainer.innerText;
           const hasUnknownOutcome = textAfterNetworkDrop.includes('Mất kết nối') || textAfterNetworkDrop.includes('Gửi lại');
@@ -1411,10 +1539,15 @@ async function run() {
           const submitBtnTextAfterFailure = submitBtn?.textContent || '';
 
           // Second submit -> click retry "Gửi lại"
-          if (form) {
-            form.requestSubmit();
-          }
-          await new Promise(r => setTimeout(r, 200));
+          form.requestSubmit();
+          await window.__waitFor__(
+            () => {
+              const txt = widgetContainer.innerText || '';
+              return txt.includes('Báo lỗi đã được gửi thành công') || txt.includes('thành công');
+            },
+            'ReportBugWidget retry success message',
+            { diagnose: () => JSON.stringify((widgetContainer.innerText || '').slice(0, 160)) }
+          );
 
           const textAfterRetrySuccess = widgetContainer.innerText;
           const hasSuccessConfirmed = textAfterRetrySuccess.includes('Báo lỗi đã được gửi thành công') || textAfterRetrySuccess.includes('thành công');

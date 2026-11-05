@@ -806,7 +806,22 @@ test('E2E Browser (Playwright): Tasks 1-3 desktop/mobile, light/dark, keyboard, 
       'Option 4A must use native OS system font stack with 0 downloaded web fonts',
     );
 
-    // 2. Compare computed typography between /print-quotes (.pq-page-title) and /settings + /employees (.page-header-title)
+    // 2. Compare computed typography between /work (reference), /print-quotes (.pq-page-title) and /settings (.page-header-title)
+    await page.goto(`${baseUrl}/work`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('.page-header-title');
+    const workHeading = await page.evaluate(() => {
+      const s = window.getComputedStyle(
+        document.querySelector('.page-header-title'),
+      );
+      return {
+        fontFamily: s.fontFamily,
+        fontSize: s.fontSize,
+        fontWeight: s.fontWeight,
+        letterSpacing: s.letterSpacing,
+        lineHeight: s.lineHeight,
+      };
+    });
+
     await page.goto(`${baseUrl}/print-quotes`, { waitUntil: 'networkidle' });
     await page.waitForSelector('.pq-page-title');
     const pqHeading = await page.evaluate(() => {
@@ -818,6 +833,7 @@ test('E2E Browser (Playwright): Tasks 1-3 desktop/mobile, light/dark, keyboard, 
         fontSize: s.fontSize,
         fontWeight: s.fontWeight,
         letterSpacing: s.letterSpacing,
+        lineHeight: s.lineHeight,
       };
     });
 
@@ -837,15 +853,21 @@ test('E2E Browser (Playwright): Tasks 1-3 desktop/mobile, light/dark, keyboard, 
           fontSize: h.fontSize,
           fontWeight: h.fontWeight,
           letterSpacing: h.letterSpacing,
+          lineHeight: h.lineHeight,
         },
         commitFontFamily: m ? m.fontFamily : '',
       };
     });
 
     assert.deepEqual(
-      settingsHeadingAndMono.heading,
       pqHeading,
-      'PageHeader across Management Lite must match PrintQuote .pq-page-title computed typography 100%',
+      workHeading,
+      'PrintQuote .pq-page-title must match /work reference computed typography 100%',
+    );
+    assert.deepEqual(
+      settingsHeadingAndMono.heading,
+      workHeading,
+      'PageHeader across Management Lite must match /work reference computed typography 100%',
     );
     assert.match(
       settingsHeadingAndMono.commitFontFamily,
@@ -959,19 +981,19 @@ test('Task 4 (Option 4A) — Shared typography tokens, non-technical monospace c
   assert.match(tokensCss, /--font-sans:/);
   assert.match(tokensCss, /--font-mono:/);
   assert.match(tokensCss, /--heading-page-size:\s*22px/);
-  assert.match(tokensCss, /--heading-page-weight:\s*800/);
+  assert.match(tokensCss, /--heading-page-weight:\s*700/);
   assert.match(tokensCss, /font-variant-numeric:\s*tabular-nums/);
   assert.equal(TOKENS.typography.letterSpacing.tight, '-0.02em');
   assert.equal(TOKENS.typography.numericVariant, 'tabular-nums');
 
-  // 2. PageHeader renders shared heading token hierarchy
+  // 2. PageHeader renders shared heading token hierarchy (unified to /work 700 Bold)
   const headerHtml = renderToStaticMarkup(
     React.createElement(PageHeader, {
       title: 'Bảng lương & Đối soát công nhân viên',
       subtitle: 'Kiểm tra dấu tiếng Việt đầy đủ',
     }),
   );
-  assert.match(headerHtml, /font-weight:800/);
+  assert.match(headerHtml, /font-weight:700/);
   assert.match(headerHtml, /var\(--heading-page-size, 22px\)/);
   assert.match(headerHtml, /var\(--subtitle-size, 13\.5px\)/);
 

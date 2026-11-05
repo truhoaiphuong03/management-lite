@@ -67,19 +67,19 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     (o) => o.remaining_debt_amount > 0,
   ).length;
   const confirmedOrdersCount =
-    financialReport?.reconciled.reconciled_orders_count ??
+    financialReport?.reconciled?.reconciled_orders_count ??
     stats?.confirmed_actual_orders_count ??
     activeOrders.filter((o) => o.actual_cost_confirmed === true).length;
   const confirmedActualProfit =
     confirmedOrdersCount > 0
-      ? (financialReport?.reconciled.reconciled_profit ??
+      ? (financialReport?.reconciled?.reconciled_profit ??
         stats?.total_actual_profit ??
         activeOrders
           .filter((o) => o.actual_cost_confirmed === true)
           .reduce((sum, o) => sum + (o.actual_profit ?? 0), 0))
       : null;
   const totalVendorPaid =
-    financialReport?.cashflow_and_debt.net_allocated_vendor_payout ??
+    financialReport?.cashflow_and_debt?.net_allocated_vendor_payout ??
     stats?.total_vendor_paid_amount ??
     activeOrders.reduce((sum, o) => sum + (o.vendor_paid_amount ?? 0), 0);
 
@@ -236,7 +236,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             <div className="pq-stat-label">Doanh thu đơn đủ xác nhận</div>
             <div className="pq-stat-value" style={tabularNumStyle}>
               {formatVnd(
-                financialReport?.reconciled.confirmed_total_revenue ?? 0,
+                financialReport?.reconciled?.confirmed_total_revenue ?? 0,
               )}
             </div>
             <div className="pq-stat-sub">
@@ -247,14 +247,14 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             <div className="pq-stat-label">Vốn in + Ship + Phát sinh TT</div>
             <div className="pq-stat-value" style={tabularNumStyle}>
               {formatVnd(
-                (financialReport?.reconciled.confirmed_vendor_cost ?? 0) +
-                  (financialReport?.reconciled.confirmed_shipping_fee ?? 0) +
-                  (financialReport?.reconciled.confirmed_extra_cost ?? 0),
+                (financialReport?.reconciled?.confirmed_vendor_cost ?? 0) +
+                  (financialReport?.reconciled?.confirmed_shipping_fee ?? 0) +
+                  (financialReport?.reconciled?.confirmed_extra_cost ?? 0),
               )}
             </div>
             <div className="pq-stat-sub">
               {financialReport?.reconciled
-                .pending_cost_confirmation_orders_count ??
+                ?.pending_cost_confirmation_orders_count ??
                 activeOrders.length - confirmedOrdersCount}{' '}
               đơn chưa đủ xác nhận bị loại riêng
             </div>
@@ -308,7 +308,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               >
                 {formatVnd(
                   financialReport?.cashflow_and_debt
-                    .remaining_receivable_total ??
+                    ?.remaining_receivable_total ??
                     stats?.total_remaining_debt ??
                     0,
                 )}
@@ -316,18 +316,18 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               <div className="pq-stat-sub">
                 Phải thu hợp lệ (
                 {formatVnd(
-                  financialReport?.cashflow_and_debt.valid_receivable_total ??
+                  financialReport?.cashflow_and_debt?.valid_receivable_total ??
                     0,
                 )}
                 ) − Thu ròng đã phân bổ (
                 {formatVnd(
                   financialReport?.cashflow_and_debt
-                    .net_allocated_customer_receipt ?? 0,
+                    ?.net_allocated_customer_receipt ?? 0,
                 )}
                 )
                 {(financialReport?.cashflow_and_debt
-                  .legacy_pending_ar_payments_count ?? 0) > 0
-                  ? ` • Chờ đối chiếu cũ: ${formatVnd(financialReport?.cashflow_and_debt.legacy_pending_ar_net_total ?? 0)}`
+                  ?.legacy_pending_ar_payments_count ?? 0) > 0
+                  ? ` • Chờ đối chiếu cũ: ${formatVnd(financialReport?.cashflow_and_debt?.legacy_pending_ar_net_total ?? 0)}`
                   : ''}
               </div>
             </div>
@@ -339,19 +339,19 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 style={{ ...tabularNumStyle, color: 'var(--danger-text)' }}
               >
                 {formatVnd(
-                  financialReport?.cashflow_and_debt.remaining_payable_total ??
+                  financialReport?.cashflow_and_debt?.remaining_payable_total ??
                     0,
                 )}
               </div>
               <div className="pq-stat-sub">
                 Phải trả hợp lệ (
                 {formatVnd(
-                  financialReport?.cashflow_and_debt.valid_payable_total ?? 0,
+                  financialReport?.cashflow_and_debt?.valid_payable_total ?? 0,
                 )}
                 ) − Chi ròng đã phân bổ (
                 {formatVnd(
                   financialReport?.cashflow_and_debt
-                    .net_allocated_vendor_payout ?? 0,
+                    ?.net_allocated_vendor_payout ?? 0,
                 )}
                 )
               </div>
@@ -365,21 +365,21 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               >
                 {formatVnd(
                   financialReport?.cashflow_and_debt
-                    .customer_unallocated_advance_total ?? 0,
+                    ?.customer_unallocated_advance_total ?? 0,
                 )}
               </div>
               <div className="pq-stat-sub">
                 Tạm ứng xưởng dư:{' '}
                 {formatVnd(
                   financialReport?.cashflow_and_debt
-                    .vendor_unallocated_advance_total ?? 0,
+                    ?.vendor_unallocated_advance_total ?? 0,
                 )}
               </div>
             </div>
           </div>
 
           {/* Separate Scope Breakdown: GENERAL vs RIENG vs HVGROUP (never netted) */}
-          {financialReport && (
+          {financialReport?.by_ledger_scope && (
             <div style={cardStyle} data-testid="pq-report-scope-breakdown">
               <div
                 style={{
@@ -462,7 +462,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                           Còn phải thu (AR):
                         </span>
                         <strong style={tabularNumStyle}>
-                          {formatVnd(s.remaining_receivable)}
+                          {formatVnd(s?.remaining_receivable ?? 0)}
                         </strong>
                       </div>
                       <div
@@ -476,7 +476,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                           Còn phải trả (AP):
                         </span>
                         <strong style={tabularNumStyle}>
-                          {formatVnd(s.remaining_payable)}
+                          {formatVnd(s?.remaining_payable ?? 0)}
                         </strong>
                       </div>
                       <div
@@ -490,7 +490,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                           Ứng trước KH dư:
                         </span>
                         <span style={tabularNumStyle}>
-                          {formatVnd(s.customer_unallocated)}
+                          {formatVnd(s?.customer_unallocated ?? 0)}
                         </span>
                       </div>
                       <div
@@ -504,7 +504,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                           Tạm ứng xưởng dư:
                         </span>
                         <span style={tabularNumStyle}>
-                          {formatVnd(s.vendor_unallocated)}
+                          {formatVnd(s?.vendor_unallocated ?? 0)}
                         </span>
                       </div>
                     </div>

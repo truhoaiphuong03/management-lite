@@ -2456,56 +2456,26 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   return (
     <div style={{ width: '100%' }}>
       {/* Page Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px',
-          marginBottom: '20px',
-        }}
-      >
-        <div>
-          <h1
-            className="page-header-title"
-            style={{
-              fontSize: 'var(--heading-page-size, 22px)',
-              fontWeight: 800,
-              letterSpacing: 'var(--heading-tracking, -0.02em)',
-              lineHeight: 1.25,
-              color: 'var(--text-color)',
-              margin: '0 0 4px 0',
-            }}
-          >
-            Quản lý công việc
-          </h1>
-          <p
-            className="page-header-subtitle"
-            style={{
-              fontSize: 'var(--subtitle-size, 13.5px)',
-              lineHeight: 1.45,
-              color: 'var(--muted-color)',
-              margin: 0,
-            }}
-          >
-            {role === 'owner'
-              ? 'Giao việc, theo dõi tiến độ và nghiệm thu kết quả cửa hàng'
-              : 'Danh sách nhiệm vụ & công việc được phân công cho bạn'}
-          </p>
-        </div>
-
-        {role === 'owner' && (
-          <AppButton
-            variant="primary"
-            onClick={() => onNavigate?.('/work/new')}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <PlusIcon size={16} />
-            <span>Giao việc mới</span>
-          </AppButton>
-        )}
-      </div>
+      <PageHeader
+        title="Quản lý công việc"
+        subtitle={
+          role === 'owner'
+            ? 'Giao việc, theo dõi tiến độ và nghiệm thu kết quả cửa hàng'
+            : 'Danh sách nhiệm vụ & công việc được phân công cho bạn'
+        }
+        actions={
+          role === 'owner' ? (
+            <AppButton
+              variant="primary"
+              onClick={() => onNavigate?.('/work/new')}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <PlusIcon size={16} />
+              <span>Giao việc mới</span>
+            </AppButton>
+          ) : undefined
+        }
+      />
 
       {/* Backend API Unavailable Notice */}
       {apiUnavailable && (

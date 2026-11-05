@@ -428,26 +428,10 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
   const buckets = [...new Set((summary?.timeline ?? []).map((t) => t.bucket))];
 
   return (
-    <div>
+    <div style={{ width: '100%' }}>
       <PageHeader
         title="Nhật ký hệ thống"
         subtitle="Lỗi máy chủ, lỗi trình duyệt, yêu cầu chậm — gom nhóm để tìm và yêu cầu AI sửa lỗi 1 chạm"
-        actions={
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <AppButton
-              variant="secondary"
-              onClick={() => onNavigate?.('/issues')}
-            >
-              Mở Sổ tay lỗi
-            </AppButton>
-            <AppButton
-              variant="secondary"
-              onClick={() => onNavigate?.('/audit')}
-            >
-              Nhật ký kiểm toán
-            </AppButton>
-          </div>
-        }
       />
 
       <AppCard style={{ marginBottom: 16 }}>

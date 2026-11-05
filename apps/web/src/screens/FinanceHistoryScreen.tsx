@@ -109,11 +109,11 @@ function FinanceHistoryInner({ identity, onNavigate }: FinanceScreenProps) {
   const COLS = '96px minmax(140px, 1.2fr) minmax(120px, 2fr) 150px 48px';
   return (
     <section style={financePageStyle}>
+      <FinanceNav onNavigate={onNavigate} />
       <FinanceHeader
         title="Lịch sử thu chi"
         description="Lọc, xem chi tiết và chỉnh sửa giao dịch đã ghi."
       />
-      <FinanceNav onNavigate={onNavigate} />
       <div
         data-testid="history-filters"
         style={{
