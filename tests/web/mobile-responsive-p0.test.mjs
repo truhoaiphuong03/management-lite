@@ -330,7 +330,7 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const port = server.address().port;
   const baseUrl = `http://127.0.0.1:${port}`;
-  const availableBrowsers = [
+  const primaryBrowsers = [
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
     '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -338,31 +338,58 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     '/usr/bin/google-chrome',
     '/usr/bin/microsoft-edge',
-    '/usr/bin/chromium',
   ].filter((p) => fs.existsSync(p));
+  const availableBrowsers =
+    primaryBrowsers.length > 0
+      ? primaryBrowsers
+      : ['/usr/bin/chromium'].filter((p) => fs.existsSync(p));
+
+  const allocateFreePort = () =>
+    new Promise((resolve, reject) => {
+      const probe = http.createServer();
+      probe.once('error', reject);
+      probe.listen(0, '127.0.0.1', () => {
+        const freePort = probe.address().port;
+        probe.close(() => resolve(freePort));
+      });
+    });
+
+  const terminateBrowserProcess = async (proc) => {
+    if (!proc || proc.exitCode !== null) return;
+    try {
+      proc.kill('SIGKILL');
+    } catch {
+      // ignore if already exited
+    }
+    await Promise.race([
+      new Promise((resolve) => proc.once('exit', resolve)),
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+    ]);
+  };
 
   const launchProfiles = [];
   for (const bin of availableBrowsers) {
     launchProfiles.push({
       bin,
-      extraArgs: ['--headless=new', '--ozone-platform=headless'],
+      extraArgs: ['--headless=new'],
     });
     launchProfiles.push({
       bin,
-      extraArgs: ['--headless', '--no-zygote'],
+      extraArgs: ['--headless=new', '--ozone-platform=headless'],
     });
   }
 
   let chrome = null;
+  let activeUserDataDir = null;
   let list = null;
   let lastDiagnostics = '';
 
   for (let pIdx = 0; pIdx < launchProfiles.length; pIdx++) {
     const profile = launchProfiles[pIdx];
-    const debugPort = 9420 + pIdx * 17 + Math.floor(Math.random() * 10);
+    const debugPort = await allocateFreePort();
     const userDataDir = path.join(
       process.env.TEMP || '/tmp',
-      `chrome-mobile-p0-${Date.now()}-${pIdx}`,
+      `chrome-mobile-p0-${process.pid}-${Date.now()}-${pIdx}`,
     );
     fs.mkdirSync(userDataDir, { recursive: true });
 
@@ -412,30 +439,47 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
     });
 
     let foundList = null;
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 80; i++) {
       if (exitCode !== null) break;
       try {
         foundList = await new Promise((resolve, reject) => {
-          http
-            .get(`http://127.0.0.1:${debugPort}/json/list`, (res) => {
+          const req = http.get(
+            `http://127.0.0.1:${debugPort}/json/list`,
+            { timeout: 1500 },
+            (res) => {
               let data = '';
               res.on('data', (c) => (data += c));
-              res.on('end', () => resolve(JSON.parse(data)));
-            })
-            .on('error', reject);
+              res.on('end', () => {
+                try {
+                  resolve(JSON.parse(data));
+                } catch (err) {
+                  reject(err);
+                }
+              });
+            },
+          );
+          req.on('timeout', () => req.destroy(new Error('CDP list timeout')));
+          req.on('error', reject);
         });
         if (Array.isArray(foundList) && foundList.length === 0) {
           // Create a new tab via PUT /json/new if list is empty
           const created = await new Promise((resolve, reject) => {
             const req = http.request(
               `http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(`${baseUrl}/schedule`)}`,
-              { method: 'PUT' },
+              { method: 'PUT', timeout: 1500 },
               (res) => {
                 let d = '';
                 res.on('data', (c) => (d += c));
-                res.on('end', () => resolve(JSON.parse(d)));
+                res.on('end', () => {
+                  try {
+                    resolve(JSON.parse(d));
+                  } catch (err) {
+                    reject(err);
+                  }
+                });
               },
             );
+            req.on('timeout', () => req.destroy(new Error('CDP new timeout')));
             req.on('error', reject);
             req.end();
           });
@@ -447,16 +491,18 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
       } catch {
         // Wait for CDP endpoint
       }
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 250));
     }
 
     if (foundList && foundList.length > 0) {
       chrome = proc;
+      activeUserDataDir = userDataDir;
       list = foundList;
       break;
     }
     lastDiagnostics = `bin=${profile.bin} args=${profile.extraArgs.join(',')} exit=${exitCode} stderr=${stderrBuf.slice(0, 400)}`;
-    proc.kill();
+    await terminateBrowserProcess(proc);
+    fs.rmSync(userDataDir, { recursive: true, force: true });
   }
 
   let ws;
@@ -692,7 +738,10 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
     );
   } finally {
     if (ws) ws.close();
-    if (chrome) chrome.kill();
+    if (chrome) await terminateBrowserProcess(chrome);
+    if (activeUserDataDir) {
+      fs.rmSync(activeUserDataDir, { recursive: true, force: true });
+    }
     server.close();
   }
 });
