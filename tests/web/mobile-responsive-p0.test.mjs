@@ -355,27 +355,51 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
     });
 
   const terminateBrowserProcess = async (proc) => {
-    if (!proc || proc.exitCode !== null) return;
-    try {
-      proc.kill('SIGKILL');
-    } catch {
-      // ignore if already exited
+    if (!proc) return;
+    if (proc.exitCode === null) {
+      try {
+        if (process.platform !== 'win32' && proc.pid) {
+          process.kill(-proc.pid, 'SIGTERM');
+        } else {
+          proc.kill('SIGTERM');
+        }
+      } catch {
+        // ignore if already exited
+      }
+      await Promise.race([
+        new Promise((resolve) => proc.once('exit', resolve)),
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
     }
-    await Promise.race([
-      new Promise((resolve) => proc.once('exit', resolve)),
-      new Promise((resolve) => setTimeout(resolve, 2000)),
-    ]);
+    if (proc.exitCode === null) {
+      try {
+        if (process.platform !== 'win32' && proc.pid) {
+          process.kill(-proc.pid, 'SIGKILL');
+        } else {
+          proc.kill('SIGKILL');
+        }
+      } catch {
+        // ignore if already exited
+      }
+      await Promise.race([
+        new Promise((resolve) => proc.once('exit', resolve)),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]);
+    }
+    proc.stderr?.removeAllListeners();
+    proc.stderr?.destroy();
+    proc.unref?.();
   };
 
   const launchProfiles = [];
   for (const bin of availableBrowsers) {
     launchProfiles.push({
       bin,
-      extraArgs: ['--headless=new'],
+      extraArgs: ['--headless=new', '--ozone-platform=headless'],
     });
     launchProfiles.push({
       bin,
-      extraArgs: ['--headless=new', '--ozone-platform=headless'],
+      extraArgs: ['--headless=new'],
     });
   }
 
@@ -423,6 +447,7 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
         `${baseUrl}/schedule`,
       ],
       {
+        detached: process.platform !== 'win32',
         stdio: ['ignore', 'ignore', 'pipe'],
         env: {
           ...process.env,
@@ -742,6 +767,7 @@ test('MOBILE-P0-06: Headless browser verification across 320/375/390/430/768/102
     if (activeUserDataDir) {
       fs.rmSync(activeUserDataDir, { recursive: true, force: true });
     }
+    server.closeAllConnections?.();
     server.close();
   }
 });
