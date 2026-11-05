@@ -5,7 +5,7 @@
 // audit this module without `node_modules` installed.
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const WEB_CI_SENTINEL_DB = 'web_test_ci_sentinel';
 export const WEB_CI_TEST_DB = 'web_e2e_ci_test';
@@ -347,12 +347,18 @@ export async function cleanupWebCiDatabases(env = process.env, runtime = {}) {
   }
 }
 
-const isMainModule =
-  process.argv[1] &&
-  path.resolve(process.argv[1]) ===
-    path.resolve(
-      new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'),
+const isMainModule = (() => {
+  if (!process.argv[1]) return false;
+  const selfPath = fileURLToPath(import.meta.url);
+  try {
+    return (
+      fs.realpathSync.native(path.resolve(process.argv[1])) ===
+      fs.realpathSync.native(selfPath)
     );
+  } catch {
+    return path.resolve(process.argv[1]) === path.resolve(selfPath);
+  }
+})();
 
 if (isMainModule) {
   const action = (process.argv[2] || '').trim();
