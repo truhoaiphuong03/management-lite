@@ -19,6 +19,7 @@ import {
   type ServerA4PdfMeta,
 } from '../printquote/pdf-renderer.js';
 import type { RouteRequestContext } from './router.js';
+import { handlePrintQuoteLedgerSubRoutes } from './printquote-ledger-routes.js';
 
 export async function handlePrintQuoteRoutes(
   ctx: RouteRequestContext,
@@ -85,7 +86,10 @@ export async function handlePrintQuoteRoutes(
     requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
     const body = await parseJsonBody<QuoteCalculationInput>(req);
     try {
-      const calc = calculatePrintQuote(body);
+      const calc = calculatePrintQuote({
+        ...body,
+        requireAreaAdjustmentReason: body?.requireAreaAdjustmentReason ?? true,
+      });
       const customerPdf = buildCustomerSafePdfPayload(calc);
       sendJson(
         res,
@@ -111,13 +115,25 @@ export async function handlePrintQuoteRoutes(
   if (subPath === '/pdf-file' && method === 'POST') {
     requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
     const body = await parseJsonBody<{
-      customer_pdf: CustomerSafePdfPayload;
+      customer_pdf: CustomerSafePdfPayload | null;
+      pricing_status?: string;
       meta?: ServerA4PdfMeta;
     }>(req);
-    if (!body?.customer_pdf) {
+    if (body?.pricing_status === 'PENDING_COST') {
+      throw new AuthError(
+        'QUOTE_PENDING_VENDOR_COST',
+        'Báo giá đang ở trạng thái Chờ giá xưởng nên chưa thể xuất file PDF A4.',
+        409,
+      );
+    }
+    if (
+      !body?.customer_pdf ||
+      !Array.isArray(body.customer_pdf.lines) ||
+      body.customer_pdf.lines.length === 0
+    ) {
       throw new AuthError(
         'VALIDATION_ERROR',
-        'Thiếu dữ liệu customer_pdf để xuất file PDF A4.',
+        'Thiếu dữ liệu customer_pdf hoàn chỉnh để xuất file PDF A4.',
         400,
       );
     }
@@ -177,14 +193,17 @@ export async function handlePrintQuoteRoutes(
     return true;
   }
 
-  // 4. Vendor Price Catalog: /price-items & /price-items/:id
+  // 4. Workshop & Vendor Price Catalog: /price-items, /price-items/:id, /deactivate, /restore, /history
   if (subPath === '/price-items' && method === 'GET') {
     const parsedUrl = new URL(req.url || '/', 'http://localhost');
     const vendorId = parsedUrl.searchParams.get('vendor_id');
-    const items = await printQuoteService.listPriceItems(
-      sessionContext,
+    const itemType = parsedUrl.searchParams.get('item_type');
+    const includeInactiveParam = parsedUrl.searchParams.get('include_inactive');
+    const items = await printQuoteService.listPriceItems(sessionContext, {
       vendorId,
-    );
+      itemType,
+      includeInactive: includeInactiveParam === 'false' ? false : true,
+    });
     sendJson(res, 200, createSuccessEnvelope({ items }, requestId));
     return true;
   }
@@ -199,17 +218,78 @@ export async function handlePrintQuoteRoutes(
     sendJson(res, 201, createSuccessEnvelope(created, requestId));
     return true;
   }
-  const priceItemMatch = subPath.match(/^\/price-items\/([a-zA-Z0-9_-]+)$/);
-  if (priceItemMatch && method === 'PATCH') {
-    requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
-    const body = await parseJsonBody<Record<string, unknown>>(req);
-    const updated = await printQuoteService.updatePriceItem(
-      sessionContext,
-      priceItemMatch[1]!,
-      body,
-    );
-    sendJson(res, 200, createSuccessEnvelope(updated, requestId));
-    return true;
+  const priceItemMatch = subPath.match(
+    /^\/price-items\/([a-zA-Z0-9_-]+)(?:\/(deactivate|restore|history))?$/,
+  );
+  if (priceItemMatch) {
+    const priceItemId = priceItemMatch[1]!;
+    const subAction = priceItemMatch[2];
+    if (!subAction && method === 'PATCH') {
+      requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+      const body = await parseJsonBody<Record<string, unknown>>(req);
+      const updated = await printQuoteService.updatePriceItem(
+        sessionContext,
+        priceItemId,
+        body,
+      );
+      sendJson(res, 200, createSuccessEnvelope(updated, requestId));
+      return true;
+    }
+    if (!subAction && method === 'DELETE') {
+      requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+      const deleted = await printQuoteService.deletePriceItem(
+        sessionContext,
+        priceItemId,
+      );
+      sendJson(res, 200, createSuccessEnvelope(deleted, requestId));
+      return true;
+    }
+    if (subAction === 'deactivate' && method === 'POST') {
+      requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+      let changeNote: string | null = null;
+      try {
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        if (typeof body?.['change_note'] === 'string') {
+          changeNote = body['change_note'];
+        }
+      } catch {
+        // Optional body on deactivate
+      }
+      const updated = await printQuoteService.deactivatePriceItem(
+        sessionContext,
+        priceItemId,
+        changeNote,
+      );
+      sendJson(res, 200, createSuccessEnvelope(updated, requestId));
+      return true;
+    }
+    if (subAction === 'restore' && method === 'POST') {
+      requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+      let changeNote: string | null = null;
+      try {
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        if (typeof body?.['change_note'] === 'string') {
+          changeNote = body['change_note'];
+        }
+      } catch {
+        // Optional body on restore
+      }
+      const updated = await printQuoteService.restorePriceItem(
+        sessionContext,
+        priceItemId,
+        changeNote,
+      );
+      sendJson(res, 200, createSuccessEnvelope(updated, requestId));
+      return true;
+    }
+    if (subAction === 'history' && method === 'GET') {
+      const items = await printQuoteService.listPriceItemHistory(
+        sessionContext,
+        priceItemId,
+      );
+      sendJson(res, 200, createSuccessEnvelope({ items }, requestId));
+      return true;
+    }
   }
 
   // 5. Customers: /customers & /customers/:id
@@ -299,6 +379,15 @@ export async function handlePrintQuoteRoutes(
         );
       }
     }
+    if (!subAction && method === 'DELETE') {
+      requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+      const deleted = await printQuoteService.deleteQuote(
+        sessionContext,
+        quoteId,
+      );
+      sendJson(res, 200, createSuccessEnvelope(deleted, requestId));
+      return true;
+    }
     if (subAction === 'finalize' && method === 'POST') {
       requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
       const finalized = await printQuoteService.finalizeQuote(
@@ -318,6 +407,13 @@ export async function handlePrintQuoteRoutes(
     }
     if (subAction === 'pdf-file' && method === 'GET') {
       const quote = await printQuoteService.getQuote(sessionContext, quoteId);
+      if (quote.pricing_status === 'PENDING_COST' || !quote.customer_pdf_json) {
+        throw new AuthError(
+          'QUOTE_PENDING_VENDOR_COST',
+          'Báo giá đang ở trạng thái Chờ giá xưởng nên chưa thể tải file PDF báo khách. Vui lòng nhập đầy đủ giá xưởng trước.',
+          409,
+        );
+      }
       const safePdf = quote.customer_pdf_json;
       assertCustomerSafePdfPayload(safePdf);
       let pdfBuf: Buffer;
@@ -404,5 +500,11 @@ export async function handlePrintQuoteRoutes(
     }
   }
 
-  return false;
+  return handlePrintQuoteLedgerSubRoutes({
+    ctx,
+    sessionContext,
+    ledger: printQuoteService.ledger,
+    subPath,
+    idempotencyKey,
+  });
 }

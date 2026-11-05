@@ -3,6 +3,8 @@ import {
   ProfitMode,
   ProfitScope,
   VendorCostMode,
+  type AreaInputModeType,
+  type LineCostSourceType,
   type ProfitModeType,
   type ProfitScopeType,
   type VendorCostModeType,
@@ -18,6 +20,10 @@ export type PrintQuoteViewMode =
   | 'detail'
   | 'edit'
   | 'orders'
+  | 'receivables'
+  | 'payables'
+  | 'transactions'
+  | 'import-history'
   | 'catalog-prices'
   | 'catalog-customers'
   | 'catalog-vendors'
@@ -25,17 +31,45 @@ export type PrintQuoteViewMode =
 
 export type CatalogSubPageId = 'prices' | 'customers' | 'vendors';
 
+export type FinanceSubPageId =
+  'receivables' | 'payables' | 'transactions' | 'import-history';
+
 export type PrintQuoteNavGroupId =
-  'quotes_group' | 'orders_group' | 'catalog_group' | 'analytics_group';
+  | 'quotes_group'
+  | 'orders_group'
+  | 'finance_group'
+  | 'catalog_group'
+  | 'analytics_group';
 
 export type CreateQuoteSectionId =
   'customer' | 'products' | 'summary' | 'actions';
 
 export type SummaryViewMode = 'customer' | 'internal';
 
+export interface DraftFinishingStageState {
+  id: string;
+  priceItemId: string;
+  code?: string | null | undefined;
+  priceItemVersion?: number | null | undefined;
+  vendorId?: string | null | undefined;
+  vendorName?: string | null | undefined;
+  name: string;
+  pricingMode: VendorCostModeType;
+  rateValue: number;
+  rateInput: string;
+  unit: string;
+  costSource: LineCostSourceType;
+  catalogOriginalRate?: number | null | undefined;
+  catalogBatchQuantity?: number | null | undefined;
+  appliedAt?: string | null | undefined;
+  note?: string | null | undefined;
+}
+
 export interface DraftLineState {
   id: string;
   vendorPriceItemId: string;
+  vendorPriceItemCode?: string | null | undefined;
+  vendorPriceItemVersion?: number | null | undefined;
   name: string;
   specification: string;
   unit: string;
@@ -44,6 +78,22 @@ export interface DraftLineState {
   vendorCostMode: VendorCostModeType;
   vendorCostValue: number;
   vendorCostInput?: string | undefined;
+  baseCostSource?: LineCostSourceType | undefined;
+  baseCatalogOriginalRate?: number | null | undefined;
+  baseCatalogBatchQuantity?: number | null | undefined;
+  priceAppliedAt?: string | null | undefined;
+  baseIncludedStages?: string[] | undefined;
+  materialGroup?: string | undefined;
+  areaMode?: AreaInputModeType | undefined;
+  widthMInput?: string | undefined;
+  heightMInput?: string | undefined;
+  sheetsCountInput?: string | undefined;
+  actualAreaInput?: string | undefined;
+  billableAreaInput?: string | undefined;
+  adjustBillableArea?: boolean | undefined;
+  areaAdjustmentReason?: string | undefined;
+  customerAreaNote?: string | undefined;
+  finishingStages?: DraftFinishingStageState[] | undefined;
   ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;
   profitScope: ProfitScopeType;

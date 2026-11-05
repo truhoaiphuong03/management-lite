@@ -1,12 +1,18 @@
 import React from 'react';
-import type { CatalogSubPageId, PrintQuoteViewMode } from './types.js';
+import type {
+  CatalogSubPageId,
+  FinanceSubPageId,
+  PrintQuoteViewMode,
+} from './types.js';
 import {
   PqChartIcon,
   PqFileTextIcon,
+  PqHistoryIcon,
   PqPackageIcon,
   PqStoreIcon,
   PqTagIcon,
   PqUsersIcon,
+  PqWalletIcon,
 } from './PrintQuoteIcons.js';
 
 export interface PrintQuoteNavHeaderProps {
@@ -38,6 +44,12 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
     viewMode === 'catalog-customers' ||
     viewMode === 'catalog-vendors';
 
+  const isFinanceView =
+    viewMode === 'receivables' ||
+    viewMode === 'payables' ||
+    viewMode === 'transactions' ||
+    viewMode === 'import-history';
+
   const topItems: Array<{
     id: string;
     testId: string;
@@ -66,6 +78,14 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
       icon: <PqPackageIcon size={15} />,
     },
     {
+      id: 'finance',
+      testId: 'pq-nav-group-finance',
+      label: 'Công nợ',
+      path: '/print-quotes/receivables',
+      active: isFinanceView,
+      icon: <PqWalletIcon size={15} />,
+    },
+    {
       id: 'catalog',
       testId: 'pq-nav-group-catalog',
       label: 'Danh mục',
@@ -89,6 +109,47 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
       : viewMode === 'catalog-vendors'
         ? 'vendors'
         : 'prices';
+
+  const activeFinanceSub: FinanceSubPageId =
+    viewMode === 'payables'
+      ? 'payables'
+      : viewMode === 'transactions'
+        ? 'transactions'
+        : viewMode === 'import-history'
+          ? 'import-history'
+          : 'receivables';
+
+  const financeSubItems: Array<{
+    id: FinanceSubPageId;
+    label: string;
+    path: string;
+    icon: React.ReactNode;
+  }> = [
+    {
+      id: 'receivables',
+      label: 'Công nợ khách',
+      path: '/print-quotes/receivables',
+      icon: <PqUsersIcon size={14} />,
+    },
+    {
+      id: 'payables',
+      label: 'Công nợ xưởng',
+      path: '/print-quotes/payables',
+      icon: <PqStoreIcon size={14} />,
+    },
+    {
+      id: 'transactions',
+      label: 'Giao dịch',
+      path: '/print-quotes/transactions',
+      icon: <PqWalletIcon size={14} />,
+    },
+    {
+      id: 'import-history',
+      label: 'Nhập lịch sử',
+      path: '/print-quotes/import-history',
+      icon: <PqHistoryIcon size={14} />,
+    },
+  ];
 
   const catalogSubItems: Array<{
     id: CatalogSubPageId;
@@ -149,6 +210,33 @@ export const PrintQuoteNavHeader: React.FC<PrintQuoteNavHeaderProps> = ({
           </button>
         ))}
       </nav>
+
+      {isFinanceView && (
+        <div
+          role="navigation"
+          aria-label="Phân mục Công nợ & Giao dịch in ấn"
+          data-testid="pq-finance-tabs"
+          className="pq-catalog-subnav"
+        >
+          {financeSubItems.map((sub) => {
+            const active = activeFinanceSub === sub.id;
+            return (
+              <button
+                key={sub.id}
+                type="button"
+                data-testid={`pq-finance-tab-${sub.id}`}
+                aria-current={active ? 'page' : undefined}
+                className="pq-catalog-subnav-item"
+                data-active={active ? 'true' : 'false'}
+                onClick={() => onNavigatePath(sub.path)}
+              >
+                {sub.icon}
+                <span>{sub.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {isCatalogView && (
         <div

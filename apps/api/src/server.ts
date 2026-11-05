@@ -15,6 +15,7 @@ import {
   type PurgeScheduler,
 } from './finance/purge-scheduler.js';
 import { purgeExpiredAuthRecords } from './auth/purge.js';
+import { SystemLogService } from './system-log/service.js';
 
 const AUTH_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
@@ -43,9 +44,11 @@ export async function startServer(
   extras: ServerExtras = {},
 ): Promise<RunningServer> {
   let financeService: FinanceService | undefined;
+  let systemLogService: SystemLogService | undefined;
   let purge: PurgeScheduler | undefined;
   let authPurge: PurgeScheduler | undefined;
   if (pool) {
+    systemLogService = new SystemLogService(pool);
     authPurge = startPurgeScheduler({
       run: () => purgeExpiredAuthRecords(pool),
       intervalMs: AUTH_PURGE_INTERVAL_MS,
@@ -71,6 +74,7 @@ export async function startServer(
   const handler = createRequestHandler({
     pool,
     ...(financeService ? { financeService } : {}),
+    ...(systemLogService ? { systemLogService } : {}),
     csrfSecret: config.csrfSecret,
     allowedOrigins: config.allowedOrigins,
     trustedProxies: config.trustedProxies,
@@ -96,6 +100,7 @@ export async function startServer(
   } catch (err) {
     await purge?.stop();
     await authPurge?.stop();
+    await systemLogService?.stop();
     throw err;
   }
 
@@ -105,6 +110,7 @@ export async function startServer(
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
     });
+    await systemLogService?.stop();
     if (pool) {
       await closeDatabasePool(pool);
     }

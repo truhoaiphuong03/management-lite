@@ -2159,6 +2159,1295 @@ BEGIN
 END $$;
 `;
 
+export const PRINTQUOTE_WORKSHOP_STAGES_V2_SQL = `-- Migration: 0034_printquote_workshop_stages_v2
+-- Scope: Additive PrintQuote V2 Workshop Pricing (BASE_PRINT vs FINISHING, optional vendor, PER_SQM area pricing,
+--        included_stages anti-double-charge metadata, price item change history, and PENDING_COST draft state).
+-- Zero sample/fake data is inserted. Existing quotes and price items remain 100% intact.
+
+-- 1. Allow optional vendor_id (ON DELETE SET NULL) and expand print_vendor_price_items
+ALTER TABLE print_vendor_price_items
+  DROP CONSTRAINT IF EXISTS print_vendor_price_items_vendor_id_fkey,
+  DROP CONSTRAINT IF EXISTS fk_print_vendor_price_items_vendor;
+
+ALTER TABLE print_vendor_price_items
+  ALTER COLUMN vendor_id DROP NOT NULL;
+
+ALTER TABLE print_vendor_price_items
+  ADD CONSTRAINT fk_print_vendor_price_items_vendor
+    FOREIGN KEY (vendor_id) REFERENCES print_vendors(id) ON DELETE SET NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_print_vendor_price_items_workspace_general_code
+  ON print_vendor_price_items (workspace_id, code)
+  WHERE vendor_id IS NULL;
+
+ALTER TABLE print_vendor_price_items
+  DROP CONSTRAINT IF EXISTS print_vendor_price_items_pricing_mode_check,
+  DROP CONSTRAINT IF EXISTS chk_print_vendor_price_items_pricing_mode,
+  DROP CONSTRAINT IF EXISTS print_vendor_price_items_default_profit_scope_check,
+  DROP CONSTRAINT IF EXISTS chk_print_vendor_price_items_default_profit_scope;
+
+ALTER TABLE print_vendor_price_items
+  ADD COLUMN IF NOT EXISTS item_type text NOT NULL DEFAULT 'BASE_PRINT',
+  ADD COLUMN IF NOT EXISTS included_stages jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS structured_spec jsonb NULL,
+  ADD COLUMN IF NOT EXISTS conditions_note text NULL,
+  ADD COLUMN IF NOT EXISTS updated_by uuid NULL REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE print_vendor_price_items
+  DROP CONSTRAINT IF EXISTS chk_print_vendor_price_items_item_type;
+
+ALTER TABLE print_vendor_price_items
+  ADD CONSTRAINT chk_print_vendor_price_items_item_type
+    CHECK (item_type IN ('BASE_PRINT', 'FINISHING')),
+  ADD CONSTRAINT chk_print_vendor_price_items_pricing_mode
+    CHECK (pricing_mode IN ('PER_UNIT', 'PER_SQM', 'TOTAL_BATCH')),
+  ADD CONSTRAINT chk_print_vendor_price_items_default_profit_scope
+    CHECK (default_profit_scope IN ('PER_UNIT', 'PER_SQM', 'TOTAL_BATCH'));
+
+CREATE INDEX IF NOT EXISTS idx_print_vendor_price_items_type_active
+  ON print_vendor_price_items (workspace_id, item_type, is_active);
+
+-- 2. Immutable Workshop Price Change History (audit trail of who changed what and when)
+CREATE TABLE IF NOT EXISTS print_vendor_price_item_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  price_item_id uuid NOT NULL REFERENCES print_vendor_price_items(id) ON DELETE RESTRICT,
+  version integer NOT NULL CHECK (version >= 1),
+  action text NOT NULL CHECK (action IN ('CREATED', 'UPDATED', 'DEACTIVATED', 'RESTORED')),
+  before_json jsonb NULL,
+  after_json jsonb NOT NULL,
+  change_note text NULL,
+  changed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  changed_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_vendor_price_item_history_lookup
+  ON print_vendor_price_item_history (workspace_id, price_item_id, version DESC, changed_at DESC);
+
+-- 3. Support "Chờ giá xưởng" (PENDING_COST) drafts on print_quotes and print_quote_versions
+ALTER TABLE print_quotes
+  ADD COLUMN IF NOT EXISTS pricing_status text NOT NULL DEFAULT 'COMPLETE',
+  ADD COLUMN IF NOT EXISTS pending_cost_summary jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE print_quotes
+  ALTER COLUMN customer_pdf_json DROP NOT NULL;
+
+ALTER TABLE print_quotes
+  DROP CONSTRAINT IF EXISTS chk_print_quotes_pricing_status;
+
+ALTER TABLE print_quotes
+  ADD CONSTRAINT chk_print_quotes_pricing_status
+    CHECK (
+      (pricing_status = 'COMPLETE' AND customer_pdf_json IS NOT NULL)
+      OR (pricing_status = 'PENDING_COST' AND status = 'DRAFT')
+    );
+
+CREATE INDEX IF NOT EXISTS idx_print_quotes_pricing_status
+  ON print_quotes (workspace_id, pricing_status, status);
+
+ALTER TABLE print_quote_versions
+  ADD COLUMN IF NOT EXISTS pricing_status text NOT NULL DEFAULT 'COMPLETE',
+  ADD COLUMN IF NOT EXISTS pending_cost_summary jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE print_quote_versions
+  ALTER COLUMN customer_pdf_json DROP NOT NULL;
+
+ALTER TABLE print_quote_versions
+  DROP CONSTRAINT IF EXISTS chk_print_quote_versions_pricing_status;
+
+ALTER TABLE print_quote_versions
+  ADD CONSTRAINT chk_print_quote_versions_pricing_status
+    CHECK (
+      (pricing_status = 'COMPLETE' AND customer_pdf_json IS NOT NULL)
+      OR (pricing_status = 'PENDING_COST' AND status = 'DRAFT')
+    );
+
+-- 4. Grant table permissions across runtime/test DB roles
+DO $$
+DECLARE
+  r text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['hp_app_runtime', 'hp_app_test', 'ml_app_runtime', 'ml_app_test', 'app_runtime', 'app_test']
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format(
+        'GRANT SELECT, INSERT, UPDATE, DELETE ON print_vendor_price_item_history, print_vendor_price_items, print_quotes, print_quote_versions TO %I',
+        r
+      );
+    END IF;
+  END LOOP;
+END $$;
+`;
+
+const PRINTQUOTE_FINANCIAL_CONTROL_GATE_SQL = `-- Migration: 0035_printquote_financial_control_gate
+-- Scope: Financial Control Gate for PrintQuote Orders — strictly separates
+--        (1) expected quote costs (\`expected_*\`),
+--        (2) operator-entered unconfirmed/confirmed actual costs (\`entered_*\`),
+--        (3) reconciliation confirmation state (\`actual_cost_confirmed\`, \`cost_reconciliation_status\`),
+--        (4) order-level paid-to-workshop note (\`vendor_paid_amount\`), and
+--        (5) immutable audit history (\`print_order_cost_history\`).
+
+ALTER TABLE print_orders
+  ADD COLUMN IF NOT EXISTS actual_cost_confirmed boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS actual_cost_confirmed_at timestamptz NULL,
+  ADD COLUMN IF NOT EXISTS actual_cost_confirmed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS entered_vendor_cost bigint NULL,
+  ADD COLUMN IF NOT EXISTS entered_shipping_fee bigint NULL,
+  ADD COLUMN IF NOT EXISTS entered_extra_cost bigint NULL,
+  ADD COLUMN IF NOT EXISTS vendor_paid_amount bigint NOT NULL DEFAULT 0;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'print_orders'
+      AND column_name = 'cost_reconciliation_status'
+  ) THEN
+    ALTER TABLE print_orders
+      ADD COLUMN cost_reconciliation_status text NOT NULL DEFAULT 'UNVERIFIED';
+
+    -- Zero guesswork: preserve 100% of original legacy numbers untouched, keep
+    -- actual_cost_confirmed = false, and place pre-0035 orders lacking confirmation
+    -- evidence into NEEDS_REVIEW for explicit reconciliation.
+    UPDATE print_orders
+    SET cost_reconciliation_status = 'NEEDS_REVIEW'
+    WHERE actual_cost_confirmed = false;
+  END IF;
+END $$;
+
+ALTER TABLE print_orders
+  DROP CONSTRAINT IF EXISTS chk_print_orders_vendor_paid_nonneg,
+  DROP CONSTRAINT IF EXISTS chk_print_orders_entered_costs_nonneg,
+  DROP CONSTRAINT IF EXISTS chk_print_orders_cost_reconciliation_status,
+  DROP CONSTRAINT IF EXISTS chk_print_orders_confirmed_requires_all_entered;
+
+ALTER TABLE print_orders
+  ADD CONSTRAINT chk_print_orders_vendor_paid_nonneg
+    CHECK (vendor_paid_amount >= 0),
+  ADD CONSTRAINT chk_print_orders_entered_costs_nonneg
+    CHECK (
+      (entered_vendor_cost IS NULL OR entered_vendor_cost >= 0)
+      AND (entered_shipping_fee IS NULL OR entered_shipping_fee >= 0)
+      AND (entered_extra_cost IS NULL OR entered_extra_cost >= 0)
+    ),
+  ADD CONSTRAINT chk_print_orders_cost_reconciliation_status
+    CHECK (
+      cost_reconciliation_status IN (
+        'UNVERIFIED',
+        'NEEDS_REVIEW',
+        'PARTIAL_ENTERED',
+        'ENTERED_UNCONFIRMED',
+        'CONFIRMED'
+      )
+    ),
+  ADD CONSTRAINT chk_print_orders_confirmed_requires_all_entered
+    CHECK (
+      actual_cost_confirmed = false
+      OR (
+        cost_reconciliation_status = 'CONFIRMED'
+        AND entered_vendor_cost IS NOT NULL
+        AND entered_shipping_fee IS NOT NULL
+        AND entered_extra_cost IS NOT NULL
+      )
+    );
+
+CREATE TABLE IF NOT EXISTS print_order_cost_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL,
+  order_id uuid NOT NULL,
+  action text NOT NULL CHECK (
+    action IN (
+      'ENTERED',
+      'CONFIRMED',
+      'ADJUSTED',
+      'UNCONFIRMED',
+      'VENDOR_PAYMENT_NOTE'
+    )
+  ),
+  before_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  after_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  note text NULL,
+  changed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT fk_print_order_cost_history_workspace
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_print_order_cost_history_order
+    FOREIGN KEY (order_id) REFERENCES print_orders(id) ON DELETE RESTRICT
+);
+
+DO $$
+DECLARE
+  fk_rec record;
+BEGIN
+  FOR fk_rec IN
+    SELECT c.conname
+    FROM pg_constraint c
+    WHERE c.conrelid = 'print_order_cost_history'::regclass
+      AND c.contype = 'f'
+      AND c.confdeltype = 'c'
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE print_order_cost_history DROP CONSTRAINT %I',
+      fk_rec.conname
+    );
+  END LOOP;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'print_order_cost_history'::regclass
+      AND conname = 'fk_print_order_cost_history_workspace'
+  ) THEN
+    ALTER TABLE print_order_cost_history
+      ADD CONSTRAINT fk_print_order_cost_history_workspace
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'print_order_cost_history'::regclass
+      AND conname = 'fk_print_order_cost_history_order'
+  ) THEN
+    ALTER TABLE print_order_cost_history
+      ADD CONSTRAINT fk_print_order_cost_history_order
+      FOREIGN KEY (order_id) REFERENCES print_orders(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+-- DB Guard: print_order_cost_history is strictly append-only (prohibit UPDATE, DELETE, TRUNCATE)
+CREATE OR REPLACE FUNCTION prevent_print_order_cost_history_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'print_order_cost_history is append-only: % operation prohibited', TG_OP
+    USING ERRCODE = '23514';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_print_order_cost_history_immutable ON print_order_cost_history;
+CREATE TRIGGER trg_print_order_cost_history_immutable
+  BEFORE UPDATE OR DELETE ON print_order_cost_history
+  FOR EACH ROW EXECUTE FUNCTION prevent_print_order_cost_history_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_order_cost_history_no_truncate ON print_order_cost_history;
+CREATE TRIGGER trg_print_order_cost_history_no_truncate
+  BEFORE TRUNCATE ON print_order_cost_history
+  FOR EACH STATEMENT EXECUTE FUNCTION prevent_print_order_cost_history_mutation();
+
+DROP INDEX IF EXISTS idx_print_orders_actual_confirmed;
+
+CREATE INDEX IF NOT EXISTS idx_print_orders_actual_confirmed
+  ON print_orders (workspace_id, actual_cost_confirmed, cost_reconciliation_status);
+
+CREATE INDEX IF NOT EXISTS idx_print_order_cost_history_order
+  ON print_order_cost_history (workspace_id, order_id, created_at DESC);
+
+REVOKE ALL ON print_order_cost_history FROM PUBLIC;
+
+DO $$
+DECLARE
+  r text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['hp_app_runtime', 'hp_app_test', 'ml_app_runtime', 'ml_app_test', 'app_runtime', 'app_test']
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format(
+        'GRANT SELECT, INSERT, UPDATE ON print_orders TO %I',
+        r
+      );
+      EXECUTE format(
+        'REVOKE UPDATE, DELETE, TRUNCATE ON print_order_cost_history FROM %I',
+        r
+      );
+      EXECUTE format(
+        'GRANT SELECT, INSERT ON print_order_cost_history TO %I',
+        r
+      );
+    END IF;
+  END LOOP;
+END $$;
+`;
+
+const PRINTQUOTE_AR_AP_LEDGER_SQL = `-- Migration: 0036_printquote_ar_ap_ledger
+-- Scope: Print-only AR (Customer Receivables), AP (Workshop Payables), Multi-Workshop Jobs,
+--        Cancelled Order Settlement, Opening Balances & Historical Google Sheet Reconciliation.
+-- Boundary: Strictly isolated inside print_* tables. Zero link or sync with /finance (fin_*).
+
+-- ============================================================================
+-- 1. ADDITIVE COLUMNS ON print_orders
+-- ============================================================================
+
+ALTER TABLE print_orders
+  ADD COLUMN IF NOT EXISTS ledger_scope text NOT NULL DEFAULT 'GENERAL',
+  ADD COLUMN IF NOT EXISTS net_ar_adjustment_amount bigint NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS valid_receivable_amount bigint NULL,
+  ADD COLUMN IF NOT EXISTS cancellation_settlement_status text NOT NULL DEFAULT 'NOT_APPLICABLE',
+  ADD COLUMN IF NOT EXISTS agreed_customer_refund_amount bigint NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS refunded_after_cancel_amount bigint NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS retained_cancellation_fee bigint NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS legacy_vendor_paid_reconciled boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS legacy_vendor_paid_reconciled_at timestamptz NULL,
+  ADD COLUMN IF NOT EXISTS legacy_vendor_paid_reconciled_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS pre0036_total_paid_snapshot bigint NULL,
+  ADD COLUMN IF NOT EXISTS pre0036_remaining_debt_snapshot bigint NULL,
+  ADD COLUMN IF NOT EXISTS pre0036_deposit_paid_snapshot bigint NULL,
+  ADD COLUMN IF NOT EXISTS legacy_balance_discrepancy_resolved boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS legacy_ar_reconciliation_status text NOT NULL DEFAULT 'NOT_REQUIRED';
+
+-- Capture immutable pre-0036 balance snapshots once without altering legacy order payment columns:
+UPDATE print_orders
+SET
+  pre0036_total_paid_snapshot = total_paid_amount,
+  pre0036_remaining_debt_snapshot = remaining_debt_amount,
+  pre0036_deposit_paid_snapshot = deposit_paid
+WHERE pre0036_total_paid_snapshot IS NULL;
+
+-- Populate deterministic defaults on pre-0036 orders without guessing refunds, customer IDs, or AP payouts:
+UPDATE print_orders
+SET
+  valid_receivable_amount = CASE
+    WHEN production_status = 'CANCELLED' THEN 0
+    ELSE total_quote_amount
+  END,
+  cancellation_settlement_status = CASE
+    WHEN production_status <> 'CANCELLED' THEN 'NOT_APPLICABLE'
+    WHEN total_paid_amount > 0
+      OR vendor_paid_amount > 0
+      OR COALESCE(entered_vendor_cost, 0) > 0
+      OR COALESCE(actual_vendor_cost, 0) > 0
+    THEN 'PENDING_SETTLEMENT'
+    ELSE 'SETTLED'
+  END,
+  legacy_vendor_paid_reconciled = CASE
+    WHEN vendor_paid_amount > 0 THEN false
+    ELSE true
+  END
+WHERE valid_receivable_amount IS NULL;
+
+ALTER TABLE print_orders
+  ALTER COLUMN valid_receivable_amount SET NOT NULL,
+  ALTER COLUMN valid_receivable_amount SET DEFAULT 0;
+
+ALTER TABLE print_orders
+  DROP CONSTRAINT IF EXISTS chk_print_orders_ledger_scope,
+  DROP CONSTRAINT IF EXISTS chk_print_orders_valid_receivable_nonneg,
+  DROP CONSTRAINT IF EXISTS chk_print_orders_cancel_settlement_status,
+  DROP CONSTRAINT IF EXISTS chk_print_orders_cancel_amounts_nonneg,
+  DROP CONSTRAINT IF EXISTS chk_print_orders_legacy_ar_recon_status;
+
+ALTER TABLE print_orders
+  ADD CONSTRAINT chk_print_orders_ledger_scope
+    CHECK (ledger_scope IN ('GENERAL', 'RIENG', 'HVGROUP')),
+  ADD CONSTRAINT chk_print_orders_valid_receivable_nonneg
+    CHECK (valid_receivable_amount >= 0),
+  ADD CONSTRAINT chk_print_orders_cancel_settlement_status
+    CHECK (cancellation_settlement_status IN ('NOT_APPLICABLE', 'PENDING_SETTLEMENT', 'SETTLED')),
+  ADD CONSTRAINT chk_print_orders_cancel_amounts_nonneg
+    CHECK (
+      agreed_customer_refund_amount >= 0
+      AND refunded_after_cancel_amount >= 0
+      AND retained_cancellation_fee >= 0
+      AND refunded_after_cancel_amount <= agreed_customer_refund_amount
+    ),
+  ADD CONSTRAINT chk_print_orders_legacy_ar_recon_status
+    CHECK (legacy_ar_reconciliation_status IN ('NOT_REQUIRED', 'PENDING', 'RECONCILED'));
+
+-- ============================================================================
+-- 2. MULTI-WORKSHOP JOBS (print_workshop_jobs & print_workshop_job_history)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS print_workshop_jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  job_code text NOT NULL,
+  order_id uuid NOT NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  vendor_id uuid NULL REFERENCES print_vendors(id) ON DELETE RESTRICT,
+  vendor_name text NULL,
+  ledger_scope text NOT NULL DEFAULT 'GENERAL' CHECK (ledger_scope IN ('GENERAL', 'RIENG', 'HVGROUP')),
+  title text NOT NULL,
+  source_line_refs jsonb NOT NULL DEFAULT '[]'::jsonb,
+  job_status text NOT NULL DEFAULT 'ORDERED' CHECK (
+    job_status IN ('DRAFT', 'ORDERED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')
+  ),
+  cost_status text NOT NULL DEFAULT 'UNVERIFIED' CHECK (
+    cost_status IN ('UNVERIFIED', 'ENTERED_UNCONFIRMED', 'CONFIRMED')
+  ),
+  expected_cost bigint NOT NULL DEFAULT 0 CHECK (expected_cost >= 0),
+  entered_cost bigint NULL CHECK (entered_cost IS NULL OR entered_cost >= 0),
+  confirmed_cost bigint NULL CHECK (confirmed_cost IS NULL OR confirmed_cost >= 0),
+  confirmed_at timestamptz NULL,
+  confirmed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  net_ap_adjustment_amount bigint NOT NULL DEFAULT 0,
+  valid_payable_amount bigint NOT NULL DEFAULT 0 CHECK (valid_payable_amount >= 0),
+  allocated_paid_amount bigint NOT NULL DEFAULT 0 CHECK (allocated_paid_amount >= 0),
+  remaining_payable_amount bigint NOT NULL DEFAULT 0 CHECK (remaining_payable_amount >= 0),
+  vendor_overpaid_credit_amount bigint NOT NULL DEFAULT 0 CHECK (vendor_overpaid_credit_amount >= 0),
+  ordered_at timestamptz NULL,
+  due_date date NULL,
+  note text NULL,
+  created_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, job_code),
+  CONSTRAINT chk_print_workshop_jobs_confirmed_consistency CHECK (
+    (cost_status <> 'CONFIRMED' AND confirmed_cost IS NULL)
+    OR (cost_status = 'CONFIRMED' AND confirmed_cost IS NOT NULL AND entered_cost IS NOT NULL AND vendor_id IS NOT NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_workshop_jobs_order
+  ON print_workshop_jobs (workspace_id, order_id, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_print_workshop_jobs_vendor
+  ON print_workshop_jobs (workspace_id, vendor_id, cost_status, remaining_payable_amount);
+
+CREATE TABLE IF NOT EXISTS print_workshop_job_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  workshop_job_id uuid NOT NULL REFERENCES print_workshop_jobs(id) ON DELETE RESTRICT,
+  order_id uuid NOT NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  action text NOT NULL CHECK (
+    action IN (
+      'CREATED',
+      'UPDATED',
+      'VENDOR_ASSIGNED',
+      'COST_ENTERED',
+      'COST_CONFIRMED',
+      'COST_ADJUSTED',
+      'COST_UNCONFIRMED',
+      'CANCELLED'
+    )
+  ),
+  before_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  after_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  reason text NULL,
+  changed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_workshop_job_history_job
+  ON print_workshop_job_history (workspace_id, workshop_job_id, created_at DESC);
+
+-- ============================================================================
+-- 3. HISTORICAL SHEET IMPORT BATCHES & OPENING BALANCES
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS print_historical_import_batches (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  batch_code text NOT NULL,
+  source_sheet_name text NOT NULL,
+  source_tab_name text NOT NULL,
+  default_ledger_scope text NOT NULL DEFAULT 'GENERAL' CHECK (
+    default_ledger_scope IN ('GENERAL', 'RIENG', 'HVGROUP')
+  ),
+  raw_payload text NOT NULL,
+  status text NOT NULL DEFAULT 'PREVIEW' CHECK (
+    status IN ('PREVIEW', 'CONFIRMED', 'CANCELLED')
+  ),
+  total_rows integer NOT NULL DEFAULT 0 CHECK (total_rows >= 0),
+  ready_rows_count integer NOT NULL DEFAULT 0 CHECK (ready_rows_count >= 0),
+  needs_confirmation_rows_count integer NOT NULL DEFAULT 0 CHECK (needs_confirmation_rows_count >= 0),
+  duplicate_rows_count integer NOT NULL DEFAULT 0 CHECK (duplicate_rows_count >= 0),
+  imported_rows_count integer NOT NULL DEFAULT 0 CHECK (imported_rows_count >= 0),
+  created_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  confirmed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  confirmed_at timestamptz NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, batch_code)
+);
+
+CREATE TABLE IF NOT EXISTS print_historical_import_rows (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  batch_id uuid NOT NULL REFERENCES print_historical_import_batches(id) ON DELETE RESTRICT,
+  source_row_number integer NOT NULL CHECK (source_row_number >= 1),
+  ledger_scope text NOT NULL DEFAULT 'GENERAL' CHECK (
+    ledger_scope IN ('GENERAL', 'RIENG', 'HVGROUP')
+  ),
+  counterparty_role text NOT NULL DEFAULT 'UNKNOWN' CHECK (
+    counterparty_role IN ('CUSTOMER', 'VENDOR', 'UNKNOWN')
+  ),
+  counterparty_name text NULL,
+  matched_customer_id uuid NULL REFERENCES print_customers(id) ON DELETE SET NULL,
+  matched_vendor_id uuid NULL REFERENCES print_vendors(id) ON DELETE SET NULL,
+  raw_amount_text text NULL,
+  parsed_amount bigint NULL CHECK (parsed_amount IS NULL OR parsed_amount >= 0),
+  raw_goods_total_text text NULL,
+  parsed_goods_total bigint NULL CHECK (parsed_goods_total IS NULL OR parsed_goods_total >= 0),
+  voucher_code text NULL,
+  occurred_date text NULL,
+  note text NULL,
+  raw_cells_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  flags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  row_status text NOT NULL DEFAULT 'NEEDS_CONFIRMATION' CHECK (
+    row_status IN ('READY', 'NEEDS_CONFIRMATION', 'DUPLICATE', 'IMPORTED', 'SKIPPED')
+  ),
+  suggested_resolution text NOT NULL DEFAULT 'UNDECIDED' CHECK (
+    suggested_resolution IN (
+      'UNDECIDED',
+      'IMPORT_OPENING_RECEIVABLE',
+      'IMPORT_OPENING_PAYABLE',
+      'IMPORT_CUSTOMER_ADVANCE',
+      'IMPORT_VENDOR_ADVANCE',
+      'HOLD_FOR_REVIEW',
+      'SKIP'
+    )
+  ),
+  owner_resolution text NOT NULL DEFAULT 'UNDECIDED' CHECK (
+    owner_resolution IN (
+      'UNDECIDED',
+      'IMPORT_OPENING_RECEIVABLE',
+      'IMPORT_OPENING_PAYABLE',
+      'IMPORT_CUSTOMER_ADVANCE',
+      'IMPORT_VENDOR_ADVANCE',
+      'HOLD_FOR_REVIEW',
+      'SKIP'
+    )
+  ),
+  row_fingerprint text NOT NULL,
+  imported_entity_type text NULL,
+  imported_entity_id uuid NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_print_hist_import_rows_imported_fp
+  ON print_historical_import_rows (workspace_id, row_fingerprint)
+  WHERE row_status = 'IMPORTED';
+
+CREATE INDEX IF NOT EXISTS idx_print_hist_import_rows_batch
+  ON print_historical_import_rows (batch_id, source_row_number ASC);
+
+CREATE TABLE IF NOT EXISTS print_opening_balances (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  doc_code text NOT NULL,
+  direction text NOT NULL CHECK (direction IN ('CUSTOMER_RECEIVABLE', 'VENDOR_PAYABLE')),
+  ledger_scope text NOT NULL DEFAULT 'GENERAL' CHECK (
+    ledger_scope IN ('GENERAL', 'RIENG', 'HVGROUP')
+  ),
+  customer_id uuid NULL REFERENCES print_customers(id) ON DELETE RESTRICT,
+  customer_name text NULL,
+  vendor_id uuid NULL REFERENCES print_vendors(id) ON DELETE RESTRICT,
+  vendor_name text NULL,
+  original_amount bigint NOT NULL CHECK (original_amount > 0),
+  net_adjustment_amount bigint NOT NULL DEFAULT 0,
+  valid_amount bigint NOT NULL CHECK (valid_amount >= 0),
+  allocated_settled_amount bigint NOT NULL DEFAULT 0 CHECK (allocated_settled_amount >= 0),
+  remaining_amount bigint NOT NULL CHECK (remaining_amount >= 0),
+  as_of_date date NOT NULL DEFAULT CURRENT_DATE,
+  reference_code text NULL,
+  source_sheet_name text NULL,
+  source_tab_name text NULL,
+  source_row_number integer NULL,
+  import_row_id uuid NULL REFERENCES print_historical_import_rows(id) ON DELETE RESTRICT,
+  note text NULL,
+  recorded_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, doc_code),
+  CONSTRAINT chk_print_opening_balances_counterparty CHECK (
+    (direction = 'CUSTOMER_RECEIVABLE' AND customer_name IS NOT NULL AND vendor_id IS NULL)
+    OR (direction = 'VENDOR_PAYABLE' AND vendor_id IS NOT NULL AND vendor_name IS NOT NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_opening_balances_scope
+  ON print_opening_balances (workspace_id, direction, ledger_scope, remaining_amount);
+
+-- ============================================================================
+-- 4. CUSTOMER RECEIVABLES LEDGER (print_ar_*)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS print_ar_transactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  tx_code text NOT NULL,
+  customer_id uuid NULL REFERENCES print_customers(id) ON DELETE RESTRICT,
+  customer_name text NOT NULL,
+  ledger_scope text NOT NULL DEFAULT 'GENERAL' CHECK (
+    ledger_scope IN ('GENERAL', 'RIENG', 'HVGROUP')
+  ),
+  tx_kind text NOT NULL CHECK (tx_kind IN ('RECEIPT', 'REFUND', 'REVERSAL')),
+  receipt_subtype text NULL CHECK (
+    receipt_subtype IS NULL
+    OR receipt_subtype IN ('DEPOSIT', 'INSTALLMENT', 'FINAL', 'ADVANCE', 'OPENING_ADVANCE')
+  ),
+  amount bigint NOT NULL CHECK (amount > 0),
+  allocated_amount bigint NOT NULL DEFAULT 0 CHECK (allocated_amount >= 0),
+  refunded_unallocated_amount bigint NOT NULL DEFAULT 0 CHECK (refunded_unallocated_amount >= 0),
+  unallocated_amount bigint NOT NULL DEFAULT 0 CHECK (unallocated_amount >= 0),
+  payment_method text NOT NULL DEFAULT 'BANK_TRANSFER' CHECK (
+    payment_method IN ('BANK_TRANSFER', 'CASH', 'QR_VIETQR', 'OTHER')
+  ),
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  reference_code text NULL,
+  attachment_url text NULL,
+  note text NULL,
+  status text NOT NULL DEFAULT 'POSTED' CHECK (status IN ('POSTED', 'VOIDED')),
+  reversal_of_tx_id uuid NULL REFERENCES print_ar_transactions(id) ON DELETE RESTRICT,
+  void_reason text NULL,
+  voided_at timestamptz NULL,
+  voided_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  related_order_id uuid NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  legacy_order_payment_id uuid NULL UNIQUE,
+  source_sheet_name text NULL,
+  source_tab_name text NULL,
+  source_row_number integer NULL,
+  recorded_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, tx_code),
+  CONSTRAINT chk_print_ar_tx_conservation
+    CHECK (allocated_amount + refunded_unallocated_amount + unallocated_amount = amount),
+  CONSTRAINT chk_print_ar_tx_void_reason
+    CHECK (status = 'POSTED' OR (status = 'VOIDED' AND void_reason IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_ar_tx_customer
+  ON print_ar_transactions (workspace_id, customer_id, ledger_scope, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_print_ar_tx_ref
+  ON print_ar_transactions (workspace_id, reference_code)
+  WHERE reference_code IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS print_ar_allocations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  ar_transaction_id uuid NOT NULL REFERENCES print_ar_transactions(id) ON DELETE RESTRICT,
+  order_id uuid NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  opening_balance_id uuid NULL REFERENCES print_opening_balances(id) ON DELETE RESTRICT,
+  direction text NOT NULL CHECK (
+    direction IN ('APPLY', 'UNAPPLY_REVERSAL', 'REFUND_RELEASE')
+  ),
+  amount bigint NOT NULL CHECK (amount > 0),
+  note text NULL,
+  recorded_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT chk_print_ar_alloc_target CHECK (
+    (order_id IS NOT NULL AND opening_balance_id IS NULL)
+    OR (order_id IS NULL AND opening_balance_id IS NOT NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_ar_alloc_order
+  ON print_ar_allocations (workspace_id, order_id, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_print_ar_alloc_tx
+  ON print_ar_allocations (workspace_id, ar_transaction_id, created_at ASC);
+
+CREATE TABLE IF NOT EXISTS print_ar_adjustments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  adj_code text NOT NULL,
+  order_id uuid NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  opening_balance_id uuid NULL REFERENCES print_opening_balances(id) ON DELETE RESTRICT,
+  customer_id uuid NULL REFERENCES print_customers(id) ON DELETE RESTRICT,
+  customer_name text NOT NULL,
+  ledger_scope text NOT NULL DEFAULT 'GENERAL' CHECK (
+    ledger_scope IN ('GENERAL', 'RIENG', 'HVGROUP')
+  ),
+  adjustment_type text NOT NULL CHECK (
+    adjustment_type IN (
+      'DISCOUNT',
+      'RETURN_CREDIT',
+      'SURCHARGE',
+      'CANCELLATION_SETTLEMENT',
+      'REVERSAL'
+    )
+  ),
+  delta_amount bigint NOT NULL CHECK (delta_amount <> 0),
+  reference_code text NULL,
+  reason text NOT NULL CHECK (length(btrim(reason)) > 0),
+  recorded_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, adj_code),
+  CONSTRAINT chk_print_ar_adj_target CHECK (
+    (order_id IS NOT NULL AND opening_balance_id IS NULL)
+    OR (order_id IS NULL AND opening_balance_id IS NOT NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_ar_adj_order
+  ON print_ar_adjustments (workspace_id, order_id, created_at DESC);
+
+-- ============================================================================
+-- 5. WORKSHOP PAYABLES LEDGER (print_ap_*) & CANCELLATION SETTLEMENTS
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS print_ap_transactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  tx_code text NOT NULL,
+  vendor_id uuid NOT NULL REFERENCES print_vendors(id) ON DELETE RESTRICT,
+  vendor_name text NOT NULL,
+  ledger_scope text NOT NULL DEFAULT 'GENERAL' CHECK (
+    ledger_scope IN ('GENERAL', 'RIENG', 'HVGROUP')
+  ),
+  tx_kind text NOT NULL CHECK (tx_kind IN ('PAYOUT', 'VENDOR_REFUND', 'REVERSAL')),
+  payout_subtype text NULL CHECK (
+    payout_subtype IS NULL
+    OR payout_subtype IN ('ADVANCE', 'JOB_PAYMENT', 'SETTLEMENT', 'OPENING_ADVANCE')
+  ),
+  amount bigint NOT NULL CHECK (amount > 0),
+  allocated_amount bigint NOT NULL DEFAULT 0 CHECK (allocated_amount >= 0),
+  refunded_unallocated_amount bigint NOT NULL DEFAULT 0 CHECK (refunded_unallocated_amount >= 0),
+  unallocated_amount bigint NOT NULL DEFAULT 0 CHECK (unallocated_amount >= 0),
+  payment_method text NOT NULL DEFAULT 'BANK_TRANSFER' CHECK (
+    payment_method IN ('BANK_TRANSFER', 'CASH', 'QR_VIETQR', 'OTHER')
+  ),
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  reference_code text NULL,
+  attachment_url text NULL,
+  note text NULL,
+  status text NOT NULL DEFAULT 'POSTED' CHECK (status IN ('POSTED', 'VOIDED')),
+  reversal_of_tx_id uuid NULL REFERENCES print_ap_transactions(id) ON DELETE RESTRICT,
+  void_reason text NULL,
+  voided_at timestamptz NULL,
+  voided_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  reconciled_from_order_id uuid NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  source_sheet_name text NULL,
+  source_tab_name text NULL,
+  source_row_number integer NULL,
+  recorded_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, tx_code),
+  CONSTRAINT chk_print_ap_tx_conservation
+    CHECK (allocated_amount + refunded_unallocated_amount + unallocated_amount = amount),
+  CONSTRAINT chk_print_ap_tx_void_reason
+    CHECK (status = 'POSTED' OR (status = 'VOIDED' AND void_reason IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_ap_tx_vendor
+  ON print_ap_transactions (workspace_id, vendor_id, ledger_scope, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_print_ap_tx_ref
+  ON print_ap_transactions (workspace_id, reference_code)
+  WHERE reference_code IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS print_ap_allocations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  ap_transaction_id uuid NOT NULL REFERENCES print_ap_transactions(id) ON DELETE RESTRICT,
+  workshop_job_id uuid NULL REFERENCES print_workshop_jobs(id) ON DELETE RESTRICT,
+  order_id uuid NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  opening_balance_id uuid NULL REFERENCES print_opening_balances(id) ON DELETE RESTRICT,
+  direction text NOT NULL CHECK (
+    direction IN ('APPLY', 'UNAPPLY_REVERSAL', 'VENDOR_REFUND_RELEASE')
+  ),
+  amount bigint NOT NULL CHECK (amount > 0),
+  note text NULL,
+  recorded_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT chk_print_ap_alloc_target CHECK (
+    (workshop_job_id IS NOT NULL AND opening_balance_id IS NULL)
+    OR (workshop_job_id IS NULL AND opening_balance_id IS NOT NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_ap_alloc_job
+  ON print_ap_allocations (workspace_id, workshop_job_id, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_print_ap_alloc_tx
+  ON print_ap_allocations (workspace_id, ap_transaction_id, created_at ASC);
+
+CREATE TABLE IF NOT EXISTS print_ap_adjustments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  adj_code text NOT NULL,
+  workshop_job_id uuid NULL REFERENCES print_workshop_jobs(id) ON DELETE RESTRICT,
+  order_id uuid NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  opening_balance_id uuid NULL REFERENCES print_opening_balances(id) ON DELETE RESTRICT,
+  vendor_id uuid NOT NULL REFERENCES print_vendors(id) ON DELETE RESTRICT,
+  vendor_name text NOT NULL,
+  ledger_scope text NOT NULL DEFAULT 'GENERAL' CHECK (
+    ledger_scope IN ('GENERAL', 'RIENG', 'HVGROUP')
+  ),
+  adjustment_type text NOT NULL CHECK (
+    adjustment_type IN ('DISCOUNT', 'DEFECT_DEDUCTION', 'SURCHARGE', 'REVERSAL')
+  ),
+  delta_amount bigint NOT NULL CHECK (delta_amount <> 0),
+  reference_code text NULL,
+  reason text NOT NULL CHECK (length(btrim(reason)) > 0),
+  recorded_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, adj_code),
+  CONSTRAINT chk_print_ap_adj_target CHECK (
+    (workshop_job_id IS NOT NULL AND opening_balance_id IS NULL)
+    OR (workshop_job_id IS NULL AND opening_balance_id IS NOT NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_ap_adj_job
+  ON print_ap_adjustments (workspace_id, workshop_job_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS print_order_cancellation_settlements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  order_id uuid NOT NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  customer_paid_holding_snapshot bigint NOT NULL CHECK (customer_paid_holding_snapshot >= 0),
+  agreed_customer_refund_amount bigint NOT NULL CHECK (agreed_customer_refund_amount >= 0),
+  retained_cancellation_fee bigint NOT NULL CHECK (retained_cancellation_fee >= 0),
+  incurred_vendor_cost_snapshot bigint NOT NULL DEFAULT 0 CHECK (incurred_vendor_cost_snapshot >= 0),
+  vendor_paid_snapshot bigint NOT NULL DEFAULT 0 CHECK (vendor_paid_snapshot >= 0),
+  reference_code text NULL,
+  reason text NOT NULL CHECK (length(btrim(reason)) > 0),
+  settled_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT chk_print_cancel_settlement_sum CHECK (
+    agreed_customer_refund_amount + retained_cancellation_fee = customer_paid_holding_snapshot
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_cancel_settlements_order
+  ON print_order_cancellation_settlements (workspace_id, order_id, created_at DESC);
+
+-- ============================================================================
+-- 6. LEGACY print_order_payments RECONCILIATION QUEUE & IMMUTABLE HISTORY
+--    (Owner Approved Policy: NEVER auto-post legacy payments to Official AR;
+--     preserve 100% legacy data, inspect anomalies, and post ONLY on confirmation!)
+-- ============================================================================
+
+-- Harden print_order_payments foreign keys from CASCADE to RESTRICT first
+DO $$
+DECLARE
+  fk_rec record;
+BEGIN
+  FOR fk_rec IN
+    SELECT c.conname
+    FROM pg_constraint c
+    WHERE c.conrelid = 'print_order_payments'::regclass
+      AND c.contype = 'f'
+      AND c.confdeltype = 'c'
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE print_order_payments DROP CONSTRAINT %I',
+      fk_rec.conname
+    );
+  END LOOP;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'print_order_payments'::regclass
+      AND conname = 'fk_print_order_payments_workspace_restrict'
+  ) THEN
+    ALTER TABLE print_order_payments
+      ADD CONSTRAINT fk_print_order_payments_workspace_restrict
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'print_order_payments'::regclass
+      AND conname = 'fk_print_order_payments_order_restrict'
+  ) THEN
+    ALTER TABLE print_order_payments
+      ADD CONSTRAINT fk_print_order_payments_order_restrict
+      FOREIGN KEY (order_id) REFERENCES print_orders(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS print_legacy_ar_reconciliations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  legacy_payment_id uuid NOT NULL UNIQUE REFERENCES print_order_payments(id) ON DELETE RESTRICT,
+  order_id uuid NOT NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  status text NOT NULL DEFAULT 'PENDING' CHECK (
+    status IN ('PENDING', 'CONFIRMED', 'ON_HOLD', 'POSTED_DIRECT')
+  ),
+  anomaly_codes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  pre_reconciliation_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  post_reconciliation_json jsonb NULL,
+  posted_ar_transaction_id uuid NULL UNIQUE REFERENCES print_ar_transactions(id) ON DELETE RESTRICT,
+  hold_reason text NULL,
+  resolution_note text NULL,
+  confirmed_at timestamptz NULL,
+  confirmed_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT chk_print_legacy_ar_recon_tx_link CHECK (
+    (status IN ('CONFIRMED', 'POSTED_DIRECT') AND posted_ar_transaction_id IS NOT NULL)
+    OR (status IN ('PENDING', 'ON_HOLD') AND posted_ar_transaction_id IS NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_legacy_ar_recon_workspace_status
+  ON print_legacy_ar_reconciliations (workspace_id, status, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_print_legacy_ar_recon_order
+  ON print_legacy_ar_reconciliations (workspace_id, order_id, status);
+
+CREATE TABLE IF NOT EXISTS print_legacy_ar_reconciliation_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+  reconciliation_id uuid NULL REFERENCES print_legacy_ar_reconciliations(id) ON DELETE RESTRICT,
+  legacy_payment_id uuid NULL REFERENCES print_order_payments(id) ON DELETE RESTRICT,
+  order_id uuid NOT NULL REFERENCES print_orders(id) ON DELETE RESTRICT,
+  action text NOT NULL CHECK (
+    action IN (
+      'QUEUED_BY_MIGRATION',
+      'CUSTOMER_LINKED',
+      'BALANCE_DISCREPANCY_RESOLVED',
+      'HELD',
+      'UNHELD',
+      'CONFIRMED_TO_AR'
+    )
+  ),
+  before_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  after_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  reason text NULL,
+  actor_id uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_print_legacy_ar_recon_hist_order
+  ON print_legacy_ar_reconciliation_history (workspace_id, order_id, created_at DESC);
+
+-- Idempotent seeding of pre-0036 print_order_payments into PENDING reconciliation queue (ZERO auto-posting!)
+WITH order_pay_totals AS (
+  SELECT
+    p.order_id,
+    COALESCE(SUM(p.amount) FILTER (WHERE p.payment_type <> 'REFUND'), 0)::bigint AS gross_receipts,
+    COALESCE(SUM(p.amount) FILTER (WHERE p.payment_type = 'REFUND'), 0)::bigint AS gross_refunds
+  FROM print_order_payments p
+  GROUP BY p.order_id
+)
+INSERT INTO print_legacy_ar_reconciliations (
+  workspace_id,
+  legacy_payment_id,
+  order_id,
+  status,
+  anomaly_codes,
+  pre_reconciliation_json,
+  created_at,
+  updated_at
+)
+SELECT
+  p.workspace_id,
+  p.id,
+  p.order_id,
+  'PENDING',
+  to_jsonb(
+    ARRAY_REMOVE(
+      ARRAY[
+        CASE WHEN o.customer_id IS NULL OR c.id IS NULL THEN 'MISSING_CUSTOMER_ID' END,
+        CASE WHEN p.amount <= 0 THEN 'INVALID_AMOUNT' END,
+        CASE WHEN COALESCE(o.pre0036_total_paid_snapshot, o.total_paid_amount) <> (opt.gross_receipts - opt.gross_refunds)
+          OR (
+            o.production_status <> 'CANCELLED'
+            AND COALESCE(o.pre0036_remaining_debt_snapshot, o.remaining_debt_amount)
+                <> GREATEST(0::bigint, o.total_quote_amount - COALESCE(o.pre0036_total_paid_snapshot, o.total_paid_amount))
+          )
+          THEN 'ORDER_BALANCE_MISMATCH'
+        END,
+        CASE WHEN opt.gross_refunds > opt.gross_receipts
+          OR (p.payment_type = 'REFUND' AND p.amount > opt.gross_receipts)
+          THEN 'REFUND_EXCEEDS_RECEIPTS'
+        END,
+        CASE WHEN p.payment_type = 'REFUND' THEN 'REFUND_AWAITING_CONFIRMED_RECEIPT' END,
+        CASE WHEN p.payment_type <> 'REFUND'
+          AND p.amount > (CASE WHEN o.production_status = 'CANCELLED' THEN o.total_quote_amount ELSE o.valid_receivable_amount END)
+          THEN 'EXCEEDS_VALID_RECEIVABLE'
+        END
+      ]::text[],
+      NULL
+    )
+  ),
+  jsonb_build_object(
+    'legacy_payment_id', p.id,
+    'order_id', o.id,
+    'order_code', o.order_code,
+    'quote_code', o.quote_code,
+    'payment_type', p.payment_type,
+    'amount', p.amount,
+    'payment_method', p.payment_method,
+    'paid_at', p.paid_at,
+    'reference_code', p.reference_code,
+    'customer_id', o.customer_id,
+    'customer_name', o.customer_name,
+    'order_total_quote_amount', o.total_quote_amount,
+    'order_valid_receivable_amount', o.valid_receivable_amount,
+    'pre0036_total_paid_snapshot', COALESCE(o.pre0036_total_paid_snapshot, o.total_paid_amount),
+    'pre0036_remaining_debt_snapshot', COALESCE(o.pre0036_remaining_debt_snapshot, o.remaining_debt_amount),
+    'order_legacy_gross_receipts', opt.gross_receipts,
+    'order_legacy_gross_refunds', opt.gross_refunds
+  ),
+  now(),
+  now()
+FROM print_order_payments p
+JOIN print_orders o ON o.id = p.order_id
+JOIN order_pay_totals opt ON opt.order_id = p.order_id
+LEFT JOIN print_customers c ON c.id = o.customer_id AND c.workspace_id = o.workspace_id
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM print_ar_transactions existing_tx
+  WHERE existing_tx.legacy_order_payment_id = p.id
+)
+ON CONFLICT (legacy_payment_id) DO NOTHING;
+
+INSERT INTO print_legacy_ar_reconciliation_history (
+  workspace_id,
+  reconciliation_id,
+  legacy_payment_id,
+  order_id,
+  action,
+  before_json,
+  after_json,
+  reason,
+  actor_id
+)
+SELECT
+  r.workspace_id,
+  r.id,
+  r.legacy_payment_id,
+  r.order_id,
+  'QUEUED_BY_MIGRATION',
+  r.pre_reconciliation_json,
+  jsonb_build_object(
+    'status', r.status,
+    'anomaly_codes', r.anomaly_codes
+  ),
+  'Đưa phiếu thu/hoàn cũ vào danh sách chờ đối chiếu theo chính sách migration 0036',
+  NULL
+FROM print_legacy_ar_reconciliations r
+WHERE r.status = 'PENDING'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM print_legacy_ar_reconciliation_history h
+    WHERE h.reconciliation_id = r.id
+      AND h.action = 'QUEUED_BY_MIGRATION'
+  );
+
+-- Flag pre-0036 orders that require reconciliation attention (pending payments, missing customer_id, or balance mismatch)
+UPDATE print_orders o
+SET legacy_ar_reconciliation_status = 'PENDING'
+WHERE o.legacy_ar_reconciliation_status = 'NOT_REQUIRED'
+  AND o.pre0036_total_paid_snapshot IS NOT NULL
+  AND (
+    o.customer_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM print_legacy_ar_reconciliations r
+      WHERE r.order_id = o.id AND r.status IN ('PENDING', 'ON_HOLD')
+    )
+    OR (
+      o.pre0036_total_paid_snapshot > 0
+      AND NOT EXISTS (SELECT 1 FROM print_order_payments p WHERE p.order_id = o.id)
+    )
+    OR (
+      o.production_status <> 'CANCELLED'
+      AND o.pre0036_remaining_debt_snapshot <> GREATEST(0::bigint, o.total_quote_amount - o.pre0036_total_paid_snapshot)
+    )
+  );
+
+-- ============================================================================
+-- 7. IMMUTABLE / APPEND-ONLY TRIGGERS & ROLE PRIVILEGES
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION prevent_print_ledger_append_only_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION '% is append-only: % operation prohibited', TG_TABLE_NAME, TG_OP
+    USING ERRCODE = '23514';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION guard_print_ar_ap_tx_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION '% cannot be deleted; use VOID/REVERSAL instead', TG_TABLE_NAME
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.id <> OLD.id
+      OR NEW.workspace_id <> OLD.workspace_id
+      OR NEW.tx_code <> OLD.tx_code
+      OR NEW.ledger_scope <> OLD.ledger_scope
+      OR NEW.tx_kind <> OLD.tx_kind
+      OR NEW.amount <> OLD.amount
+      OR NEW.payment_method <> OLD.payment_method
+      OR NEW.occurred_at <> OLD.occurred_at
+      OR (OLD.status = 'VOIDED' AND NEW.status <> 'VOIDED')
+    THEN
+      RAISE EXCEPTION '% core financial fields are immutable after posting', TG_TABLE_NAME
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION guard_print_opening_balance_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'print_opening_balances cannot be deleted; use AR/AP adjustment instead'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.id <> OLD.id
+      OR NEW.workspace_id <> OLD.workspace_id
+      OR NEW.doc_code <> OLD.doc_code
+      OR NEW.direction <> OLD.direction
+      OR NEW.ledger_scope <> OLD.ledger_scope
+      OR NEW.original_amount <> OLD.original_amount
+    THEN
+      RAISE EXCEPTION 'print_opening_balances core fields are immutable'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION guard_print_legacy_ar_reconciliation_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'print_legacy_ar_reconciliations cannot be deleted'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.id <> OLD.id
+      OR NEW.workspace_id <> OLD.workspace_id
+      OR NEW.legacy_payment_id <> OLD.legacy_payment_id
+      OR NEW.order_id <> OLD.order_id
+    THEN
+      RAISE EXCEPTION 'print_legacy_ar_reconciliations identity fields are immutable'
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF OLD.status IN ('CONFIRMED', 'POSTED_DIRECT') AND (
+      NEW.status <> OLD.status
+      OR NEW.posted_ar_transaction_id IS DISTINCT FROM OLD.posted_ar_transaction_id
+    ) THEN
+      RAISE EXCEPTION 'Confirmed legacy AR reconciliation cannot be reverted; use Official AR VOID/Adjustment instead'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+DECLARE
+  tbl text;
+BEGIN
+  FOREACH tbl IN ARRAY ARRAY[
+    'print_workshop_job_history',
+    'print_ar_allocations',
+    'print_ar_adjustments',
+    'print_ap_allocations',
+    'print_ap_adjustments',
+    'print_order_cancellation_settlements',
+    'print_order_payments',
+    'print_legacy_ar_reconciliation_history'
+  ]
+  LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS trg_%I_append_only ON %I', tbl, tbl);
+    EXECUTE format(
+      'CREATE TRIGGER trg_%I_append_only BEFORE UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION prevent_print_ledger_append_only_mutation()',
+      tbl,
+      tbl
+    );
+    EXECUTE format('DROP TRIGGER IF EXISTS trg_%I_no_truncate ON %I', tbl, tbl);
+    EXECUTE format(
+      'CREATE TRIGGER trg_%I_no_truncate BEFORE TRUNCATE ON %I FOR EACH STATEMENT EXECUTE FUNCTION prevent_print_ledger_append_only_mutation()',
+      tbl,
+      tbl
+    );
+    EXECUTE format('REVOKE ALL ON %I FROM PUBLIC', tbl);
+  END LOOP;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_print_ar_transactions_guard ON print_ar_transactions;
+CREATE TRIGGER trg_print_ar_transactions_guard
+  BEFORE UPDATE OR DELETE ON print_ar_transactions
+  FOR EACH ROW EXECUTE FUNCTION guard_print_ar_ap_tx_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_ar_transactions_no_truncate ON print_ar_transactions;
+CREATE TRIGGER trg_print_ar_transactions_no_truncate
+  BEFORE TRUNCATE ON print_ar_transactions
+  FOR EACH STATEMENT EXECUTE FUNCTION prevent_print_ledger_append_only_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_ap_transactions_guard ON print_ap_transactions;
+CREATE TRIGGER trg_print_ap_transactions_guard
+  BEFORE UPDATE OR DELETE ON print_ap_transactions
+  FOR EACH ROW EXECUTE FUNCTION guard_print_ar_ap_tx_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_ap_transactions_no_truncate ON print_ap_transactions;
+CREATE TRIGGER trg_print_ap_transactions_no_truncate
+  BEFORE TRUNCATE ON print_ap_transactions
+  FOR EACH STATEMENT EXECUTE FUNCTION prevent_print_ledger_append_only_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_opening_balances_guard ON print_opening_balances;
+CREATE TRIGGER trg_print_opening_balances_guard
+  BEFORE UPDATE OR DELETE ON print_opening_balances
+  FOR EACH ROW EXECUTE FUNCTION guard_print_opening_balance_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_opening_balances_no_truncate ON print_opening_balances;
+CREATE TRIGGER trg_print_opening_balances_no_truncate
+  BEFORE TRUNCATE ON print_opening_balances
+  FOR EACH STATEMENT EXECUTE FUNCTION prevent_print_ledger_append_only_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_legacy_ar_recon_guard ON print_legacy_ar_reconciliations;
+CREATE TRIGGER trg_print_legacy_ar_recon_guard
+  BEFORE UPDATE OR DELETE ON print_legacy_ar_reconciliations
+  FOR EACH ROW EXECUTE FUNCTION guard_print_legacy_ar_reconciliation_mutation();
+
+DROP TRIGGER IF EXISTS trg_print_legacy_ar_recon_no_truncate ON print_legacy_ar_reconciliations;
+CREATE TRIGGER trg_print_legacy_ar_recon_no_truncate
+  BEFORE TRUNCATE ON print_legacy_ar_reconciliations
+  FOR EACH STATEMENT EXECUTE FUNCTION prevent_print_ledger_append_only_mutation();
+
+REVOKE ALL ON
+  print_workshop_jobs,
+  print_historical_import_batches,
+  print_historical_import_rows,
+  print_opening_balances,
+  print_ar_transactions,
+  print_ap_transactions,
+  print_legacy_ar_reconciliations
+FROM PUBLIC;
+
+DO $$
+DECLARE
+  r text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['hp_app_runtime', 'hp_app_test', 'ml_app_runtime', 'ml_app_test', 'app_runtime', 'app_test']
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      -- State tables allowing controlled INSERT + UPDATE (no DELETE/TRUNCATE on financial headers)
+      EXECUTE format(
+        'GRANT SELECT, INSERT, UPDATE ON print_workshop_jobs, print_historical_import_batches, print_historical_import_rows, print_opening_balances, print_ar_transactions, print_ap_transactions, print_legacy_ar_reconciliations TO %I',
+        r
+      );
+      EXECUTE format(
+        'REVOKE DELETE, TRUNCATE ON print_workshop_jobs, print_historical_import_batches, print_historical_import_rows, print_opening_balances, print_ar_transactions, print_ap_transactions, print_legacy_ar_reconciliations FROM %I',
+        r
+      );
+
+      -- Strictly append-only tables: SELECT + INSERT only!
+      EXECUTE format(
+        'REVOKE UPDATE, DELETE, TRUNCATE ON print_workshop_job_history, print_ar_allocations, print_ar_adjustments, print_ap_allocations, print_ap_adjustments, print_order_cancellation_settlements, print_order_payments, print_legacy_ar_reconciliation_history FROM %I',
+        r
+      );
+      EXECUTE format(
+        'GRANT SELECT, INSERT ON print_workshop_job_history, print_ar_allocations, print_ar_adjustments, print_ap_allocations, print_ap_adjustments, print_order_cancellation_settlements, print_order_payments, print_legacy_ar_reconciliation_history TO %I',
+        r
+      );
+    END IF;
+  END LOOP;
+END $$;
+`;
+
 export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
   {
     id: '0001_m00_prerequisites',
@@ -2320,5 +3609,20 @@ export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
     id: '0033_printquote_v1',
     sql: PRINTQUOTE_V1_SQL,
     checksum: calculateChecksum(PRINTQUOTE_V1_SQL),
+  },
+  {
+    id: '0034_printquote_workshop_stages_v2',
+    sql: PRINTQUOTE_WORKSHOP_STAGES_V2_SQL,
+    checksum: calculateChecksum(PRINTQUOTE_WORKSHOP_STAGES_V2_SQL),
+  },
+  {
+    id: '0035_printquote_financial_control_gate',
+    sql: PRINTQUOTE_FINANCIAL_CONTROL_GATE_SQL,
+    checksum: calculateChecksum(PRINTQUOTE_FINANCIAL_CONTROL_GATE_SQL),
+  },
+  {
+    id: '0036_printquote_ar_ap_ledger',
+    sql: PRINTQUOTE_AR_AP_LEDGER_SQL,
+    checksum: calculateChecksum(PRINTQUOTE_AR_AP_LEDGER_SQL),
   },
 ];

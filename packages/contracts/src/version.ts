@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.8.4';
-export const SYSTEM_COMMIT = '62bb359';
+export const SYSTEM_VERSION = '0.9.0';
+export const SYSTEM_COMMIT = 'a66a292';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -40,6 +40,28 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  * Bản 'latest' tự động gắn với commit thực tế của bản dựng mới nhất khi đóng gói và triển khai.
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
+  {
+    version: '0.9.0',
+    commit: 'latest',
+    released_at: '2026-11-05',
+    summary:
+      'Hoàn thiện Sổ Công nợ & Tài chính In ấn độc lập AR/AP (migrations 0034–0036), Danh mục Giá xưởng & Công đoạn gia công đa tầng, Cổng kiểm soát chi phí thực tế 3 tầng và Hàng đợi đối chiếu công nợ lịch sử an toàn',
+    added: [
+      'Danh mục Bảng giá xưởng cơ bản & Công đoạn gia công nhiều bước (0034), hỗ trợ tính diện tích m² chính xác 6 chữ số thập phân, minh bạch diện tích thực tế vs diện tích tính tiền (D-02) trên PDF/Web và lưu báo giá nháp chờ giá xưởng (PENDING_COST).',
+      'Cổng kiểm soát chi phí thực tế 3 tầng trên Đơn hàng in ấn (0035: UNVERIFIED / ENTERED_UNCONFIRMED / CONFIRMED) kèm sổ lịch sử chi phí bất biến (print_order_cost_history).',
+      'Sổ Công nợ Phải thu khách hàng (print_ar_*) và Phải trả nhà in (print_ap_*) tách biệt 100% khỏi /finance (0036): đặt việc đa xưởng (print_workshop_jobs), quyết toán biên bản đơn hủy (print_order_cancellation_settlements), công nợ đầu kỳ & nhập đối chiếu từ Google Sheet.',
+      'Hàng đợi đối chiếu phiếu thu/hoàn cũ (print_legacy_ar_reconciliations): giữ nguyên dữ liệu lịch sử, tự động phát hiện bất thường (thiếu customer_id, lệch số dư, hoàn vượt thu) và chỉ ghi vào sổ AR chính thức sau khi Chủ sở hữu xác nhận.',
+    ],
+    improved: [
+      'Bắt buộc gắn hồ sơ khách hàng hợp lệ cùng workspace (customer_id) trước khi chuyển báo giá mới thành đơn hàng (hỗ trợ tạo nhanh khách hàng trực tiếp) và chống tính trùng giữa sổ cũ và sổ AR chính thức trong suốt giai đoạn chuyển tiếp.',
+      'Tinh gọn giao diện Công nợ & Tài chính in ấn trên máy tính và điện thoại: ưu tiên thao tác chính, giữ thanh tìm kiếm nhanh và phân biệt rõ trạng thái đối chiếu cùng số tiền.',
+      'Gia cố hạ tầng CI/CD bảo mật đa lớp cho cơ sở dữ liệu kiểm thử E2E cô lập (ci-web-db.mjs) và kịch bản rollback 0036 fail-closed (ROLLBACK_BLOCKED khi đã phát sinh giao dịch/xác nhận sau nâng cấp).',
+    ],
+    fixed: [
+      'Khắc phục sai lệch hiển thị phép nhân diện tích lẻ trên PDF báo giá gửi khách (giữ chính xác đến 6 chữ số thập phân, tổng tiền khớp tuyệt đối và ẩn 100% giá vốn/lợi nhuận nội bộ).',
+      'Khắc phục lỗi dừng bộ ghi nhật ký hệ thống khi đang xả hàng đợi (activeFlush) và khóa chặt quyền chỉ-thêm (append-only) trên toàn bộ các bảng lịch sử giao dịch tài chính in ấn.',
+    ],
+  },
   {
     version: '0.8.4',
     commit: 'latest',

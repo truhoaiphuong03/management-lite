@@ -7,6 +7,10 @@ import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import {
   assertCustomerSafePdfPayload,
+  formatCustomerAreaDisclosure,
+  formatCustomerLinePricePresentation,
+  formatPrintQuoteAreaSqmVn,
+  formatPrintQuoteIntegerVn,
   type CustomerSafePdfPayload,
 } from '../../../../packages/contracts/src/printquote.js';
 
@@ -49,57 +53,29 @@ function escapeHtml(raw: string | null | undefined): string {
 }
 
 function formatNumberVn(amount: number | null | undefined): string {
-  const safe =
-    typeof amount === 'number' && Number.isFinite(amount)
-      ? Math.round(amount)
-      : 0;
-  return safe.toLocaleString('vi-VN');
+  return formatPrintQuoteIntegerVn(amount);
 }
 
 function formatVnd(amount: number | null | undefined): string {
   return `${formatNumberVn(amount)} ₫`;
 }
 
-function formatExactVnd(amount: number | null | undefined): string {
-  const safe =
-    typeof amount === 'number' && Number.isFinite(amount) ? amount : 0;
-  const rounded2 = Math.round(safe * 100) / 100;
-  return `${rounded2.toLocaleString('vi-VN', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })} ₫`;
+function formatDecimalVn(amount: number | null | undefined): string {
+  return formatPrintQuoteAreaSqmVn(amount);
 }
 
 function formatCustomerLinePriceDisplay(
   lineTotal: number,
   quantity: number,
   unitLabel?: string | null,
+  displayAreaSqm?: number | null,
 ): { unitPriceDisplay: string; priceSubNote: string | null; isExact: boolean } {
-  const qty = Math.max(1, Math.round(quantity || 1));
-  const total = Math.round(lineTotal || 0);
-  const unit = (unitLabel || 'sp').trim() || 'sp';
-
-  if (total % qty === 0) {
-    return {
-      unitPriceDisplay: formatVnd(total / qty),
-      priceSubNote: null,
-      isExact: true,
-    };
-  }
-
-  if ((total * 100) % qty === 0) {
-    return {
-      unitPriceDisplay: formatExactVnd(total / qty),
-      priceSubNote: null,
-      isExact: true,
-    };
-  }
-
-  return {
-    unitPriceDisplay: `~${formatVnd(Math.round(total / qty))}`,
-    priceSubNote: `Tính trọn gói ${formatNumberVn(qty)} ${unit}`,
-    isExact: false,
-  };
+  return formatCustomerLinePricePresentation(
+    lineTotal,
+    quantity,
+    unitLabel,
+    displayAreaSqm,
+  );
 }
 
 function formatDateVn(dateStr: string | null | undefined): string {
@@ -230,12 +206,25 @@ export function buildServerA4Html(
       const specText = item.specification
         ? `<div class="item-spec">Quy cách: ${escapeHtml(item.specification)}</div>`
         : '';
+      const areaDisclosure = formatCustomerAreaDisclosure({
+        actualAreaSqm: item.actualAreaSqm,
+        billableAreaSqm: item.billableAreaSqm,
+        customerAreaNote: item.customerAreaNote,
+      });
+      const areaDisclosureHtml = areaDisclosure
+        ? `<div class="item-area-note">${escapeHtml(areaDisclosure)}</div>`
+        : '';
       const rawUnit = item.unit || 'sp';
       const unitLabel = escapeHtml(rawUnit);
+      const hasAreaQty =
+        typeof item.displayAreaSqm === 'number' &&
+        Number.isFinite(item.displayAreaSqm) &&
+        item.displayAreaSqm > 0;
       const pricePresentation = formatCustomerLinePriceDisplay(
         item.lineTotal,
         item.quantity,
         rawUnit,
+        item.displayAreaSqm,
       );
       const priceNoteHtml = pricePresentation.priceSubNote
         ? `<div class="item-split-note">(${escapeHtml(pricePresentation.priceSubNote)})</div>`
@@ -247,9 +236,10 @@ export function buildServerA4Html(
           <td class="col-name">
             <div class="item-title">${escapeHtml(item.name)}</div>
             ${specText}
+            ${areaDisclosureHtml}
           </td>
           <td class="col-unit">${unitLabel}</td>
-          <td class="col-qty">${formatNumberVn(item.quantity)}</td>
+          <td class="col-qty">${hasAreaQty ? formatDecimalVn(item.displayAreaSqm) : formatNumberVn(item.quantity)}</td>
           <td class="col-price">
             <div>${escapeHtml(pricePresentation.unitPriceDisplay)}</div>
             ${priceNoteHtml}
@@ -425,6 +415,7 @@ export function buildServerA4Html(
     .col-total { width: 16%; text-align: right; font-weight: 700; color: #0F172A; }
     .item-title { font-weight: 700; color: #0F172A; margin-bottom: 2px; }
     .item-spec { font-size: 11.5px; color: #475569; }
+    .item-area-note { font-size: 11px; color: #0F766E; margin-top: 2px; font-weight: 600; }
     .item-split-note { font-size: 11px; color: #0F766E; margin-top: 2px; font-style: italic; }
     .summary-row td {
       background: #F8FAFC;

@@ -7,22 +7,29 @@ import React, {
 } from 'react';
 import { PageHeader } from '../../../../packages/ui/src/components/index.js';
 import {
+  AreaInputMode,
+  LineCostSource,
   ProfitMode,
   ProfitScope,
+  QuotePricingStatus,
   VendorCostMode,
   ShippingAllocationStrategy,
   RoundingMode,
   calculatePrintQuote,
   buildCustomerSafePdfPayload,
+  enrichCustomerSafePdfWithAreaBounds,
+  type PendingCostLineSummary,
   type VendorCostModeType,
   type ShippingAllocationStrategyType,
   type RoundingModeType,
   type PrintVendorData,
   type PrintVendorPriceItemData,
+  type PrintVendorPriceItemHistoryData,
   type PrintCustomerData,
   type PrintQuoteData,
   type PrintOrderData,
   type PrintQuoteDashboardStats,
+  type QuoteFinishingStageInput,
   type QuoteLineInput,
 } from '../../../../packages/contracts/src/printquote.js';
 import {
@@ -44,21 +51,61 @@ import {
   EMPTY_DRAFT_LINE,
   cardStyle,
   isQuoteStatusEditable,
+  type DraftFinishingStageState,
   type PrintQuoteTabId,
   type PrintQuoteViewMode,
   type DraftLineState,
 } from './printquote/types.js';
 import { PrintQuoteNavHeader } from './printquote/PrintQuoteNavHeader.js';
-import { CreateQuoteTab } from './printquote/CreateQuoteTab.js';
+import {
+  CreateQuoteTab,
+  type SaveOverrideBackToCatalogPatch,
+} from './printquote/CreateQuoteTab.js';
 import { QuotesListTab } from './printquote/QuotesListTab.js';
 import { QuoteDetailView } from './printquote/QuoteDetailView.js';
-import { VendorsCatalogTab } from './printquote/VendorsCatalogTab.js';
+import {
+  VendorsCatalogTab,
+  type SaveCatalogPriceItemPayload,
+} from './printquote/VendorsCatalogTab.js';
 import { CustomersTab } from './printquote/CustomersTab.js';
 import { OrdersTab } from './printquote/OrdersTab.js';
 import { AnalyticsTab } from './printquote/AnalyticsTab.js';
+import type { ReceivablesLedgerPayload } from './printquote/ReceivablesTab.js';
+import type { PayablesLedgerPayload } from './printquote/PayablesTab.js';
 import { PdfPreviewModal } from './printquote/PdfPreviewModal.js';
 import { CatalogModalDialog } from './printquote/CatalogModalDialog.js';
 import { PqFileTextIcon } from './printquote/PrintQuoteIcons.js';
+import type {
+  UnifiedPrintLedgerItem,
+  PrintFinancialReportData,
+  PrintHistoricalImportBatchData,
+} from '../../../../packages/contracts/src/printquote-finance.js';
+
+const LazyReceivablesTab = React.lazy(() =>
+  import('./printquote/ReceivablesTab.js').then((m) => ({
+    default: m.ReceivablesTab,
+  })),
+);
+const LazyPayablesTab = React.lazy(() =>
+  import('./printquote/PayablesTab.js').then((m) => ({
+    default: m.PayablesTab,
+  })),
+);
+const LazyTransactionsTab = React.lazy(() =>
+  import('./printquote/TransactionsTab.js').then((m) => ({
+    default: m.TransactionsTab,
+  })),
+);
+const LazyHistoricalImportTab = React.lazy(() =>
+  import('./printquote/HistoricalImportTab.js').then((m) => ({
+    default: m.HistoricalImportTab,
+  })),
+);
+const LazyConvertOrderCustomerModal = React.lazy(() =>
+  import('./printquote/ConvertOrderCustomerModal.js').then((m) => ({
+    default: m.ConvertOrderCustomerModal,
+  })),
+);
 
 export type {
   PrintQuoteTabId,
@@ -103,6 +150,18 @@ function resolveViewAndQuoteId(
   }
   if (clean === '/print-quotes/orders') {
     return { viewMode: 'orders', quoteId: null };
+  }
+  if (clean === '/print-quotes/receivables') {
+    return { viewMode: 'receivables', quoteId: null };
+  }
+  if (clean === '/print-quotes/payables') {
+    return { viewMode: 'payables', quoteId: null };
+  }
+  if (clean === '/print-quotes/transactions') {
+    return { viewMode: 'transactions', quoteId: null };
+  }
+  if (clean === '/print-quotes/import-history') {
+    return { viewMode: 'import-history', quoteId: null };
   }
   if (
     clean === '/print-quotes/catalog' ||
@@ -150,21 +209,56 @@ function mapQuoteLinesToDraftLines(quote: PrintQuoteData): DraftLineState[] {
     return [EMPTY_DRAFT_LINE(1)];
   }
   return quote.lines_json.map((item, idx) => {
-    const explicitMode = (
-      item as typeof item & {
-        vendorCostMode?: VendorCostModeType | undefined;
-      }
-    ).vendorCostMode;
     const resolvedCost = resolveSavedQuoteLineCostState({
       quantity: item.quantity,
       unitVendorCost: item.unitVendorCost,
       totalVendorCost: item.totalVendorCost,
-      vendorCostMode: explicitMode,
+      vendorCostMode: item.vendorCostMode,
+      baseCostRate: item.baseCostRate,
+      baseCostPending: item.baseCostPending,
+      isPendingCost: item.isPendingCost,
     });
+
+    const mappedStages: DraftFinishingStageState[] | undefined =
+      item.finishingStages && item.finishingStages.length > 0
+        ? item.finishingStages.map((s, sIdx) => ({
+            id: s.id || `STG-${idx + 1}-${sIdx + 1}`,
+            priceItemId: s.priceItemId || '',
+            code: s.code ?? null,
+            priceItemVersion: s.priceItemVersion ?? null,
+            vendorId: s.vendorId ?? null,
+            vendorName: s.vendorName ?? null,
+            name: s.name,
+            pricingMode: s.pricingMode,
+            rateValue: s.rate ?? 0,
+            rateInput:
+              s.rate === null || s.rate === undefined ? '' : String(s.rate),
+            unit: s.unit || item.unit || 'tờ',
+            costSource:
+              s.costSource ??
+              (s.priceItemId ? LineCostSource.CATALOG : LineCostSource.MANUAL),
+            catalogOriginalRate:
+              s.catalogOriginalRate ??
+              (s.priceItemId ? (s.rate ?? null) : null),
+            catalogBatchQuantity: s.catalogBatchQuantity ?? null,
+            appliedAt: s.appliedAt ?? null,
+            note: s.note ?? null,
+          }))
+        : undefined;
+
+    const area = item.areaSpec ?? null;
+    const hasCustomBillable = Boolean(
+      area &&
+      area.billableAreaSqm &&
+      area.actualAreaSqm &&
+      Math.abs(area.billableAreaSqm - area.actualAreaSqm) > 1e-6,
+    );
 
     return {
       id: item.id || `ITEM-${idx + 1}`,
       vendorPriceItemId: item.vendorPriceItemId || '',
+      vendorPriceItemCode: item.vendorPriceItemCode ?? null,
+      vendorPriceItemVersion: item.vendorPriceItemVersion ?? null,
       name: item.name,
       specification: item.specification || '',
       unit: item.unit || 'sp',
@@ -173,6 +267,39 @@ function mapQuoteLinesToDraftLines(quote: PrintQuoteData): DraftLineState[] {
       vendorCostMode: resolvedCost.vendorCostMode,
       vendorCostValue: resolvedCost.vendorCostValue,
       vendorCostInput: resolvedCost.vendorCostInput,
+      baseCostSource: item.baseCostSource,
+      baseCatalogOriginalRate:
+        item.catalogOriginalRate ??
+        (item.vendorPriceItemId && typeof item.baseCostRate === 'number'
+          ? item.baseCostRate
+          : null),
+      baseCatalogBatchQuantity: item.catalogBatchQuantity ?? null,
+      priceAppliedAt: item.priceAppliedAt ?? null,
+      baseIncludedStages: item.baseIncludedStages
+        ? [...item.baseIncludedStages]
+        : undefined,
+      ...(area
+        ? {
+            areaMode: area.mode,
+            widthMInput:
+              area.widthM !== null && area.widthM !== undefined
+                ? String(area.widthM)
+                : '',
+            heightMInput:
+              area.heightM !== null && area.heightM !== undefined
+                ? String(area.heightM)
+                : '',
+            sheetsCountInput: String(area.sheetsCount || item.quantity || 1),
+            actualAreaInput: String(area.actualAreaSqm),
+            billableAreaInput: hasCustomBillable
+              ? String(area.billableAreaSqm)
+              : '',
+            adjustBillableArea: hasCustomBillable,
+            areaAdjustmentReason: area.adjustmentReason ?? '',
+            customerAreaNote: area.customerAreaNote ?? '',
+          }
+        : {}),
+      ...(mappedStages ? { finishingStages: mappedStages } : {}),
       ambiguousLegacyCost: resolvedCost.ambiguousLegacyCost,
       profitMode: item.profitMode,
       profitScope: item.profitScope,
@@ -271,6 +398,18 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   const [stats, setStats] = useState<PrintQuoteDashboardStats | null>(
     initialStats,
   );
+  const [receivablesSummary, setReceivablesSummary] =
+    useState<ReceivablesLedgerPayload | null>(null);
+  const [payablesSummary, setPayablesSummary] =
+    useState<PayablesLedgerPayload | null>(null);
+  const [unifiedTransactions, setUnifiedTransactions] = useState<
+    UnifiedPrintLedgerItem[]
+  >([]);
+  const [financialReport, setFinancialReport] =
+    useState<PrintFinancialReportData | null>(null);
+  const [importBatches, setImportBatches] = useState<
+    PrintHistoricalImportBatchData[]
+  >([]);
 
   // Hydrate initial editor state from RAM draft bridge if present, or initial edit quote on SSR/first mount, otherwise clean empty UX V2 state
   const initialDraft = useMemo(() => getPrintQuoteRamDraft(), []);
@@ -533,12 +672,93 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         const j = await sRes.json();
         setStats(j?.data || null);
       }
+
+      const [arRes, apRes, txRes, frRes, imRes] = await Promise.all([
+        fetch('/api/v1/print-quotes/receivables', {
+          credentials: 'include',
+        }),
+        fetch('/api/v1/print-quotes/payables', {
+          credentials: 'include',
+        }),
+        fetch('/api/v1/print-quotes/transactions', { credentials: 'include' }),
+        fetch('/api/v1/print-quotes/financial-report', {
+          credentials: 'include',
+        }),
+        fetch('/api/v1/print-quotes/import-history/batches', {
+          credentials: 'include',
+        }),
+      ]);
+      if (arRes.ok) {
+        const j = await arRes.json();
+        setReceivablesSummary(j?.data || null);
+      }
+      if (apRes.ok) {
+        const j = await apRes.json();
+        setPayablesSummary(j?.data || null);
+      }
+      if (txRes.ok) {
+        const j = await txRes.json();
+        setUnifiedTransactions(j?.data?.items || []);
+      }
+      if (frRes.ok) {
+        const j = await frRes.json();
+        setFinancialReport(j?.data || null);
+      }
+      if (imRes.ok) {
+        const j = await imRes.json();
+        setImportBatches(j?.data?.items || []);
+      }
     } catch {
       // Ignore fetch errors in offline/SSR test environments
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const handleMutateLedger = useCallback(
+    async (
+      endpoint: string,
+      body: Record<string, unknown>,
+      method: 'POST' | 'PATCH' = 'POST',
+    ): Promise<{
+      ok: boolean;
+      error?: string;
+      code?: string;
+      data?: unknown;
+    }> => {
+      try {
+        const csrf = await getCsrfToken();
+        const idemKey = `pq-fin-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const res = await fetch(endpoint, {
+          method,
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+            'Idempotency-Key': idemKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          return {
+            ok: false,
+            error: json?.error?.message || 'Thao tác sổ công nợ thất bại.',
+            code: json?.error?.code,
+          };
+        }
+        setBannerMessage({
+          type: 'success',
+          text: 'Đã cập nhật sổ công nợ & tài chính in ấn.',
+        });
+        await loadAllData();
+        return { ok: true, data: json?.data };
+      } catch {
+        return { ok: false, error: 'Lỗi kết nối máy chủ.' };
+      }
+    },
+    [getCsrfToken, loadAllData],
+  );
 
   useEffect(() => {
     void loadAllData();
@@ -713,11 +933,19 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     calc: ReturnType<typeof calculatePrintQuote> | null;
     customerPdf: ReturnType<typeof buildCustomerSafePdfPayload> | null;
     error: string | null;
+    canSavePendingDraft: boolean;
+    isPendingCost: boolean;
+    pendingSummary: PendingCostLineSummary[];
+    structuralErrors: string[];
     validationErrors: string[];
     lineErrors: Record<string, DraftLineValidationError>;
     shippingError: string | null;
   }>(() => {
-    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    const validation = validateQuoteDraftInputs(
+      draftLines,
+      shippingFeeInput,
+      priceItems,
+    );
     if (!validation.isValid) {
       return {
         calc: null,
@@ -725,6 +953,10 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         error:
           validation.errors[0] ||
           'Vui lòng nhập đầy đủ số lượng và đơn giá hợp lệ.',
+        canSavePendingDraft: validation.canSavePendingDraft,
+        isPendingCost: validation.isPendingCost,
+        pendingSummary: validation.pendingSummary,
+        structuralErrors: validation.structuralErrors,
         validationErrors: validation.errors,
         lineErrors: validation.lineErrors,
         shippingError: validation.shippingError,
@@ -736,13 +968,32 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         const validLine = validation.lines[idx] ?? {
           quantity: line.quantity,
           vendorCostValue: line.vendorCostValue,
+          baseCostRate: line.vendorCostValue,
           profitValue: line.profitValue,
+          areaSpec: null,
+          stages: [],
         };
         const costVal = validLine.vendorCostValue;
+        const stages = line.finishingStages ?? [];
+        const hasExtendedFeatures =
+          stages.length > 0 ||
+          validLine.areaSpec !== null ||
+          line.vendorCostMode === VendorCostMode.PER_SQM ||
+          (line.profitMode === ProfitMode.FIXED_AMOUNT &&
+            line.profitScope === ProfitScope.PER_SQM) ||
+          (line.baseIncludedStages?.length ?? 0) > 0 ||
+          Boolean(line.baseCostSource);
+
         const baseLine: QuoteLineInput = {
           id: line.id || `ITEM-${idx + 1}`,
           name: line.name.trim() || `Sản phẩm #${idx + 1}`,
           specification: line.specification.trim(),
+          vendorPriceItemId: line.vendorPriceItemId || undefined,
+          vendorPriceItemCode: line.vendorPriceItemCode ?? undefined,
+          vendorPriceItemVersion: line.vendorPriceItemVersion ?? undefined,
+          catalogOriginalRate: line.baseCatalogOriginalRate ?? undefined,
+          catalogBatchQuantity: line.baseCatalogBatchQuantity ?? undefined,
+          priceAppliedAt: line.priceAppliedAt ?? undefined,
           unit: line.unit.trim() || 'tờ',
           quantity: validLine.quantity,
           profit: {
@@ -751,7 +1002,34 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
             value: validLine.profitValue,
           },
         };
-        if (line.vendorCostMode === VendorCostMode.TOTAL_BATCH) {
+
+        if (hasExtendedFeatures) {
+          const mappedStages: QuoteFinishingStageInput[] = stages.map(
+            (s, sIdx) => ({
+              id: s.id || `STG-${idx + 1}-${sIdx + 1}`,
+              priceItemId: s.priceItemId || null,
+              code: s.code ?? null,
+              priceItemVersion: s.priceItemVersion ?? null,
+              vendorId: s.vendorId ?? null,
+              vendorName: s.vendorName ?? null,
+              name: s.name.trim() || `Gia công #${sIdx + 1}`,
+              pricingMode: s.pricingMode,
+              rate: validLine.stages[sIdx]?.rate ?? s.rateValue,
+              unit: s.unit || line.unit || 'tờ',
+              costSource: s.costSource,
+              catalogOriginalRate: s.catalogOriginalRate ?? null,
+              catalogBatchQuantity: s.catalogBatchQuantity ?? null,
+              appliedAt: s.appliedAt ?? null,
+              note: s.note ?? null,
+            }),
+          );
+          baseLine.vendorCostMode = line.vendorCostMode;
+          baseLine.baseCostRate = costVal;
+          baseLine.baseCostSource = line.baseCostSource;
+          baseLine.baseIncludedStages = line.baseIncludedStages;
+          baseLine.areaSpec = validLine.areaSpec;
+          baseLine.finishingStages = mappedStages;
+        } else if (line.vendorCostMode === VendorCostMode.TOTAL_BATCH) {
           baseLine.totalVendorCost = costVal;
         } else {
           baseLine.unitVendorCost = costVal;
@@ -768,12 +1046,17 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           mode: roundingMode,
           step: Math.max(1, Math.round(Number(roundingStep) || 1)),
         },
+        requireAreaAdjustmentReason: true,
       });
       const customerPdf = buildCustomerSafePdfPayload(calc);
       return {
         calc,
         customerPdf,
         error: null,
+        canSavePendingDraft: false,
+        isPendingCost: false,
+        pendingSummary: [],
+        structuralErrors: [],
         validationErrors: [],
         lineErrors: {},
         shippingError: null,
@@ -784,6 +1067,10 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         calc: null,
         customerPdf: null,
         error: msg,
+        canSavePendingDraft: false,
+        isPendingCost: false,
+        pendingSummary: [],
+        structuralErrors: [msg],
         validationErrors: [msg],
         lineErrors: {},
         shippingError: null,
@@ -792,6 +1079,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   }, [
     draftLines,
     shippingFeeInput,
+    priceItems,
     includeShippingInUnitPrice,
     shippingAllocation,
     roundingMode,
@@ -813,7 +1101,17 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       prev.map((line, idx) => {
         if (idx !== lineIndex) return line;
         if (!found) {
-          return { ...line, vendorPriceItemId: '' };
+          return {
+            ...line,
+            vendorPriceItemId: '',
+            vendorPriceItemCode: null,
+            vendorPriceItemVersion: null,
+            baseCostSource: LineCostSource.MANUAL,
+            baseCatalogOriginalRate: null,
+            baseCatalogBatchQuantity: null,
+            priceAppliedAt: null,
+            baseIncludedStages: undefined,
+          };
         }
         const resolvedCost =
           found.pricing_mode === VendorCostMode.TOTAL_BATCH
@@ -822,6 +1120,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         return {
           ...line,
           vendorPriceItemId: found.id,
+          vendorPriceItemCode: found.code,
+          vendorPriceItemVersion: found.version,
           name: found.name,
           specification: found.specification || '',
           unit: found.unit || 'tờ',
@@ -831,6 +1131,16 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           vendorCostMode: found.pricing_mode,
           vendorCostValue: resolvedCost,
           vendorCostInput: String(resolvedCost),
+          baseCostSource: LineCostSource.CATALOG,
+          baseCatalogOriginalRate: resolvedCost,
+          baseCatalogBatchQuantity: found.batch_quantity ?? 1,
+          priceAppliedAt: new Date().toISOString(),
+          baseIncludedStages: found.included_stages?.length
+            ? [...found.included_stages]
+            : undefined,
+          ...(found.pricing_mode === VendorCostMode.PER_SQM
+            ? { areaMode: line.areaMode ?? AreaInputMode.DIMENSIONS }
+            : {}),
           ambiguousLegacyCost: null,
           profitMode: found.default_profit_mode,
           profitScope: found.default_profit_scope,
@@ -843,7 +1153,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
   const handleOpenLiveA4Preview = () => {
     setHasTouchedFields(true);
-    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    const validation = validateQuoteDraftInputs(
+      draftLines,
+      shippingFeeInput,
+      priceItems,
+    );
     if (!validation.isValid || !livePricingResult.customerPdf) {
       setBannerMessage({
         type: 'error',
@@ -890,7 +1204,18 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   };
 
   const handleOpenSavedQuotePdf = (quote: PrintQuoteData) => {
-    const safePdf = quote.customer_pdf_json;
+    const rawPdf = quote.customer_pdf_json;
+    if (!rawPdf || quote.pricing_status === QuotePricingStatus.PENDING_COST) {
+      setBannerMessage({
+        type: 'error',
+        text: 'Báo giá đang ở trạng thái "Chờ giá xưởng" — vui lòng nhập đủ giá vốn trước khi xem/xuất PDF gửi khách.',
+      });
+      return;
+    }
+    const safePdf = enrichCustomerSafePdfWithAreaBounds(
+      rawPdf,
+      quote.lines_json,
+    );
     const cust = customers.find((c) => c.id === quote.customer_id);
 
     const html = buildPrintQuoteA4Html(safePdf, {
@@ -961,7 +1286,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
   const handleDownloadLivePdfFile = async () => {
     setHasTouchedFields(true);
-    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
+    const validation = validateQuoteDraftInputs(
+      draftLines,
+      shippingFeeInput,
+      priceItems,
+    );
     if (!validation.isValid || !livePricingResult.customerPdf) {
       setBannerMessage({
         type: 'error',
@@ -1040,10 +1369,21 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     win.document.close();
   };
 
-  const handleSaveQuote = async () => {
+  const performSaveQuote = async (allowPendingCost: boolean) => {
     setHasTouchedFields(true);
-    const validation = validateQuoteDraftInputs(draftLines, shippingFeeInput);
-    if (!validation.isValid || !livePricingResult.calc) {
+    const validation = validateQuoteDraftInputs(
+      draftLines,
+      shippingFeeInput,
+      priceItems,
+    );
+    const isPendingSave = Boolean(
+      allowPendingCost &&
+      !validation.isValid &&
+      validation.canSavePendingDraft &&
+      validation.isPendingCost,
+    );
+
+    if (!isPendingSave && (!validation.isValid || !livePricingResult.calc)) {
       setBannerMessage({
         type: 'error',
         text:
@@ -1067,9 +1407,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           quantity: validLine.quantity,
           quantityInput: String(validLine.quantity),
           vendorCostValue: validLine.vendorCostValue,
-          vendorCostInput: String(validLine.vendorCostValue),
+          vendorCostInput:
+            validLine.baseCostRate === null
+              ? ''
+              : String(validLine.vendorCostValue),
           profitValue: validLine.profitValue,
-          profitInput: String(validLine.profitValue),
+          profitInput:
+            line.profitInput !== undefined && line.profitInput.trim() === ''
+              ? ''
+              : String(validLine.profitValue),
         };
       }),
     );
@@ -1083,6 +1429,9 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     const payload = {
       customer_id: selectedCustomerId || null,
       title: resolvedTitle,
+      ...(isPendingSave
+        ? { pricing_status: QuotePricingStatus.PENDING_COST }
+        : {}),
       shipping_fee: validation.shippingFee,
       include_shipping_in_unit_price: includeShippingInUnitPrice,
       shipping_allocation_strategy: shippingAllocation,
@@ -1095,15 +1444,77 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         internalNotes.trim() ||
         (editingQuoteId
           ? `Cập nhật phiên bản v${editingQuoteVersion + 1}`
-          : 'Khởi tạo báo giá v1'),
+          : isPendingSave
+            ? 'Lưu nháp chờ giá xưởng'
+            : 'Khởi tạo báo giá v1'),
       items: draftLines.map((line, i) => {
         const validLine = validation.lines[i] ?? {
           quantity: line.quantity,
           vendorCostValue: line.vendorCostValue,
+          baseCostRate: line.vendorCostValue,
           profitValue: line.profitValue,
+          areaSpec: null,
+          stages: [],
         };
         const costVal = validLine.vendorCostValue;
         const legacyAmbiguous = line.ambiguousLegacyCost;
+        const stages = line.finishingStages ?? [];
+        const hasExtendedFeatures =
+          isPendingSave ||
+          stages.length > 0 ||
+          validLine.areaSpec !== null ||
+          line.vendorCostMode === VendorCostMode.PER_SQM ||
+          (line.profitMode === ProfitMode.FIXED_AMOUNT &&
+            line.profitScope === ProfitScope.PER_SQM) ||
+          (line.baseIncludedStages?.length ?? 0) > 0 ||
+          line.baseCostSource === LineCostSource.CATALOG_OVERRIDDEN;
+
+        if (hasExtendedFeatures) {
+          return {
+            id: line.id || `ITEM-${i + 1}`,
+            vendor_price_item_id: line.vendorPriceItemId || undefined,
+            vendorPriceItemCode: line.vendorPriceItemCode ?? undefined,
+            vendorPriceItemVersion: line.vendorPriceItemVersion ?? undefined,
+            catalogOriginalRate: line.baseCatalogOriginalRate ?? undefined,
+            catalogBatchQuantity: line.baseCatalogBatchQuantity ?? undefined,
+            priceAppliedAt: line.priceAppliedAt ?? undefined,
+            name: line.name.trim() || `Ấn phẩm #${i + 1}`,
+            specification: line.specification.trim() || undefined,
+            unit: line.unit.trim() || 'tờ',
+            quantity: validLine.quantity,
+            vendorCostMode: line.vendorCostMode,
+            baseCostRate: validLine.baseCostRate,
+            baseCostPending: validLine.baseCostRate === null,
+            baseCostSource: line.baseCostSource,
+            baseIncludedStages: line.baseIncludedStages,
+            areaSpec: validLine.areaSpec,
+            finishingStages: stages.map((s, sIdx) => {
+              const stageRate = validLine.stages[sIdx]?.rate ?? null;
+              return {
+                id: s.id || `STG-${i + 1}-${sIdx + 1}`,
+                priceItemId: s.priceItemId || null,
+                code: s.code ?? null,
+                priceItemVersion: s.priceItemVersion ?? null,
+                vendorId: s.vendorId ?? null,
+                vendorName: s.vendorName ?? null,
+                name: s.name.trim() || `Gia công #${sIdx + 1}`,
+                pricingMode: s.pricingMode,
+                rate: stageRate,
+                ratePending: stageRate === null,
+                unit: s.unit || line.unit || 'tờ',
+                costSource: s.costSource,
+                catalogOriginalRate: s.catalogOriginalRate ?? null,
+                catalogBatchQuantity: s.catalogBatchQuantity ?? null,
+                appliedAt: s.appliedAt ?? null,
+                note: s.note ?? null,
+              };
+            }),
+            profitMode: line.profitMode,
+            profitScope: line.profitScope,
+            profitValue: validLine.profitValue,
+          };
+        }
+
         return {
           id: line.id || `ITEM-${i + 1}`,
           vendor_price_item_id: line.vendorPriceItemId || undefined,
@@ -1171,7 +1582,10 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       resetCleanNewDraft();
       setBannerMessage({
         type: 'success',
-        text: `Đã lưu thành công báo giá ${saved.quote_code} (Phiên bản v${saved.current_version})!`,
+        text:
+          saved.pricing_status === QuotePricingStatus.PENDING_COST
+            ? `Đã lưu nháp Chờ giá xưởng ${saved.quote_code} (v${saved.current_version})!`
+            : `Đã lưu thành công báo giá ${saved.quote_code} (Phiên bản v${saved.current_version})!`,
       });
       navigateInternal(`/print-quotes/${encodeURIComponent(saved.id)}`);
       void loadAllData();
@@ -1183,6 +1597,14 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     } finally {
       setSavingQuote(false);
     }
+  };
+
+  const handleSaveQuote = async () => {
+    await performSaveQuote(false);
+  };
+
+  const handleSavePendingDraftQuote = async () => {
+    await performSaveQuote(true);
   };
 
   const handleStartNewQuote = () => {
@@ -1242,39 +1664,83 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     }
   };
 
-  const handleConvertQuoteToOrder = async (quote: PrintQuoteData) => {
-    const csrf = await getCsrfToken();
-    const depositDefault = Math.round(quote.total_quote_amount * 0.5);
-    const res = await fetch('/api/v1/print-quotes/orders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': csrf,
-        'Idempotency-Key': `ord-from-${quote.id}`,
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        quote_id: quote.id,
-        print_ordered_at: new Date().toISOString().slice(0, 10),
-        deposit_required: depositDefault,
-        deposit_paid: 0,
-      }),
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) {
-      setBannerMessage({
-        type: 'error',
-        text:
-          json?.error?.message || 'Không thể chuyển báo giá thành đơn hàng.',
+  const [pendingConvertQuote, setPendingConvertQuote] =
+    useState<PrintQuoteData | null>(null);
+  const [convertingOrder, setConvertingOrder] = useState<boolean>(false);
+  const [convertOrderError, setConvertOrderError] = useState<string>('');
+
+  const submitConvertQuoteToOrder = async (
+    quote: PrintQuoteData,
+    customerOpts: {
+      customer_id?: string | undefined;
+      quick_customer?:
+        | {
+            name: string;
+            phone?: string | null | undefined;
+            address?: string | null | undefined;
+          }
+        | undefined;
+    },
+  ): Promise<boolean> => {
+    setConvertingOrder(true);
+    setConvertOrderError('');
+    try {
+      const csrf = await getCsrfToken();
+      const depositDefault = Math.round(quote.total_quote_amount * 0.5);
+      const res = await fetch('/api/v1/print-quotes/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf,
+          'Idempotency-Key': `ord-from-${quote.id}-${customerOpts.customer_id || 'quick'}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          quote_id: quote.id,
+          ...(customerOpts.customer_id
+            ? { customer_id: customerOpts.customer_id }
+            : {}),
+          ...(customerOpts.quick_customer
+            ? { quick_customer: customerOpts.quick_customer }
+            : {}),
+          print_ordered_at: new Date().toISOString().slice(0, 10),
+          deposit_required: depositDefault,
+          deposit_paid: 0,
+        }),
       });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg =
+          json?.error?.message || 'Không thể chuyển báo giá thành đơn hàng.';
+        setConvertOrderError(msg);
+        setBannerMessage({ type: 'error', text: msg });
+        return false;
+      }
+      setPendingConvertQuote(null);
+      setBannerMessage({
+        type: 'success',
+        text: `Đã tạo đơn đặt in ${json.data.order_code} từ báo giá ${quote.quote_code}!`,
+      });
+      await loadAllData();
+      navigateInternal('/print-quotes/orders');
+      return true;
+    } finally {
+      setConvertingOrder(false);
+    }
+  };
+
+  const handleConvertQuoteToOrder = async (quote: PrintQuoteData) => {
+    const validActiveCust =
+      quote.customer_id &&
+      customers.some(
+        (c) => c.id === quote.customer_id && c.is_active !== false,
+      );
+    if (!validActiveCust) {
+      setConvertOrderError('');
+      setPendingConvertQuote(quote);
       return;
     }
-    setBannerMessage({
-      type: 'success',
-      text: `Đã tạo đơn đặt in ${json.data.order_code} từ báo giá ${quote.quote_code}!`,
-    });
-    await loadAllData();
-    navigateInternal('/print-quotes/orders');
+    await submitConvertQuoteToOrder(quote, { customer_id: quote.customer_id! });
   };
 
   const handleCreateVendor = async (e: React.FormEvent): Promise<boolean> => {
@@ -1365,6 +1831,216 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     });
     await loadAllData();
     return true;
+  };
+
+  const handleSaveCatalogPriceItem = async (
+    payload: SaveCatalogPriceItemPayload,
+    editingId: string | null,
+  ): Promise<boolean> => {
+    const csrf = await getCsrfToken();
+    const url = editingId
+      ? `/api/v1/print-quotes/price-items/${encodeURIComponent(editingId)}`
+      : '/api/v1/print-quotes/price-items';
+    const method = editingId ? 'PATCH' : 'POST';
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrf,
+        'Idempotency-Key': `price-save-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setBannerMessage({
+        type: 'error',
+        text: json?.error?.message || 'Không thể lưu hạng mục Bảng giá xưởng.',
+      });
+      return false;
+    }
+    setBannerMessage({
+      type: 'success',
+      text: editingId
+        ? 'Đã cập nhật hạng mục Bảng giá xưởng (các báo giá cũ giữ nguyên)!'
+        : 'Đã thêm hạng mục mới vào Bảng giá xưởng!',
+    });
+    await loadAllData();
+    return true;
+  };
+
+  const handleDeactivatePriceItem = async (itemId: string): Promise<void> => {
+    const csrf = await getCsrfToken();
+    const res = await fetch(
+      `/api/v1/print-quotes/price-items/${encodeURIComponent(itemId)}/deactivate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      },
+    );
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setBannerMessage({
+        type: 'error',
+        text: json?.error?.message || 'Không thể ngừng dùng hạng mục giá.',
+      });
+      return;
+    }
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã chuyển hạng mục sang trạng thái Ngừng dùng.',
+    });
+    await loadAllData();
+  };
+
+  const handleRestorePriceItem = async (itemId: string): Promise<void> => {
+    const csrf = await getCsrfToken();
+    const res = await fetch(
+      `/api/v1/print-quotes/price-items/${encodeURIComponent(itemId)}/restore`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      },
+    );
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setBannerMessage({
+        type: 'error',
+        text: json?.error?.message || 'Không thể khôi phục hạng mục giá.',
+      });
+      return;
+    }
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã khôi phục hạng mục Bảng giá xưởng!',
+    });
+    await loadAllData();
+  };
+
+  const handleDeletePriceItem = async (itemId: string): Promise<void> => {
+    const csrf = await getCsrfToken();
+    const res = await fetch(
+      `/api/v1/print-quotes/price-items/${encodeURIComponent(itemId)}`,
+      {
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': csrf },
+        credentials: 'include',
+      },
+    );
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setBannerMessage({
+        type: 'error',
+        text:
+          json?.error?.message ||
+          'Không thể xóa hạng mục đã dùng trong báo giá — hãy chọn Ngừng dùng.',
+      });
+      return;
+    }
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã xóa vĩnh viễn hạng mục chưa từng dùng trong báo giá.',
+    });
+    await loadAllData();
+  };
+
+  const handleFetchPriceItemHistory = async (
+    itemId: string,
+  ): Promise<PrintVendorPriceItemHistoryData[]> => {
+    try {
+      const res = await fetch(
+        `/api/v1/print-quotes/price-items/${encodeURIComponent(itemId)}/history`,
+        { credentials: 'include' },
+      );
+      if (!res.ok) return [];
+      const json = await res.json().catch(() => null);
+      return json?.data?.items || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const handleSaveOverrideBackToCatalog = async (
+    priceItemId: string,
+    patch: SaveOverrideBackToCatalogPatch,
+  ): Promise<boolean> => {
+    const csrf = await getCsrfToken();
+    const isBatch = patch.pricing_mode === VendorCostMode.TOTAL_BATCH;
+    const res = await fetch(
+      `/api/v1/print-quotes/price-items/${encodeURIComponent(priceItemId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          pricing_mode: patch.pricing_mode,
+          unit_cost: isBatch ? 0 : patch.rate,
+          batch_total_cost: isBatch ? patch.rate : 0,
+          unit: patch.unit,
+          ...(patch.specification !== undefined
+            ? { specification: patch.specification || null }
+            : {}),
+          change_note: patch.change_note || 'Cập nhật giá từ báo giá',
+        }),
+      },
+    );
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setBannerMessage({
+        type: 'error',
+        text: json?.error?.message || 'Không thể cập nhật Bảng giá xưởng.',
+      });
+      return false;
+    }
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã cập nhật giá mới vào Bảng giá xưởng (lịch sử báo giá cũ giữ nguyên)!',
+    });
+    await loadAllData();
+    return true;
+  };
+
+  const handleDeleteDraftQuote = async (
+    quote: PrintQuoteData,
+  ): Promise<void> => {
+    const csrf = await getCsrfToken();
+    const res = await fetch(
+      `/api/v1/print-quotes/quotes/${encodeURIComponent(quote.id)}`,
+      {
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': csrf },
+        credentials: 'include',
+      },
+    );
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setBannerMessage({
+        type: 'error',
+        text:
+          json?.error?.message || 'Chỉ có thể xóa báo giá ở trạng thái Nháp.',
+      });
+      return;
+    }
+    setQuotes((prev) => prev.filter((q) => q.id !== quote.id));
+    if (editingQuoteId === quote.id) {
+      resetCleanNewDraft();
+    }
+    setBannerMessage({
+      type: 'success',
+      text: `Đã xóa bản nháp ${quote.quote_code}.`,
+    });
+    if (activeQuoteId === quote.id || activeQuoteId === quote.quote_code) {
+      navigateInternal('/print-quotes');
+    }
+    await loadAllData();
   };
 
   const handleCreateCustomer = async (e: React.FormEvent): Promise<boolean> => {
@@ -1458,7 +2134,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   const handleUpdateOrderField = async (
     orderId: string,
     patch: Record<string, unknown>,
-  ) => {
+  ): Promise<boolean> => {
     const csrf = await getCsrfToken();
     const res = await fetch(`/api/v1/print-quotes/orders/${orderId}`, {
       method: 'PATCH',
@@ -1466,13 +2142,22 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       credentials: 'include',
       body: JSON.stringify(patch),
     });
-    if (res.ok) {
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
       setBannerMessage({
-        type: 'success',
-        text: 'Đã cập nhật tiến độ đơn hàng!',
+        type: 'error',
+        text:
+          json?.error?.message ||
+          'Không thể cập nhật thông tin đơn hàng đặt in.',
       });
-      await loadAllData();
+      return false;
     }
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã cập nhật tiến độ & đối soát đơn hàng!',
+    });
+    await loadAllData();
+    return true;
   };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
@@ -1497,16 +2182,23 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         }),
       },
     );
-    if (res.ok) {
-      await loadAllData();
-      setPaymentOrderTarget(null);
-      setPaymentAmount(0);
-      setPaymentNote('');
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
       setBannerMessage({
-        type: 'success',
-        text: 'Đã ghi nhận thanh toán đơn hàng!',
+        type: 'error',
+        text:
+          json?.error?.message || 'Không thể ghi nhận giao dịch thanh toán.',
       });
+      return;
     }
+    await loadAllData();
+    setPaymentOrderTarget(null);
+    setPaymentAmount(0);
+    setPaymentNote('');
+    setBannerMessage({
+      type: 'success',
+      text: 'Đã ghi nhận thanh toán đơn hàng!',
+    });
   };
 
   if (role !== 'owner' || isOwnerVerified === false) {
@@ -1684,6 +2376,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           onCloneQuoteAsNew={handleCloneQuoteAsNew}
           onFinalizeQuote={handleFinalizeQuote}
           onConvertQuoteToOrder={handleConvertQuoteToOrder}
+          onDeleteDraftQuote={handleDeleteDraftQuote}
         />
       )}
 
@@ -1802,6 +2495,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
               }
             }}
             onSaveQuote={handleSaveQuote}
+            onSavePendingDraftQuote={handleSavePendingDraftQuote}
+            onSaveOverrideBackToCatalog={handleSaveOverrideBackToCatalog}
             onDownloadLivePdf={handleDownloadLivePdfFile}
             onOpenLivePreview={handleOpenLiveA4Preview}
             onQuickCreateCustomer={handleInlineCreateCustomer}
@@ -1823,6 +2518,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           onCloneQuoteAsNew={handleCloneQuoteAsNew}
           onFinalizeQuote={handleFinalizeQuote}
           onConvertQuoteToOrder={handleConvertQuoteToOrder}
+          onDeleteDraftQuote={handleDeleteDraftQuote}
         />
       )}
 
@@ -1858,6 +2554,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           priceDefaultProfitVal={priceDefaultProfitVal}
           setPriceDefaultProfitVal={setPriceDefaultProfitVal}
           onCreatePriceItem={handleCreatePriceItem}
+          onSaveCatalogPriceItem={handleSaveCatalogPriceItem}
+          onDeactivatePriceItem={handleDeactivatePriceItem}
+          onRestorePriceItem={handleRestorePriceItem}
+          onDeletePriceItem={handleDeletePriceItem}
+          onFetchPriceItemHistory={handleFetchPriceItemHistory}
           onNavigateCatalogSubPage={(sub) =>
             navigateInternal(`/print-quotes/catalog/${sub}`)
           }
@@ -1873,25 +2574,61 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
               setEditingQuoteVersion(1);
               setEditorPath('/print-quotes/new');
               setQuoteTitle(`Báo giá ${item.name}`);
-              setDraftLines([
-                {
-                  id: 'ITEM-1',
-                  vendorPriceItemId: item.id,
-                  name: item.name,
-                  specification: item.specification || '',
-                  unit: item.unit || 'tờ',
-                  quantity: 0,
-                  quantityInput: '',
-                  vendorCostMode: item.pricing_mode,
-                  vendorCostValue: resolvedCost,
-                  vendorCostInput: String(resolvedCost),
-                  ambiguousLegacyCost: null,
-                  profitMode: item.default_profit_mode,
-                  profitScope: item.default_profit_scope,
-                  profitValue: item.default_profit_value,
-                  profitInput: String(item.default_profit_value),
-                },
-              ]);
+              if (item.item_type === 'FINISHING') {
+                setDraftLines([
+                  {
+                    ...EMPTY_DRAFT_LINE(1),
+                    id: 'ITEM-1',
+                    unit: item.unit || 'tờ',
+                    ...(item.pricing_mode === VendorCostMode.PER_SQM
+                      ? { areaMode: AreaInputMode.DIMENSIONS }
+                      : {}),
+                    finishingStages: [
+                      {
+                        id: 'STG-1',
+                        priceItemId: item.id,
+                        code: item.code,
+                        name: item.name,
+                        pricingMode: item.pricing_mode,
+                        rateValue: resolvedCost,
+                        rateInput: String(resolvedCost),
+                        unit: item.unit || 'tờ',
+                        costSource: LineCostSource.CATALOG,
+                        catalogOriginalRate: resolvedCost,
+                        note: item.conditions_note || item.note || null,
+                      },
+                    ],
+                  },
+                ]);
+              } else {
+                setDraftLines([
+                  {
+                    id: 'ITEM-1',
+                    vendorPriceItemId: item.id,
+                    name: item.name,
+                    specification: item.specification || '',
+                    unit: item.unit || 'tờ',
+                    quantity: 0,
+                    quantityInput: '',
+                    vendorCostMode: item.pricing_mode,
+                    vendorCostValue: resolvedCost,
+                    vendorCostInput: String(resolvedCost),
+                    baseCostSource: LineCostSource.CATALOG,
+                    baseCatalogOriginalRate: resolvedCost,
+                    baseIncludedStages: item.included_stages?.length
+                      ? [...item.included_stages]
+                      : undefined,
+                    ...(item.pricing_mode === VendorCostMode.PER_SQM
+                      ? { areaMode: AreaInputMode.DIMENSIONS }
+                      : {}),
+                    ambiguousLegacyCost: null,
+                    profitMode: item.default_profit_mode,
+                    profitScope: item.default_profit_scope,
+                    profitValue: item.default_profit_value,
+                    profitInput: String(item.default_profit_value),
+                  },
+                ]);
+              }
               setHasTouchedFields(false);
               setIsDraftDirty(true);
               navigateInternal('/print-quotes/new');
@@ -1935,6 +2672,8 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       {viewMode === 'orders' && (
         <OrdersTab
           orders={orders}
+          vendors={vendors}
+          onMutateLedger={handleMutateLedger}
           onUpdateOrderField={handleUpdateOrderField}
           paymentOrderTarget={paymentOrderTarget}
           setPaymentOrderTarget={setPaymentOrderTarget}
@@ -1950,9 +2689,82 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         />
       )}
 
+      {/* CUSTOMER RECEIVABLES VIEW: /print-quotes/receivables */}
+      {viewMode === 'receivables' && (
+        <React.Suspense
+          fallback={
+            <div style={{ padding: '20px', color: 'var(--muted-color)' }}>
+              Đang tải sổ công nợ khách hàng…
+            </div>
+          }
+        >
+          <LazyReceivablesTab
+            data={receivablesSummary}
+            customers={customers}
+            orders={orders}
+            onMutateLedger={handleMutateLedger}
+            onRefresh={() => void loadAllData()}
+          />
+        </React.Suspense>
+      )}
+
+      {/* VENDOR PAYABLES VIEW: /print-quotes/payables */}
+      {viewMode === 'payables' && (
+        <React.Suspense
+          fallback={
+            <div style={{ padding: '20px', color: 'var(--muted-color)' }}>
+              Đang tải sổ công nợ xưởng…
+            </div>
+          }
+        >
+          <LazyPayablesTab
+            data={payablesSummary}
+            vendors={vendors}
+            orders={orders}
+            onMutateLedger={handleMutateLedger}
+          />
+        </React.Suspense>
+      )}
+
+      {/* UNIFIED PRINT TRANSACTIONS VIEW: /print-quotes/transactions */}
+      {viewMode === 'transactions' && (
+        <React.Suspense
+          fallback={
+            <div style={{ padding: '20px', color: 'var(--muted-color)' }}>
+              Đang tải sổ giao dịch…
+            </div>
+          }
+        >
+          <LazyTransactionsTab items={unifiedTransactions} />
+        </React.Suspense>
+      )}
+
+      {/* HISTORICAL DATA IMPORT VIEW: /print-quotes/import-history */}
+      {viewMode === 'import-history' && (
+        <React.Suspense
+          fallback={
+            <div style={{ padding: '20px', color: 'var(--muted-color)' }}>
+              Đang tải công cụ đối soát Sheet…
+            </div>
+          }
+        >
+          <LazyHistoricalImportTab
+            batches={importBatches}
+            onMutateLedger={handleMutateLedger}
+            onRefresh={() => void loadAllData()}
+          />
+        </React.Suspense>
+      )}
+
       {/* HONEST REPORTS VIEW: /print-quotes/reports */}
       {viewMode === 'reports' && (
-        <AnalyticsTab stats={stats} orders={orders} quotes={quotes} />
+        <AnalyticsTab
+          stats={stats}
+          orders={orders}
+          quotes={quotes}
+          financialReport={financialReport}
+          onNavigatePath={navigateInternal}
+        />
       )}
 
       {/* A4 PDF Preview & Print Modal */}
@@ -2058,6 +2870,26 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           </button>
         </div>
       </CatalogModalDialog>
+
+      {pendingConvertQuote && (
+        <React.Suspense fallback={null}>
+          <LazyConvertOrderCustomerModal
+            quote={pendingConvertQuote}
+            customers={customers}
+            submitting={convertingOrder}
+            errorMessage={convertOrderError}
+            onClose={() => {
+              if (!convertingOrder) {
+                setPendingConvertQuote(null);
+                setConvertOrderError('');
+              }
+            }}
+            onSubmit={async (payload) => {
+              await submitConvertQuoteToOrder(pendingConvertQuote, payload);
+            }}
+          />
+        </React.Suspense>
+      )}
 
       {loading && (
         <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
@@ -3031,6 +3863,14 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         }
 
         @media (max-width: 400px) {
+          .pq-module-nav-item {
+            flex: 0 0 auto;
+            padding: 6px 8px;
+            font-size: 12px;
+          }
+          .pq-module-nav-item svg {
+            display: none;
+          }
           .pq-page-head .pq-btn-cta {
             width: 100%;
           }

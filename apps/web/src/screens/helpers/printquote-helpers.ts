@@ -1,9 +1,28 @@
 import {
+  AreaInputMode,
   assertCustomerSafePdfPayload,
+  computeExactAreaSqm,
+  evaluateCatalogBatchQuantityCondition,
+  formatCustomerAreaDisclosure,
+  formatCustomerLinePricePresentation,
+  formatPrintQuoteAreaSqmVn,
+  formatPrintQuoteIntegerVn,
+  MAX_PRINTQUOTE_PERCENT,
+  MAX_PRINTQUOTE_QUANTITY,
+  MAX_PRINTQUOTE_RATE_VND,
+  normalizeAreaSqm,
+  normalizeStageKey,
   ProfitMode,
+  ProfitScope,
   VendorCostMode,
+  type AreaInputModeType,
+  type CustomerLinePricePresentation,
+  type LineCostSourceType,
+  type PendingCostLineSummary,
+  type PrintVendorPriceItemData,
   type ProfitModeType,
   type ProfitScopeType,
+  type QuoteAreaSpec,
   type VendorCostModeType,
   type CustomerSafePdfPayload,
   type QuoteOrderStatusType,
@@ -106,6 +125,9 @@ export interface SavedQuoteLineForEdit {
   unitVendorCost: number;
   totalVendorCost: number;
   vendorCostMode?: VendorCostModeType | undefined;
+  baseCostRate?: number | null | undefined;
+  baseCostPending?: boolean | undefined;
+  isPendingCost?: boolean | undefined;
 }
 
 export interface ResolvedSavedLineCostState {
@@ -118,8 +140,10 @@ export interface ResolvedSavedLineCostState {
 /**
  * Resolves the vendor cost mode and input value when loading a saved quote for editing,
  * strictly WITHOUT guessing when legacy persisted data is ambiguous:
- * 1. Explicit `vendorCostMode` ('TOTAL_BATCH' | 'PER_UNIT') -> deterministic.
- * 2. Legacy row without `vendorCostMode`:
+ * 1. Explicit `baseCostPending` / `baseCostRate === null` -> empty pending cost input ("").
+ * 2. Explicit `baseCostRate` number -> deterministic rate.
+ * 3. Explicit `vendorCostMode` ('TOTAL_BATCH' | 'PER_UNIT' | 'PER_SQM') -> deterministic.
+ * 4. Legacy row without `vendorCostMode`:
  *    - Both costs === 0 -> deterministic 0.
  *    - `unitVendorCost` deviates from `totalVendorCost / quantity` -> deterministic PER_UNIT.
  *    - `unitVendorCost` has repeating decimals (> 4 decimal places) -> deterministic TOTAL_BATCH.
@@ -129,11 +153,38 @@ export interface ResolvedSavedLineCostState {
 export function resolveSavedQuoteLineCostState(
   item: SavedQuoteLineForEdit,
 ): ResolvedSavedLineCostState {
+  if (item.baseCostPending === true || item.baseCostRate === null) {
+    return {
+      vendorCostMode: item.vendorCostMode ?? VendorCostMode.PER_UNIT,
+      vendorCostValue: 0,
+      vendorCostInput: '',
+      ambiguousLegacyCost: null,
+    };
+  }
+  if (
+    typeof item.baseCostRate === 'number' &&
+    Number.isFinite(item.baseCostRate)
+  ) {
+    return {
+      vendorCostMode: item.vendorCostMode ?? VendorCostMode.PER_UNIT,
+      vendorCostValue: item.baseCostRate,
+      vendorCostInput: String(item.baseCostRate),
+      ambiguousLegacyCost: null,
+    };
+  }
   if (item.vendorCostMode === VendorCostMode.TOTAL_BATCH) {
     return {
       vendorCostMode: VendorCostMode.TOTAL_BATCH,
       vendorCostValue: item.totalVendorCost,
       vendorCostInput: String(item.totalVendorCost),
+      ambiguousLegacyCost: null,
+    };
+  }
+  if (item.vendorCostMode === VendorCostMode.PER_SQM) {
+    return {
+      vendorCostMode: VendorCostMode.PER_SQM,
+      vendorCostValue: item.unitVendorCost,
+      vendorCostInput: String(item.unitVendorCost),
       ambiguousLegacyCost: null,
     };
   }
@@ -192,8 +243,23 @@ export function resolveSavedQuoteLineCostState(
   };
 }
 
+export interface ValidatableFinishingStage {
+  id: string;
+  priceItemId?: string | undefined;
+  code?: string | null | undefined;
+  name: string;
+  pricingMode: VendorCostModeType;
+  rateValue: number;
+  rateInput: string;
+  unit?: string | undefined;
+  costSource?: LineCostSourceType | undefined;
+  note?: string | null | undefined;
+}
+
 export interface ValidatableDraftLine {
   id: string;
+  vendorPriceItemId?: string | undefined;
+  baseCostSource?: LineCostSourceType | undefined;
   name: string;
   specification?: string | undefined;
   unit: string;
@@ -202,6 +268,16 @@ export interface ValidatableDraftLine {
   vendorCostMode: VendorCostModeType;
   vendorCostValue: number;
   vendorCostInput?: string | undefined;
+  areaMode?: AreaInputModeType | undefined;
+  widthMInput?: string | undefined;
+  heightMInput?: string | undefined;
+  sheetsCountInput?: string | undefined;
+  actualAreaInput?: string | undefined;
+  billableAreaInput?: string | undefined;
+  adjustBillableArea?: boolean | undefined;
+  areaAdjustmentReason?: string | undefined;
+  customerAreaNote?: string | undefined;
+  finishingStages?: readonly ValidatableFinishingStage[] | undefined;
   ambiguousLegacyCost?: AmbiguousLegacyCostState | null | undefined;
   profitMode: ProfitModeType;
   profitScope: ProfitScopeType;
@@ -209,21 +285,35 @@ export interface ValidatableDraftLine {
   profitInput?: string | undefined;
 }
 
+export interface ValidatedFinishingStageNumbers {
+  id: string;
+  rate: number | null;
+}
+
 export interface ValidatedQuoteLineNumbers {
   quantity: number;
   vendorCostValue: number;
+  baseCostRate: number | null;
   profitValue: number;
+  areaSpec: QuoteAreaSpec | null;
+  stages: ValidatedFinishingStageNumbers[];
 }
 
 export interface DraftLineValidationError {
   quantity?: string | undefined;
   vendorCost?: string | undefined;
   costMode?: string | undefined;
+  area?: string | undefined;
+  stages?: string | undefined;
   profit?: string | undefined;
 }
 
 export interface QuoteDraftValidationResult {
   isValid: boolean;
+  canSavePendingDraft: boolean;
+  isPendingCost: boolean;
+  pendingSummary: PendingCostLineSummary[];
+  structuralErrors: string[];
   errors: string[];
   lineErrors: Record<string, DraftLineValidationError>;
   shippingError: string | null;
@@ -234,22 +324,37 @@ export interface QuoteDraftValidationResult {
 /**
  * Strictly validates all required numeric inputs in CreateQuoteTab so that:
  * - Empty ("") fields are distinguished from explicit "0".
- * - Empty or invalid required fields block calculation of fake totals and block Save/PDF export.
+ * - Complete quotes (`isValid === true`) require every base & stage cost and profit to be valid numbers.
+ * - Incomplete vendor cost drafts (`canSavePendingDraft === true && isPendingCost === true`) allow
+ *   saving a "Chờ giá xưởng" (`PENDING_COST`) draft when structural fields (quantity >= 1, valid m²
+ *   dimensions if PER_SQM, non-duplicate stage names) are valid while at least one base/stage cost is empty.
  */
 export function validateQuoteDraftInputs(
   draftLines: ValidatableDraftLine[],
   shippingFeeInput?: string | number | null,
+  catalogPriceItems?: readonly PrintVendorPriceItemData[],
 ): QuoteDraftValidationResult {
   const errors: string[] = [];
+  const structuralErrors: string[] = [];
+  const pendingSummary: PendingCostLineSummary[] = [];
   const lineErrors: QuoteDraftValidationResult['lineErrors'] = {};
   const validatedLines: ValidatedQuoteLineNumbers[] = [];
+  const catalogById = new Map<string, PrintVendorPriceItemData>();
+  if (catalogPriceItems) {
+    for (const item of catalogPriceItems) {
+      catalogById.set(item.id, item);
+    }
+  }
 
   if (!draftLines || draftLines.length === 0) {
-    errors.push('Cần ít nhất 1 sản phẩm đặt in trong báo giá.');
+    const emptyMsg = 'Cần ít nhất 1 sản phẩm đặt in trong báo giá.';
+    errors.push(emptyMsg);
+    structuralErrors.push(emptyMsg);
   }
 
   draftLines.forEach((line, idx) => {
     const labelPrefix = `Sản phẩm #${idx + 1}`;
+    const lineDisplayName = line.name?.trim() || labelPrefix;
     const currentLineErr: DraftLineValidationError = {};
 
     const rawQty =
@@ -267,6 +372,12 @@ export function validateQuoteDraftInputs(
         : `${labelPrefix}: Số lượng phải từ 1 trở lên.`;
       currentLineErr.quantity = msg;
       errors.push(msg);
+      structuralErrors.push(msg);
+    } else if (qtyRes.value > MAX_PRINTQUOTE_QUANTITY) {
+      const msg = `${labelPrefix}: Số lượng vượt giới hạn cho phép (${MAX_PRINTQUOTE_QUANTITY.toLocaleString('vi-VN')}).`;
+      currentLineErr.quantity = msg;
+      errors.push(msg);
+      structuralErrors.push(msg);
     } else if (
       line.ambiguousLegacyCost &&
       qtyRes.value !== line.ambiguousLegacyCost.originalQuantity
@@ -275,8 +386,212 @@ export function validateQuoteDraftInputs(
       const msg = `${labelPrefix}: Báo giá cũ chưa lưu rõ kiểu giá vốn — vui lòng chọn xác nhận 'Từng ${unitLabel}' hoặc 'Trọn lô' khi đổi số lượng.`;
       currentLineErr.costMode = msg;
       errors.push(msg);
+      structuralErrors.push(msg);
+    } else if (
+      line.vendorPriceItemId &&
+      line.vendorPriceItemId.trim() !== '' &&
+      (line.baseCostSource ?? 'CATALOG') === 'CATALOG' &&
+      line.vendorCostMode === VendorCostMode.TOTAL_BATCH
+    ) {
+      const catItem = catalogById.get(line.vendorPriceItemId.trim());
+      if (catItem) {
+        const batchCheck = evaluateCatalogBatchQuantityCondition({
+          itemName: catItem.name,
+          itemCode: catItem.code,
+          itemType: catItem.item_type,
+          pricingMode: catItem.pricing_mode,
+          batchQuantity: catItem.batch_quantity,
+          structuredSpec: catItem.structured_spec,
+          costSource: line.baseCostSource,
+          lineQuantity: qtyRes.value,
+          unit: line.unit || catItem.unit,
+        });
+        if (!batchCheck.allowed && batchCheck.reason) {
+          const msg = `${labelPrefix}: ${batchCheck.reason}`;
+          currentLineErr.costMode = msg;
+          errors.push(msg);
+          structuralErrors.push(msg);
+        }
+      }
     }
 
+    // Area (m²) validation when PER_SQM is used or explicit m² inputs are filled
+    const stages = line.finishingStages ?? [];
+    const usesPerSqm =
+      line.vendorCostMode === VendorCostMode.PER_SQM ||
+      (line.profitMode === ProfitMode.FIXED_AMOUNT &&
+        line.profitScope === ProfitScope.PER_SQM) ||
+      stages.some((s) => s.pricingMode === VendorCostMode.PER_SQM);
+    const hasAreaInputs = Boolean(
+      (line.widthMInput && line.widthMInput.trim() !== '') ||
+      (line.heightMInput && line.heightMInput.trim() !== '') ||
+      (line.actualAreaInput && line.actualAreaInput.trim() !== ''),
+    );
+
+    let resolvedArea: QuoteAreaSpec | null = null;
+    if (usesPerSqm || hasAreaInputs) {
+      const mode = line.areaMode ?? AreaInputMode.DIMENSIONS;
+      if (mode === AreaInputMode.DIRECT_AREA) {
+        const directRes = parseNumericDraftValue(line.actualAreaInput ?? '', {
+          allowDecimal: true,
+          min: 0.000001,
+          integerOnly: false,
+        });
+        if (!directRes.isValid || directRes.value === null) {
+          const msg = directRes.isEmpty
+            ? `${labelPrefix}: Chưa nhập Tổng diện tích (m²).`
+            : `${labelPrefix}: Tổng diện tích (m²) phải lớn hơn 0.`;
+          currentLineErr.area = msg;
+          errors.push(msg);
+          structuralErrors.push(msg);
+        } else {
+          try {
+            const actualSqm = normalizeAreaSqm(directRes.value);
+            let billableSqm = actualSqm;
+            if (
+              line.adjustBillableArea &&
+              line.billableAreaInput &&
+              line.billableAreaInput.trim() !== ''
+            ) {
+              const billRes = parseNumericDraftValue(line.billableAreaInput, {
+                allowDecimal: true,
+                min: 0.000001,
+                integerOnly: false,
+              });
+              if (!billRes.isValid || billRes.value === null) {
+                throw new Error(
+                  `${labelPrefix}: Diện tích tính tiền (m²) không hợp lệ.`,
+                );
+              }
+              billableSqm = normalizeAreaSqm(billRes.value);
+            }
+            resolvedArea = {
+              mode: AreaInputMode.DIRECT_AREA,
+              widthM: null,
+              heightM: null,
+              sheetsCount: qtyRes.value ?? 1,
+              actualAreaSqm: actualSqm,
+              billableAreaSqm: billableSqm,
+            };
+          } catch (areaErr) {
+            const msg =
+              areaErr instanceof Error
+                ? areaErr.message
+                : `${labelPrefix}: Diện tích (m²) không hợp lệ.`;
+            currentLineErr.area = msg;
+            errors.push(msg);
+            structuralErrors.push(msg);
+          }
+        }
+      } else {
+        const wRes = parseNumericDraftValue(line.widthMInput ?? '', {
+          allowDecimal: true,
+          min: 0.0001,
+          integerOnly: false,
+        });
+        const hRes = parseNumericDraftValue(line.heightMInput ?? '', {
+          allowDecimal: true,
+          min: 0.0001,
+          integerOnly: false,
+        });
+        const rawSheets =
+          line.sheetsCountInput && line.sheetsCountInput.trim() !== ''
+            ? line.sheetsCountInput
+            : String(qtyRes.value ?? 1);
+        const sheetsRes = parseNumericDraftValue(rawSheets, {
+          allowDecimal: false,
+          min: 1,
+          integerOnly: true,
+        });
+
+        if (!wRes.isValid || wRes.value === null) {
+          const msg = wRes.isEmpty
+            ? `${labelPrefix}: Chưa nhập Chiều ngang (m).`
+            : `${labelPrefix}: Chiều ngang (m) phải lớn hơn 0.`;
+          currentLineErr.area = msg;
+          errors.push(msg);
+          structuralErrors.push(msg);
+        } else if (!hRes.isValid || hRes.value === null) {
+          const msg = hRes.isEmpty
+            ? `${labelPrefix}: Chưa nhập Chiều cao (m).`
+            : `${labelPrefix}: Chiều cao (m) phải lớn hơn 0.`;
+          currentLineErr.area = msg;
+          errors.push(msg);
+          structuralErrors.push(msg);
+        } else if (!sheetsRes.isValid || sheetsRes.value === null) {
+          const msg = `${labelPrefix}: Số tấm tính m² phải từ 1 trở lên.`;
+          currentLineErr.area = msg;
+          errors.push(msg);
+          structuralErrors.push(msg);
+        } else {
+          try {
+            const actualSqm = computeExactAreaSqm(
+              wRes.value,
+              hRes.value,
+              sheetsRes.value,
+            );
+            let billableSqm = actualSqm;
+            if (
+              line.adjustBillableArea &&
+              line.billableAreaInput &&
+              line.billableAreaInput.trim() !== ''
+            ) {
+              const billRes = parseNumericDraftValue(line.billableAreaInput, {
+                allowDecimal: true,
+                min: 0.000001,
+                integerOnly: false,
+              });
+              if (!billRes.isValid || billRes.value === null) {
+                throw new Error(
+                  `${labelPrefix}: Diện tích tính tiền (m²) không hợp lệ.`,
+                );
+              }
+              billableSqm = normalizeAreaSqm(billRes.value);
+            }
+            resolvedArea = {
+              mode: AreaInputMode.DIMENSIONS,
+              widthM: Math.round(wRes.value * 10_000) / 10_000,
+              heightM: Math.round(hRes.value * 10_000) / 10_000,
+              sheetsCount: sheetsRes.value,
+              actualAreaSqm: actualSqm,
+              billableAreaSqm: billableSqm,
+            };
+          } catch (areaErr) {
+            const msg =
+              areaErr instanceof Error
+                ? areaErr.message
+                : `${labelPrefix}: Kích thước tính m² không hợp lệ.`;
+            currentLineErr.area = msg;
+            errors.push(msg);
+            structuralErrors.push(msg);
+          }
+        }
+      }
+      if (resolvedArea) {
+        const trimmedReason = line.areaAdjustmentReason?.trim() ?? '';
+        const trimmedCustomerNote = line.customerAreaNote?.trim() ?? '';
+        if (
+          Math.abs(resolvedArea.billableAreaSqm - resolvedArea.actualAreaSqm) >
+          1e-9
+        ) {
+          if (!trimmedReason) {
+            const msg = `${labelPrefix}: Khi sửa Diện tích tính tiền khác Diện tích thực tế, bắt buộc nhập lý do điều chỉnh.`;
+            currentLineErr.area = msg;
+            errors.push(msg);
+            structuralErrors.push(msg);
+          } else {
+            resolvedArea.adjustmentReason = trimmedReason;
+          }
+          if (trimmedCustomerNote) {
+            resolvedArea.customerAreaNote = trimmedCustomerNote;
+          }
+        } else if (trimmedReason) {
+          resolvedArea.adjustmentReason = trimmedReason;
+        }
+      }
+    }
+
+    // Base vendor cost validation ("" = pending cost vs "0" = 0đ explicit)
     const rawCost =
       line.vendorCostInput !== undefined
         ? line.vendorCostInput
@@ -287,12 +602,127 @@ export function validateQuoteDraftInputs(
       min: 0,
       integerOnly: !costAllowDecimal,
     });
+    let missingBaseCost = false;
     if (!costRes.isValid || costRes.value === null) {
-      const msg = costRes.isEmpty
-        ? `${labelPrefix}: Chưa nhập Giá nhà in (nhập 0 nếu miễn phí).`
-        : `${labelPrefix}: Giá nhà in không hợp lệ.`;
+      if (costRes.isEmpty) {
+        missingBaseCost = true;
+        const msg = `${labelPrefix}: Chưa nhập Giá nhà in (nhập 0 nếu miễn phí).`;
+        currentLineErr.vendorCost = msg;
+        errors.push(msg);
+      } else {
+        const msg = `${labelPrefix}: Giá nhà in không hợp lệ.`;
+        currentLineErr.vendorCost = msg;
+        errors.push(msg);
+        structuralErrors.push(msg);
+      }
+    } else if (costRes.value > MAX_PRINTQUOTE_RATE_VND) {
+      const msg = `${labelPrefix}: Giá nhà in vượt giới hạn cho phép.`;
       currentLineErr.vendorCost = msg;
       errors.push(msg);
+      structuralErrors.push(msg);
+    }
+
+    // Finishing stages validation (0..N stages, duplicate check, "" = pending stage cost)
+    const missingStageNames: string[] = [];
+    const validatedStageNums: ValidatedFinishingStageNumbers[] = [];
+    const seenStageIds = new Set<string>();
+    const seenStageKeys = new Set<string>();
+
+    stages.forEach((stg, sIdx) => {
+      const sName = String(stg.name || '').trim();
+      if (!sName) {
+        const msg = `${labelPrefix}: Công đoạn gia công #${sIdx + 1} chưa nhập tên.`;
+        if (!currentLineErr.stages) currentLineErr.stages = msg;
+        errors.push(msg);
+        structuralErrors.push(msg);
+        validatedStageNums.push({ id: stg.id, rate: null });
+        return;
+      }
+      if (stg.priceItemId && stg.priceItemId.trim() !== '') {
+        if (seenStageIds.has(stg.priceItemId.trim())) {
+          const msg = `${labelPrefix}: Công đoạn "${sName}" bị chọn trùng trên cùng sản phẩm.`;
+          if (!currentLineErr.stages) currentLineErr.stages = msg;
+          errors.push(msg);
+          structuralErrors.push(msg);
+        }
+        seenStageIds.add(stg.priceItemId.trim());
+        if (
+          qtyRes.isValid &&
+          qtyRes.value !== null &&
+          (stg.costSource ?? 'CATALOG') === 'CATALOG' &&
+          stg.pricingMode === VendorCostMode.TOTAL_BATCH
+        ) {
+          const stgCatItem = catalogById.get(stg.priceItemId.trim());
+          if (stgCatItem) {
+            const stgBatchCheck = evaluateCatalogBatchQuantityCondition({
+              itemName: stgCatItem.name,
+              itemCode: stgCatItem.code,
+              itemType: stgCatItem.item_type,
+              pricingMode: stgCatItem.pricing_mode,
+              batchQuantity: stgCatItem.batch_quantity,
+              structuredSpec: stgCatItem.structured_spec,
+              costSource: stg.costSource,
+              lineQuantity: qtyRes.value,
+              unit: stg.unit || stgCatItem.unit,
+            });
+            if (!stgBatchCheck.allowed && stgBatchCheck.reason) {
+              const msg = `${labelPrefix}: ${stgBatchCheck.reason}`;
+              if (!currentLineErr.stages) currentLineErr.stages = msg;
+              errors.push(msg);
+              structuralErrors.push(msg);
+            }
+          }
+        }
+      }
+      const normKey = normalizeStageKey(sName);
+      if (normKey) {
+        if (seenStageKeys.has(normKey)) {
+          const msg = `${labelPrefix}: Công đoạn "${sName}" bị nhập trùng trên cùng sản phẩm.`;
+          if (!currentLineErr.stages) currentLineErr.stages = msg;
+          errors.push(msg);
+          structuralErrors.push(msg);
+        }
+        seenStageKeys.add(normKey);
+      }
+
+      const stgAllowDec = !Number.isInteger(stg.rateValue);
+      const stgRes = parseNumericDraftValue(stg.rateInput ?? '', {
+        allowDecimal: stgAllowDec,
+        min: 0,
+        integerOnly: !stgAllowDec,
+      });
+      if (!stgRes.isValid || stgRes.value === null) {
+        if (stgRes.isEmpty) {
+          missingStageNames.push(sName);
+          const msg = `${labelPrefix}: Công đoạn "${sName}" đang để trống giá (Chờ giá xưởng).`;
+          if (!currentLineErr.stages) currentLineErr.stages = msg;
+          errors.push(msg);
+          validatedStageNums.push({ id: stg.id, rate: null });
+        } else {
+          const msg = `${labelPrefix}: Giá công đoạn "${sName}" không hợp lệ.`;
+          if (!currentLineErr.stages) currentLineErr.stages = msg;
+          errors.push(msg);
+          structuralErrors.push(msg);
+          validatedStageNums.push({ id: stg.id, rate: null });
+        }
+      } else if (stgRes.value > MAX_PRINTQUOTE_RATE_VND) {
+        const msg = `${labelPrefix}: Giá công đoạn "${sName}" vượt giới hạn cho phép.`;
+        if (!currentLineErr.stages) currentLineErr.stages = msg;
+        errors.push(msg);
+        structuralErrors.push(msg);
+        validatedStageNums.push({ id: stg.id, rate: null });
+      } else {
+        validatedStageNums.push({ id: stg.id, rate: stgRes.value });
+      }
+    });
+
+    if (missingBaseCost || missingStageNames.length > 0) {
+      pendingSummary.push({
+        lineId: line.id,
+        lineName: lineDisplayName,
+        missingBaseCost,
+        missingStageNames,
+      });
     }
 
     const rawProfit =
@@ -306,17 +736,40 @@ export function validateQuoteDraftInputs(
       integerOnly: !profitAllowDecimal,
     });
     if (!profitRes.isValid || profitRes.value === null) {
-      const msg = profitRes.isEmpty
-        ? `${labelPrefix}: Chưa nhập Tiền lời (nhập 0 nếu không tính lời).`
-        : `${labelPrefix}: Tiền lời không hợp lệ.`;
+      if (profitRes.isEmpty) {
+        const msg = `${labelPrefix}: Chưa nhập Tiền lời (nhập 0 nếu không tính lời).`;
+        currentLineErr.profit = msg;
+        errors.push(msg);
+      } else {
+        const msg = `${labelPrefix}: Tiền lời không hợp lệ.`;
+        currentLineErr.profit = msg;
+        errors.push(msg);
+        structuralErrors.push(msg);
+      }
+    } else if (
+      line.profitMode === ProfitMode.PERCENTAGE &&
+      profitRes.value > MAX_PRINTQUOTE_PERCENT
+    ) {
+      const msg = `${labelPrefix}: Phần trăm lợi nhuận vượt giới hạn (${MAX_PRINTQUOTE_PERCENT}%).`;
       currentLineErr.profit = msg;
       errors.push(msg);
+      structuralErrors.push(msg);
+    } else if (
+      line.profitMode !== ProfitMode.PERCENTAGE &&
+      profitRes.value > MAX_PRINTQUOTE_RATE_VND
+    ) {
+      const msg = `${labelPrefix}: Tiền lời vượt giới hạn cho phép.`;
+      currentLineErr.profit = msg;
+      errors.push(msg);
+      structuralErrors.push(msg);
     }
 
     if (
       currentLineErr.quantity ||
       currentLineErr.vendorCost ||
       currentLineErr.costMode ||
+      currentLineErr.area ||
+      currentLineErr.stages ||
       currentLineErr.profit
     ) {
       lineErrors[line.id] = currentLineErr;
@@ -325,7 +778,10 @@ export function validateQuoteDraftInputs(
     validatedLines.push({
       quantity: qtyRes.value ?? 0,
       vendorCostValue: costRes.value ?? 0,
+      baseCostRate: missingBaseCost ? null : (costRes.value ?? 0),
       profitValue: profitRes.value ?? 0,
+      areaSpec: resolvedArea,
+      stages: validatedStageNums,
     });
   });
 
@@ -344,10 +800,22 @@ export function validateQuoteDraftInputs(
       ? 'Chưa nhập Phí giao hàng toàn đơn (nhập 0 nếu miễn phí giao hàng).'
       : 'Phí giao hàng không hợp lệ.';
     errors.push(shippingError);
+    structuralErrors.push(shippingError);
+  } else if (shipRes.value > MAX_PRINTQUOTE_RATE_VND) {
+    shippingError = 'Phí giao hàng vượt giới hạn cho phép.';
+    errors.push(shippingError);
+    structuralErrors.push(shippingError);
   }
+
+  const isPendingCost = pendingSummary.length > 0;
+  const canSavePendingDraft = isPendingCost && structuralErrors.length === 0;
 
   return {
     isValid: errors.length === 0,
+    canSavePendingDraft,
+    isPendingCost,
+    pendingSummary,
+    structuralErrors,
     errors,
     lineErrors,
     shippingError,
@@ -356,12 +824,12 @@ export function validateQuoteDraftInputs(
   };
 }
 
+export function formatAreaSqmVn(area: number | null | undefined): string {
+  return formatPrintQuoteAreaSqmVn(area);
+}
+
 export function formatVnd(amount: number | null | undefined): string {
-  const safe =
-    typeof amount === 'number' && Number.isFinite(amount)
-      ? Math.round(amount)
-      : 0;
-  return `${safe.toLocaleString('vi-VN')} ₫`;
+  return `${formatPrintQuoteIntegerVn(amount)} ₫`;
 }
 
 export function formatExactVnd(amount: number | null | undefined): string {
@@ -374,57 +842,31 @@ export function formatExactVnd(amount: number | null | undefined): string {
   })} ₫`;
 }
 
-export interface CustomerLinePriceDisplay {
-  unitPriceDisplay: string;
-  priceSubNote: string | null;
-  isExact: boolean;
-}
+export type CustomerLinePriceDisplay = CustomerLinePricePresentation;
 
 /**
  * Formats unit price on customer-facing A4 PDF and Customer Summary view so that:
- * 1. Exact integer unit price (e.g. 100.000 ÷ 100 = 1.000 ₫) -> "1.000 ₫"
- * 2. Exact finite 2-decimal unit price (e.g. 76.316 ÷ 100 = 763,16 ₫) -> "763,16 ₫" (763,16 × 100 = 76.316 ₫ exact)
- * 3. Non-terminating decimal unit price (e.g. 68.684 ÷ 3 = 22.894,666... ₫) -> "~22.895 ₫" + "Tính trọn gói 3 tờ"
+ * 1. Exact integer unit price (e.g. 100.000 ÷ 100 = 1.000 ₫ or 1.234.567 ÷ 1,234567m² = 1.000.000 ₫) -> exact VND
+ * 2. Exact finite 2-decimal unit price (e.g. 76.316 ÷ 100 = 763,16 ₫ or 101.569 ÷ 1,015625m² = 100.006,4 ₫) -> exact decimal VND
+ * 3. Non-terminating decimal unit price -> "~..." + "Tính trọn gói ..."
  * Never exposes technical accounting jargon like "Hiệu chỉnh làm tròn" to customers.
  */
 export function formatCustomerLinePriceDisplay(
   lineTotal: number,
   quantity: number,
   unitLabel?: string | null,
+  displayAreaSqm?: number | null,
 ): CustomerLinePriceDisplay {
-  const qty = Math.max(1, Math.round(quantity || 1));
-  const total = Math.round(lineTotal || 0);
-  const unit = (unitLabel || 'sp').trim() || 'sp';
-
-  if (total % qty === 0) {
-    return {
-      unitPriceDisplay: formatVnd(total / qty),
-      priceSubNote: null,
-      isExact: true,
-    };
-  }
-
-  if ((total * 100) % qty === 0) {
-    return {
-      unitPriceDisplay: formatExactVnd(total / qty),
-      priceSubNote: null,
-      isExact: true,
-    };
-  }
-
-  return {
-    unitPriceDisplay: `~${formatVnd(Math.round(total / qty))}`,
-    priceSubNote: `Tính trọn gói ${formatNumberVn(qty)} ${unit}`,
-    isExact: false,
-  };
+  return formatCustomerLinePricePresentation(
+    lineTotal,
+    quantity,
+    unitLabel,
+    displayAreaSqm,
+  );
 }
 
 export function formatNumberVn(amount: number | null | undefined): string {
-  const safe =
-    typeof amount === 'number' && Number.isFinite(amount)
-      ? Math.round(amount)
-      : 0;
-  return safe.toLocaleString('vi-VN');
+  return formatPrintQuoteIntegerVn(amount);
 }
 
 export function formatDateVn(dateStr: string | null | undefined): string {
@@ -625,12 +1067,25 @@ export function buildPrintQuoteA4Html(
       const specText = specRaw
         ? `<div class="item-spec">Quy cách: ${escapeHtml(specRaw)}</div>`
         : '';
+      const areaDisclosure = formatCustomerAreaDisclosure({
+        actualAreaSqm: item.actualAreaSqm,
+        billableAreaSqm: item.billableAreaSqm,
+        customerAreaNote: item.customerAreaNote,
+      });
+      const areaDisclosureHtml = areaDisclosure
+        ? `<div class="item-area-note">${escapeHtml(areaDisclosure)}</div>`
+        : '';
       const rawUnit = extra?.unit || item.unit || 'sp';
       const unitLabel = escapeHtml(rawUnit);
+      const hasAreaQty =
+        typeof item.displayAreaSqm === 'number' &&
+        Number.isFinite(item.displayAreaSqm) &&
+        item.displayAreaSqm > 0;
       const pricePresentation = formatCustomerLinePriceDisplay(
         item.lineTotal,
         item.quantity,
         rawUnit,
+        item.displayAreaSqm,
       );
       const priceNoteHtml = pricePresentation.priceSubNote
         ? `<div class="item-split-note">(${escapeHtml(pricePresentation.priceSubNote)})</div>`
@@ -642,9 +1097,10 @@ export function buildPrintQuoteA4Html(
           <td class="col-name">
             <div class="item-title">${escapeHtml(item.name)}</div>
             ${specText}
+            ${areaDisclosureHtml}
           </td>
           <td class="col-unit">${unitLabel}</td>
-          <td class="col-qty">${formatNumberVn(item.quantity)}</td>
+          <td class="col-qty">${hasAreaQty ? formatAreaSqmVn(item.displayAreaSqm) : formatNumberVn(item.quantity)}</td>
           <td class="col-price">
             <div>${escapeHtml(pricePresentation.unitPriceDisplay)}</div>
             ${priceNoteHtml}
@@ -794,6 +1250,7 @@ export function buildPrintQuoteA4Html(
     .col-total { width: 135px; text-align: right; font-weight: 700; color: #0F172A; }
     .item-title { font-weight: 700; color: #0F172A; }
     .item-spec { font-size: 11.5px; color: #475569; margin-top: 2px; }
+    .item-area-note { font-size: 11px; color: #0F766E; margin-top: 2px; font-weight: 600; }
     .item-split-note { font-size: 11px; color: #0F766E; margin-top: 3px; font-style: italic; }
     .summary-row td {
       background: #F8FAFC;

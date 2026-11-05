@@ -44,7 +44,7 @@ async function main() {
     );
     if (roleCheck.rowCount && roleCheck.rowCount > 0) {
       await pool.query(
-        `GRANT USAGE ON SCHEMA public TO hp_app_test; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO hp_app_test; REVOKE UPDATE, DELETE ON audit_events FROM hp_app_test; REVOKE ALL ON schema_migrations FROM hp_app_test; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO hp_app_test;`,
+        `GRANT USAGE ON SCHEMA public TO hp_app_test; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO hp_app_test; REVOKE UPDATE, DELETE ON audit_events FROM hp_app_test; REVOKE UPDATE, DELETE, TRUNCATE ON print_order_cost_history, print_workshop_job_history, print_ar_allocations, print_ar_adjustments, print_ap_allocations, print_ap_adjustments, print_order_cancellation_settlements, print_order_payments, print_legacy_ar_reconciliation_history FROM hp_app_test; REVOKE DELETE, TRUNCATE ON print_workshop_jobs, print_historical_import_batches, print_historical_import_rows, print_opening_balances, print_ar_transactions, print_ap_transactions, print_legacy_ar_reconciliations FROM hp_app_test; REVOKE ALL ON schema_migrations FROM hp_app_test; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO hp_app_test;`,
       );
     }
     console.log(

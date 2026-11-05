@@ -1,17 +1,20 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StatusBadge } from '../../../../../packages/ui/src/components/index.js';
-import type {
-  PrintCustomerData,
-  PrintQuoteData,
+import {
+  enrichCustomerSafePdfWithAreaBounds,
+  type PrintCustomerData,
+  type PrintQuoteData,
 } from '../../../../../packages/contracts/src/printquote.js';
 import {
   buildPrintQuoteA4Html,
+  formatAreaSqmVn,
   formatDateVn,
   formatNumberVn,
   formatVnd,
   QUOTE_STATUS_LABELS,
 } from '../helpers/printquote-helpers.js';
 import { cardStyle, isQuoteStatusEditable, tabularNumStyle } from './types.js';
+import { CatalogModalDialog } from './CatalogModalDialog.js';
 import {
   PqArrowLeftIcon,
   PqCheckIcon,
@@ -25,6 +28,7 @@ import {
   PqPackageIcon,
   PqPrinterIcon,
   PqShieldIcon,
+  PqTrashIcon,
 } from './PrintQuoteIcons.js';
 
 export interface QuoteDetailViewProps {
@@ -40,6 +44,8 @@ export interface QuoteDetailViewProps {
   onCloneQuoteAsNew: (quote: PrintQuoteData) => void;
   onFinalizeQuote: (quoteId: string) => void;
   onConvertQuoteToOrder: (quote: PrintQuoteData) => void;
+  onDeleteDraftQuote?:
+    ((quote: PrintQuoteData) => Promise<void> | void) | undefined;
 }
 
 export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
@@ -55,16 +61,29 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
   onCloneQuoteAsNew,
   onFinalizeQuote,
   onConvertQuoteToOrder,
+  onDeleteDraftQuote,
 }) => {
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false);
+
   const customer = useMemo(
     () =>
       quote ? customers.find((c) => c.id === quote.customer_id) || null : null,
     [customers, quote],
   );
 
+  const isPendingCost = Boolean(
+    quote &&
+    (quote.pricing_status === 'PENDING_COST' ||
+      quote.customer_pdf_json === null),
+  );
+
   const a4Html = useMemo(() => {
-    if (!quote) return '';
-    return buildPrintQuoteA4Html(quote.customer_pdf_json, {
+    if (!quote || !quote.customer_pdf_json || isPendingCost) return '';
+    const enrichedPdf = enrichCustomerSafePdfWithAreaBounds(
+      quote.customer_pdf_json,
+      quote.lines_json,
+    );
+    return buildPrintQuoteA4Html(enrichedPdf, {
       quoteCode: quote.quote_code,
       quoteTitle: quote.title,
       versionNo: quote.current_version,
@@ -78,7 +97,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
       customerAddress: quote.customer_address || customer?.address || null,
       customerNotes: quote.notes,
     });
-  }, [quote, customer, workspaceName]);
+  }, [quote, customer, workspaceName, isPendingCost]);
 
   if (loading && !quote) {
     return (
@@ -146,7 +165,14 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
           <span>Danh sách báo giá</span>
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+          }}
+        >
           <StatusBadge
             status="neutral"
             label={`Phiên bản v${quote.current_version}`}
@@ -161,6 +187,9 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
             }
             label={QUOTE_STATUS_LABELS[quote.status] || quote.status}
           />
+          {isPendingCost && (
+            <StatusBadge status="warning" label="Chờ giá xưởng" />
+          )}
         </div>
       </div>
 
@@ -227,7 +256,9 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
               className="pq-hero-total-amount"
               style={tabularNumStyle}
             >
-              {formatVnd(quote.total_quote_amount)}
+              {isPendingCost
+                ? 'Chờ giá xưởng'
+                : formatVnd(quote.total_quote_amount)}
             </div>
           </div>
         </div>
@@ -238,8 +269,13 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
             <button
               type="button"
               data-testid="pq-detail-download-pdf-btn"
+              disabled={isPendingCost}
               onClick={() => onDownloadSavedPdf(quote.id, quote.quote_code)}
-              className="pq-btn pq-btn-primary"
+              className={
+                isPendingCost
+                  ? 'pq-btn pq-btn-secondary'
+                  : 'pq-btn pq-btn-primary'
+              }
             >
               <PqDownloadIcon size={15} />
               <span>Tải PDF ({quote.quote_code}.pdf)</span>
@@ -248,6 +284,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
             <button
               type="button"
               data-testid="pq-detail-print-btn"
+              disabled={isPendingCost}
               onClick={() => onPrintWindow(a4Html)}
               className="pq-btn pq-btn-accent"
             >
@@ -258,6 +295,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
             <button
               type="button"
               data-testid="pq-detail-preview-modal-btn"
+              disabled={isPendingCost}
               onClick={() => onOpenFullPreview(quote)}
               className="pq-btn pq-btn-secondary"
             >
@@ -270,10 +308,18 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
                 type="button"
                 data-testid="pq-detail-edit-btn"
                 onClick={() => onEditQuote(quote)}
-                className="pq-btn pq-btn-secondary"
+                className={
+                  isPendingCost
+                    ? 'pq-btn pq-btn-primary'
+                    : 'pq-btn pq-btn-secondary'
+                }
               >
                 <PqEditIcon size={15} />
-                <span>Sửa báo giá (v{quote.current_version + 1})</span>
+                <span>
+                  {isPendingCost
+                    ? `Nhập giá xưởng (v${quote.current_version + 1})`
+                    : `Sửa báo giá (v${quote.current_version + 1})`}
+                </span>
               </button>
             ) : (
               <button
@@ -287,7 +333,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
               </button>
             )}
 
-            {quote.status === 'DRAFT' && (
+            {quote.status === 'DRAFT' && !isPendingCost && (
               <button
                 type="button"
                 data-testid="pq-detail-finalize-btn"
@@ -298,6 +344,18 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
                 <span>Chốt báo giá</span>
               </button>
             )}
+
+            {quote.status === 'DRAFT' && onDeleteDraftQuote && (
+              <button
+                type="button"
+                data-testid="pq-detail-delete-draft-btn"
+                onClick={() => setConfirmDeleteOpen(true)}
+                className="pq-btn pq-btn-danger-ghost"
+              >
+                <PqTrashIcon size={15} />
+                <span>Xóa nháp</span>
+              </button>
+            )}
           </div>
 
           <div className="pq-action-group-right">
@@ -305,6 +363,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
               <button
                 type="button"
                 data-testid="pq-detail-convert-btn"
+                disabled={isPendingCost}
                 onClick={() => onConvertQuoteToOrder(quote)}
                 className="pq-btn pq-btn-success"
               >
@@ -326,7 +385,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
 
       {/* Main Split: Elevated A4 Paper Preview + Owner Internal Breakdown */}
       <div className="pq-detail-split-layout">
-        {/* Customer-Safe A4 Preview Stage */}
+        {/* Customer-Safe A4 Preview Stage (or Pending Cost Guard Notice) */}
         <div style={cardStyle} data-testid="pq-detail-a4-card">
           <div
             style={{
@@ -358,13 +417,68 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
             </span>
           </div>
 
-          <div className="pq-a4-stage">
-            <iframe
-              title={`Bản xem trước A4 ${quote.quote_code}`}
-              srcDoc={a4Html}
-              className="pq-a4-iframe"
-            />
-          </div>
+          {isPendingCost ? (
+            <div
+              data-testid="pq-detail-pending-cost-notice"
+              style={{
+                padding: '24px 20px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--border-color)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: '15px' }}>
+                Đang tạm khóa xuất PDF A4 & Chốt đơn vì còn mục chờ giá xưởng
+              </div>
+              <div
+                style={{
+                  fontSize: '13px',
+                  color: 'var(--muted-color)',
+                  lineHeight: 1.5,
+                }}
+              >
+                Hệ thống không tự tính tổng tiền báo khách khi giá cơ bản hoặc
+                công đoạn gia công đang để trống. Vui lòng bấm{' '}
+                <strong>Nhập giá xưởng</strong> để bổ sung các khoản sau:
+              </div>
+              {quote.pending_cost_summary &&
+                quote.pending_cost_summary.length > 0 && (
+                  <ul
+                    style={{
+                      margin: 0,
+                      paddingLeft: '18px',
+                      fontSize: '13px',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {quote.pending_cost_summary.map((item) => (
+                      <li key={item.lineId}>
+                        <strong>{item.lineName}:</strong>{' '}
+                        {[
+                          item.missingBaseCost ? 'Chưa có giá in cơ bản' : null,
+                          item.missingStageNames.length > 0
+                            ? `Chưa có giá gia công (${item.missingStageNames.join(', ')})`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' • ')}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+          ) : (
+            <div className="pq-a4-stage">
+              <iframe
+                title={`Bản xem trước A4 ${quote.quote_code}`}
+                srcDoc={a4Html}
+                className="pq-a4-iframe"
+              />
+            </div>
+          )}
         </div>
 
         {/* Owner Internal Breakdown & Version History */}
@@ -397,16 +511,25 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
               <div className="pq-kpi-mini-card">
                 <div className="pq-kpi-mini-label">Giá vốn nhà in</div>
                 <strong className="pq-kpi-mini-val" style={tabularNumStyle}>
-                  {formatVnd(quote.total_vendor_cost)}
+                  {isPendingCost
+                    ? 'Chờ giá xưởng'
+                    : formatVnd(quote.total_vendor_cost)}
                 </strong>
               </div>
               <div className="pq-kpi-mini-card">
                 <div className="pq-kpi-mini-label">Lợi nhuận dự kiến</div>
                 <strong
                   className="pq-kpi-mini-val"
-                  style={{ ...tabularNumStyle, color: 'var(--success-text)' }}
+                  style={{
+                    ...tabularNumStyle,
+                    color: isPendingCost
+                      ? 'var(--muted-color)'
+                      : 'var(--success-text)',
+                  }}
                 >
-                  +{formatVnd(quote.total_profit)}
+                  {isPendingCost
+                    ? 'Chưa tính'
+                    : `+${formatVnd(quote.total_profit)}`}
                 </strong>
               </div>
               <div className="pq-kpi-mini-card">
@@ -429,58 +552,156 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {quote.lines_json.map((line) => (
-                      <tr key={line.id}>
-                        <td>
-                          <div style={{ fontWeight: 600 }}>
-                            {line.name}{' '}
-                            <span
-                              style={{
-                                color: 'var(--muted-color)',
-                                fontWeight: 500,
-                              }}
-                            >
-                              ({formatNumberVn(line.quantity)}{' '}
-                              {line.unit || 'tờ'})
-                            </span>
-                          </div>
-                          {line.specification && (
-                            <div
-                              style={{
-                                fontSize: '12px',
-                                color: 'var(--muted-color)',
-                                marginTop: '2px',
-                              }}
-                            >
-                              {line.specification}
+                    {quote.lines_json.map((line) => {
+                      const linePending =
+                        line.isPendingCost === true || isPendingCost;
+                      return (
+                        <tr key={line.id}>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>
+                              {line.name}{' '}
+                              <span
+                                style={{
+                                  color: 'var(--muted-color)',
+                                  fontWeight: 500,
+                                }}
+                              >
+                                ({formatNumberVn(line.quantity)}{' '}
+                                {line.unit || 'tờ'}
+                                {line.areaSpec
+                                  ? ` • ${formatAreaSqmVn(line.areaSpec.billableAreaSqm)} m²`
+                                  : ''}
+                                )
+                              </span>
                             </div>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'right', ...tabularNumStyle }}>
-                          {formatVnd(line.totalVendorCost)}
-                        </td>
-                        <td
-                          style={{
-                            textAlign: 'right',
-                            color: 'var(--success-text)',
-                            fontWeight: 600,
-                            ...tabularNumStyle,
-                          }}
-                        >
-                          +{formatVnd(line.totalProfit)}
-                        </td>
-                        <td
-                          style={{
-                            textAlign: 'right',
-                            fontWeight: 700,
-                            color: 'var(--accent-text)',
-                            ...tabularNumStyle,
-                          }}
-                        >
-                          {formatVnd(line.reconciledLineTotal)}
-                        </td>
-                      </tr>
-                    ))}
+                            {line.specification && (
+                              <div
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--muted-color)',
+                                  marginTop: '2px',
+                                }}
+                              >
+                                {line.specification}
+                              </div>
+                            )}
+                            {(line.vendorPriceItemCode ||
+                              line.baseCostSource === 'CATALOG_OVERRIDDEN' ||
+                              line.profitMode === 'PERCENTAGE') && (
+                              <div
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--muted-color)',
+                                  marginTop: '3px',
+                                }}
+                              >
+                                {line.vendorPriceItemCode && (
+                                  <span>
+                                    Nguồn giá: {line.vendorPriceItemCode}
+                                    {line.vendorPriceItemVersion
+                                      ? ` (v${line.vendorPriceItemVersion})`
+                                      : ''}
+                                  </span>
+                                )}
+                                {line.baseCostSource ===
+                                  'CATALOG_OVERRIDDEN' && (
+                                  <span>
+                                    {line.vendorPriceItemCode ? ' • ' : ''}
+                                    Giá sửa riêng trên báo giá
+                                    {typeof line.catalogOriginalRate ===
+                                    'number'
+                                      ? ` (gốc: ${formatVnd(line.catalogOriginalRate)})`
+                                      : ''}
+                                  </span>
+                                )}
+                                {line.profitMode === 'PERCENTAGE' && (
+                                  <span>
+                                    {line.vendorPriceItemCode ||
+                                    line.baseCostSource === 'CATALOG_OVERRIDDEN'
+                                      ? ' • '
+                                      : ''}
+                                    Lời {line.profitInputValue}% trên tổng vốn
+                                    SP (In + Gia công)
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {line.areaSpec &&
+                              line.areaSpec.adjustmentReason && (
+                                <div
+                                  style={{
+                                    fontSize: '12px',
+                                    color: 'var(--muted-color)',
+                                    marginTop: '3px',
+                                  }}
+                                >
+                                  Điều chỉnh m² (
+                                  {formatAreaSqmVn(line.areaSpec.actualAreaSqm)}{' '}
+                                  →{' '}
+                                  {formatAreaSqmVn(
+                                    line.areaSpec.billableAreaSqm,
+                                  )}{' '}
+                                  m²): {line.areaSpec.adjustmentReason}
+                                </div>
+                              )}
+                            {line.finishingStages &&
+                              line.finishingStages.length > 0 && (
+                                <div
+                                  style={{
+                                    fontSize: '12px',
+                                    color: 'var(--muted-color)',
+                                    marginTop: '3px',
+                                  }}
+                                >
+                                  Gia công:{' '}
+                                  {line.finishingStages
+                                    .map((s) =>
+                                      s.rate === null
+                                        ? `${s.name} (Chờ giá)`
+                                        : `${s.name}${s.code ? ` [${s.code}${s.priceItemVersion ? ` v${s.priceItemVersion}` : ''}]` : ''} (${formatVnd('vendorCost' in s ? s.vendorCost : s.rate)}${s.costSource === 'CATALOG_OVERRIDDEN' && typeof s.catalogOriginalRate === 'number' ? ` — gốc ${formatVnd(s.catalogOriginalRate)}` : ''})`,
+                                    )
+                                    .join(' • ')}
+                                </div>
+                              )}
+                          </td>
+                          <td
+                            style={{ textAlign: 'right', ...tabularNumStyle }}
+                          >
+                            {line.isPendingCost
+                              ? 'Chờ giá'
+                              : formatVnd(line.totalVendorCost)}
+                          </td>
+                          <td
+                            style={{
+                              textAlign: 'right',
+                              color: linePending
+                                ? 'var(--muted-color)'
+                                : 'var(--success-text)',
+                              fontWeight: 600,
+                              ...tabularNumStyle,
+                            }}
+                          >
+                            {linePending
+                              ? '—'
+                              : `+${formatVnd(line.totalProfit)}`}
+                          </td>
+                          <td
+                            style={{
+                              textAlign: 'right',
+                              fontWeight: 700,
+                              color: linePending
+                                ? 'var(--muted-color)'
+                                : 'var(--accent-text)',
+                              ...tabularNumStyle,
+                            }}
+                          >
+                            {linePending
+                              ? 'Chờ giá'
+                              : formatVnd(line.reconciledLineTotal)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -515,27 +736,38 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
                   gap: '8px',
                 }}
               >
-                {quote.versions.map((ver) => (
-                  <div key={ver.id} className="pq-version-card">
-                    <div>
-                      <strong>v{ver.version_number}</strong> —{' '}
-                      {ver.change_note || 'Lưu phiên bản'}{' '}
-                      <span style={{ color: 'var(--muted-color)' }}>
-                        ({formatDateVn(ver.created_at)})
-                      </span>
+                {quote.versions.map((ver) => {
+                  const verPending =
+                    ver.pricing_status === 'PENDING_COST' ||
+                    ver.customer_pdf_json === null;
+                  return (
+                    <div key={ver.id} className="pq-version-card">
+                      <div>
+                        <strong>v{ver.version_number}</strong> —{' '}
+                        {ver.change_note || 'Lưu phiên bản'}{' '}
+                        <span style={{ color: 'var(--muted-color)' }}>
+                          ({formatDateVn(ver.created_at)})
+                        </span>
+                      </div>
+                      <div style={{ ...tabularNumStyle, fontSize: '12px' }}>
+                        {verPending ? (
+                          <strong>Nháp chờ giá xưởng</strong>
+                        ) : (
+                          <>
+                            Vốn: {formatVnd(ver.total_vendor_cost)} • Lời:{' '}
+                            <span style={{ color: 'var(--success-text)' }}>
+                              +{formatVnd(ver.total_profit)}
+                            </span>{' '}
+                            • Tổng:{' '}
+                            <strong style={{ color: 'var(--accent-text)' }}>
+                              {formatVnd(ver.total_quote_amount)}
+                            </strong>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ ...tabularNumStyle, fontSize: '12px' }}>
-                      Vốn: {formatVnd(ver.total_vendor_cost)} • Lời:{' '}
-                      <span style={{ color: 'var(--success-text)' }}>
-                        +{formatVnd(ver.total_profit)}
-                      </span>{' '}
-                      • Tổng:{' '}
-                      <strong style={{ color: 'var(--accent-text)' }}>
-                        {formatVnd(ver.total_quote_amount)}
-                      </strong>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div style={{ fontSize: '12.5px', color: 'var(--muted-color)' }}>
@@ -545,6 +777,46 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Delete Draft Confirmation Modal */}
+      <CatalogModalDialog
+        open={confirmDeleteOpen}
+        title="Xóa bản nháp báo giá?"
+        subtitle={`Xóa vĩnh viễn bản nháp ${quote.quote_code}? Báo giá đã chốt hoặc chuyển đơn sẽ không bao giờ bị ảnh hưởng.`}
+        testId="pq-detail-delete-draft-dialog"
+        maxWidth="440px"
+        onClose={() => setConfirmDeleteOpen(false)}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '8px',
+            marginTop: '8px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setConfirmDeleteOpen(false)}
+            className="pq-btn pq-btn-secondary"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            data-testid="pq-detail-confirm-delete-draft-btn"
+            onClick={async () => {
+              setConfirmDeleteOpen(false);
+              if (onDeleteDraftQuote) {
+                await onDeleteDraftQuote(quote);
+              }
+            }}
+            className="pq-btn pq-btn-danger-ghost"
+          >
+            Xác nhận xóa nháp
+          </button>
+        </div>
+      </CatalogModalDialog>
     </div>
   );
 };

@@ -134,15 +134,26 @@ export class SystemLogService {
   private queue: SystemLogInput[] = [];
   private timer: NodeJS.Timeout | null = null;
   private flushing = false;
+  private activeFlush: Promise<void> | null = null;
+  private stopped = false;
   private lastPurge = 0;
   private lastFlushError = 0;
   private readonly clientErrorWindow = new Map<string, number[]>();
 
   constructor(private readonly pool: DatabasePool) {}
 
+  private isPoolClosingOrEnded(): boolean {
+    const raw = this.pool as unknown as {
+      ending?: boolean;
+      ended?: boolean;
+    };
+    return Boolean(raw.ending || raw.ended);
+  }
+
   /** Fire-and-forget. Never throws and never blocks the request. */
   record(entry: SystemLogInput): void {
     try {
+      if (this.stopped || this.isPoolClosingOrEnded()) return;
       if (this.queue.length >= MAX_QUEUE) this.queue.shift();
       this.queue.push(entry);
       if (!this.timer) {
@@ -154,6 +165,37 @@ export class SystemLogService {
       }
     } catch {
       /* logging must never break the app */
+    }
+  }
+
+  /**
+   * Drains buffered logs while the DB pool is still open, awaits any in-flight
+   * flush without microtask spinning, and prevents delayed timer queries after `pool.end()`.
+   */
+  async stop(): Promise<void> {
+    this.stopped = true;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.activeFlush) {
+      await this.activeFlush;
+    }
+    if (this.isPoolClosingOrEnded()) {
+      this.queue.length = 0;
+      return;
+    }
+    while (this.queue.length > 0 && !this.isPoolClosingOrEnded()) {
+      if (this.activeFlush) {
+        await this.activeFlush;
+        continue;
+      }
+      const beforeLen = this.queue.length;
+      await this.flush(true);
+      if (!this.activeFlush && this.queue.length >= beforeLen) {
+        this.queue.length = 0;
+        break;
+      }
     }
   }
 
@@ -173,77 +215,110 @@ export class SystemLogService {
     return true;
   }
 
-  async flush(): Promise<void> {
+  async flush(allowDuringStop = false): Promise<void> {
+    if (this.activeFlush) {
+      await this.activeFlush;
+    }
     if (this.flushing || this.queue.length === 0) return;
+    if (this.stopped && !allowDuringStop) {
+      return;
+    }
+    if (this.isPoolClosingOrEnded()) {
+      this.queue.length = 0;
+      return;
+    }
     this.flushing = true;
     const batch = this.queue.splice(0, 100);
-    try {
-      const values: unknown[] = [];
-      const rows = batch.map((e, i) => {
-        const message =
-          sanitizeLogText(e.message, MAX_MESSAGE) || '(no message)';
-        const stack = sanitizeLogText(e.stack, MAX_STACK) || null;
-        const route = e.route ? normalizeRoute(e.route) : null;
-        const fp = logFingerprint({
-          level: e.level,
-          source: e.source,
-          route,
-          errorCode: e.errorCode,
-          message,
-          stack,
+    let batchPromise: Promise<void> | null = null;
+    batchPromise = (async () => {
+      try {
+        const values: unknown[] = [];
+        const rows = batch.map((e, i) => {
+          const message =
+            sanitizeLogText(e.message, MAX_MESSAGE) || '(no message)';
+          const stack = sanitizeLogText(e.stack, MAX_STACK) || null;
+          const route = e.route ? normalizeRoute(e.route) : null;
+          const fp = logFingerprint({
+            level: e.level,
+            source: e.source,
+            route,
+            errorCode: e.errorCode,
+            message,
+            stack,
+          });
+          const o = i * 15;
+          values.push(
+            e.level,
+            e.source,
+            e.workspaceId ?? null,
+            e.userId ?? null,
+            e.requestId ? e.requestId.slice(0, 80) : null,
+            e.method ?? null,
+            route,
+            e.status ?? null,
+            e.durationMs ?? null,
+            e.errorCode ? e.errorCode.slice(0, 80) : null,
+            message,
+            stack,
+            fp,
+            e.release ?? null,
+            JSON.stringify({
+              ...(e.metadata ?? {}),
+              ...(e.userAgent
+                ? { user_agent: sanitizeLogText(e.userAgent, 200) }
+                : {}),
+            }),
+          );
+          return `(${Array.from({ length: 15 }, (_x, k) => `$${o + k + 1}`).join(',')})`;
         });
-        const o = i * 15;
-        values.push(
-          e.level,
-          e.source,
-          e.workspaceId ?? null,
-          e.userId ?? null,
-          e.requestId ? e.requestId.slice(0, 80) : null,
-          e.method ?? null,
-          route,
-          e.status ?? null,
-          e.durationMs ?? null,
-          e.errorCode ? e.errorCode.slice(0, 80) : null,
-          message,
-          stack,
-          fp,
-          e.release ?? null,
-          JSON.stringify({
-            ...(e.metadata ?? {}),
-            ...(e.userAgent
-              ? { user_agent: sanitizeLogText(e.userAgent, 200) }
-              : {}),
-          }),
-        );
-        return `(${Array.from({ length: 15 }, (_x, k) => `$${o + k + 1}`).join(',')})`;
-      });
-      await this.pool.query(
-        `INSERT INTO system_logs (level, source, workspace_id, user_id, request_id, method, route, status, duration_ms, error_code, message, stack, fingerprint, release, metadata)
-         VALUES ${rows.join(',')}`,
-        values,
-      );
-      if (Date.now() - this.lastPurge > PURGE_EVERY_MS) {
-        this.lastPurge = Date.now();
         await this.pool.query(
-          `DELETE FROM system_logs WHERE occurred_at < now() - ($1 || ' days')::interval`,
-          [String(RETENTION_DAYS)],
+          `INSERT INTO system_logs (level, source, workspace_id, user_id, request_id, method, route, status, duration_ms, error_code, message, stack, fingerprint, release, metadata)
+           VALUES ${rows.join(',')}`,
+          values,
         );
+        if (
+          !this.stopped &&
+          !this.isPoolClosingOrEnded() &&
+          Date.now() - this.lastPurge > PURGE_EVERY_MS
+        ) {
+          this.lastPurge = Date.now();
+          await this.pool.query(
+            `DELETE FROM system_logs WHERE occurred_at < now() - ($1 || ' days')::interval`,
+            [String(RETENTION_DAYS)],
+          );
+        }
+      } catch (err) {
+        const msg = String((err as Error)?.message ?? '');
+        const isPoolShutdownRace =
+          this.isPoolClosingOrEnded() ||
+          msg.includes('Cannot use a pool after calling end on the pool');
+        if (isPoolShutdownRace) {
+          this.queue.length = 0;
+        } else if (Date.now() - this.lastFlushError > 60_000) {
+          this.lastFlushError = Date.now();
+          console.error('[SYSTEM_LOG_FLUSH_FAILED]', msg);
+        }
+      } finally {
+        this.flushing = false;
+        if (this.activeFlush === batchPromise) {
+          this.activeFlush = null;
+        }
+        if (
+          !this.stopped &&
+          !this.isPoolClosingOrEnded() &&
+          this.queue.length > 0 &&
+          !this.timer
+        ) {
+          this.timer = setTimeout(() => {
+            this.timer = null;
+            void this.flush();
+          }, 250);
+          this.timer.unref?.();
+        }
       }
-    } catch (err) {
-      if (Date.now() - this.lastFlushError > 60_000) {
-        this.lastFlushError = Date.now();
-        console.error('[SYSTEM_LOG_FLUSH_FAILED]', (err as Error)?.message);
-      }
-    } finally {
-      this.flushing = false;
-      if (this.queue.length > 0 && !this.timer) {
-        this.timer = setTimeout(() => {
-          this.timer = null;
-          void this.flush();
-        }, 250);
-        this.timer.unref?.();
-      }
-    }
+    })();
+    this.activeFlush = batchPromise;
+    await batchPromise;
   }
 
   // ------------------------------------------------------------------ reads

@@ -397,7 +397,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
     assert.equal(pay2Res.body.data.remaining_debt_amount, 300000);
     assert.equal(pay2Res.body.data.payment_status, 'PARTIALLY_PAID');
 
-    // Bước 8: Cập nhật trạng thái Sản xuất (FINISHING) và Giao hàng (PACKING) độc lập + Chi phí thực tế
+    // Bước 8: Cập nhật trạng thái Sản xuất (FINISHING) và Giao hàng (PACKING) độc lập + Xác nhận đủ 3 khoản chi phí thực tế
     const statusRes = await apiRequest(
       baseUrl,
       'PATCH',
@@ -408,8 +408,10 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
         body: {
           production_status: 'FINISHING',
           delivery_status: 'PACKING',
+          actual_cost_confirmed: true,
           actual_vendor_cost: 720000,
           actual_shipping_fee: 60000,
+          actual_extra_cost: 0,
         },
       },
     );
@@ -440,6 +442,18 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
   });
 
   it('3. QA-01: Chặn chuyển cùng một báo giá thành nhiều đơn hàng (Sequential & 5 Concurrent Requests)', async () => {
+    const dupCustRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/customers',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: { name: 'Khách Kiểm tra Chống Trùng Đơn' },
+      },
+    );
+    assert.equal(dupCustRes.status, 201);
+
     const qRes = await apiRequest(
       baseUrl,
       'POST',
@@ -449,6 +463,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
         csrfToken: ownerCsrf,
         body: {
           title: 'Báo giá Kiểm tra Chống Trùng Đơn',
+          customer_id: dupCustRes.body.data.id,
           shipping_fee: 50000,
           items: [
             {
@@ -511,6 +526,19 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
   });
 
   it('4. QA-01: Cấp mã báo giá và mã đơn hàng đồng thời (Concurrency) & Không tái sử dụng mã khi xóa bản ghi', async () => {
+    const concCustRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/customers',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: { name: 'Khách Đồng thời 8 đơn' },
+      },
+    );
+    assert.equal(concCustRes.status, 201);
+    const concCustomerId = concCustRes.body.data.id;
+
     // 1. Tạo đồng thời 8 báo giá không truyền quote_code
     const quoteResponses = await Promise.all(
       Array.from({ length: 8 }, (_, idx) =>
@@ -519,6 +547,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
           csrfToken: ownerCsrf,
           body: {
             title: `Báo giá Đồng thời #${idx + 1}`,
+            customer_id: concCustomerId,
             shipping_fee: 10000,
             items: [
               {
@@ -631,6 +660,18 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
   });
 
   it('5. QA-01: Kiểm tra chính xác công nợ khi Đặt cọc, Thanh toán nhiều đợt, Hoàn tiền (REFUND) và Chặn thanh toán vượt tổng đơn (Overpayment)', async () => {
+    const debtCustRes = await apiRequest(
+      baseUrl,
+      'POST',
+      '/api/v1/print-quotes/customers',
+      {
+        cookie: ownerCookie,
+        csrfToken: ownerCsrf,
+        body: { name: 'Khách Kiểm tra Công nợ 100k' },
+      },
+    );
+    assert.equal(debtCustRes.status, 201);
+
     // Tạo báo giá chuẩn 100.000đ (100 tờ x (300đ vốn + 200đ lời) + 50.000đ ship)
     const qRes = await apiRequest(
       baseUrl,
@@ -641,6 +682,7 @@ describe('MGL-PRINTQUOTE V1 — Phase 4 End-to-End Lifecycle, Order Fulfillment 
         csrfToken: ownerCsrf,
         body: {
           title: 'Báo giá Kiểm tra Công nợ 100k',
+          customer_id: debtCustRes.body.data.id,
           shipping_fee: 50000,
           items: [
             {

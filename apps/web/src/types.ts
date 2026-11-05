@@ -276,6 +276,26 @@ export const ROUTE_REGISTRY: Record<string, RouteMeta> = {
     '/print-quotes/orders',
     'Đơn hàng in ấn',
   ),
+  '/print-quotes/receivables': pqRoute(
+    'UI-PRINTQUOTE-11',
+    '/print-quotes/receivables',
+    'Công nợ khách in ấn',
+  ),
+  '/print-quotes/payables': pqRoute(
+    'UI-PRINTQUOTE-12',
+    '/print-quotes/payables',
+    'Công nợ xưởng in ấn',
+  ),
+  '/print-quotes/transactions': pqRoute(
+    'UI-PRINTQUOTE-13',
+    '/print-quotes/transactions',
+    'Giao dịch thu chi in ấn',
+  ),
+  '/print-quotes/import-history': pqRoute(
+    'UI-PRINTQUOTE-14',
+    '/print-quotes/import-history',
+    'Nhập lịch sử công nợ in ấn',
+  ),
   '/print-quotes/catalog': pqRoute(
     'UI-PRINTQUOTE-04',
     '/print-quotes/catalog',

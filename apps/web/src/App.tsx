@@ -932,6 +932,10 @@ export const App: React.FC = () => {
       case '/print-quotes':
       case '/print-quotes/new':
       case '/print-quotes/orders':
+      case '/print-quotes/receivables':
+      case '/print-quotes/payables':
+      case '/print-quotes/transactions':
+      case '/print-quotes/import-history':
       case '/print-quotes/catalog':
       case '/print-quotes/catalog/prices':
       case '/print-quotes/catalog/customers':

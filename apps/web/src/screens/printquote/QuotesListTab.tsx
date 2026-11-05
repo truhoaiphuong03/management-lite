@@ -12,6 +12,7 @@ import {
   isQuoteStatusEditable,
   tabularNumStyle,
 } from './types.js';
+import { CatalogModalDialog } from './CatalogModalDialog.js';
 import {
   PqCheckIcon,
   PqCopyIcon,
@@ -24,6 +25,7 @@ import {
   PqPackageIcon,
   PqPlusIcon,
   PqSearchIcon,
+  PqTrashIcon,
 } from './PrintQuoteIcons.js';
 
 export interface QuotesListTabProps {
@@ -38,6 +40,15 @@ export interface QuotesListTabProps {
   onCloneQuoteAsNew: (q: PrintQuoteData) => void;
   onFinalizeQuote: (quoteId: string) => void;
   onConvertQuoteToOrder: (q: PrintQuoteData) => void;
+  onDeleteDraftQuote?:
+    ((q: PrintQuoteData) => Promise<void> | void) | undefined;
+}
+
+type QuoteListFilter =
+  'ALL' | 'DRAFT' | 'PENDING_COST' | 'FINALIZED' | 'CONVERTED';
+
+function isQuotePendingCost(q: PrintQuoteData): boolean {
+  return q.pricing_status === 'PENDING_COST' || q.customer_pdf_json === null;
 }
 
 export const QuotesListTab: React.FC<QuotesListTabProps> = ({
@@ -52,16 +63,24 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
   onCloneQuoteAsNew,
   onFinalizeQuote,
   onConvertQuoteToOrder,
+  onDeleteDraftQuote,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<
-    'ALL' | 'DRAFT' | 'FINALIZED' | 'CONVERTED'
-  >('ALL');
+  const [statusFilter, setStatusFilter] = useState<QuoteListFilter>('ALL');
+  const [confirmDeleteQuote, setConfirmDeleteQuote] =
+    useState<PrintQuoteData | null>(null);
+
+  const pendingCostCount = useMemo(
+    () => quotes.filter((q) => isQuotePendingCost(q)).length,
+    [quotes],
+  );
 
   const filteredQuotes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return quotes.filter((item) => {
-      if (statusFilter !== 'ALL' && item.status !== statusFilter) {
+      if (statusFilter === 'PENDING_COST') {
+        if (!isQuotePendingCost(item)) return false;
+      } else if (statusFilter !== 'ALL' && item.status !== statusFilter) {
         return false;
       }
       if (!q) return true;
@@ -75,7 +94,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
   }, [quotes, searchQuery, statusFilter]);
 
   const filterTabs: Array<{
-    id: 'ALL' | 'DRAFT' | 'FINALIZED' | 'CONVERTED';
+    id: QuoteListFilter;
     label: string;
     count: number;
   }> = [
@@ -85,6 +104,15 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
       label: 'Nháp',
       count: quotes.filter((q) => q.status === 'DRAFT').length,
     },
+    ...(pendingCostCount > 0 || statusFilter === 'PENDING_COST'
+      ? [
+          {
+            id: 'PENDING_COST' as const,
+            label: 'Chờ giá xưởng',
+            count: pendingCostCount,
+          },
+        ]
+      : []),
     {
       id: 'FINALIZED',
       label: 'Đã chốt',
@@ -220,6 +248,8 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
           {filteredQuotes.map((q) => {
             const isHistoryOpen = expandedQuoteHistoryId === q.id;
             const editable = isQuoteStatusEditable(q.status);
+            const pendingCost = isQuotePendingCost(q);
+
             return (
               <article
                 key={q.id}
@@ -253,6 +283,9 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                         }
                         label={QUOTE_STATUS_LABELS[q.status] || q.status}
                       />
+                      {pendingCost && (
+                        <StatusBadge status="warning" label="Chờ giá xưởng" />
+                      )}
                       <span className="pq-version-pill">
                         v{q.current_version}
                       </span>
@@ -298,12 +331,14 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Financial KPI Strip */}
+                  {/* Financial KPI Strip — never shows fake 0 ₫ when PENDING_COST */}
                   <div className="pq-quote-metrics">
                     <div className="pq-metric-cell">
                       <span className="pq-metric-label">Giá vốn</span>
                       <strong className="pq-metric-val" style={tabularNumStyle}>
-                        {formatVnd(q.total_vendor_cost)}
+                        {pendingCost
+                          ? 'Chờ giá xưởng'
+                          : formatVnd(q.total_vendor_cost)}
                       </strong>
                     </div>
                     <div className="pq-metric-cell">
@@ -312,10 +347,14 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                         className="pq-metric-val"
                         style={{
                           ...tabularNumStyle,
-                          color: 'var(--success-text)',
+                          color: pendingCost
+                            ? 'var(--muted-color)'
+                            : 'var(--success-text)',
                         }}
                       >
-                        +{formatVnd(q.total_profit)}
+                        {pendingCost
+                          ? 'Chưa tính'
+                          : `+${formatVnd(q.total_profit)}`}
                       </strong>
                     </div>
                     <div className="pq-metric-cell">
@@ -330,7 +369,9 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                         className="pq-metric-total-val"
                         style={tabularNumStyle}
                       >
-                        {formatVnd(q.total_quote_amount)}
+                        {pendingCost
+                          ? 'Chờ giá xưởng'
+                          : formatVnd(q.total_quote_amount)}
                       </strong>
                     </div>
                   </div>
@@ -352,6 +393,12 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                     <button
                       type="button"
                       data-testid={`pq-quote-download-pdf-${q.quote_code}`}
+                      disabled={pendingCost}
+                      title={
+                        pendingCost
+                          ? 'Báo giá đang chờ giá xưởng nên chưa thể xuất PDF báo khách'
+                          : undefined
+                      }
                       onClick={() =>
                         onDownloadSavedQuotePdfFile(q.id, q.quote_code)
                       }
@@ -364,6 +411,12 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                     <button
                       type="button"
                       data-testid={`pq-quote-preview-pdf-${q.quote_code}`}
+                      disabled={pendingCost}
+                      title={
+                        pendingCost
+                          ? 'Báo giá đang chờ giá xưởng nên chưa thể xem A4'
+                          : undefined
+                      }
                       onClick={() => onOpenSavedQuotePdf(q)}
                       className="pq-btn pq-btn-ghost"
                     >
@@ -376,11 +429,17 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                         type="button"
                         data-testid={`pq-quote-edit-${q.quote_code}`}
                         onClick={() => onLoadQuoteForEdit(q)}
-                        className="pq-btn pq-btn-secondary"
+                        className={
+                          pendingCost
+                            ? 'pq-btn pq-btn-primary'
+                            : 'pq-btn pq-btn-secondary'
+                        }
                       >
                         <PqEditIcon size={14} />
                         <span>
-                          Sửa / Tạo phiên bản (v{q.current_version + 1})
+                          {pendingCost
+                            ? 'Nhập giá xưởng'
+                            : `Sửa / Tạo phiên bản (v${q.current_version + 1})`}
                         </span>
                       </button>
                     ) : (
@@ -395,7 +454,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                       </button>
                     )}
 
-                    {q.status === 'DRAFT' && (
+                    {q.status === 'DRAFT' && !pendingCost && (
                       <button
                         type="button"
                         onClick={() => onFinalizeQuote(q.id)}
@@ -403,6 +462,18 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                       >
                         <PqLockIcon size={14} />
                         <span>Chốt</span>
+                      </button>
+                    )}
+
+                    {q.status === 'DRAFT' && onDeleteDraftQuote && (
+                      <button
+                        type="button"
+                        data-testid={`pq-quote-delete-draft-${q.quote_code}`}
+                        onClick={() => setConfirmDeleteQuote(q)}
+                        className="pq-btn pq-btn-danger-ghost"
+                      >
+                        <PqTrashIcon size={14} />
+                        <span>Xóa nháp</span>
                       </button>
                     )}
 
@@ -426,6 +497,12 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                       <button
                         type="button"
                         data-testid={`pq-convert-order-btn-${q.quote_code}`}
+                        disabled={pendingCost}
+                        title={
+                          pendingCost
+                            ? 'Nhập đủ giá xưởng trước khi chuyển thành Đơn đặt in'
+                            : undefined
+                        }
                         onClick={() => onConvertQuoteToOrder(q)}
                         className="pq-btn pq-btn-primary"
                       >
@@ -456,25 +533,36 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                     >
                       Nhật ký phiên bản bất biến
                     </div>
-                    {q.versions.map((ver) => (
-                      <div key={ver.id} className="pq-version-row">
-                        <span>
-                          <strong>v{ver.version_number}</strong> —{' '}
-                          {ver.change_note || 'Lưu phiên bản'} (
-                          {formatDateVn(ver.created_at)})
-                        </span>
-                        <span style={tabularNumStyle}>
-                          Vốn: {formatVnd(ver.total_vendor_cost)} • Lời:{' '}
-                          <span style={{ color: 'var(--success-text)' }}>
-                            +{formatVnd(ver.total_profit)}
-                          </span>{' '}
-                          • Tổng:{' '}
-                          <strong style={{ color: 'var(--accent-text)' }}>
-                            {formatVnd(ver.total_quote_amount)}
-                          </strong>
-                        </span>
-                      </div>
-                    ))}
+                    {q.versions.map((ver) => {
+                      const verPending =
+                        ver.pricing_status === 'PENDING_COST' ||
+                        ver.customer_pdf_json === null;
+                      return (
+                        <div key={ver.id} className="pq-version-row">
+                          <span>
+                            <strong>v{ver.version_number}</strong> —{' '}
+                            {ver.change_note || 'Lưu phiên bản'} (
+                            {formatDateVn(ver.created_at)})
+                          </span>
+                          <span style={tabularNumStyle}>
+                            {verPending ? (
+                              <strong>Nháp chờ giá xưởng</strong>
+                            ) : (
+                              <>
+                                Vốn: {formatVnd(ver.total_vendor_cost)} • Lời:{' '}
+                                <span style={{ color: 'var(--success-text)' }}>
+                                  +{formatVnd(ver.total_profit)}
+                                </span>{' '}
+                                • Tổng:{' '}
+                                <strong style={{ color: 'var(--accent-text)' }}>
+                                  {formatVnd(ver.total_quote_amount)}
+                                </strong>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </article>
@@ -482,6 +570,47 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
           })}
         </div>
       )}
+
+      {/* Delete Draft Confirmation Modal */}
+      <CatalogModalDialog
+        open={confirmDeleteQuote !== null}
+        title="Xóa bản nháp báo giá?"
+        subtitle={`Bạn có chắc muốn xóa bản nháp ${confirmDeleteQuote?.quote_code || ''} (${confirmDeleteQuote?.title || ''})? Thao tác này không thể hoàn tác.`}
+        testId="pq-delete-quote-draft-dialog"
+        maxWidth="440px"
+        onClose={() => setConfirmDeleteQuote(null)}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '8px',
+            marginTop: '8px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setConfirmDeleteQuote(null)}
+            className="pq-btn pq-btn-secondary"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            data-testid="pq-confirm-delete-quote-draft-btn"
+            onClick={async () => {
+              const target = confirmDeleteQuote;
+              setConfirmDeleteQuote(null);
+              if (target && onDeleteDraftQuote) {
+                await onDeleteDraftQuote(target);
+              }
+            }}
+            className="pq-btn pq-btn-danger-ghost"
+          >
+            Xác nhận xóa nháp
+          </button>
+        </div>
+      </CatalogModalDialog>
     </div>
   );
 };
