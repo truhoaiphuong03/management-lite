@@ -48,6 +48,55 @@ try {
     Check 'Zip traversal is rejected' {$zip=Join-Path $qa 'traversal.zip';$z=[IO.Compression.ZipFile]::Open($zip,'Create');try{$entry=$z.CreateEntry('../escape.txt');$w=[IO.StreamWriter]::new($entry.Open());$w.Write('QA');$w.Dispose()}finally{$z.Dispose()};$digest=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();Reject {Expand-VerifiedRelease $zip $digest ('e'*40) ([pscustomobject]$config)};Assert (!(Test-Path (Join-Path $root 'escape.txt'))) 'Traversal escaped'}
     Check 'Environment files in archive are rejected' {$zip=Join-Path $qa 'environment.zip';$z=[IO.Compression.ZipFile]::Open($zip,'Create');try{$entry=$z.CreateEntry('dist/.env');$w=[IO.StreamWriter]::new($entry.Open());$w.Write('SYNTHETIC_SENTINEL_ONLY');$w.Dispose()}finally{$z.Dispose()};$digest=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();Reject {Expand-VerifiedRelease $zip $digest ('f'*40) ([pscustomobject]$config)}}
     Check 'File tampering blocks manual rollback before service switch' {$file=Join-Path $root ('releases/'+$newSha+'/web/index.html');Set-Content $file 'tampered synthetic fixture';Reject {& "$PSScriptRoot/Rollback-Release.ps1" -ConfigPath $configPath -Sha $newSha -Simulation};Assert ((Get-Content (Join-Path $root 'simulation-current.txt') -Raw).Trim().EndsWith($oldSha)) 'Tampered release activated'}
+    Check 'Child process rollback fails closed with non-zero exit code when Get-FileHash is unavailable, on hash mismatch, and on schema mismatch' {
+        $psExe=(Get-Process -Id $PID).Path
+        $rbScript=Join-Path $PSScriptRoot 'Rollback-Release.ps1'
+        $validSha='1'*40;$tamperedSha='2'*40;$schemaBadSha='3'*40
+        $validFix=Fixture $validSha 'qa-schema'
+        $tamperedFix=Fixture $tamperedSha 'qa-schema'
+        $schemaBadFix=Fixture $schemaBadSha 'different-schema'
+        Copy-Item -LiteralPath $validFix.dir -Destination (Join-Path $root ('releases/'+$validSha)) -Recurse
+        Copy-Item -LiteralPath $tamperedFix.dir -Destination (Join-Path $root ('releases/'+$tamperedSha)) -Recurse
+        Copy-Item -LiteralPath $schemaBadFix.dir -Destination (Join-Path $root ('releases/'+$schemaBadSha)) -Recurse
+        Set-Content -LiteralPath (Join-Path $root ('releases/'+$tamperedSha+'/web/index.html')) -Value 'corrupted after manifest'
+
+        function Invoke-ChildPs([string[]]$ArgList) {
+            $outFile=Join-Path $qa ('child-'+[guid]::NewGuid().ToString('N')+'.out')
+            $errFile=Join-Path $qa ('child-'+[guid]::NewGuid().ToString('N')+'.err')
+            $quotedArgs=@($ArgList | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_.Replace('"', '\"')) + '"' } else { $_ } }) -join ' '
+            $proc=Start-Process -FilePath $psExe -ArgumentList $quotedArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+            $stdErr=if(Test-Path -LiteralPath $errFile){Get-Content -LiteralPath $errFile -Raw}else{''}
+            return @{ExitCode=$proc.ExitCode;StdErr=[string]$stdErr}
+        }
+
+        # 1) Missing Get-FileHash environment must exit non-zero, emit Get-FileHash error to stderr, and keep pointer unchanged
+        $noHashCmd="Import-Module Microsoft.PowerShell.Management, Microsoft.PowerShell.Utility -ErrorAction SilentlyContinue; `$uDll=[Microsoft.PowerShell.Commands.ConvertFromJsonCommand].Assembly.Location; Remove-Module Microsoft.PowerShell.Utility -Force -ErrorAction SilentlyContinue; Remove-Item Function:\Get-FileHash -ErrorAction SilentlyContinue; if(`$PSVersionTable.PSEdition -eq 'Desktop' -and `$uDll){Import-Module `$uDll -ErrorAction SilentlyContinue}; `$PSModuleAutoLoadingPreference='None'; & '$($rbScript.Replace("'","''"))' -ConfigPath '$($configPath.Replace("'","''"))' -Sha '$validSha' -Simulation"
+        $encodedNoHash=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($noHashCmd))
+        $rNoHash=Invoke-ChildPs @('-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$encodedNoHash)
+        Assert ($rNoHash.ExitCode -ne 0) ('Missing Get-FileHash must return non-zero exit code, got '+$rNoHash.ExitCode)
+        Assert ($rNoHash.StdErr -match 'Get-FileHash') ('Missing Get-FileHash must write Get-FileHash diagnostic to stderr, got: '+$rNoHash.StdErr)
+        Assert ((Get-Content (Join-Path $root 'simulation-current.txt') -Raw).Trim().EndsWith($oldSha)) 'Missing Get-FileHash changed pointer'
+
+        # 2) Normal module environment: hash mismatch must exit non-zero, write integrity error to stderr, and keep pointer unchanged
+        $rBadHash=Invoke-ChildPs @('-NoProfile','-ExecutionPolicy','Bypass','-File',$rbScript,'-ConfigPath',$configPath,'-Sha',$tamperedSha,'-Simulation')
+        Assert ($rBadHash.ExitCode -ne 0) 'Hash tampering must return non-zero exit code'
+        Assert ($rBadHash.StdErr -match 'integrity failure') 'Hash tampering must report integrity failure on stderr'
+        Assert ((Get-Content (Join-Path $root 'simulation-current.txt') -Raw).Trim().EndsWith($oldSha)) 'Hash tampering changed pointer'
+
+        # 3) Normal module environment: schema mismatch must exit non-zero, write schema error to stderr, and keep pointer unchanged
+        $rBadSchema=Invoke-ChildPs @('-NoProfile','-ExecutionPolicy','Bypass','-File',$rbScript,'-ConfigPath',$configPath,'-Sha',$schemaBadSha,'-Simulation')
+        Assert ($rBadSchema.ExitCode -ne 0) 'Schema mismatch must return non-zero exit code'
+        Assert ($rBadSchema.StdErr -match 'Schema mismatch; migration is manual only') 'Schema mismatch must report error on stderr'
+        Assert ((Get-Content (Join-Path $root 'simulation-current.txt') -Raw).Trim().EndsWith($oldSha)) 'Schema mismatch changed pointer'
+
+        # 4) Normal module environment: valid rollback succeeds with exit code 0 and switches pointer, then restores $oldSha
+        $rValid=Invoke-ChildPs @('-NoProfile','-ExecutionPolicy','Bypass','-File',$rbScript,'-ConfigPath',$configPath,'-Sha',$validSha,'-Simulation')
+        Assert ($rValid.ExitCode -eq 0) ('Valid child rollback must exit 0, got '+$rValid.ExitCode+' stderr='+$rValid.StdErr)
+        Assert ([string]::IsNullOrWhiteSpace($rValid.StdErr)) 'Valid child rollback must not emit stderr'
+        Assert ((Get-Content (Join-Path $root 'simulation-current.txt') -Raw).Trim().EndsWith($validSha)) 'Valid child rollback did not update pointer'
+        $rRestore=Invoke-ChildPs @('-NoProfile','-ExecutionPolicy','Bypass','-File',$rbScript,'-ConfigPath',$configPath,'-Sha',$oldSha,'-Simulation')
+        Assert ($rRestore.ExitCode -eq 0) 'Restoring baseline pointer must exit 0'
+    }
     Check 'Interrupted deployment blocks blind retry' {$journal=Join-Path $root 'deployment-state.json';Set-Content $journal '{"status":"in_progress"}';Reject {& "$PSScriptRoot/Deploy-Release.ps1" -ConfigPath $configPath -Archive $new.zip -Sha $newSha -ArchiveSha256 $new.digest -Simulation};Assert ((Get-Content (Join-Path $root 'simulation-current.txt') -Raw).Trim().EndsWith($oldSha)) 'Interrupted state changed active release'}
     Write-Output "RESULT: $passed PASS / 0 FAIL / 0 SKIP (simulation only; Windows service integration NOT TESTED)"
 } finally {

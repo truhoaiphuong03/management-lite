@@ -74,9 +74,32 @@ function Invoke-Pg($Config, [string]$Tool, [string[]]$Arguments) {
     } finally { foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) } }
 }
 
+function Get-VerifiedFileSha256([string]$LiteralPath) {
+    if (!(Test-Path -LiteralPath $LiteralPath -PathType Leaf)) {
+        throw "Integrity check target file missing: $LiteralPath"
+    }
+    $hashCmd = Get-Command -Name 'Get-FileHash' -ErrorAction Stop
+    if ($null -eq $hashCmd) {
+        throw "Required cmdlet 'Get-FileHash' is unavailable."
+    }
+    $hashResult = Get-FileHash -LiteralPath $LiteralPath -Algorithm SHA256 -ErrorAction Stop
+    if ($null -eq $hashResult -or -not ($hashResult.PSObject.Properties.Name -contains 'Hash') -or [string]::IsNullOrWhiteSpace([string]$hashResult.Hash)) {
+        throw "Get-FileHash returned an invalid or empty hash result for '$LiteralPath'."
+    }
+    $digest = ([string]$hashResult.Hash).ToLowerInvariant()
+    if ($digest -cnotmatch '^[0-9a-f]{64}$') {
+        throw "Get-FileHash returned malformed SHA-256 digest for '$LiteralPath'."
+    }
+    return $digest
+}
+
 function Assert-ReleaseSchema($Config, $Manifest, [switch]$Simulation) {
     if ($Simulation) {
-        if ($Config.SimulationSchema -ne $Manifest.schemaIdentity) { throw 'Schema mismatch; migration is manual only.' }
+        $cfgSchema = if ($Config.PSObject.Properties.Name -contains 'SimulationSchema') { [string]$Config.SimulationSchema } else { '' }
+        $manifestSchema = if ($Manifest.PSObject.Properties.Name -contains 'schemaIdentity') { [string]$Manifest.schemaIdentity } else { '' }
+        if ([string]::IsNullOrWhiteSpace($cfgSchema) -or [string]::IsNullOrWhiteSpace($manifestSchema) -or ($cfgSchema -cne $manifestSchema)) {
+            throw 'Schema mismatch; migration is manual only.'
+        }
         if (($Config.PSObject.Properties.Name -contains 'SimulationAuthPolicy') -and -not [string]::IsNullOrWhiteSpace([string]$Config.SimulationAuthPolicy)) {
             $manifestPolicy = if ($Manifest.PSObject.Properties.Name -contains 'authPolicyVersion') { [string]$Manifest.authPolicyVersion } else { '' }
             if ($manifestPolicy -cne [string]$Config.SimulationAuthPolicy) {
@@ -114,7 +137,7 @@ function New-ReleaseBackup($Config, [string]$Sha, [switch]$Simulation) {
 
 function Test-ReleaseHealth($Config, [string]$Sha, [switch]$Simulation) {
     if ($Simulation) {
-        if ($Config.SimulationFailSha -eq $Sha) { throw 'Synthetic candidate health failure.' }
+        if (($Config.PSObject.Properties.Name -contains 'SimulationFailSha') -and ($Config.SimulationFailSha -eq $Sha)) { throw 'Synthetic candidate health failure.' }
         return
     }
     $base = $Config.ApiHealthBase.TrimEnd('/')
@@ -139,8 +162,8 @@ function Test-ReleaseHealth($Config, [string]$Sha, [switch]$Simulation) {
 
 function Expand-VerifiedRelease([string]$Archive, [string]$ExpectedDigest, [string]$Sha, $Config) {
     if ($Sha -cnotmatch '^[0-9a-f]{40}$') { throw 'Full immutable SHA required.' }
-    if ($ExpectedDigest -cnotmatch '^[0-9a-f]{64}$' -or (Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant() -cne $ExpectedDigest) { throw 'Archive checksum mismatch.' }
-    $target = Join-Path $Config.Root ('releases/' + $Sha)
+    if ($ExpectedDigest -cnotmatch '^[0-9a-f]{64}$' -or (Get-VerifiedFileSha256 -LiteralPath $Archive) -cne $ExpectedDigest) { throw 'Archive checksum mismatch.' }
+    $target = [IO.Path]::GetFullPath((Join-Path $Config.Root ('releases/' + $Sha)))
     if (Test-Path -LiteralPath $target) { throw 'Release exists; immutable releases cannot be overwritten.' }
     $zip = [IO.Compression.ZipFile]::OpenRead($Archive)
     try {
@@ -158,10 +181,10 @@ function Expand-VerifiedRelease([string]$Archive, [string]$ExpectedDigest, [stri
     $actual = @(Get-ChildItem -LiteralPath $target -File -Recurse | Where-Object { $_.Name -ne 'release.json' -or $_.DirectoryName -ne $target })
     if ($actual.Count -ne @($m.files).Count) { throw 'Release file inventory mismatch.' }
     $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach ($file in $m.files) {
+    foreach ($file in @($m.files)) {
         $path = [IO.Path]::GetFullPath((Join-Path $target $file.path))
         if (!$path.StartsWith($target + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or !$seen.Add($path)) { throw 'Invalid manifest path.' }
-        if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $file.sha256) { throw 'Release file checksum mismatch.' }
+        if ((Get-VerifiedFileSha256 -LiteralPath $path) -cne [string]$file.sha256) { throw 'Release file checksum mismatch.' }
     }
     foreach ($required in @('dist/apps/api/src/main.js','web/index.html','web/release-version.json','package.json')) {
         if (!(Test-Path -LiteralPath (Join-Path $target $required))) { throw 'Incomplete release.' }
@@ -170,11 +193,22 @@ function Expand-VerifiedRelease([string]$Archive, [string]$ExpectedDigest, [stri
 }
 
 function Assert-LocalReleaseIntegrity([string]$Target) {
-    $m=Get-Content -LiteralPath (Join-Path $Target 'release.json') -Raw | ConvertFrom-Json
-    if ($m.sha -cnotmatch '^[0-9a-f]{40}$' -or (Split-Path $Target -Leaf) -cne $m.sha) { throw 'Previous release identity mismatch.' }
-    foreach ($file in $m.files) {
-        $path=[IO.Path]::GetFullPath((Join-Path $Target $file.path))
-        if (!$path.StartsWith($Target+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $file.sha256) { throw 'Previous release integrity failure.' }
+    $fullTarget = [IO.Path]::GetFullPath($Target)
+    $manifestPath = Join-Path $fullTarget 'release.json'
+    if (!(Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Previous release manifest missing.' }
+    $m = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ($m.sha -cnotmatch '^[0-9a-f]{40}$' -or (Split-Path $fullTarget -Leaf) -cne $m.sha) { throw 'Previous release identity mismatch.' }
+    if (-not ($m.PSObject.Properties.Name -contains 'files') -or $null -eq $m.files) { throw 'Previous release integrity failure.' }
+    foreach ($file in @($m.files)) {
+        $path = [IO.Path]::GetFullPath((Join-Path $fullTarget $file.path))
+        $expectedSha = if ($file.PSObject.Properties.Name -contains 'sha256') { [string]$file.sha256 } else { '' }
+        if (
+            !$path.StartsWith($fullTarget + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+            ($expectedSha -cnotmatch '^[0-9a-f]{64}$') -or
+            ((Get-VerifiedFileSha256 -LiteralPath $path) -cne $expectedSha)
+        ) {
+            throw 'Previous release integrity failure.'
+        }
     }
     return $m
 }

@@ -1240,15 +1240,19 @@ test('Staging Migration 0036 Rehearsal: pre/post reconciliation, receipts/refund
           : null;
     if (psExe) {
       const simRoot = path.join(tmpDir, 'controller-rb-sim');
+      const currSha = '7f87d152dd1324b9b0dd75b16f7b12ee85e807fd';
       const prevSha = '0f78bee341b1997ae69fd5aaba6aec104fc851b8';
+      const currRelDir = path.join(simRoot, 'releases', currSha);
       const relDir = path.join(simRoot, 'releases', prevSha);
+      fs.mkdirSync(path.join(currRelDir, 'dist'), { recursive: true });
       fs.mkdirSync(path.join(relDir, 'dist'), { recursive: true });
       fs.mkdirSync(path.join(simRoot, 'backups'), { recursive: true });
       fs.writeFileSync(
         path.join(simRoot, '.management-lite-managed-root'),
         'isolated-sim\n',
       );
-      fs.writeFileSync(path.join(simRoot, 'simulation-current.txt'), relDir);
+      const pointerPath = path.join(simRoot, 'simulation-current.txt');
+      fs.writeFileSync(pointerPath, currRelDir);
 
       const dummyFile = path.join(relDir, 'dist', 'app.js');
       const dummyBytes = Buffer.from('// pre-0036 v0.8.4 runtime\n', 'utf8');
@@ -1314,6 +1318,10 @@ test('Staging Migration 0036 Rehearsal: pre/post reconciliation, receipts/refund
         ),
       );
 
+      const rbScriptPath = path.join(
+        REPO_ROOT,
+        'scripts/deployment/Rollback-Release.ps1',
+      );
       const rbSim = spawnSync(
         psExe,
         [
@@ -1321,7 +1329,7 @@ test('Staging Migration 0036 Rehearsal: pre/post reconciliation, receipts/refund
           '-ExecutionPolicy',
           'Bypass',
           '-File',
-          path.join(REPO_ROOT, 'scripts/deployment/Rollback-Release.ps1'),
+          rbScriptPath,
           '-ConfigPath',
           simCfgPath,
           '-Sha',
@@ -1335,10 +1343,31 @@ test('Staging Migration 0036 Rehearsal: pre/post reconciliation, receipts/refund
         0,
         'Code-only rollback to pre-0036 release must fail closed when DB is at 0036 schemaIdentity',
       );
-      assert.match(
-        `${rbSim.stdout}\n${rbSim.stderr}`,
-        /Schema mismatch; migration is manual only/,
+      assert.match(rbSim.stderr, /Schema mismatch; migration is manual only/);
+      assert.equal(
+        fs.readFileSync(pointerPath, 'utf8').trim(),
+        currRelDir,
+        'Blocked pre-0036 rollback must not mutate simulation-current.txt pointer',
       );
+
+      // Also verify missing Get-FileHash environment fails closed with non-zero exit code & untouched pointer
+      const noHashCmd = [
+        'Import-Module Microsoft.PowerShell.Management, Microsoft.PowerShell.Utility -ErrorAction SilentlyContinue',
+        '$uDll = [Microsoft.PowerShell.Commands.ConvertFromJsonCommand].Assembly.Location',
+        'Remove-Module Microsoft.PowerShell.Utility -Force -ErrorAction SilentlyContinue',
+        'Remove-Item Function:\\Get-FileHash -ErrorAction SilentlyContinue',
+        "if ($PSVersionTable.PSEdition -eq 'Desktop' -and $uDll) { Import-Module $uDll -ErrorAction SilentlyContinue }",
+        "$PSModuleAutoLoadingPreference = 'None'",
+        `& '${rbScriptPath.replace(/'/g, "''")}' -ConfigPath '${simCfgPath.replace(/'/g, "''")}' -Sha '${prevSha}' -Simulation`,
+      ].join('; ');
+      const rbNoHash = spawnSync(
+        psExe,
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', noHashCmd],
+        { encoding: 'utf8', timeout: 15_000 },
+      );
+      assert.notEqual(rbNoHash.status, 0);
+      assert.match(rbNoHash.stderr, /Get-FileHash/);
+      assert.equal(fs.readFileSync(pointerPath, 'utf8').trim(), currRelDir);
     }
 
     // Full Maintenance Restore Drill: restore pre-0036 dump into isolated restoreDbName

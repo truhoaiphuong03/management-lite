@@ -689,3 +689,243 @@ test('ci-web-db helper loads with zero node_modules and rejects invalid hosts/en
     'DROP DATABASE IF EXISTS web_test_ci_sentinel WITH (FORCE)',
   ]);
 });
+
+test('Rollback-Release.ps1 -Simulation fails closed with non-zero exit code, stderr diagnostics, and unchanged pointer across missing-Get-FileHash and normal Windows module environments', async (t) => {
+  const crypto = await import('node:crypto');
+  const psCandidates =
+    process.platform === 'win32' ? ['powershell.exe'] : ['pwsh'];
+  const psExe = psCandidates.find(
+    (bin) =>
+      spawnSync(bin, ['-NoProfile', '-Command', '$PSVersionTable.PSVersion'], {
+        encoding: 'utf8',
+        timeout: 10_000,
+      }).status === 0,
+  );
+  if (!psExe) {
+    t.skip('PowerShell executable not available on this host');
+    return;
+  }
+
+  const tmpDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'management-lite-rb-exitcode-qa-'),
+  );
+  try {
+    const rbScript = fileURLToPath(
+      new URL('../../scripts/deployment/Rollback-Release.ps1', import.meta.url),
+    );
+    const managedRoot = path.join(tmpDir, 'managed-root');
+    fs.mkdirSync(path.join(managedRoot, 'releases'), { recursive: true });
+    fs.mkdirSync(path.join(managedRoot, 'backups'), { recursive: true });
+    fs.writeFileSync(
+      path.join(managedRoot, '.management-lite-managed-root'),
+      'isolated-rb-exitcode-test\n',
+    );
+
+    const createReleaseFixture = (
+      sha,
+      schemaIdentity,
+      { tamper = false } = {},
+    ) => {
+      const relDir = path.join(managedRoot, 'releases', sha);
+      fs.mkdirSync(path.join(relDir, 'dist'), { recursive: true });
+      const fileBytes = Buffer.from(`// synthetic runtime ${sha}\n`, 'utf8');
+      const digest = crypto
+        .createHash('sha256')
+        .update(fileBytes)
+        .digest('hex');
+      fs.writeFileSync(
+        path.join(relDir, 'dist', 'app.js'),
+        tamper
+          ? Buffer.from('// tampered after manifest\n', 'utf8')
+          : fileBytes,
+      );
+      fs.writeFileSync(
+        path.join(relDir, 'release.json'),
+        JSON.stringify(
+          {
+            sha,
+            platform: 'win32',
+            arch: 'x64',
+            node: '22.14.0',
+            schemaIdentity,
+            authPolicyVersion: 'auth-remember-01',
+            files: [
+              {
+                path: 'dist/app.js',
+                size: fileBytes.length,
+                sha256: digest,
+              },
+            ],
+          },
+          null,
+          2,
+        ),
+      );
+      return relDir;
+    };
+
+    const activeSha = 'a'.repeat(40);
+    const validTargetSha = 'b'.repeat(40);
+    const tamperedTargetSha = 'c'.repeat(40);
+    const badSchemaTargetSha = 'd'.repeat(40);
+
+    const activeDir = createReleaseFixture(activeSha, 'schema-0036');
+    const validTargetDir = createReleaseFixture(validTargetSha, 'schema-0036');
+    createReleaseFixture(tamperedTargetSha, 'schema-0036', { tamper: true });
+    createReleaseFixture(badSchemaTargetSha, 'schema-0035-old');
+
+    const pointerFile = path.join(managedRoot, 'simulation-current.txt');
+    const stateFile = path.join(managedRoot, 'deployment-state.json');
+    fs.writeFileSync(pointerFile, activeDir);
+
+    const cfgPath = path.join(tmpDir, 'sim-config.json');
+    fs.writeFileSync(
+      cfgPath,
+      JSON.stringify(
+        {
+          Enabled: true,
+          Environment: 'staging',
+          AllowSimulation: true,
+          Root: managedRoot,
+          SimulationSchema: 'schema-0036',
+          SimulationAuthPolicy: 'auth-remember-01',
+        },
+        null,
+        2,
+      ),
+    );
+
+    const readPointer = () => fs.readFileSync(pointerFile, 'utf8').trim();
+
+    // 1. Environment missing Get-FileHash (Utility Get-FileHash unavailable + autoloading disabled)
+    const missingGetFileHashCmd = [
+      'Import-Module Microsoft.PowerShell.Management, Microsoft.PowerShell.Utility -ErrorAction SilentlyContinue',
+      '$uDll = [Microsoft.PowerShell.Commands.ConvertFromJsonCommand].Assembly.Location',
+      'Remove-Module Microsoft.PowerShell.Utility -Force -ErrorAction SilentlyContinue',
+      'Remove-Item Function:\\Get-FileHash -ErrorAction SilentlyContinue',
+      "if ($PSVersionTable.PSEdition -eq 'Desktop' -and $uDll) { Import-Module $uDll -ErrorAction SilentlyContinue }",
+      "$PSModuleAutoLoadingPreference = 'None'",
+      `& '${rbScript.replace(/'/g, "''")}' -ConfigPath '${cfgPath.replace(/'/g, "''")}' -Sha '${validTargetSha}' -Simulation`,
+    ].join('; ');
+    const resNoHash = spawnSync(
+      psExe,
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        missingGetFileHashCmd,
+      ],
+      { encoding: 'utf8', timeout: 15_000 },
+    );
+    assert.notEqual(
+      resNoHash.status,
+      0,
+      `Missing Get-FileHash must never exit 0 (stdout=${resNoHash.stdout} stderr=${resNoHash.stderr})`,
+    );
+    assert.match(resNoHash.stderr, /Get-FileHash/);
+    assert.match(resNoHash.stderr, /ROLLBACK_FAILED_CLOSED/);
+    assert.equal(
+      readPointer(),
+      activeDir,
+      'Pointer must remain unchanged when Get-FileHash is unavailable',
+    );
+    assert.equal(fs.existsSync(stateFile), false);
+
+    // 2. Environment with zero auto-loaded modules at all ($PSModuleAutoLoadingPreference = 'None')
+    const zeroModulesCmd = [
+      "$PSModuleAutoLoadingPreference = 'None'",
+      `& '${rbScript.replace(/'/g, "''")}' -ConfigPath '${cfgPath.replace(/'/g, "''")}' -Sha '${validTargetSha}' -Simulation`,
+    ].join('; ');
+    const resZeroMod = spawnSync(
+      psExe,
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', zeroModulesCmd],
+      { encoding: 'utf8', timeout: 15_000 },
+    );
+    assert.notEqual(resZeroMod.status, 0);
+    assert.match(resZeroMod.stderr, /ROLLBACK_FAILED_CLOSED/);
+    assert.equal(readPointer(), activeDir);
+    assert.equal(fs.existsSync(stateFile), false);
+
+    // 3. Normal Windows module environment: file hash mismatch must exit non-zero & preserve pointer
+    const resBadHash = spawnSync(
+      psExe,
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        rbScript,
+        '-ConfigPath',
+        cfgPath,
+        '-Sha',
+        tamperedTargetSha,
+        '-Simulation',
+      ],
+      { encoding: 'utf8', timeout: 15_000 },
+    );
+    assert.notEqual(resBadHash.status, 0);
+    assert.match(resBadHash.stderr, /integrity failure/i);
+    assert.equal(readPointer(), activeDir);
+    assert.equal(fs.existsSync(stateFile), false);
+
+    // 4. Normal Windows module environment: schema mismatch must exit non-zero & preserve pointer
+    const resBadSchema = spawnSync(
+      psExe,
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        rbScript,
+        '-ConfigPath',
+        cfgPath,
+        '-Sha',
+        badSchemaTargetSha,
+        '-Simulation',
+      ],
+      { encoding: 'utf8', timeout: 15_000 },
+    );
+    assert.notEqual(resBadSchema.status, 0);
+    assert.match(
+      resBadSchema.stderr,
+      /Schema mismatch; migration is manual only/,
+    );
+    assert.equal(readPointer(), activeDir);
+    assert.equal(fs.existsSync(stateFile), false);
+
+    // 5. Normal Windows module environment: valid rollback succeeds with exit code 0, clean stderr, and switches pointer
+    const resValid = spawnSync(
+      psExe,
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        rbScript,
+        '-ConfigPath',
+        cfgPath,
+        '-Sha',
+        validTargetSha,
+        '-Simulation',
+      ],
+      { encoding: 'utf8', timeout: 15_000 },
+    );
+    assert.equal(
+      resValid.status,
+      0,
+      `Valid rollback in normal module environment must exit 0 (stderr=${resValid.stderr})`,
+    );
+    assert.equal(resValid.stderr.trim(), '');
+    assert.equal(
+      path.resolve(readPointer()),
+      path.resolve(validTargetDir),
+      'Valid rollback must update simulation-current.txt to target release',
+    );
+    const recordedState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    assert.equal(recordedState.status, 'manual_rollback_completed');
+    assert.equal(recordedState.sha, validTargetSha);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
