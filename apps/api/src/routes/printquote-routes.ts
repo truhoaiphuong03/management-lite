@@ -144,6 +144,8 @@ export async function handlePrintQuoteRoutes(
     try {
       pdfBuf = await renderCustomerSafeA4PdfBuffer(body.customer_pdf, {
         ...body.meta,
+        workspaceName:
+          body.meta?.workspaceName || sessionContext.workspace.name,
         quoteCode,
       });
     } catch (err) {
@@ -419,6 +421,7 @@ export async function handlePrintQuoteRoutes(
       let pdfBuf: Buffer;
       try {
         pdfBuf = await renderCustomerSafeA4PdfBuffer(safePdf, {
+          workspaceName: sessionContext.workspace.name,
           quoteCode: quote.quote_code,
           quoteTitle: quote.title,
           versionNo: quote.current_version,

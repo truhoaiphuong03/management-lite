@@ -1645,4 +1645,42 @@ describe('MGL-PRINTQUOTE UX V2 — Web Routes, RBAC, Modal Catalogs, Honest KPIs
     assert.ok(vendorsHtml.includes('Bảng giá (0)'));
     assert.ok(vendorsHtml.includes('data-empty="true"'));
   });
+
+  it('v0.9.6: defaults brand header on both web A4 preview and server PDF renderer to THIẾT KẾ IN ẤN TOÀN GIA PHÁT when workspaceName is omitted', async () => {
+    const { buildServerA4Html } =
+      await import('../../dist/apps/api/src/printquote/pdf-renderer.js');
+
+    const calc = calculatePrintQuote({
+      items: [
+        {
+          id: 'line-v096',
+          name: 'Namecard C300 cán mờ',
+          quantity: 5,
+          unitVendorCost: 30000,
+          profit: {
+            mode: ProfitMode.FIXED_AMOUNT,
+            scope: ProfitScope.PER_UNIT,
+            value: 20000,
+          },
+        },
+      ],
+      shippingFee: 0,
+      includeShippingInUnitPrice: false,
+    });
+    const safePdf = buildCustomerSafePdfPayload(calc);
+
+    const webA4 = buildPrintQuoteA4Html(safePdf, {
+      quoteCode: 'BG-202611-096',
+      customerName: 'Khách thử nghiệm',
+    });
+    assert.ok(webA4.includes('THIẾT KẾ IN ẤN TOÀN GIA PHÁT'));
+    assert.ok(!webA4.includes('HOÀI PHƯƠNG MEDIA'));
+
+    const serverA4 = buildServerA4Html(safePdf, {
+      quoteCode: 'BG-202611-096',
+      customerName: 'Khách thử nghiệm',
+    });
+    assert.ok(serverA4.includes('THIẾT KẾ IN ẤN TOÀN GIA PHÁT'));
+    assert.ok(!serverA4.includes('HOÀI PHƯƠNG MEDIA'));
+  });
 });

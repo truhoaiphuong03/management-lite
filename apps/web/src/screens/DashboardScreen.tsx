@@ -748,7 +748,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     <div>
       <PageHeader
         title="Tổng quan hoạt động"
-        subtitle={`Workspace: ${workspaceName || 'Studio Media Lite'} | Múi giờ: Asia/Ho_Chi_Minh`}
+        subtitle={`Workspace: ${workspaceName || 'THIẾT KẾ IN ẤN TOÀN GIA PHÁT'} | Múi giờ: Asia/Ho_Chi_Minh`}
         badge={
           <StatusBadge
             status={role === 'owner' ? 'neutral' : 'muted'}

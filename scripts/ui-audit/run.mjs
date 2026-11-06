@@ -61,7 +61,11 @@ const me = {
   success: true,
   data: {
     user: { id: 'u-1', email: 'audit@example.com', email_verified: true },
-    active_workspace: { id: 'w-1', name: 'Hoài Phương Media', role: ROLE },
+    active_workspace: {
+      id: 'w-1',
+      name: 'THIẾT KẾ IN ẤN TOÀN GIA PHÁT',
+      role: ROLE,
+    },
     csrf_token: 'audit-csrf',
   },
 };

@@ -329,7 +329,7 @@ export interface PrintQuoteScreenProps {
 export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   role,
   isOwnerVerified = true,
-  workspaceName = 'Hoài Phương Media',
+  workspaceName = 'THIẾT KẾ IN ẤN TOÀN GIA PHÁT',
   currentPath,
   routePattern,
   routeParams,

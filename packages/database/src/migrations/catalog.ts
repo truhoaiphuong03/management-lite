@@ -3448,6 +3448,16 @@ BEGIN
 END $$;
 `;
 
+const RENAME_WORKSPACE_TOAN_GIA_PHAT_SQL = `-- Migration: 0037_rename_workspace_toan_gia_phat
+-- Rename canonical active workspace from "Hoài Phương Media" to "THIẾT KẾ IN ẤN TOÀN GIA PHÁT"
+-- while preserving synthetic/test/drill workspaces untouched.
+
+UPDATE workspaces
+SET name = 'THIẾT KẾ IN ẤN TOÀN GIA PHÁT'
+WHERE status = 'active'
+  AND btrim(name) IN ('Hoài Phương Media', 'HOÀI PHƯƠNG MEDIA');
+`;
+
 export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
   {
     id: '0001_m00_prerequisites',
@@ -3624,5 +3634,10 @@ export const EMBEDDED_MIGRATIONS: MigrationFile[] = [
     id: '0036_printquote_ar_ap_ledger',
     sql: PRINTQUOTE_AR_AP_LEDGER_SQL,
     checksum: calculateChecksum(PRINTQUOTE_AR_AP_LEDGER_SQL),
+  },
+  {
+    id: '0037_rename_workspace_toan_gia_phat',
+    sql: RENAME_WORKSPACE_TOAN_GIA_PHAT_SQL,
+    checksum: calculateChecksum(RENAME_WORKSPACE_TOAN_GIA_PHAT_SQL),
   },
 ];

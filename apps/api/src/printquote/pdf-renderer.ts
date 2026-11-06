@@ -171,7 +171,9 @@ export function buildServerA4Html(
 ): string {
   assertCustomerSafePdfPayload(pdfPayload);
 
-  const brandName = escapeHtml(meta.workspaceName || 'HOÀI PHƯƠNG MEDIA');
+  const brandName = escapeHtml(
+    meta.workspaceName || 'THIẾT KẾ IN ẤN TOÀN GIA PHÁT',
+  );
   const quoteCode = escapeHtml(
     meta.quoteCode || pdfPayload.quoteCode || 'BG-DRAFT',
   );

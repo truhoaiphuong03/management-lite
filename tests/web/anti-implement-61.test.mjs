@@ -323,7 +323,7 @@ test('ANTI-IMPLEMENT-61 — Full Verification of Audit-60 Findings', async (t) =
       );
       assert.ok(
         dashboardCode.includes(
-          "subtitle={`Workspace: ${workspaceName || 'Studio Media Lite'}",
+          "subtitle={`Workspace: ${workspaceName || 'THIẾT KẾ IN ẤN TOÀN GIA PHÁT'}",
         ),
         'DashboardScreen must interpolate verified workspaceName',
       );

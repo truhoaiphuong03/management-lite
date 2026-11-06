@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.5';
-export const SYSTEM_COMMIT = '9c641fd';
+export const SYSTEM_VERSION = '0.9.6';
+export const SYSTEM_COMMIT = '4b6c4d6';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.5',
+    version: '0.9.6',
     commit: 'latest',
+    released_at: '2026-11-06',
+    summary:
+      'Đổi tên Workspace chuẩn sang "THIẾT KẾ IN ẤN TOÀN GIA PHÁT" đồng bộ trên Tổng quan (/dashboard), Cơ sở dữ liệu và tiêu đề Báo giá PDF A4 gửi khách (/print-quotes)',
+    added: [
+      'Migration 0037_rename_workspace_toan_gia_phat tự động cập nhật tên Workspace đang hoạt động từ "Hoài Phương Media" sang "THIẾT KẾ IN ẤN TOÀN GIA PHÁT" kèm kịch bản rollback đối ứng.',
+    ],
+    improved: [
+      'Đồng bộ tên thương hiệu mặc định "THIẾT KẾ IN ẤN TOÀN GIA PHÁT" trên Tổng quan hoạt động (/dashboard), màn hình Báo giá in ấn và khung xem trước / xuất file PDF A4 gửi khách hàng.',
+    ],
+    fixed: [
+      'Khắc phục endpoint tải trực tiếp file PDF báo giá đã lưu (GET /api/v1/print-quotes/quotes/:id/pdf-file) chưa truyền tên Workspace thực tế từ phiên làm việc vào bộ kết xuất A4.',
+    ],
+  },
+  {
+    version: '0.9.5',
+    commit: '4b6c4d6',
     released_at: '2026-11-06',
     summary:
       'Chuyển danh bạ Khách hàng đặt in và Nhà in đối tác trong Báo giá in ấn (/print-quotes/catalog/customers & /vendors) sang dạng bảng danh sách chuẩn trên Máy tính và Điện thoại',
