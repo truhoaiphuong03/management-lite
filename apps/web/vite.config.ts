@@ -34,6 +34,12 @@ export default defineConfig(() => {
             ) {
               return 'printquote-contracts';
             }
+            if (
+              id.includes('screens/helpers/printquote-helpers') ||
+              id.includes('screens\\helpers\\printquote-helpers')
+            ) {
+              return 'printquote-helpers';
+            }
           },
         },
       },

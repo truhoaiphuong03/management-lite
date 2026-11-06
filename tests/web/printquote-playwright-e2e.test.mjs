@@ -708,13 +708,22 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
       'Báo giá in Tờ rơi A5 khai trương Chuỗi Trà Sữa Sài Gòn',
     );
 
-    const custSelect = page.locator('[data-testid="pq-customer-select"]');
-    const custOptionVal = await custSelect
-      .locator('option')
-      .nth(1)
-      .getAttribute('value');
-    assert.ok(custOptionVal, 'Customer option must exist');
-    await custSelect.selectOption(custOptionVal);
+    const custSearchInput = page.locator(
+      '[data-testid="pq-customer-search-input"]',
+    );
+    await custSearchInput.click();
+    await custSearchInput.fill('0912333');
+    const matchingCustOption = page
+      .locator('[data-testid="pq-customer-listbox"] [role="option"]')
+      .filter({ hasText: 'Anh Minh' })
+      .first();
+    await matchingCustOption.waitFor({ state: 'visible' });
+    await matchingCustOption.click();
+    assert.match(
+      await custSearchInput.inputValue(),
+      /Anh Minh.*0912333444/,
+      'Selected customer input must display customer name and phone',
+    );
 
     const catalogSelect = page.locator(
       'select[aria-label="Chọn bảng giá nhà in dòng 1"]',

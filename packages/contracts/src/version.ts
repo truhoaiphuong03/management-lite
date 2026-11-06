@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.3';
-export const SYSTEM_COMMIT = '497e7fa';
+export const SYSTEM_VERSION = '0.9.4';
+export const SYSTEM_COMMIT = '4356aab';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,23 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.3',
+    version: '0.9.4',
     commit: 'latest',
+    released_at: '2026-11-06',
+    summary:
+      'Nâng cấp ô Khách hàng nhận báo giá (/print-quotes/new) thành ô tìm kiếm thông minh theo tên (không dấu) hoặc số điện thoại (đầu +84/0, số cuối)',
+    added: [
+      'Ô chọn Khách hàng nhận báo giá hỗ trợ gõ tìm tức thì theo tên khách hàng (không phân biệt dấu tiếng Việt), công ty hoặc số điện thoại (hỗ trợ +84, khoảng trắng, dấu chấm và 4 số cuối).',
+      'Nút Thêm khách mới 1 chạm ngay trong danh sách gợi ý khi chưa có khách khớp tên/SĐT đang nhập (tự điền sẵn SĐT hoặc Tên vào biểu mẫu).',
+    ],
+    improved: [
+      'Hiển thị rõ số điện thoại bên cạnh tên & mã khách trong danh sách gợi ý cùng nút xóa chọn nhanh về Khách lẻ và điều hướng bàn phím (Mũi tên / Enter / Escape).',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.9.3',
+    commit: '4356aab',
     released_at: '2026-11-06',
     summary:
       'Căn thẳng hàng 4 ô nhập sản phẩm trên màn hình Tạo báo giá in ấn (/print-quotes/new), nới rộng ô Số lượng và khử viền kép đỏ-xanh khi chọn từ bảng giá đã lưu',
