@@ -53,7 +53,9 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     improved: [
       'Hiển thị rõ số điện thoại bên cạnh tên & mã khách trong danh sách gợi ý cùng nút xóa chọn nhanh về Khách lẻ và điều hướng bàn phím (Mũi tên / Enter / Escape).',
     ],
-    fixed: [],
+    fixed: [
+      'Khắc phục bất tiện thẻ <select> tĩnh không thể gõ tìm theo SĐT trên danh sách khách hàng dài và tách gói printquote-helpers giữ mọi chunk JS dưới trần 300 KB.',
+    ],
   },
   {
     version: '0.9.3',
