@@ -672,3 +672,23 @@
 11. **Commit / PR:** Nhánh `codex/printquote-arap-qa-release` (Draft PR `#31`: `https://github.com/truhoaiphuong03/management-lite/pull/31`)
 12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Chờ Codex QA kiểm tra độc lập và Owner phê duyệt merge `main` + chạy cổng `Owner-Locked Release Gate`)_
 13. **NEXT_ACTION:** Codex kiểm tra độc lập commit chuẩn bị phát hành `v0.9.0` trên PR `#31`; nếu Owner muốn diễn tập trên bản sao dữ liệu thật đã làm sạch thì cấp bản dump cho staging, sau đó Owner ký và thực thi `Owner-Locked Release Gate` theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`.
+
+---
+
+## PHASE PQ-DIR-LIST — CHUẨN HÓA DẠNG BẢNG DANH SÁCH CHO KHÁCH HÀNG ĐẶT IN & NHÀ IN ĐỐI TÁC (`v0.9.5`)
+
+### Task `PQ-DIR-095` — Chuyển Khách Hàng Đặt In & Nhà In Đối Tác Sang Bảng Danh Sách 5 Cột & Đóng Gói Pre-Release `v0.9.5`
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PQ-DIR-LIST` (`v0.9.5`)
+3. **Task ID:** `PQ-DIR-095`
+4. **Mô tả:** (1) Chuyển tab **Khách hàng đặt in** (`/print-quotes/catalog/customers` — `CustomersTab.tsx`) từ lưới thẻ 2 cột căn giữa sang bảng danh sách 5 cột (`.pq-table.pq-directory-table.rt-cards`: `Khách hàng`, `Công ty / Đơn vị`, `Số điện thoại`, `Địa chỉ giao hàng`, `Thao tác` gồm nút `+ Báo giá`) bảo toàn `data-testid="customer-card-*"` và `data-testid="pq-quick-quote-customer-*"`; (2) Chuyển tab **Nhà in đối tác** (`/print-quotes/catalog/vendors` — `VendorsCatalogTab.tsx`, `mode="vendors"`) từ lưới thẻ 2 cột sang bảng danh sách 5 cột (`Nhà in đối tác`, `Số điện thoại`, `Ngân hàng`, `Số tài khoản`, `Bảng giá`) bảo toàn bộ đếm `is_active !== false`, `data-testid="vendor-row-*"` và mở rộng ô tìm kiếm lọc thêm theo `bank_account_number`; (3) Bổ sung quy tắc CSS `.pq-directory-card`, `.pq-directory-table`, `.pq-directory-cell-primary` trong `PrintQuoteScreen.tsx` để căn trái mã + tên trên thẻ di động `rt-cards` và tự ẩn các dòng trống (`—`) trên điện thoại; (4) Nâng phiên bản lên `0.9.5` (`package.json`, `packages/contracts/src/version.ts`) đồng bộ trên nền `origin/main` (`3d2d5c0` — `v0.9.4`).
+5. **Phụ thuộc:** `Phase PQ-CUST-SEARCH` (`v0.9.4` — `3d2d5c0`).
+6. **Acceptance Criteria:** Cả `/print-quotes/catalog/customers` và `/print-quotes/catalog/vendors` hiển thị dạng bảng danh sách trên Desktop (`1366px`) và thẻ danh sách tự ẩn ô trống trên Mobile (`390px` / `320px`) với `0px` tràn ngang ở cả chế độ Sáng/Tối; vượt qua `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle`, `canonical:verify`, `test:security` và kiểm thử Web/Playwright; không đụng chạm Production (`C:\HoaiPhuong-Server\`, `:55432`) và không push thẳng `main`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`WIN-1`)
+9. **Kết quả test:** `PASS` — `version.test.mjs` (`6/6 PASS`), `settings-screen.test.mjs` + `printquote-screen.test.mjs` + `printquote-customer-search.test.mjs` (`21/21 PASS`), Playwright real-browser `1366px`/`390px`/`320px` Light & Dark (`PASS`, `0px` overflow), `check:bundle` (`442.4 KB raw / 129.0 KB gzip`).
+10. **Evidence (`VERIFIED`):** `apps/web/src/screens/PrintQuoteScreen.tsx`, `apps/web/src/screens/printquote/CustomersTab.tsx`, `apps/web/src/screens/printquote/VendorsCatalogTab.tsx`, `tests/web/printquote-screen.test.mjs`, `package.json`, `packages/contracts/src/version.ts`, `AGENTS.md`, `PROJECT_STATUS.md`.
+11. **Commit / PR:** Nhánh `feat/printquote-directory-list-v095` (`https://github.com/truhoaiphuong03/management-lite/pull/new/feat/printquote-directory-list-v095`)
+12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Chờ Owner phê duyệt merge PR vào `main` và ký phát hành qua cổng `Owner-Locked Release Gate`)_
+13. **NEXT_ACTION:** Owner mở & merge PR từ `feat/printquote-directory-list-v095` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), sau đó chạy `Invoke-OwnerReleaseToWeb.ps1` trong PowerShell Administrator theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`.
