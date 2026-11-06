@@ -223,6 +223,7 @@ test('Staging Migration 0036 Rehearsal: pre/post reconciliation, receipts/refund
       path.join(REPO_ROOT, 'packages/database/src/migrations'),
     );
     const pre0036Migs = allMigs.filter((m) => m.id < '0036_');
+    const upTo0036Migs = allMigs.filter((m) => m.id < '0037_');
     assert.equal(
       pre0036Migs.length,
       35,
@@ -711,7 +712,7 @@ test('Staging Migration 0036 Rehearsal: pre/post reconciliation, receipts/refund
     // =========================================================================
     // STEP 2: Run Migration 0036 -> Verify Pre/Post Reconciliation & Clean Rollback
     // =========================================================================
-    const mig0036Res = await runMigrations(drillPool, allMigs);
+    const mig0036Res = await runMigrations(drillPool, upTo0036Migs);
     assert.equal(mig0036Res.appliedCount, 1);
     assert.deepEqual(mig0036Res.appliedIds, ['0036_printquote_ar_ap_ledger']);
 
@@ -779,7 +780,7 @@ test('Staging Migration 0036 Rehearsal: pre/post reconciliation, receipts/refund
     );
 
     // 2d. Re-apply 0036 via migrator + test idempotent re-execution of 0036 SQL
-    const reapplyRes = await runMigrations(drillPool, allMigs);
+    const reapplyRes = await runMigrations(drillPool, upTo0036Migs);
     assert.equal(reapplyRes.appliedCount, 1);
     const raw0036Sql = fs.readFileSync(
       path.join(

@@ -1899,6 +1899,7 @@ describe('MGL-PRINTQUOTE — Sổ Công Nợ Khách (AR), Công Nợ Xưởng (A
     try {
       const allMigs = await loadMigrationFiles();
       const pre0036 = allMigs.filter((m) => m.id < '0036_');
+      const upTo0036 = allMigs.filter((m) => m.id < '0037_');
       await runMigrations(tempPool, pre0036);
 
       // Ensure hp_app_runtime exists to verify least-privilege grants
@@ -2015,7 +2016,7 @@ describe('MGL-PRINTQUOTE — Sổ Công Nợ Khách (AR), Công Nợ Xưởng (A
       );
 
       // Apply 0036 forward!
-      const migRes = await runMigrations(tempPool, allMigs);
+      const migRes = await runMigrations(tempPool, upTo0036);
       assert.equal(migRes.appliedCount, 1);
 
       // 1. Quote snapshot & integrity hash 100% untouched
@@ -2134,7 +2135,7 @@ describe('MGL-PRINTQUOTE — Sổ Công Nợ Khách (AR), Công Nợ Xưởng (A
       assert.equal(legPayStillIntact.rows[0].cnt, 1);
 
       // Re-apply 0036 idempotently -> insert a new opening balance -> rollback MUST block with ROLLBACK_BLOCKED!
-      const reapply = await runMigrations(tempPool, allMigs);
+      const reapply = await runMigrations(tempPool, upTo0036);
       assert.equal(reapply.appliedCount, 1);
       await tempPool.query(
         `INSERT INTO print_opening_balances (

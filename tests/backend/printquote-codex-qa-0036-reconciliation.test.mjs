@@ -307,6 +307,7 @@ describe('Codex QA Remediation — Migration 0036 Legacy AR Reconciliation Gate 
     try {
       const allMigs = await loadMigrationFiles();
       const pre0036 = allMigs.filter((m) => m.id < '0036_');
+      const upTo0036 = allMigs.filter((m) => m.id < '0037_');
       await runMigrations(tempPool, pre0036);
 
       await tempPool.query(`
@@ -438,7 +439,7 @@ describe('Codex QA Remediation — Migration 0036 Legacy AR Reconciliation Gate 
       });
 
       // Run migration 0036!
-      const migRes = await runMigrations(tempPool, allMigs);
+      const migRes = await runMigrations(tempPool, upTo0036);
       assert.equal(migRes.appliedCount, 1);
 
       // 1a. ZERO auto-posted rows in Official AR!
@@ -471,7 +472,7 @@ describe('Codex QA Remediation — Migration 0036 Legacy AR Reconciliation Gate 
       );
 
       // 1c. Idempotent re-run of migration 0036 (both via migrator & raw SQL execution)
-      const migRerun = await runMigrations(tempPool, allMigs);
+      const migRerun = await runMigrations(tempPool, upTo0036);
       assert.equal(migRerun.appliedCount, 0);
       const raw0036Sql = await fs.readFile(
         path.join(
