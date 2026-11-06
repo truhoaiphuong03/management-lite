@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.4';
-export const SYSTEM_COMMIT = '4356aab';
+export const SYSTEM_VERSION = '0.9.5';
+export const SYSTEM_COMMIT = '3d2d5c0';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.4',
+    version: '0.9.5',
     commit: 'latest',
+    released_at: '2026-11-06',
+    summary:
+      'Chuyển danh bạ Khách hàng đặt in và Nhà in đối tác trong Báo giá in ấn (/print-quotes/catalog/customers & /vendors) sang dạng bảng danh sách chuẩn trên Máy tính và Điện thoại',
+    added: [
+      'Bảng danh sách 5 cột thẳng hàng cho Khách hàng đặt in (Khách hàng, Công ty / Đơn vị, Số điện thoại, Địa chỉ giao hàng, Thao tác) và Nhà in đối tác (Nhà in đối tác, Số điện thoại, Ngân hàng, Số tài khoản, Bảng giá).',
+    ],
+    improved: [
+      'Mở rộng ô tìm kiếm Nhà in đối tác theo cả số tài khoản ngân hàng, hiển thị bộ đếm kết quả lọc và tự chuyển sang thẻ dòng gọn (.rt-cards) không viền kép, tự ẩn trường trống trên màn hình điện thoại.',
+    ],
+    fixed: [
+      'Khắc phục giao diện Khách hàng đặt in và Nhà in đối tác bị tách dạng lưới thẻ 2 cột và căn giữa chữ gây tốn diện tích, khó dò danh sách dài.',
+    ],
+  },
+  {
+    version: '0.9.4',
+    commit: '3d2d5c0',
     released_at: '2026-11-06',
     summary:
       'Nâng cấp ô Khách hàng nhận báo giá (/print-quotes/new) thành ô tìm kiếm thông minh theo tên (không dấu) hoặc số điện thoại (đầu +84/0, số cuối)',

@@ -3828,6 +3828,58 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           font-size: 12.5px;
         }
 
+        /* Directory List Table (Customers & Vendors) */
+        .pq-directory-card {
+          background: var(--surface-color);
+          border: 1px solid var(--border-color);
+          border-radius: 14px;
+          box-shadow: var(--shadow-sm);
+          overflow-x: auto;
+        }
+        .pq-directory-table th {
+          background: var(--surface-subtle);
+          padding: 11px 16px;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text-secondary);
+          border-bottom: 1px solid var(--border-color);
+          white-space: nowrap;
+        }
+        .pq-directory-table td {
+          padding: 12px 16px;
+          vertical-align: middle;
+          border-bottom: 1px solid var(--border-subtle);
+          color: var(--text-color);
+          font-size: 13.5px;
+        }
+        .pq-directory-table tbody tr {
+          transition: background-color 0.14s ease;
+        }
+        .pq-directory-table tbody tr:hover {
+          background: var(--surface-subtle);
+        }
+        .pq-directory-cell-primary {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .pq-directory-cell-primary .pq-code-pill {
+          min-width: 56px;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .pq-directory-name {
+          font-weight: 700;
+          font-size: 14px;
+          color: var(--text-color);
+          overflow-wrap: anywhere;
+        }
+        .pq-directory-muted {
+          color: var(--muted-color);
+          font-size: 13px;
+        }
+
         /* Tablet & Mobile Responsive Adaptations */
         @media (max-width: 1180px) {
           .pq-product-info-grid {
@@ -3927,6 +3979,20 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           table.pq-table.rt-cards tfoot td {
             display: inline-block;
             padding: 8px 6px !important;
+          }
+          .pq-directory-card {
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: visible;
+          }
+          .pq-directory-table tbody tr:hover {
+            background: var(--surface-color);
+          }
+          .pq-directory-table .pq-btn-sm {
+            min-height: 40px;
+            padding: 8px 14px;
           }
         }
 

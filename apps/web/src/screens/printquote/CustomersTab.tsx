@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { PrintCustomerData } from '../../../../../packages/contracts/src/printquote.js';
-import { cardStyle, inputStyle, labelStyle } from './types.js';
+import { cardStyle, inputStyle, labelStyle, tabularNumStyle } from './types.js';
 import { CatalogModalDialog } from './CatalogModalDialog.js';
 import { PqPlusIcon, PqSearchIcon, PqUsersIcon } from './PrintQuoteIcons.js';
 
@@ -102,6 +102,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+        {searchQuery.trim() !== '' && (
+          <span style={{ fontSize: '12.5px', color: 'var(--muted-color)' }}>
+            Hiển thị <strong>{filteredCustomers.length}</strong> /{' '}
+            {customers.length} khách hàng
+          </span>
+        )}
       </div>
 
       {filteredCustomers.length === 0 ? (
@@ -149,75 +155,78 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
           )}
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
-            gap: '12px',
-          }}
-        >
-          {filteredCustomers.map((c) => (
-            <div
-              key={c.id}
-              data-testid={`customer-card-${c.code}`}
-              className="pq-quote-card"
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '12px',
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <span className="pq-code-pill">{c.code}</span>
-                  <strong style={{ fontSize: '14px' }}>{c.name}</strong>
-                </div>
-                <div
-                  style={{
-                    fontSize: '12.5px',
-                    color: 'var(--muted-color)',
-                    marginTop: '5px',
-                  }}
-                >
-                  {c.company_name ? `${c.company_name} • ` : ''}SĐT:{' '}
-                  <strong style={{ color: 'var(--text-color)' }}>
-                    {c.phone || '—'}
-                  </strong>
-                </div>
-                {c.address && (
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '2px',
-                    }}
+        <div className="pq-directory-card" data-testid="customers-list-card">
+          <table
+            className="pq-table pq-directory-table rt-cards"
+            data-testid="customers-list-table"
+          >
+            <thead>
+              <tr>
+                <th>Khách hàng</th>
+                <th>Công ty / Đơn vị</th>
+                <th>Số điện thoại</th>
+                <th>Địa chỉ giao hàng</th>
+                <th style={{ textAlign: 'right' }}>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCustomers.map((c) => (
+                <tr key={c.id} data-testid={`customer-card-${c.code}`}>
+                  <td>
+                    <span className="pq-directory-cell-primary">
+                      <span className="pq-code-pill">{c.code}</span>
+                      <strong className="pq-directory-name">{c.name}</strong>
+                    </span>
+                  </td>
+                  <td
+                    data-label="Công ty"
+                    data-empty={!c.company_name ? 'true' : undefined}
                   >
-                    Đ/c: {c.address}
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                data-testid={`pq-quick-quote-customer-${c.code}`}
-                onClick={() => onSelectCustomerForQuote(c.id)}
-                className="pq-btn pq-btn-accent"
-                style={{ flexShrink: 0 }}
-              >
-                <PqPlusIcon size={14} />
-                <span>Báo giá</span>
-              </button>
-            </div>
-          ))}
+                    {c.company_name ? (
+                      <span>{c.company_name}</span>
+                    ) : (
+                      <span className="pq-directory-muted">—</span>
+                    )}
+                  </td>
+                  <td
+                    data-label="Điện thoại"
+                    data-empty={!c.phone ? 'true' : undefined}
+                    style={tabularNumStyle}
+                  >
+                    {c.phone ? (
+                      <strong style={{ fontWeight: 600 }}>{c.phone}</strong>
+                    ) : (
+                      <span className="pq-directory-muted">—</span>
+                    )}
+                  </td>
+                  <td
+                    data-label="Địa chỉ"
+                    data-empty={!c.address ? 'true' : undefined}
+                  >
+                    {c.address ? (
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {c.address}
+                      </span>
+                    ) : (
+                      <span className="pq-directory-muted">—</span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <button
+                      type="button"
+                      data-testid={`pq-quick-quote-customer-${c.code}`}
+                      aria-label={`Báo giá cho ${c.name}`}
+                      onClick={() => onSelectCustomerForQuote(c.id)}
+                      className="pq-btn pq-btn-accent pq-btn-sm"
+                    >
+                      <PqPlusIcon size={14} />
+                      <span>Báo giá</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

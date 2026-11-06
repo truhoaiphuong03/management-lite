@@ -260,7 +260,8 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
         v.name.toLowerCase().includes(q) ||
         v.code.toLowerCase().includes(q) ||
         (v.phone || '').toLowerCase().includes(q) ||
-        (v.bank_name || '').toLowerCase().includes(q),
+        (v.bank_name || '').toLowerCase().includes(q) ||
+        (v.bank_account_number || '').toLowerCase().includes(q),
     );
   }, [vendors, vendorSearch]);
 
@@ -538,6 +539,12 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
               onChange={(e) => setVendorSearch(e.target.value)}
             />
           </div>
+          {vendorSearch.trim() !== '' && (
+            <span style={{ fontSize: '12.5px', color: 'var(--muted-color)' }}>
+              Hiển thị <strong>{filteredVendors.length}</strong> /{' '}
+              {vendors.length} nhà in
+            </span>
+          )}
         </div>
 
         {filteredVendors.length === 0 ? (
@@ -585,77 +592,95 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
             )}
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-              gap: '12px',
-            }}
-          >
-            {filteredVendors.map((v) => {
-              const vendorPriceCount = priceItems.filter(
-                (p) => p.vendor_id === v.id && p.is_active !== false,
-              ).length;
-              return (
-                <div
-                  key={v.id}
-                  data-testid={`vendor-row-${v.code}`}
-                  className="pq-quote-card"
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '12px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <span className="pq-code-pill">{v.code}</span>
-                      <strong style={{ fontSize: '14.5px' }}>{v.name}</strong>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '12.5px',
-                        color: 'var(--muted-color)',
-                        marginTop: '5px',
-                      }}
-                    >
-                      SĐT:{' '}
-                      <strong style={{ color: 'var(--text-color)' }}>
-                        {v.phone || '—'}
-                      </strong>{' '}
-                      • NH: {v.bank_name || '—'}{' '}
-                      {v.bank_account_number
-                        ? `(${v.bank_account_number})`
-                        : ''}
-                    </div>
-                  </div>
-
-                  {onNavigateCatalogSubPage && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFilterVendorId(v.id);
-                        onNavigateCatalogSubPage('prices');
-                      }}
-                      className="pq-btn pq-btn-secondary"
-                    >
-                      <PqTagIcon size={14} />
-                      <span>Bảng giá ({vendorPriceCount})</span>
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+          <div className="pq-directory-card" data-testid="vendors-list-card">
+            <table
+              className="pq-table pq-directory-table rt-cards"
+              data-testid="vendors-list-table"
+            >
+              <thead>
+                <tr>
+                  <th>Nhà in đối tác</th>
+                  <th>Số điện thoại</th>
+                  <th>Ngân hàng</th>
+                  <th>Số tài khoản</th>
+                  <th style={{ textAlign: 'right' }}>Bảng giá</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredVendors.map((v) => {
+                  const vendorPriceCount = priceItems.filter(
+                    (p) => p.vendor_id === v.id && p.is_active !== false,
+                  ).length;
+                  return (
+                    <tr key={v.id} data-testid={`vendor-row-${v.code}`}>
+                      <td>
+                        <span className="pq-directory-cell-primary">
+                          <span className="pq-code-pill">{v.code}</span>
+                          <strong className="pq-directory-name">
+                            {v.name}
+                          </strong>
+                        </span>
+                      </td>
+                      <td
+                        data-label="Điện thoại"
+                        data-empty={!v.phone ? 'true' : undefined}
+                        style={tabularNumStyle}
+                      >
+                        {v.phone ? (
+                          <strong style={{ fontWeight: 600 }}>{v.phone}</strong>
+                        ) : (
+                          <span className="pq-directory-muted">—</span>
+                        )}
+                      </td>
+                      <td
+                        data-label="Ngân hàng"
+                        data-empty={!v.bank_name ? 'true' : undefined}
+                      >
+                        {v.bank_name ? (
+                          <span>{v.bank_name}</span>
+                        ) : (
+                          <span className="pq-directory-muted">—</span>
+                        )}
+                      </td>
+                      <td
+                        data-label="Số tài khoản"
+                        data-empty={!v.bank_account_number ? 'true' : undefined}
+                        style={tabularNumStyle}
+                      >
+                        {v.bank_account_number ? (
+                          <span style={{ color: 'var(--text-secondary)' }}>
+                            {v.bank_account_number}
+                          </span>
+                        ) : (
+                          <span className="pq-directory-muted">—</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {onNavigateCatalogSubPage ? (
+                          <button
+                            type="button"
+                            data-testid={`pq-vendor-prices-btn-${v.code}`}
+                            aria-label={`Bảng giá (${vendorPriceCount}) — ${v.name}`}
+                            onClick={() => {
+                              setFilterVendorId(v.id);
+                              onNavigateCatalogSubPage('prices');
+                            }}
+                            className="pq-btn pq-btn-secondary pq-btn-sm"
+                          >
+                            <PqTagIcon size={14} />
+                            <span>Bảng giá ({vendorPriceCount})</span>
+                          </button>
+                        ) : (
+                          <span className="pq-version-pill">
+                            {vendorPriceCount} hạng mục
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 

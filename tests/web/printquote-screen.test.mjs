@@ -35,6 +35,8 @@ import {
   stayOnPrintQuoteFallbackLeave,
 } from '../../dist/apps/web/src/printquote-draft-bridge.js';
 import { PrintQuoteScreen } from '../../dist/apps/web/src/screens/PrintQuoteScreen.js';
+import { CustomersTab } from '../../dist/apps/web/src/screens/printquote/CustomersTab.js';
+import { VendorsCatalogTab } from '../../dist/apps/web/src/screens/printquote/VendorsCatalogTab.js';
 import {
   buildPrintQuoteA4Html,
   formatCustomerLinePriceDisplay,
@@ -1481,5 +1483,166 @@ describe('MGL-PRINTQUOTE UX V2 — Web Routes, RBAC, Modal Catalogs, Honest KPIs
       clearPrintQuoteRamDraft();
       registerPrintQuoteLeaveInterceptor(null);
     }
+  });
+
+  it('renders CustomersTab and VendorsCatalogTab (vendors mode) as structured directory list tables with responsive rt-cards metadata', () => {
+    const customersHtml = renderToStaticMarkup(
+      React.createElement(CustomersTab, {
+        customers: [
+          {
+            id: 'c-1',
+            workspace_id: 'ws-1',
+            code: 'KH001',
+            name: 'ANH HẬU',
+            company_name: 'HT GROUP',
+            phone: '0988883355',
+            email: null,
+            address: null,
+            tax_code: null,
+            note: null,
+            is_active: true,
+            created_at: '2026-11-06T00:00:00.000Z',
+            updated_at: '2026-11-06T00:00:00.000Z',
+          },
+          {
+            id: 'c-2',
+            workspace_id: 'ws-1',
+            code: 'KH002',
+            name: 'Anh Tín',
+            company_name: null,
+            phone: null,
+            email: null,
+            address: '123 Nguyễn Huệ, Q.1',
+            tax_code: null,
+            note: null,
+            is_active: true,
+            created_at: '2026-11-06T00:00:00.000Z',
+            updated_at: '2026-11-06T00:00:00.000Z',
+          },
+        ],
+        custName: '',
+        setCustName: () => {},
+        custCompany: '',
+        setCustCompany: () => {},
+        custPhone: '',
+        setCustPhone: () => {},
+        custAddress: '',
+        setCustAddress: () => {},
+        onCreateCustomer: () => {},
+        onSelectCustomerForQuote: () => {},
+      }),
+    );
+
+    assert.ok(customersHtml.includes('data-testid="customers-list-table"'));
+    assert.ok(customersHtml.includes('pq-directory-table rt-cards'));
+    assert.ok(!customersHtml.includes('grid-template-columns'));
+    assert.ok(customersHtml.includes('<th>Khách hàng</th>'));
+    assert.ok(customersHtml.includes('<th>Công ty / Đơn vị</th>'));
+    assert.ok(customersHtml.includes('<th>Số điện thoại</th>'));
+    assert.ok(customersHtml.includes('<th>Địa chỉ giao hàng</th>'));
+    assert.ok(customersHtml.includes('data-testid="customer-card-KH001"'));
+    assert.ok(customersHtml.includes('data-testid="customer-card-KH002"'));
+    assert.ok(
+      customersHtml.includes('data-testid="pq-quick-quote-customer-KH001"'),
+    );
+    assert.ok(customersHtml.includes('data-empty="true"'));
+
+    const vendorsHtml = renderToStaticMarkup(
+      React.createElement(VendorsCatalogTab, {
+        mode: 'vendors',
+        vendors: [
+          {
+            id: 'v-1',
+            workspace_id: 'ws-1',
+            code: 'NI001',
+            name: 'Xưởng In Offset Sài Gòn',
+            phone: '0908111222',
+            address: null,
+            bank_name: 'Vietcombank',
+            bank_account_number: '0071000888999',
+            bank_account_holder: null,
+            note: null,
+            is_active: true,
+            created_at: '2026-11-06T00:00:00.000Z',
+            updated_at: '2026-11-06T00:00:00.000Z',
+          },
+          {
+            id: 'v-2',
+            workspace_id: 'ws-1',
+            code: 'NI002',
+            name: 'In Nhanh Tân Bình',
+            phone: null,
+            address: null,
+            bank_name: null,
+            bank_account_number: null,
+            bank_account_holder: null,
+            note: null,
+            is_active: true,
+            created_at: '2026-11-06T00:00:00.000Z',
+            updated_at: '2026-11-06T00:00:00.000Z',
+          },
+        ],
+        priceItems: [
+          {
+            id: 'p-1',
+            workspace_id: 'ws-1',
+            vendor_id: 'v-1',
+            code: 'BG001',
+            name: 'Tờ rơi A5',
+            specification: 'C150',
+            unit: 'tờ',
+            pricing_mode: 'PER_UNIT',
+            unit_cost: 300,
+            batch_total_cost: 0,
+            default_profit_mode: 'FIXED_AMOUNT',
+            default_profit_scope: 'PER_UNIT',
+            default_profit_value: 200,
+            version: 1,
+            is_active: true,
+            created_at: '2026-11-06T00:00:00.000Z',
+            updated_at: '2026-11-06T00:00:00.000Z',
+          },
+        ],
+        vendorName: '',
+        setVendorName: () => {},
+        vendorPhone: '',
+        setVendorPhone: () => {},
+        vendorBankName: '',
+        setVendorBankName: () => {},
+        vendorBankAccount: '',
+        setVendorBankAccount: () => {},
+        onCreateVendor: () => {},
+        priceVendorId: '',
+        setPriceVendorId: () => {},
+        priceItemName: '',
+        setPriceItemName: () => {},
+        priceSpec: '',
+        setPriceSpec: () => {},
+        priceCostMode: 'PER_UNIT',
+        setPriceCostMode: () => {},
+        priceUnitCost: 0,
+        setPriceUnitCost: () => {},
+        priceBatchCost: 0,
+        setPriceBatchCost: () => {},
+        priceDefaultProfitVal: 0,
+        setPriceDefaultProfitVal: () => {},
+        onCreatePriceItem: () => {},
+        onNavigateCatalogSubPage: () => {},
+      }),
+    );
+
+    assert.ok(vendorsHtml.includes('data-testid="vendors-list-table"'));
+    assert.ok(vendorsHtml.includes('pq-directory-table rt-cards'));
+    assert.ok(!vendorsHtml.includes('grid-template-columns'));
+    assert.ok(vendorsHtml.includes('<th>Nhà in đối tác</th>'));
+    assert.ok(vendorsHtml.includes('<th>Số điện thoại</th>'));
+    assert.ok(vendorsHtml.includes('<th>Ngân hàng</th>'));
+    assert.ok(vendorsHtml.includes('<th>Số tài khoản</th>'));
+    assert.ok(vendorsHtml.includes('data-testid="vendor-row-NI001"'));
+    assert.ok(vendorsHtml.includes('data-testid="vendor-row-NI002"'));
+    assert.ok(vendorsHtml.includes('data-testid="pq-vendor-prices-btn-NI001"'));
+    assert.ok(vendorsHtml.includes('Bảng giá (1)'));
+    assert.ok(vendorsHtml.includes('Bảng giá (0)'));
+    assert.ok(vendorsHtml.includes('data-empty="true"'));
   });
 });
