@@ -18,6 +18,7 @@ export interface NumericDraftInputProps {
   style?: React.CSSProperties | undefined;
   invalid?: boolean | undefined;
   required?: boolean | undefined;
+  onBlurField?: (() => void) | undefined;
 }
 
 /**
@@ -37,6 +38,7 @@ export const NumericDraftInput: React.FC<NumericDraftInputProps> = ({
   style,
   invalid = false,
   required,
+  onBlurField,
 }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
@@ -84,6 +86,7 @@ export const NumericDraftInput: React.FC<NumericDraftInputProps> = ({
     if (normalized !== value) {
       onValueChange(normalized);
     }
+    onBlurField?.();
   };
 
   const mergedStyle: React.CSSProperties = invalid

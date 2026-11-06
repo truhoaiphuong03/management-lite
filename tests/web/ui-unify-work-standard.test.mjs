@@ -253,7 +253,7 @@ function createApiMockHandler(getRole) {
     if (p.startsWith('/api/v1/print-quotes')) {
       const listField = p.endsWith('/vendors')
         ? {
-            vendors: [
+            items: [
               {
                 id: 'v-1',
                 code: 'NCC01',
@@ -265,15 +265,16 @@ function createApiMockHandler(getRole) {
           }
         : p.endsWith('/price-items')
           ? {
-              price_items: [
+              items: [
                 {
                   id: 'pi-1',
                   vendor_id: 'v-1',
-                  code: 'BG01',
-                  name: 'Tờ rơi A4 C150',
+                  code: 'GX-001',
+                  name: 'C100',
+                  specification: 'A4',
                   unit: 'tờ',
                   pricing_mode: 'PER_UNIT',
-                  unit_cost: 1200,
+                  unit_cost: 3000,
                   batch_quantity: 1,
                   batch_total_cost: 0,
                   default_profit_mode: 'FIXED_AMOUNT',
@@ -286,7 +287,7 @@ function createApiMockHandler(getRole) {
             }
           : p.endsWith('/customers')
             ? {
-                customers: [
+                items: [
                   {
                     id: 'c-1',
                     code: 'KH01',
@@ -635,10 +636,68 @@ test('Unify Management Lite to /work standard: CDP rendered font, 7-module typog
     );
     await page.waitForFunction(() => window.location.pathname === '/settings');
 
-    // 2c. PrintQuote 4 top tabs + 3 Catalog sub-tabs + RAM Draft Preservation across tab switches
+    // 2c. PrintQuote 5 top tabs + 4 Finance sub-tabs + 3 Catalog sub-tabs + 4-input line row alignment + RAM Draft Preservation
+    await page.setViewportSize({ width: 1366, height: 840 });
     await page.goto(`${baseUrl}/print-quotes/new`, {
       waitUntil: 'networkidle',
     });
+    await page.selectOption('#pq-line-catalog-0', 'pi-1');
+    await page.waitForFunction(
+      () => document.activeElement?.id === 'pq-line-qty-0',
+    );
+    const lineRowCheck = await page.evaluate(() => {
+      const ids = [
+        'pq-line-name-0',
+        'pq-line-spec-0',
+        'pq-line-qty-0',
+        'pq-line-unit-0',
+      ];
+      const rects = ids.map((id) => {
+        const el = document.getElementById(id);
+        const r = el.getBoundingClientRect();
+        return { id, top: r.top, bottom: r.bottom, width: r.width };
+      });
+      const specLabelRow = document
+        .querySelector('[data-testid="pq-toggle-spec-helper-0"]')
+        .parentElement.getBoundingClientRect();
+      const qtyEl = document.getElementById('pq-line-qty-0');
+      const qtyCs = getComputedStyle(qtyEl);
+      return {
+        rects,
+        specLabelRowHeight: specLabelRow.height,
+        qtyAriaInvalid: qtyEl.getAttribute('aria-invalid'),
+        qtyOutlineOffset: qtyCs.outlineOffset,
+      };
+    });
+    for (const r of lineRowCheck.rects) {
+      assert.ok(
+        Math.abs(r.top - lineRowCheck.rects[0].top) <= 1,
+        `1366px PrintQuote input ${r.id} top (${r.top}) must align with pq-line-name-0 top (${lineRowCheck.rects[0].top})`,
+      );
+      assert.ok(
+        Math.abs(r.bottom - lineRowCheck.rects[0].bottom) <= 1,
+        `1366px PrintQuote input ${r.id} bottom (${r.bottom}) must align with pq-line-name-0 bottom (${lineRowCheck.rects[0].bottom})`,
+      );
+    }
+    assert.ok(
+      lineRowCheck.specLabelRowHeight <= 24,
+      `1366px Spec label + Gợi ý row must remain single-line (got height=${lineRowCheck.specLabelRowHeight})`,
+    );
+    assert.ok(
+      lineRowCheck.rects[2].width >= 108,
+      `1366px Quantity input must be widened >= 108px (got ${lineRowCheck.rects[2].width})`,
+    );
+    assert.notEqual(
+      lineRowCheck.qtyAriaInvalid,
+      'true',
+      'Selecting a catalog item must not prematurely mark empty Số lượng as aria-invalid before user edits/blurs it',
+    );
+    assert.equal(
+      lineRowCheck.qtyOutlineOffset,
+      '0px',
+      'Focused PrintQuote input must have 0px outlineOffset (no double concentric ring)',
+    );
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.fill(
       '[data-testid="pq-title-input"]',
       'Báo giá Catalogue Cao Cấp 2026',

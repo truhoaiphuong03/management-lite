@@ -3476,16 +3476,50 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           border: 1px solid var(--border-color);
           margin-bottom: 12px;
         }
+        [data-testid="printquote-screen"] input:not([type="checkbox"]):not([type="radio"]):not([aria-invalid="true"]):focus-visible,
+        [data-testid="printquote-screen"] select:not([aria-invalid="true"]):focus-visible,
+        [data-testid="printquote-screen"] textarea:not([aria-invalid="true"]):focus-visible {
+          border-color: var(--accent-text) !important;
+          outline: 2px solid var(--focus-ring) !important;
+          outline-offset: 0px !important;
+        }
+        .pq-field-label-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 6px;
+          min-height: 20px;
+          margin-bottom: 6px;
+          white-space: nowrap;
+        }
+        .pq-field-label-row label {
+          margin-bottom: 0 !important;
+          white-space: nowrap;
+        }
+        .pq-inline-label-action {
+          background: transparent;
+          border: none;
+          padding: 0 2px;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1.2;
+          color: var(--accent-text);
+          cursor: pointer;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
         .pq-product-info-grid {
           display: grid;
-          grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.15fr) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1.05fr) minmax(176px, 1.2fr) minmax(196px, 1.25fr);
           gap: 10px;
+          align-items: end;
           margin-bottom: 12px;
         }
         .pq-qty-unit-pair {
           display: grid;
-          grid-template-columns: minmax(0, 1.25fr) minmax(78px, 0.9fr);
+          grid-template-columns: minmax(108px, 1.45fr) minmax(74px, 0.85fr);
           gap: 8px;
+          align-items: end;
         }
         .pq-pricing-pair-grid {
           display: grid;
@@ -3795,6 +3829,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         }
 
         /* Tablet & Mobile Responsive Adaptations */
+        @media (max-width: 1180px) {
+          .pq-product-info-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .pq-product-info-grid > div:first-child {
+            grid-column: 1 / -1;
+          }
+        }
+
         @media (max-width: 1080px) {
           .pq-editor-grid,
           .pq-detail-split-layout {
@@ -3802,12 +3845,6 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           }
           .pq-editor-summary-col {
             position: static;
-          }
-          .pq-product-info-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-          .pq-product-info-grid > div:first-child {
-            grid-column: 1 / -1;
           }
         }
 

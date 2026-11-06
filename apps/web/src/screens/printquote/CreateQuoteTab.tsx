@@ -729,6 +729,9 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
     livePricingResult.isPendingCost,
   );
   const showValidationState = Boolean(editingQuoteId || hasTouchedFields);
+  const [touchedQtyByLineId, setTouchedQtyByLineId] = useState<
+    Record<string, boolean>
+  >({});
 
   if (isLockedQuoteForEdit) {
     return (
@@ -1442,12 +1445,14 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                         {/* 2) Product Name, Specification + Contextual Helper, Quantity & Unit */}
                         <div className="pq-product-info-grid">
                           <div>
-                            <label
-                              htmlFor={`pq-line-name-${idx}`}
-                              style={labelStyle}
-                            >
-                              Tên sản phẩm in *
-                            </label>
+                            <div className="pq-field-label-row">
+                              <label
+                                htmlFor={`pq-line-name-${idx}`}
+                                style={{ ...labelStyle, marginBottom: 0 }}
+                              >
+                                Tên sản phẩm in *
+                              </label>
+                            </div>
                             <input
                               id={`pq-line-name-${idx}`}
                               aria-label={`Tên sản phẩm dòng ${idx + 1}`}
@@ -1468,15 +1473,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                           </div>
 
                           <div>
-                            <div
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                gap: '6px',
-                                marginBottom: '5px',
-                              }}
-                            >
+                            <div className="pq-field-label-row">
                               <label
                                 htmlFor={`pq-line-spec-${idx}`}
                                 style={{ ...labelStyle, marginBottom: 0 }}
@@ -1486,24 +1483,22 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                               <button
                                 type="button"
                                 data-testid={`pq-toggle-spec-helper-${idx}`}
+                                title="Gợi ý chất liệu & quy cách"
+                                aria-label={
+                                  openSpecHelperLineId === line.id
+                                    ? 'Ẩn gợi ý chất liệu'
+                                    : 'Gợi ý chất liệu'
+                                }
                                 onClick={() =>
                                   setOpenSpecHelperLineId((prev) =>
                                     prev === line.id ? null : line.id,
                                   )
                                 }
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  padding: '2px 4px',
-                                  fontSize: '12px',
-                                  fontWeight: 700,
-                                  color: 'var(--accent-text)',
-                                  cursor: 'pointer',
-                                }}
+                                className="pq-inline-label-action"
                               >
                                 {openSpecHelperLineId === line.id
-                                  ? 'Ẩn gợi ý ▲'
-                                  : '+ Gợi ý chất liệu'}
+                                  ? 'Ẩn ▲'
+                                  : '+ Gợi ý'}
                               </button>
                             </div>
                             <input
@@ -1526,13 +1521,15 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                           </div>
 
                           <div className="pq-qty-unit-pair">
-                            <div style={{ flex: '1.35 1 0', minWidth: 0 }}>
-                              <label
-                                htmlFor={`pq-line-qty-${idx}`}
-                                style={labelStyle}
-                              >
-                                Số lượng *
-                              </label>
+                            <div style={{ minWidth: 0 }}>
+                              <div className="pq-field-label-row">
+                                <label
+                                  htmlFor={`pq-line-qty-${idx}`}
+                                  style={{ ...labelStyle, marginBottom: 0 }}
+                                >
+                                  Số lượng *
+                                </label>
+                              </div>
                               <NumericDraftInput
                                 id={`pq-line-qty-${idx}`}
                                 ariaLabel={`Số lượng dòng ${idx + 1}`}
@@ -1540,11 +1537,25 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                 placeholder="VD: 100"
                                 style={{ ...inputStyle, ...tabularNumStyle }}
                                 invalid={Boolean(
-                                  showValidationState && lineErr?.quantity,
+                                  (editingQuoteId ||
+                                    touchedQtyByLineId[line.id]) &&
+                                  lineErr?.quantity,
                                 )}
                                 value={rawQtyInput}
+                                onBlurField={() =>
+                                  setTouchedQtyByLineId((prev) =>
+                                    prev[line.id]
+                                      ? prev
+                                      : { ...prev, [line.id]: true },
+                                  )
+                                }
                                 onValueChange={(nextRaw) => {
                                   onMarkTouched?.();
+                                  setTouchedQtyByLineId((prev) =>
+                                    prev[line.id]
+                                      ? prev
+                                      : { ...prev, [line.id]: true },
+                                  );
                                   const parsed = parseNumericDraftValue(
                                     nextRaw,
                                     {
@@ -1571,16 +1582,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                               />
                             </div>
 
-                            <div style={{ flex: '0.85 1 0', minWidth: 0 }}>
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  marginBottom: '5px',
-                                }}
-                              >
+                            <div style={{ minWidth: 0 }}>
+                              <div className="pq-field-label-row">
                                 <label
                                   htmlFor={`pq-line-unit-${idx}`}
                                   style={{ ...labelStyle, marginBottom: 0 }}
@@ -1597,15 +1600,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                         [line.id]: !prev[line.id],
                                       }))
                                     }
-                                    style={{
-                                      background: 'transparent',
-                                      border: 'none',
-                                      padding: 0,
-                                      fontSize: '12px',
-                                      fontWeight: 700,
-                                      color: 'var(--accent-text)',
-                                      cursor: 'pointer',
-                                    }}
+                                    className="pq-inline-label-action"
                                   >
                                     {isAreaPanelOpen ? 'Ẩn m²' : '+ m²'}
                                   </button>

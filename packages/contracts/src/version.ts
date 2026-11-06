@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.2';
-export const SYSTEM_COMMIT = 'aefeaec';
+export const SYSTEM_VERSION = '0.9.3';
+export const SYSTEM_COMMIT = '497e7fa';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,25 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.2',
+    version: '0.9.3',
     commit: 'latest',
+    released_at: '2026-11-06',
+    summary:
+      'Căn thẳng hàng 4 ô nhập sản phẩm trên màn hình Tạo báo giá in ấn (/print-quotes/new), nới rộng ô Số lượng và khử viền kép đỏ-xanh khi chọn từ bảng giá đã lưu',
+    added: [
+      'Kiểm thử trình duyệt tự động kiểm chứng độ thẳng hàng ngang của 4 ô Tên sản phẩm, Quy cách, Số lượng, Đơn vị ở 1366px/1440px và trạng thái viền khi chọn giá cơ bản đã lưu.',
+    ],
+    improved: [
+      'Đồng bộ chiều cao hàng nhãn (.pq-field-label-row) và tỷ lệ cột lưới sản phẩm (.pq-product-info-grid) để 4 ô Tên sản phẩm, Quy cách / Chất liệu, Số lượng và Đơn vị luôn thẳng hàng ngang, không rớt 2 dòng nhãn trên màn hình laptop & desktop.',
+      'Nới rộng ô Số lượng (tối thiểu 108px) và tách riêng trạng thái chạm/rời ô Số lượng để không báo viền đỏ sớm ngay khi vừa chọn sản phẩm từ Giá cơ bản đã lưu.',
+    ],
+    fixed: [
+      'Khử hiện tượng 2 vòng viền đỏ lồng xanh (outline-offset chồng lên border) khi đặt con trỏ vào các ô nhập trên phân hệ Báo giá in ấn.',
+    ],
+  },
+  {
+    version: '0.9.2',
+    commit: '497e7fa',
     released_at: '2026-11-05',
     summary:
       'Mặc định giao diện Sáng (màu trắng) khi mở trang & đăng nhập, đồng thời sửa tương phản huy hiệu mã nhân viên (NV002) và các nhãn phụ ở chế độ Sáng',
