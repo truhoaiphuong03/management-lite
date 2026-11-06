@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { StatusBadge } from '../../../../../packages/ui/src/components/index.js';
 import {
   AreaInputMode,
@@ -31,11 +31,14 @@ import {
   type VendorCostModeType,
 } from '../../../../../packages/contracts/src/printquote.js';
 import {
+  filterPrintCustomersByNameOrPhone,
   formatAreaSqmVn,
   formatCustomerLinePriceDisplay,
   formatExactVnd,
   formatNumberVn,
+  formatSelectedPrintCustomerLabel,
   formatVnd,
+  isLikelyCustomerPhoneQuery,
   numberToVietnameseWords,
   parseNumericDraftValue,
   type DraftLineValidationError,
@@ -336,13 +339,97 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
     Record<string, string>
   >({});
 
-  // Quick customer modal dialog
+  // Quick customer modal dialog & inline customer search combobox
   const [showQuickCustomerModal, setShowQuickCustomerModal] =
     useState<boolean>(false);
   const [quickCustName, setQuickCustName] = useState<string>('');
   const [quickCustPhone, setQuickCustPhone] = useState<string>('');
   const [quickCustCompany, setQuickCustCompany] = useState<string>('');
   const [quickCustSaving, setQuickCustSaving] = useState<boolean>(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] =
+    useState<boolean>(false);
+  const [highlightedCustomerIdx, setHighlightedCustomerIdx] =
+    useState<number>(0);
+  const customerComboRef = useRef<HTMLDivElement | null>(null);
+  const customerInputRef = useRef<HTMLInputElement | null>(null);
+
+  const selectedCustomer = useMemo(
+    () =>
+      selectedCustomerId
+        ? (customers.find((c) => c.id === selectedCustomerId) ?? null)
+        : null,
+    [customers, selectedCustomerId],
+  );
+
+  const filteredCustomers = useMemo(
+    () =>
+      filterPrintCustomersByNameOrPhone(
+        customers,
+        customerSearchQuery,
+        selectedCustomerId,
+      ),
+    [customers, customerSearchQuery, selectedCustomerId],
+  );
+
+  const customerComboOptions = useMemo(() => {
+    const hasQuery = customerSearchQuery.trim().length > 0;
+    const customerEntries = filteredCustomers.map((customer) => ({
+      id: customer.id,
+      customer,
+    }));
+    if (hasQuery) {
+      return customerEntries;
+    }
+    return [
+      { id: '', customer: null as PrintCustomerData | null },
+      ...customerEntries,
+    ];
+  }, [customerSearchQuery, filteredCustomers]);
+
+  useEffect(() => {
+    if (!isCustomerDropdownOpen || typeof document === 'undefined') return;
+    const handleOutsidePointer = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (
+        customerComboRef.current &&
+        target &&
+        !customerComboRef.current.contains(target)
+      ) {
+        setIsCustomerDropdownOpen(false);
+        setCustomerSearchQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handleOutsidePointer);
+    document.addEventListener('touchstart', handleOutsidePointer, {
+      passive: true,
+    });
+    return () => {
+      document.removeEventListener('mousedown', handleOutsidePointer);
+      document.removeEventListener('touchstart', handleOutsidePointer);
+    };
+  }, [isCustomerDropdownOpen]);
+
+  const handleSelectCustomerFromCombo = (nextCustomerId: string) => {
+    onMarkTouched?.();
+    onChangeSelectedCustomerId(nextCustomerId);
+    setCustomerSearchQuery('');
+    setIsCustomerDropdownOpen(false);
+  };
+
+  const handleOpenQuickCustomerFromSearch = (rawQuery: string) => {
+    const trimmed = rawQuery.trim();
+    if (isLikelyCustomerPhoneQuery(trimmed)) {
+      setQuickCustPhone(trimmed);
+      setQuickCustName('');
+    } else if (trimmed) {
+      setQuickCustName(trimmed);
+      setQuickCustPhone('');
+    }
+    setCustomerSearchQuery('');
+    setIsCustomerDropdownOpen(false);
+    setShowQuickCustomerModal(true);
+  };
 
   // Catalog picker modal dialog for a specific product line
   const [catalogPickerLineIdx, setCatalogPickerLineIdx] = useState<
@@ -709,6 +796,8 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
         setQuickCustName('');
         setQuickCustPhone('');
         setQuickCustCompany('');
+        setCustomerSearchQuery('');
+        setIsCustomerDropdownOpen(false);
         setShowQuickCustomerModal(false);
       }
     } finally {
@@ -845,7 +934,11 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
         <button
           type="button"
           data-testid="pq-reset-draft-btn"
-          onClick={onResetNewQuote}
+          onClick={() => {
+            setCustomerSearchQuery('');
+            setIsCustomerDropdownOpen(false);
+            onResetNewQuote();
+          }}
           className="pq-btn pq-btn-ghost"
         >
           {editingQuoteId ? '+ Chuyển sang Tạo mới' : 'Làm mới ô nhập'}
@@ -883,28 +976,421 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
             </div>
 
             <div className="pq-customer-grid">
-              <div>
-                <label style={labelStyle} htmlFor="pq-customer-select">
+              <div
+                ref={customerComboRef}
+                style={{ position: 'relative', minWidth: 0 }}
+              >
+                <label style={labelStyle} htmlFor="pq-customer-search-input">
                   Khách hàng nhận báo giá
                 </label>
-                <select
-                  id="pq-customer-select"
-                  data-testid="pq-customer-select"
-                  style={inputStyle}
-                  value={selectedCustomerId}
-                  onChange={(e) => {
-                    onMarkTouched?.();
-                    onChangeSelectedCustomerId(e.target.value);
+
+                <div
+                  style={{
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                 >
-                  <option value="">-- Khách lẻ / Chọn khách hàng --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code} — {c.name}{' '}
-                      {c.company_name ? `(${c.company_name})` : ''}
-                    </option>
-                  ))}
-                </select>
+                  <PqSearchIcon
+                    size={15}
+                    style={{
+                      position: 'absolute',
+                      left: '11px',
+                      color: 'var(--muted-color)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+
+                  <input
+                    ref={customerInputRef}
+                    id="pq-customer-search-input"
+                    data-testid="pq-customer-search-input"
+                    type="text"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={isCustomerDropdownOpen}
+                    aria-controls={
+                      isCustomerDropdownOpen ? 'pq-customer-listbox' : undefined
+                    }
+                    aria-activedescendant={
+                      isCustomerDropdownOpen && customerComboOptions.length > 0
+                        ? `pq-cust-opt-${
+                            customerComboOptions[
+                              Math.min(
+                                highlightedCustomerIdx,
+                                customerComboOptions.length - 1,
+                              )
+                            ]?.id || 'walkin'
+                          }`
+                        : undefined
+                    }
+                    autoComplete="off"
+                    style={{
+                      ...inputStyle,
+                      paddingLeft: '34px',
+                      paddingRight:
+                        selectedCustomerId || customerSearchQuery
+                          ? '58px'
+                          : '34px',
+                      textOverflow: 'ellipsis',
+                    }}
+                    value={
+                      isCustomerDropdownOpen
+                        ? customerSearchQuery
+                        : selectedCustomer
+                          ? formatSelectedPrintCustomerLabel(selectedCustomer)
+                          : ''
+                    }
+                    placeholder={
+                      isCustomerDropdownOpen && selectedCustomer
+                        ? `Đang chọn: ${formatSelectedPrintCustomerLabel(selectedCustomer)} (gõ tên/SĐT)…`
+                        : 'Tìm theo tên hoặc SĐT (bỏ trống = Khách lẻ)…'
+                    }
+                    onFocus={() => {
+                      setIsCustomerDropdownOpen(true);
+                      setHighlightedCustomerIdx(0);
+                    }}
+                    onChange={(e) => {
+                      setCustomerSearchQuery(e.target.value);
+                      setIsCustomerDropdownOpen(true);
+                      setHighlightedCustomerIdx(0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (!isCustomerDropdownOpen) {
+                          setIsCustomerDropdownOpen(true);
+                          setHighlightedCustomerIdx(0);
+                          return;
+                        }
+                        if (customerComboOptions.length > 0) {
+                          setHighlightedCustomerIdx(
+                            (prev) => (prev + 1) % customerComboOptions.length,
+                          );
+                        }
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (!isCustomerDropdownOpen) {
+                          setIsCustomerDropdownOpen(true);
+                          setHighlightedCustomerIdx(
+                            Math.max(0, customerComboOptions.length - 1),
+                          );
+                          return;
+                        }
+                        if (customerComboOptions.length > 0) {
+                          setHighlightedCustomerIdx(
+                            (prev) =>
+                              (prev - 1 + customerComboOptions.length) %
+                              customerComboOptions.length,
+                          );
+                        }
+                      } else if (e.key === 'Enter' && isCustomerDropdownOpen) {
+                        e.preventDefault();
+                        const safeIdx = Math.min(
+                          highlightedCustomerIdx,
+                          customerComboOptions.length - 1,
+                        );
+                        if (safeIdx >= 0 && customerComboOptions[safeIdx]) {
+                          handleSelectCustomerFromCombo(
+                            customerComboOptions[safeIdx].id,
+                          );
+                        } else if (customerSearchQuery.trim() !== '') {
+                          handleOpenQuickCustomerFromSearch(
+                            customerSearchQuery,
+                          );
+                        }
+                      } else if (e.key === 'Escape' && isCustomerDropdownOpen) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsCustomerDropdownOpen(false);
+                        setCustomerSearchQuery('');
+                      }
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: '6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '2px',
+                    }}
+                  >
+                    {(selectedCustomerId || customerSearchQuery) && (
+                      <button
+                        type="button"
+                        data-testid="pq-customer-clear-btn"
+                        aria-label="Xóa chọn khách hàng (về Khách lẻ)"
+                        title="Về Khách lẻ"
+                        onClick={() => {
+                          onMarkTouched?.();
+                          onChangeSelectedCustomerId('');
+                          setCustomerSearchQuery('');
+                          setIsCustomerDropdownOpen(false);
+                          customerInputRef.current?.focus();
+                        }}
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--muted-color)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          padding: 0,
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      data-testid="pq-customer-toggle-btn"
+                      aria-label={
+                        isCustomerDropdownOpen
+                          ? 'Đóng danh sách khách hàng'
+                          : 'Mở danh sách khách hàng'
+                      }
+                      onClick={() => {
+                        if (isCustomerDropdownOpen) {
+                          setIsCustomerDropdownOpen(false);
+                          setCustomerSearchQuery('');
+                        } else {
+                          setIsCustomerDropdownOpen(true);
+                          setHighlightedCustomerIdx(0);
+                          customerInputRef.current?.focus();
+                        }
+                      }}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: 'var(--muted-color)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 0,
+                      }}
+                    >
+                      <PqChevronIcon size={14} up={isCustomerDropdownOpen} />
+                    </button>
+                  </div>
+                </div>
+
+                {isCustomerDropdownOpen && (
+                  <div
+                    data-testid="pq-customer-dropdown"
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      right: 0,
+                      zIndex: 45,
+                      backgroundColor: 'var(--surface-color)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '11px',
+                      boxShadow: '0 10px 28px rgba(0, 0, 0, 0.22)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      id="pq-customer-listbox"
+                      data-testid="pq-customer-listbox"
+                      role="listbox"
+                      aria-label="Danh sách khách hàng nhận báo giá"
+                      style={{
+                        maxHeight: '248px',
+                        overflowY: 'auto',
+                        padding: '4px',
+                      }}
+                    >
+                      {customerComboOptions.length > 0 ? (
+                        customerComboOptions.map((opt, optIdx) => {
+                          const safeHighlight = Math.min(
+                            highlightedCustomerIdx,
+                            customerComboOptions.length - 1,
+                          );
+                          const isHighlighted = optIdx === safeHighlight;
+                          const isSelected = opt.id === selectedCustomerId;
+                          const cust = opt.customer;
+
+                          return (
+                            <div
+                              key={opt.id || '__walkin__'}
+                              id={`pq-cust-opt-${opt.id || 'walkin'}`}
+                              data-testid={
+                                opt.id
+                                  ? `pq-customer-option-${opt.id}`
+                                  : 'pq-customer-option-walkin'
+                              }
+                              role="option"
+                              aria-selected={isSelected}
+                              onMouseEnter={() =>
+                                setHighlightedCustomerIdx(optIdx)
+                              }
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                              }}
+                              onClick={() =>
+                                handleSelectCustomerFromCombo(opt.id)
+                              }
+                              style={{
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '2px',
+                                backgroundColor: isHighlighted
+                                  ? 'var(--accent-soft)'
+                                  : isSelected
+                                    ? 'var(--surface-subtle)'
+                                    : 'transparent',
+                                border: isSelected
+                                  ? '1px solid var(--accent-text)'
+                                  : '1px solid transparent',
+                              }}
+                            >
+                              {cust ? (
+                                <>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      gap: '8px',
+                                      minWidth: 0,
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontSize: '13.5px',
+                                        fontWeight: 700,
+                                        color: 'var(--text-color)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {cust.name}
+                                      {cust.company_name
+                                        ? ` (${cust.company_name})`
+                                        : ''}
+                                    </span>
+
+                                    <span
+                                      style={{
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        color: 'var(--accent-text)',
+                                        flexShrink: 0,
+                                        ...tabularNumStyle,
+                                      }}
+                                    >
+                                      {cust.code}
+                                    </span>
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      fontSize: '12px',
+                                      color: 'var(--muted-color)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      flexWrap: 'wrap',
+                                      ...tabularNumStyle,
+                                    }}
+                                  >
+                                    <span>
+                                      SĐT:{' '}
+                                      <strong
+                                        style={{ color: 'var(--text-color)' }}
+                                      >
+                                        {cust.phone?.trim() || 'Chưa cập nhật'}
+                                      </strong>
+                                    </span>
+                                  </div>
+                                </>
+                              ) : (
+                                <span
+                                  style={{
+                                    fontSize: '13px',
+                                    fontWeight: isSelected ? 700 : 600,
+                                    color: isSelected
+                                      ? 'var(--accent-text)'
+                                      : 'var(--muted-color)',
+                                  }}
+                                >
+                                  -- Khách lẻ / Không gắn hồ sơ khách --
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div
+                          id="pq-cust-opt-empty"
+                          data-testid="pq-customer-no-results"
+                          role="option"
+                          aria-selected={false}
+                          aria-disabled="true"
+                          style={{
+                            padding: '10px 12px',
+                            fontSize: '12.5px',
+                            color: 'var(--muted-color)',
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          Không tìm thấy khách có tên hoặc SĐT khớp &ldquo;
+                          <strong style={{ color: 'var(--text-color)' }}>
+                            {customerSearchQuery.trim()}
+                          </strong>
+                          &rdquo;.
+                        </div>
+                      )}
+                    </div>
+
+                    {customerSearchQuery.trim() !== '' && (
+                      <div
+                        style={{
+                          borderTop: '1px solid var(--border-color)',
+                          padding: '6px',
+                          backgroundColor: 'var(--surface-subtle)',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          data-testid="pq-customer-search-quick-add"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() =>
+                            handleOpenQuickCustomerFromSearch(
+                              customerSearchQuery,
+                            )
+                          }
+                          className="pq-btn pq-btn-accent pq-btn-sm"
+                          style={{ width: '100%', justifyContent: 'center' }}
+                        >
+                          <PqUsersIcon size={13} />
+                          <span>
+                            + Thêm khách mới &ldquo;
+                            {customerSearchQuery.trim()}&rdquo;
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

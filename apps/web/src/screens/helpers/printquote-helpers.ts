@@ -19,6 +19,7 @@ import {
   type CustomerLinePricePresentation,
   type LineCostSourceType,
   type PendingCostLineSummary,
+  type PrintCustomerData,
   type PrintVendorPriceItemData,
   type ProfitModeType,
   type ProfitScopeType,
@@ -1382,4 +1383,158 @@ ${customerNotes}</div>
   </div>
 </body>
 </html>`;
+}
+
+/**
+ * Chuẩn hóa chuỗi tiếng Việt không dấu để tra cứu tên khách hàng / công ty / mã KH.
+ */
+export function normalizeCustomerSearchText(
+  value: string | null | undefined,
+): string {
+  if (!value) return '';
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Chuẩn hóa số điện thoại để tra cứu linh hoạt (bỏ khoảng trắng/dấu chấm/gạch ngang,
+ * đồng bộ đầu số +84 / 84 về 0 để gõ 0909..., +84909..., hay 4 số cuối đều khớp).
+ */
+export function normalizeCustomerPhoneDigits(
+  value: string | null | undefined,
+): { rawDigits: string; localZeroDigits: string } {
+  if (!value) return { rawDigits: '', localZeroDigits: '' };
+  const rawDigits = value.replace(/\D+/g, '');
+  if (!rawDigits) return { rawDigits: '', localZeroDigits: '' };
+  const trimmed = value.trim();
+  const startsWithIntlVn =
+    trimmed.startsWith('+84') ||
+    (rawDigits.startsWith('84') && rawDigits.length >= 9);
+  const localZeroDigits =
+    startsWithIntlVn && rawDigits.startsWith('84')
+      ? `0${rawDigits.slice(2)}`
+      : rawDigits;
+  return { rawDigits, localZeroDigits };
+}
+
+/**
+ * Kiểm tra từ khóa người dùng đang gõ có dạng số điện thoại hay không
+ * (dùng để điền sẵn đúng ô SĐT hoặc Tên khi bấm "+ Thêm khách mới").
+ */
+export function isLikelyCustomerPhoneQuery(
+  query: string | null | undefined,
+): boolean {
+  if (!query) return false;
+  const trimmed = query.trim();
+  if (!trimmed || !/^[+\d][\d\s.\-()]*$/.test(trimmed)) return false;
+  const { rawDigits } = normalizeCustomerPhoneDigits(trimmed);
+  return rawDigits.length >= 4;
+}
+
+/**
+ * Hiển thị ngắn gọn, rõ ràng khách hàng đã chọn trong ô Khách hàng nhận báo giá.
+ */
+export function formatSelectedPrintCustomerLabel(
+  customer: Pick<PrintCustomerData, 'code' | 'name' | 'phone' | 'company_name'>,
+): string {
+  const companySuffix = customer.company_name?.trim()
+    ? ` (${customer.company_name.trim()})`
+    : '';
+  const phoneClean = customer.phone?.trim() || '';
+  if (phoneClean) {
+    return `${customer.name}${companySuffix} — ${phoneClean}`;
+  }
+  return `${customer.name}${companySuffix} (${customer.code})`;
+}
+
+/**
+ * Lọc và xếp hạng danh sách khách hàng theo Tên (không phân biệt dấu) hoặc SĐT
+ * (khớp đầu số, số cuối, định dạng có dấu cách/chấm hoặc +84), kèm hỗ trợ công ty & mã KH.
+ */
+export function filterPrintCustomersByNameOrPhone(
+  customers: readonly PrintCustomerData[],
+  query: string | null | undefined,
+  selectedCustomerId?: string | null,
+): PrintCustomerData[] {
+  const eligible = customers.filter(
+    (c) =>
+      c.is_active !== false ||
+      (selectedCustomerId && c.id === selectedCustomerId),
+  );
+  const rawTrimmed = query?.trim() ?? '';
+  if (!rawTrimmed) {
+    return eligible;
+  }
+
+  const normQuery = normalizeCustomerSearchText(rawTrimmed);
+  const qPhone = normalizeCustomerPhoneDigits(rawTrimmed);
+  const hasDigitsQuery = qPhone.rawDigits.length > 0;
+
+  const scored: Array<{ customer: PrintCustomerData; score: number }> = [];
+
+  for (const customer of eligible) {
+    const normName = normalizeCustomerSearchText(customer.name);
+    const normCompany = normalizeCustomerSearchText(customer.company_name);
+    const normCode = normalizeCustomerSearchText(customer.code);
+    const cPhone = normalizeCustomerPhoneDigits(customer.phone);
+
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    if (normQuery) {
+      if (normName === normQuery) {
+        bestScore = Math.min(bestScore, 0);
+      } else if (normName.startsWith(normQuery)) {
+        bestScore = Math.min(bestScore, 1);
+      } else if (
+        normName.split(' ').some((token) => token.startsWith(normQuery))
+      ) {
+        bestScore = Math.min(bestScore, 2);
+      } else if (normName.includes(normQuery)) {
+        bestScore = Math.min(bestScore, 3);
+      } else if (normCompany && normCompany.includes(normQuery)) {
+        bestScore = Math.min(bestScore, 4);
+      } else if (normCode && normCode.includes(normQuery)) {
+        bestScore = Math.min(bestScore, 5);
+      }
+    }
+
+    if (hasDigitsQuery && cPhone.rawDigits) {
+      const qLocal = qPhone.localZeroDigits;
+      const qRaw = qPhone.rawDigits;
+      if (cPhone.localZeroDigits === qLocal || cPhone.rawDigits === qRaw) {
+        bestScore = Math.min(bestScore, 0);
+      } else if (
+        (qLocal && cPhone.localZeroDigits.startsWith(qLocal)) ||
+        cPhone.rawDigits.startsWith(qRaw)
+      ) {
+        bestScore = Math.min(bestScore, 1);
+      } else if (
+        (qLocal && cPhone.localZeroDigits.endsWith(qLocal)) ||
+        cPhone.rawDigits.endsWith(qRaw)
+      ) {
+        bestScore = Math.min(bestScore, 2);
+      } else if (
+        (qLocal && cPhone.localZeroDigits.includes(qLocal)) ||
+        cPhone.rawDigits.includes(qRaw)
+      ) {
+        bestScore = Math.min(bestScore, 3);
+      }
+    }
+
+    if (Number.isFinite(bestScore)) {
+      scored.push({ customer, score: bestScore });
+    }
+  }
+
+  scored.sort((a, b) => {
+    if (a.score !== b.score) return a.score - b.score;
+    return a.customer.name.localeCompare(b.customer.name, 'vi');
+  });
+
+  return scored.map((entry) => entry.customer);
 }
