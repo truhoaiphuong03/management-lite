@@ -1088,17 +1088,6 @@ export class EmployeeService {
         }
       }
 
-      if (
-        nextSubRoleToSave !== undefined &&
-        nextSubPermissionsToSave !== undefined
-      ) {
-        await client.query(
-          `ALTER TABLE employees
-             ADD COLUMN IF NOT EXISTS sub_role text NULL,
-             ADD COLUMN IF NOT EXISTS sub_permissions jsonb NOT NULL DEFAULT '[]'::jsonb;`,
-        );
-      }
-
       const newFullName =
         body.full_name !== undefined ? body.full_name.trim() : emp.full_name;
       const newEligibility =

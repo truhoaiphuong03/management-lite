@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.7';
-export const SYSTEM_COMMIT = '69355d4';
+export const SYSTEM_VERSION = '0.9.8';
+export const SYSTEM_COMMIT = '5669d1b';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.7',
+    version: '0.9.8',
     commit: 'latest',
+    released_at: '2026-11-07',
+    summary:
+      'Khắc phục lỗi "An unexpected internal error occurred" khi lưu Phân quyền Quản lý phụ (Admin vận hành) hoặc cập nhật hồ sơ nhân sự trên môi trường Production',
+    added: [
+      'Bổ sung kiểm thử hồi quy tự động khóa cứng không cho phép chạy câu lệnh DDL runtime (ALTER/CREATE/DROP TABLE) trong toàn bộ mã nguồn API.',
+    ],
+    improved: [
+      'Loại bỏ hoàn toàn câu lệnh DDL runtime (ALTER TABLE) trong EmployeeService và AccountsService để tương thích tuyệt đối với tài khoản DB phân quyền tối thiểu (hp_app_runtime).',
+    ],
+    fixed: [
+      'Khắc phục lỗi PostgreSQL 42501 (must be owner of table employees) làm hủy giao dịch khi bấm Lưu thay đổi phân quyền Quản lý phụ / quyền phụ trên màn hình Hồ sơ nhân viên (/employees/:id).',
+    ],
+  },
+  {
+    version: '0.9.7',
+    commit: '5669d1b',
     released_at: '2026-11-07',
     summary:
       'Tăng tốc toàn diện thời gian tải trang ql.hoaiphuong.click (Brotli/Gzip, immutable cache, khử thác nước 11 API trên Báo giá in ấn, cache cầu nối V4) và tốc độ sửa code / CI',

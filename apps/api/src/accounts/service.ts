@@ -785,42 +785,29 @@ export class AccountsService {
         msg.includes('phone_number') ||
         msg.includes('parent_account_id')
       ) {
-        try {
-          await this.pool.query(`
-            ALTER TABLE managed_accounts
-              ADD COLUMN IF NOT EXISTS health_status text NOT NULL DEFAULT 'healthy',
-              ADD COLUMN IF NOT EXISTS phone_number text NULL,
-              ADD COLUMN IF NOT EXISTS phone_note text NULL,
-              ADD COLUMN IF NOT EXISTS parent_account_id uuid NULL,
-              ADD COLUMN IF NOT EXISTS recovery_account_id uuid NULL,
-              ADD COLUMN IF NOT EXISTS authenticator_account_id uuid NULL;
-          `);
-          res = await this.pool.query(sql, params);
-        } catch {
-          const fbParams: unknown[] = [context.workspace.id];
-          const fbConds: string[] = ['ma.workspace_id = $1'];
-          if (status !== 'all') {
-            fbParams.push(status);
-            fbConds.push(`ma.status = $${fbParams.length}`);
-          }
-          if (platform) {
-            fbParams.push(platform);
-            fbConds.push(`ma.platform = $${fbParams.length}`);
-          }
-          const fallbackSql = `
-            SELECT
-              ma.id, ma.workspace_id, ma.platform, ma.platform_account_id, ma.username,
-              ma.recovery_email, ma.account_group, ma.assigned_employee_id,
-              e.full_name AS assigned_employee_name, e.employee_code AS assigned_employee_code,
-              ma.status, ma.notes, ma.version, ma.created_at, ma.updated_at
-            FROM managed_accounts ma
-            LEFT JOIN employees e
-              ON e.workspace_id = ma.workspace_id AND e.id = ma.assigned_employee_id
-            WHERE ${fbConds.join(' AND ')}
-            ORDER BY ma.created_at DESC;
-          `;
-          res = await this.pool.query(fallbackSql, fbParams);
+        const fbParams: unknown[] = [context.workspace.id];
+        const fbConds: string[] = ['ma.workspace_id = $1'];
+        if (status !== 'all') {
+          fbParams.push(status);
+          fbConds.push(`ma.status = $${fbParams.length}`);
         }
+        if (platform) {
+          fbParams.push(platform);
+          fbConds.push(`ma.platform = $${fbParams.length}`);
+        }
+        const fallbackSql = `
+          SELECT
+            ma.id, ma.workspace_id, ma.platform, ma.platform_account_id, ma.username,
+            ma.recovery_email, ma.account_group, ma.assigned_employee_id,
+            e.full_name AS assigned_employee_name, e.employee_code AS assigned_employee_code,
+            ma.status, ma.notes, ma.version, ma.created_at, ma.updated_at
+          FROM managed_accounts ma
+          LEFT JOIN employees e
+            ON e.workspace_id = ma.workspace_id AND e.id = ma.assigned_employee_id
+          WHERE ${fbConds.join(' AND ')}
+          ORDER BY ma.created_at DESC;
+        `;
+        res = await this.pool.query(fallbackSql, fbParams);
       } else {
         throw err;
       }

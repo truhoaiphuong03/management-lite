@@ -732,3 +732,23 @@
 11. **Commit / PR:** Nhánh `feat/perf-load-and-dev-speed-v097` (`https://github.com/truhoaiphuong03/management-lite/pull/new/feat/perf-load-and-dev-speed-v097`)
 12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Chờ Owner phê duyệt merge PR vào `main`, ký phát hành qua cổng `Owner-Locked Release Gate` và chạy chuyển đổi `serve-web.cjs`)_
 13. **NEXT_ACTION:** Owner mở & merge PR từ `feat/perf-load-and-dev-speed-v097` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), chạy `Invoke-OwnerReleaseToWeb.ps1` (phát hành `v0.9.7` + migration `0037`) và chạy `Switch-ProductionWebServerToServeWeb.ps1` trong PowerShell Administrator.
+
+---
+
+## HOTFIX `v0.9.8` — SỬA LỖI `500` (`42501`) KHI LƯU PHÂN QUYỀN QUẢN LÝ PHỤ TRÊN PRODUCTION
+
+### Task `HF-098` — Loại Bỏ `ALTER TABLE` Runtime Trong `EmployeeService.updateEmployee` & `AccountsService.listAccounts` (`v0.9.8`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Hotfix v0.9.8`
+3. **Task ID:** `HF-098`
+4. **Mô tả:** (1) Loại bỏ câu lệnh DDL runtime `ALTER TABLE employees ADD COLUMN IF NOT EXISTS sub_role text NULL, ADD COLUMN IF NOT EXISTS sub_permissions jsonb...` bên trong giao dịch `BEGIN ... COMMIT` của `EmployeeService.updateEmployee` (`apps/api/src/employees/service.ts`) — nguyên nhân gây lỗi PostgreSQL `42501: must be owner of table employees` dưới tài khoản DB tối thiểu quyền `hp_app_runtime` trên Production khi bấm **Lưu thay đổi** phân quyền Quản lý phụ (`NV002`); (2) Loại bỏ câu lệnh `ALTER TABLE managed_accounts` trong nhánh fallback của `AccountsService.listAccounts` (`apps/api/src/accounts/service.ts`); (3) Bổ sung kiểm thử hồi quy mô phỏng `hp_app_runtime` từ chối mọi câu lệnh DDL (`42501`) và quét tĩnh khóa `0` câu lệnh `ALTER/CREATE/DROP TABLE` trong toàn bộ `apps/api/src`; (4) Nâng phiên bản lên `0.9.8` trong `package.json` và `packages/contracts/src/version.ts`.
+5. **Phụ thuộc:** `Phase PERF` (`v0.9.7` — `5669d1b`) & `Migration 0032` (`0032_employee_sub_permissions.sql`).
+6. **Acceptance Criteria:** `EmployeeService.updateEmployee` gán vai trò `admin` + `sub_permissions` thành công với `0` câu lệnh DDL dưới pool từ chối DDL (`42501`); toàn bộ `apps/api/src/**/*.ts` không chứa `ALTER/CREATE/DROP TABLE`; vượt qua `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle`, `canonical:verify`, `phase19-ops-data-hygiene.test.mjs`, `employee-detail-screen.test.mjs`, `version.test.mjs` và `settings-screen.test.mjs`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`WIN-1`)
+9. **Kết quả test:** `PASS` — `phase19-ops-data-hygiene.test.mjs`, `employee-detail-screen.test.mjs`, `version.test.mjs`, `settings-screen.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` & `canonical:verify` đều đạt `PASS`.
+10. **Evidence (`VERIFIED`):** `apps/api/src/employees/service.ts`, `apps/api/src/accounts/service.ts`, `tests/backend/phase19-ops-data-hygiene.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** `main` (`v0.9.8`)
+12. **Approval:** `PENDING_OWNER_FINAL_RELEASE_SIGNATURE` _(Owner ký phát hành qua cổng `Owner-Locked Release Gate`)_
+13. **NEXT_ACTION:** Chờ GitHub Actions CI cho commit `v0.9.8` trên `main` báo xanh, sau đó Owner chạy `Invoke-OwnerReleaseToWeb.ps1` và `Switch-ProductionWebServerToServeWeb.ps1` trong PowerShell Administrator.
