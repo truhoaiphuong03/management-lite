@@ -234,8 +234,59 @@ function normalizeStudioWorkspaceName(
   return trimmed;
 }
 
+const BRIDGE_SUMMARY_FRESH_TTL_MS = 60_000;
+const BRIDGE_SUMMARY_OFFLINE_TTL_MS = 15_000;
+const BRIDGE_SUMMARY_MAX_CACHE_ENTRIES = 64;
+
+interface CachedBridgeSummaryResult {
+  reachable: boolean;
+  source_url: string;
+  summary: TikTokV4SummaryPayload;
+  expiresAt: number;
+}
+
 export class BridgeService {
+  private readonly summaryCache = new Map<string, CachedBridgeSummaryResult>();
+  private readonly summaryInFlight = new Map<
+    string,
+    Promise<{
+      reachable: boolean;
+      source_url: string;
+      summary: TikTokV4SummaryPayload;
+    }>
+  >();
+
   constructor(private readonly pool: DatabasePool) {}
+
+  public invalidateSummaryCache(workspaceId?: string): void {
+    if (!workspaceId) {
+      this.summaryCache.clear();
+      this.summaryInFlight.clear();
+      return;
+    }
+    const prefix = `${workspaceId}::`;
+    for (const key of this.summaryCache.keys()) {
+      if (key.startsWith(prefix)) this.summaryCache.delete(key);
+    }
+    for (const key of this.summaryInFlight.keys()) {
+      if (key.startsWith(prefix)) this.summaryInFlight.delete(key);
+    }
+  }
+
+  private setSummaryCache(
+    cacheKey: string,
+    entry: CachedBridgeSummaryResult,
+  ): void {
+    if (this.summaryCache.has(cacheKey)) {
+      this.summaryCache.delete(cacheKey);
+    } else if (this.summaryCache.size >= BRIDGE_SUMMARY_MAX_CACHE_ENTRIES) {
+      const oldestKey = this.summaryCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.summaryCache.delete(oldestKey);
+      }
+    }
+    this.summaryCache.set(cacheKey, entry);
+  }
 
   private getBridgeSecret(): string {
     const secret = process.env['HP_BRIDGE_SECRET']?.trim();
@@ -285,11 +336,12 @@ export class BridgeService {
   private async requestRemote(
     pathname: string,
     body?: unknown,
+    timeoutMs = 3500,
   ): Promise<unknown> {
     const secret = this.getBridgeSecret();
     const baseUrl = this.getBaseUrl();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3500);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(`${baseUrl}${pathname}`, {
         method: body === undefined ? 'GET' : 'POST',
@@ -326,33 +378,89 @@ export class BridgeService {
     }
   }
 
-  private async fetchTikTokV4Summary(workspaceId: string): Promise<{
+  private async fetchTikTokV4Summary(
+    workspaceId: string,
+    options?: { bypassCache?: boolean; timeoutMs?: number },
+  ): Promise<{
     reachable: boolean;
     source_url: string;
     summary: TikTokV4SummaryPayload;
   }> {
+    const bypassCache = options?.bypassCache === true;
+    const timeoutMs = options?.timeoutMs ?? 1500;
     const sourceUrl = this.getBaseUrl();
-    try {
-      const summary = await this.requestRemote('/api/bridge/summary');
-      if (!isTikTokSummary(summary)) throw new Error('Invalid summary');
-      const cache = readLocalBridgeCache(workspaceId);
-      writeLocalBridgeCache(workspaceId, {
-        last_synced_at: cache.last_synced_at,
-        last_summary: summary,
-      });
-      return { reachable: true, source_url: sourceUrl, summary };
-    } catch (error) {
-      if (error instanceof AuthError && error.code === 'BRIDGE_NOT_CONFIGURED')
-        throw error;
-      const cached = readLocalBridgeCache(workspaceId);
-      return {
-        reachable: false,
-        source_url: sourceUrl,
-        summary: isTikTokSummary(cached.last_summary)
-          ? cached.last_summary
-          : createFallbackTikTokSummary(),
-      };
+    const cacheKey = `${workspaceId}::${sourceUrl}`;
+    if (!bypassCache) {
+      const now = Date.now();
+      const memCached = this.summaryCache.get(cacheKey);
+      if (memCached && now < memCached.expiresAt) {
+        return {
+          reachable: memCached.reachable,
+          source_url: memCached.source_url,
+          summary: memCached.summary,
+        };
+      }
+
+      const existingInFlight = this.summaryInFlight.get(cacheKey);
+      if (existingInFlight) {
+        return existingInFlight;
+      }
     }
+
+    const fetchPromise = (async () => {
+      try {
+        const summary = await this.requestRemote(
+          '/api/bridge/summary',
+          undefined,
+          timeoutMs,
+        );
+        if (!isTikTokSummary(summary)) throw new Error('Invalid summary');
+        const cache = readLocalBridgeCache(workspaceId);
+        writeLocalBridgeCache(workspaceId, {
+          last_synced_at: cache.last_synced_at,
+          last_summary: summary,
+        });
+        const result = { reachable: true, source_url: sourceUrl, summary };
+        if (!bypassCache) {
+          this.setSummaryCache(cacheKey, {
+            ...result,
+            expiresAt: Date.now() + BRIDGE_SUMMARY_FRESH_TTL_MS,
+          });
+        }
+        return result;
+      } catch (error) {
+        if (
+          error instanceof AuthError &&
+          error.code === 'BRIDGE_NOT_CONFIGURED'
+        ) {
+          throw error;
+        }
+        const cached = readLocalBridgeCache(workspaceId);
+        const result = {
+          reachable: false,
+          source_url: sourceUrl,
+          summary: isTikTokSummary(cached.last_summary)
+            ? cached.last_summary
+            : createFallbackTikTokSummary(),
+        };
+        if (!bypassCache) {
+          this.setSummaryCache(cacheKey, {
+            ...result,
+            expiresAt: Date.now() + BRIDGE_SUMMARY_OFFLINE_TTL_MS,
+          });
+        }
+        return result;
+      } finally {
+        if (!bypassCache) {
+          this.summaryInFlight.delete(cacheKey);
+        }
+      }
+    })();
+
+    if (!bypassCache) {
+      this.summaryInFlight.set(cacheKey, fetchPromise);
+    }
+    return fetchPromise;
   }
 
   /**
@@ -450,7 +558,7 @@ export class BridgeService {
   ): Promise<BridgeStatusResponseData> {
     requireRole(['owner', 'admin', 'staff'], auth);
 
-    const [remote, empRes, workRes, repRes, driveRes, wsRes] =
+    const [remote, empRes, workRes, repRes, driveRes, wsRes, empMappingRes] =
       await Promise.all([
         this.fetchTikTokV4Summary(auth.workspace.id),
         this.pool.query<{ cnt: string }>(
@@ -482,26 +590,26 @@ export class BridgeService {
           `SELECT name FROM workspaces WHERE id = $1 LIMIT 1`,
           [auth.workspace.id],
         ),
+        this.pool
+          .query<{
+            employee_code: string;
+            full_name: string;
+            email: string | null;
+            position_title: string | null;
+          }>(
+            `SELECT e.employee_code, e.full_name, u.email_normalized AS email, e.position_title
+             FROM employees e
+             LEFT JOIN users u ON u.id = e.user_id
+             WHERE e.workspace_id = $1 AND e.employment_status = 'active'
+             ORDER BY e.employee_code ASC`,
+            [auth.workspace.id],
+          )
+          .catch(() => ({ rows: [] })),
       ]);
 
     const cache = readLocalBridgeCache(auth.workspace.id);
     const driveRow = driveRes.rows[0] ?? null;
     const activeEmployees = parseInt(empRes.rows[0]?.cnt ?? '0', 10) || 0;
-    const empMappingRes = await this.pool
-      .query<{
-        employee_code: string;
-        full_name: string;
-        email: string | null;
-        position_title: string | null;
-      }>(
-        `SELECT e.employee_code, e.full_name, u.email_normalized AS email, e.position_title
-         FROM employees e
-         LEFT JOIN users u ON u.id = e.user_id
-         WHERE e.workspace_id = $1 AND e.employment_status = 'active'
-         ORDER BY e.employee_code ASC`,
-        [auth.workspace.id],
-      )
-      .catch(() => ({ rows: [] }));
 
     return {
       connected: remote.reachable,
@@ -552,6 +660,7 @@ export class BridgeService {
     requestId: string,
   ): Promise<BridgeSyncResultData> {
     requireRole(['owner', 'admin'], auth);
+    this.invalidateSummaryCache(auth.workspace.id);
 
     // 1. Gather active employees & user accounts from PostgreSQL
     const empRows = await this.pool.query<{
@@ -608,7 +717,10 @@ export class BridgeService {
     });
 
     // Validate the source before sending members or writing local business data.
-    const remote = await this.fetchTikTokV4Summary(auth.workspace.id);
+    const remote = await this.fetchTikTokV4Summary(auth.workspace.id, {
+      bypassCache: true,
+      timeoutMs: 3500,
+    });
     if (!remote.reachable) {
       throw new AuthError(
         'BRIDGE_UNAVAILABLE',

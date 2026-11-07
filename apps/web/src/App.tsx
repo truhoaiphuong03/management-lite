@@ -1,11 +1,18 @@
 import { managementSsoContinuation } from './navigation-guard.js';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppShell } from './AppShell.js';
-import {
-  VnDateOfBirthSelect,
-  VnBankAutocompleteInput,
-} from './components/VnProfileInputs.js';
 import { LoginScreen } from './screens/LoginScreen.js';
+
+const VnDateOfBirthSelect = React.lazy(() =>
+  import('./components/VnProfileInputs.js').then((m) => ({
+    default: m.VnDateOfBirthSelect,
+  })),
+);
+const VnBankAutocompleteInput = React.lazy(() =>
+  import('./components/VnProfileInputs.js').then((m) => ({
+    default: m.VnBankAutocompleteInput,
+  })),
+);
 import {
   DashboardScreen,
   ClockScreen,
@@ -35,6 +42,7 @@ import {
   FinancePlanScreen,
   PrintQuoteScreen,
   SettingsScreen,
+  preloadRouteScreen,
 } from './lazy-screens.js';
 import { applyTheme, removeThemeListener } from './theme.js';
 import {
@@ -383,6 +391,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     let active = true;
     const init = async () => {
+      if (
+        typeof window !== 'undefined' &&
+        window.location.pathname !== '/login'
+      ) {
+        void preloadRouteScreen(window.location.pathname);
+      }
       const verified = await verifySession();
       if (active) {
         setIsCheckingSession(false);
@@ -550,6 +564,7 @@ export const App: React.FC = () => {
         window.history.pushState(null, '', cleanPath);
       }
     }
+    void preloadRouteScreen(cleanPath);
     setCurrentPath(cleanPath);
     if (
       typeof window !== 'undefined' &&
@@ -1641,12 +1656,14 @@ export const App: React.FC = () => {
                       (Không bắt buộc)
                     </span>
                   </label>
-                  <VnDateOfBirthSelect
-                    id="missing-dob-input"
-                    testId="missing-dob-input"
-                    value={promptDob}
-                    onChange={setPromptDob}
-                  />
+                  <React.Suspense fallback={null}>
+                    <VnDateOfBirthSelect
+                      id="missing-dob-input"
+                      testId="missing-dob-input"
+                      value={promptDob}
+                      onChange={setPromptDob}
+                    />
+                  </React.Suspense>
                 </div>
 
                 <div
@@ -1786,12 +1803,14 @@ export const App: React.FC = () => {
                   }}
                 >
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <VnBankAutocompleteInput
-                      testId="missing-bank-name-input"
-                      value={promptBankName}
-                      onChange={setPromptBankName}
-                      placeholder="🔍 Tìm tên ngân hàng (VD: MB, Vietcombank, Techcombank…)"
-                    />
+                    <React.Suspense fallback={null}>
+                      <VnBankAutocompleteInput
+                        testId="missing-bank-name-input"
+                        value={promptBankName}
+                        onChange={setPromptBankName}
+                        placeholder="🔍 Tìm tên ngân hàng (VD: MB, Vietcombank, Techcombank…)"
+                      />
+                    </React.Suspense>
                   </div>
                   <input
                     type="text"

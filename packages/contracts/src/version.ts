@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.6';
-export const SYSTEM_COMMIT = '4b6c4d6';
+export const SYSTEM_VERSION = '0.9.7';
+export const SYSTEM_COMMIT = '69355d4';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,26 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.6',
+    version: '0.9.7',
     commit: 'latest',
+    released_at: '2026-11-07',
+    summary:
+      'Tăng tốc toàn diện thời gian tải trang ql.hoaiphuong.click (Brotli/Gzip, immutable cache, khử thác nước 11 API trên Báo giá in ấn, cache cầu nối V4) và tốc độ sửa code / CI',
+    added: [
+      'Kịch bản chuyển đổi máy chủ web Production an toàn có tự động hoàn tác (Switch-ProductionWebServerToServeWeb.ps1) sang serve-web.cjs chuẩn (nén Brotli/Gzip, pre-warm RAM, keep-alive proxy và immutable cache 1 năm cho /assets/*).',
+      'Cấu hình kiểm tra kiểu tăng dần tsconfig.typecheck.json (tsc --incremental) rút ngắn thời gian typecheck cục bộ và hàm preloadRouteScreen tải trước màn hình song song với phiên đăng nhập.',
+    ],
+    improved: [
+      'Tách 1.128 dòng CSS khỏi PrintQuoteScreen.tsx sang printquote-styles.ts, gom luồng nạp dữ liệu /print-quotes từ 2 tầng 11 API xuống 1 tầng song song theo đúng tab đang mở kèm bộ nhớ đệm 15 giây.',
+      'Song song hóa cổng bảo mật Windows P0 và luồng kiểm thử Ubuntu trên GitHub Actions CI (foundation.yml) sau cổng publish-release-artifact; bổ sung cache 60 giây cho cầu nối V4 để /dashboard phản hồi tức thì.',
+    ],
+    fixed: [
+      'Khắc phục hiện tượng trình duyệt và Cloudflare phải tải lại toàn bộ gói JavaScript không nén do script máy chủ web cũ trả Cache-Control: no-store và khắc phục độ trễ chờ tối đa 3,5 giây tới hoaiphuong.click khi mở Tổng quan.',
+    ],
+  },
+  {
+    version: '0.9.6',
+    commit: '69355d4',
     released_at: '2026-11-06',
     summary:
       'Đổi tên Workspace chuẩn sang "THIẾT KẾ IN ẤN TOÀN GIA PHÁT" đồng bộ trên Tổng quan (/dashboard), Cơ sở dữ liệu và tiêu đề Báo giá PDF A4 gửi khách (/print-quotes)',

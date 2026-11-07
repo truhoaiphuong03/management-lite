@@ -712,3 +712,23 @@
 11. **Commit / PR:** Nhánh `feat/workspace-rename-toan-gia-phat-v096` (`https://github.com/truhoaiphuong03/management-lite/pull/new/feat/workspace-rename-toan-gia-phat-v096`)
 12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Chờ Owner phê duyệt merge PR vào `main` và ký phát hành qua cổng `Owner-Locked Release Gate`)_
 13. **NEXT_ACTION:** Owner mở & merge PR từ `feat/workspace-rename-toan-gia-phat-v096` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), sau đó chạy `Invoke-OwnerReleaseToWeb.ps1` (kèm migration `0037`) qua cổng `Owner-Locked Release Gate` theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`.
+
+---
+
+## PHASE PERF — TỐI ƯU TỐC ĐỘ TẢI TRANG WEB & TỐC ĐỘ SỬA CODE / CI (`v0.9.7`)
+
+### Task `PERF-097` — Gia Cố `serve-web.cjs` + Script Chuyển Đổi An Toàn, Khử Thác Nước API `/print-quotes` & `/dashboard`, Bật `tsc --incremental` & Song Song Hóa CI (`v0.9.7`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PERF` (`v0.9.7`)
+3. **Task ID:** `PERF-097`
+4. **Mô tả:** (1) Gia cố `scripts/runtime/serve-web.cjs` (bộ nhớ đệm RAM LRU giới hạn `256` mục, `http.Agent` `keepAlive` cho `/api/*`, nén trước Brotli/Gzip cho `index.html` & `/assets/*` ngay khi khởi động) và tạo script chuyển đổi an toàn `scripts/deployment/Switch-ProductionWebServerToServeWeb.ps1` (kiểm tra UAC, sao lưu SHA-256, xác minh `ETag`/`CSP`/`immutable`/`br`, tự động rollback khi lỗi, giữ nguyên SHA-256 của `Deploy-SemiAutoWindows.ps1`); (2) Bổ sung `preloadRouteScreen` trong `apps/web/src/lazy-screens.ts` & `App.tsx` tải song song màn hình cùng `/api/v1/auth/me`, tách `1.128` dòng CSS khỏi `PrintQuoteScreen.tsx` sang `printquote-styles.ts` (`4.043` ➔ `3.112` dòng), thay luồng nạp 2 tầng `11 API` trên `/print-quotes` bằng luồng 1 tầng theo đúng tab đang mở kèm cache `15s`, và bổ sung cache `60s` cho `BridgeService.fetchTikTokV4Summary` trên `/dashboard`; (3) Thêm `tsconfig.typecheck.json` (`incremental: true`), song song hóa `windows-p0-security` & `ci` trong `.github/workflows/foundation.yml` sau cổng `publish-release-artifact`, dọn sạch `9` git worktree cũ đã merge trên `WIN-1`, và nâng phiên bản lên `0.9.7`.
+5. **Phụ thuộc:** `Phase WS-RENAME-096` (`v0.9.6` — `69355d4`).
+6. **Acceptance Criteria:** `Switch-ProductionWebServerToServeWeb.ps1 -SandboxMode` chuyển đổi thành công & tự động rollback khi lỗi (`14/14 PASS`); mở `/print-quotes` chỉ gọi `6` API cốt lõi trong 1 tầng (`0` API sổ cái thừa) và chuyển tab trong `15s` tái sử dụng bộ nhớ đệm; `BridgeService` phản hồi `< 20 ms` từ cache `60s`; `npm run typecheck` ấm nhanh gấp nhiều lần nhờ `incremental`; `cicd-policy.test.mjs`, `format:check`, `lint`, `build`, `build:web`, `check:bundle`, `canonical:verify`, `test:security` và kiểm thử Web/Playwright đều đạt `PASS`; tuyệt đối không ghi vào Production (`C:\HoaiPhuong-Server\`, `:55432`) và không push thẳng `main`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`WIN-1`)
+9. **Kết quả test:** `PASS` — `serve-web-cutover.test.mjs` + `phase14-hardening.test.mjs` (`14/14 PASS`), `cicd-policy.test.mjs` (`PASS`), `perf-v097-waterfalls.test.mjs` (`4/4 PASS` gồm Playwright trình duyệt thật), `test:security`, `check:bundle` & `canonical:verify` (`PASS`).
+10. **Evidence (`VERIFIED`):** `scripts/runtime/serve-web.cjs`, `scripts/deployment/Switch-ProductionWebServerToServeWeb.ps1`, `apps/web/src/lazy-screens.ts`, `apps/web/src/App.tsx`, `apps/web/src/screens/PrintQuoteScreen.tsx`, `apps/web/src/screens/printquote/printquote-styles.ts`, `apps/api/src/bridge/service.ts`, `tsconfig.typecheck.json`, `.github/workflows/foundation.yml`, `tests/backend/serve-web-cutover.test.mjs`, `tests/web/perf-v097-waterfalls.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** Nhánh `feat/perf-load-and-dev-speed-v097` (`https://github.com/truhoaiphuong03/management-lite/pull/new/feat/perf-load-and-dev-speed-v097`)
+12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Chờ Owner phê duyệt merge PR vào `main`, ký phát hành qua cổng `Owner-Locked Release Gate` và chạy chuyển đổi `serve-web.cjs`)_
+13. **NEXT_ACTION:** Owner mở & merge PR từ `feat/perf-load-and-dev-speed-v097` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), chạy `Invoke-OwnerReleaseToWeb.ps1` (phát hành `v0.9.7` + migration `0037`) và chạy `Switch-ProductionWebServerToServeWeb.ps1` trong PowerShell Administrator.

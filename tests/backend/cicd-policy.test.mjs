@@ -110,13 +110,26 @@ test('Option 1 CI/CD architecture: automatic CI on push/PR without deploy, manda
         false,
         `Workflow ${file} must not dispatch jobs to self-hosted Windows runner under Option 1`,
       );
+      const hasWindowsP0Gate =
+        content.includes('needs: windows-p0-security') ||
+        content.includes('needs: [windows-p0-security, ci]');
       assert.equal(
         content.includes('windows-p0-security:') &&
           content.includes('runs-on: windows-latest') &&
           content.includes('tests/backend/windows-p0-gate.test.mjs') &&
-          content.includes('needs: windows-p0-security'),
+          hasWindowsP0Gate,
         true,
         `Workflow ${file} must run windows-p0-gate.test.mjs on windows-latest and require windows-p0-security to PASS before packaging/uploading any release artifact`,
+      );
+      const uploadIdx = content.indexOf('actions/upload-artifact@');
+      const needsGateIdx = Math.max(
+        content.indexOf('needs: windows-p0-security'),
+        content.indexOf('needs: [windows-p0-security, ci]'),
+      );
+      assert.equal(
+        uploadIdx > 0 && needsGateIdx > 0 && uploadIdx > needsGateIdx,
+        true,
+        `Workflow ${file} must gate release artifact upload strictly after windows-p0-security dependency declaration`,
       );
       if (file === 'foundation.yml') {
         assert.equal(

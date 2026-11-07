@@ -41,6 +41,8 @@ const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.svg', '.json', '.ttf']);
 const MIN_COMPRESS_BYTES = 1024;
 /** Files above this size are streamed instead of being kept in memory. */
 const MAX_CACHED_BYTES = 8 * 1024 * 1024;
+/** Cap in-memory file entries across atomic deployments so old hashed assets are evicted (LRU). */
+const MAX_CACHED_ENTRIES = 256;
 const PROXY_TIMEOUT_MS = 60_000;
 
 const CACHE_IMMUTABLE = 'public, max-age=31536000, immutable';
@@ -138,6 +140,12 @@ function createWebServer(options = {}) {
   );
   const apiHost = options.apiHost || process.env.API_HOST || '127.0.0.1';
   const apiPort = Number(options.apiPort || process.env.API_PORT || 3002);
+  const maxEntries = Number(options.maxCachedEntries || MAX_CACHED_ENTRIES);
+  const apiAgent = new http.Agent({
+    keepAlive: true,
+    maxSockets: 64,
+    keepAliveMsecs: 30_000,
+  });
 
   /**
    * One cache entry per file version (path + mtime + size). Compressed variants are produced
@@ -147,7 +155,12 @@ function createWebServer(options = {}) {
   async function loadFile(filePath, stat) {
     const key = `${stat.mtimeMs}:${stat.size}`;
     const hit = files.get(filePath);
-    if (hit && hit.key === key) return hit;
+    if (hit && hit.key === key) {
+      // Refresh LRU position on hit
+      files.delete(filePath);
+      files.set(filePath, hit);
+      return hit;
+    }
     const raw = await fs.promises.readFile(filePath);
     const ext = path.extname(filePath);
     const entry = {
@@ -158,6 +171,11 @@ function createWebServer(options = {}) {
       csp: ext === '.html' ? buildCsp(raw.toString('utf8')) : null,
       variants: new Map(),
     };
+    files.delete(filePath);
+    if (files.size >= maxEntries) {
+      const oldestKey = files.keys().next().value;
+      if (oldestKey !== undefined) files.delete(oldestKey);
+    }
     files.set(filePath, entry);
     return entry;
   }
@@ -178,8 +196,41 @@ function createWebServer(options = {}) {
     return pending;
   }
 
+  async function prewarmStaticAssets() {
+    try {
+      const shellPath = path.join(root, 'index.html');
+      const shellStat = await fs.promises.stat(shellPath).catch(() => null);
+      if (
+        shellStat &&
+        shellStat.isFile() &&
+        shellStat.size <= MAX_CACHED_BYTES
+      ) {
+        const entry = await loadFile(shellPath, shellStat);
+        if (entry.raw.length >= MIN_COMPRESS_BYTES) {
+          await Promise.all([variant(entry, 'br'), variant(entry, 'gzip')]);
+        }
+      }
+      const assetsDir = path.join(root, 'assets');
+      const names = await fs.promises.readdir(assetsDir).catch(() => []);
+      for (const name of names) {
+        const ext = path.extname(name);
+        if (!COMPRESSIBLE.has(ext)) continue;
+        const fp = path.join(assetsDir, name);
+        const st = await fs.promises.stat(fp).catch(() => null);
+        if (!st || !st.isFile() || st.size > MAX_CACHED_BYTES) continue;
+        const entry = await loadFile(fp, st);
+        if (entry.raw.length >= MIN_COMPRESS_BYTES) {
+          await Promise.all([variant(entry, 'br'), variant(entry, 'gzip')]);
+        }
+      }
+    } catch {
+      // Best-effort prewarm; request path still loads lazily on demand.
+    }
+  }
+
   function proxyToApi(req, res, url) {
     const headers = { ...req.headers, host: `${apiHost}:${apiPort}` };
+    delete headers.connection;
     // Record who connected to us so the API can walk the chain from the right.
     const peer = req.socket.remoteAddress || '';
     const incoming = headers['x-forwarded-for'];
@@ -192,6 +243,7 @@ function createWebServer(options = {}) {
         path: url.pathname + url.search,
         method: req.method,
         headers,
+        agent: apiAgent,
       },
       (up) => {
         res.writeHead(up.statusCode, up.headers);
@@ -325,6 +377,15 @@ function createWebServer(options = {}) {
   server.keepAliveTimeout = 65_000;
   server.headersTimeout = 66_000;
   server.requestTimeout = 120_000;
+  server.on('close', () => {
+    apiAgent.destroy();
+  });
+  if (options.prewarm !== false) {
+    const timer = setTimeout(() => {
+      void prewarmStaticAssets();
+    }, 10);
+    if (typeof timer.unref === 'function') timer.unref();
+  }
   return server;
 }
 
