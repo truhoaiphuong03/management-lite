@@ -192,10 +192,22 @@ function get(pathname) {
   });
 }
 (async () => {
-  const rootRes = await get('/');
-  if (rootRes.status !== 200) throw new Error('Root returned status ' + rootRes.status);
-  if (!rootRes.headers['etag']) throw new Error('Missing ETag header on /');
-  if (!rootRes.headers['content-security-policy']) throw new Error('Missing CSP header on /');
+  let rootRes = null;
+  let lastErr = null;
+  for (let attempt = 0; attempt < 25; attempt++) {
+    try {
+      const r = await get('/');
+      if (r.status === 200 && r.headers['etag'] && r.headers['content-security-policy']) {
+        rootRes = r;
+        break;
+      }
+      lastErr = new Error('Root returned status=' + r.status + ' etag=' + Boolean(r.headers['etag']) + ' csp=' + Boolean(r.headers['content-security-policy']));
+    } catch (e) {
+      lastErr = e;
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  if (!rootRes) throw lastErr || new Error('Root verification timed out');
   const zlib = require('node:zlib');
   const html = rootRes.headers['content-encoding'] === 'br'
     ? zlib.brotliDecompressSync(rootRes.body).toString('utf8')
@@ -214,8 +226,15 @@ function get(pathname) {
   process.exit(1);
 });
 '@
-    $probeOut = (& $nodeExe -e $probeJs $WebBaseUrl 2>&1) -join "`n"
-    if ($LASTEXITCODE -ne 0 -or $probeOut -notmatch 'VERIFIED_OK:') {
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+      $probeOut = (& $nodeExe -e $probeJs $WebBaseUrl 2>&1 | ForEach-Object { "$_" }) -join "`n"
+      $probeExit = $LASTEXITCODE
+    } finally {
+      $ErrorActionPreference = $prevEap
+    }
+    if ($probeExit -ne 0 -or $probeOut -notmatch 'VERIFIED_OK:') {
       throw "Post-cutover HTTP verification failed: $probeOut"
     }
     Write-Host "[VERIFIED] $probeOut" -ForegroundColor Green

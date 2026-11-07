@@ -118,66 +118,84 @@ export async function launchHeadlessChrome({
     );
   }
 
-  const port = await getFreeLoopbackPort(preferredPort);
-  const userDataDir = mkdtempSync(join(tmpdir(), prefix));
-  const chrome = spawn(
-    chromeBin,
-    [
-      '--headless=new',
-      `--remote-debugging-port=${port}`,
-      '--remote-debugging-address=127.0.0.1',
-      '--disable-gpu',
-      '--no-first-run',
-      '--no-default-browser-check',
-      `--user-data-dir=${userDataDir}`,
-    ],
-    { stdio: 'ignore' },
-  );
-
-  const deadline = Date.now() + 12_000;
-  let ready = false;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(`http://127.0.0.1:${port}/json/version`);
-      if (res.ok) {
-        ready = true;
-        break;
-      }
-    } catch {
-      // Wait for DevTools endpoint
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-
-  if (!ready) {
-    killProcessTree(chrome);
-    rmSync(userDataDir, {
-      recursive: true,
-      force: true,
-      maxRetries: 5,
-      retryDelay: 100,
-    });
-    throw new Error(
-      `Headless Chrome failed to expose DevTools on 127.0.0.1:${port}`,
+  const maxAttempts = 3;
+  let lastPort = preferredPort;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const port = await getFreeLoopbackPort(attempt === 0 ? preferredPort : 0);
+    lastPort = port;
+    const userDataDir = mkdtempSync(join(tmpdir(), prefix));
+    let exitedEarly = false;
+    const chrome = spawn(
+      chromeBin,
+      [
+        '--headless=new',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        `--remote-debugging-port=${port}`,
+        '--remote-debugging-address=127.0.0.1',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-default-browser-check',
+        `--user-data-dir=${userDataDir}`,
+      ],
+      { stdio: 'ignore' },
     );
-  }
+    chrome.once('exit', () => {
+      exitedEarly = true;
+    });
 
-  const cleanup = async () => {
+    const deadline = Date.now() + 20_000;
+    let ready = false;
+    while (Date.now() < deadline && !exitedEarly) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/json/version`);
+        if (res.ok) {
+          ready = true;
+          break;
+        }
+      } catch {
+        // Wait for DevTools endpoint
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    if (ready) {
+      const cleanup = async () => {
+        killProcessTree(chrome);
+        await new Promise((r) => setTimeout(r, 100));
+        try {
+          rmSync(userDataDir, {
+            recursive: true,
+            force: true,
+            maxRetries: 10,
+            retryDelay: 100,
+          });
+        } catch {
+          // Ignore transient OS file lock cleanup race
+        }
+      };
+
+      return { chrome, port, userDataDir, cleanup };
+    }
+
     killProcessTree(chrome);
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 150));
     try {
       rmSync(userDataDir, {
         recursive: true,
         force: true,
-        maxRetries: 10,
+        maxRetries: 5,
         retryDelay: 100,
       });
     } catch {
       // Ignore transient OS file lock cleanup race
     }
-  };
+  }
 
-  return { chrome, port, userDataDir, cleanup };
+  throw new Error(
+    `Headless Chrome failed to expose DevTools on 127.0.0.1:${lastPort}`,
+  );
 }
 
 export function installScriptWatchdog(label, timeoutMs = 75_000) {

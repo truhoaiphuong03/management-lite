@@ -101,6 +101,9 @@ async function runIsolatedHeadlessBrowserCycle(
       browserBin,
       [
         '--headless=new',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
         `--remote-debugging-port=${debugPort}`,
         '--disable-gpu',
         '--no-first-run',
