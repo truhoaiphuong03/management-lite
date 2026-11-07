@@ -3,177 +3,194 @@
  * demand, so the first paint only downloads the shell, the UI kit and React — not all ~30
  * screens (about 1 MB of JavaScript before this split).
  *
- * Each lazy component shares its exact loader function with `preloadRouteScreen` so Vite
- * emits each module preload manifest only once.
+ * Each lazy component keeps the exact props type of the screen it wraps and attaches `.preload`
+ * bound to the same `import()` factory so `preloadRouteScreen` shares one Vite preload entry.
  */
-import { lazy } from 'react';
+import {
+  lazy as reactLazy,
+  type ComponentType,
+  type LazyExoticComponent,
+} from 'react';
 
-const loadDashboardScreen = () =>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PreloadableLazy<T extends ComponentType<any>> = LazyExoticComponent<T> & {
+  preload: () => Promise<{ default: T }>;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lazy<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+): PreloadableLazy<T> {
+  const Component = reactLazy(factory) as PreloadableLazy<T>;
+  Component.preload = factory;
+  return Component;
+}
+
+export const DashboardScreen = lazy(() =>
   import('./screens/DashboardScreen.js').then((m) => ({
     default: m.DashboardScreen,
-  }));
-const loadClockScreen = () =>
-  import('./screens/ClockScreen.js').then((m) => ({ default: m.ClockScreen }));
-const loadScheduleScreen = () =>
+  })),
+);
+export const ClockScreen = lazy(() =>
+  import('./screens/ClockScreen.js').then((m) => ({ default: m.ClockScreen })),
+);
+export const ScheduleScreen = lazy(() =>
   import('./screens/ScheduleScreen.js').then((m) => ({
     default: m.ScheduleScreen,
-  }));
-const loadReportsScreen = () =>
+  })),
+);
+export const ReportsScreen = lazy(() =>
   import('./screens/ReportsScreen.js').then((m) => ({
     default: m.ReportsScreen,
-  }));
-const loadEmployeesScreen = () =>
+  })),
+);
+export const EmployeesScreen = lazy(() =>
   import('./screens/EmployeesScreen.js').then((m) => ({
     default: m.EmployeesScreen,
-  }));
-const loadEmployeeNewScreen = () =>
+  })),
+);
+export const EmployeeNewScreen = lazy(() =>
   import('./screens/EmployeeNewScreen.js').then((m) => ({
     default: m.EmployeeNewScreen,
-  }));
-const loadEmployeeDetailScreen = () =>
+  })),
+);
+export const EmployeeDetailScreen = lazy(() =>
   import('./screens/EmployeeDetailScreen.js').then((m) => ({
     default: m.EmployeeDetailScreen,
-  }));
-const loadActivateScreen = () =>
+  })),
+);
+export const ActivateScreen = lazy(() =>
   import('./screens/ActivateScreen.js').then((m) => ({
     default: m.ActivateScreen,
-  }));
-const loadForgotPasswordScreen = () =>
+  })),
+);
+export const ForgotPasswordScreen = lazy(() =>
   import('./screens/ForgotPasswordScreen.js').then((m) => ({
     default: m.ForgotPasswordScreen,
-  }));
-const loadResetPasswordScreen = () =>
+  })),
+);
+export const ResetPasswordScreen = lazy(() =>
   import('./screens/ResetPasswordScreen.js').then((m) => ({
     default: m.ResetPasswordScreen,
-  }));
-const loadVerifyEmailScreen = () =>
+  })),
+);
+export const VerifyEmailScreen = lazy(() =>
   import('./screens/VerifyEmailScreen.js').then((m) => ({
     default: m.VerifyEmailScreen,
-  }));
-const loadPayrollScreen = () =>
+  })),
+);
+export const PayrollScreen = lazy(() =>
   import('./screens/PayrollScreen.js').then((m) => ({
     default: m.PayrollScreen,
-  }));
-const loadSystemLogsScreen = () =>
+  })),
+);
+export const SystemLogsScreen = lazy(() =>
   import('./screens/SystemLogsScreen.js').then((m) => ({
     default: m.SystemLogsScreen,
-  }));
-const loadPayrollStatsScreen = () =>
+  })),
+);
+export const PayrollStatsScreen = lazy(() =>
   import('./screens/PayrollStatsScreen.js').then((m) => ({
     default: m.PayrollStatsScreen,
-  }));
-const loadWorkScreen = () =>
-  import('./screens/WorkScreen.js').then((m) => ({ default: m.WorkScreen }));
-const loadAccountsScreen = () =>
+  })),
+);
+export const WorkScreen = lazy(() =>
+  import('./screens/WorkScreen.js').then((m) => ({ default: m.WorkScreen })),
+);
+export const AccountsScreen = lazy(() =>
   import('./screens/AccountsScreen.js').then((m) => ({
     default: m.AccountsScreen,
-  }));
-const loadStorageScreen = () =>
+  })),
+);
+export const StorageScreen = lazy(() =>
   import('./screens/StorageScreen.js').then((m) => ({
     default: m.StorageScreen,
-  }));
-const loadAuditScreen = () =>
-  import('./screens/AuditScreen.js').then((m) => ({ default: m.AuditScreen }));
-const loadIssuesScreen = () =>
+  })),
+);
+export const AuditScreen = lazy(() =>
+  import('./screens/AuditScreen.js').then((m) => ({ default: m.AuditScreen })),
+);
+export const IssuesScreen = lazy(() =>
   import('./screens/IssuesScreen.js').then((m) => ({
     default: m.IssuesScreen,
-  }));
-const loadIssueDetailScreen = () =>
+  })),
+);
+export const IssueDetailScreen = lazy(() =>
   import('./screens/IssueDetailScreen.js').then((m) => ({
     default: m.IssueDetailScreen,
-  }));
-const loadGroupOverviewScreen = () =>
+  })),
+);
+export const GroupOverviewScreen = lazy(() =>
   import('./screens/GroupOverviewScreen.js').then((m) => ({
     default: m.GroupOverviewScreen,
-  }));
-const loadFinanceOverviewScreen = () =>
+  })),
+);
+export const FinanceOverviewScreen = lazy(() =>
   import('./screens/FinanceOverviewScreen.js').then((m) => ({
     default: m.FinanceOverviewScreen,
-  }));
-const loadFinanceHistoryScreen = () =>
+  })),
+);
+export const FinanceHistoryScreen = lazy(() =>
   import('./screens/FinanceHistoryScreen.js').then((m) => ({
     default: m.FinanceHistoryScreen,
-  }));
-const loadFinanceEntryScreen = () =>
+  })),
+);
+export const FinanceEntryScreen = lazy(() =>
   import('./screens/FinanceEntryScreen.js').then((m) => ({
     default: m.FinanceEntryScreen,
-  }));
-const loadFinanceCategoriesScreen = () =>
+  })),
+);
+export const FinanceCategoriesScreen = lazy(() =>
   import('./screens/FinanceCategoriesScreen.js').then((m) => ({
     default: m.FinanceCategoriesScreen,
-  }));
-const loadFinancePlanScreen = () =>
+  })),
+);
+export const FinancePlanScreen = lazy(() =>
   import('./screens/FinancePlanScreen.js').then((m) => ({
     default: m.FinancePlanScreen,
-  }));
-const loadPrintQuoteScreen = () =>
+  })),
+);
+export const PrintQuoteScreen = lazy(() =>
   import('./screens/PrintQuoteScreen.js').then((m) => ({
     default: m.PrintQuoteScreen,
-  }));
-const loadSettingsScreen = () =>
+  })),
+);
+export const SettingsScreen = lazy(() =>
   import('./screens/SettingsScreen.js').then((m) => ({
     default: m.SettingsScreen,
-  }));
+  })),
+);
 
-export const DashboardScreen = lazy(loadDashboardScreen);
-export const ClockScreen = lazy(loadClockScreen);
-export const ScheduleScreen = lazy(loadScheduleScreen);
-export const ReportsScreen = lazy(loadReportsScreen);
-export const EmployeesScreen = lazy(loadEmployeesScreen);
-export const EmployeeNewScreen = lazy(loadEmployeeNewScreen);
-export const EmployeeDetailScreen = lazy(loadEmployeeDetailScreen);
-export const ActivateScreen = lazy(loadActivateScreen);
-export const ForgotPasswordScreen = lazy(loadForgotPasswordScreen);
-export const ResetPasswordScreen = lazy(loadResetPasswordScreen);
-export const VerifyEmailScreen = lazy(loadVerifyEmailScreen);
-export const PayrollScreen = lazy(loadPayrollScreen);
-export const SystemLogsScreen = lazy(loadSystemLogsScreen);
-export const PayrollStatsScreen = lazy(loadPayrollStatsScreen);
-export const WorkScreen = lazy(loadWorkScreen);
-export const AccountsScreen = lazy(loadAccountsScreen);
-export const StorageScreen = lazy(loadStorageScreen);
-export const AuditScreen = lazy(loadAuditScreen);
-export const IssuesScreen = lazy(loadIssuesScreen);
-export const IssueDetailScreen = lazy(loadIssueDetailScreen);
-export const GroupOverviewScreen = lazy(loadGroupOverviewScreen);
-export const FinanceOverviewScreen = lazy(loadFinanceOverviewScreen);
-export const FinanceHistoryScreen = lazy(loadFinanceHistoryScreen);
-export const FinanceEntryScreen = lazy(loadFinanceEntryScreen);
-export const FinanceCategoriesScreen = lazy(loadFinanceCategoriesScreen);
-export const FinancePlanScreen = lazy(loadFinancePlanScreen);
-export const PrintQuoteScreen = lazy(loadPrintQuoteScreen);
-export const SettingsScreen = lazy(loadSettingsScreen);
-
-const EXACT_PRELOADERS: Record<string, () => Promise<unknown>> = {
-  '/': loadDashboardScreen,
-  '/dashboard': loadDashboardScreen,
-  '/clock': loadClockScreen,
-  '/attendance': loadClockScreen,
-  '/attendance/adjustments': loadClockScreen,
-  '/schedules': loadScheduleScreen,
-  '/reports': loadReportsScreen,
-  '/employees': loadEmployeesScreen,
-  '/employees/new': loadEmployeeNewScreen,
-  '/activate': loadActivateScreen,
-  '/forgot-password': loadForgotPasswordScreen,
-  '/reset-password': loadResetPasswordScreen,
-  '/verify-email': loadVerifyEmailScreen,
-  '/payroll': loadPayrollScreen,
-  '/my-pay': loadPayrollScreen,
-  '/payroll/stats': loadPayrollStatsScreen,
-  '/system-logs': loadSystemLogsScreen,
-  '/work': loadWorkScreen,
-  '/accounts': loadAccountsScreen,
-  '/storage': loadStorageScreen,
-  '/audit': loadAuditScreen,
-  '/issues': loadIssuesScreen,
-  '/finance': loadFinanceOverviewScreen,
-  '/finance/new': loadFinanceOverviewScreen,
-  '/finance/history': loadFinanceHistoryScreen,
-  '/finance/categories': loadFinanceCategoriesScreen,
-  '/finance/plan': loadFinancePlanScreen,
-  '/print-quotes': loadPrintQuoteScreen,
-  '/settings': loadSettingsScreen,
+const EXACT_PRELOADERS: Record<string, { preload: () => Promise<unknown> }> = {
+  '/': DashboardScreen,
+  '/dashboard': DashboardScreen,
+  '/clock': ClockScreen,
+  '/attendance': ClockScreen,
+  '/attendance/adjustments': ClockScreen,
+  '/schedules': ScheduleScreen,
+  '/reports': ReportsScreen,
+  '/employees': EmployeesScreen,
+  '/employees/new': EmployeeNewScreen,
+  '/activate': ActivateScreen,
+  '/forgot-password': ForgotPasswordScreen,
+  '/reset-password': ResetPasswordScreen,
+  '/verify-email': VerifyEmailScreen,
+  '/payroll': PayrollScreen,
+  '/my-pay': PayrollScreen,
+  '/payroll/stats': PayrollStatsScreen,
+  '/system-logs': SystemLogsScreen,
+  '/work': WorkScreen,
+  '/accounts': AccountsScreen,
+  '/storage': StorageScreen,
+  '/audit': AuditScreen,
+  '/issues': IssuesScreen,
+  '/finance': FinanceOverviewScreen,
+  '/finance/new': FinanceOverviewScreen,
+  '/finance/history': FinanceHistoryScreen,
+  '/finance/categories': FinanceCategoriesScreen,
+  '/finance/plan': FinancePlanScreen,
+  '/print-quotes': PrintQuoteScreen,
+  '/settings': SettingsScreen,
 };
 
 /**
@@ -183,17 +200,18 @@ const EXACT_PRELOADERS: Record<string, () => Promise<unknown>> = {
 export function preloadRouteScreen(pathname: string): Promise<unknown> | null {
   const cleanPath = (pathname || '/').split(/[?#]/, 1)[0] || '/';
   const exact = EXACT_PRELOADERS[cleanPath];
-  if (exact) return exact().catch(() => null);
+  if (exact) return exact.preload().catch(() => null);
   if (cleanPath.startsWith('/print-quotes/'))
-    return loadPrintQuoteScreen().catch(() => null);
-  if (cleanPath.startsWith('/work/')) return loadWorkScreen().catch(() => null);
+    return PrintQuoteScreen.preload().catch(() => null);
+  if (cleanPath.startsWith('/work/'))
+    return WorkScreen.preload().catch(() => null);
   if (cleanPath.startsWith('/employees/'))
-    return loadEmployeeDetailScreen().catch(() => null);
+    return EmployeeDetailScreen.preload().catch(() => null);
   if (cleanPath.startsWith('/issues/'))
-    return loadIssueDetailScreen().catch(() => null);
+    return IssueDetailScreen.preload().catch(() => null);
   if (cleanPath.startsWith('/groups/'))
-    return loadGroupOverviewScreen().catch(() => null);
+    return GroupOverviewScreen.preload().catch(() => null);
   if (cleanPath.startsWith('/finance/entries/'))
-    return loadFinanceEntryScreen().catch(() => null);
+    return FinanceEntryScreen.preload().catch(() => null);
   return null;
 }
