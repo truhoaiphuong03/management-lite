@@ -749,6 +749,26 @@
 8. **Người/AI thực hiện:** `Antigravity` (`WIN-1`)
 9. **Kết quả test:** `PASS` — `phase19-ops-data-hygiene.test.mjs`, `employee-detail-screen.test.mjs`, `version.test.mjs`, `settings-screen.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` & `canonical:verify` đều đạt `PASS`.
 10. **Evidence (`VERIFIED`):** `apps/api/src/employees/service.ts`, `apps/api/src/accounts/service.ts`, `tests/backend/phase19-ops-data-hygiene.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
-11. **Commit / PR:** `main` (`v0.9.8`)
+11. **Commit / PR:** `main` (`21848db` • `v0.9.8`)
 12. **Approval:** `PENDING_OWNER_FINAL_RELEASE_SIGNATURE` _(Owner ký phát hành qua cổng `Owner-Locked Release Gate`)_
 13. **NEXT_ACTION:** Chờ GitHub Actions CI cho commit `v0.9.8` trên `main` báo xanh, sau đó Owner chạy `Invoke-OwnerReleaseToWeb.ps1` và `Switch-ProductionWebServerToServeWeb.ps1` trong PowerShell Administrator.
+
+---
+
+## HOTFIX `v0.9.9` — CHUẨN HÓA GIAO DIỆN QUẢN LÝ TÀI KHOẢN (`/accounts`): BỎ ICON EMOJI, SỬA NỀN BẢNG CHẾ ĐỘ SÁNG & CHỐNG RỚT DÒNG (`Task UI-099`)
+
+### Task `UI-099` — Bỏ Icon Emoji Nhãn Nền Tảng (`Gmail`, `TikTok`…), Sửa Nền Bảng `var(--surface-color)` Ở Chế Độ Sáng & Khóa 1 Dòng Cột/Nút Thao Tác (`v0.9.9`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Hotfix v0.9.9`
+3. **Task ID:** `UI-099`
+4. **Mô tả:** (1) Loại bỏ toàn bộ icon emoji trang trí (`📧`, `🎵`, `📘`, `▶️`, `🔐`, `🛡️`…) trong `PLATFORM_CONFIG` (`apps/web/src/screens/helpers/accounts-helpers.ts`) và trên toàn bộ màn hình `apps/web/src/screens/AccountsScreen.tsx` để các huy hiệu nền tảng và nhãn liên kết hiển thị chữ thuần gọn gàng (`Gmail`, `TikTok`, `Facebook`, `YouTube`, `Authenticator`, `Khôi phục`…); (2) Đổi màu nền bảng danh sách (`<table>` & khung bao) và các hộp thoại Modal / ô nhập nâng cao trên `/accounts` từ `var(--surface-hover)` (`#e2e8f0` gây xám đục, tối hơn cả thanh tiêu đề `<thead>` ở Chế độ Sáng) sang `var(--surface-color)` (`#ffffff` ở Chế độ Sáng, `#0f172a` ở Chế độ Tối); (3) Bổ sung `whiteSpace: 'nowrap'` cho toàn bộ tiêu đề cột `<th>` (`Nhóm & Phụ trách`), huy hiệu nền tảng, huy hiệu trạng thái (`Hoạt động tốt`) và `flexWrap: 'nowrap'` cho cụm 4 nút cột `Thao tác` (`+Kênh con`, `Xem chi tiết`, `Xem pass`, `Sửa`) để luôn nằm thẳng 1 dòng; (4) Bổ sung kiểm thử hồi quy `UI-099` trong `tests/web/accounts-screen.test.mjs` và nâng phiên bản lên `0.9.9`.
+5. **Phụ thuộc:** `Hotfix v0.9.8` (`21848db`).
+6. **Acceptance Criteria:** `PLATFORM_CONFIG` có `icon: ''` trên mọi nền tảng; `AccountsScreen.tsx` và `accounts-helpers.ts` không còn icon emoji trang trí (`0` match); bảng `/accounts` và các hộp thoại dùng `var(--surface-color)`; tiêu đề cột, huy hiệu và cụm nút thao tác không rớt dòng; vượt qua `accounts-screen.test.mjs` (`21/21 PASS`), `version.test.mjs`, `settings-screen.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` và `canonical:verify`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `accounts-screen.test.mjs` (`21/21 PASS`), `version.test.mjs`, `settings-screen.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` (`441.6 KB raw / 129.3 KB gzip`) & `canonical:verify` đều đạt `PASS`.
+10. **Evidence (`VERIFIED`):** `apps/web/src/screens/AccountsScreen.tsx`, `apps/web/src/screens/helpers/accounts-helpers.ts`, `tests/web/accounts-screen.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** Nhánh `fix/accounts-ui-polish-v099` (`https://github.com/truhoaiphuong03/management-lite/pull/new/fix/accounts-ui-polish-v099`)
+12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Chờ Owner phê duyệt merge PR vào `main` và ký phát hành qua cổng `Owner-Locked Release Gate`)_
+13. **NEXT_ACTION:** Owner mở & merge PR từ `fix/accounts-ui-polish-v099` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), sau đó chạy `Invoke-OwnerReleaseToWeb.ps1` trong PowerShell Administrator theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`.

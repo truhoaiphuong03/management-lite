@@ -16,7 +16,7 @@ export interface PlatformConfig {
 export const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
   label: 'Nền tảng khác',
   shortLabel: 'Khác',
-  icon: '🌐',
+  icon: '',
   color: 'var(--accent-text)',
   bg: 'rgba(168, 85, 247, 0.1)',
   border: 'rgba(168, 85, 247, 0.3)',
@@ -26,7 +26,7 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   gmail: {
     label: 'Gmail / Google',
     shortLabel: 'Gmail',
-    icon: '📧',
+    icon: '',
     color: 'var(--danger-text)',
     bg: 'rgba(234, 67, 53, 0.1)',
     border: 'rgba(234, 67, 53, 0.3)',
@@ -34,7 +34,7 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   tiktok: {
     label: 'TikTok',
     shortLabel: 'TikTok',
-    icon: '🎵',
+    icon: '',
     color: 'var(--danger-text)',
     bg: 'rgba(244, 63, 94, 0.1)',
     border: 'rgba(244, 63, 94, 0.3)',
@@ -42,7 +42,7 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   facebook: {
     label: 'Facebook (FB)',
     shortLabel: 'Facebook',
-    icon: '📘',
+    icon: '',
     color: 'var(--info-text)',
     bg: 'rgba(59, 130, 246, 0.1)',
     border: 'rgba(59, 130, 246, 0.3)',
@@ -50,7 +50,7 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   youtube: {
     label: 'YouTube (YTB)',
     shortLabel: 'YouTube',
-    icon: '▶️',
+    icon: '',
     color: 'var(--danger-text)',
     bg: 'rgba(239, 68, 68, 0.1)',
     border: 'rgba(239, 68, 68, 0.3)',
@@ -58,7 +58,7 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   authenticator: {
     label: 'GG Authenticator',
     shortLabel: 'Authenticator',
-    icon: '🔐',
+    icon: '',
     color: 'var(--warning-text)',
     bg: 'rgba(245, 158, 11, 0.12)',
     border: 'rgba(245, 158, 11, 0.35)',
@@ -66,7 +66,7 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   recovery: {
     label: 'TK Khôi phục',
     shortLabel: 'Khôi phục',
-    icon: '🛟',
+    icon: '',
     color: 'var(--success-text)',
     bg: 'rgba(16, 185, 129, 0.12)',
     border: 'rgba(16, 185, 129, 0.35)',
@@ -74,7 +74,7 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   ai: {
     label: 'AI / LLM',
     shortLabel: 'AI / LLM',
-    icon: '🤖',
+    icon: '',
     color: 'var(--success-text)',
     bg: 'rgba(16, 185, 129, 0.1)',
     border: 'rgba(16, 185, 129, 0.3)',
@@ -82,7 +82,7 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   pm: {
     label: 'PM / Dự án',
     shortLabel: 'PM',
-    icon: '📋',
+    icon: '',
     color: 'var(--info-text)',
     bg: 'rgba(56, 189, 248, 0.1)',
     border: 'rgba(56, 189, 248, 0.3)',

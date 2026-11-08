@@ -1434,9 +1434,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     backgroundColor: platformInfo.bg,
                     border: `1px solid ${platformInfo.border}`,
                     marginBottom: '8px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {platformInfo.icon} {platformInfo.label}
+                  {platformInfo.label}
                 </span>
                 <h2
                   style={{
@@ -1468,6 +1469,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     color: healthInfo.color,
                     backgroundColor: healthInfo.bg,
                     border: `1px solid ${healthInfo.border}`,
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {healthInfo.label}
@@ -1521,7 +1523,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 >
                   {selectedAccount.phone_number ? (
                     <>
-                      📱 {selectedAccount.phone_number}{' '}
+                      {selectedAccount.phone_number}{' '}
                       <span
                         style={{
                           fontSize: '12px',
@@ -1580,7 +1582,6 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         fontSize: '13px',
                       }}
                     >
-                      📧{' '}
                       {selectedAccount.parent_account_username ||
                         'Xem Gmail gốc'}
                     </button>
@@ -1619,7 +1620,6 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         fontSize: '13px',
                       }}
                     >
-                      🔐{' '}
                       {selectedAccount.authenticator_account_username ||
                         'Xem TK 2FA'}
                     </button>
@@ -1658,7 +1658,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         fontSize: '13px',
                       }}
                     >
-                      🛡️ {selectedAccount.recovery_account_username}
+                      {selectedAccount.recovery_account_username}
                     </button>
                   ) : (
                     selectedAccount.recovery_email || 'Chưa thiết lập'
@@ -1738,7 +1738,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         marginBottom: '6px',
                       }}
                     >
-                      🌳 CÁC KÊNH MXH GẮN VỚI GMAIL NÀY (
+                      CÁC KÊNH MXH GẮN VỚI GMAIL NÀY (
                       {selectedAccount.child_accounts.length}):
                     </div>
                     <div
@@ -1760,9 +1760,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               fontSize: '12px',
                               fontWeight: 600,
                               cursor: 'pointer',
+                              whiteSpace: 'nowrap',
                             }}
                           >
-                            {chCfg.icon} {chCfg.shortLabel}:{' '}
+                            {chCfg.shortLabel}:{' '}
                             {ch.username ||
                               ch.platform_account_id ||
                               ch.id.slice(0, 6)}
@@ -1784,7 +1785,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         marginBottom: '6px',
                       }}
                     >
-                      🔐 CÁC TÀI KHOẢN ĐANG ĐƯỢC BẢO VỆ / KHÔI PHỤC BỞI TK NÀY (
+                      CÁC TÀI KHOẢN ĐANG ĐƯỢC BẢO VỆ / KHÔI PHỤC BỞI TK NÀY (
                       {selectedAccount.protected_accounts.length}):
                     </div>
                     <div
@@ -1806,9 +1807,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               fontSize: '12px',
                               fontWeight: 600,
                               cursor: 'pointer',
+                              whiteSpace: 'nowrap',
                             }}
                           >
-                            {paCfg.icon} {paCfg.shortLabel}:{' '}
+                            {paCfg.shortLabel}:{' '}
                             {pa.username ||
                               pa.platform_account_id ||
                               pa.id.slice(0, 6)}
@@ -1830,34 +1832,31 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         marginBottom: '6px',
                       }}
                     >
-                      📱 TÀI KHOẢN KHÁC CÙNG SỐ ĐIỆN THOẠI{' '}
+                      TÀI KHOẢN KHÁC CÙNG SỐ ĐIỆN THOẠI{' '}
                       {selectedAccount.phone_number} (
                       {selectedAccount.same_phone_accounts.length}):
                     </div>
                     <div
                       style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}
                     >
-                      {selectedAccount.same_phone_accounts.map((sp) => {
-                        const spCfg = getPlatformConfig(sp.platform);
-                        return (
-                          <button
-                            key={sp.id}
-                            type="button"
-                            onClick={() => onNavigate?.(`/accounts/${sp.id}`)}
-                            style={{
-                              padding: '4px 9px',
-                              borderRadius: '6px',
-                              backgroundColor: 'var(--surface-hover)',
-                              border: '1px solid var(--border-color)',
-                              color: 'var(--text-color)',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {spCfg.icon} {sp.username || sp.platform_account_id}
-                          </button>
-                        );
-                      })}
+                      {selectedAccount.same_phone_accounts.map((sp) => (
+                        <button
+                          key={sp.id}
+                          type="button"
+                          onClick={() => onNavigate?.(`/accounts/${sp.id}`)}
+                          style={{
+                            padding: '4px 9px',
+                            borderRadius: '6px',
+                            backgroundColor: 'var(--surface-color)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--text-color)',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {sp.username || sp.platform_account_id}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 ) : null}
@@ -2242,7 +2241,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  🕒 Lịch sử mật khẩu / bí mật cũ (
+                  Lịch sử mật khẩu / bí mật cũ (
                   {selectedAccount.secret_history.length} bản lưu)
                 </div>
                 <div
@@ -2262,7 +2261,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       key={hist.id}
                       style={{
                         padding: '10px 14px',
-                        backgroundColor: 'var(--surface-hover)',
+                        backgroundColor: 'var(--surface-subtle)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '6px',
                         display: 'flex',
@@ -3090,9 +3089,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               backgroundColor: 'rgba(239, 68, 68, 0.15)',
                               color: 'var(--danger-text)',
                               border: '1px solid rgba(239, 68, 68, 0.3)',
+                              whiteSpace: 'nowrap',
                             }}
                           >
-                            📧 Gmail gốc
+                            Gmail gốc
                           </span>
                           <strong
                             style={{
@@ -3111,6 +3111,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               color: hCfg.color,
                               backgroundColor: hCfg.bg,
                               border: `1px solid ${hCfg.border}`,
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             {hCfg.label}
@@ -3128,7 +3129,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           }}
                         >
                           <span>
-                            📱 SĐT:{' '}
+                            SĐT:{' '}
                             <strong style={{ color: 'var(--text-color)' }}>
                               {gmail.phone_number || 'Chưa gắn'}
                             </strong>
@@ -3138,14 +3139,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             {gmail.phone_note ? ` • ${gmail.phone_note}` : ''}
                           </span>
                           <span>
-                            🔐 2FA:{' '}
+                            2FA:{' '}
                             <strong style={{ color: 'var(--text-color)' }}>
                               {gmail.authenticator_account_username ||
                                 'Chưa gắn TK 2FA'}
                             </strong>
                           </span>
                           <span>
-                            🛡️ Khôi phục:{' '}
+                            Khôi phục:{' '}
                             <strong style={{ color: 'var(--text-color)' }}>
                               {gmail.recovery_account_username ||
                                 gmail.recovery_email ||
@@ -3176,6 +3177,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             fontSize: '12px',
                             fontWeight: 600,
                             cursor: 'pointer',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           + Thêm kênh con
@@ -3191,6 +3193,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             color: 'var(--text-color)',
                             fontSize: '12px',
                             cursor: 'pointer',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           Xem pass
@@ -3267,9 +3270,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                         fontSize: '12px',
                                         fontWeight: 700,
                                         color: chInfo.color,
+                                        whiteSpace: 'nowrap',
                                       }}
                                     >
-                                      {chInfo.icon} {chInfo.shortLabel}
+                                      {chInfo.shortLabel}
                                     </span>
                                     <span
                                       style={{
@@ -3359,7 +3363,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       marginBottom: '12px',
                     }}
                   >
-                    🌐 Các tài khoản độc lập / Chưa gắn Gmail gốc (
+                    Các tài khoản độc lập / Chưa gắn Gmail gốc (
                     {gmailClustersData.unlinkedAccounts.length})
                   </div>
                   <div
@@ -3381,9 +3385,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             fontSize: '12px',
                             fontWeight: 600,
                             cursor: 'pointer',
+                            whiteSpace: 'nowrap',
                           }}
                         >
-                          {pCfg.icon} {pCfg.shortLabel}:{' '}
+                          {pCfg.shortLabel}:{' '}
                           {ua.username || ua.platform_account_id} (Bấm để gắn
                           Gmail)
                         </button>
@@ -3406,9 +3411,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     color: 'var(--muted-color)',
                   }}
                 >
-                  Chưa có tài khoản nào được gắn Số điện thoại. Hãy bấm biểu
-                  tượng Sửa (✏️) trên tài khoản để gắn SĐT và ghi chú vị trí
-                  SIM.
+                  Chưa có tài khoản nào được gắn Số điện thoại. Hãy bấm nút Sửa
+                  trên tài khoản để gắn SĐT và ghi chú vị trí SIM.
                 </AppCard>
               ) : (
                 phoneClustersData.phones.map((ph) => (
@@ -3447,7 +3451,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               color: 'var(--text-color)',
                             }}
                           >
-                            📱 {ph.phone_number}
+                            {ph.phone_number}
                           </strong>
                           <span
                             style={{
@@ -3463,6 +3467,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 ph.gmail_count >= 4
                                   ? 'var(--warning-text)'
                                   : 'var(--success-text)',
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             Đã tạo {ph.gmail_count} Gmail • Tổng{' '}
@@ -3480,7 +3485,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               marginTop: '4px',
                             }}
                           >
-                            📍 Ghi chú vị trí SIM / Máy giữ SIM:{' '}
+                            Ghi chú vị trí SIM / Máy giữ SIM:{' '}
                             <strong style={{ color: 'var(--text-color)' }}>
                               {ph.phone_note}
                             </strong>
@@ -3519,9 +3524,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                   fontSize: '12px',
                                   fontWeight: 700,
                                   color: pCfg.color,
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                {pCfg.icon} {pCfg.shortLabel}
+                                {pCfg.shortLabel}
                               </div>
                               <div
                                 style={{
@@ -3601,9 +3607,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 backgroundColor: 'rgba(245, 158, 11, 0.15)',
                                 color: 'var(--warning-text)',
                                 marginRight: '8px',
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              🔐 Google Authenticator
+                              Google Authenticator
                             </span>
                             <strong
                               style={{
@@ -3664,9 +3671,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                   fontSize: '12px',
                                   fontWeight: 600,
                                   cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                {pCfg.icon}{' '}
                                 {pa.username || pa.platform_account_id}
                               </button>
                             );
@@ -3705,9 +3712,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 backgroundColor: 'rgba(14, 165, 233, 0.15)',
                                 color: 'var(--info-text)',
                                 marginRight: '8px',
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              🛡️ TK Khôi phục (Recovery)
+                              TK Khôi phục (Recovery)
                             </span>
                             <strong
                               style={{
@@ -3768,9 +3776,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                   fontSize: '12px',
                                   fontWeight: 600,
                                   cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                {pCfg.icon}{' '}
                                 {pa.username || pa.platform_account_id}
                               </button>
                             );
@@ -3786,21 +3794,27 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             /* ==========================================
                VIEW MODE 1: BẢNG TẤT CẢ & TRA CỨU 360°
                ========================================== */
-            <div style={{ overflowX: 'auto' }}>
+            <div
+              style={{
+                overflowX: 'auto',
+                backgroundColor: 'var(--surface-color)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+              }}
+            >
               <table
                 style={{
                   width: '100%',
                   borderCollapse: 'collapse',
                   fontSize: '13px',
-                  backgroundColor: 'var(--surface-hover)',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
+                  backgroundColor: 'var(--surface-color)',
                 }}
               >
                 <thead>
                   <tr
                     style={{
                       backgroundColor: 'var(--surface-subtle)',
+                      borderBottom: '1px solid var(--border-color)',
                       textAlign: 'left',
                     }}
                   >
@@ -3808,6 +3822,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       style={{
                         padding: '12px 14px',
                         color: 'var(--muted-color)',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       Nền tảng
@@ -3816,6 +3832,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       style={{
                         padding: '12px 14px',
                         color: 'var(--muted-color)',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       Tài khoản
@@ -3824,6 +3842,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       style={{
                         padding: '12px 14px',
                         color: 'var(--muted-color)',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       Liên kết
@@ -3832,6 +3852,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       style={{
                         padding: '12px 14px',
                         color: 'var(--muted-color)',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       Nhóm & Phụ trách
@@ -3840,6 +3862,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       style={{
                         padding: '12px 14px',
                         color: 'var(--muted-color)',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       Trạng thái
@@ -3848,7 +3872,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       style={{
                         padding: '12px 14px',
                         color: 'var(--muted-color)',
+                        fontWeight: 600,
                         textAlign: 'right',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       Thao tác
@@ -3866,14 +3892,19 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       <tr
                         key={account.id}
                         style={{
-                          borderBottom: '1px solid var(--border-color)',
+                          borderBottom: '1px solid var(--border-subtle)',
                           backgroundColor: isDirectMatch
                             ? 'rgba(20, 184, 166, 0.08)'
                             : undefined,
                           transition: 'background-color 0.15s ease',
                         }}
                       >
-                        <td style={{ padding: '12px 14px' }}>
+                        <td
+                          style={{
+                            padding: '12px 14px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           <span
                             style={{
                               display: 'inline-block',
@@ -3884,9 +3915,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               color: pInfo.color,
                               backgroundColor: pInfo.bg,
                               border: `1px solid ${pInfo.border}`,
+                              whiteSpace: 'nowrap',
                             }}
                           >
-                            {pInfo.icon} {pInfo.shortLabel}
+                            {pInfo.shortLabel}
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px' }}>
@@ -3926,7 +3958,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               }}
                               title={account.notes}
                             >
-                              📝 {account.notes}
+                              {account.notes}
                             </div>
                           )}
                         </td>
@@ -3961,7 +3993,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                     fontSize: '12px',
                                   }}
                                 >
-                                  📧 {account.parent_account_username}
+                                  {account.parent_account_username}
                                 </button>
                               </div>
                             ) : account.platform === 'gmail' &&
@@ -3972,7 +4004,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                   fontWeight: 600,
                                 }}
                               >
-                                🌳 Nuôi {account.child_count} kênh con (
+                                Nuôi {account.child_count} kênh con (
                                 {(account.child_platforms || []).join(', ')})
                               </div>
                             ) : null}
@@ -3994,7 +4026,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                     fontSize: '12px',
                                   }}
                                 >
-                                  📱 <strong>{account.phone_number}</strong>{' '}
+                                  <strong>{account.phone_number}</strong>{' '}
                                   <span
                                     style={{
                                       padding: '1px 5px',
@@ -4028,13 +4060,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               <div style={{ color: 'var(--muted-color)' }}>
                                 {account.authenticator_account_username && (
                                   <span style={{ marginRight: '8px' }}>
-                                    🔐 {account.authenticator_account_username}
+                                    2FA:{' '}
+                                    {account.authenticator_account_username}
                                   </span>
                                 )}
                                 {(account.recovery_account_username ||
                                   account.recovery_email) && (
                                   <span>
-                                    🛡️{' '}
+                                    Khôi phục:{' '}
                                     {account.recovery_account_username ||
                                       account.recovery_email}
                                   </span>
@@ -4043,7 +4076,12 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             )}
                           </div>
                         </td>
-                        <td style={{ padding: '12px 14px' }}>
+                        <td
+                          style={{
+                            padding: '12px 14px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           {account.account_group ? (
                             <span
                               style={{
@@ -4055,6 +4093,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 backgroundColor: 'rgba(20, 184, 166, 0.12)',
                                 color: 'var(--accent-text)',
                                 marginBottom: '2px',
+                                whiteSpace: 'nowrap',
                               }}
                             >
                               {account.account_group}
@@ -4069,11 +4108,16 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             {account.assigned_employee_name || 'Chưa gán'}
                           </div>
                         </td>
-                        <td style={{ padding: '12px 14px' }}>
+                        <td
+                          style={{
+                            padding: '12px 14px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           <div
                             style={{
                               display: 'flex',
-                              flexWrap: 'wrap',
+                              flexWrap: 'nowrap',
                               gap: '4px',
                               alignItems: 'center',
                             }}
@@ -4088,6 +4132,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 color: hInfo.color,
                                 backgroundColor: hInfo.bg,
                                 border: `1px solid ${hInfo.border}`,
+                                whiteSpace: 'nowrap',
                               }}
                             >
                               {hInfo.label}
@@ -4104,6 +4149,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           style={{
                             padding: '12px 14px',
                             textAlign: 'right',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           <div
@@ -4111,7 +4157,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               display: 'inline-flex',
                               gap: '6px',
                               alignItems: 'center',
-                              flexWrap: 'wrap',
+                              flexWrap: 'nowrap',
                               justifyContent: 'flex-end',
                             }}
                           >
@@ -4130,6 +4176,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                   fontSize: '12px',
                                   fontWeight: 600,
                                   cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
                                 }}
                                 title="Thêm kênh TikTok / FB / YTB gắn vào Gmail này"
                               >
@@ -4164,6 +4211,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '4px',
+                                whiteSpace: 'nowrap',
                               }}
                               title="Xác thực để xem mật khẩu"
                             >
@@ -4222,7 +4270,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: 'var(--surface-hover)',
+              backgroundColor: 'var(--surface-color)',
               border: '1px solid var(--border-color)',
               borderRadius: '10px',
               width: '100%',
@@ -4298,7 +4346,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   cursor: 'pointer',
                 }}
               >
-                ➕ Thêm 1 tài khoản / Cụm kênh
+                Thêm 1 tài khoản / Cụm kênh
               </button>
               <button
                 type="button"
@@ -4321,7 +4369,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   cursor: 'pointer',
                 }}
               >
-                ⚡ Dán hàng loạt (email|pass|recovery|2fa|sdt)
+                Dán hàng loạt (email|pass|recovery|2fa|sdt)
               </button>
             </div>
 
@@ -4380,7 +4428,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         cursor: 'pointer',
                       }}
                     >
-                      {cfg.icon} {cfg.shortLabel}
+                      {cfg.shortLabel}
                     </button>
                   );
                 })}
@@ -4557,7 +4605,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           width: '100%',
                           boxSizing: 'border-box',
                           padding: '8px 12px',
-                          backgroundColor: 'var(--surface-hover)',
+                          backgroundColor: 'var(--surface-color)',
                           border: '1px solid var(--border-color)',
                           borderRadius: '6px',
                           color: 'var(--text-color)',
@@ -4885,7 +4933,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               width: '100%',
                               boxSizing: 'border-box',
                               padding: '7px 10px',
-                              backgroundColor: 'var(--surface-hover)',
+                              backgroundColor: 'var(--surface-color)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-color)',
@@ -4913,7 +4961,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               width: '100%',
                               boxSizing: 'border-box',
                               padding: '7px 10px',
-                              backgroundColor: 'var(--surface-hover)',
+                              backgroundColor: 'var(--surface-color)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-color)',
@@ -4941,7 +4989,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               width: '100%',
                               boxSizing: 'border-box',
                               padding: '7px 10px',
-                              backgroundColor: 'var(--surface-hover)',
+                              backgroundColor: 'var(--surface-color)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-color)',
@@ -4980,7 +5028,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               width: '100%',
                               boxSizing: 'border-box',
                               padding: '7px 10px',
-                              backgroundColor: 'var(--surface-hover)',
+                              backgroundColor: 'var(--surface-color)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-color)',
@@ -5022,7 +5070,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               width: '100%',
                               boxSizing: 'border-box',
                               padding: '7px 10px',
-                              backgroundColor: 'var(--surface-hover)',
+                              backgroundColor: 'var(--surface-color)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-color)',
@@ -5059,7 +5107,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               width: '100%',
                               boxSizing: 'border-box',
                               padding: '7px 10px',
-                              backgroundColor: 'var(--surface-hover)',
+                              backgroundColor: 'var(--surface-color)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-color)',
@@ -5099,7 +5147,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               width: '100%',
                               boxSizing: 'border-box',
                               padding: '7px 10px',
-                              backgroundColor: 'var(--surface-hover)',
+                              backgroundColor: 'var(--surface-color)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-color)',
@@ -5129,7 +5177,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               width: '100%',
                               boxSizing: 'border-box',
                               padding: '7px 10px',
-                              backgroundColor: 'var(--surface-hover)',
+                              backgroundColor: 'var(--surface-color)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-color)',
@@ -5159,7 +5207,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               width: '100%',
                               boxSizing: 'border-box',
                               padding: '7px 10px',
-                              backgroundColor: 'var(--surface-hover)',
+                              backgroundColor: 'var(--surface-color)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-color)',
@@ -5189,7 +5237,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             width: '100%',
                             boxSizing: 'border-box',
                             padding: '7px 10px',
-                            backgroundColor: 'var(--surface-hover)',
+                            backgroundColor: 'var(--surface-color)',
                             border: '1px solid var(--border-color)',
                             borderRadius: '6px',
                             color: 'var(--text-color)',
@@ -5262,7 +5310,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: 'var(--surface-hover)',
+              backgroundColor: 'var(--surface-color)',
               border: '1px solid var(--border-color)',
               borderRadius: '10px',
               width: '100%',
@@ -5392,8 +5440,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     marginBottom: '8px',
                   }}
                 >
-                  🔗 Liên kết Hệ sinh thái 4 Tầng (SĐT ➔ Gmail gốc ➔ Kênh con •
-                  2FA • Khôi phục)
+                  Liên kết Hệ sinh thái 4 Tầng (SĐT → Gmail gốc → Kênh con • 2FA
+                  • Khôi phục)
                 </div>
                 <div
                   style={{
@@ -5413,7 +5461,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         marginBottom: '4px',
                       }}
                     >
-                      📧 Thuộc Tài khoản Gmail gốc
+                      Thuộc Tài khoản Gmail gốc
                     </label>
                     <select
                       value={editParentAccountId}
@@ -5422,7 +5470,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         width: '100%',
                         boxSizing: 'border-box',
                         padding: '7px 10px',
-                        backgroundColor: 'var(--surface-hover)',
+                        backgroundColor: 'var(--surface-color)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '6px',
                         color: 'var(--text-color)',
@@ -5436,7 +5484,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         .filter((g) => g.id !== editAccount.id)
                         .map((g) => (
                           <option key={g.id} value={g.id}>
-                            📧 {g.username || g.platform_account_id}
+                            {g.username || g.platform_account_id}
                           </option>
                         ))}
                     </select>
@@ -5450,7 +5498,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         marginBottom: '4px',
                       }}
                     >
-                      📱 Số điện thoại liên kết (SĐT)
+                      Số điện thoại liên kết (SĐT)
                     </label>
                     <input
                       type="text"
@@ -5461,7 +5509,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         width: '100%',
                         boxSizing: 'border-box',
                         padding: '7px 10px',
-                        backgroundColor: 'var(--surface-hover)',
+                        backgroundColor: 'var(--surface-color)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '6px',
                         color: 'var(--text-color)',
@@ -5487,7 +5535,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         marginBottom: '4px',
                       }}
                     >
-                      📍 Ghi chú SIM / Máy giữ SIM
+                      Ghi chú SIM / Máy giữ SIM
                     </label>
                     <input
                       type="text"
@@ -5498,7 +5546,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         width: '100%',
                         boxSizing: 'border-box',
                         padding: '7px 10px',
-                        backgroundColor: 'var(--surface-hover)',
+                        backgroundColor: 'var(--surface-color)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '6px',
                         color: 'var(--text-color)',
@@ -5515,7 +5563,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         marginBottom: '4px',
                       }}
                     >
-                      🔐 TK GG Authenticator
+                      TK GG Authenticator
                     </label>
                     <select
                       value={editAuthenticatorAccountId}
@@ -5526,7 +5574,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         width: '100%',
                         boxSizing: 'border-box',
                         padding: '7px 10px',
-                        backgroundColor: 'var(--surface-hover)',
+                        backgroundColor: 'var(--surface-color)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '6px',
                         color: 'var(--text-color)',
@@ -5538,7 +5586,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         .filter((a) => a.id !== editAccount.id)
                         .map((a) => (
                           <option key={a.id} value={a.id}>
-                            🔐 {a.username || a.platform_account_id}
+                            {a.username || a.platform_account_id}
                           </option>
                         ))}
                     </select>
@@ -5552,7 +5600,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         marginBottom: '4px',
                       }}
                     >
-                      🛡️ TK Khôi phục
+                      TK Khôi phục
                     </label>
                     <select
                       value={editRecoveryAccountId}
@@ -5561,7 +5609,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         width: '100%',
                         boxSizing: 'border-box',
                         padding: '7px 10px',
-                        backgroundColor: 'var(--surface-hover)',
+                        backgroundColor: 'var(--surface-color)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '6px',
                         color: 'var(--text-color)',
@@ -5573,7 +5621,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         .filter((r) => r.id !== editAccount.id)
                         .map((r) => (
                           <option key={r.id} value={r.id}>
-                            🛡️ {r.username || r.platform_account_id}
+                            {r.username || r.platform_account_id}
                           </option>
                         ))}
                     </select>
@@ -5720,11 +5768,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       fontSize: '13px',
                     }}
                   >
-                    <option value="healthy">🟢 Hoạt động tốt</option>
+                    <option value="healthy">Hoạt động tốt</option>
                     <option value="verify_required">
-                      🟡 Cần xác minh / Checkpoint
+                      Cần xác minh / Checkpoint
                     </option>
-                    <option value="locked">🔴 Bị khóa / Die</option>
+                    <option value="locked">Bị khóa / Die</option>
                   </select>
                 </div>
 
@@ -5847,7 +5895,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: 'var(--surface-hover)',
+              backgroundColor: 'var(--surface-color)',
               border: '1px solid var(--border-color)',
               borderRadius: '8px',
               width: '100%',
@@ -5978,7 +6026,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: 'var(--surface-hover)',
+              backgroundColor: 'var(--surface-color)',
               border: '1px solid #14B8A6',
               borderRadius: '8px',
               width: '100%',
@@ -6042,7 +6090,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   }}
                 >
                   {revealHistoryId ? (
-                    <strong>🕒 Mật khẩu lịch sử cũ </strong>
+                    <strong>Mật khẩu lịch sử cũ </strong>
                   ) : (
                     <span>Mật khẩu </span>
                   )}
@@ -6074,7 +6122,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           color: 'var(--warning-text)',
                         }}
                       >
-                        🔐 MÃ 6 SỐ 2FA HIỆN TẠI (Đổi sau{' '}
+                        MÃ 6 SỐ 2FA HIỆN TẠI (Đổi sau{' '}
                         {liveTotp.remainingSeconds}s):
                       </div>
                       <div
@@ -6336,7 +6384,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: 'var(--surface-hover)',
+              backgroundColor: 'var(--surface-color)',
               border: '1px solid var(--border-color)',
               borderRadius: '8px',
               width: '100%',

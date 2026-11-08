@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.8';
-export const SYSTEM_COMMIT = '5669d1b';
+export const SYSTEM_VERSION = '0.9.9';
+export const SYSTEM_COMMIT = '21848db';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,25 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.8',
+    version: '0.9.9',
     commit: 'latest',
+    released_at: '2026-11-08',
+    summary:
+      'Chuẩn hóa giao diện Quản lý Tài khoản (/accounts): bỏ toàn bộ icon emoji trước nhãn nền tảng (Gmail, TikTok, Facebook, YouTube…), sửa nền bảng Chế độ Sáng và chống rớt dòng cột/nút thao tác',
+    added: [
+      'Bổ sung kiểm thử hồi quy UI-099 khóa cứng nhãn nền tảng chữ thuần không dùng icon emoji, nền bảng var(--surface-color) và chống gãy dòng (nowrap) trên /accounts.',
+    ],
+    improved: [
+      'Loại bỏ toàn bộ icon emoji trang trí (📧, 🎵, 📘, ▶️, 🔐, 🛡️…) trên nhãn nền tảng, thẻ cụm và hộp thoại Quản lý Tài khoản để hiển thị chữ thuần gọn gàng (Gmail, TikTok, Facebook, YouTube…).',
+    ],
+    fixed: [
+      'Khắc phục lỗi nền bảng danh sách và hộp thoại trên /accounts dùng nhầm biến var(--surface-hover) làm bảng bị xám đục ở Chế độ Sáng (chuyển về var(--surface-color) trắng sáng).',
+      'Khắc phục lỗi tiêu đề cột "Nhóm & Phụ trách", huy hiệu "Hoạt động tốt" và cụm 4 nút cột "Thao tác" bị rớt xuống 2 dòng.',
+    ],
+  },
+  {
+    version: '0.9.8',
+    commit: '21848db',
     released_at: '2026-11-07',
     summary:
       'Khắc phục lỗi "An unexpected internal error occurred" khi lưu Phân quyền Quản lý phụ (Admin vận hành) hoặc cập nhật hồ sơ nhân sự trên môi trường Production',
