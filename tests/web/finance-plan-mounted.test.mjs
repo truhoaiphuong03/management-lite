@@ -76,9 +76,10 @@ function setupMockServer() {
         net_vnd: '32000000',
         status: 'surplus',
         shortfall_vnd: '0',
-        need_per_month_vnd: '0',
-        need_per_week_vnd: '0',
-        need_per_day_vnd: '0',
+        need_per_year_vnd: '216000000',
+        need_per_month_vnd: '18000000',
+        need_per_week_vnd: '4064517',
+        need_per_day_vnd: '580646',
       },
     },
     categories: [
@@ -167,6 +168,30 @@ test('FinancePlanScreen: renders header, plan metrics, items and category search
       (n) => n.getAttribute('data-testid') === 'plan-metrics',
     )[0];
     assert.ok(metrics, 'Must render plan-metrics card');
+
+    // Check expense-based targets (day / week / month / year)
+    for (const id of [
+      'plan-need-day',
+      'plan-need-week',
+      'plan-need-month',
+      'plan-need-year',
+    ]) {
+      const el = dom.find(
+        container,
+        (n) => n.getAttribute('data-testid') === id,
+      )[0];
+      assert.ok(el, `Must render ${id}`);
+    }
+    const needMonth = dom.find(
+      container,
+      (n) => n.getAttribute('data-testid') === 'plan-need-month',
+    )[0];
+    const needYear = dom.find(
+      container,
+      (n) => n.getAttribute('data-testid') === 'plan-need-year',
+    )[0];
+    assert.match(needMonth.textContent, /18\.000\.000/);
+    assert.match(needYear.textContent, /216\.000\.000/);
 
     // Check items rendered
     assert.match(container.textContent, /Tiền thuê nhà/);

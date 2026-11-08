@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.9';
-export const SYSTEM_COMMIT = '21848db';
+export const SYSTEM_VERSION = '0.9.10';
+export const SYSTEM_COMMIT = '8734c7a';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,19 +41,35 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.9',
+    version: '0.9.10',
     commit: 'latest',
+    released_at: '2026-11-08',
+    summary:
+      'Chuẩn hóa giao diện Quản lý Tài khoản (/accounts) và quy đổi mức cần kiếm theo tổng chi (/finance/plan)',
+    added: [
+      'Bổ sung ô "Mỗi năm" (need_per_year_vnd) trong khung Cần kiếm thêm trên /finance/plan.',
+    ],
+    improved: [
+      'Bỏ icon emoji trước nhãn nền tảng (Gmail, TikTok…) trên /accounts; quy đổi mức cần kiếm Ngày → Tuần → Tháng → Năm từ tổng khoản chi dự kiến.',
+    ],
+    fixed: [
+      'Sửa nền bảng /accounts sang var(--surface-color) ở Chế độ Sáng và khóa 1 dòng tiêu đề cột, huy hiệu, cụm nút Thao tác.',
+    ],
+  },
+  {
+    version: '0.9.9',
+    commit: '8734c7a',
     released_at: '2026-11-08',
     summary:
       'Khắc phục lỗi toàn bộ thông báo (Toast & Banner) trên hệ thống không tự động tắt sau vài giây',
     added: [
-      'Bổ sung hook dùng chung useAutoDismiss trong @management-lite/ui tự động đóng mọi thông báo thành công (sau 4 giây) và thông báo lỗi (sau 5 giây) trên toàn bộ màn hình.',
+      'Bổ sung hook dùng chung useAutoDismiss tự động đóng thông báo thành công (4s) và thông báo lỗi (5s).',
     ],
     improved: [
-      'Cố định tham chiếu callback onClose bằng useRef trong AppToast để các màn hình có bộ đếm thời gian thực (như Chấm công /clock) không làm reset bộ đếm tự tắt thông báo.',
+      'Cố định tham chiếu onClose bằng useRef trong AppToast để các màn hình có đồng hồ thời gian thực không reset bộ đếm.',
     ],
     fixed: [
-      'Khắc phục triệt để lỗi thông báo treo vĩnh viễn trên Báo giá in ấn (/print-quotes), Nhân sự (/employees), Chấm công (/clock), Công việc (/work), Bảng lương (/payroll), Sổ thu chi (/finance), Tài khoản (/accounts), Kho Drive (/storage), Nhật ký & Sổ tay lỗi (/system-logs, /issues) và Cài đặt (/settings).',
+      'Khắc phục lỗi thông báo treo trên toàn bộ màn hình (/print-quotes, /employees, /clock, /work, /payroll, /finance, /accounts, /storage, /issues, /settings).',
     ],
   },
   {

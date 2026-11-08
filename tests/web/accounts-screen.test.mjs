@@ -1230,3 +1230,57 @@ test('Phase 20 (v0.6.0): 4-Tier Account Ecosystem, 360° Bidirectional Lookup, P
   assert.equal(parsed[0].phone_number, '0909111222');
   assert.equal(parsed[1].username, 'acc2@gmail.com');
 });
+
+test('UI-099 (v0.9.9): AccountsScreen clean text platform labels (no emoji icons), Light Mode surface-color table/modals, and single-line nowrap badges/actions', async () => {
+  const screenContent = readFileSync(
+    resolve(root, 'apps/web/src/screens/AccountsScreen.tsx'),
+    'utf8',
+  );
+  const helpersContent = readFileSync(
+    resolve(root, 'apps/web/src/screens/helpers/accounts-helpers.ts'),
+    'utf8',
+  );
+
+  const { PLATFORM_CONFIG, getPlatformConfig } = await import(
+    `file://${resolve(root, 'dist/apps/web/src/screens/helpers/accounts-helpers.js')}`
+  );
+
+  // 1. All platform configs have empty icon and clean shortLabel ('Gmail', 'TikTok', etc.)
+  for (const [key, cfg] of Object.entries(PLATFORM_CONFIG)) {
+    assert.equal(
+      cfg.icon,
+      '',
+      `PLATFORM_CONFIG.${key}.icon must be empty string (no emoji icon)`,
+    );
+  }
+  assert.equal(getPlatformConfig('gmail').shortLabel, 'Gmail');
+  assert.equal(getPlatformConfig('tiktok').shortLabel, 'TikTok');
+
+  // 2. Zero decorative emojis in AccountsScreen.tsx and accounts-helpers.ts
+  const emojiRegex = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+  assert.equal(
+    emojiRegex.test(screenContent),
+    false,
+    'AccountsScreen.tsx must not contain decorative emoji icons (📧, 🎵, etc.)',
+  );
+  assert.equal(
+    emojiRegex.test(helpersContent),
+    false,
+    'accounts-helpers.ts must not contain decorative emoji icons',
+  );
+
+  // 3. Table and modals use var(--surface-color) instead of var(--surface-hover)
+  assert.ok(
+    screenContent.includes(
+      "<table\n                style={{\n                  width: '100%',\n                  borderCollapse: 'collapse',\n                  fontSize: '13px',\n                  backgroundColor: 'var(--surface-color)',",
+    ),
+    'Accounts table must use var(--surface-color) background for Light/Dark contrast',
+  );
+
+  // 4. Table headers, platform badge, status pill, and action buttons enforce nowrap
+  assert.ok(
+    screenContent.includes("flexWrap: 'nowrap'") &&
+      screenContent.includes("whiteSpace: 'nowrap'"),
+    'Accounts table headers, badges, and action buttons must enforce nowrap',
+  );
+});

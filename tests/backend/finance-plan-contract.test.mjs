@@ -36,25 +36,32 @@ test('deficit example: 30 days, 12M vs 15M', () => {
   );
   assert.equal(s.status, 'deficit');
   assert.equal(s.net_vnd, '-3000000');
-  assert.equal(s.need_per_month_vnd, '3000000');
-  assert.equal(s.need_per_day_vnd, '100000');
-  assert.equal(s.need_per_week_vnd, '700000');
+  assert.equal(s.shortfall_vnd, '3000000');
+  assert.equal(s.need_per_year_vnd, '180000000');
+  assert.equal(s.need_per_month_vnd, '15000000');
+  assert.equal(s.need_per_day_vnd, '500000');
+  assert.equal(s.need_per_week_vnd, '3500000');
 });
 
-test('surplus and balanced need nothing', () => {
+test('surplus and balanced compute need_per_* from total expense', () => {
   const up = computePlanSummary(
-    [item('income', 20), item('expense', 5)],
-    '2026-01',
+    [item('income', 8_500_000), item('expense', 7_690_000)],
+    '2026-11',
   );
   assert.equal(up.status, 'surplus');
   assert.equal(up.shortfall_vnd, '0');
-  assert.equal(up.need_per_day_vnd, '0');
+  assert.equal(up.need_per_day_vnd, '256334');
+  assert.equal(up.need_per_week_vnd, '1794334');
+  assert.equal(up.need_per_month_vnd, '7690000');
+  assert.equal(up.need_per_year_vnd, '92280000');
   const eq = computePlanSummary(
     [item('income', 5), item('expense', 5)],
     '2026-01',
   );
   assert.equal(eq.status, 'balanced');
   assert.equal(eq.net_vnd, '0');
+  assert.equal(eq.need_per_month_vnd, '5');
+  assert.equal(eq.need_per_year_vnd, '60');
 });
 
 test('rounds up and respects month length', () => {
