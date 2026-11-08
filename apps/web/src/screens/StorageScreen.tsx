@@ -243,6 +243,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             setSuccessMessage(
               `Đã tự động kết nối Google Drive (${autoConnBody.data.google_email}) thành công!`,
             );
+            void loadData();
             if (typeof window !== 'undefined' && window.history?.replaceState) {
               window.history.replaceState({}, '', window.location.pathname);
             }
@@ -607,6 +608,38 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     setActionLoading(true);
     setErrorMessage(null);
     try {
+      const trimmedCode = oauthCode.trim();
+      const isDefaultPlaceholderCode =
+        !trimmedCode || trimmedCode.startsWith('4/0AVGzR1-');
+
+      // When live Google OAuth credentials are configured and the user hasn't pasted a manual real code,
+      // redirect directly to Google's OAuth 2.0 consent page instead of submitting the placeholder mock code.
+      if (
+        driveConnection?.live_credentials_configured &&
+        isDefaultPlaceholderCode &&
+        typeof window !== 'undefined' &&
+        typeof window.location?.assign === 'function'
+      ) {
+        let targetAuthUrl = oauthUrlPreview.trim();
+        if (!targetAuthUrl.startsWith('https://accounts.google.com/')) {
+          const urlRes = await fetch('/api/v1/storage/drive/oauth/url', {
+            credentials: 'include',
+          });
+          const urlBody = await urlRes.json();
+          if (urlRes.ok && urlBody.success && urlBody.data?.auth_url) {
+            targetAuthUrl = String(urlBody.data.auth_url).trim();
+            setOauthUrlPreview(targetAuthUrl);
+            if (urlBody.data.state) {
+              setOauthState(String(urlBody.data.state).trim());
+            }
+          }
+        }
+        if (targetAuthUrl.startsWith('https://accounts.google.com/')) {
+          window.location.assign(targetAuthUrl);
+          return;
+        }
+      }
+
       let resolvedState = oauthState.trim();
       if (!resolvedState) {
         const urlRes = await fetch('/api/v1/storage/drive/oauth/url', {
@@ -626,7 +659,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         },
         credentials: 'include',
         body: JSON.stringify({
-          code: oauthCode.trim() || '4/0AVGzR1-google-oauth-code',
+          code: trimmedCode || '4/0AVGzR1-google-oauth-code',
           state: resolvedState,
           google_email: oauthGoogleEmail.trim(),
           root_folder_name: oauthRootFolderName.trim(),
@@ -640,6 +673,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         setSuccessMessage(
           `Đã kết nối Google Drive (${body.data.google_email}) với quyền tối thiểu drive.file và mã hóa refresh token thành công.`,
         );
+        void loadData();
       } else {
         setErrorMessage(
           body.error?.message || 'Không thể kết nối Google Drive OAuth 2.0.',
@@ -1498,7 +1532,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: 'var(--surface-hover)',
+              backgroundColor: 'var(--surface-color)',
+              boxShadow: 'var(--shadow-lg)',
               borderRadius: '12px',
               border: '1px solid var(--border-color)',
               width: '100%',
@@ -1734,7 +1769,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: 'var(--surface-hover)',
+              backgroundColor: 'var(--surface-color)',
+              boxShadow: 'var(--shadow-lg)',
               borderRadius: '12px',
               border: '1px solid var(--border-color)',
               width: '100%',
@@ -3318,7 +3354,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           >
             <div
               style={{
-                backgroundColor: 'var(--surface-hover)',
+                backgroundColor: 'var(--surface-color)',
+                boxShadow: 'var(--shadow-lg)',
                 borderRadius: '12px',
                 border: '1px solid var(--border-color)',
                 width: '100%',
@@ -3536,7 +3573,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           >
             <div
               style={{
-                backgroundColor: 'var(--surface-hover)',
+                backgroundColor: 'var(--surface-color)',
+                boxShadow: 'var(--shadow-lg)',
                 borderRadius: '12px',
                 border: '1px solid #EF4444',
                 width: '100%',
@@ -3756,23 +3794,37 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             }}
           >
             <StatusBadge
-              status={driveConnection?.connected ? 'success' : 'warning'}
+              status={
+                driveConnection?.connected &&
+                !isSimulatedDriveResource(driveConnection.root_folder_id)
+                  ? 'success'
+                  : 'warning'
+              }
               label={
                 driveConnection?.connected
-                  ? 'Đã kết nối Google Drive'
+                  ? isSimulatedDriveResource(driveConnection.root_folder_id)
+                    ? 'Chế độ mô phỏng (Chưa ủy quyền Google thật)'
+                    : 'Đã kết nối Google Drive'
                   : 'Chưa kết nối Google Drive'
               }
             />
             <span style={{ color: 'var(--text-secondary)' }}>
               {driveConnection?.connected
-                ? `Tài khoản Google Drive: ${driveConnection.google_email}`
+                ? isSimulatedDriveResource(driveConnection.root_folder_id)
+                  ? `Tài khoản: ${driveConnection.google_email} (Đang dùng mã mô phỏng nội bộ — bấm kết nối để ủy quyền Google Drive thật)`
+                  : `Tài khoản Google Drive: ${driveConnection.google_email}`
                 : 'Kết nối tài khoản Google quản trị để tự động tạo thư mục, tải video và phân quyền nhân viên.'}
             </span>
           </div>
 
           {role === 'owner' && (
             <AppButton
-              variant="secondary"
+              variant={
+                driveConnection?.connected &&
+                isSimulatedDriveResource(driveConnection.root_folder_id)
+                  ? 'primary'
+                  : 'secondary'
+              }
               onClick={() => {
                 setShowDriveOAuthModal(true);
                 void handlePreviewOAuthUrl();
@@ -3781,7 +3833,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               <LinkIcon size={14} />
               <span>
                 {driveConnection?.connected
-                  ? 'Cấu hình kết nối Drive'
+                  ? isSimulatedDriveResource(driveConnection.root_folder_id)
+                    ? 'Ủy quyền Google Drive thật'
+                    : 'Cấu hình kết nối Drive'
                   : 'Kết nối Google Drive'}
               </span>
             </AppButton>
@@ -4520,7 +4574,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         >
           <div
             style={{
-              backgroundColor: 'var(--surface-hover)',
+              backgroundColor: 'var(--surface-color)',
+              boxShadow: 'var(--shadow-lg)',
               borderRadius: '12px',
               border: '1px solid var(--border-color)',
               width: '100%',
@@ -4641,8 +4696,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                       justifyContent: 'space-between',
                       padding: '8px 12px',
                       marginBottom: '8px',
-                      backgroundColor: '#451A1A',
-                      border: '1px solid #7F1D1D',
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
                       borderRadius: '6px',
                       color: 'var(--danger-text)',
                       fontSize: '12px',

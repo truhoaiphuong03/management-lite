@@ -603,6 +603,9 @@ export function FinancePlanScreen({
             aria-label="Loại khoản dự tính"
             style={{
               display: 'inline-flex',
+              alignItems: 'center',
+              minHeight: 44,
+              boxSizing: 'border-box',
               gap: 4,
               padding: 3,
               backgroundColor: THEME_COLORS.surfaceSubtle,
@@ -639,8 +642,9 @@ export function FinancePlanScreen({
               flex: '1 1 200px',
               minWidth: 0,
               display: 'grid',
-              gap: 4,
-              fontSize: TOKENS.typography.fontSize.sm,
+              gap: 6,
+              fontSize: TOKENS.typography.fontSize.base,
+              fontWeight: TOKENS.typography.fontWeight.semibold,
               color: THEME_COLORS.textSecondary,
             }}
           >
@@ -675,6 +679,7 @@ export function FinancePlanScreen({
             type="submit"
             disabled={!m.ready || m.busy || (!m.pending && !amount)}
             isLoading={m.busy}
+            style={{ minHeight: 44 }}
           >
             {m.pending ? 'Thử lại yêu cầu đã lưu' : 'Lưu khoản dự tính'}
           </AppButton>

@@ -802,13 +802,56 @@ export class StorageService {
     }
 
     const cfg = getGoogleOAuthConfig();
-    const oauthMode: 'mock' | 'live' = isLiveGoogleDriveEnabled()
-      ? 'live'
-      : 'mock';
+    const isIncomingMockCode =
+      !body.refresh_token &&
+      (code.startsWith('4/0AVGzR1-') ||
+        code.startsWith('mock-') ||
+        code.startsWith('test-'));
 
     const c = await this.pool.connect();
     try {
       await c.query('BEGIN');
+
+      // Guard: Never overwrite an existing LIVE Google Drive connection with a mock code when live credentials are enabled
+      if (isLiveGoogleDriveEnabled() && isIncomingMockCode) {
+        const existingLiveRes = await c.query(
+          `SELECT * FROM storage_drive_connections
+           WHERE workspace_id = $1 AND status = 'active'
+           FOR UPDATE`,
+          [auth.workspace.id],
+        );
+        const existingRow = existingLiveRes.rows[0];
+        if (
+          existingRow &&
+          !String(existingRow.root_folder_id || '').startsWith('gdrive_root_')
+        ) {
+          await c.query('COMMIT');
+          return {
+            id: existingRow.id,
+            workspace_id: existingRow.workspace_id,
+            connected: true,
+            provider: 'google_drive',
+            oauth_mode: 'live',
+            live_credentials_configured: cfg.credentialsConfigured,
+            redirect_uri: cfg.redirectUri,
+            google_email: existingRow.google_email,
+            scopes: existingRow.scopes,
+            root_folder_id: existingRow.root_folder_id,
+            root_folder_url: existingRow.root_folder_url,
+            token_encrypted_at_rest: true,
+            key_version: existingRow.key_version,
+            status: 'active',
+            connected_at: existingRow.connected_at.toISOString(),
+            last_synced_at: existingRow.last_synced_at
+              ? existingRow.last_synced_at.toISOString()
+              : null,
+          };
+        }
+      }
+
+      const isMockRoot = String(rootFolderId || '').startsWith('gdrive_root_');
+      const oauthMode: 'mock' | 'live' =
+        isLiveGoogleDriveEnabled() && !isMockRoot ? 'live' : 'mock';
 
       const upsertRes = await c.query(
         `INSERT INTO storage_drive_connections (
@@ -847,6 +890,55 @@ export class StorageService {
         ],
       );
       const row = upsertRes.rows[0];
+
+      // Auto-upgrade any simulated folders (gdrive_fld_*) in this workspace when live OAuth is connected
+      if (oauthMode === 'live' && this.provider.createDriveFolder) {
+        const mockFoldersRes = await c.query(
+          `SELECT id, name FROM storage_folders
+           WHERE workspace_id = $1
+             AND status <> 'trashed'
+             AND (provider_folder_id IS NULL OR provider_folder_id LIKE 'gdrive_fld_%')
+           ORDER BY created_at ASC
+           LIMIT 10`,
+          [auth.workspace.id],
+        );
+        for (const mf of mockFoldersRes.rows) {
+          try {
+            const createdReal = await this.provider.createDriveFolder(
+              {
+                name: mf.name,
+                parentFolderId: rootFolderId,
+                ownerEmail: googleEmail,
+              },
+              refreshToken,
+            );
+            if (
+              createdReal.folderId &&
+              !createdReal.folderId.startsWith('gdrive_fld_')
+            ) {
+              await c.query(
+                `UPDATE storage_folders
+                 SET provider_folder_id = $1,
+                     provider_parent_id = $2,
+                     drive_url = $3,
+                     drive_owner_email = $4,
+                     updated_at = clock_timestamp()
+                 WHERE id = $5 AND workspace_id = $6`,
+                [
+                  createdReal.folderId,
+                  rootFolderId,
+                  createdReal.webViewLink,
+                  googleEmail,
+                  mf.id,
+                  auth.workspace.id,
+                ],
+              );
+            }
+          } catch {
+            // Keep transaction alive even if individual folder upgrade fails
+          }
+        }
+      }
 
       await recordAuditEvent(c, {
         workspaceId: auth.workspace.id,
