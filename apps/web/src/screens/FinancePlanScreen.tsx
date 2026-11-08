@@ -528,6 +528,7 @@ export function FinancePlanScreen({
               ['Mỗi ngày', summary.need_per_day_vnd, 'plan-need-day'],
               ['Mỗi tuần', summary.need_per_week_vnd, 'plan-need-week'],
               ['Mỗi tháng', summary.need_per_month_vnd, 'plan-need-month'],
+              ['Mỗi năm', summary.need_per_year_vnd, 'plan-need-year'],
             ] as const
           ).map(([label, value, id]) => (
             <div
@@ -568,9 +569,9 @@ export function FinancePlanScreen({
             color: THEME_COLORS.muted,
           }}
         >
-          Số tiền theo ngày và tuần là mức bình quân quy đổi (làm tròn lên đến
-          đồng) theo số ngày thực tế của tháng, không phải lịch thanh toán thực
-          tế.
+          Tính từ tổng khoản chi dự kiến: quy đổi mức cần kiếm bình quân mỗi
+          ngày, mỗi tuần (làm tròn lên đến đồng theo số ngày thực tế của tháng),
+          mỗi tháng và mỗi năm (× 12 tháng).
         </p>
       </AppCard>
 

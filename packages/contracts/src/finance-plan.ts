@@ -35,6 +35,7 @@ export interface FinancePlanSummary {
   net_vnd: VndString;
   status: FinancePlanStatus;
   shortfall_vnd: VndString;
+  need_per_year_vnd: VndString;
   need_per_month_vnd: VndString;
   need_per_week_vnd: VndString;
   need_per_day_vnd: VndString;
@@ -146,8 +147,9 @@ export function computePlanSummary(
     net_vnd: net.toString(),
     status: net > 0n ? 'surplus' : net < 0n ? 'deficit' : 'balanced',
     shortfall_vnd: shortfall.toString(),
-    need_per_month_vnd: shortfall.toString(),
-    need_per_week_vnd: ceilDiv(shortfall * 7n, days).toString(),
-    need_per_day_vnd: ceilDiv(shortfall, days).toString(),
+    need_per_year_vnd: (expense * 12n).toString(),
+    need_per_month_vnd: expense.toString(),
+    need_per_week_vnd: ceilDiv(expense * 7n, days).toString(),
+    need_per_day_vnd: ceilDiv(expense, days).toString(),
   };
 }
