@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.9';
-export const SYSTEM_COMMIT = '21848db';
+export const SYSTEM_VERSION = '0.9.10';
+export const SYSTEM_COMMIT = '8734c7a';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,19 +41,35 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.9',
+    version: '0.9.10',
     commit: 'latest',
     released_at: '2026-11-08',
     summary:
-      'Tự động tắt thông báo toàn hệ thống, chuẩn hóa /accounts, quy đổi mức cần kiếm Ngày → Tuần → Tháng → Năm từ khoản chi trên /finance/plan và xử lý 10 vấn đề mở BUG-0031..BUG-0040',
+      'Hợp nhất v0.9.10: Chuẩn hóa /accounts (UI-099), quy đổi mức cần kiếm Ngày → Tuần → Tháng → Năm từ khoản chi trên /finance/plan (FIN-PLAN-099) và xử lý trọn bộ 10 vấn đề mở BUG-0031..BUG-0040',
     added: [
-      'Hook useAutoDismiss tự động tắt thông báo (4s/5s); chỉ số need_per_year_vnd (Ngày/Tuần/Tháng/Năm) từ tổng khoản chi trên /finance/plan; phân trang số trên /issues & /system-logs.',
+      'Chỉ số need_per_year_vnd (Mỗi ngày → Mỗi tuần → Mỗi tháng → Mỗi năm) tính từ tổng khoản chi dự kiến trên /finance/plan; phân trang số trên /issues & /system-logs; thanh nhắc việc nhân viên trên AppShell và nút Copy tin gửi Zalo trên /work/new.',
     ],
     improved: [
-      'Loại bỏ icon emoji trước nhãn nền tảng trên /accounts; hiện/ẩn mật khẩu UI20 trên /settings; chip khổ A0-A4, Cán màng, Công nghệ in trên /print-quotes/new; nhắc việc nhân viên và nút Copy tin gửi Zalo trên /work.',
+      'Loại bỏ icon emoji trước nhãn nền tảng trên /accounts; hiện/ẩn mật khẩu UI20 trên /settings; chip khổ A0-A4, Cán màng, Công nghệ in trên /print-quotes/new; tách createReceiptApi vào màn hình Thu chi giữ gói JS khởi đầu ~125.9 KB gzip.',
     ],
     fixed: [
-      'Khắc phục lỗi thông báo treo không tự tắt trên toàn hệ thống, nền bảng /accounts xám đục ở Chế độ Sáng, rớt dòng cột/nút thao tác và tương phản nút P2 / chi tiết lỗi trên /issues.',
+      'Khắc phục nền bảng /accounts xám đục ở Chế độ Sáng, rớt dòng cột/nút thao tác và tương phản nút P2 / chi tiết lỗi trên /issues.',
+    ],
+  },
+  {
+    version: '0.9.9',
+    commit: '8734c7a',
+    released_at: '2026-11-07',
+    summary:
+      'Tự động tắt mọi thông báo và toast trên toàn hệ thống sau một khoảng thời gian (4 giây với thông báo thành công/thông tin, 5 giây với thông báo lỗi)',
+    added: [
+      'Hook dùng chung useAutoDismiss trong @hp/ui tự động xóa trạng thái thông báo sau thời gian cấu hình và tự làm mới bộ đếm khi có thông báo mới.',
+    ],
+    improved: [
+      'Đồng bộ tự động tắt thông báo trên toàn bộ 20 màn hình (Nhân sự, Chấm công, Lịch làm việc, Giao việc, Báo cáo, Lương, Thu chi, Kho lưu trữ, Báo giá in ấn, Tài khoản dùng chung, Nhật ký hệ thống, Sổ tay lỗi, Cài đặt).',
+    ],
+    fixed: [
+      'Khắc phục lỗi AppToast bị đặt lại bộ đếm mỗi lần màn hình cha render lại khiến thông báo treo vĩnh viễn không tự biến mất.',
     ],
   },
   {
