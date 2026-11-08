@@ -421,6 +421,14 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     text: string;
   } | null>(null);
 
+  useEffect(() => {
+    if (!bannerMessage || bannerMessage.type !== 'success') return;
+    const timer = setTimeout(() => {
+      setBannerMessage(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [bannerMessage]);
+
   // Data collections
   const [vendors, setVendors] = useState<PrintVendorData[]>(initialVendors);
   const [priceItems, setPriceItems] =

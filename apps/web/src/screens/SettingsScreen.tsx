@@ -8,6 +8,8 @@ import {
   CheckCircleIcon,
   AlertTriangleIcon,
   SettingsIcon,
+  EyeIcon,
+  EyeOffIcon,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 import {
@@ -213,6 +215,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showEditEmailPassword, setShowEditEmailPassword] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
@@ -1288,24 +1294,61 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     >
                       Mật khẩu hiện tại (bắt buộc khi đổi email — email mới sẽ
                       cần xác minh lại)
-                      <input
-                        data-testid="edit-profile-email-password"
-                        type="password"
-                        autoComplete="current-password"
-                        value={editEmailPassword}
-                        onChange={(e) => setEditEmailPassword(e.target.value)}
-                        style={{
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          marginTop: '4px',
-                          padding: '10px 12px',
-                          fontSize: '16px',
-                          borderRadius: '8px',
-                          border: '1px solid var(--border-hover)',
-                          backgroundColor: 'var(--surface-hover)',
-                          color: 'var(--text-color)',
-                        }}
-                      />
+                      <div style={{ position: 'relative', marginTop: '4px' }}>
+                        <input
+                          data-testid="edit-profile-email-password"
+                          type={showEditEmailPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          value={editEmailPassword}
+                          onChange={(e) => setEditEmailPassword(e.target.value)}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '10px 72px 10px 12px',
+                            fontSize: '16px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-hover)',
+                            backgroundColor: 'var(--surface-hover)',
+                            color: 'var(--text-color)',
+                          }}
+                        />
+                        <button
+                          type="button"
+                          data-testid="toggle-edit-email-password"
+                          aria-label={
+                            showEditEmailPassword
+                              ? 'Ẩn mật khẩu xác nhận đổi email'
+                              : 'Hiện mật khẩu xác nhận đổi email'
+                          }
+                          onClick={() =>
+                            setShowEditEmailPassword((prev) => !prev)
+                          }
+                          style={{
+                            position: 'absolute',
+                            right: '8px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--surface-color)',
+                            color: 'var(--muted-color)',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {showEditEmailPassword ? (
+                            <EyeOffIcon size={14} />
+                          ) : (
+                            <EyeIcon size={14} />
+                          )}
+                          <span>{showEditEmailPassword ? 'Ẩn' : 'Hiện'}</span>
+                        </button>
+                      </div>
                     </label>
                   </>
                 )}
@@ -1436,28 +1479,64 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   Mật khẩu hiện tại{' '}
                   <span style={{ color: 'var(--danger-text)' }}>*</span>
                 </label>
-                <input
-                  id="currentPassword"
-                  data-testid="input-current-password"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Nhập mật khẩu hiện tại"
-                  disabled={passwordLoading}
-                  autoComplete="current-password"
-                  style={{
-                    width: '100%',
-                    minHeight: '40px',
-                    padding: '0 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="currentPassword"
+                    data-testid="input-current-password"
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu hiện tại"
+                    disabled={passwordLoading}
+                    autoComplete="current-password"
+                    style={{
+                      width: '100%',
+                      minHeight: '40px',
+                      padding: '0 76px 0 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-testid="toggle-current-password"
+                    aria-label={
+                      showCurrentPassword
+                        ? 'Ẩn mật khẩu hiện tại'
+                        : 'Hiện mật khẩu hiện tại'
+                    }
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: '6px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--muted-color)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {showCurrentPassword ? (
+                      <EyeOffIcon size={14} />
+                    ) : (
+                      <EyeIcon size={14} />
+                    )}
+                    <span>{showCurrentPassword ? 'Ẩn' : 'Hiện'}</span>
+                  </button>
+                </div>
               </div>
 
               <div style={{ marginBottom: '14px' }}>
@@ -1473,28 +1552,62 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   Mật khẩu mới (tối thiểu 8 ký tự){' '}
                   <span style={{ color: 'var(--danger-text)' }}>*</span>
                 </label>
-                <input
-                  id="newPassword"
-                  data-testid="input-new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Nhập mật khẩu mới"
-                  disabled={passwordLoading}
-                  autoComplete="new-password"
-                  style={{
-                    width: '100%',
-                    minHeight: '40px',
-                    padding: '0 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="newPassword"
+                    data-testid="input-new-password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu mới"
+                    disabled={passwordLoading}
+                    autoComplete="new-password"
+                    style={{
+                      width: '100%',
+                      minHeight: '40px',
+                      padding: '0 76px 0 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-testid="toggle-new-password"
+                    aria-label={
+                      showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'
+                    }
+                    onClick={() => setShowNewPassword((prev) => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: '6px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--muted-color)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {showNewPassword ? (
+                      <EyeOffIcon size={14} />
+                    ) : (
+                      <EyeIcon size={14} />
+                    )}
+                    <span>{showNewPassword ? 'Ẩn' : 'Hiện'}</span>
+                  </button>
+                </div>
               </div>
 
               <div style={{ marginBottom: '18px' }}>
@@ -1510,28 +1623,64 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   Xác nhận mật khẩu mới{' '}
                   <span style={{ color: 'var(--danger-text)' }}>*</span>
                 </label>
-                <input
-                  id="confirmPassword"
-                  data-testid="input-confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Nhập lại mật khẩu mới"
-                  disabled={passwordLoading}
-                  autoComplete="new-password"
-                  style={{
-                    width: '100%',
-                    minHeight: '40px',
-                    padding: '0 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="confirmPassword"
+                    data-testid="input-confirm-password"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Nhập lại mật khẩu mới"
+                    disabled={passwordLoading}
+                    autoComplete="new-password"
+                    style={{
+                      width: '100%',
+                      minHeight: '40px',
+                      padding: '0 76px 0 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-testid="toggle-confirm-password"
+                    aria-label={
+                      showConfirmPassword
+                        ? 'Ẩn xác nhận mật khẩu mới'
+                        : 'Hiện xác nhận mật khẩu mới'
+                    }
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: '6px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--surface-hover)',
+                      color: 'var(--muted-color)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOffIcon size={14} />
+                    ) : (
+                      <EyeIcon size={14} />
+                    )}
+                    <span>{showConfirmPassword ? 'Ẩn' : 'Hiện'}</span>
+                  </button>
+                </div>
               </div>
 
               <div style={{ maxWidth: '200px' }}>

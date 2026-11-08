@@ -1240,12 +1240,12 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                 role="status"
                 data-testid="report-success-alert"
                 style={{
-                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                  border: '1px solid #22C55E',
+                  backgroundColor: 'var(--success-subtle)',
+                  border: '1px solid var(--success-text)',
                   borderRadius: '8px',
                   padding: '12px 14px',
                   marginBottom: '16px',
-                  color: '#86EFAC',
+                  color: 'var(--success-text)',
                   fontSize: '13px',
                   fontWeight: 600,
                   textAlign: 'center',
@@ -1375,17 +1375,25 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                       id: 'P0',
                       label: 'P0 - Khẩn cấp',
                       color: 'var(--danger-text)',
+                      bg: 'var(--danger-subtle)',
                     },
-                    { id: 'P1', label: 'P1 - Cao', color: '#F97316' },
+                    {
+                      id: 'P1',
+                      label: 'P1 - Cao',
+                      color: 'var(--warning-text)',
+                      bg: 'var(--warning-subtle)',
+                    },
                     {
                       id: 'P2',
                       label: 'P2 - Bình thường',
                       color: 'var(--info-text)',
+                      bg: 'var(--info-subtle)',
                     },
                     {
                       id: 'P3',
                       label: 'P3 - Thấp',
-                      color: 'var(--muted-color)',
+                      color: 'var(--text-color)',
+                      bg: 'var(--surface-hover)',
                     },
                   ].map((item) => {
                     const isSelected = severity === item.id;
@@ -1393,6 +1401,8 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                       <button
                         key={item.id}
                         type="button"
+                        data-testid={`severity-option-${item.id}`}
+                        aria-pressed={isSelected}
                         onClick={() =>
                           setSeverity(item.id as 'P0' | 'P1' | 'P2' | 'P3')
                         }
@@ -1404,9 +1414,9 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                             ? `2px solid ${item.color}`
                             : '1px solid var(--border-color)',
                           backgroundColor: isSelected
-                            ? 'rgba(56, 189, 248, 0.15)'
+                            ? item.bg
                             : 'var(--surface-hover)',
-                          color: isSelected ? '#FFFFFF' : 'var(--muted-color)',
+                          color: isSelected ? item.color : 'var(--muted-color)',
                           fontSize: '12px',
                           fontWeight: isSelected ? 700 : 500,
                           cursor: isFormLocked ? 'not-allowed' : 'pointer',

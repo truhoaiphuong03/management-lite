@@ -19,6 +19,8 @@ import {
   CheckIcon,
   ListFooter,
   ActionIconButton,
+  Pagination,
+  DEFAULT_PAGE_SIZE,
 } from '../../../../packages/ui/src/components/index.js';
 import type {
   IssueData,
@@ -110,9 +112,12 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
   >(new Map());
   const [copying, setCopying] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedSingleId, setCopiedSingleId] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [bulkConfirming, setBulkConfirming] = useState<boolean>(false);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
+  const [page, setPage] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
   const requestSeqRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -282,6 +287,15 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
         issue.reporter_name?.toLowerCase().includes(q),
     );
   }, [issues, searchQuery]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [statusFilter, typeFilter, searchQuery]);
+
+  const pagedIssues: IssueData[] = useMemo(() => {
+    const start = page * pageSize;
+    return filteredIssues.slice(start, start + pageSize);
+  }, [filteredIssues, page, pageSize]);
 
   // Selection Handlers
   const isAllCurrentSelected =
@@ -571,6 +585,45 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
       );
     } finally {
       setCopying(false);
+    }
+  };
+
+  const handleCopySingleIssue = async (
+    issue: IssueData,
+    e: React.MouseEvent,
+  ) => {
+    e.stopPropagation();
+    setCopyError(null);
+    try {
+      let fullIssue = issue;
+      let activities: IssueActivityData[] = [];
+      try {
+        const res = await fetch(
+          `/api/v1/issues/${encodeURIComponent(issue.id)}`,
+          { credentials: 'include' },
+        );
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.success && json?.data?.issue) {
+            fullIssue = json.data.issue as IssueData;
+            activities = (json.data.activities || []) as IssueActivityData[];
+          }
+        }
+      } catch {
+        // Fallback to list row item
+      }
+      const promptText = formatSelectedIssuesPrompt([
+        { issue: fullIssue, activities },
+      ]);
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(promptText);
+      }
+      setCopiedSingleId(issue.id);
+      setTimeout(() => {
+        setCopiedSingleId((prev) => (prev === issue.id ? null : prev));
+      }, 2000);
+    } catch {
+      setCopyError('Không thể sao chép thông tin lỗi vào bộ nhớ tạm.');
     }
   };
 
@@ -1123,7 +1176,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {filteredIssues.map((issue) => {
+          {pagedIssues.map((issue) => {
             const statusMeta = getStatusBadge(issue.status);
             const typeMeta = getTypeBadge(issue.type);
             const severityMeta = getSeverityBadge(issue.severity);
@@ -1136,7 +1189,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                 data-testid={`issue-item-${issue.id}`}
                 onClick={() => onNavigate(`/issues/${issue.id}`)}
                 style={{
-                  padding: '16px 20px',
+                  padding: '14px 16px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '10px',
@@ -1164,7 +1217,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
+                      gap: '6px',
                       flexWrap: 'wrap',
                     }}
                   >
@@ -1278,10 +1331,15 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                       style={{
                         padding: '2px 8px',
                         borderRadius: '4px',
-                        backgroundColor: 'rgba(51, 65, 85, 0.4)',
-                        color: 'var(--muted-color)',
+                        backgroundColor: 'var(--surface-hover)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-color)',
                         fontFamily: 'var(--font-mono)',
                         fontSize: '12px',
+                        maxWidth: '220px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {issue.route_template}
@@ -1308,11 +1366,11 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     display: 'flex',
                     alignItems: 'flex-start',
                     justifyContent: 'space-between',
-                    gap: '16px',
+                    gap: '12px',
                     flexWrap: 'wrap',
                   }}
                 >
-                  <div style={{ flex: '1 1 300px' }}>
+                  <div style={{ flex: '1 1 240px', minWidth: 0 }}>
                     <h3
                       style={{
                         fontSize: '16px',
@@ -1383,6 +1441,47 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                       alignSelf: 'center',
                     }}
                   >
+                    <button
+                      type="button"
+                      data-testid={`btn-copy-single-issue-${issue.id}`}
+                      aria-label={`Sao chép vấn đề ${issue.bug_code || issue.id.slice(0, 8)}`}
+                      onClick={(e) => void handleCopySingleIssue(issue, e)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        minHeight: '36px',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        border:
+                          copiedSingleId === issue.id
+                            ? '1px solid var(--success-text)'
+                            : '1px solid var(--border-color)',
+                        backgroundColor:
+                          copiedSingleId === issue.id
+                            ? 'var(--success-subtle)'
+                            : 'var(--surface-hover)',
+                        color:
+                          copiedSingleId === issue.id
+                            ? 'var(--success-text)'
+                            : 'var(--text-color)',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {copiedSingleId === issue.id ? (
+                        <>
+                          <CheckIcon size={14} />
+                          <span>Đã chép</span>
+                        </>
+                      ) : (
+                        <>
+                          <CopyIcon size={14} />
+                          <span>Sao chép</span>
+                        </>
+                      )}
+                    </button>
                     <ActionIconButton
                       action="view"
                       target={`Vấn đề ${issue.bug_code || issue.id.slice(0, 8)}`}
@@ -1394,6 +1493,31 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
               </AppCard>
             );
           })}
+
+          {/* Numbered Pagination Control */}
+          <Pagination
+            testId="issues-pagination"
+            total={filteredIssues.length}
+            hasNext={hasMore && Boolean(nextCursor)}
+            itemCount={pagedIssues.length}
+            page={page}
+            pageSize={pageSize}
+            onPage={(nextPage) => {
+              setPage(nextPage);
+              if (
+                (nextPage + 1) * pageSize > filteredIssues.length &&
+                hasMore &&
+                nextCursor
+              ) {
+                handleLoadMore();
+              }
+            }}
+            onPageSize={(sz) => {
+              setPageSize(sz);
+              setPage(0);
+            }}
+            loading={loading || loadingMore}
+          />
 
           {/* Unified List Footer */}
           <ListFooter

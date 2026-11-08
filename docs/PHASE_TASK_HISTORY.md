@@ -769,6 +769,31 @@
 8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
 9. **Kết quả test:** `PASS` — `accounts-screen.test.mjs` (`21/21 PASS`), `version.test.mjs`, `settings-screen.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` (`441.6 KB raw / 129.3 KB gzip`) & `canonical:verify` đều đạt `PASS`.
 10. **Evidence (`VERIFIED`):** `apps/web/src/screens/AccountsScreen.tsx`, `apps/web/src/screens/helpers/accounts-helpers.ts`, `tests/web/accounts-screen.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
-11. **Commit / PR:** Nhánh `fix/accounts-ui-polish-v099` (`https://github.com/truhoaiphuong03/management-lite/pull/new/fix/accounts-ui-polish-v099`)
+11. **Commit / PR:** Nhánh `fix/accounts-ui-polish-v099` (`0bb3eb5` • `https://github.com/truhoaiphuong03/management-lite/pull/new/fix/accounts-ui-polish-v099`)
 12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Chờ Owner phê duyệt merge PR vào `main` và ký phát hành qua cổng `Owner-Locked Release Gate`)_
-13. **NEXT_ACTION:** Owner mở & merge PR từ `fix/accounts-ui-polish-v099` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), sau đó chạy `Invoke-OwnerReleaseToWeb.ps1` trong PowerShell Administrator theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`.
+13. **NEXT_ACTION:** Chuyển sang `Task T-FIX-01..05` (`Phase ISSUE-BATCH-040`).
+
+---
+
+## PHASE ISSUE-BATCH-040 — XỬ LÝ TRIỆT ĐỂ 10 VẤN ĐỀ MỞ (`BUG-0031..BUG-0040`) TỪ SỔ TAY LỖI (`v0.9.9`)
+
+### Task `T-FIX-01..05` — Giải Quyết Đồng Bộ `BUG-0031..BUG-0039` Trên `/settings`, `/issues`, `/system-logs`, `/print-quotes/new` & `/work` (`v0.9.9`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase ISSUE-BATCH-040` (`v0.9.9`)
+3. **Task ID:** `T-FIX-01..05`
+4. **Mô tả:** Phân tích toàn bộ 20 vấn đề trích xuất từ Sổ tay Vấn đề (`BUG-0040` ➔ `BUG-0021` của Workspace `THIẾT KẾ IN ẤN TOÀN GIA PHÁT`) và thực thi Minimal Diff trên nhánh `feat/ui-report-01-mvp` cho các lỗi đang mở (`open` / `awaiting_owner`):
+   - `T-FIX-01` (`BUG-0039` — `/settings`): Bổ sung nút hiện/ẩn mật khẩu (`EyeIcon` / `EyeOffIcon`) cho cả 3 trường trong hộp thoại **Đổi mật khẩu tài khoản (`UI20`)** (`currentPassword`, `newPassword`, `confirmPassword`) và ô xác nhận mật khẩu khi đổi Email (`SettingsScreen.tsx`).
+   - `T-FIX-02` (`BUG-0035`, `BUG-0037`, `BUG-0031` — `/issues`, `/issues/:id` & `ReportBugWidget`): Sửa lỗi chữ trắng trên nền sáng của nút mức độ `P2 - Bình thường` khi chọn trong `ReportBugWidget.tsx`, đồng bộ nhãn `P2 - Bình thường` trong `issues-helpers.ts`, thêm nút `Sao chép` 1-chạm (`data-testid="btn-copy-single-issue-*"`) trên từng dòng lỗi trong `IssuesScreen.tsx`, thay màu nền tối cứng (`rgba(11, 18, 32, 0.6)`, `#A5B4FC`, `rgba(51, 65, 85, 0.4)`) trên `IssueDetailScreen.tsx` sang biến theme (`var(--surface-hover)`, `var(--accent-text)`) và chống tràn thẻ trên Mobile.
+   - `T-FIX-03` (`BUG-0036`, `BUG-0038` — `/issues` & `/system-logs`): Tích hợp component `<Pagination />` (chọn trang số + kích thước trang `10/20/50/100`) vào `IssuesScreen.tsx` (`testId="issues-pagination"`, bảo toàn `<ListFooter loadMoreTestId="btn-load-more" />`) và `SystemLogsScreen.tsx` (`testId="system-logs-pagination"`).
+   - `T-FIX-04` (`BUG-0033`, `BUG-0034` — `/print-quotes/new`): Tự động đóng thông báo thành công (`bannerMessage.type === 'success'`) sau `4000ms` trong `PrintQuoteScreen.tsx`; mở rộng khổ giấy `A0 ➔ A4` (`A0, A1, A2, A3, A4, A5`), bổ sung `printTechs` (`In Laser (In nhanh)`, `In Offset`, `In KTS khổ lớn`, `In UV`) vào `WORKSHOP_MATERIAL_GROUPS` (`packages/contracts/src/printquote.ts`), hiển thị dải chip chọn nhanh **Cán màng** (`laminations`) & **Công nghệ in** (`printTechs`) và tự gán đơn vị `m²` khi chọn khổ `Theo m²` trong `CreateQuoteTab.tsx`.
+   - `T-FIX-05` (`BUG-0032` — `/work` & `AppShell`): Hiển thị thanh nhắc việc nổi bật (`data-testid="staff-work-reminder-banner"`) trong `AppShell.tsx` khi nhân viên đăng nhập có công việc được giao chưa hoàn thành (`todo` / `in_progress`) và tự động tắt khi nhân viên gửi báo cáo tiến độ (`mglite:work-updated`); bổ sung nút **`💬 Copy tin gửi Zalo`** (`data-testid="btn-copy-work-zalo"`) trên `/work/new` (`WorkScreen.tsx`).
+5. **Phụ thuộc:** `Hotfix v0.9.9` (`Task UI-099` — `0bb3eb5`).
+6. **Acceptance Criteria:** Toàn bộ 10 lỗi mở (`BUG-0031..BUG-0040`) có giải pháp triệt để hoặc đã xác minh xong ở các bản `v0.9.2`/`v0.9.8`; không tự động đóng lỗi trong DB, không thêm migration mới, không thêm thư viện thứ 3; vượt qua `format`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` (`443.5 KB raw / 129.6 KB gzip`), `canonical:verify` và `43/43` bài kiểm thử liên quan.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `settings-screen.test.mjs`, `issues-screen.test.mjs`, `issues-b01.test.mjs`, `phase21-error-alert-and-fix.test.mjs`, `ui-report.test.mjs`, `ui-tasks-v084.test.mjs` & `printquote-pricing-engine.test.mjs` (`43/43 PASS`, `0 fail`), `check:bundle` (`443.5 KB / 129.6 KB`), `canonical:verify` (`PASS`).
+10. **Evidence (`VERIFIED`):** `apps/web/src/AppShell.tsx`, `apps/web/src/components/ReportBugWidget.tsx`, `apps/web/src/screens/IssueDetailScreen.tsx`, `apps/web/src/screens/IssuesScreen.tsx`, `apps/web/src/screens/PrintQuoteScreen.tsx`, `apps/web/src/screens/SettingsScreen.tsx`, `apps/web/src/screens/SystemLogsScreen.tsx`, `apps/web/src/screens/WorkScreen.tsx`, `apps/web/src/screens/helpers/issues-helpers.ts`, `apps/web/src/screens/printquote/CreateQuoteTab.tsx`, `packages/contracts/src/printquote.ts`.
+11. **Commit / PR:** Nhánh `feat/ui-report-01-mvp` (`https://github.com/truhoaiphuong03/management-lite/pull/new/feat/ui-report-01-mvp`)
+12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Owner đã duyệt thực thi & `NEXT_ACTION`; chờ Owner merge PR vào `main` và ký phát hành qua cổng `Owner-Locked Release Gate`)_
+13. **NEXT_ACTION:** Owner mở & merge PR từ `feat/ui-report-01-mvp` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), chạy `Invoke-OwnerReleaseToWeb.ps1` trong PowerShell Administrator theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`, sau đó nghiệm thu và bấm `Xác nhận đã sửa` cho các phiếu `BUG-0021..BUG-0040` trên `/issues`.

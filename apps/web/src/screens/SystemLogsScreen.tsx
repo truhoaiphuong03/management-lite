@@ -5,6 +5,8 @@ import {
   PageHeader,
   LoadingState,
   EmptyState,
+  Pagination,
+  DEFAULT_PAGE_SIZE,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 
@@ -183,6 +185,8 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [copied, setCopied] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
   const query = useCallback(
     (extra?: string) => {
@@ -215,6 +219,7 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
       setSummary(s && typeof s === 'object' && 'counts' in s ? s : null);
       setRows(Array.isArray(l?.items) ? l.items : []);
       setCursor(l?.next_cursor ?? null);
+      setPage(0);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tải được nhật ký.');
     } finally {
@@ -844,51 +849,76 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
-                    <tr
-                      key={r.id}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => void open(r.id)}
-                    >
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                        <div
-                          style={{
-                            color: LEVEL_COLOR[r.level],
-                            fontWeight: 600,
-                          }}
-                        >
-                          {LEVEL_LABEL[r.level]}
-                        </div>
-                        <div style={{ ...mono, opacity: 0.8 }}>
-                          {r.status ?? r.error_code ?? ''}
-                        </div>
-                      </td>
-                      <td style={{ ...td, wordBreak: 'break-word' }}>
-                        <div>
-                          {r.error_code && <strong>{r.error_code}: </strong>}
-                          {r.message.slice(0, 140)}
-                        </div>
-                        <div
-                          style={{
-                            ...mono,
-                            opacity: 0.75,
-                            marginTop: 2,
-                          }}
-                        >
-                          {r.source === 'web' ? '🌐 ' : ''}
-                          {r.method} {r.route}
-                          {r.duration_ms !== null
-                            ? ` · ${r.duration_ms} ms`
-                            : ''}
-                        </div>
-                      </td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                        {fmtTime(r.occurred_at)}
-                      </td>
-                    </tr>
-                  ))}
+                  {rows
+                    .slice(page * pageSize, (page + 1) * pageSize)
+                    .map((r) => (
+                      <tr
+                        key={r.id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => void open(r.id)}
+                      >
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                          <div
+                            style={{
+                              color: LEVEL_COLOR[r.level],
+                              fontWeight: 600,
+                            }}
+                          >
+                            {LEVEL_LABEL[r.level]}
+                          </div>
+                          <div style={{ ...mono, opacity: 0.8 }}>
+                            {r.status ?? r.error_code ?? ''}
+                          </div>
+                        </td>
+                        <td style={{ ...td, wordBreak: 'break-word' }}>
+                          <div>
+                            {r.error_code && <strong>{r.error_code}: </strong>}
+                            {r.message.slice(0, 140)}
+                          </div>
+                          <div
+                            style={{
+                              ...mono,
+                              opacity: 0.75,
+                              marginTop: 2,
+                            }}
+                          >
+                            {r.source === 'web' ? '🌐 ' : ''}
+                            {r.method} {r.route}
+                            {r.duration_ms !== null
+                              ? ` · ${r.duration_ms} ms`
+                              : ''}
+                          </div>
+                        </td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                          {fmtTime(r.occurred_at)}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
+              <div style={{ marginTop: 12 }}>
+                <Pagination
+                  testId="system-logs-pagination"
+                  total={rows.length}
+                  hasNext={Boolean(cursor)}
+                  itemCount={
+                    rows.slice(page * pageSize, (page + 1) * pageSize).length
+                  }
+                  page={page}
+                  pageSize={pageSize}
+                  onPage={(nextPage) => {
+                    setPage(nextPage);
+                    if ((nextPage + 1) * pageSize > rows.length && cursor) {
+                      void more();
+                    }
+                  }}
+                  onPageSize={(sz) => {
+                    setPageSize(sz);
+                    setPage(0);
+                  }}
+                  loading={loading || loadingMore}
+                />
+              </div>
               {cursor && (
                 <div style={{ marginTop: 12 }}>
                   <AppButton

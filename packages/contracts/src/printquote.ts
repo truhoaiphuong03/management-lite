@@ -1359,7 +1359,7 @@ export const WORKSHOP_MATERIAL_GROUPS = [
       Fort: ['Fort 60', 'Fort 70', 'Fort 80', 'Fort 100', 'Khác'],
       default: ['C150', 'C200', 'C250', 'C300', 'Fort 80', 'Khác'],
     },
-    sizes: ['A4', 'A5', 'A3', 'A6', '9×5.4cm', 'Khác'],
+    sizes: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', '9×5.4cm', 'Khác'],
     printColors: [
       'In màu 2 mặt',
       'In màu 1 mặt',
@@ -1368,6 +1368,7 @@ export const WORKSHOP_MATERIAL_GROUPS = [
       'Khác',
     ],
     laminations: ['Không cán', 'Cán màng 1 mặt', 'Cán màng 2 mặt', 'Khác'],
+    printTechs: ['In Laser (In nhanh)', 'In Offset'],
     defaultUnit: 'tờ',
   },
   {
@@ -1385,6 +1386,7 @@ export const WORKSHOP_MATERIAL_GROUPS = [
     sizes: ['A4', 'A3', 'Theo m²', 'Tem cắt bế', 'Khác'],
     printColors: ['In màu 1 mặt', 'Trắng đen 1 mặt', 'Khác'],
     laminations: ['Không cán', 'Cán màng 1 mặt', 'Khác'],
+    printTechs: ['In Laser (In nhanh)', 'In KTS khổ lớn', 'In Offset'],
     defaultUnit: 'tờ',
   },
   {
@@ -1402,6 +1404,7 @@ export const WORKSHOP_MATERIAL_GROUPS = [
     sizes: ['Tính theo m²', '0.8×1.8m', '0.6×1.6m', 'Khác'],
     printColors: ['In màu KTS', 'In UV', 'Khác'],
     laminations: ['Không cán', 'Cán màng 1 mặt', 'Đóng khoen 4 góc', 'Khác'],
+    printTechs: ['In KTS khổ lớn', 'In UV'],
     defaultUnit: 'm²',
   },
   {
@@ -1412,6 +1415,7 @@ export const WORKSHOP_MATERIAL_GROUPS = [
     sizes: ['Khác'],
     printColors: ['Khác'],
     laminations: ['Khác'],
+    printTechs: [] as string[],
     defaultUnit: 'sp',
   },
 ] as const;

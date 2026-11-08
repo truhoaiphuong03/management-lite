@@ -1068,7 +1068,8 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     fontFamily: 'var(--font-mono)',
                     padding: '2px 8px',
                     borderRadius: '4px',
-                    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+                    backgroundColor: 'var(--surface-hover)',
+                    border: '1px solid var(--border-color)',
                   }}
                 >
                   Model: {issue.gemini_analysis.model}
@@ -1411,7 +1412,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     borderRadius: '4px',
                     backgroundColor: 'var(--surface-subtle)',
                     border: '1px solid var(--border-color)',
-                    color: '#A5B4FC',
+                    color: 'var(--accent-text)',
                     fontFamily: 'var(--font-mono)',
                     fontSize: '12px',
                   }}
@@ -1502,11 +1503,13 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
               style={{
                 padding: '4px 10px',
                 borderRadius: '6px',
-                backgroundColor: 'rgba(51, 65, 85, 0.4)',
+                backgroundColor: 'var(--surface-hover)',
+                border: '1px solid var(--border-color)',
                 color: 'var(--text-color)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '13px',
                 display: 'inline-block',
+                wordBreak: 'break-all',
               }}
             >
               {issue.route_template}
@@ -1670,7 +1673,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     </span>
                     <code
                       style={{
-                        color: '#A5B4FC',
+                        color: 'var(--accent-text)',
                         fontFamily: 'var(--font-mono)',
                       }}
                     >
@@ -1837,7 +1840,7 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                     padding: '14px 16px',
                     borderRadius: '8px',
                     border: '1px solid var(--border-color)',
-                    backgroundColor: 'rgba(11, 18, 32, 0.6)',
+                    backgroundColor: 'var(--surface-hover)',
                   }}
                 >
                   <div
