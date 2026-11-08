@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 const root = resolve(__dirname, '../..');
 
 test('UI NOTIFICATION HARMONIZATION — AppToast, AppDialog, and Complete Native Dialog Elimination', async (t) => {
-  const { AppToast, AppDialog } = await import(
+  const { AppToast, AppDialog, useAutoDismiss } = await import(
     `file://${resolve(root, 'dist/packages/ui/src/components/index.js')}`
   );
 
@@ -279,6 +279,69 @@ test('UI NOTIFICATION HARMONIZATION — AppToast, AppDialog, and Complete Native
         actionHtml.includes('button'),
         'Action must render as an interactive button element',
       );
+    },
+  );
+
+  // 7. System-wide auto-dismiss verification (useAutoDismiss + AppToast ref stability)
+  await t.test(
+    '7. All system notifications auto-dismiss via useAutoDismiss and stable onCloseRef in AppToast',
+    () => {
+      assert.equal(
+        typeof useAutoDismiss,
+        'function',
+        'useAutoDismiss hook must be exported from @management-lite/ui',
+      );
+
+      const toastSource = readFileSync(
+        resolve(root, 'packages/ui/src/components/AppToast.tsx'),
+        'utf8',
+      );
+      assert.ok(
+        toastSource.includes('onCloseRef'),
+        'AppToast must store onClose in a ref so parent re-renders do not reset the auto-dismiss timer',
+      );
+
+      // Even without onClose prop, AppToast must render a close button
+      const noCallbackHtml = renderToStaticMarkup(
+        React.createElement(AppToast, {
+          message: 'Đã lưu thành công.',
+          variant: 'success',
+        }),
+      );
+      assert.ok(
+        noCallbackHtml.includes('data-testid="btn-close-toast"'),
+        'AppToast must render close button even when onClose prop is omitted',
+      );
+
+      const autoDismissScreens = [
+        'apps/web/src/App.tsx',
+        'apps/web/src/finance/ui.tsx',
+        'apps/web/src/screens/PrintQuoteScreen.tsx',
+        'apps/web/src/screens/ClockScreen.tsx',
+        'apps/web/src/screens/EmployeesScreen.tsx',
+        'apps/web/src/screens/EmployeeDetailScreen.tsx',
+        'apps/web/src/screens/EmployeeNewScreen.tsx',
+        'apps/web/src/screens/AccountsScreen.tsx',
+        'apps/web/src/screens/WorkScreen.tsx',
+        'apps/web/src/screens/PayrollScreen.tsx',
+        'apps/web/src/screens/PayrollStatsScreen.tsx',
+        'apps/web/src/screens/ReportsScreen.tsx',
+        'apps/web/src/screens/ScheduleScreen.tsx',
+        'apps/web/src/screens/StorageScreen.tsx',
+        'apps/web/src/screens/SystemLogsScreen.tsx',
+        'apps/web/src/screens/IssuesScreen.tsx',
+        'apps/web/src/screens/IssueDetailScreen.tsx',
+        'apps/web/src/screens/DashboardScreen.tsx',
+        'apps/web/src/screens/SettingsScreen.tsx',
+      ];
+
+      for (const file of autoDismissScreens) {
+        const content = readFileSync(resolve(root, file), 'utf8');
+        assert.ok(
+          content.includes('useAutoDismiss('),
+          `${file} must wire useAutoDismiss() so notifications auto-close`,
+        );
+      }
     },
   );
 });

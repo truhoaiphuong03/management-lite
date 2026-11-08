@@ -31,7 +31,7 @@ import {
   fieldStyle,
   type FinanceScreenProps,
 } from '../finance/ui.js';
-import { formatVnd } from '../finance/client.js';
+import { createReceiptApi, formatVnd } from '../finance/client.js';
 import { resolveEntryTime, vnDateTimeLocal } from '../finance/time.js';
 import { ReceiptPanel } from '../finance/ReceiptPanel.js';
 import type { PrefillFields, ReceiptApi } from '../finance/receipt.js';
@@ -39,12 +39,14 @@ export function FinanceEntryScreen({
   identity,
   onNavigate,
   entryId,
-  receipt,
+  receipt: receiptProp,
+  defaultReceipt = false,
   aiEnabled,
   dialog,
 }: FinanceScreenProps & {
   entryId?: string;
   receipt?: ReceiptApi;
+  defaultReceipt?: boolean;
   aiEnabled?: boolean;
   /**
    * Render the new-entry form inside an AppDialog instead of a page. The parent mounts this
@@ -52,6 +54,8 @@ export function FinanceEntryScreen({
    */
   dialog?: { onClose: () => void; onSaved: (entryId: string) => void };
 }) {
+  const receipt =
+    receiptProp ?? (defaultReceipt ? createReceiptApi(identity) : undefined);
   const [direction, setDirection] = useState<FinanceDirection>('expense');
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');

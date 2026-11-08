@@ -21,6 +21,7 @@ import {
   ActionIconButton,
   Pagination,
   DEFAULT_PAGE_SIZE,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type {
   IssueData,
@@ -118,6 +119,8 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const [page, setPage] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
+  useAutoDismiss(bulkNotice, () => setBulkNotice(null), 4000);
+  useAutoDismiss(copyError, () => setCopyError(null), 5000);
 
   const requestSeqRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);

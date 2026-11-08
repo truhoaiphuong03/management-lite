@@ -27,6 +27,7 @@ import {
   ArrowLeftIcon,
   ActionIconButton,
   Pagination,
+  useAutoDismiss,
   DEFAULT_PAGE_SIZE,
   clampPage,
 } from '../../../../packages/ui/src/components/index.js';
@@ -108,6 +109,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useAutoDismiss(successMessage, () => setSuccessMessage(null), 4000);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
 
   // Filters & View Modes (List view)
   const [viewMode, setViewMode] = useState<

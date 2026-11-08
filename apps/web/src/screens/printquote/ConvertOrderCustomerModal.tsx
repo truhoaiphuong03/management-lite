@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAutoDismiss } from '../../../../../packages/ui/src/components/index.js';
 import type {
   PrintCustomerData,
   PrintQuoteData,
@@ -36,6 +37,7 @@ export const ConvertOrderCustomerModal: React.FC<
   const [quickPhone, setQuickPhone] = useState<string>('');
   const [quickAddress, setQuickAddress] = useState<string>('');
   const [localError, setLocalError] = useState<string>('');
+  useAutoDismiss(localError, () => setLocalError(''), 5000);
 
   useEffect(() => {
     if (!quote) return;

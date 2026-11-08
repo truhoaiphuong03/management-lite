@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { TOKENS, THEME_COLORS } from '../tokens.js';
 import {
   CheckCircleIcon,
@@ -24,6 +24,8 @@ export interface AppToastProps {
   testId?: string | undefined;
 }
 
+export { useAutoDismiss } from './useAutoDismiss.js';
+
 export const AppToast: React.FC<AppToastProps> = ({
   message,
   variant = 'info',
@@ -32,13 +34,31 @@ export const AppToast: React.FC<AppToastProps> = ({
   action,
   testId = 'app-toast',
 }) => {
+  const [dismissed, setDismissed] = useState(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
-    if (!durationMs || durationMs <= 0 || !onClose) return;
+    setDismissed(false);
+    if (!durationMs || durationMs <= 0) return;
     const timer = setTimeout(() => {
-      onClose();
+      setDismissed(true);
+      onCloseRef.current?.();
     }, durationMs);
+    if (
+      typeof timer === 'object' &&
+      timer !== null &&
+      'unref' in timer &&
+      typeof (timer as { unref?: () => void }).unref === 'function'
+    ) {
+      (timer as { unref: () => void }).unref();
+    }
     return () => clearTimeout(timer);
-  }, [durationMs, onClose]);
+  }, [durationMs, message, variant]);
+
+  if (dismissed || !message) {
+    return null;
+  }
 
   const variantStyles = {
     success: {
@@ -155,30 +175,31 @@ export const AppToast: React.FC<AppToastProps> = ({
             {action.label}
           </button>
         )}
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng thông báo"
-            data-testid="btn-close-toast"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: THEME_COLORS.muted,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: '44px',
-              minHeight: '44px',
-              padding: '6px',
-              borderRadius: TOKENS.radii.sm,
-              transition: 'color 0.15s ease',
-            }}
-          >
-            <CloseIcon size={16} />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            setDismissed(true);
+            onCloseRef.current?.();
+          }}
+          aria-label="Đóng thông báo"
+          data-testid="btn-close-toast"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: THEME_COLORS.muted,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: '44px',
+            minHeight: '44px',
+            padding: '6px',
+            borderRadius: TOKENS.radii.sm,
+            transition: 'color 0.15s ease',
+          }}
+        >
+          <CloseIcon size={16} />
+        </button>
       </div>
     </div>
   );

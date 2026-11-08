@@ -20,6 +20,7 @@ import {
   DownloadIcon,
   AppDialog,
   AppToast,
+  useAutoDismiss,
   Pagination,
   PAGINATION_PAGE_SIZES,
   DEFAULT_PAGE_SIZE,
@@ -194,6 +195,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     message: string;
     variant?: ToastVariant;
   } | null>(null);
+  useAutoDismiss(successMessage, () => setSuccessMessage(null), 4000);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
+  useAutoDismiss(toast, () => setToast(null), 4000);
   const [clockActionDialog, setClockActionDialog] = useState<
     | { type: 'confirm_clock_out' }
     | { type: 'review_approve'; shift: ShiftData; reason: string }

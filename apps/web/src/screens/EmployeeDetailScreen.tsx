@@ -13,6 +13,7 @@ import {
   ArrowLeftIcon,
   AppDialog,
   AppToast,
+  useAutoDismiss,
   type ToastVariant,
 } from '../../../../packages/ui/src/components/index.js';
 import { TOKENS, THEME_COLORS } from '../../../../packages/ui/src/tokens.js';
@@ -146,6 +147,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
     message: string;
     variant?: ToastVariant;
   } | null>(null);
+  useAutoDismiss(actionNotice, () => setActionNotice(null), 4000);
+  useAutoDismiss(rateError, () => setRateError(null), 5000);
+  useAutoDismiss(toast, () => setToast(null), 4000);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     type: 'suspend' | 'reactivate';

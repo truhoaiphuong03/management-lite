@@ -15,6 +15,7 @@ import {
   ListFooter,
   AppDialog,
   AppToast,
+  useAutoDismiss,
   ActionIconButton,
   AppSkeleton,
   type ToastVariant,
@@ -45,6 +46,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
     message: string;
     variant?: ToastVariant;
   } | null>(null);
+  useAutoDismiss(actionSuccess, () => setActionSuccess(null), 4000);
+  useAutoDismiss(paginationError, () => setPaginationError(null), 5000);
+  useAutoDismiss(toast, () => setToast(null), 4000);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     type: 'suspend' | 'reactivate';

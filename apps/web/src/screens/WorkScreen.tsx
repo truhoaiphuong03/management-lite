@@ -16,6 +16,7 @@ import {
   RotateCcwIcon,
   ActionIconButton,
   Pagination,
+  useAutoDismiss,
   clampPage,
   PAGINATION_PAGE_SIZES,
 } from '../../../../packages/ui/src/components/index.js';
@@ -103,6 +104,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   const [apiUnavailable, setApiUnavailable] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useAutoDismiss(successMessage, () => setSuccessMessage(null), 4000);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
 
   // Filters (List view)
   const [statusFilter, setStatusFilter] = useState<string>('all');

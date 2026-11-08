@@ -54,10 +54,10 @@ import { sanitizePostLoginRedirect } from './navigation-guard.js';
 import {
   AlertTriangleIcon,
   LoadingState,
+  useAutoDismiss,
 } from '../../../packages/ui/src/components/index.js';
 import { NotFoundScreen } from './screens/NotFoundScreen.js';
 import { PlaceholderScreen } from './screens/PlaceholderScreen.js';
-import { createReceiptApi } from './finance/client.js';
 import {
   parseSessionPayload,
   executeSessionVerification,
@@ -208,6 +208,8 @@ export const App: React.FC = () => {
   const [promptBankHolder, setPromptBankHolder] = useState<string>('');
   const [promptSaving, setPromptSaving] = useState<boolean>(false);
   const [promptError, setPromptError] = useState<string | null>(null);
+  useAutoDismiss(verifyCodeError, () => setVerifyCodeError(null), 5000);
+  useAutoDismiss(promptError, () => setPromptError(null), 5000);
   const [workspaceId, setWorkspaceId] = useState<string | undefined>(undefined);
   const [workspaceName, setWorkspaceName] = useState<string | undefined>(
     undefined,
@@ -218,6 +220,11 @@ export const App: React.FC = () => {
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState<
     string | null
   >(null);
+  useAutoDismiss(
+    sessionExpiredNotice,
+    () => setSessionExpiredNotice(null),
+    5000,
+  );
   const expiryRedirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -847,7 +854,6 @@ export const App: React.FC = () => {
               key={`${userId}:${workspaceId}:/finance`}
               identity={identity}
               onNavigate={handleNavigate}
-              receipt={createReceiptApi(identity)}
               entryRequest={entryRequest}
             />
           );
@@ -880,7 +886,7 @@ export const App: React.FC = () => {
             key={key}
             identity={identity}
             onNavigate={handleNavigate}
-            receipt={createReceiptApi(identity)}
+            defaultReceipt
             {...(params['id'] ? { entryId: params['id'] } : {})}
           />
         );

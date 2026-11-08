@@ -5,7 +5,10 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import { PageHeader } from '../../../../packages/ui/src/components/index.js';
+import {
+  PageHeader,
+  useAutoDismiss,
+} from '../../../../packages/ui/src/components/index.js';
 import {
   AreaInputMode,
   LineCostSource,
@@ -420,14 +423,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     type: 'success' | 'error';
     text: string;
   } | null>(null);
-
-  useEffect(() => {
-    if (!bannerMessage || bannerMessage.type !== 'success') return;
-    const timer = setTimeout(() => {
-      setBannerMessage(null);
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, [bannerMessage]);
+  useAutoDismiss(
+    bannerMessage,
+    () => setBannerMessage(null),
+    bannerMessage?.type === 'error' ? 5000 : 4000,
+  );
 
   // Data collections
   const [vendors, setVendors] = useState<PrintVendorData[]>(initialVendors);
@@ -1918,6 +1918,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     useState<PrintQuoteData | null>(null);
   const [convertingOrder, setConvertingOrder] = useState<boolean>(false);
   const [convertOrderError, setConvertOrderError] = useState<string>('');
+  useAutoDismiss(convertOrderError, () => setConvertOrderError(''), 5000);
 
   const submitConvertQuoteToOrder = async (
     quote: PrintQuoteData,

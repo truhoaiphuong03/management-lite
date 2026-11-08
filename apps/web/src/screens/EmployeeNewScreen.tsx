@@ -7,6 +7,7 @@ import {
   AlertTriangleIcon,
   CopyIcon,
   AppToast,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 
 export interface EmployeeNewScreenProps {
@@ -40,6 +41,8 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
   const [createdEmployeeName, setCreatedEmployeeName] = useState<string>('');
   const [createdEmployeeCode, setCreatedEmployeeCode] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
+  useAutoDismiss(toastMessage, () => setToastMessage(null), 4000);
 
   useEffect(() => {
     let active = true;

@@ -45,16 +45,15 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     commit: 'latest',
     released_at: '2026-11-08',
     summary:
-      'Chuẩn hóa giao diện Quản lý Tài khoản (/accounts): bỏ toàn bộ icon emoji trước nhãn nền tảng (Gmail, TikTok, Facebook, YouTube…), sửa nền bảng Chế độ Sáng và chống rớt dòng cột/nút thao tác',
+      'Tự động tắt thông báo toàn hệ thống, chuẩn hóa /accounts, quy đổi mức cần kiếm Ngày → Tuần → Tháng → Năm từ khoản chi trên /finance/plan và xử lý 10 vấn đề mở BUG-0031..BUG-0040',
     added: [
-      'Bổ sung kiểm thử hồi quy UI-099 khóa cứng nhãn nền tảng chữ thuần không dùng icon emoji, nền bảng var(--surface-color) và chống gãy dòng (nowrap) trên /accounts.',
+      'Hook useAutoDismiss tự động tắt thông báo (4s/5s); chỉ số need_per_year_vnd (Ngày/Tuần/Tháng/Năm) từ tổng khoản chi trên /finance/plan; phân trang số trên /issues & /system-logs.',
     ],
     improved: [
-      'Loại bỏ toàn bộ icon emoji trang trí (📧, 🎵, 📘, ▶️, 🔐, 🛡️…) trên nhãn nền tảng, thẻ cụm và hộp thoại Quản lý Tài khoản để hiển thị chữ thuần gọn gàng (Gmail, TikTok, Facebook, YouTube…).',
+      'Loại bỏ icon emoji trước nhãn nền tảng trên /accounts; hiện/ẩn mật khẩu UI20 trên /settings; chip khổ A0-A4, Cán màng, Công nghệ in trên /print-quotes/new; nhắc việc nhân viên và nút Copy tin gửi Zalo trên /work.',
     ],
     fixed: [
-      'Khắc phục lỗi nền bảng danh sách và hộp thoại trên /accounts dùng nhầm biến var(--surface-hover) làm bảng bị xám đục ở Chế độ Sáng (chuyển về var(--surface-color) trắng sáng).',
-      'Khắc phục lỗi tiêu đề cột "Nhóm & Phụ trách", huy hiệu "Hoạt động tốt" và cụm 4 nút cột "Thao tác" bị rớt xuống 2 dòng.',
+      'Khắc phục lỗi thông báo treo không tự tắt trên toàn hệ thống, nền bảng /accounts xám đục ở Chế độ Sáng, rớt dòng cột/nút thao tác và tương phản nút P2 / chi tiết lỗi trên /issues.',
     ],
   },
   {

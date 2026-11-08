@@ -7,6 +7,7 @@ import {
   EmptyState,
   Pagination,
   DEFAULT_PAGE_SIZE,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 
@@ -187,6 +188,8 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
   const [copied, setCopied] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
+  useAutoDismiss(actionNotice, () => setActionNotice(null), 4000);
+  useAutoDismiss(copied, () => setCopied(false), 3000);
 
   const query = useCallback(
     (extra?: string) => {
