@@ -1134,6 +1134,80 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     }
   };
 
+  const isSimulatedDriveResource = (urlOrId?: string | null): boolean =>
+    Boolean(urlOrId && /gdrive_(fld|root|file)_/i.test(urlOrId));
+
+  const handleOpenDriveResource = async (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    targetUrl?: string | null | undefined,
+    folderObj?: {
+      id?: string | undefined;
+      name?: string | undefined;
+      provider_folder_id?: string | null | undefined;
+    },
+  ) => {
+    if (
+      !isSimulatedDriveResource(targetUrl) &&
+      !isSimulatedDriveResource(folderObj?.provider_folder_id)
+    ) {
+      return;
+    }
+
+    e.preventDefault();
+
+    const isLiveOAuthReady =
+      Boolean(driveConnection?.connected) &&
+      driveConnection?.oauth_mode === 'live' &&
+      !isSimulatedDriveResource(driveConnection?.root_folder_id);
+
+    if (isLiveOAuthReady && folderObj?.id) {
+      setActionLoading(true);
+      setErrorMessage(null);
+      try {
+        const res = await fetch(
+          `/api/v1/storage/folders/${folderObj.id}/sync`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': await ensureCsrfToken(),
+            },
+            credentials: 'include',
+          },
+        );
+        const body = await res.json();
+        const syncedDriveUrl: string | undefined = body?.data?.drive_url;
+        if (
+          res.ok &&
+          body.success &&
+          syncedDriveUrl &&
+          !isSimulatedDriveResource(syncedDriveUrl)
+        ) {
+          setSuccessMessage(
+            `Đã khởi tạo thư mục "${folderObj.name || ''}" trên Google Drive thật và đồng bộ liên kết thành công.`,
+          );
+          void loadData();
+          if (typeof window !== 'undefined') {
+            window.open(syncedDriveUrl, '_blank', 'noopener,noreferrer');
+          }
+          return;
+        }
+      } catch {
+        // Fallback to message below
+      } finally {
+        setActionLoading(false);
+      }
+    }
+
+    setErrorMessage(
+      `Thư mục "${folderObj?.name || 'này'}" đang dùng mã mô phỏng nội bộ (${folderObj?.provider_folder_id || 'gdrive_fld_*'}) nên chưa tồn tại trên Google Drive thật (tránh lỗi 404). Vui lòng bấm "Mở trang ủy quyền Google ↗" để đăng nhập tài khoản Google Drive thật.`,
+    );
+    if (role === 'owner') {
+      setShowDriveOAuthModal(true);
+      void handlePreviewOAuthUrl();
+    }
+  };
+
   const handleSyncFolderFiles = async (targetFolderId: string) => {
     setActionLoading(true);
     setErrorMessage(null);
@@ -2031,6 +2105,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                 href={selectedFolder.drive_url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) =>
+                  void handleOpenDriveResource(
+                    e,
+                    selectedFolder.drive_url,
+                    selectedFolder,
+                  )
+                }
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -2644,6 +2725,17 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                             href={file.web_view_link}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) =>
+                              void handleOpenDriveResource(
+                                e,
+                                file.web_view_link,
+                                {
+                                  id: selectedFolder.id,
+                                  name: file.name,
+                                  provider_folder_id: file.provider_file_id,
+                                },
+                              )
+                            }
                             style={{
                               padding: '5px 10px',
                               backgroundColor: 'var(--surface-hover)',
@@ -2981,6 +3073,12 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           href={output.drive_url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) =>
+                            void handleOpenDriveResource(e, output.drive_url, {
+                              id: output.id,
+                              name: output.name,
+                            })
+                          }
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -3675,7 +3773,10 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           {role === 'owner' && (
             <AppButton
               variant="secondary"
-              onClick={() => setShowDriveOAuthModal(true)}
+              onClick={() => {
+                setShowDriveOAuthModal(true);
+                void handlePreviewOAuthUrl();
+              }}
             >
               <LinkIcon size={14} />
               <span>
@@ -4128,6 +4229,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                         href={folder.drive_url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) =>
+                          void handleOpenDriveResource(
+                            e,
+                            folder.drive_url,
+                            folder,
+                          )
+                        }
                         style={{
                           padding: '5px 10px',
                           backgroundColor: 'var(--surface-hover)',
@@ -4341,6 +4449,13 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           href={folder.drive_url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) =>
+                            void handleOpenDriveResource(
+                              e,
+                              folder.drive_url,
+                              folder,
+                            )
+                          }
                           style={{
                             padding: '4px 8px',
                             backgroundColor: 'var(--surface-hover)',

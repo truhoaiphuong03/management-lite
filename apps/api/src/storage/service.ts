@@ -632,12 +632,17 @@ export class StorageService {
       }
       const row = res.rows[0];
       const isConnected = row.status === 'active';
+      const isSimulatedRoot = String(row.root_folder_id ?? '').startsWith(
+        'gdrive_root_',
+      );
+      const effectiveOauthMode: 'mock' | 'live' =
+        oauthMode === 'live' && !isSimulatedRoot ? 'live' : 'mock';
       return {
         id: row.id,
         workspace_id: row.workspace_id,
         connected: isConnected,
         provider: 'google_drive',
-        oauth_mode: oauthMode,
+        oauth_mode: effectiveOauthMode,
         live_credentials_configured: cfg.credentialsConfigured,
         redirect_uri: cfg.redirectUri,
         google_email: row.google_email,
@@ -3817,7 +3822,12 @@ export class StorageService {
     auth: AuthenticatedContext,
     folderIdParam: string,
     requestId: string = crypto.randomUUID(),
-  ): Promise<{ synced_count: number; files: StorageFileData[] }> {
+  ): Promise<{
+    synced_count: number;
+    files: StorageFileData[];
+    provider_folder_id?: string | null;
+    drive_url?: string;
+  }> {
     const folderId = assertUuid(folderIdParam, 'id');
     const c = await this.pool.connect();
     try {
@@ -3842,11 +3852,69 @@ export class StorageService {
         );
       }
 
-      const providerFolderId =
+      let providerFolderId: string =
         folderRow.provider_folder_id ??
-        this.provider.parseFolderId(folderRow.drive_url);
+        this.provider.parseFolderId(folderRow.drive_url) ??
+        '';
+      let folderDriveUrl: string = folderRow.drive_url;
       const decryptedRefreshToken =
         await this.getDecryptedWorkspaceRefreshToken(c, auth.workspace.id);
+
+      // If this folder still has a simulated ID (gdrive_fld_*) and live Google Drive OAuth is active,
+      // automatically provision the real folder on Google Drive and update its drive_url.
+      if (
+        (providerFolderId.startsWith('gdrive_fld_') ||
+          providerFolderId.startsWith('gdrive_root_') ||
+          String(folderDriveUrl || '').includes('gdrive_fld_')) &&
+        isLiveGoogleDriveEnabled() &&
+        decryptedRefreshToken &&
+        !decryptedRefreshToken.startsWith('1//mock-') &&
+        !decryptedRefreshToken.startsWith('1//0g-') &&
+        this.provider.createDriveFolder
+      ) {
+        const connRes = await c.query(
+          'SELECT google_email, root_folder_id FROM storage_drive_connections WHERE workspace_id = $1 AND status = $2',
+          [auth.workspace.id, 'active'],
+        );
+        const driveOwnerEmail =
+          connRes.rows[0]?.google_email ??
+          folderRow.drive_owner_email ??
+          'drive-admin@hoaiphuong.click';
+        const rootDriveFolderId = connRes.rows[0]?.root_folder_id ?? null;
+        const createdDrive = await this.provider.createDriveFolder(
+          {
+            name: folderRow.name,
+            parentFolderId:
+              folderRow.provider_parent_id &&
+              !String(folderRow.provider_parent_id).startsWith('gdrive_')
+                ? folderRow.provider_parent_id
+                : rootDriveFolderId &&
+                    !String(rootDriveFolderId).startsWith('gdrive_')
+                  ? rootDriveFolderId
+                  : null,
+            ownerEmail: driveOwnerEmail,
+          },
+          decryptedRefreshToken,
+        );
+        providerFolderId = createdDrive.folderId;
+        folderDriveUrl = createdDrive.webViewLink;
+        await c.query(
+          `UPDATE storage_folders
+           SET provider_folder_id = $1,
+               provider_parent_id = $2,
+               drive_url = $3,
+               drive_owner_email = $4,
+               updated_at = clock_timestamp()
+           WHERE id = $5`,
+          [
+            providerFolderId,
+            createdDrive.parentId,
+            folderDriveUrl,
+            driveOwnerEmail,
+            folderId,
+          ],
+        );
+      }
 
       const remoteFiles = this.provider.listRemoteFiles
         ? await this.provider.listRemoteFiles(
@@ -3934,6 +4002,8 @@ export class StorageService {
       return {
         synced_count: files.length,
         files,
+        provider_folder_id: providerFolderId,
+        drive_url: folderDriveUrl,
       };
     } catch (err) {
       await c.query('ROLLBACK');
