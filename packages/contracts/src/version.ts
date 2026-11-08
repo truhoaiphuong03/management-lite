@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.10';
-export const SYSTEM_COMMIT = '8734c7a';
+export const SYSTEM_VERSION = '0.9.9';
+export const SYSTEM_COMMIT = '21848db';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,35 +41,19 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.10',
+    version: '0.9.9',
     commit: 'latest',
     released_at: '2026-11-08',
     summary:
-      'Chuẩn hóa giao diện Quản lý Tài khoản (/accounts) và quy đổi mức cần kiếm theo tổng chi (/finance/plan)',
+      'Tự động tắt thông báo toàn hệ thống, chuẩn hóa /accounts, quy đổi mức cần kiếm Ngày → Tuần → Tháng → Năm từ khoản chi trên /finance/plan và xử lý 10 vấn đề mở BUG-0031..BUG-0040',
     added: [
-      'Bổ sung ô "Mỗi năm" (need_per_year_vnd) trong khung Cần kiếm thêm trên /finance/plan.',
+      'Hook useAutoDismiss tự động tắt thông báo (4s/5s); chỉ số need_per_year_vnd (Ngày/Tuần/Tháng/Năm) từ tổng khoản chi trên /finance/plan; phân trang số trên /issues & /system-logs.',
     ],
     improved: [
-      'Bỏ icon emoji trước nhãn nền tảng (Gmail, TikTok…) trên /accounts; quy đổi mức cần kiếm Ngày → Tuần → Tháng → Năm từ tổng khoản chi dự kiến.',
+      'Loại bỏ icon emoji trước nhãn nền tảng trên /accounts; hiện/ẩn mật khẩu UI20 trên /settings; chip khổ A0-A4, Cán màng, Công nghệ in trên /print-quotes/new; nhắc việc nhân viên và nút Copy tin gửi Zalo trên /work.',
     ],
     fixed: [
-      'Sửa nền bảng /accounts sang var(--surface-color) ở Chế độ Sáng và khóa 1 dòng tiêu đề cột, huy hiệu, cụm nút Thao tác.',
-    ],
-  },
-  {
-    version: '0.9.9',
-    commit: '8734c7a',
-    released_at: '2026-11-08',
-    summary:
-      'Khắc phục lỗi toàn bộ thông báo (Toast & Banner) trên hệ thống không tự động tắt sau vài giây',
-    added: [
-      'Bổ sung hook dùng chung useAutoDismiss tự động đóng thông báo thành công (4s) và thông báo lỗi (5s).',
-    ],
-    improved: [
-      'Cố định tham chiếu onClose bằng useRef trong AppToast để các màn hình có đồng hồ thời gian thực không reset bộ đếm.',
-    ],
-    fixed: [
-      'Khắc phục lỗi thông báo treo trên toàn bộ màn hình (/print-quotes, /employees, /clock, /work, /payroll, /finance, /accounts, /storage, /issues, /settings).',
+      'Khắc phục lỗi thông báo treo không tự tắt trên toàn hệ thống, nền bảng /accounts xám đục ở Chế độ Sáng, rớt dòng cột/nút thao tác và tương phản nút P2 / chi tiết lỗi trên /issues.',
     ],
   },
   {

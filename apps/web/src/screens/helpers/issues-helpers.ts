@@ -66,30 +66,30 @@ export function getSeverityBadge(severity?: IssueSeverity): {
   switch (severity) {
     case 'P0':
       return {
-        bg: 'rgba(239, 68, 68, 0.2)',
+        bg: 'var(--danger-subtle)',
         color: 'var(--danger-text)',
-        border: '#EF4444',
+        border: 'var(--danger-text)',
         label: 'P0 - Khẩn cấp',
       };
     case 'P1':
       return {
-        bg: 'rgba(249, 115, 22, 0.2)',
+        bg: 'var(--warning-subtle)',
         color: 'var(--warning-text)',
-        border: '#F97316',
+        border: 'var(--warning-text)',
         label: 'P1 - Cao',
       };
     case 'P2':
       return {
-        bg: 'rgba(234, 179, 8, 0.2)',
-        color: 'var(--warning-text)',
-        border: '#EAB308',
-        label: 'P2 - Trung bình',
+        bg: 'var(--info-subtle)',
+        color: 'var(--info-text)',
+        border: 'var(--info-text)',
+        label: 'P2 - Bình thường',
       };
     case 'P3':
       return {
-        bg: 'rgba(100, 116, 139, 0.2)',
+        bg: 'var(--surface-hover)',
         color: 'var(--muted-color)',
-        border: '#64748B',
+        border: 'var(--border-color)',
         label: 'P3 - Thấp',
       };
     default:

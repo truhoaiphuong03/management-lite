@@ -20,14 +20,14 @@ import {
   financePageStyle,
   type FinanceScreenProps,
 } from '../finance/ui.js';
-import { formatVnd } from '../finance/client.js';
+import { createReceiptApi, formatVnd } from '../finance/client.js';
 import type { ReceiptApi } from '../finance/receipt.js';
 import { FinanceEntryScreen } from './FinanceEntryScreen.js';
 
 export function FinanceOverviewScreen({
   identity,
   onNavigate,
-  receipt,
+  receipt = createReceiptApi(identity),
   aiEnabled,
   entryRequest = 0,
 }: FinanceScreenProps & {

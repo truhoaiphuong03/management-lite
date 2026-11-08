@@ -120,6 +120,93 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [effectiveTheme, setEffectiveTheme] = useState<'dark' | 'light'>(() =>
     resolveEffectiveTheme(getStoredTheme()),
   );
+  const [pendingAssignedTasks, setPendingAssignedTasks] = useState<
+    Array<{ id: string; title: string; due_at?: string | null; status: string }>
+  >([]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof fetch !== 'function') return;
+    let active = true;
+    const loadPendingAssignedWork = async () => {
+      try {
+        let myEmpId = '';
+        let myEmpCode = employeeCode || '';
+        const meRes = await fetch('/api/v1/auth/me', {
+          credentials: 'include',
+        });
+        if (meRes.ok) {
+          const meJson = await meRes.json().catch(() => null);
+          myEmpId = meJson?.data?.employee?.id || '';
+          if (!myEmpCode) {
+            myEmpCode = meJson?.data?.employee?.employee_code || '';
+          }
+        }
+        const workRes = await fetch('/api/v1/work-items?limit=50', {
+          credentials: 'include',
+        });
+        if (!workRes.ok || !active) return;
+        const workJson = await workRes.json().catch(() => null);
+        const items: Array<{
+          id: string;
+          title: string;
+          due_at?: string | null;
+          status: string;
+          assignments?: Array<{
+            employee_id?: string;
+            employee_code?: string;
+            status: string;
+          }>;
+        }> = Array.isArray(workJson?.data?.items) ? workJson.data.items : [];
+        const unfinished = items.filter((item) => {
+          if (
+            item.status === 'completed' ||
+            item.status === 'cancelled' ||
+            item.status === 'in_review'
+          ) {
+            return false;
+          }
+          const assignments = Array.isArray(item.assignments)
+            ? item.assignments
+            : [];
+          if (myEmpId || myEmpCode) {
+            return assignments.some(
+              (a) =>
+                ((myEmpId && a.employee_id === myEmpId) ||
+                  (myEmpCode && a.employee_code === myEmpCode)) &&
+                (a.status === 'todo' || a.status === 'in_progress'),
+            );
+          }
+          if (role === 'staff') {
+            return assignments.some(
+              (a) => a.status === 'todo' || a.status === 'in_progress',
+            );
+          }
+          return false;
+        });
+        if (active) {
+          setPendingAssignedTasks(
+            unfinished.map((i) => ({
+              id: i.id,
+              title: i.title,
+              due_at: i.due_at ?? null,
+              status: i.status,
+            })),
+          );
+        }
+      } catch {
+        // Ignore network errors on background reminder check
+      }
+    };
+    void loadPendingAssignedWork();
+    const handleWorkUpdated = () => {
+      void loadPendingAssignedWork();
+    };
+    window.addEventListener('mglite:work-updated', handleWorkUpdated);
+    return () => {
+      active = false;
+      window.removeEventListener('mglite:work-updated', handleWorkUpdated);
+    };
+  }, [role, employeeCode, userId]);
 
   useEffect(() => {
     if (
@@ -743,6 +830,86 @@ export const AppShell: React.FC<AppShellProps> = ({
               onNavigate={onNavigate}
               role={role}
             />
+          )}
+          {pendingAssignedTasks.length > 0 && (
+            <div
+              role="status"
+              data-testid="staff-work-reminder-banner"
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+                padding: '10px 14px',
+                marginBottom: '12px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--warning-subtle)',
+                border: '1px solid var(--warning-text)',
+                color: 'var(--text-color)',
+                fontSize: '13px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flex: '1 1 240px',
+                  minWidth: 0,
+                }}
+              >
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color: 'var(--warning-text)',
+                    flexShrink: 0,
+                  }}
+                >
+                  🔔 Nhắc việc ({pendingAssignedTasks.length}):
+                </span>
+                <span
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Bạn có {pendingAssignedTasks.length} công việc được giao chưa
+                  báo cáo hoàn thành (
+                  {pendingAssignedTasks
+                    .slice(0, 2)
+                    .map((t) => t.title)
+                    .join(', ')}
+                  {pendingAssignedTasks.length > 2 ? '…' : ''})
+                </span>
+              </div>
+              <button
+                type="button"
+                data-testid="btn-goto-assigned-work"
+                onClick={() =>
+                  onNavigate(
+                    pendingAssignedTasks.length === 1
+                      ? `/work/${pendingAssignedTasks[0]!.id}`
+                      : '/work',
+                  )
+                }
+                style={{
+                  minHeight: '34px',
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--warning-text)',
+                  backgroundColor: 'var(--surface-color)',
+                  color: 'var(--warning-text)',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Báo cáo tiến độ →
+              </button>
+            </div>
           )}
           {subNavItems.length > 1 && (
             <nav

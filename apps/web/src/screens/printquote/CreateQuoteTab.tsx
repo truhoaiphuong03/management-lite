@@ -2302,9 +2302,21 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                     <button
                                       key={tok}
                                       type="button"
-                                      onClick={() =>
-                                        appendSpecificationChip(idx, tok)
-                                      }
+                                      onClick={() => {
+                                        appendSpecificationChip(idx, tok);
+                                        if (
+                                          tok === 'Theo m²' ||
+                                          tok === 'Tính theo m²'
+                                        ) {
+                                          setDraftLines((prev) =>
+                                            prev.map((l, i) =>
+                                              i === idx
+                                                ? { ...l, unit: 'm²' }
+                                                : l,
+                                            ),
+                                          );
+                                        }
+                                      }}
                                       className="pq-btn pq-btn-ghost pq-btn-sm"
                                       style={{
                                         minHeight: '30px',
@@ -2316,6 +2328,84 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
                                     </button>
                                   ))}
                                 </div>
+
+                                {activeMatGroup.laminations.length > 0 && (
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      flexWrap: 'wrap',
+                                      gap: '6px',
+                                      alignItems: 'center',
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontSize: '12px',
+                                        color: 'var(--muted-color)',
+                                      }}
+                                    >
+                                      Cán màng:
+                                    </span>
+                                    {activeMatGroup.laminations
+                                      .filter((lam) => lam !== 'Khác')
+                                      .map((lam) => (
+                                        <button
+                                          key={lam}
+                                          type="button"
+                                          onClick={() =>
+                                            appendSpecificationChip(idx, lam)
+                                          }
+                                          className="pq-btn pq-btn-ghost pq-btn-sm"
+                                          style={{
+                                            minHeight: '30px',
+                                            padding: '3px 9px',
+                                            border:
+                                              '1px solid var(--border-color)',
+                                          }}
+                                        >
+                                          {lam}
+                                        </button>
+                                      ))}
+                                  </div>
+                                )}
+
+                                {activeMatGroup.printTechs.length > 0 && (
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      flexWrap: 'wrap',
+                                      gap: '6px',
+                                      alignItems: 'center',
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontSize: '12px',
+                                        color: 'var(--muted-color)',
+                                      }}
+                                    >
+                                      Công nghệ in:
+                                    </span>
+                                    {activeMatGroup.printTechs.map((tech) => (
+                                      <button
+                                        key={tech}
+                                        type="button"
+                                        onClick={() =>
+                                          appendSpecificationChip(idx, tech)
+                                        }
+                                        className="pq-btn pq-btn-ghost pq-btn-sm"
+                                        style={{
+                                          minHeight: '30px',
+                                          padding: '3px 9px',
+                                          border:
+                                            '1px solid var(--border-color)',
+                                        }}
+                                      >
+                                        {tech}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>

@@ -751,60 +751,51 @@
 10. **Evidence (`VERIFIED`):** `apps/api/src/employees/service.ts`, `apps/api/src/accounts/service.ts`, `tests/backend/phase19-ops-data-hygiene.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
 11. **Commit / PR:** `main` (`21848db` • `v0.9.8`)
 12. **Approval:** `PENDING_OWNER_FINAL_RELEASE_SIGNATURE` _(Owner ký phát hành qua cổng `Owner-Locked Release Gate`)_
-13. **NEXT_ACTION:** Đã kế thừa vào `Hotfix v0.9.9` (`HF-099`).
+13. **NEXT_ACTION:** Chờ GitHub Actions CI cho commit `v0.9.8` trên `main` báo xanh, sau đó Owner chạy `Invoke-OwnerReleaseToWeb.ps1` và `Switch-ProductionWebServerToServeWeb.ps1` trong PowerShell Administrator.
 
 ---
 
-## HOTFIX `v0.9.9` — TỰ ĐỘNG TẮT TOÀN BỘ THÔNG BÁO (`APPTOAST` & `BANNER`) TRÊN TOÀN HỆ THỐNG
+## HOTFIX `v0.9.9` — CHUẨN HÓA GIAO DIỆN QUẢN LÝ TÀI KHOẢN (`/accounts`): BỎ ICON EMOJI, SỬA NỀN BẢNG CHẾ ĐỘ SÁNG & CHỐNG RỚT DÒNG (`Task UI-099`)
 
-### Task `HF-099` — Bổ Sung `useAutoDismiss` & Cố Định `onCloseRef` Trong `AppToast` Cho Mọi Màn Hình (`v0.9.9`)
+### Task `UI-099` — Bỏ Icon Emoji Nhãn Nền Tảng (`Gmail`, `TikTok`…), Sửa Nền Bảng `var(--surface-color)` Ở Chế Độ Sáng & Khóa 1 Dòng Cột/Nút Thao Tác (`v0.9.9`)
 
 1. **Project ID:** `management-lite`
 2. **Phase ID:** `Hotfix v0.9.9`
-3. **Task ID:** `HF-099`
-4. **Mô tả:** (1) Bổ sung hook dùng chung `useAutoDismiss` (`packages/ui/src/components/useAutoDismiss.ts`) tự động xóa trạng thái thông báo thành công (sau `4000 ms`) và thông báo lỗi (sau `5000 ms`) mà không bị reset bộ đếm khi component cha re-render; (2) Cố định tham chiếu callback `onCloseRef` và trạng thái `dismissed` nội bộ trong `AppToast.tsx` (kèm hiển thị nút đóng `✕` kể cả khi không truyền `onClose`); (3) Gắn `useAutoDismiss` đồng bộ trên toàn bộ màn hình và phân hệ (`App.tsx`, `finance/ui.tsx`, `PrintQuoteScreen.tsx`, `CreateQuoteTab.tsx`, `OrdersTab.tsx`, `PayablesTab.tsx`, `ReceivablesTab.tsx`, `VendorsCatalogTab.tsx`, `HistoricalImportTab.tsx`, `ConvertOrderCustomerModal.tsx`, `ClockScreen.tsx`, `EmployeesScreen.tsx`, `EmployeeDetailScreen.tsx`, `EmployeeNewScreen.tsx`, `AccountsScreen.tsx`, `WorkScreen.tsx`, `PayrollScreen.tsx`, `PayrollStatsScreen.tsx`, `ReportsScreen.tsx`, `ScheduleScreen.tsx`, `StorageScreen.tsx`, `SystemLogsScreen.tsx`, `IssuesScreen.tsx`, `IssueDetailScreen.tsx`, `DashboardScreen.tsx`, `SettingsScreen.tsx`, `LoginScreen.tsx`, `ActivateScreen.tsx`, `ForgotPasswordScreen.tsx`, `ResetPasswordScreen.tsx`, `VerifyEmailScreen.tsx`); (4) Nâng phiên bản lên `0.9.9` trong `package.json` và `packages/contracts/src/version.ts`.
+3. **Task ID:** `UI-099`
+4. **Mô tả:** (1) Loại bỏ toàn bộ icon emoji trang trí (`📧`, `🎵`, `📘`, `▶️`, `🔐`, `🛡️`…) trong `PLATFORM_CONFIG` (`apps/web/src/screens/helpers/accounts-helpers.ts`) và trên toàn bộ màn hình `apps/web/src/screens/AccountsScreen.tsx` để các huy hiệu nền tảng và nhãn liên kết hiển thị chữ thuần gọn gàng (`Gmail`, `TikTok`, `Facebook`, `YouTube`, `Authenticator`, `Khôi phục`…); (2) Đổi màu nền bảng danh sách (`<table>` & khung bao) và các hộp thoại Modal / ô nhập nâng cao trên `/accounts` từ `var(--surface-hover)` (`#e2e8f0` gây xám đục, tối hơn cả thanh tiêu đề `<thead>` ở Chế độ Sáng) sang `var(--surface-color)` (`#ffffff` ở Chế độ Sáng, `#0f172a` ở Chế độ Tối); (3) Bổ sung `whiteSpace: 'nowrap'` cho toàn bộ tiêu đề cột `<th>` (`Nhóm & Phụ trách`), huy hiệu nền tảng, huy hiệu trạng thái (`Hoạt động tốt`) và `flexWrap: 'nowrap'` cho cụm 4 nút cột `Thao tác` (`+Kênh con`, `Xem chi tiết`, `Xem pass`, `Sửa`) để luôn nằm thẳng 1 dòng; (4) Bổ sung kiểm thử hồi quy `UI-099` trong `tests/web/accounts-screen.test.mjs` và nâng phiên bản lên `0.9.9`.
 5. **Phụ thuộc:** `Hotfix v0.9.8` (`21848db`).
-6. **Acceptance Criteria:** Mọi thông báo `AppToast` và banner thông báo trên toàn bộ màn hình tự động tắt sau `4s`–`5s` (kể cả trên `/clock` có đồng hồ nhảy mỗi giây và `/finance` không truyền `onClose`); giữ ngân sách bundle `< 450 / 130 KB` (`442.1 / 129.4 KB`); vượt qua `ui-notifications.test.mjs`, `finance-mounted.test.mjs`, `printquote-screen.test.mjs`, `employee-detail-screen.test.mjs`, `settings-screen.test.mjs`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` & `canonical:verify`.
+6. **Acceptance Criteria:** `PLATFORM_CONFIG` có `icon: ''` trên mọi nền tảng; `AccountsScreen.tsx` và `accounts-helpers.ts` không còn icon emoji trang trí (`0` match); bảng `/accounts` và các hộp thoại dùng `var(--surface-color)`; tiêu đề cột, huy hiệu và cụm nút thao tác không rớt dòng; vượt qua `accounts-screen.test.mjs` (`21/21 PASS`), `version.test.mjs`, `settings-screen.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` và `canonical:verify`.
 7. **Trạng thái:** `PASS`
-8. **Người/AI thực hiện:** `Antigravity` (`WIN-1`)
-9. **Kết quả test:** `PASS` — `35/35 PASS` (`ui-notifications`, `finance-mounted`, `printquote-screen`, `employee-detail-screen`, `settings-screen`), `lint`, `typecheck`, `build`, `build:web`, `check:bundle` (`442.1 / 129.4 KB`) & `canonical:verify` (`PASS`).
-10. **Evidence (`VERIFIED`):** `packages/ui/src/components/useAutoDismiss.ts`, `packages/ui/src/components/AppToast.tsx`, `apps/web/src/App.tsx`, `apps/web/src/finance/ui.tsx`, `apps/web/src/screens/*.tsx`, `apps/web/src/screens/printquote/*.tsx`, `tests/web/ui-notifications.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
-11. **Commit / PR:** `main` (`8734c7a` • `v0.9.9`)
-12. **Approval:** `PENDING_OWNER_FINAL_RELEASE_SIGNATURE` _(Owner ký phát hành qua cổng `Owner-Locked Release Gate`)_
-13. **NEXT_ACTION:** Đã kế thừa vào `Hotfix v0.9.10` (`Task UI-099` & `Task FIN-PLAN-099`, PR `#35`).
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `accounts-screen.test.mjs` (`21/21 PASS`), `version.test.mjs`, `settings-screen.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` (`441.6 KB raw / 129.3 KB gzip`) & `canonical:verify` đều đạt `PASS`.
+10. **Evidence (`VERIFIED`):** `apps/web/src/screens/AccountsScreen.tsx`, `apps/web/src/screens/helpers/accounts-helpers.ts`, `tests/web/accounts-screen.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** Nhánh `fix/accounts-ui-polish-v099` (`0bb3eb5` • `https://github.com/truhoaiphuong03/management-lite/pull/new/fix/accounts-ui-polish-v099`)
+12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Chờ Owner phê duyệt merge PR vào `main` và ký phát hành qua cổng `Owner-Locked Release Gate`)_
+13. **NEXT_ACTION:** Chuyển sang `Task T-FIX-01..05` (`Phase ISSUE-BATCH-040`).
 
 ---
 
-## HOTFIX `v0.9.10` — CHUẨN HÓA GIAO DIỆN QUẢN LÝ TÀI KHOẢN (`/accounts`) & QUY ĐỔI MỨC CẦN KIẾM THEO TỔNG KHOẢN CHI (`/finance/plan`) (`Task UI-099` & `Task FIN-PLAN-099`)
+## PHASE ISSUE-BATCH-040 — XỬ LÝ TRIỆT ĐỂ 10 VẤN ĐỀ MỞ (`BUG-0031..BUG-0040`) TỪ SỔ TAY LỖI (`v0.9.9`)
 
-### Task `UI-099` — Bỏ Icon Emoji Nhãn Nền Tảng (`Gmail`, `TikTok`…), Sửa Nền Bảng `var(--surface-color)` Ở Chế Độ Sáng & Khóa 1 Dòng Cột/Nút Thao Tác (`v0.9.10`)
-
-1. **Project ID:** `management-lite`
-2. **Phase ID:** `Hotfix v0.9.10`
-3. **Task ID:** `UI-099`
-4. **Mô tả:** (1) Loại bỏ toàn bộ icon emoji trang trí (`📧`, `🎵`, `📘`, `▶️`, `🔐`, `🛡️`…) trong `PLATFORM_CONFIG` (`apps/web/src/screens/helpers/accounts-helpers.ts`) và trên toàn bộ màn hình `apps/web/src/screens/AccountsScreen.tsx` để các huy hiệu nền tảng và nhãn liên kết hiển thị chữ thuần gọn gàng (`Gmail`, `TikTok`, `Facebook`, `YouTube`, `Authenticator`, `Khôi phục`…); (2) Đổi màu nền bảng danh sách (`<table>` & khung bao) và các hộp thoại Modal / ô nhập nâng cao trên `/accounts` từ `var(--surface-hover)` (`#e2e8f0` gây xám đục, tối hơn cả thanh tiêu đề `<thead>` ở Chế độ Sáng) sang `var(--surface-color)` (`#ffffff` ở Chế độ Sáng, `#0f172a` ở Chế độ Tối); (3) Bổ sung `whiteSpace: 'nowrap'` cho toàn bộ tiêu đề cột `<th>` (`Nhóm & Phụ trách`), huy hiệu nền tảng, huy hiệu trạng thái (`Hoạt động tốt`) và `flexWrap: 'nowrap'` cho cụm 4 nút cột `Thao tác` (`+Kênh con`, `Xem chi tiết`, `Xem pass`, `Sửa`) để luôn nằm thẳng 1 dòng; (4) Bổ sung kiểm thử hồi quy `UI-099` trong `tests/web/accounts-screen.test.mjs`.
-5. **Phụ thuộc:** `Hotfix v0.9.9` (`8734c7a`).
-6. **Acceptance Criteria:** `PLATFORM_CONFIG` có `icon: ''` trên mọi nền tảng; `AccountsScreen.tsx` và `accounts-helpers.ts` không còn icon emoji trang trí (`0` match); bảng `/accounts` và các hộp thoại dùng `var(--surface-color)`; tiêu đề cột, huy hiệu và cụm nút thao tác không rớt dòng; vượt qua `accounts-screen.test.mjs` (`21/21 PASS`).
-7. **Trạng thái:** `PASS`
-8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
-9. **Kết quả test:** `PASS` — `accounts-screen.test.mjs` (`21/21 PASS`).
-10. **Evidence (`VERIFIED`):** `apps/web/src/screens/AccountsScreen.tsx`, `apps/web/src/screens/helpers/accounts-helpers.ts`, `tests/web/accounts-screen.test.mjs`.
-11. **Commit / PR:** PR `#35` (`fix/accounts-ui-polish-v099` — `https://github.com/truhoaiphuong03/management-lite/pull/35`)
-12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL`
-13. **NEXT_ACTION:** Hợp nhất cùng `Task FIN-PLAN-099` trong PR `#35` (`v0.9.10`).
-
-### Task `FIN-PLAN-099` — Quy Đổi Mức Cần Kiếm Theo `Mỗi Ngày → Mỗi Tuần → Mỗi Tháng → Mỗi Năm` Từ Tổng Khoản Chi Dự Kiến Trên `/finance/plan` (`v0.9.10`)
+### Task `T-FIX-01..05` — Giải Quyết Đồng Bộ `BUG-0031..BUG-0039` Trên `/settings`, `/issues`, `/system-logs`, `/print-quotes/new` & `/work` (`v0.9.9`)
 
 1. **Project ID:** `management-lite`
-2. **Phase ID:** `Hotfix v0.9.10`
-3. **Task ID:** `FIN-PLAN-099`
-4. **Mô tả:** Cập nhật `computeFinancePlanSummary` trong `packages/contracts/src/finance-plan.ts` và giao diện `apps/web/src/screens/FinancePlanScreen.tsx` để tính `need_per_month_vnd = total_expense_vnd`, `need_per_week_vnd = Math.ceil((total_expense_vnd * 7) / daysInMonth)`, `need_per_day_vnd = Math.ceil(total_expense_vnd / daysInMonth)` và `need_per_year_vnd = total_expense_vnd * 12`, hiển thị 4 ô `Mỗi ngày`, `Mỗi tuần`, `Mỗi tháng`, `Mỗi năm` (`plan-need-year`) và nâng phiên bản lên `0.9.10`.
-5. **Phụ thuộc:** `Hotfix v0.9.9` (`8734c7a`).
-6. **Acceptance Criteria:** `finance-plan-contract.test.mjs` và `finance-plan-mounted.test.mjs` đạt `8/8 PASS`; vượt qua `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` và `canonical:verify`.
+2. **Phase ID:** `Phase ISSUE-BATCH-040` (`v0.9.9`)
+3. **Task ID:** `T-FIX-01..05`
+4. **Mô tả:** Phân tích toàn bộ 20 vấn đề trích xuất từ Sổ tay Vấn đề (`BUG-0040` ➔ `BUG-0021` của Workspace `THIẾT KẾ IN ẤN TOÀN GIA PHÁT`) và thực thi Minimal Diff trên nhánh `feat/ui-report-01-mvp` cho các lỗi đang mở (`open` / `awaiting_owner`):
+   - `T-FIX-01` (`BUG-0039` — `/settings`): Bổ sung nút hiện/ẩn mật khẩu (`EyeIcon` / `EyeOffIcon`) cho cả 3 trường trong hộp thoại **Đổi mật khẩu tài khoản (`UI20`)** (`currentPassword`, `newPassword`, `confirmPassword`) và ô xác nhận mật khẩu khi đổi Email (`SettingsScreen.tsx`).
+   - `T-FIX-02` (`BUG-0035`, `BUG-0037`, `BUG-0031` — `/issues`, `/issues/:id` & `ReportBugWidget`): Sửa lỗi chữ trắng trên nền sáng của nút mức độ `P2 - Bình thường` khi chọn trong `ReportBugWidget.tsx`, đồng bộ nhãn `P2 - Bình thường` trong `issues-helpers.ts`, thêm nút `Sao chép` 1-chạm (`data-testid="btn-copy-single-issue-*"`) trên từng dòng lỗi trong `IssuesScreen.tsx`, thay màu nền tối cứng (`rgba(11, 18, 32, 0.6)`, `#A5B4FC`, `rgba(51, 65, 85, 0.4)`) trên `IssueDetailScreen.tsx` sang biến theme (`var(--surface-hover)`, `var(--accent-text)`) và chống tràn thẻ trên Mobile.
+   - `T-FIX-03` (`BUG-0036`, `BUG-0038` — `/issues` & `/system-logs`): Tích hợp component `<Pagination />` (chọn trang số + kích thước trang `10/20/50/100`) vào `IssuesScreen.tsx` (`testId="issues-pagination"`, bảo toàn `<ListFooter loadMoreTestId="btn-load-more" />`) và `SystemLogsScreen.tsx` (`testId="system-logs-pagination"`).
+   - `T-FIX-04` (`BUG-0033`, `BUG-0034` — `/print-quotes/new`): Tự động đóng thông báo thành công (`bannerMessage.type === 'success'`) sau `4000ms` trong `PrintQuoteScreen.tsx`; mở rộng khổ giấy `A0 ➔ A4` (`A0, A1, A2, A3, A4, A5`), bổ sung `printTechs` (`In Laser (In nhanh)`, `In Offset`, `In KTS khổ lớn`, `In UV`) vào `WORKSHOP_MATERIAL_GROUPS` (`packages/contracts/src/printquote.ts`), hiển thị dải chip chọn nhanh **Cán màng** (`laminations`) & **Công nghệ in** (`printTechs`) và tự gán đơn vị `m²` khi chọn khổ `Theo m²` trong `CreateQuoteTab.tsx`.
+   - `T-FIX-05` (`BUG-0032` — `/work` & `AppShell`): Hiển thị thanh nhắc việc nổi bật (`data-testid="staff-work-reminder-banner"`) trong `AppShell.tsx` khi nhân viên đăng nhập có công việc được giao chưa hoàn thành (`todo` / `in_progress`) và tự động tắt khi nhân viên gửi báo cáo tiến độ (`mglite:work-updated`); bổ sung nút **`💬 Copy tin gửi Zalo`** (`data-testid="btn-copy-work-zalo"`) trên `/work/new` (`WorkScreen.tsx`).
+   - `FIN-PLAN-099` (`/finance/plan`): Cập nhật `computePlanSummary` (`packages/contracts/src/finance-plan.ts`) và khung **Cần kiếm thêm để cân bằng** trên `apps/web/src/screens/FinancePlanScreen.tsx` tính trực tiếp từ **Tổng khoản chi dự kiến (`total_expense_vnd`)** theo 4 mốc: **Mỗi ngày** (`need_per_day_vnd`), **Mỗi tuần** (`need_per_week_vnd`), **Mỗi tháng** (`need_per_month_vnd`) và **Mỗi năm** (`need_per_year_vnd = total_expense_vnd * 12`).
+   - `HF-099` (`origin/main` `8734c7a`): Hợp nhất hook dùng chung `useAutoDismiss` (`packages/ui/src/components/useAutoDismiss.ts`) và cố định `onCloseRef` trong `AppToast.tsx` giúp mọi thông báo thành công (`4s`) và thông báo lỗi (`5s`) trên toàn bộ màn hình tự động tắt mượt mà.
+5. **Phụ thuộc:** `Hotfix v0.9.9` (`Task UI-099` — `0bb3eb5`, `Task HF-099` — `8734c7a`, `Task FIN-PLAN-099` — `806d38b`).
+6. **Acceptance Criteria:** Toàn bộ 10 lỗi mở (`BUG-0031..BUG-0040`) có giải pháp triệt để hoặc đã xác minh xong ở các bản `v0.9.2`/`v0.9.8`; không tự động đóng lỗi trong DB, không thêm migration mới, không thêm thư viện thứ 3; vượt qua `format`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` (`443.5 KB raw / 129.6 KB gzip`), `canonical:verify` và `43/43` bài kiểm thử liên quan.
 7. **Trạng thái:** `PASS`
 8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
-9. **Kết quả test:** `PASS` — `finance-plan-contract.test.mjs` + `finance-plan-mounted.test.mjs` (`8/8 PASS`), `accounts-screen.test.mjs` (`21/21 PASS`), `version.test.mjs` + `settings-screen.test.mjs` (`11/11 PASS`), `check:bundle` (`PASS`).
-10. **Evidence (`VERIFIED`):** `packages/contracts/src/finance-plan.ts`, `apps/web/src/screens/FinancePlanScreen.tsx`, `tests/backend/finance-plan-contract.test.mjs`, `tests/web/finance-plan-mounted.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
-11. **Commit / PR:** PR `#35` (`fix/accounts-ui-polish-v099` — `https://github.com/truhoaiphuong03/management-lite/pull/35`)
-12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL`
-13. **NEXT_ACTION:** Owner bấm Merge PR `#35` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), sau đó chạy `Invoke-OwnerReleaseToWeb.ps1` trong PowerShell Administrator theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`.
+9. **Kết quả test:** `PASS` — `settings-screen.test.mjs`, `issues-screen.test.mjs`, `issues-b01.test.mjs`, `phase21-error-alert-and-fix.test.mjs`, `ui-report.test.mjs`, `ui-tasks-v084.test.mjs` & `printquote-pricing-engine.test.mjs` (`43/43 PASS`, `0 fail`), `check:bundle` (`443.5 KB / 129.6 KB`), `canonical:verify` (`PASS`).
+10. **Evidence (`VERIFIED`):** `apps/web/src/AppShell.tsx`, `apps/web/src/components/ReportBugWidget.tsx`, `apps/web/src/screens/IssueDetailScreen.tsx`, `apps/web/src/screens/IssuesScreen.tsx`, `apps/web/src/screens/PrintQuoteScreen.tsx`, `apps/web/src/screens/SettingsScreen.tsx`, `apps/web/src/screens/SystemLogsScreen.tsx`, `apps/web/src/screens/WorkScreen.tsx`, `apps/web/src/screens/helpers/issues-helpers.ts`, `apps/web/src/screens/printquote/CreateQuoteTab.tsx`, `packages/contracts/src/printquote.ts`.
+11. **Commit / PR:** Nhánh `feat/ui-report-01-mvp` (`https://github.com/truhoaiphuong03/management-lite/pull/new/feat/ui-report-01-mvp`)
+12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Owner đã duyệt thực thi & `NEXT_ACTION`; chờ Owner merge PR vào `main` và ký phát hành qua cổng `Owner-Locked Release Gate`)_
+13. **NEXT_ACTION:** Owner mở & merge PR từ `feat/ui-report-01-mvp` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), chạy `Invoke-OwnerReleaseToWeb.ps1` trong PowerShell Administrator theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`, sau đó nghiệm thu và bấm `Xác nhận đã sửa` cho các phiếu `BUG-0021..BUG-0040` trên `/issues`.

@@ -643,6 +643,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       }
 
       setSuccessMessage('Tạo và giao công việc thành công!');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mglite:work-updated'));
+      }
       // Reset form
       setNewTitle('');
       setNewDescription('');
@@ -747,6 +750,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       }
 
       setSuccessMessage('Nộp báo cáo thành công, đang chờ Chủ shop duyệt!');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mglite:work-updated'));
+      }
       setShowSubmitModal(false);
       setSubmissionNote('');
       setAttachmentName('');
@@ -1471,9 +1477,49 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <AppButton type="submit" variant="primary" disabled={submitting}>
                 {submitting ? 'Đang tạo…' : 'Tạo & Giao việc'}
+              </AppButton>
+              <AppButton
+                type="button"
+                variant="secondary"
+                data-testid="btn-copy-work-zalo"
+                disabled={!newTitle.trim()}
+                onClick={() => {
+                  const assigneeLabels = assignableEmployees
+                    .filter((e) => selectedAssigneeIds.includes(e.id))
+                    .map((e) => `${e.full_name} (${e.employee_code})`)
+                    .join(', ');
+                  const origin =
+                    typeof window !== 'undefined' && window.location?.origin
+                      ? window.location.origin
+                      : 'https://ql.hoaiphuong.click';
+                  const msg = [
+                    `📋 [GIAO VIỆC MỚI] ${newTitle.trim()}`,
+                    assigneeLabels ? `👤 Người nhận: ${assigneeLabels}` : '',
+                    newDueAt
+                      ? `⏰ Hạn hoàn thành: ${formatDateTimeDisplay(new Date(newDueAt).toISOString())}`
+                      : '',
+                    newDescription.trim()
+                      ? `📝 Nội dung: ${newDescription.trim()}`
+                      : '',
+                    `🔗 Xem & báo cáo tiến độ tại: ${origin}/work`,
+                  ]
+                    .filter(Boolean)
+                    .join('\n');
+                  if (
+                    typeof navigator !== 'undefined' &&
+                    navigator.clipboard?.writeText
+                  ) {
+                    void navigator.clipboard.writeText(msg);
+                  }
+                  setSuccessMessage(
+                    'Đã sao chép tin nhắn giao việc! Bạn có thể dán gửi vào Zalo ngay.',
+                  );
+                }}
+              >
+                💬 Copy tin gửi Zalo
               </AppButton>
               <AppButton
                 type="button"
