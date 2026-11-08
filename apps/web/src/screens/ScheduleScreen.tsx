@@ -14,6 +14,7 @@ import {
   RotateCcwIcon,
   EyeIcon,
   InfoIcon,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 import { formatDateDisplay } from './helpers/payroll-helpers.js';
@@ -135,6 +136,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useAutoDismiss(successMessage, () => setSuccessMessage(null), 4000);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
 
   // Q65-05: Multi-page employee selector generation and abort management
   const employeesFetchIdRef = useRef<number>(0);

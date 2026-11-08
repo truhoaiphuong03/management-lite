@@ -18,6 +18,7 @@ import {
   ListFooter,
   ActionIconButton,
   Pagination,
+  useAutoDismiss,
   PAGINATION_PAGE_SIZES,
   DEFAULT_PAGE_SIZE,
   clampPage,
@@ -227,6 +228,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useAutoDismiss(successMessage, () => setSuccessMessage(null), 4000);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
 
   // Filters for Owner
   // Deep-link from payroll statistics: /reports?employee=<uuid>&date=YYYY-MM-DD

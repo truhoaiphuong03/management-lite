@@ -6,6 +6,7 @@ import {
   CheckCircleIcon,
   AlertTriangleIcon,
   ArrowLeftIcon,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 
 export interface ActivateScreenProps {
@@ -21,6 +22,7 @@ export const ActivateScreen: React.FC<ActivateScreenProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
   const submittingLockRef = React.useRef<boolean>(false);
 
   useEffect(() => {

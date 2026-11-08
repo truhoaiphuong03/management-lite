@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { StatusBadge } from '../../../../../packages/ui/src/components/index.js';
+import {
+  StatusBadge,
+  useAutoDismiss,
+} from '../../../../../packages/ui/src/components/index.js';
 import {
   AreaInputMode,
   buildCompactProductSummary,
@@ -338,6 +341,7 @@ export const CreateQuoteTab: React.FC<CreateQuoteTabProps> = ({
   const [stageNoticeByLineId, setStageNoticeByLineId] = useState<
     Record<string, string>
   >({});
+  useAutoDismiss(stageNoticeByLineId, () => setStageNoticeByLineId({}), 4000);
 
   // Quick customer modal dialog & inline customer search combobox
   const [showQuickCustomerModal, setShowQuickCustomerModal] =

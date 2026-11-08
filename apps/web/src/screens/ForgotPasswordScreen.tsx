@@ -6,6 +6,7 @@ import {
   AlertTriangleIcon,
   ArrowLeftIcon,
   ShieldAlertIcon,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 
 export interface ForgotPasswordScreenProps {
@@ -18,6 +19,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
   const [successData, setSuccessData] = useState<{
     message: string;
     deliveryStatus: string;

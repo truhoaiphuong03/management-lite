@@ -14,6 +14,7 @@ import {
   CheckCircleIcon,
   AlertTriangleIcon,
   CloseIcon,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type {
   IssueData,
@@ -66,6 +67,11 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  useAutoDismiss(actionSuccess, () => setActionSuccess(null), 4000);
+  useAutoDismiss(actionError, () => setActionError(null), 5000);
+  useAutoDismiss(analyzeSuccess, () => setAnalyzeSuccess(null), 4000);
+  useAutoDismiss(analyzeError, () => setAnalyzeError(null), 5000);
+  useAutoDismiss(copyError, () => setCopyError(null), 5000);
 
   const [showConfirmFixModal, setShowConfirmFixModal] =
     useState<boolean>(false);

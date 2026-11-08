@@ -749,6 +749,26 @@
 8. **Người/AI thực hiện:** `Antigravity` (`WIN-1`)
 9. **Kết quả test:** `PASS` — `phase19-ops-data-hygiene.test.mjs`, `employee-detail-screen.test.mjs`, `version.test.mjs`, `settings-screen.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` & `canonical:verify` đều đạt `PASS`.
 10. **Evidence (`VERIFIED`):** `apps/api/src/employees/service.ts`, `apps/api/src/accounts/service.ts`, `tests/backend/phase19-ops-data-hygiene.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
-11. **Commit / PR:** `main` (`v0.9.8`)
+11. **Commit / PR:** `main` (`21848db` • `v0.9.8`)
 12. **Approval:** `PENDING_OWNER_FINAL_RELEASE_SIGNATURE` _(Owner ký phát hành qua cổng `Owner-Locked Release Gate`)_
-13. **NEXT_ACTION:** Chờ GitHub Actions CI cho commit `v0.9.8` trên `main` báo xanh, sau đó Owner chạy `Invoke-OwnerReleaseToWeb.ps1` và `Switch-ProductionWebServerToServeWeb.ps1` trong PowerShell Administrator.
+13. **NEXT_ACTION:** Đã kế thừa vào `Hotfix v0.9.9` (`HF-099`).
+
+---
+
+## HOTFIX `v0.9.9` — TỰ ĐỘNG TẮT TOÀN BỘ THÔNG BÁO (`APPTOAST` & `BANNER`) TRÊN TOÀN HỆ THỐNG
+
+### Task `HF-099` — Bổ Sung `useAutoDismiss` & Cố Định `onCloseRef` Trong `AppToast` Cho Mọi Màn Hình (`v0.9.9`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Hotfix v0.9.9`
+3. **Task ID:** `HF-099`
+4. **Mô tả:** (1) Bổ sung hook dùng chung `useAutoDismiss` (`packages/ui/src/components/useAutoDismiss.ts`) tự động xóa trạng thái thông báo thành công (sau `4000 ms`) và thông báo lỗi (sau `5000 ms`) mà không bị reset bộ đếm khi component cha re-render; (2) Cố định tham chiếu callback `onCloseRef` và trạng thái `dismissed` nội bộ trong `AppToast.tsx` (kèm hiển thị nút đóng `✕` kể cả khi không truyền `onClose`); (3) Gắn `useAutoDismiss` đồng bộ trên toàn bộ màn hình và phân hệ (`App.tsx`, `finance/ui.tsx`, `PrintQuoteScreen.tsx`, `CreateQuoteTab.tsx`, `OrdersTab.tsx`, `PayablesTab.tsx`, `ReceivablesTab.tsx`, `VendorsCatalogTab.tsx`, `HistoricalImportTab.tsx`, `ConvertOrderCustomerModal.tsx`, `ClockScreen.tsx`, `EmployeesScreen.tsx`, `EmployeeDetailScreen.tsx`, `EmployeeNewScreen.tsx`, `AccountsScreen.tsx`, `WorkScreen.tsx`, `PayrollScreen.tsx`, `PayrollStatsScreen.tsx`, `ReportsScreen.tsx`, `ScheduleScreen.tsx`, `StorageScreen.tsx`, `SystemLogsScreen.tsx`, `IssuesScreen.tsx`, `IssueDetailScreen.tsx`, `DashboardScreen.tsx`, `SettingsScreen.tsx`, `LoginScreen.tsx`, `ActivateScreen.tsx`, `ForgotPasswordScreen.tsx`, `ResetPasswordScreen.tsx`, `VerifyEmailScreen.tsx`); (4) Nâng phiên bản lên `0.9.9` trong `package.json` và `packages/contracts/src/version.ts`.
+5. **Phụ thuộc:** `Hotfix v0.9.8` (`21848db`).
+6. **Acceptance Criteria:** Mọi thông báo `AppToast` và banner thông báo trên toàn bộ màn hình tự động tắt sau `4s`–`5s` (kể cả trên `/clock` có đồng hồ nhảy mỗi giây và `/finance` không truyền `onClose`); giữ ngân sách bundle `< 450 / 130 KB` (`442.1 / 129.4 KB`); vượt qua `ui-notifications.test.mjs`, `finance-mounted.test.mjs`, `printquote-screen.test.mjs`, `employee-detail-screen.test.mjs`, `settings-screen.test.mjs`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` & `canonical:verify`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`WIN-1`)
+9. **Kết quả test:** `PASS` — `35/35 PASS` (`ui-notifications`, `finance-mounted`, `printquote-screen`, `employee-detail-screen`, `settings-screen`), `lint`, `typecheck`, `build`, `build:web`, `check:bundle` (`442.1 / 129.4 KB`) & `canonical:verify` (`PASS`).
+10. **Evidence (`VERIFIED`):** `packages/ui/src/components/useAutoDismiss.ts`, `packages/ui/src/components/AppToast.tsx`, `apps/web/src/App.tsx`, `apps/web/src/finance/ui.tsx`, `apps/web/src/screens/*.tsx`, `apps/web/src/screens/printquote/*.tsx`, `tests/web/ui-notifications.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** `main` (`v0.9.9`)
+12. **Approval:** `PENDING_OWNER_FINAL_RELEASE_SIGNATURE` _(Owner ký phát hành qua cổng `Owner-Locked Release Gate`)_
+13. **NEXT_ACTION:** Chờ GitHub Actions CI cho commit `v0.9.9` trên `main` báo xanh, sau đó Owner chạy `Invoke-OwnerReleaseToWeb.ps1` và `Switch-ProductionWebServerToServeWeb.ps1` trong PowerShell Administrator.

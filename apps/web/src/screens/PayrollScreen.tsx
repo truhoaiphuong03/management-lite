@@ -15,6 +15,7 @@ import {
   ActionIconButton,
   Pagination,
   AppSkeleton,
+  useAutoDismiss,
   DEFAULT_PAGE_SIZE,
   clampPage,
 } from '../../../../packages/ui/src/components/index.js';
@@ -1186,6 +1187,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useAutoDismiss(successMessage, () => setSuccessMessage(null), 4000);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
 
   // OWNER STATE
   const [period, setPeriod] = useState<PayrollPeriodData | null>(null);

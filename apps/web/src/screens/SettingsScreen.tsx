@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
   AlertTriangleIcon,
   SettingsIcon,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 import {
@@ -60,6 +61,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+  useAutoDismiss(
+    profileMsg,
+    () => setProfileMsg(null),
+    profileMsg?.type === 'error' ? 5000 : 4000,
+  );
 
   useEffect(() => {
     if (profile) {
@@ -216,6 +222,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  useAutoDismiss(passwordSuccess, () => setPasswordSuccess(null), 4000);
+  useAutoDismiss(passwordError, () => setPasswordError(null), 5000);
 
   // Preferences states (SET-002, SET-003)
   const [theme, setTheme] = useState<string>(() => {

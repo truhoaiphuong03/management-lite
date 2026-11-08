@@ -18,6 +18,7 @@ import {
   UserIcon,
   ActionIconButton,
   Pagination,
+  useAutoDismiss,
   DEFAULT_PAGE_SIZE,
   clampPage,
 } from '../../../../packages/ui/src/components/index.js';
@@ -68,6 +69,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useAutoDismiss(successMessage, () => setSuccessMessage(null), 4000);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
 
   // Filter & Search states (List view)
   const [typeFilter, setTypeFilter] = useState<string>('all');

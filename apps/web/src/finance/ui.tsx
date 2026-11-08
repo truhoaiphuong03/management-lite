@@ -4,6 +4,7 @@ import {
   actionIconsRowStyle,
   AppButton,
   AppToast,
+  useAutoDismiss,
   NavIcon,
   PageHeader,
   Pagination,
@@ -345,6 +346,8 @@ export function useFinanceMutation(
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const [success, setSuccess] = useState(false);
+  useAutoDismiss(success, () => setSuccess(false), 4000);
+  useAutoDismiss(!pending ? error : '', () => setError(''), 5000);
   const lock = useRef(false);
   const mounted = useRef(true);
   const active = useRef<AbortController | null>(null);

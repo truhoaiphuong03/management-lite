@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { StatusBadge } from '../../../../../packages/ui/src/components/index.js';
+import {
+  StatusBadge,
+  useAutoDismiss,
+} from '../../../../../packages/ui/src/components/index.js';
 import {
   PrintProductionStatus,
   PrintDeliveryStatus,
@@ -137,6 +140,9 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   const [settleFeeInput, setSettleFeeInput] = useState<string>('0');
   const [settleReasonInput, setSettleReasonInput] = useState<string>('');
   const [settleModalError, setSettleModalError] = useState<string>('');
+  useAutoDismiss(costModalError, () => setCostModalError(''), 5000);
+  useAutoDismiss(jobModalError, () => setJobModalError(''), 5000);
+  useAutoDismiss(settleModalError, () => setSettleModalError(''), 5000);
 
   useEffect(() => {
     if (paymentOrderTarget) {

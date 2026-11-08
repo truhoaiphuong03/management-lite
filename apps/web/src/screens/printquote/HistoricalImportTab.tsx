@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAutoDismiss } from '../../../../../packages/ui/src/components/index.js';
 import type {
   HistoricalImportFlagType,
   HistoricalImportResolutionType,
@@ -50,6 +51,7 @@ export const HistoricalImportTab: React.FC<HistoricalImportTabProps> = ({
   const [activeBatch, setActiveBatch] =
     useState<PrintHistoricalImportBatchData | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  useAutoDismiss(errorMsg, () => setErrorMsg(''), 5000);
   const [busy, setBusy] = useState<boolean>(false);
 
   const handlePreview = async (e: React.FormEvent) => {

@@ -7,6 +7,7 @@ import {
   LockIcon,
   EyeIcon,
   ArrowLeftIcon,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 
 export interface ResetPasswordScreenProps {
@@ -50,6 +51,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
   const submittingLockRef = useRef<boolean>(false);
 
   useEffect(() => {

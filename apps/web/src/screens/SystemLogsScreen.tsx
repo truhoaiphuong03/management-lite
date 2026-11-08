@@ -5,6 +5,7 @@ import {
   PageHeader,
   LoadingState,
   EmptyState,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 
@@ -183,6 +184,8 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [copied, setCopied] = useState(false);
+  useAutoDismiss(actionNotice, () => setActionNotice(null), 4000);
+  useAutoDismiss(copied, () => setCopied(false), 3000);
 
   const query = useCallback(
     (extra?: string) => {

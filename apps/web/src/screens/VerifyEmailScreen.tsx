@@ -6,6 +6,7 @@ import {
   AlertTriangleIcon,
   ArrowLeftIcon,
   ShieldAlertIcon,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 
 export interface VerifyEmailScreenProps {
@@ -50,6 +51,9 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
   >('idle');
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
+  useAutoDismiss(confirmError, () => setConfirmError(null), 5000);
+  useAutoDismiss(resendMessage, () => setResendMessage(null), 4000);
+  useAutoDismiss(resendError, () => setResendError(null), 5000);
 
   const lastConfirmedTokenRef = useRef<string>('');
 

@@ -10,6 +10,7 @@ import {
   SettingsIcon,
   NavIcon,
   ErrorState,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import { THEME_COLORS } from '../../../../packages/ui/src/tokens.js';
 import type { UserRole } from '../types.js';
@@ -134,6 +135,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [bridgeFeedbackError, setBridgeFeedbackError] = useState(false);
   const [bridgeFeedback, setBridgeFeedback] = useState<string | null>(null);
+  useAutoDismiss(
+    bridgeFeedback,
+    () => {
+      setBridgeFeedback(null);
+      setBridgeFeedbackError(false);
+    },
+    bridgeFeedbackError ? 5000 : 4000,
+  );
   const [systemErrorAlert, setSystemErrorAlert] = useState<{
     errorCount: number;
     warnCount: number;

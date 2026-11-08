@@ -5,6 +5,7 @@ import {
   PageHeader,
   LoadingState,
   EmptyState,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 
@@ -164,6 +165,7 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
   const [newName, setNewName] = useState('');
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  useAutoDismiss(importMsg, () => setImportMsg(null), 4000);
   const [preview, setPreview] = useState<ImportResult | null>(null);
 
   const load = useCallback(async () => {

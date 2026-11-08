@@ -19,6 +19,7 @@ import {
   CheckIcon,
   ListFooter,
   ActionIconButton,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type {
   IssueData,
@@ -113,6 +114,8 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
   const [copyError, setCopyError] = useState<string | null>(null);
   const [bulkConfirming, setBulkConfirming] = useState<boolean>(false);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
+  useAutoDismiss(bulkNotice, () => setBulkNotice(null), 4000);
+  useAutoDismiss(copyError, () => setCopyError(null), 5000);
 
   const requestSeqRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);

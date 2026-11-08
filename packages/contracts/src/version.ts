@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.8';
-export const SYSTEM_COMMIT = '5669d1b';
+export const SYSTEM_VERSION = '0.9.9';
+export const SYSTEM_COMMIT = '21848db';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.8',
+    version: '0.9.9',
     commit: 'latest',
+    released_at: '2026-11-08',
+    summary:
+      'Khắc phục lỗi toàn bộ thông báo (Toast & Banner) trên hệ thống không tự động tắt sau vài giây',
+    added: [
+      'Bổ sung hook dùng chung useAutoDismiss trong @management-lite/ui tự động đóng mọi thông báo thành công (sau 4 giây) và thông báo lỗi (sau 5 giây) trên toàn bộ màn hình.',
+    ],
+    improved: [
+      'Cố định tham chiếu callback onClose bằng useRef trong AppToast để các màn hình có bộ đếm thời gian thực (như Chấm công /clock) không làm reset bộ đếm tự tắt thông báo.',
+    ],
+    fixed: [
+      'Khắc phục triệt để lỗi thông báo treo vĩnh viễn trên Báo giá in ấn (/print-quotes), Nhân sự (/employees), Chấm công (/clock), Công việc (/work), Bảng lương (/payroll), Sổ thu chi (/finance), Tài khoản (/accounts), Kho Drive (/storage), Nhật ký & Sổ tay lỗi (/system-logs, /issues) và Cài đặt (/settings).',
+    ],
+  },
+  {
+    version: '0.9.8',
+    commit: '21848db',
     released_at: '2026-11-07',
     summary:
       'Khắc phục lỗi "An unexpected internal error occurred" khi lưu Phân quyền Quản lý phụ (Admin vận hành) hoặc cập nhật hồ sơ nhân sự trên môi trường Production',

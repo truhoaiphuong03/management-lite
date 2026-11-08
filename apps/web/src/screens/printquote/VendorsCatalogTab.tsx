@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { StatusBadge } from '../../../../../packages/ui/src/components/index.js';
+import {
+  StatusBadge,
+  useAutoDismiss,
+} from '../../../../../packages/ui/src/components/index.js';
 import {
   PriceItemType,
   ProfitMode,
@@ -183,6 +186,7 @@ export const VendorsCatalogTab: React.FC<VendorsCatalogTabProps> = ({
   const [conditionsNote, setConditionsNote] = useState<string>('');
   const [changeNote, setChangeNote] = useState<string>('');
   const [dialogError, setDialogError] = useState<string | null>(null);
+  useAutoDismiss(dialogError, () => setDialogError(null), 5000);
 
   const [costRateInput, setCostRateInput] = useState<string>('');
   const [defaultProfitInput, setDefaultProfitInput] = useState<string>('');

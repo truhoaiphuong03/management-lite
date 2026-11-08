@@ -10,6 +10,7 @@ import {
   ClockIcon,
   ClipboardListIcon,
   CheckCircleIcon,
+  useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
 import { SYSTEM_VERSION } from '../../../../packages/contracts/src/version.js';
@@ -56,6 +57,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  useAutoDismiss(errorMessage, () => setErrorMessage(null), 5000);
   const [invalidField, setInvalidField] = useState<
     'identifier' | 'password' | 'both' | null
   >(null);

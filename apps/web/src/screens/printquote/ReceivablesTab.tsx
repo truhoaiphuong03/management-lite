@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useAutoDismiss } from '../../../../../packages/ui/src/components/index.js';
 import type {
   PrintCustomerData,
   PrintOrderData,
@@ -152,6 +153,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   >('UNALLOCATED_ADVANCE');
   const [allocMap, setAllocMap] = useState<Record<string, string>>({});
   const [modalError, setModalError] = useState<string>('');
+  useAutoDismiss(modalError, () => setModalError(''), 5000);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
