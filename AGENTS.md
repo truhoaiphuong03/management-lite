@@ -200,3 +200,7 @@
   2. Tăng số Version trong `package.json` và `packages/contracts/src/version.ts` (`SYSTEM_VERSION` & `RELEASE_NOTES_CATALOG`).
   3. Cập nhật bảng `PHASE_TASK_TRACKER` trong `AGENTS.md`, trạng thái trong `PROJECT_STATUS.md` và sổ cái 13 trường trong `docs/PHASE_TASK_HISTORY.md` (ghi rõ bằng chứng kiểm thử; tuyệt đối không đồng nhất `PASS`, Git tag hay PR với `APPROVED`).
   4. `git commit` + `git tag v0.1.x` + `git push` lên GitHub (trừ khi đang có `REMEDIATION FREEZE` — xem §0). **KHÔNG đồng bộ/sao chép sang `C:\HoaiPhuong-Server\`**: Production chỉ nhận bản phát hành qua cổng Owner.
+  5. **BẮT BUỘC GỬI KÈM LỆNH CẬP NHẬT PRODUCTION CHO OWNER (Quy tắc cố định của Owner):** Ngay sau mỗi lần hoàn tất cập nhật/sửa lỗi và push lên GitHub, AI **bắt buộc** phải đính kèm sẵn lệnh PowerShell 1 dòng chuẩn để Owner copy-paste vào **PowerShell (Run as Administrator)** trên **Máy `WIN-1`**:
+     ```powershell
+     cd C:\Projects\management-lite; git fetch origin --tags --prune; git checkout main; git pull --ff-only origin main; powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\deployment\Invoke-OwnerReleaseToWeb.ps1 -CommitSha (git rev-parse HEAD)
+     ```
