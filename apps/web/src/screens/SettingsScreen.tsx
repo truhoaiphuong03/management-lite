@@ -2428,14 +2428,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 }}
               >
                 <strong style={{ color: 'var(--info-text)' }}>
-                  🛡️ ADMIN (Quản lý phụ)
+                  🛡️ ADMIN (Quản lý vận hành)
                 </strong>
                 <div
                   style={{ color: 'var(--text-secondary)', marginTop: '4px' }}
                 >
-                  Được Chủ sở hữu ủy quyền theo 6 nhóm quyền phụ chi tiết (Duyệt
-                  công, Quản lý việc, Nhân sự, Tài khoản, Bảng lương, Sổ thu
-                  chi); không thể tự nâng quyền hoặc hạ quyền Chủ sở hữu.
+                  Quản lý phụ được Chủ sở hữu ủy quyền theo 6 nhóm quyền phụ chi
+                  tiết (Duyệt công, Quản lý việc, Nhân sự, Tài khoản, Bảng
+                  lương, Sổ thu chi — Đề xuất chưa bật quyền Owner tối cao).
                 </div>
               </div>
               <div
