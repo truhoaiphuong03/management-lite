@@ -1040,5 +1040,34 @@
 9. **Kết quả test:** `PASS` — `full-ui-audit.mjs` (`288/288 PASS`), `npm run audit:ui` (`144/144 PASS`), Web UI test suites (`52/52 PASS`), `lint` (`0 errors`), `typecheck` (`0 errors`), `check:bundle` (`442.1 KB raw / 128.9 KB gzip — OK`).
 10. **Evidence (`VERIFIED`):** `packages/ui/src/tokens.css`, `packages/ui/src/components/{Navigation,AppCard,AppToast,AppButton,AppDialog,Breadcrumb}.tsx`, `apps/web/src/{App,AppShell,responsive-tables}.tsx`, `apps/web/src/components/ReportBugWidget.tsx`, `apps/web/src/finance/client.ts`, `apps/web/src/screens/{StorageScreen,FinanceOverviewScreen,FinanceCategoriesScreen,FinanceEntryScreen,EmployeesScreen,EmployeeNewScreen,IssuesScreen,WorkScreen,ScheduleScreen,SettingsScreen,AccountsScreen,PayrollScreen,PayrollStatsScreen,ReportsScreen,AuditScreen,SystemLogsScreen,ForgotPasswordScreen,ResetPasswordScreen}.tsx`, `apps/web/src/screens/printquote/{QuotesListTab,OrdersTab,ReceivablesTab,PayablesTab}.tsx`.
 11. **Commit / PR:** `main` (`v0.9.18`)
-12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu `"Lập Task và xử lý từng Task"` trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.18` lên `ql.hoaiphuong.click`)_
-13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.18` lên `ql.hoaiphuong.click`.
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu `"Lập Task và xử lý từng Task"` trực tiếp; đã phát hành `v0.9.18` `12c1574` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Chuyển sang `Task ATT-RESTORE-0919` (`Phase ATT-RESTORE-0919` — `v0.9.19`).
+
+---
+
+## PHASE ATT-RESTORE-0919 — KHÔI PHỤC CA CHẤM CÔNG HÔM NAY (`09/11/2026`) CỦA `NV001` TỪ AUDIT LOG, ĐỒNG BỘ BẢNG LƯƠNG THÁNG 11 & SỬA MẬT KHẨU `NV002` (`v0.9.19`)
+
+### Task `ATT-RESTORE-0919` — Tái Tạo Ca Chấm Công Ngày `09/11/2026` Của `NV001 Nguyễn Huỳnh Thế Vinh` Từ `audit_events` (`Migration 0043`), Tính Lại Bảng Lương `2026-11` & Sửa Dứt Điểm Đăng Nhập `NV002` (`v0.9.19`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase ATT-RESTORE-0919` (`v0.9.19`)
+3. **Task ID:** `ATT-RESTORE-0919`
+4. **Mô tả:**
+   - **Nguyên nhân mất ca ngày `09/11/2026` của `NV001`:** Khi `v0.9.18` (`12c1574`) được phát hành lên Production lúc `20:55` tối `09/11/2026`, Migration `0040_reset_clock_shifts_start_from_today` (viết lúc `14:04` trưa cùng ngày) chạy lần đầu tiên trên cơ sở dữ liệu Production và xóa mọi ca có `source = 'clock'` mà chưa lọc trừ ca làm việc thực tế chiều `09/11/2026` của `NV001`.
+   - **Giải pháp khôi phục 3 tầng (`Migration 0043_restore_nv001_today_attendance_from_audit`):**
+     1. Đọc bảng nhật ký kiểm toán bất biến `audit_events` (`metadata_sanitized` cho các sự kiện `attendance.clock_in`, `attendance.clock_out`, `attendance.owner_close_shift`, `attendance.correction_accepted`, `attendance.break_started`, `attendance.break_ended`, `attendance.reviewed`) từ `2026-11-07` trở đi để tái tạo chính xác 100% `attendance_shifts`, `attendance_shift_versions` và `attendance_approvals` (`review_state = 'approved'`) cho `NV001`.
+     2. Hỗ trợ fallback tự động từ `daily_reports` ngày `2026-11-09` nếu ca đang mở lúc `0040` chạy hoặc nhân viên nộp báo cáo ngày mà chưa bấm kết thúc ca.
+     3. Tự động tính lại `payroll_daily_breakdowns` và `payroll_employee_items` kỳ `2026-11` của `NV001`, đồng thời giới hạn nút Đặt lại chấm công hôm nay trên `/clock` ở `scope: 'me_today'`.
+     4. Thực hiện `UPSERT` (`ON CONFLICT (user_id) DO UPDATE`) mật khẩu `Nv002@123` trong `user_credentials` cho `NV002` và khử xung đột truy vấn mã nhân viên trong `AuthService.loginUser`.
+5. **Phụ thuộc:** `Phase UI-AUDIT-0918` (`v0.9.18`).
+6. **Acceptance Criteria:**
+   - Migration `0043` chạy thành công trên PostgreSQL 18 (`43/43` migrations), khôi phục đầy đủ ca ngày `09/11/2026` của `NV001` (`Tháng 11/2026` lên `5 ca`, trạng thái `Đã duyệt`) và cập nhật bảng lương `2026-11`.
+   - Đăng nhập `NV002` với mật khẩu `Nv002@123` thành công (`200 OK`).
+   - Vượt qua toàn bộ kiểm thử `migrator.test.mjs`, `sec-05a.test.mjs`, `clock-screen.test.mjs`, `employee-detail-screen.test.mjs`, `version.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `40/40 PASS` (`migrator.test.mjs`, `sec-05a.test.mjs`, `clock-screen.test.mjs`, `employee-detail-screen.test.mjs`, `version.test.mjs`) + diễn tập thực tế `43/43` migrations trên PostgreSQL 18 (`127.0.0.1:55499`).
+10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/{0043_restore_nv001_today_attendance_from_audit.sql,catalog.ts}`, `apps/api/src/auth/service.ts`, `apps/web/src/screens/ClockScreen.tsx`, `packages/contracts/src/version.ts`, `package.json`.
+11. **Commit / PR:** `main` (`v0.9.19`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu `"Kiểm tra lại, nay NV001 có làm có chấm công"` trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.19` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.19` lên `ql.hoaiphuong.click`.

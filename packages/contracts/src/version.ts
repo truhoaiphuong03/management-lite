@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.18';
-export const SYSTEM_COMMIT = '67bf033';
+export const SYSTEM_VERSION = '0.9.19';
+export const SYSTEM_COMMIT = '12c1574';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,26 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.18',
+    version: '0.9.19',
     commit: 'latest',
+    released_at: '2026-11-09',
+    summary:
+      'Khôi phục đầy đủ ca chấm công ngày hôm nay (09/11/2026) của NV001 Nguyễn Huỳnh Thế Vinh từ nhật ký kiểm toán bất biến (Migration 0043), đồng bộ lại Bảng lương Tháng 11/2026 và sửa dứt điểm mật khẩu đăng nhập NV002.',
+    added: [
+      'Migration 0043_restore_nv001_today_attendance_from_audit tự động tái tạo ca chấm công ngày 09/11/2026 của NV001 từ bảng audit_events (attendance.clock_in / clock_out / break / reviewed) và daily_reports.',
+    ],
+    improved: [
+      'Tự động tính lại bảng kê công ngày (payroll_daily_breakdowns) và tổng lương Tháng 11/2026 (payroll_employee_items) cho NV001 ngay sau khi khôi phục ca chấm công 09/11/2026.',
+      'Giới hạn nút Đặt lại chấm công hôm nay trên /clock ở phạm vi cá nhân (me_today) để tránh xóa nhầm ca làm việc thực tế của nhân viên khác.',
+    ],
+    fixed: [
+      'Khắc phục sự cố Migration 0040 khi chạy lần đầu lúc phát hành v0.9.18 đã xóa mất ca bấm giờ web ngày 09/11/2026 của NV001.',
+      'Khắc phục lỗi đăng nhập NV002 báo INVALID_CREDENTIALS khi đã tồn tại bản ghi user_credentials cũ hoặc trùng mã nhân viên giữa các workspace.',
+    ],
+  },
+  {
+    version: '0.9.18',
+    commit: '12c1574',
     released_at: '2026-11-09',
     summary:
       'Kiểm toán & nâng cấp toàn diện Giao diện Máy tính + Điện thoại (288 kịch bản Playwright + Axe-core đạt 0 lỗi) và phân hệ Nhân sự (/employees, /employees/:id, /employees/new — Migration 0042): dọn bản ghi nhân sự thứ 4 trùng lặp, sửa nhãn "Không tính lương theo giờ (Quản lý phụ)" cho NV002, chống cắt chữ thanh đáy điện thoại & neo gọn nút Báo lỗi.',

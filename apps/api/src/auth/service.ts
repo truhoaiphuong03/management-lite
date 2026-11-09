@@ -256,12 +256,17 @@ export class AuthService {
       LEFT JOIN user_credentials uc ON uc.user_id = u.id
       WHERE u.username_normalized = $1
          OR u.email_normalized = $1
-         OR EXISTS (
-           SELECT 1
+         OR u.id = (
+           SELECT e.user_id
            FROM employees e
            JOIN workspaces w ON w.id = e.workspace_id AND w.status = 'active'
-           WHERE e.user_id = u.id
+           WHERE e.user_id IS NOT NULL
              AND e.employment_status NOT IN ('suspended', 'archived')
+             AND NOT EXISTS (
+               SELECT 1
+               FROM users u2
+               WHERE u2.username_normalized = $1 OR u2.email_normalized = $1
+             )
              AND (
                LOWER(btrim(e.employee_code)) = $1
                OR LOWER(btrim(COALESCE(to_jsonb(e) ->> 'phone', ''))) = $1
@@ -270,6 +275,10 @@ export class AuthService {
                  AND regexp_replace(COALESCE(to_jsonb(e) ->> 'phone', ''), '[^0-9]', '', 'g') = regexp_replace($1, '[^0-9]', '', 'g')
                )
              )
+           ORDER BY
+             (btrim(w.name) IN ('Hoài Phương Media', 'HOÀI PHƯƠNG MEDIA', 'THIẾT KẾ IN ẤN TOÀN GIA PHÁT', 'Hoài Phương Studio')) DESC,
+             e.updated_at DESC
+           LIMIT 1
          )
     `,
       [normalizedIdentifier],

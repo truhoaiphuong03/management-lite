@@ -1089,7 +1089,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
   const handleResetClockToday = () => {
     setClockActionDialog({
       type: 'reset_today',
-      scope: role === 'owner' ? 'workspace_clock' : 'me_today',
+      scope: 'me_today',
     });
   };
 
