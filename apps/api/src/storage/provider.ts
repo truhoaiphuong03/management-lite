@@ -499,8 +499,7 @@ export class MockGoogleDriveProvider implements IStorageProvider {
 
     if (isLiveGoogleDriveEnabled() && isLiveAuthorizationCode(input.code)) {
       const cfg = getGoogleOAuthConfig();
-      const effectiveRedirectUri =
-        input.redirectUri?.trim() || cfg.redirectUri;
+      const effectiveRedirectUri = input.redirectUri?.trim() || cfg.redirectUri;
       const candidateRedirectUris = Array.from(
         new Set([
           effectiveRedirectUri,

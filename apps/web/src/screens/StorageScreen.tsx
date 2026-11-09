@@ -1614,7 +1614,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   <strong style={{ color: 'var(--text-color)' }}>
                     Authorized Redirect URI (Google Cloud Console):
                   </strong>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <div
+                    style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}
+                  >
                     <button
                       type="button"
                       onClick={() => {
@@ -1623,9 +1625,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                           'https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback';
                         if (navigator?.clipboard?.writeText) {
                           void navigator.clipboard.writeText(uri);
-                          setSuccessMessage(
-                            `Đã sao chép Redirect URI: ${uri}`,
-                          );
+                          setSuccessMessage(`Đã sao chép Redirect URI: ${uri}`);
                         }
                       }}
                       style={{

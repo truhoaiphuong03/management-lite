@@ -605,9 +605,7 @@ test('FILE-01 OAuth redirect_uri_mismatch guard: Redirect URI copy helper, callb
 
   // 1. StorageScreen displays Authorized Redirect URI and parses pasted callback URLs
   assert.ok(
-    screenContent.includes(
-      'Authorized Redirect URI (Google Cloud Console):',
-    ) &&
+    screenContent.includes('Authorized Redirect URI (Google Cloud Console):') &&
       screenContent.includes(
         'https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback',
       ),
