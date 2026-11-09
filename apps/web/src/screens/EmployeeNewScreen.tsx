@@ -8,9 +8,11 @@ import {
   CopyIcon,
   AppToast,
   useAutoDismiss,
+} from '../../../../packages/ui/src/components/index.js';
+import {
   VnDateOfBirthSelect,
   VnBankAutocompleteInput,
-} from '../../../../packages/ui/src/components/index.js';
+} from '../components/VnProfileInputs.js';
 
 export interface EmployeeNewScreenProps {
   onNavigate: (path: string) => void;
@@ -143,7 +145,8 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
           email: email.trim(),
           username: username.trim() || undefined,
           password: password.trim() || undefined,
-          role,
+          role: 'staff',
+          sub_role: role,
           phone: phone.trim() || undefined,
           position_title: positionTitle.trim() || undefined,
           date_of_birth: dateOfBirth.trim() || undefined,
@@ -550,7 +553,8 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 color: 'var(--muted-color)',
               }}
             >
-              Mật khẩu đăng nhập ban đầu (tùy chọn — nếu nhập sẽ kích hoạt ngay):
+              Mật khẩu đăng nhập ban đầu (tùy chọn — nếu nhập sẽ kích hoạt
+              ngay):
             </label>
             <input
               id="newEmpPassword"
@@ -684,7 +688,6 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                   testId="new-employee-dob-select"
                   value={dateOfBirth}
                   onChange={setDateOfBirth}
-                  disabled={isLoading}
                 />
               </div>
               <div>
@@ -865,7 +868,6 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                   testId="new-employee-bank-name-input"
                   value={bankName}
                   onChange={setBankName}
-                  disabled={isLoading}
                   placeholder="Gõ tên NH (VD: Vietcombank, MB…)"
                 />
               </div>

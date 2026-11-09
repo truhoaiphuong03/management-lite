@@ -209,7 +209,8 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
     ) {
       return true;
     }
-    return emp.employee_code === 'OWNER' || emp.employee_code === 'ADMIN';
+    const code = (emp.employee_code || '').trim().toUpperCase();
+    return code === 'OWNER' || code === 'ADMIN' || code === 'ADM01';
   };
 
   const handleSuspend = (emp: EmployeeData) => {
@@ -338,11 +339,77 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       case 'inactive':
         return <StatusBadge status="error" label="Tạm ngưng" />;
       default:
-        return <StatusBadge status="muted" label={status || 'Đang hoạt động'} />;
+        return (
+          <StatusBadge status="muted" label={status || 'Đang hoạt động'} />
+        );
     }
   };
 
-  const filteredEmployees = employees.filter((emp) => {
+  const resolveEmployeeRole = (
+    emp: EmployeeData,
+  ): 'owner' | 'admin' | 'staff' => {
+    const code = (emp.employee_code || '').trim().toUpperCase();
+    if (
+      emp.role === 'owner' ||
+      emp.user?.role === 'owner' ||
+      code === 'OWNER' ||
+      code === 'ADM01'
+    ) {
+      return 'owner';
+    }
+    if (emp.role === 'admin' || emp.user?.role === 'admin') {
+      return 'admin';
+    }
+    return 'staff';
+  };
+
+  const getPayrollEligibilityLabel = (emp: EmployeeData): string => {
+    const resolvedRole = resolveEmployeeRole(emp);
+    if (resolvedRole === 'owner') {
+      return 'Không tính lương (Chủ sở hữu)';
+    }
+    if (emp.is_payroll_eligible === false) {
+      return resolvedRole === 'admin'
+        ? 'Không tính lương theo giờ (Quản lý phụ)'
+        : 'Không tính lương theo giờ';
+    }
+    return 'Tính lương tự động';
+  };
+
+  const hasCanonicalAdm01 = employees.some(
+    (emp) => (emp.employee_code || '').trim().toUpperCase() === 'ADM01',
+  );
+  const canonicalEmployees = hasCanonicalAdm01
+    ? employees
+        .filter((emp) => {
+          const code = (emp.employee_code || '').trim().toUpperCase();
+          if (code === 'ADM01' || code === 'NV001' || code === 'NV002') {
+            return true;
+          }
+          if (['ADMIN', 'OWNER', 'OWNER01'].includes(code)) {
+            return false;
+          }
+          if ((emp.full_name || '').trim() === 'Quản trị viên (Admin)') {
+            return false;
+          }
+          return true;
+        })
+        .sort((a, b) => {
+          const orderRank = (codeRaw: string): number => {
+            const c = codeRaw.trim().toUpperCase();
+            if (c === 'ADM01') return 0;
+            if (c === 'NV001') return 1;
+            if (c === 'NV002') return 2;
+            return 10;
+          };
+          const rA = orderRank(a.employee_code || '');
+          const rB = orderRank(b.employee_code || '');
+          if (rA !== rB) return rA - rB;
+          return (a.employee_code || '').localeCompare(b.employee_code || '');
+        })
+    : employees;
+
+  const filteredEmployees = canonicalEmployees.filter((emp) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (
@@ -746,23 +813,22 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px',
-            paddingBottom: '96px',
+            gap: '10px',
+            paddingBottom: '120px',
           }}
         >
           {filteredEmployees.map((emp) => (
-            <AppCard key={emp.id} padding="16px">
+            <AppCard key={emp.id} padding="12px 16px">
               <div
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '12px',
+                  alignItems: 'center',
                   flexWrap: 'wrap',
-                  gap: '8px',
+                  gap: '12px',
                 }}
               >
-                <div>
+                <div style={{ flex: '1 1 320px', minWidth: 0 }}>
                   <div
                     style={{
                       display: 'flex',
@@ -797,47 +863,40 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                         padding: '2px 8px',
                         borderRadius: '999px',
                         backgroundColor:
-                          (emp.role ||
-                            emp.user?.role ||
-                            (emp.employee_code === 'OWNER'
-                              ? 'owner'
-                              : 'staff')) === 'owner'
+                          resolveEmployeeRole(emp) === 'owner'
                             ? 'rgba(20, 184, 166, 0.15)'
-                            : (emp.role || emp.user?.role) === 'admin'
+                            : resolveEmployeeRole(emp) === 'admin'
                               ? 'var(--info-subtle)'
                               : 'var(--surface-hover)',
                         color:
-                          (emp.role ||
-                            emp.user?.role ||
-                            (emp.employee_code === 'OWNER'
-                              ? 'owner'
-                              : 'staff')) === 'owner'
+                          resolveEmployeeRole(emp) === 'owner'
                             ? 'var(--accent-text)'
-                            : (emp.role || emp.user?.role) === 'admin'
+                            : resolveEmployeeRole(emp) === 'admin'
                               ? 'var(--info-text)'
                               : 'var(--muted-color)',
                         border: '1px solid var(--border-subtle)',
                         fontWeight: 600,
                       }}
                     >
-                      {(emp.role ||
-                        emp.user?.role ||
-                        (emp.employee_code === 'OWNER' ? 'owner' : 'staff')) ===
-                      'owner'
+                      {resolveEmployeeRole(emp) === 'owner'
                         ? 'Quản trị (Owner)'
-                        : (emp.role || emp.user?.role) === 'admin'
+                        : resolveEmployeeRole(emp) === 'admin'
                           ? `Quản lý phụ (${Array.isArray(emp.sub_permissions) ? emp.sub_permissions.length : 4} quyền)`
                           : Array.isArray(emp.sub_permissions) &&
                               emp.sub_permissions.length > 0
                             ? `Nhân viên (+${emp.sub_permissions.length} quyền phụ)`
                             : 'Nhân viên'}
                     </span>
+                    {getStatusBadge(
+                      emp.employment_status ||
+                        (emp as { status?: string }).status,
+                    )}
                   </div>
                   <div
                     style={{
                       fontSize: '13px',
                       color: 'var(--muted-color)',
-                      marginTop: '4px',
+                      marginTop: '6px',
                     }}
                   >
                     <div
@@ -902,43 +961,26 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                           </span>
                         )}
                       </span>
+                      <span
+                        data-testid={`emp-payroll-mode-${emp.id}`}
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--muted-color)',
+                        }}
+                      >
+                        • {getPayrollEligibilityLabel(emp)}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div>
-                  {getStatusBadge(
-                    emp.employment_status ||
-                      (emp as { status?: string }).status,
-                  )}
-                </div>
-              </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  borderTop: '1px solid var(--border-subtle)',
-                  paddingTop: '12px',
-                  flexWrap: 'wrap',
-                  gap: '8px',
-                }}
-              >
-                <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  {emp.is_payroll_eligible === false ||
-                  (emp.role ||
-                    emp.user?.role ||
-                    (emp.employee_code === 'OWNER' ? 'owner' : 'staff')) ===
-                    'owner'
-                    ? 'Không tính lương (Owner)'
-                    : 'Tính lương tự động'}
-                </div>
                 <div
                   style={{
                     display: 'flex',
                     gap: '8px',
                     alignItems: 'center',
                     flexWrap: 'wrap',
+                    flexShrink: 0,
                   }}
                 >
                   <AppButton

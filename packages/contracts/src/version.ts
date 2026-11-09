@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.17';
-export const SYSTEM_COMMIT = '9b599df';
+export const SYSTEM_VERSION = '0.9.18';
+export const SYSTEM_COMMIT = '67bf033';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,27 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.17',
+    version: '0.9.18',
     commit: 'latest',
+    released_at: '2026-11-09',
+    summary:
+      'Kiểm toán & nâng cấp toàn diện phân hệ Nhân sự (/employees, /employees/:id, /employees/new — Migration 0042): dọn bản ghi nhân sự thứ 4 trùng lặp (ADMIN/OWNER mồ côi), sửa nhãn "Không tính lương theo giờ (Quản lý phụ)" cho NV002 và thu gọn bố cục thẻ nhân sự không bị nút Báo lỗi che khuất.',
+    added: [
+      'Migration 0042 tự động dọn dẹp bản ghi nhân sự ADMIN/OWNER mồ côi trùng lặp khi đã có ADM01 để danh sách Nhân sự và Xuất CSV chỉ hiển thị đúng 3 nhân sự thực tế (ADM01, NV001, NV002).',
+      'Hỗ trợ truyền sub_role = "admin" khi tạo mới Quản lý phụ trên trang Thêm nhân sự (/employees/new) tương thích hoàn toàn với ràng buộc CP2.2.',
+    ],
+    improved: [
+      'Thiết kế lại thẻ nhân sự trên /employees theo bố cục ngang 1 tầng gọn đẹp (giảm ~35% chiều cao thẻ, thêm khoảng đệm đáy 120px) để nút nổi "⚠️ Báo lỗi" không bao giờ che khuất nút Xem / Khóa của nhân sự cuối.',
+      'Hiển thị chính xác nhãn chế độ tính lương theo từng vai trò: "Không tính lương theo giờ (Quản lý phụ)" cho NV002, "Không tính lương (Chủ sở hữu)" cho ADM01 và "Tính lương tự động" cho NV001.',
+    ],
+    fixed: [
+      'Khắc phục lỗi NV002 (Quản lý phụ) bị hiển thị nhầm nhãn "Không tính lương (Owner)" trên /employees và "Không (Chủ sở hữu)" trên /employees/:id.',
+      'Khắc phục lỗi nút "Xuất CSV danh sách (4)" đếm thừa bản ghi ADMIN mồ côi thứ 4 trên Production.',
+    ],
+  },
+  {
+    version: '0.9.17',
+    commit: '67bf033',
     released_at: '2026-11-09',
     summary:
       'Khắc phục triệt để lỗi đăng nhập NV002 & nhân sự (Migration 0041): hỗ trợ đăng nhập bằng Mã nhân viên (NV002, NV001…), tên đăng nhập, SĐT hoặc email; tự động kích hoạt tài khoản NV002 và bổ sung đặt/đổi mật khẩu trực tiếp cho nhân viên trên trang Nhân sự.',

@@ -52,6 +52,8 @@ export interface CreateEmployeeRequestBody {
   username?: string;
   password?: string | null;
   role?: 'staff' | 'admin';
+  sub_role?: 'staff' | 'admin';
+  sub_permissions?: EmployeeSubPermission[];
   phone?: string | null;
   date_of_birth?: string | null;
   gender?: string | null;

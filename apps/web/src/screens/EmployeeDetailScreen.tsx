@@ -449,9 +449,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
             ? DEFAULT_ADMIN_SUB_PERMS
             : [];
       setSubPermissions(updatedPerms);
-      setEditUsername(
-        data.data.user?.username || editUsername.trim() || '',
-      );
+      setEditUsername(data.data.user?.username || editUsername.trim() || '');
       setEditPassword('');
       setIsEditing(false);
       clearEditQueryParam();
@@ -982,6 +980,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                   Tính lương tự động
                 </div>
                 <div
+                  data-testid="employee-payroll-eligibility-label"
                   style={{
                     fontSize: '15px',
                     color: 'var(--text-color)',
@@ -989,8 +988,16 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                   }}
                 >
                   {employee.is_payroll_eligible
-                    ? 'Có (Nhân viên)'
-                    : 'Không (Chủ sở hữu)'}
+                    ? 'Có (Tính lương theo giờ)'
+                    : (employee.role ||
+                          employee.user?.role ||
+                          (employee.employee_code === 'OWNER'
+                            ? 'owner'
+                            : 'staff')) === 'owner'
+                      ? 'Không (Chủ sở hữu)'
+                      : (employee.role || employee.user?.role) === 'admin'
+                        ? 'Không tính lương theo giờ (Quản lý phụ)'
+                        : 'Không tính lương theo giờ'}
                 </div>
               </div>
 
@@ -1500,7 +1507,8 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Tên đăng nhập (hoặc đăng nhập bằng mã {employee.employee_code}):
+                  Tên đăng nhập (hoặc đăng nhập bằng mã {employee.employee_code}
+                  ):
                 </label>
                 <input
                   id="editUsername"

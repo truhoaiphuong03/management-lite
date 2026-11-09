@@ -991,6 +991,30 @@
 8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
 9. **Kết quả test:** `PASS` — `migrator.test.mjs` (`15/15 PASS`), `sec-05a.test.mjs` (`7/7 PASS`), `phase19-ops-data-hygiene.test.mjs` (`5/5 PASS`), `phase14-hardening.test.mjs` (`10/10 PASS`), `employee-detail-screen.test.mjs` (`3/3 PASS`), `login-screen.test.mjs` (`2/2 PASS`), `ui-shell-02.test.mjs` (`12/12 PASS`), `version.test.mjs` (`6/6 PASS`), `check:bundle` (`442.1 KB raw / 128.9 KB gzip — OK`).
 10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0041_fix_nv002_and_employee_login_access.sql`, `packages/database/src/migrations/catalog.ts`, `packages/contracts/src/employees.ts`, `packages/contracts/src/version.ts`, `apps/api/src/auth/service.ts`, `apps/api/src/employees/service.ts`, `apps/api/src/app.ts`, `apps/api/src/payroll/timesheet-service.ts`, `apps/web/src/screens/LoginScreen.tsx`, `apps/web/src/screens/EmployeeDetailScreen.tsx`, `apps/web/src/screens/EmployeeNewScreen.tsx`, `apps/web/src/session-manager.ts`, `apps/web/src/AppShell.tsx`, `apps/web/src/App.tsx`, `packages/ui/src/components/Navigation.tsx`, `tests/web/employee-detail-screen.test.mjs`.
-11. **Commit / PR:** `main` (`v0.9.17`)
-12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.17` lên `ql.hoaiphuong.click`)_
-13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.17` lên `ql.hoaiphuong.click`.
+11. **Commit / PR:** `main` (`67bf033` • `v0.9.17`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; tiếp tục `Task EMP-AUDIT-0918` trong `v0.9.18`)_
+13. **NEXT_ACTION:** Chuyển sang `Task EMP-AUDIT-0918` (`Phase EMP-AUDIT-0918` — `v0.9.18`).
+
+---
+
+## PHASE EMP-AUDIT-0918 — KIỂM TOÁN & NÂNG CẤP TOÀN DIỆN QUẢN LÝ NHÂN SỰ (`/employees`, `/employees/:id`, `/employees/new` — `v0.9.18`)
+
+### Task `EMP-AUDIT-0918` — Sửa Nhãn `"Không tính lương theo giờ (Quản lý phụ)"` Cho `NV002`, Dọn Bản Ghi `ADMIN` Thừa Thứ 4 (`Migration 0042`) & Thu Gọn Thẻ Nhân Sự Chống Đè Nút Báo Lỗi (`v0.9.18`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase EMP-AUDIT-0918` (`v0.9.18`)
+3. **Task ID:** `EMP-AUDIT-0918`
+4. **Mô tả:** Kiểm toán & nâng cấp toàn diện trang Quản lý nhân sự (`/employees`, `/employees/:id`, `/employees/new` — ảnh chụp `https://ql.hoaiphuong.click/employees` lúc `19:18 09/11/2026`):
+   - **Sửa nhãn chế độ tính lương trên `NV002` (`EmployeesScreen.tsx` & `EmployeeDetailScreen.tsx`):** Khắc phục lỗi `NV002` (`DƯƠNG CẨM BÌNH`, `Quản lý phụ (6 quyền)`, `is_payroll_eligible = false`) bị hiển thị nhầm là `"Không tính lương (Owner)"` trên `/employees` và `"Không (Chủ sở hữu)"` trên `/employees/:id`. Cập nhật hàm `getPayrollEligibilityLabel` phân biệt rõ theo vai trò: `"Không tính lương theo giờ (Quản lý phụ)"` cho `admin`, `"Không tính lương (Chủ sở hữu)"` cho `owner`, và `"Tính lương tự động"` cho nhân viên tính lương theo giờ.
+   - **Dọn bản ghi nhân sự thứ 4 trùng lặp (`ADMIN` / `OWNER` mồ côi) để chỉ còn đúng 3 nhân sự thực tế (`ADM01`, `NV001`, `NV002`):** Tạo Migration `0042_cleanup_duplicate_employees_and_nv002_label.sql` (`catalog.ts`) tự động chuyển các tham chiếu phụ sang `ADM01` và xóa bản ghi `ADMIN`/`OWNER` trùng lặp trong các Workspace đã có `ADM01`, đồng thời bổ sung bộ lọc khử trùng lặp & sắp xếp thứ tự chuẩn (`ADM01` → `NV001` → `NV002`) trong `EmployeeService.listEmployees` và `EmployeesScreen.tsx` để nút `Xuất CSV danh sách (3)` hiển thị đúng 3 người.
+   - **Thu gọn bố cục thẻ nhân sự & chống nút nổi `⚠️ Báo lỗi` che khuất nút thao tác (`EmployeesScreen.tsx`):** Thiết kế lại mỗi thẻ nhân sự theo bố cục ngang 1 tầng gọn đẹp (`padding="12px 16px"`, giảm ~35% chiều cao thẻ) và tăng khoảng đệm đáy `paddingBottom: '120px'` trên `employees-list-container` để nút nổi `⚠️ Báo lỗi` ở góc dưới bên phải không bao giờ che nút Xem (`👁️`) và Tạm ngưng (`⏻`) của nhân sự cuối (`ADM01`).
+   - **Chuẩn hóa tạo nhân sự Quản lý phụ (`EmployeeNewScreen.tsx` & `EmployeeService.createEmployee`):** Truyền `role: 'staff', sub_role: role` khi tạo nhân sự mới có vai trò `Quản lý phụ (Admin)` để lưu `sub_role = 'admin'` và `sub_permissions` mặc định mà vẫn giữ nguyên kiểm tra tương thích CP2.2.
+5. **Phụ thuộc:** `Hotfix AUTH-NV002-LOGIN-0917` (`v0.9.17` — `67bf033`).
+6. **Acceptance Criteria:** Migration `0042` khớp 1:1 với `EMBEDDED_MIGRATIONS` trong `catalog.ts` (`migrator.test.mjs` `15/15 PASS`); `NV002` hiển thị `"Không tính lương theo giờ (Quản lý phụ)"` và danh sách nhân sự khử bản ghi `ADMIN` trùng lặp còn đúng `(3)` (`employee-detail-screen.test.mjs` `8/8 PASS`); giữ nguyên chuẩn responsive 320px & tương phản Sáng/Tối (`mobile-responsive-p0.test.mjs` `6/6 PASS`, `ui-tasks-v084.test.mjs` `5/5 PASS`, `version.test.mjs` `6/6 PASS`, `check:bundle` `OK`).
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `migrator.test.mjs` (`15/15 PASS`), `employee-detail-screen.test.mjs` (`8/8 PASS`), `mobile-responsive-p0.test.mjs` (`6/6 PASS`), `ui-tasks-v084.test.mjs` (`5/5 PASS`), `version.test.mjs` (`6/6 PASS`), `check:bundle` (`442.1 KB raw / 128.9 KB gzip — OK`).
+10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0042_cleanup_duplicate_employees_and_nv002_label.sql`, `packages/database/src/migrations/catalog.ts`, `packages/contracts/src/employees.ts`, `packages/contracts/src/version.ts`, `apps/api/src/employees/service.ts`, `apps/web/src/screens/EmployeesScreen.tsx`, `apps/web/src/screens/EmployeeDetailScreen.tsx`, `apps/web/src/screens/EmployeeNewScreen.tsx`, `tests/web/employee-detail-screen.test.mjs`, `package.json`.
+11. **Commit / PR:** `main` (`v0.9.18`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner chọn phương án `(Recommended) Kiểm toán & nâng cấp toàn diện /employees` qua `ask_question`; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.18` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.18` lên `ql.hoaiphuong.click`.

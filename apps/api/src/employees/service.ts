@@ -304,7 +304,26 @@ export class EmployeeService {
       }
     }
 
-    const items: EmployeeData[] = rows.map((r) => {
+    const hasCanonicalAdm01 = rows.some(
+      (r) => (r.employee_code || '').trim().toUpperCase() === 'ADM01',
+    );
+    const dedupedRows = hasCanonicalAdm01
+      ? rows.filter((r) => {
+          const code = (r.employee_code || '').trim().toUpperCase();
+          if (code === 'ADM01' || code === 'NV001' || code === 'NV002') {
+            return true;
+          }
+          if (['ADMIN', 'OWNER', 'OWNER01'].includes(code)) {
+            return false;
+          }
+          if ((r.full_name || '').trim() === 'Quản trị viên (Admin)') {
+            return false;
+          }
+          return true;
+        })
+      : rows;
+
+    const items: EmployeeData[] = dedupedRows.map((r) => {
       const { role: resolvedRole, sub_permissions: resolvedSubPermissions } =
         resolveEmployeeRoleAndPermissions(r);
       return {
@@ -800,6 +819,26 @@ export class EmployeeService {
         );
       }
 
+      if (body.sub_role === 'admin') {
+        const subPerms =
+          Array.isArray(body.sub_permissions) && body.sub_permissions.length > 0
+            ? parseEmployeeSubPermissions(body.sub_permissions)
+            : [...DEFAULT_ADMIN_SUB_PERMISSIONS];
+        await client.query(`SAVEPOINT sp_create_sub_role;`);
+        try {
+          await client.query(
+            `UPDATE employees
+             SET sub_role = 'admin',
+                 sub_permissions = $1::jsonb
+             WHERE workspace_id = $2 AND id = $3;`,
+            [JSON.stringify(subPerms), context.workspace.id, employeeId],
+          );
+          await client.query(`RELEASE SAVEPOINT sp_create_sub_role;`);
+        } catch {
+          await client.query(`ROLLBACK TO SAVEPOINT sp_create_sub_role;`);
+        }
+      }
+
       // 6. Generate activation invite token (CSPRNG 32 bytes)
       const rawToken = generateCsprngToken(32);
       const tokenHash = hashToken(rawToken);
@@ -1043,7 +1082,10 @@ export class EmployeeService {
             [newlyLinkedUserId],
           );
         } else {
-          const suffix = employeeId.replace(/[^a-z0-9]/gi, '').slice(0, 6).toLowerCase();
+          const suffix = employeeId
+            .replace(/[^a-z0-9]/gi, '')
+            .slice(0, 6)
+            .toLowerCase();
           const conflictCheck = await client.query<{ id: string }>(
             `SELECT id FROM users WHERE username_normalized = $1 OR email_normalized = $2 LIMIT 1`,
             [candidateUsername, candidateEmail],
@@ -1086,7 +1128,10 @@ export class EmployeeService {
         emp.user_id = newlyLinkedUserId;
       }
 
-      if (emp.user_id && (rawUpdateUsername !== null || rawUpdateEmail !== null)) {
+      if (
+        emp.user_id &&
+        (rawUpdateUsername !== null || rawUpdateEmail !== null)
+      ) {
         if (rawUpdateUsername !== null) {
           const takenUser = await client.query<{ id: string }>(
             `SELECT id FROM users WHERE username_normalized = $1 AND id <> $2 LIMIT 1`,
@@ -1709,7 +1754,10 @@ export class EmployeeService {
           .trim()
           .toLowerCase()
           .replace(/[^a-z0-9._-]/g, '');
-        const suffix = employeeId.replace(/[^a-z0-9]/gi, '').slice(0, 6).toLowerCase();
+        const suffix = employeeId
+          .replace(/[^a-z0-9]/gi, '')
+          .slice(0, 6)
+          .toLowerCase();
         const conflictCheck = await client.query<{ id: string }>(
           `SELECT id FROM users WHERE username_normalized = $1 OR email_normalized = $2 LIMIT 1`,
           [fallbackUsername, `${fallbackUsername}@hoaiphuong.local`],

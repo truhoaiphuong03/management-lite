@@ -8,6 +8,8 @@ installFakeDom();
 
 const { EmployeeDetailScreen } =
   await import('../../dist/apps/web/src/screens/EmployeeDetailScreen.js');
+const { EmployeesScreen } =
+  await import('../../dist/apps/web/src/screens/EmployeesScreen.js');
 
 function getProps(element) {
   if (!element) return {};
@@ -853,9 +855,8 @@ test('EmployeeDetailScreen & EMP-009: Mounted lifecycle & hourly rate configurat
     'Owner can directly set/reset username and password for NV002 in Edit form and Sub-Admin route access works',
     async () => {
       const { container, root, flush, cleanup } = createTestContainer();
-      const { evaluateRouteAccess } = await import(
-        '../../dist/apps/web/src/session-manager.js'
-      );
+      const { evaluateRouteAccess } =
+        await import('../../dist/apps/web/src/session-manager.js');
 
       // Verify Sub-Admin (role='staff', subRole='admin') can access delegated operational routes
       assert.equal(
@@ -887,7 +888,12 @@ test('EmployeeDetailScreen & EMP-009: Mounted lifecycle & hourly rate configurat
         full_name: 'DƯƠNG CẨM BÌNH',
         employee_code: 'NV002',
         role: 'admin',
-        sub_permissions: ['attendance:review', 'work:manage', 'employees:manage', 'accounts:manage'],
+        sub_permissions: [
+          'attendance:review',
+          'work:manage',
+          'employees:manage',
+          'accounts:manage',
+        ],
         employment_status: 'active',
         is_payroll_eligible: false,
         version: 1,
@@ -973,6 +979,189 @@ test('EmployeeDetailScreen & EMP-009: Mounted lifecycle & hourly rate configurat
         assert.ok(patchBody, 'PATCH /api/v1/employees/emp-nv002 must be sent');
         assert.equal(patchBody.username, 'nv002');
         assert.equal(patchBody.password, 'Nv002@123');
+      } finally {
+        await cleanup();
+      }
+    },
+  );
+
+  await t.test(
+    'EmployeesScreen deduplicates orphan ADMIN when ADM01 exists and displays accurate payroll label for NV002 (Quản lý phụ)',
+    async () => {
+      const { container, root, flush, cleanup } = createTestContainer();
+
+      globalThis.fetch = async (url) => {
+        if (url.includes('/auth/me')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: {
+                csrf_token: 'csrf-emp-list',
+                user: { id: 'owner-adm01' },
+              },
+            }),
+          };
+        }
+        if (url.includes('/api/v1/employees')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: {
+                items: [
+                  {
+                    id: 'emp-nv002',
+                    workspace_id: 'ws-1',
+                    user_id: 'uid-nv002',
+                    employee_code: 'NV002',
+                    full_name: 'DƯƠNG CẨM BÌNH',
+                    role: 'admin',
+                    sub_permissions: [
+                      'attendance:review',
+                      'work:manage',
+                      'employees:manage',
+                      'accounts:manage',
+                      'payroll:manage',
+                      'finance:manage',
+                    ],
+                    phone: '0942301497',
+                    employment_status: 'active',
+                    is_payroll_eligible: false,
+                    version: 1,
+                    created_at: '2026-01-03T00:00:00Z',
+                    updated_at: '2026-01-03T00:00:00Z',
+                    user: {
+                      id: 'uid-nv002',
+                      username: 'nv002',
+                      email: 'truhoaiphuong01@gmail.com',
+                      status: 'active',
+                      role: 'admin',
+                    },
+                  },
+                  {
+                    id: 'emp-nv001',
+                    workspace_id: 'ws-1',
+                    user_id: 'uid-nv001',
+                    employee_code: 'NV001',
+                    full_name: 'Nguyễn Huỳnh Thế Vinh',
+                    role: 'staff',
+                    sub_permissions: [],
+                    phone: '0798018159',
+                    bank_name: 'Vietcombank',
+                    bank_account_number: '1031739417',
+                    employment_status: 'active',
+                    is_payroll_eligible: true,
+                    version: 1,
+                    created_at: '2026-01-02T00:00:00Z',
+                    updated_at: '2026-01-02T00:00:00Z',
+                    user: {
+                      id: 'uid-nv001',
+                      username: 'nv001',
+                      email: 'nguyenhuynhthevinh2004@gmail.com',
+                      status: 'active',
+                      role: 'staff',
+                    },
+                  },
+                  {
+                    id: 'emp-adm01',
+                    workspace_id: 'ws-1',
+                    user_id: 'owner-adm01',
+                    employee_code: 'ADM01',
+                    full_name: 'Quản trị viên (Admin)',
+                    role: 'owner',
+                    sub_permissions: [],
+                    phone: '0898843938',
+                    bank_name: 'MB',
+                    bank_account_number: '0898843938',
+                    employment_status: 'active',
+                    is_payroll_eligible: false,
+                    version: 1,
+                    created_at: '2026-01-01T00:00:00Z',
+                    updated_at: '2026-01-01T00:00:00Z',
+                    user: {
+                      id: 'owner-adm01',
+                      username: 'adm01',
+                      email: 'truhoaiphuong03@gmail.com',
+                      status: 'active',
+                      role: 'owner',
+                    },
+                  },
+                  {
+                    id: 'emp-dup-admin',
+                    workspace_id: 'ws-1',
+                    user_id: null,
+                    employee_code: 'ADMIN',
+                    full_name: 'Quản trị viên (Admin)',
+                    role: 'owner',
+                    sub_permissions: [],
+                    employment_status: 'active',
+                    is_payroll_eligible: false,
+                    version: 1,
+                    created_at: '2026-01-01T00:00:00Z',
+                    updated_at: '2026-01-01T00:00:00Z',
+                    user: null,
+                  },
+                ],
+                next_cursor: null,
+              },
+            }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: [] }),
+        };
+      };
+
+      try {
+        await act(async () => {
+          root.render(
+            React.createElement(EmployeesScreen, {
+              onNavigate: () => {},
+            }),
+          );
+        });
+        await flush();
+
+        const exportBtn = container.querySelector(
+          '[data-testid="btn-export-employees-csv"]',
+        );
+        assert.ok(exportBtn, 'Export CSV button must exist');
+        assert.ok(
+          exportBtn.textContent.includes('(3)'),
+          `Expected 3 deduplicated employees in CSV button, got: ${exportBtn.textContent}`,
+        );
+        assert.equal(
+          container.querySelector('[data-testid="emp-code-emp-dup-admin"]'),
+          null,
+          'Duplicate ADMIN row must be filtered out when ADM01 exists',
+        );
+
+        const nv002PayrollMode = container.querySelector(
+          '[data-testid="emp-payroll-mode-emp-nv002"]',
+        );
+        assert.ok(nv002PayrollMode, 'NV002 payroll mode label must exist');
+        assert.ok(
+          nv002PayrollMode.textContent.includes(
+            'Không tính lương theo giờ (Quản lý phụ)',
+          ),
+          `Expected NV002 payroll label to mention Quản lý phụ, got: ${nv002PayrollMode.textContent}`,
+        );
+
+        const adm01PayrollMode = container.querySelector(
+          '[data-testid="emp-payroll-mode-emp-adm01"]',
+        );
+        assert.ok(adm01PayrollMode, 'ADM01 payroll mode label must exist');
+        assert.ok(
+          adm01PayrollMode.textContent.includes(
+            'Không tính lương (Chủ sở hữu)',
+          ),
+          `Expected ADM01 payroll label to mention Chủ sở hữu, got: ${adm01PayrollMode.textContent}`,
+        );
       } finally {
         await cleanup();
       }
