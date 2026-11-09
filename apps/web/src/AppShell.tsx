@@ -499,10 +499,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       (isOwnerVerified !== true || role !== 'owner')
     )
       return false;
-    if (
-      (item.id === 'audit' || item.id === 'system-logs') &&
-      role !== 'owner'
-    )
+    if ((item.id === 'audit' || item.id === 'system-logs') && role !== 'owner')
       return false;
     if (role === 'staff' && subRole !== 'admin' && item.ownerOnly) return false;
     if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))

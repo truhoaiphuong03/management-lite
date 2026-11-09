@@ -256,8 +256,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = THEME_COLORS.text;
-              e.currentTarget.style.backgroundColor =
-                'rgba(255, 255, 255, 0.08)';
+              e.currentTarget.style.backgroundColor = THEME_COLORS.surfaceHover;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = THEME_COLORS.muted;

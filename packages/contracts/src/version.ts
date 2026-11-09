@@ -45,18 +45,21 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     commit: 'latest',
     released_at: '2026-11-09',
     summary:
-      'Kiểm toán & nâng cấp toàn diện phân hệ Nhân sự (/employees, /employees/:id, /employees/new — Migration 0042): dọn bản ghi nhân sự thứ 4 trùng lặp (ADMIN/OWNER mồ côi), sửa nhãn "Không tính lương theo giờ (Quản lý phụ)" cho NV002 và thu gọn bố cục thẻ nhân sự không bị nút Báo lỗi che khuất.',
+      'Kiểm toán & nâng cấp toàn diện Giao diện Máy tính + Điện thoại (288 kịch bản Playwright + Axe-core đạt 0 lỗi) và phân hệ Nhân sự (/employees, /employees/:id, /employees/new — Migration 0042): dọn bản ghi nhân sự thứ 4 trùng lặp, sửa nhãn "Không tính lương theo giờ (Quản lý phụ)" cho NV002, chống cắt chữ thanh đáy điện thoại & neo gọn nút Báo lỗi.',
     added: [
       'Migration 0042 tự động dọn dẹp bản ghi nhân sự ADMIN/OWNER mồ côi trùng lặp khi đã có ADM01 để danh sách Nhân sự và Xuất CSV chỉ hiển thị đúng 3 nhân sự thực tế (ADM01, NV001, NV002).',
-      'Hỗ trợ truyền sub_role = "admin" khi tạo mới Quản lý phụ trên trang Thêm nhân sự (/employees/new) tương thích hoàn toàn với ràng buộc CP2.2.',
+      'Hỗ trợ truyền sub_role = "admin", bộ chọn Ngày/Tháng/Năm tiếng Việt và ô tự gợi ý 35 ngân hàng Napas trên trang Thêm nhân sự (/employees/new).',
+      'Bổ sung nút Menu mở ngăn kéo phụ trên thanh điều hướng đáy điện thoại (MobileBottomNav) và preset padding ("large" | "medium" | "small") cho AppCard.',
     ],
     improved: [
-      'Thiết kế lại thẻ nhân sự trên /employees theo bố cục ngang 1 tầng gọn đẹp (giảm ~35% chiều cao thẻ, thêm khoảng đệm đáy 120px) để nút nổi "⚠️ Báo lỗi" không bao giờ che khuất nút Xem / Khóa của nhân sự cuối.',
+      'Thiết kế lại thẻ nhân sự trên /employees theo bố cục ngang 1 tầng gọn đẹp (giảm ~35% chiều cao thẻ, thêm khoảng đệm đáy 120px) và neo nút "⚠️ Báo lỗi" trong khung đáy để không bao giờ che khuất nút thao tác hay thanh đáy điện thoại.',
       'Hiển thị chính xác nhãn chế độ tính lương theo từng vai trò: "Không tính lương theo giờ (Quản lý phụ)" cho NV002, "Không tính lương (Chủ sở hữu)" cho ADM01 và "Tính lương tự động" cho NV001.',
+      'Chuẩn hóa thanh đáy điện thoại cuộn ngang mượt mà (0/8 mục bị cắt chữ ở 320px/390px) và đạt 100% chuẩn tương phản màu WCAG AA Sáng/Tối trên toàn bộ 288 kịch bản kiểm thử trình duyệt thật.',
     ],
     fixed: [
       'Khắc phục lỗi NV002 (Quản lý phụ) bị hiển thị nhầm nhãn "Không tính lương (Owner)" trên /employees và "Không (Chủ sở hữu)" trên /employees/:id.',
       'Khắc phục lỗi nút "Xuất CSV danh sách (4)" đếm thừa bản ghi ADMIN mồ côi thứ 4 trên Production.',
+      'Khắc phục lỗi nhân đôi thẻ thư mục trên /storage di động, lỗi BigInt(undefined) khi thiếu trường tổng trên /finance, lỗi hiển thị vNaN / Lịch sử () trên /print-quotes và lỗi mất nhãn cột cuối trên thẻ bảng di động.',
     ],
   },
   {

@@ -340,7 +340,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--surface-subtle)';
-            e.currentTarget.style.borderColor = '#334155';
+            e.currentTarget.style.borderColor = 'var(--border-color)';
           }}
         >
           <svg
@@ -418,12 +418,12 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
                     transition: 'color 0.15s ease, background-color 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.color = '#14B8A6';
+                    e.currentTarget.style.color = 'var(--accent-text)';
                     e.currentTarget.style.backgroundColor =
                       'rgba(20, 184, 166, 0.08)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#CBD5E1';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                   onFocus={(e) => {

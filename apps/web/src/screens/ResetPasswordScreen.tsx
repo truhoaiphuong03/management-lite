@@ -302,8 +302,12 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     outline: 'none',
                     transition: 'border-color 0.15s ease',
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = '#14B8A6')}
-                  onBlur={(e) => (e.target.style.borderColor = '#334155')}
+                  onFocus={(e) =>
+                    (e.target.style.borderColor = 'var(--primary-color)')
+                  }
+                  onBlur={(e) =>
+                    (e.target.style.borderColor = 'var(--border-color)')
+                  }
                 />
               </div>
 
@@ -342,8 +346,12 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                       outline: 'none',
                       transition: 'border-color 0.15s ease',
                     }}
-                    onFocus={(e) => (e.target.style.borderColor = '#14B8A6')}
-                    onBlur={(e) => (e.target.style.borderColor = '#334155')}
+                    onFocus={(e) =>
+                      (e.target.style.borderColor = 'var(--primary-color)')
+                    }
+                    onBlur={(e) =>
+                      (e.target.style.borderColor = 'var(--border-color)')
+                    }
                   />
                   <button
                     type="button"
@@ -451,8 +459,12 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                 cursor: 'pointer',
                 padding: '4px 0',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#F8FAFC')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#94A3B8')}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = 'var(--text-color)')
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = 'var(--muted-color)')
+              }
             >
               Yêu cầu mã mới
             </button>

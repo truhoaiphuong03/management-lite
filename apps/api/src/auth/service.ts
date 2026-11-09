@@ -329,7 +329,10 @@ export class AuthService {
       return failCredentials();
     }
 
-    if (userRow.user_status === 'pending_activation' && canAutoHealEmployeeStatus) {
+    if (
+      userRow.user_status === 'pending_activation' &&
+      canAutoHealEmployeeStatus
+    ) {
       await this.pool.query(
         `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status = 'pending_activation'`,
         [userRow.id],
@@ -394,10 +397,7 @@ export class AuthService {
     let bindingRes = await queryActiveBindings();
     let activeBindings = bindingRes.rows;
 
-    if (
-      activeBindings.length === 0 &&
-      userRow.active_employee_workspace_id
-    ) {
+    if (activeBindings.length === 0 && userRow.active_employee_workspace_id) {
       const memCheckForHeal = await this.pool.query<{
         status: string;
         role: string;

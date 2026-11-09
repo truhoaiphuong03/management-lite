@@ -73,12 +73,12 @@ const ACTION_MAP: Record<string, ActionBadgeMeta> = {
   'storage.folder_create': {
     label: 'Tạo thư mục',
     variant: 'info',
-    color: '#818CF8',
+    color: 'var(--info-text)',
   },
   'storage.receipt_create': {
     label: 'Tải tệp lên',
     variant: 'info',
-    color: '#818CF8',
+    color: 'var(--info-text)',
   },
   'storage.trash_create': {
     label: 'Yêu cầu thùng rác',
@@ -93,7 +93,7 @@ const ACTION_MAP: Record<string, ActionBadgeMeta> = {
   'account.create': {
     label: 'Tạo tài khoản ACC',
     variant: 'info',
-    color: '#C084FC',
+    color: 'var(--info-text)',
   },
   'account.secret_put': {
     label: 'Lưu mật khẩu ACC',
@@ -103,7 +103,7 @@ const ACTION_MAP: Record<string, ActionBadgeMeta> = {
   'account.secret_reveal': {
     label: 'Xem secret ACC (C05)',
     variant: 'warning',
-    color: '#FB923C',
+    color: 'var(--warning-text)',
   },
 };
 
@@ -759,8 +759,8 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                         fontSize: '12px',
                         fontWeight: 600,
                         color: actionMeta.color,
-                        backgroundColor: `${actionMeta.color}15`,
-                        border: `1px solid ${actionMeta.color}40`,
+                        backgroundColor: 'var(--surface-subtle)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: TOKENS.radii.sm,
                         padding: '3px 10px',
                       }}
@@ -911,7 +911,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                     style={{
                       marginTop: TOKENS.spacing[3],
                       padding: TOKENS.spacing[3],
-                      backgroundColor: '#070D18',
+                      backgroundColor: 'var(--surface-subtle)',
                       borderRadius: TOKENS.radii.sm,
                       border: `1px solid ${THEME_COLORS.border}`,
                     }}
@@ -948,7 +948,7 @@ export const AuditScreen: React.FC<AuditScreenProps> = ({
                         margin: 0,
                         fontSize: '12px',
                         fontFamily: 'var(--font-mono)',
-                        color: '#A7F3D0',
+                        color: 'var(--success-text)',
                         overflowX: 'auto',
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-all',

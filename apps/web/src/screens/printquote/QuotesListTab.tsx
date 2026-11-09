@@ -294,9 +294,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                       {pendingCost && (
                         <StatusBadge status="warning" label="Chờ giá xưởng" />
                       )}
-                      <span className="pq-version-pill">
-                        v{curVersion}
-                      </span>
+                      <span className="pq-version-pill">v{curVersion}</span>
                     </div>
 
                     <div
@@ -494,9 +492,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                       className="pq-btn pq-btn-ghost"
                     >
                       <PqHistoryIcon size={14} />
-                      <span>
-                        Lịch sử ({historyCount})
-                      </span>
+                      <span>Lịch sử ({historyCount})</span>
                     </button>
                   </div>
 

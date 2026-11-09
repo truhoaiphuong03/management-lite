@@ -210,21 +210,23 @@ const field: React.CSSProperties = {
 const input: React.CSSProperties = {
   padding: '8px 10px',
   borderRadius: 8,
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-color)',
+  background: 'var(--bg-color)',
+  color: 'var(--text-color)',
   font: 'inherit',
   minWidth: 0,
 };
 const th: React.CSSProperties = {
   textAlign: 'left',
   padding: '8px 10px',
-  borderBottom: '1px solid #e2e8f0',
+  borderBottom: '1px solid var(--border-color)',
   fontSize: 12,
   opacity: 0.75,
   whiteSpace: 'nowrap',
 };
 const td: React.CSSProperties = {
   padding: '8px 10px',
-  borderBottom: '1px solid #f1f5f9',
+  borderBottom: '1px solid var(--border-subtle)',
   fontSize: 14,
   verticalAlign: 'top',
 };
@@ -647,7 +649,10 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
                       <tr>
                         <td
                           colSpan={6}
-                          style={{ ...td, background: '#f8fafc' }}
+                          style={{
+                            ...td,
+                            background: 'var(--surface-subtle)',
+                          }}
                         >
                           {granularity === 'day' && b.days
                             ? b.days.map((d) => (

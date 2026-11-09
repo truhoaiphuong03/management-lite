@@ -1260,7 +1260,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
             backgroundColor: 'rgba(34, 197, 94, 0.1)',
             border: '1px solid rgba(34, 197, 94, 0.3)',
             marginBottom: '16px',
-            color: '#4ADE80',
+            color: 'var(--success-text)',
             fontSize: '14px',
             display: 'flex',
             alignItems: 'center',
@@ -1430,8 +1430,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                     justifyContent: 'space-between',
                     padding: '8px 12px',
                     marginBottom: '12px',
-                    backgroundColor: '#451A1A',
-                    border: '1px solid #7F1D1D',
+                    backgroundColor: 'var(--danger-subtle)',
+                    border: '1px solid var(--danger-text)',
                     borderRadius: '6px',
                     color: 'var(--danger-text)',
                     fontSize: '12px',
@@ -3298,7 +3298,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 backgroundColor: 'rgba(245, 158, 11, 0.1)',
                 border: '1px solid rgba(245, 158, 11, 0.3)',
                 fontSize: '12px',
-                color: '#FDE047',
+                color: 'var(--warning-text)',
                 lineHeight: 1.5,
               }}
             >
@@ -3928,7 +3928,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                             <div
                               style={{
                                 fontSize: '13px',
-                                color: '#FDE047',
+                                color: 'var(--warning-text)',
                                 backgroundColor: 'rgba(245, 158, 11, 0.08)',
                                 padding: '6px 10px',
                                 borderRadius: '4px',

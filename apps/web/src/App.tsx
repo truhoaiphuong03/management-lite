@@ -1508,7 +1508,7 @@ export const App: React.FC = () => {
                   }}
                   style={{
                     backgroundColor: 'var(--primary-color)',
-                    color: '#0F172A',
+                    color: 'var(--inverse-text)',
                     border: 'none',
                     borderRadius: '6px',
                     padding: '8px 14px',
@@ -2013,7 +2013,7 @@ export const App: React.FC = () => {
                   }}
                   style={{
                     backgroundColor: 'var(--primary-color)',
-                    color: '#0F172A',
+                    color: 'var(--inverse-text)',
                     border: 'none',
                     borderRadius: '8px',
                     padding: '9px 18px',

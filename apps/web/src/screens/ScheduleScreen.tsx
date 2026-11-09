@@ -91,6 +91,7 @@ function buildWeekDays(
 
 export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   role = 'owner',
+  onNavigate,
 }) => {
   // Current selected week's Monday (default to next week per SCHEDULE-01 R09)
   const [selectedMonday, setSelectedMonday] = useState<string>(() => {

@@ -2730,12 +2730,14 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                       padding: '4px 9px',
                       borderRadius: '6px',
                       border: isSelected
-                        ? '1px solid var(--accent-color, #0D9488)'
+                        ? '1px solid var(--primary-color)'
                         : '1px solid var(--border-color)',
                       backgroundColor: isSelected
-                        ? 'var(--accent-color, #0D9488)'
+                        ? 'var(--primary-color)'
                         : 'var(--surface-color)',
-                      color: isSelected ? '#FFFFFF' : 'var(--text-color)',
+                      color: isSelected
+                        ? 'var(--inverse-text)'
+                        : 'var(--text-color)',
                       fontSize: '12.5px',
                       fontWeight: isSelected ? 700 : 500,
                       cursor: 'pointer',
@@ -5332,7 +5334,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                 </div>
                 <div>
                   Mã xác thực (Idempotency Key):{' '}
-                  <code style={{ wordBreak: 'break-all', color: '#67E8F9' }}>
+                  <code
+                    style={{
+                      wordBreak: 'break-all',
+                      color: 'var(--info-text)',
+                    }}
+                  >
                     {disburseIdempotencyKey}
                   </code>
                 </div>

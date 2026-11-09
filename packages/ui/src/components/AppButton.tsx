@@ -72,9 +72,9 @@ export const AppButton: React.FC<AppButtonProps> = ({
       case 'quiet':
         return {
           bg: isActive
-            ? 'rgba(255, 255, 255, 0.1)'
+            ? THEME_COLORS.surfaceActive
             : isHovered && !isDisabled
-              ? 'rgba(255, 255, 255, 0.06)'
+              ? THEME_COLORS.surfaceHover
               : 'transparent',
           text:
             isHovered && !isDisabled ? THEME_COLORS.primary : THEME_COLORS.text,
