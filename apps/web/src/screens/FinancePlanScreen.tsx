@@ -445,8 +445,7 @@ export function FinancePlanScreen({
           }}
         >
           Tháng quy đổi theo ngày/tuần
-          <input
-            type="month"
+          <select
             aria-label="Tháng quy đổi theo ngày/tuần"
             value={month}
             onChange={(e) => {
@@ -458,11 +457,32 @@ export function FinancePlanScreen({
             }}
             style={{
               ...fieldStyle,
-              width: 170,
+              width: 190,
               minHeight: 36,
               padding: '6px 10px',
+              cursor: 'pointer',
             }}
-          />
+          >
+            {(() => {
+              const activeYear =
+                Number(month.slice(0, 4)) || new Date().getFullYear();
+              const years = Array.from(
+                new Set([activeYear, 2026, activeYear - 1, activeYear + 1]),
+              ).sort((a, b) => b - a);
+              return years.map((yr) => (
+                <optgroup key={yr} label={`Năm ${yr}`}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
+                    const ym = `${yr}-${String(m).padStart(2, '0')}`;
+                    return (
+                      <option key={ym} value={ym}>
+                        Tháng {String(m).padStart(2, '0')} năm {yr}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+              ));
+            })()}
+          </select>
         </label>
         <span
           style={{

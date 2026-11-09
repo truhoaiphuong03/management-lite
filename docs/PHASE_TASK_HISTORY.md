@@ -890,6 +890,28 @@
 8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
 9. **Kết quả test:** `PASS` — `migrator.test.mjs` (`15/15 PASS`), `payroll-google-sheet-sync.test.mjs` (`3/3 PASS`), `payroll-screen.test.mjs` (`10/10 PASS`), `version.test.mjs` (`6/6 PASS`).
 10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0039_reconcile_finalized_payroll_snapshots_nv001.sql`, `packages/database/src/migrations/catalog.ts`, `apps/api/src/payroll/timesheet-service.ts`, `package.json`, `packages/contracts/src/version.ts`.
-11. **Commit / PR:** `main` (`v0.9.14`)
-12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.14` lên `ql.hoaiphuong.click`)_
-13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.14` lên `ql.hoaiphuong.click`.
+11. **Commit / PR:** `main` (`500af9b` • `v0.9.14`)
+12. **Approval:** `APPROVED` _(Owner đã phát hành `v0.9.14` lên `ql.hoaiphuong.click` và xác nhận số liệu `535.417 đ` / `21h 25p` khớp 100%)_
+13. **NEXT_ACTION:** Chuyển sang `Task PAY-MONTH-SELECT-0915` (`Hotfix PAY-MONTH-SELECT-0915` — `v0.9.15`).
+
+---
+
+## HOTFIX PAY-MONTH-SELECT-0915 — ĐỔI Ô CHỌN THÁNG TRÊN `/payroll` & `/finance/plan` SANG MENU THẢ XUỐNG `<select>` KÈM NÚT CHỌN NHANH `T6..T11` (`v0.9.15`)
+
+### Task `PAY-MONTH-SELECT-0915` — Thay `<input type="month">` Bằng `<select>` (`payroll-month-select`) & Bổ Sung Dải Nút `T6..T11` 1-Chạm Trên `/payroll` (`v0.9.15`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Hotfix PAY-MONTH-SELECT-0915` (`v0.9.15`)
+3. **Task ID:** `PAY-MONTH-SELECT-0915`
+4. **Mô tả:** Khắc phục lỗi khi bấm vào chữ `"tháng 10"` trong ô `<input type="month">` trên `/payroll` (`PayrollScreen.tsx:2597`) trình duyệt Chrome macOS chỉ bôi xanh đoạn chữ mà không mở danh sách các tháng cần chọn:
+   - Thay thế `<input type="month">` trên `PayrollScreen.tsx` và `FinancePlanScreen.tsx` bằng menu thả xuống `<select>` (`data-testid="payroll-month-select"`, `aria-label="Chọn tháng bảng lương"`) hiển thị đầy đủ 12 tháng (`Tháng 01 năm YYYY` → `Tháng 12 năm YYYY`) để bấm bất kỳ vị trí nào trên ô tháng là nhảy ra danh sách tháng ngay lập tức.
+   - Bổ sung dải nút chọn nhanh **`T6` · `T7` · `T8` · `T9` · `T10` · `T11`** (`data-testid="payroll-quick-months"`) ngay bên cạnh bộ chọn tháng trên `/payroll` giúp chuyển nhanh giữa các tháng có dữ liệu chấm công chỉ bằng 1 cú nhấp chuột.
+5. **Phụ thuộc:** `Hotfix PAY-FINALIZED-SYNC-0914` (`v0.9.14` — `500af9b`).
+6. **Acceptance Criteria:** Không còn `<input type="month">` trên `PayrollScreen.tsx` và `FinancePlanScreen.tsx`; bấm vào ô tháng mở ngay danh sách `<select>` 12 tháng; có dải nút chọn nhanh `T6..T11`; vượt qua `payroll-google-sheet-sync.test.mjs`, `payroll-screen.test.mjs`, `version.test.mjs`, `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` & `canonical:verify`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `payroll-google-sheet-sync.test.mjs` (`3/3 PASS`), `payroll-screen.test.mjs` (`10/10 PASS`), `version.test.mjs` (`6/6 PASS`).
+10. **Evidence (`VERIFIED`):** `apps/web/src/screens/PayrollScreen.tsx`, `apps/web/src/screens/FinancePlanScreen.tsx`, `tests/web/payroll-google-sheet-sync.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** `main` (`v0.9.15`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.15` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.15` lên `ql.hoaiphuong.click`.

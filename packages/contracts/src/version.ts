@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.14';
-export const SYSTEM_COMMIT = '74b78e6';
+export const SYSTEM_VERSION = '0.9.15';
+export const SYSTEM_COMMIT = '500af9b';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.14',
+    version: '0.9.15',
     commit: 'latest',
+    released_at: '2026-11-09',
+    summary:
+      'Đổi bộ chọn tháng trên /payroll và /finance/plan sang menu thả xuống (<select>) kèm dải nút chọn nhanh T6..T11 1-chạm để bấm vào tháng là nhảy ra danh sách tháng ngay lập tức.',
+    added: [
+      'Dải nút chọn nhanh kỳ lương T6 · T7 · T8 · T9 · T10 · T11 ngay trên thanh điều khiển /payroll (payroll-quick-months).',
+    ],
+    improved: [
+      'Thay thế ô <input type="month"> (bị bôi đen chữ trên Chrome macOS khi bấm vào chữ tháng) bằng menu thả xuống <select> (payroll-month-select) hiển thị đầy đủ Tháng 01 → Tháng 12 theo từng năm trên /payroll và /finance/plan.',
+    ],
+    fixed: [
+      'Khắc phục lỗi bấm vào ô tháng trên /payroll chỉ bôi xanh chữ "tháng 10" mà không nhảy ra danh sách các tháng cần chọn.',
+    ],
+  },
+  {
+    version: '0.9.14',
+    commit: '500af9b',
     released_at: '2026-11-09',
     summary:
       'Đồng bộ lại các kỳ lương đã chốt & đã chi trả (tháng 10/2026 và các tháng 2026) trên /payroll để khớp 100% với bản Excel Google Sheet của NV001 (9 ngày công · 21h 25p · 535.417 đ).',

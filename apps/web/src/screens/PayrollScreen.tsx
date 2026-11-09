@@ -2552,121 +2552,201 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              flexWrap: 'nowrap',
+              gap: '8px',
+              flexWrap: 'wrap',
               maxWidth: '100%',
             }}
           >
-            <button
-              type="button"
-              aria-label="Tháng trước"
-              onClick={() => setSelectedMonth((m) => shiftMonth(m, -1))}
-              disabled={loading || actionLoading}
-              style={{
-                boxSizing: 'border-box',
-                minHeight: '36px',
-                padding: '6px 10px',
-                backgroundColor: 'var(--surface-hover)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '6px',
-                color: 'var(--text-color)',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: 500,
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-              }}
-            >
-              &larr;<span className="payroll-nav-label"> Tháng trước</span>
-            </button>
-
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                flex: '1 1 auto',
-                minWidth: 0,
+                flexWrap: 'nowrap',
+                maxWidth: '100%',
               }}
             >
-              <CalendarIcon
-                size={18}
-                className="payroll-nav-label"
-                style={{ color: 'var(--accent-text)', flexShrink: 0 }}
-              />
-              <input
-                type="month"
-                aria-label="Chọn tháng bảng lương"
-                value={selectedMonth}
-                onChange={(e) => {
-                  if (e.target.value) setSelectedMonth(e.target.value);
-                }}
+              <button
+                type="button"
+                aria-label="Tháng trước"
+                onClick={() => setSelectedMonth((m) => shiftMonth(m, -1))}
                 disabled={loading || actionLoading}
                 style={{
                   boxSizing: 'border-box',
                   minHeight: '36px',
-                  width: '100%',
-                  minWidth: 0,
-                  backgroundColor: 'var(--surface-subtle)',
+                  padding: '6px 10px',
+                  backgroundColor: 'var(--surface-hover)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '6px',
                   color: 'var(--text-color)',
-                  padding: '6px 10px',
-                  fontSize: '13.5px',
-                  fontWeight: 600,
                   cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
-              />
+              >
+                &larr;<span className="payroll-nav-label"> Tháng trước</span>
+              </button>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  flex: '1 1 auto',
+                  minWidth: 0,
+                }}
+              >
+                <CalendarIcon
+                  size={18}
+                  className="payroll-nav-label"
+                  style={{ color: 'var(--accent-text)', flexShrink: 0 }}
+                />
+                <select
+                  aria-label="Chọn tháng bảng lương"
+                  data-testid="payroll-month-select"
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    if (e.target.value) setSelectedMonth(e.target.value);
+                  }}
+                  disabled={loading || actionLoading}
+                  style={{
+                    boxSizing: 'border-box',
+                    minHeight: '36px',
+                    width: '100%',
+                    minWidth: 0,
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    color: 'var(--text-color)',
+                    padding: '6px 10px',
+                    fontSize: '13.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {(() => {
+                    const activeYear =
+                      Number(selectedMonth.slice(0, 4)) ||
+                      new Date().getFullYear();
+                    const years = Array.from(
+                      new Set([
+                        activeYear,
+                        2026,
+                        activeYear - 1,
+                        activeYear + 1,
+                      ]),
+                    ).sort((a, b) => b - a);
+                    return years.map((yr) => (
+                      <optgroup key={yr} label={`Năm ${yr}`}>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
+                          const ym = `${yr}-${String(m).padStart(2, '0')}`;
+                          return (
+                            <option key={ym} value={ym}>
+                              Tháng {String(m).padStart(2, '0')} năm {yr}
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    ));
+                  })()}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                aria-label="Tháng sau"
+                onClick={() => setSelectedMonth((m) => shiftMonth(m, 1))}
+                disabled={loading || actionLoading}
+                style={{
+                  boxSizing: 'border-box',
+                  minHeight: '36px',
+                  padding: '6px 10px',
+                  backgroundColor: 'var(--surface-hover)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--text-color)',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                <span className="payroll-nav-label">Tháng sau </span>&rarr;
+              </button>
+
+              <button
+                type="button"
+                aria-label="Tải lại"
+                onClick={() => loadData(selectedMonth, role)}
+                disabled={loading || actionLoading}
+                style={{
+                  boxSizing: 'border-box',
+                  minHeight: '36px',
+                  padding: '6px 10px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--muted-color)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '13px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                <RotateCcwIcon size={14} />
+                <span className="payroll-nav-label">Tải lại</span>
+              </button>
             </div>
 
-            <button
-              type="button"
-              aria-label="Tháng sau"
-              onClick={() => setSelectedMonth((m) => shiftMonth(m, 1))}
-              disabled={loading || actionLoading}
+            <div
+              data-testid="payroll-quick-months"
               style={{
-                boxSizing: 'border-box',
-                minHeight: '36px',
-                padding: '6px 10px',
-                backgroundColor: 'var(--surface-hover)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '6px',
-                color: 'var(--text-color)',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: 500,
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-              }}
-            >
-              <span className="payroll-nav-label">Tháng sau </span>&rarr;
-            </button>
-
-            <button
-              type="button"
-              aria-label="Tải lại"
-              onClick={() => loadData(selectedMonth, role)}
-              disabled={loading || actionLoading}
-              style={{
-                boxSizing: 'border-box',
-                minHeight: '36px',
-                padding: '6px 10px',
-                backgroundColor: 'transparent',
-                border: '1px solid var(--border-color)',
-                borderRadius: '6px',
-                color: 'var(--muted-color)',
-                cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                fontSize: '13px',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
+                gap: '4px',
+                flexWrap: 'wrap',
               }}
             >
-              <RotateCcwIcon size={14} />
-              <span className="payroll-nav-label">Tải lại</span>
-            </button>
+              {[6, 7, 8, 9, 10, 11].map((mNum) => {
+                const activeYear = Number(selectedMonth.slice(0, 4)) || 2026;
+                const ym = `${activeYear}-${String(mNum).padStart(2, '0')}`;
+                const isSelected = selectedMonth === ym;
+                return (
+                  <button
+                    key={ym}
+                    type="button"
+                    data-testid={`payroll-quick-month-${mNum}`}
+                    aria-label={`Chọn nhanh Tháng ${mNum}/${activeYear}`}
+                    onClick={() => setSelectedMonth(ym)}
+                    disabled={loading || actionLoading}
+                    style={{
+                      minHeight: '32px',
+                      padding: '4px 9px',
+                      borderRadius: '6px',
+                      border: isSelected
+                        ? '1px solid var(--accent-color, #0D9488)'
+                        : '1px solid var(--border-color)',
+                      backgroundColor: isSelected
+                        ? 'var(--accent-color, #0D9488)'
+                        : 'var(--surface-color)',
+                      color: isSelected ? '#FFFFFF' : 'var(--text-color)',
+                      fontSize: '12.5px',
+                      fontWeight: isSelected ? 700 : 500,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    T{mNum}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Period Status & Finalize Action */}

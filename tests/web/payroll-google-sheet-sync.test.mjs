@@ -152,6 +152,12 @@ test('PAY-GSHEET-SYNC-0912: PayrollStatsScreen and PayrollScreen expose Google S
   );
   assert.match(payrollSrc, /data-testid="btn-payroll-sync-gsheet"/);
   assert.match(payrollSrc, /Đồng bộ Google Sheet/);
+  assert.match(payrollSrc, /data-testid="payroll-month-select"/);
+  assert.match(payrollSrc, /data-testid="payroll-quick-months"/);
+  assert.ok(
+    !payrollSrc.includes('type="month"'),
+    'PayrollScreen must use <select> month dropdown instead of native <input type="month">',
+  );
 
   const migrationSrc = readFileSync(
     resolve(
