@@ -876,6 +876,59 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     }
   };
 
+  const cleanAtlasDisplayDescription = (
+    rawDesc: string | null | undefined,
+  ): string => {
+    if (!rawDesc) return '';
+    return rawDesc.replace(/\s*\[AtlasRef:[^\]]+\]\s*/gi, '\n').trim();
+  };
+
+  const isAtlasSyncedWorkItem = (
+    rawDesc: string | null | undefined,
+  ): boolean => {
+    return Boolean(rawDesc && /\[AtlasRef:[^\]]+\]/i.test(rawDesc));
+  };
+
+  const handleOwnerQuickComplete = async (targetItem: WorkItemData) => {
+    if (role !== 'owner' || submitting) return;
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'If-Match': `"${targetItem.version}"`,
+        'Idempotency-Key': crypto.randomUUID(),
+      };
+      if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+      const res = await fetch(`/api/v1/work-items/${targetItem.id}`, {
+        method: 'PATCH',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({ status: 'completed' }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(
+          body.error?.message || 'Không thể đánh dấu hoàn thành công việc',
+        );
+      }
+      setSuccessMessage(
+        'Đã đánh dấu hoàn thành công việc (tự động đồng bộ với AI Work Atlas)!',
+      );
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mglite:work-updated'));
+      }
+      fetchData();
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Lỗi kết nối máy chủ',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ==========================================
   // RENDER VIEW 1: CREATE VIEW (/work/new)
   // ==========================================
@@ -1697,8 +1750,26 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 {item.title}
               </h2>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
               {getWorkItemStatusBadge(item.status)}
+              {role === 'owner' &&
+                item.status !== 'completed' &&
+                item.status !== 'cancelled' && (
+                  <AppButton
+                    variant="primary"
+                    disabled={submitting}
+                    onClick={() => handleOwnerQuickComplete(item)}
+                  >
+                    ✓ Hoàn thành
+                  </AppButton>
+                )}
               {role === 'owner' && item.status !== 'cancelled' && (
                 <AppButton
                   variant="destructive"
@@ -1711,7 +1782,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             </div>
           </div>
 
-          {item.description && (
+          {cleanAtlasDisplayDescription(item.description) && (
             <div
               style={{
                 fontSize: '14px',
@@ -1725,7 +1796,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 whiteSpace: 'pre-wrap',
               }}
             >
-              {item.description}
+              {cleanAtlasDisplayDescription(item.description)}
             </div>
           )}
         </AppCard>
@@ -3127,6 +3198,20 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           }
                         </span>
                       )}
+                    {isAtlasSyncedWorkItem(item.description) && (
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: 'rgba(13, 148, 136, 0.14)',
+                          color: 'var(--accent-text)',
+                        }}
+                      >
+                        🔗 AI Work Atlas
+                      </span>
+                    )}
                   </div>
                   <h4
                     style={{
@@ -3153,7 +3238,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 </div>
               </div>
 
-              {item.description && (
+              {cleanAtlasDisplayDescription(item.description) && (
                 <p
                   style={{
                     fontSize: '13px',
@@ -3164,7 +3249,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {item.description}
+                  {cleanAtlasDisplayDescription(item.description)}
                 </p>
               )}
 

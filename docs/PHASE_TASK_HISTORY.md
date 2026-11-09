@@ -1071,3 +1071,27 @@
 11. **Commit / PR:** `main` (`v0.9.19`)
 12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu `"Kiểm tra lại, nay NV001 có làm có chấm công"` trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.19` lên `ql.hoaiphuong.click`)_
 13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.19` lên `ql.hoaiphuong.click`.
+
+---
+
+## PHASE WORK-ATLAS-SYNC-0919 — ĐỒNG BỘ GIAO VIỆC 2 CHIỀU GIỮA `AI WORK ATLAS` (MAC) & `/work` (WEB) (`v0.9.19`)
+
+### Task `WORK-ATLAS-SYNC-0919` — Đồng Bộ Giao Việc Nhân Sự 2 Chiều Giữa Ứng Dụng `AI Work Atlas` (`v0.5.2-trial.6 Build 511`) & `Management Lite` (`/work`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase WORK-ATLAS-SYNC-0919` (`v0.9.19`)
+3. **Task ID:** `WORK-ATLAS-SYNC-0919`
+4. **Mô tả:**
+   - Mở rộng `PATCH /api/v1/work-items/:id` (`WorkService.edit` trong `apps/api/src/work/service.ts`) cho phép Owner cập nhật `status` (`'todo' | 'in_progress' | 'in_review' | 'completed' | 'cancelled'`). Khi `status === 'completed'`, tự động chuyển trạng thái các `work_assignments` chưa hoàn thành qua đầy đủ chuỗi `in_progress` → `in_review` (kèm bản ghi `work_submissions`) → `completed` (kèm bản ghi `work_reviews` `decision = 'approved'`) trước khi cập nhật `work_items.status`, tuân thủ tuyệt đối các trigger trong `0010_m08_work.sql`.
+   - Cập nhật `apps/web/src/screens/WorkScreen.tsx`: tự động ẩn dòng mã tham chiếu nội bộ `[AtlasRef:...]` khi hiển thị mô tả trên giao diện Web, hiển thị huy hiệu `🔗 AI Work Atlas` cho công việc đồng bộ từ Mac, và bổ sung nút **`✓ Hoàn thành`** 1 chạm trong cửa sổ chi tiết công việc cho Chủ sở hữu.
+5. **Phụ thuộc:** `Phase ATT-RESTORE-0919` (`v0.9.19`).
+6. **Acceptance Criteria:**
+   - `PATCH /api/v1/work-items/:id` với `{ status: 'completed' }` trả về `200 OK`, chuyển toàn bộ `assignments` và `work_item` sang `'completed'`.
+   - Vượt qua `tests/web/work-screen.test.mjs` (`4/4 PASS`), subtest `PATCH metadata and assignments` trong `tests/backend/work.test.mjs` trên PostgreSQL 18 (`:55499`), và `638/638 PASS` trên `AI Work Atlas` (`./scripts/test.sh`).
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `work-screen.test.mjs` `4/4 PASS`, `work.test.mjs` quick-complete subtest `PASS`, `npm run build` & `npm run build:web` `PASS`, `AI Work Atlas` `638/638 PASS`.
+10. **Evidence (`VERIFIED`):** `apps/api/src/work/service.ts`, `apps/web/src/screens/WorkScreen.tsx`, `tests/backend/work.test.mjs`, `tests/web/work-screen.test.mjs`.
+11. **Commit / PR:** `main` (`v0.9.19`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner xác nhận phương án A1 + A2 + A3 bằng `"ok"` trực tiếp trong phiên)_
+13. **NEXT_ACTION:** Owner kết nối đồng bộ Web trên `AI Work Atlas` (`🌐 Đồng bộ Web`) và chạy lệnh phát hành 1 dòng trên `WIN-1` khi muốn đưa `v0.9.19` lên `ql.hoaiphuong.click`.

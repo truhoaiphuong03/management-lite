@@ -79,6 +79,16 @@ function attributes(body: Record<string, unknown>, create = false) {
       fail('VALIDATION_ERROR', 'Invalid due_at', 400);
     out.due_at = v ?? null;
   }
+  if (!create && 'status' in body && body.status !== undefined) {
+    const v = body.status;
+    if (
+      !['todo', 'in_progress', 'in_review', 'completed', 'cancelled'].includes(
+        String(v),
+      )
+    )
+      fail('VALIDATION_ERROR', 'Invalid status', 400);
+    out.status = String(v);
+  }
   return out;
 }
 export class WorkService {
@@ -477,7 +487,14 @@ export class WorkService {
       action,
     );
     const allowed: Record<string, string[]> = {
-      edit: ['title', 'description', 'work_type', 'priority', 'due_at'],
+      edit: [
+        'title',
+        'description',
+        'work_type',
+        'priority',
+        'due_at',
+        'status',
+      ],
       assign: ['employee_ids', 'stage'],
       start: ['note'],
       submit: ['submission_note', 'attachments'],
@@ -572,10 +589,90 @@ export class WorkService {
           const attrs = attributes(body);
           if (!Object.keys(attrs).length)
             fail('VALIDATION_ERROR', 'No editable attributes', 400);
+          const targetStatus =
+            typeof attrs.status === 'string' ? attrs.status : undefined;
+          delete attrs.status;
+
+          if (targetStatus === 'in_progress') {
+            await c.query(
+              "UPDATE work_assignments SET status='in_progress' WHERE workspace_id=$1 AND work_item_id=$2 AND status='todo'",
+              [auth.workspace.id, id],
+            );
+          } else if (
+            targetStatus === 'completed' &&
+            item.status !== 'completed'
+          ) {
+            const assigns = (
+              await c.query(
+                'SELECT a.id, a.status, a.employee_id, e.user_id AS emp_user_id FROM work_assignments a JOIN employees e ON e.workspace_id=a.workspace_id AND e.id=a.employee_id WHERE a.workspace_id=$1 AND a.work_item_id=$2 FOR UPDATE OF a',
+                [auth.workspace.id, id],
+              )
+            ).rows;
+            for (const a of assigns) {
+              if (a.status === 'completed') continue;
+              const submitterUserId = a.emp_user_id ?? auth.user.id;
+              if (a.status === 'todo') {
+                await c.query(
+                  "UPDATE work_assignments SET status='in_progress' WHERE workspace_id=$1 AND id=$2",
+                  [auth.workspace.id, a.id],
+                );
+              }
+              if (a.status === 'todo' || a.status === 'in_progress') {
+                await c.query(
+                  'INSERT INTO work_submissions(workspace_id,work_item_id,assignment_id,revision_number,submission_note,attachments,submitted_by) SELECT $1,$2,$3,coalesce(max(revision_number),0)+1,$4,$5,$6 FROM work_submissions WHERE workspace_id=$1 AND assignment_id=$3',
+                  [
+                    auth.workspace.id,
+                    id,
+                    a.id,
+                    'Đã hoàn thành (Xác nhận bởi Chủ sở hữu / Đồng bộ AI Work Atlas)',
+                    '[]',
+                    submitterUserId,
+                  ],
+                );
+                await c.query(
+                  "UPDATE work_assignments SET status='in_review' WHERE workspace_id=$1 AND id=$2",
+                  [auth.workspace.id, a.id],
+                );
+              }
+              const latestSub = (
+                await c.query(
+                  'SELECT id FROM work_submissions WHERE workspace_id=$1 AND work_item_id=$2 AND assignment_id=$3 ORDER BY revision_number DESC LIMIT 1',
+                  [auth.workspace.id, id, a.id],
+                )
+              ).rows[0];
+              if (latestSub?.id) {
+                await c.query(
+                  'INSERT INTO work_reviews(workspace_id,work_item_id,assignment_id,submission_id,reviewer_user_id,decision,feedback) VALUES($1,$2,$3,$4,$5,$6,$7)',
+                  [
+                    auth.workspace.id,
+                    id,
+                    a.id,
+                    latestSub.id,
+                    auth.user.id,
+                    'approved',
+                    'Đã nghiệm thu hoàn thành',
+                  ],
+                );
+                await c.query(
+                  "UPDATE work_assignments SET status='completed' WHERE workspace_id=$1 AND id=$2",
+                  [auth.workspace.id, a.id],
+                );
+              }
+            }
+          }
+
           const columns = Object.keys(attrs);
+          const setClauses = columns.map((x, i) => x + '=$' + (i + 3));
+          if (targetStatus === 'cancelled') {
+            setClauses.push("status='cancelled'");
+          } else if (targetStatus) {
+            setClauses.push(
+              "status=(SELECT CASE WHEN count(*)=0 OR bool_and(status='todo') THEN 'todo' WHEN bool_and(status='completed') THEN 'completed' WHEN bool_and(status='in_review') THEN 'in_review' ELSE 'in_progress' END FROM work_assignments WHERE workspace_id=$1 AND work_item_id=$2)",
+            );
+          }
           await c.query(
             'UPDATE work_items SET ' +
-              columns.map((x, i) => x + '=$' + (i + 3)).join(',') +
+              setClauses.join(',') +
               ',version=version+1,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2',
             [auth.workspace.id, id, ...Object.values(attrs)],
           );

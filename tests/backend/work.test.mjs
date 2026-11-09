@@ -641,6 +641,33 @@ test('WORK rev03 isolated PostgreSQL lifecycle, contracts, security and concurre
           body: JSON.stringify({ title: 'Edited', priority: 'urgent' }),
         });
         assert.equal(edit.status, 200);
+        const atlasSyncItem = await request(root, owner, {
+          title: 'Atlas 2-way sync quick complete',
+          assignee_ids: [staff.emp],
+        });
+        assert.equal(atlasSyncItem.status, 201);
+        const quickComplete = await fetch(
+          base + root + '/' + atlasSyncItem.data.data.id,
+          {
+            method: 'PATCH',
+            headers: {
+              Origin: origin,
+              'Content-Type': 'application/json',
+              Cookie: owner.cookie,
+              'X-CSRF-Token': owner.csrf,
+              'If-Match': `"${atlasSyncItem.data.data.version}"`,
+            },
+            body: JSON.stringify({ status: 'completed' }),
+          },
+        );
+        assert.equal(quickComplete.status, 200);
+        const quickCompleteBody = await quickComplete.json();
+        assert.equal(quickCompleteBody.data.status, 'completed');
+        assert.ok(
+          quickCompleteBody.data.assignments.every(
+            (a) => a.status === 'completed',
+          ),
+        );
         let add = await call(cancelWork.id, '/assignments', owner, {
           employee_ids: [second.emp],
         });
