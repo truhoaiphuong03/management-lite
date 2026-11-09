@@ -715,7 +715,7 @@ export class EmployeeService {
         }
         if (rawPassword !== null) {
           await client.query(
-            `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status <> 'suspended';`,
+            `UPDATE users SET status = 'active' WHERE id = $1 AND status <> 'suspended';`,
             [userId],
           );
         }
@@ -732,13 +732,12 @@ export class EmployeeService {
       if (rawPassword !== null) {
         const pwHash = await hashPassword(rawPassword);
         await client.query(
-          `INSERT INTO user_credentials (user_id, password_hash, credential_version, password_updated_at, updated_at)
+          `INSERT INTO user_credentials (user_id, password_hash, credential_version, password_changed_at, created_at)
            VALUES ($1, $2, 1, now(), now())
            ON CONFLICT (user_id) DO UPDATE
            SET password_hash = EXCLUDED.password_hash,
                credential_version = GREATEST(user_credentials.credential_version, 0) + 1,
-               password_updated_at = now(),
-               updated_at = now();`,
+               password_changed_at = now();`,
           [userId, pwHash],
         );
       }
@@ -1078,7 +1077,7 @@ export class EmployeeService {
         if (existingUserRes.rows[0]?.id) {
           newlyLinkedUserId = existingUserRes.rows[0].id;
           await client.query(
-            `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status <> 'suspended'`,
+            `UPDATE users SET status = 'active' WHERE id = $1 AND status <> 'suspended'`,
             [newlyLinkedUserId],
           );
         } else {
@@ -1118,9 +1117,9 @@ export class EmployeeService {
         await client.query(
           `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version)
            VALUES ($1, $2, 'active', 1)
-           ON CONFLICT (user_id) DO UPDATE
+           ON CONFLICT (user_id) WHERE status = 'active' DO UPDATE
            SET workspace_id = EXCLUDED.workspace_id,
-               status = CASE WHEN user_workspace_bindings.status = 'suspended' THEN user_workspace_bindings.status ELSE 'active' END,
+               status = 'active',
                version = user_workspace_bindings.version + 1,
                updated_at = now()`,
           [context.workspace.id, newlyLinkedUserId],
@@ -1146,7 +1145,7 @@ export class EmployeeService {
             );
           }
           await client.query(
-            `UPDATE users SET username_normalized = $1, updated_at = now() WHERE id = $2`,
+            `UPDATE users SET username_normalized = $1 WHERE id = $2`,
             [rawUpdateUsername, emp.user_id],
           );
         }
@@ -1164,7 +1163,7 @@ export class EmployeeService {
             );
           }
           await client.query(
-            `UPDATE users SET email_normalized = $1, updated_at = now() WHERE id = $2`,
+            `UPDATE users SET email_normalized = $1 WHERE id = $2`,
             [rawUpdateEmail, emp.user_id],
           );
         }
@@ -1173,17 +1172,16 @@ export class EmployeeService {
       if (emp.user_id && rawUpdatePassword !== null) {
         const pwHash = await hashPassword(rawUpdatePassword);
         await client.query(
-          `INSERT INTO user_credentials (user_id, password_hash, credential_version, password_updated_at, updated_at)
+          `INSERT INTO user_credentials (user_id, password_hash, credential_version, password_changed_at, created_at)
            VALUES ($1, $2, 1, now(), now())
            ON CONFLICT (user_id) DO UPDATE
            SET password_hash = EXCLUDED.password_hash,
                credential_version = GREATEST(user_credentials.credential_version, 0) + 1,
-               password_updated_at = now(),
-               updated_at = now()`,
+               password_changed_at = now()`,
           [emp.user_id, pwHash],
         );
         await client.query(
-          `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status <> 'suspended'`,
+          `UPDATE users SET status = 'active' WHERE id = $1 AND status <> 'suspended'`,
           [emp.user_id],
         );
         await client.query(
@@ -1197,9 +1195,9 @@ export class EmployeeService {
         await client.query(
           `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version)
            VALUES ($1, $2, 'active', 1)
-           ON CONFLICT (user_id) DO UPDATE
+           ON CONFLICT (user_id) WHERE status = 'active' DO UPDATE
            SET workspace_id = EXCLUDED.workspace_id,
-               status = CASE WHEN user_workspace_bindings.status = 'suspended' THEN user_workspace_bindings.status ELSE 'active' END,
+               status = 'active',
                version = user_workspace_bindings.version + 1,
                updated_at = now()`,
           [context.workspace.id, emp.user_id],
@@ -1783,7 +1781,7 @@ export class EmployeeService {
         await client.query(
           `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version)
            VALUES ($1, $2, 'active', 1)
-           ON CONFLICT (user_id) DO UPDATE SET workspace_id = EXCLUDED.workspace_id, status = 'active'`,
+           ON CONFLICT (user_id) WHERE status = 'active' DO UPDATE SET workspace_id = EXCLUDED.workspace_id, status = 'active'`,
           [context.workspace.id, newUserId],
         );
         await client.query(

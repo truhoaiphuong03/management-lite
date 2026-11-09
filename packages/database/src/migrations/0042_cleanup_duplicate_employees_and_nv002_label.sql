@@ -42,71 +42,84 @@ BEGIN
           )
       LOOP
         BEGIN
-          UPDATE attendance_shifts
-          SET employee_id = v_primary_emp_id
-          WHERE workspace_id = v_ws.id AND employee_id = v_dup.id;
+          BEGIN
+            UPDATE attendance_shifts
+            SET employee_id = v_primary_emp_id
+            WHERE workspace_id = v_ws.id AND employee_id = v_dup.id;
+          EXCEPTION WHEN OTHERS THEN NULL;
+          END;
 
-          DELETE FROM daily_reports dr
-          WHERE dr.workspace_id = v_ws.id
-            AND dr.employee_id = v_dup.id
-            AND EXISTS (
-              SELECT 1 FROM daily_reports dr2
-              WHERE dr2.workspace_id = dr.workspace_id
-                AND dr2.employee_id = v_primary_emp_id
-                AND dr2.report_date = dr.report_date
-            );
+          BEGIN
+            DELETE FROM daily_reports dr
+            WHERE dr.workspace_id = v_ws.id
+              AND dr.employee_id = v_dup.id
+              AND EXISTS (
+                SELECT 1 FROM daily_reports dr2
+                WHERE dr2.workspace_id = dr.workspace_id
+                  AND dr2.employee_id = v_primary_emp_id
+                  AND dr2.report_date = dr.report_date
+              );
 
-          UPDATE daily_reports
-          SET employee_id = v_primary_emp_id
-          WHERE workspace_id = v_ws.id AND employee_id = v_dup.id;
+            UPDATE daily_reports
+            SET employee_id = v_primary_emp_id
+            WHERE workspace_id = v_ws.id AND employee_id = v_dup.id;
+          EXCEPTION WHEN OTHERS THEN NULL;
+          END;
 
-          DELETE FROM schedule_entries se
-          WHERE se.workspace_id = v_ws.id
-            AND se.employee_id = v_dup.id
-            AND EXISTS (
-              SELECT 1 FROM schedule_entries se2
-              WHERE se2.workspace_id = se.workspace_id
-                AND se2.employee_id = v_primary_emp_id
-                AND se2.work_date = se.work_date
-                AND se2.shift_name = se.shift_name
-            );
+          BEGIN
+            DELETE FROM staff_schedules ss
+            WHERE ss.workspace_id = v_ws.id
+              AND ss.employee_id = v_dup.id;
+          EXCEPTION WHEN OTHERS THEN NULL;
+          END;
 
-          UPDATE schedule_entries
-          SET employee_id = v_primary_emp_id
-          WHERE workspace_id = v_ws.id AND employee_id = v_dup.id;
+          BEGIN
+            DELETE FROM work_assignments wa
+            WHERE wa.workspace_id = v_ws.id
+              AND wa.employee_id = v_dup.id
+              AND EXISTS (
+                SELECT 1 FROM work_assignments wa2
+                WHERE wa2.workspace_id = wa.workspace_id
+                  AND wa2.work_item_id = wa.work_item_id
+                  AND wa2.employee_id = v_primary_emp_id
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM work_submissions ws
+                WHERE ws.workspace_id = wa.workspace_id
+                  AND ws.assignment_id = wa.id
+              );
 
-          DELETE FROM work_assignments wa
-          WHERE wa.workspace_id = v_ws.id
-            AND wa.employee_id = v_dup.id
-            AND EXISTS (
-              SELECT 1 FROM work_assignments wa2
-              WHERE wa2.workspace_id = wa.workspace_id
-                AND wa2.work_item_id = wa.work_item_id
-                AND wa2.employee_id = v_primary_emp_id
-            )
-            AND NOT EXISTS (
-              SELECT 1 FROM work_submissions ws
-              WHERE ws.workspace_id = wa.workspace_id
-                AND ws.assignment_id = wa.id
-            );
+            UPDATE work_assignments wa
+            SET employee_id = v_primary_emp_id
+            WHERE wa.workspace_id = v_ws.id
+              AND wa.employee_id = v_dup.id
+              AND NOT EXISTS (
+                SELECT 1 FROM work_assignments wa2
+                WHERE wa2.workspace_id = wa.workspace_id
+                  AND wa2.work_item_id = wa.work_item_id
+                  AND wa2.employee_id = v_primary_emp_id
+              );
+          EXCEPTION WHEN OTHERS THEN NULL;
+          END;
 
-          UPDATE work_assignments wa
-          SET employee_id = v_primary_emp_id
-          WHERE wa.workspace_id = v_ws.id
-            AND wa.employee_id = v_dup.id
-            AND NOT EXISTS (
-              SELECT 1 FROM work_assignments wa2
-              WHERE wa2.workspace_id = wa.workspace_id
-                AND wa2.work_item_id = wa.work_item_id
-                AND wa2.employee_id = v_primary_emp_id
-            );
+          BEGIN
+            DELETE FROM payroll_hourly_rate_rules
+            WHERE workspace_id = v_ws.id AND employee_id = v_dup.id;
+          EXCEPTION WHEN OTHERS THEN NULL;
+          END;
 
-          DELETE FROM hourly_rate_rules
-          WHERE workspace_id = v_ws.id AND employee_id = v_dup.id;
+          BEGIN
+            UPDATE managed_accounts
+            SET assigned_employee_id = v_primary_emp_id
+            WHERE workspace_id = v_ws.id AND assigned_employee_id = v_dup.id;
+          EXCEPTION WHEN OTHERS THEN NULL;
+          END;
 
-          UPDATE shared_accounts
-          SET assigned_employee_id = v_primary_emp_id
-          WHERE workspace_id = v_ws.id AND assigned_employee_id = v_dup.id;
+          BEGIN
+            DELETE FROM resource_access_grants
+            WHERE workspace_id = v_ws.id AND employee_id = v_dup.id;
+          EXCEPTION WHEN OTHERS THEN NULL;
+          END;
 
           DELETE FROM employees
           WHERE workspace_id = v_ws.id AND id = v_dup.id;
@@ -114,6 +127,15 @@ BEGIN
           IF v_dup.user_id IS NOT NULL AND NOT EXISTS (
             SELECT 1 FROM employees e2 WHERE e2.user_id = v_dup.user_id
           ) THEN
+            DELETE FROM user_workspace_bindings
+            WHERE workspace_id = v_ws.id
+              AND user_id = v_dup.user_id
+              AND EXISTS (
+                SELECT 1 FROM users u
+                WHERE u.id = v_dup.user_id
+                  AND u.email_normalized LIKE '%@hoaiphuong.local'
+              );
+
             DELETE FROM workspace_memberships
             WHERE workspace_id = v_ws.id
               AND user_id = v_dup.user_id

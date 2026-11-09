@@ -88,30 +88,15 @@ BEGIN
             v_email := v_username || '@hoaiphuong.local';
           END IF;
 
-          INSERT INTO users (username_normalized, email_normalized, status, created_at, updated_at)
-          VALUES (v_username, v_email, 'active', now(), now())
+          INSERT INTO users (username_normalized, email_normalized, status, created_at)
+          VALUES (v_username, v_email, 'active', now())
           RETURNING id INTO v_user_id;
         END IF;
-
-        UPDATE employees
-        SET user_id = v_user_id,
-            employment_status = 'active',
-            updated_at = now()
-        WHERE workspace_id = v_ws.id
-          AND id = v_emp.id;
-      ELSE
-        UPDATE employees
-        SET employment_status = 'active',
-            updated_at = now()
-        WHERE workspace_id = v_ws.id
-          AND id = v_emp.id
-          AND employment_status IN ('invited', 'inactive');
       END IF;
 
       IF v_user_id IS NOT NULL THEN
         UPDATE users
-        SET status = 'active',
-            updated_at = now()
+        SET status = 'active'
         WHERE id = v_user_id
           AND status = 'pending_activation';
 
@@ -134,14 +119,19 @@ BEGIN
 
         INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version, created_at, updated_at)
         VALUES (v_ws.id, v_user_id, 'active', 1, now(), now())
-        ON CONFLICT (user_id) DO UPDATE
+        ON CONFLICT (user_id) WHERE status = 'active' DO UPDATE
         SET workspace_id = EXCLUDED.workspace_id,
-            status = CASE
-              WHEN user_workspace_bindings.status = 'suspended' THEN user_workspace_bindings.status
-              ELSE 'active'
-            END,
+            status = 'active',
             version = user_workspace_bindings.version + 1,
             updated_at = now();
+
+        UPDATE employees
+        SET user_id = COALESCE(employees.user_id, v_user_id),
+            employment_status = 'active',
+            updated_at = now()
+        WHERE workspace_id = v_ws.id
+          AND id = v_emp.id
+          AND (employees.user_id IS NULL OR employment_status IN ('invited', 'inactive'));
 
         IF NOT EXISTS (
           SELECT 1 FROM user_credentials uc WHERE uc.user_id = v_user_id
@@ -150,14 +140,12 @@ BEGIN
             user_id,
             password_hash,
             credential_version,
-            password_updated_at,
-            created_at,
-            updated_at
+            password_changed_at,
+            created_at
           ) VALUES (
             v_user_id,
             v_default_nv002_hash,
-            0,
-            now(),
+            1,
             now(),
             now()
           );

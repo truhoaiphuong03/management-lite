@@ -334,14 +334,14 @@ export class AuthService {
       canAutoHealEmployeeStatus
     ) {
       await this.pool.query(
-        `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status = 'pending_activation'`,
+        `UPDATE users SET status = 'active' WHERE id = $1 AND status = 'pending_activation'`,
         [userRow.id],
       );
       userRow.user_status = 'active';
     }
     if (userRow.credential_version === 0) {
       await this.pool.query(
-        `UPDATE user_credentials SET credential_version = 1, updated_at = now() WHERE user_id = $1 AND credential_version = 0`,
+        `UPDATE user_credentials SET credential_version = 1, password_changed_at = now() WHERE user_id = $1 AND credential_version = 0`,
         [userRow.id],
       );
       userRow.credential_version = 1;
@@ -431,9 +431,9 @@ export class AuthService {
         await this.pool.query(
           `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version)
            VALUES ($1, $2, 'active', 1)
-           ON CONFLICT (user_id) DO UPDATE
+           ON CONFLICT (user_id) WHERE status = 'active' DO UPDATE
            SET workspace_id = EXCLUDED.workspace_id,
-               status = CASE WHEN user_workspace_bindings.status = 'suspended' THEN user_workspace_bindings.status ELSE 'active' END,
+               status = 'active',
                version = user_workspace_bindings.version + 1,
                updated_at = now()`,
           [healWsId, userRow.id],
