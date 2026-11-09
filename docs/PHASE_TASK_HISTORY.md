@@ -846,4 +846,27 @@
 10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0038_sync_nv001_timesheet_and_remove_nv002_payroll.sql`, `packages/database/src/migrations/catalog.ts`, `apps/api/src/payroll/timesheet-service.ts`, `apps/api/src/app.ts`, `apps/web/src/screens/PayrollStatsScreen.tsx`, `apps/web/src/screens/PayrollScreen.tsx`, `tests/web/payroll-google-sheet-sync.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
 11. **Commit / PR:** `main` (`v0.9.12`)
 12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.12` lên `ql.hoaiphuong.click`)_
-13. **NEXT_ACTION:** Chờ GitHub Actions CI cho `v0.9.12` trên `main` báo xanh, sau đó Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.12` lên `ql.hoaiphuong.click`.
+13. **NEXT_ACTION:** Chuyển sang `Task DRIVE-OAUTH-0913` (`Hotfix DRIVE-OAUTH-0913` — `v0.9.13`).
+
+---
+
+## HOTFIX DRIVE-OAUTH-0913 — KHẮC PHỤC LỖI GOOGLE OAUTH `Error 400: redirect_uri_mismatch` TRÊN `/storage` (`v0.9.13`)
+
+### Task `DRIVE-OAUTH-0913` — Tự Động Dự Phòng `redirect_uri`, Hỗ Trợ Dán URL Callback & Khung Sao Chép Redirect URI Chuẩn Trên `/storage` (`v0.9.13`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Hotfix DRIVE-OAUTH-0913` (`v0.9.13`)
+3. **Task ID:** `DRIVE-OAUTH-0913`
+4. **Mô tả:** Xử lý triệt để lỗi `Access blocked: This app's request is invalid — Error 400: redirect_uri_mismatch` (`truhoaiphuong03@gmail.com`) khi bấm kết nối Google Drive trên `/storage`:
+   - Trong `StorageService.getDriveOAuthUrl` (`apps/api/src/storage/service.ts`): kiểm tra nhanh phản hồi `HEAD` từ `https://accounts.google.com/o/oauth2/v2/auth` và tự động chuyển dự phòng sang URI đã đăng ký `http://localhost:3101/api/v1/storage/drive/oauth/callback` nếu `https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback` chưa được thêm vào Google Cloud Console.
+   - Trong `MockGoogleDriveProvider.exchangeOAuthCode` (`apps/api/src/storage/provider.ts`): truyền `effectiveRedirectUri` và tự động thử lại danh sách `candidateRedirectUris` khi đổi `authorization_code` tại `https://oauth2.googleapis.com/token`.
+   - Trong `StorageScreen.tsx` (`apps/web/src/screens/StorageScreen.tsx`): hiển thị khung `Authorized Redirect URI (Google Cloud Console)` kèm nút `Sao chép URI` & `Mở Google Cloud Console ↗`, bỏ tự động chuyển hướng gây văng trang ở nút xác nhận cuối form và hỗ trợ dán nguyên đường dẫn URL callback (`http://...` / `https://...`) để tự tách `code`, `state`, `redirect_uri`.
+5. **Phụ thuộc:** `Phase PAY-GSHEET-SYNC-0912` (`v0.9.12` — `ab60935`).
+6. **Acceptance Criteria:** Vượt qua `storage-screen.test.mjs` (`15/15 PASS`), `version.test.mjs` (`6/6 PASS`), `build` & `build:web`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `storage-screen.test.mjs` (`15/15 PASS`), `version.test.mjs` (`6/6 PASS`).
+10. **Evidence (`VERIFIED`):** `apps/api/src/storage/provider.ts`, `apps/api/src/storage/service.ts`, `apps/api/src/routes/storage-routes.ts`, `apps/web/src/screens/StorageScreen.tsx`, `tests/web/storage-screen.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** `main` (`v0.9.13`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.13` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.13` lên `ql.hoaiphuong.click`.

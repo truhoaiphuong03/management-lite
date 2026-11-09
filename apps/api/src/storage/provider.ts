@@ -39,6 +39,7 @@ export interface StorageProviderTrashResult extends StorageProviderResult {
 
 export interface DriveOAuthExchangeInput {
   code?: string | undefined;
+  redirectUri?: string | undefined;
   googleEmail?: string | undefined;
   refreshToken?: string | undefined;
   scopes?: string[] | undefined;
@@ -498,21 +499,37 @@ export class MockGoogleDriveProvider implements IStorageProvider {
 
     if (isLiveGoogleDriveEnabled() && isLiveAuthorizationCode(input.code)) {
       const cfg = getGoogleOAuthConfig();
-      const tokenParams = new URLSearchParams({
-        code: input.code.trim(),
-        client_id: cfg.clientId,
-        client_secret: cfg.clientSecret,
-        redirect_uri: cfg.redirectUri,
-        grant_type: 'authorization_code',
-      });
-      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: tokenParams.toString(),
-      });
-      if (!tokenRes.ok) {
+      const effectiveRedirectUri =
+        input.redirectUri?.trim() || cfg.redirectUri;
+      const candidateRedirectUris = Array.from(
+        new Set([
+          effectiveRedirectUri,
+          cfg.redirectUri,
+          'http://localhost:3101/api/v1/storage/drive/oauth/callback',
+          'https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback',
+        ]),
+      ).filter(Boolean);
+      let tokenRes: Response | null = null;
+      for (const candidateUri of candidateRedirectUris) {
+        const tokenParams = new URLSearchParams({
+          code: input.code.trim(),
+          client_id: cfg.clientId,
+          client_secret: cfg.clientSecret,
+          redirect_uri: candidateUri,
+          grant_type: 'authorization_code',
+        });
+        tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: tokenParams.toString(),
+        });
+        if (tokenRes.ok || tokenRes.status !== 400) {
+          break;
+        }
+      }
+      if (!tokenRes || !tokenRes.ok) {
         throw new Error(
-          `GOOGLE_OAUTH_EXCHANGE_FAILED: Failed to exchange OAuth code (HTTP ${tokenRes.status})`,
+          `GOOGLE_OAUTH_EXCHANGE_FAILED: Failed to exchange OAuth code (HTTP ${tokenRes?.status ?? 500})`,
         );
       }
       const tokenBody = (await tokenRes.json()) as {

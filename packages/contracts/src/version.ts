@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.12';
-export const SYSTEM_COMMIT = '90a6c5d';
+export const SYSTEM_VERSION = '0.9.13';
+export const SYSTEM_COMMIT = 'ab60935';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,25 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.12',
+    version: '0.9.13',
     commit: 'latest',
+    released_at: '2026-11-09',
+    summary:
+      'Khắc phục lỗi Google OAuth Error 400: redirect_uri_mismatch trên /storage, tự động dự phòng Redirect URI và hỗ trợ dán URL callback trực tiếp',
+    added: [
+      'Khung hiển thị Authorized Redirect URI kèm nút Sao chép URI 1-chạm và liên kết mở nhanh Google Cloud Console trong cửa sổ Kết nối Google Drive (/storage).',
+      'Hỗ trợ dán nguyên đường dẫn URL callback OAuth (http://... hoặc https://...) vào ô Mã ủy quyền để tự động tách code, state và redirect_uri.',
+    ],
+    improved: [
+      'Tự động kiểm tra và chuyển dự phòng sang Redirect URI đã đăng ký khi tạo URL ủy quyền Google OAuth 2.0 và khi đổi mã authorization_code lấy refresh_token.',
+    ],
+    fixed: [
+      'Sửa lỗi Error 400: redirect_uri_mismatch khi kết nối Google Drive (truhoaiphuong03@gmail.com) trên /storage.',
+    ],
+  },
+  {
+    version: '0.9.12',
+    commit: 'ab60935',
     released_at: '2026-11-09',
     summary:
       'Tự động đồng bộ & đối chiếu bảng lương trực tiếp từ Google Sheet (T6–T11), sửa bảng lương tháng 10 của NV001 (535.417 đ) và loại bỏ hoàn toàn lương NV002',

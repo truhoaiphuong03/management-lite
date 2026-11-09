@@ -608,17 +608,42 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     setActionLoading(true);
     setErrorMessage(null);
     try {
-      const trimmedCode = oauthCode.trim();
-      const isDefaultPlaceholderCode =
-        !trimmedCode || trimmedCode.startsWith('4/0AVGzR1-');
+      let resolvedCode = oauthCode.trim();
+      let resolvedState = oauthState.trim();
+      let resolvedRedirectUri: string | undefined;
 
-      // When live Google OAuth credentials are configured and the user hasn't pasted a manual real code,
-      // redirect directly to Google's OAuth 2.0 consent page instead of submitting the placeholder mock code.
+      if (
+        resolvedCode.startsWith('http://') ||
+        resolvedCode.startsWith('https://')
+      ) {
+        try {
+          const parsedCallback = new URL(resolvedCode);
+          const extractedCode =
+            parsedCallback.searchParams.get('code') ||
+            parsedCallback.searchParams.get('oauth_code');
+          const extractedState =
+            parsedCallback.searchParams.get('state') ||
+            parsedCallback.searchParams.get('oauth_state');
+          if (extractedCode) {
+            resolvedCode = extractedCode.trim();
+            setOauthCode(resolvedCode);
+          }
+          if (extractedState) {
+            resolvedState = extractedState.trim();
+            setOauthState(resolvedState);
+          }
+          resolvedRedirectUri = `${parsedCallback.origin}${parsedCallback.pathname}`;
+        } catch {
+          // Keep original input if URL parsing fails
+        }
+      }
+
+      const isDefaultPlaceholderCode =
+        !resolvedCode || resolvedCode.startsWith('4/0AVGzR1-');
+
       if (
         driveConnection?.live_credentials_configured &&
-        isDefaultPlaceholderCode &&
-        typeof window !== 'undefined' &&
-        typeof window.location?.assign === 'function'
+        isDefaultPlaceholderCode
       ) {
         let targetAuthUrl = oauthUrlPreview.trim();
         if (!targetAuthUrl.startsWith('https://accounts.google.com/')) {
@@ -634,13 +659,12 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             }
           }
         }
-        if (targetAuthUrl.startsWith('https://accounts.google.com/')) {
-          window.location.assign(targetAuthUrl);
-          return;
-        }
+        setErrorMessage(
+          'Vui lòng bấm "Mở trang ủy quyền Google ↗" để đăng nhập Google (hoặc dán Mã ủy quyền / URL callback thật vào ô bên dưới) trước khi xác nhận kết nối.',
+        );
+        return;
       }
 
-      let resolvedState = oauthState.trim();
       if (!resolvedState) {
         const urlRes = await fetch('/api/v1/storage/drive/oauth/url', {
           credentials: 'include',
@@ -659,8 +683,9 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
         },
         credentials: 'include',
         body: JSON.stringify({
-          code: trimmedCode || '4/0AVGzR1-google-oauth-code',
+          code: resolvedCode || '4/0AVGzR1-google-oauth-code',
           state: resolvedState,
+          ...(resolvedRedirectUri ? { redirect_uri: resolvedRedirectUri } : {}),
           google_email: oauthGoogleEmail.trim(),
           root_folder_name: oauthRootFolderName.trim(),
           scopes: ['https://www.googleapis.com/auth/drive.file'],
@@ -1566,6 +1591,85 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             </p>
 
             <form onSubmit={handleConnectDriveOAuth}>
+              <div
+                style={{
+                  marginBottom: '12px',
+                  padding: '10px 12px',
+                  backgroundColor: 'var(--surface-subtle)',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '12px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                    marginBottom: '4px',
+                  }}
+                >
+                  <strong style={{ color: 'var(--text-color)' }}>
+                    Authorized Redirect URI (Google Cloud Console):
+                  </strong>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const uri =
+                          driveConnection?.redirect_uri ||
+                          'https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback';
+                        if (navigator?.clipboard?.writeText) {
+                          void navigator.clipboard.writeText(uri);
+                          setSuccessMessage(
+                            `Đã sao chép Redirect URI: ${uri}`,
+                          );
+                        }
+                      }}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '12px',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--surface-card)',
+                        color: 'var(--info-text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Sao chép URI
+                    </button>
+                    <a
+                      href="https://console.cloud.google.com/apis/credentials?project=980505397989"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '12px',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--surface-card)',
+                        color: 'var(--info-text)',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Mở Google Cloud Console ↗
+                    </a>
+                  </div>
+                </div>
+                <code
+                  style={{
+                    display: 'block',
+                    color: 'var(--info-text)',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {driveConnection?.redirect_uri ||
+                    'https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback'}
+                </code>
+              </div>
+
               <div style={{ marginBottom: '12px' }}>
                 <div
                   style={{

@@ -588,3 +588,45 @@ test('FILE-01 Google Drive V2 UI: OAuth connect button, direct folder creation, 
     'Clean labels next to PlusIcon must be present without duplicate + text',
   );
 });
+
+test('FILE-01 OAuth redirect_uri_mismatch guard: Redirect URI copy helper, callback URL parser, and provider redirectUri propagation', async () => {
+  const screenContent = readFileSync(
+    resolve(root, 'apps/web/src/screens/StorageScreen.tsx'),
+    'utf8',
+  );
+  const providerContent = readFileSync(
+    resolve(root, 'apps/api/src/storage/provider.ts'),
+    'utf8',
+  );
+  const serviceContent = readFileSync(
+    resolve(root, 'apps/api/src/storage/service.ts'),
+    'utf8',
+  );
+
+  // 1. StorageScreen displays Authorized Redirect URI and parses pasted callback URLs
+  assert.ok(
+    screenContent.includes(
+      'Authorized Redirect URI (Google Cloud Console):',
+    ) &&
+      screenContent.includes(
+        'https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback',
+      ),
+    'StorageScreen must display the exact Authorized Redirect URI for Google Cloud Console',
+  );
+  assert.ok(
+    screenContent.includes("resolvedCode.startsWith('http://')") &&
+      screenContent.includes("parsedCallback.searchParams.get('code')"),
+    'StorageScreen must support pasting a full callback URL to extract code, state, and redirect_uri',
+  );
+
+  // 2. Backend service and provider propagate redirectUri during token exchange
+  assert.ok(
+    providerContent.includes('effectiveRedirectUri') &&
+      providerContent.includes('candidateRedirectUris'),
+    'GoogleDriveProvider.exchangeOAuthCode must use effectiveRedirectUri and fallback candidates when exchanging authorization code',
+  );
+  assert.ok(
+    serviceContent.includes('redirectUri: resolvedRedirectUri'),
+    'StorageService.connectDriveOAuth must pass resolvedRedirectUri to provider.exchangeOAuthCode',
+  );
+});

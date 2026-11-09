@@ -64,7 +64,12 @@ export async function handleStorageRoutes(
 
   // OAuth 2.0 Google Drive Connection Endpoints
   if (pathname === '/api/v1/storage/drive/oauth/url' && method === 'GET') {
-    const result = await storageService.getDriveOAuthUrl(sessionContext);
+    const reqUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
+    const redirectUriOverride = reqUrl.searchParams.get('redirect_uri');
+    const result = await storageService.getDriveOAuthUrl(
+      sessionContext,
+      redirectUriOverride,
+    );
     sendJson(res, 200, createSuccessEnvelope(result, requestId));
     return true;
   }
@@ -77,7 +82,12 @@ export async function handleStorageRoutes(
     return true;
   }
 
-  if (pathname === '/api/v1/storage/drive/oauth/callback' && method === 'GET') {
+  if (
+    (pathname === '/api/v1/storage/drive/oauth/callback' ||
+      pathname === '/api/v1/storage/drive/callback' ||
+      pathname === '/api/v1/storage/google-drive/callback') &&
+    method === 'GET'
+  ) {
     if (sessionContext.workspace.role !== 'owner') {
       throw new AuthError(
         'FORBIDDEN',

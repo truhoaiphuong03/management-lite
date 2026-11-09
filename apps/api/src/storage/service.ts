@@ -561,7 +561,10 @@ export class StorageService {
    * 0a. GET /api/v1/storage/drive/oauth/url
    * Generates OAuth 2.0 consent URL with least-privilege drive.file scope (Owner only).
    */
-  async getDriveOAuthUrl(auth: AuthenticatedContext): Promise<{
+  async getDriveOAuthUrl(
+    auth: AuthenticatedContext,
+    redirectUriOverride?: string | null,
+  ): Promise<{
     auth_url: string;
     authorization_url: string;
     state: string;
@@ -575,12 +578,55 @@ export class StorageService {
     const { key } = getDriveEncryptionKey(this.encryptionKey);
     const state = createSignedOAuthState(auth.workspace.id, auth.user.id, key);
     const cfg = getGoogleOAuthConfig();
+    const allowedRedirectUris = new Set([
+      cfg.redirectUri,
+      'https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback',
+      'http://localhost:3101/api/v1/storage/drive/oauth/callback',
+      'http://localhost:3001/api/v1/storage/drive/oauth/callback',
+      'http://127.0.0.1:3101/api/v1/storage/drive/oauth/callback',
+    ]);
+    const trimmedOverride = (redirectUriOverride ?? '').trim();
+    let resolvedRedirectUri =
+      trimmedOverride && allowedRedirectUris.has(trimmedOverride)
+        ? trimmedOverride
+        : cfg.redirectUri;
+    if (
+      !trimmedOverride &&
+      cfg.credentialsConfigured &&
+      resolvedRedirectUri !==
+        'http://localhost:3101/api/v1/storage/drive/oauth/callback'
+    ) {
+      try {
+        const probeUrl = new URL(
+          'https://accounts.google.com/o/oauth2/v2/auth',
+        );
+        probeUrl.searchParams.set('client_id', cfg.clientId);
+        probeUrl.searchParams.set('redirect_uri', resolvedRedirectUri);
+        probeUrl.searchParams.set('response_type', 'code');
+        probeUrl.searchParams.set(
+          'scope',
+          'https://www.googleapis.com/auth/drive.file',
+        );
+        const probeRes = await fetch(probeUrl.toString(), {
+          method: 'HEAD',
+          redirect: 'manual',
+          signal: AbortSignal.timeout(1800),
+        });
+        const loc = probeRes.headers.get('location') ?? '';
+        if (loc.includes('/signin/oauth/error')) {
+          resolvedRedirectUri =
+            'http://localhost:3101/api/v1/storage/drive/oauth/callback';
+        }
+      } catch {
+        // Keep configured redirectUri when offline or in test environments
+      }
+    }
     const requestedScopes = ['https://www.googleapis.com/auth/drive.file'];
     const authUrl = this.provider.getOAuthAuthorizationUrl
       ? this.provider.getOAuthAuthorizationUrl({
           workspaceId: auth.workspace.id,
           state,
-          redirectUri: cfg.redirectUri,
+          redirectUri: resolvedRedirectUri,
         })
       : `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&access_type=offline&prompt=consent&scope=${encodeURIComponent(requestedScopes.join(' '))}&state=${encodeURIComponent(state)}`;
     return {
@@ -591,7 +637,7 @@ export class StorageService {
       requested_scopes: requestedScopes,
       oauth_mode: isLiveGoogleDriveEnabled() ? 'live' : 'mock',
       live_credentials_configured: cfg.credentialsConfigured,
-      redirect_uri: cfg.redirectUri,
+      redirect_uri: resolvedRedirectUri,
     };
   }
 
@@ -702,11 +748,43 @@ export class StorageService {
     }
 
     const { key, keyVersion } = getDriveEncryptionKey(this.encryptionKey);
-    if (!body.state || typeof body.state !== 'string' || !body.state.trim()) {
+
+    let rawCodeInput = typeof body.code === 'string' ? body.code.trim() : '';
+    let rawStateInput = typeof body.state === 'string' ? body.state.trim() : '';
+    let rawRedirectUriInput =
+      typeof body.redirect_uri === 'string' ? body.redirect_uri.trim() : '';
+
+    if (
+      rawCodeInput.startsWith('http://') ||
+      rawCodeInput.startsWith('https://')
+    ) {
+      try {
+        const parsedCallback = new URL(rawCodeInput);
+        const extractedCode =
+          parsedCallback.searchParams.get('code') ||
+          parsedCallback.searchParams.get('oauth_code');
+        const extractedState =
+          parsedCallback.searchParams.get('state') ||
+          parsedCallback.searchParams.get('oauth_state');
+        if (extractedCode) {
+          rawCodeInput = extractedCode.trim();
+        }
+        if (extractedState && !rawStateInput) {
+          rawStateInput = extractedState.trim();
+        }
+        if (!rawRedirectUriInput) {
+          rawRedirectUriInput = `${parsedCallback.origin}${parsedCallback.pathname}`;
+        }
+      } catch {
+        // Leave rawCodeInput as-is if URL parsing fails
+      }
+    }
+
+    if (!rawStateInput) {
       fail('INVALID_OAUTH_STATE', 'OAuth 2.0 state parameter is required', 400);
     }
 
-    const stateStr = assertText(body.state, 200, true, 'state');
+    const stateStr = assertText(rawStateInput, 200, true, 'state');
     const stateCheck = verifyOAuthStateSignatureAndExpiry(
       stateStr,
       auth.workspace.id,
@@ -737,9 +815,21 @@ export class StorageService {
       );
     }
 
-    const code = body.code
-      ? assertText(body.code, 500, false, 'code')
+    const code = rawCodeInput
+      ? assertText(rawCodeInput, 1000, false, 'code')
       : '4/0AVGzR1-oauth-code';
+    const oauthCfg = getGoogleOAuthConfig();
+    const allowedRedirectUris = new Set([
+      oauthCfg.redirectUri,
+      'https://ql.hoaiphuong.click/api/v1/storage/drive/oauth/callback',
+      'http://localhost:3101/api/v1/storage/drive/oauth/callback',
+      'http://localhost:3001/api/v1/storage/drive/oauth/callback',
+      'http://127.0.0.1:3101/api/v1/storage/drive/oauth/callback',
+    ]);
+    const resolvedRedirectUri =
+      rawRedirectUriInput && allowedRedirectUris.has(rawRedirectUriInput)
+        ? rawRedirectUriInput
+        : oauthCfg.redirectUri;
     const emailHint = body.google_email
       ? assertEmail(body.google_email, 'google_email')
       : 'drive-admin@hoaiphuong.click';
@@ -758,6 +848,7 @@ export class StorageService {
     if (this.provider.exchangeOAuthCode) {
       const exchanged = await this.provider.exchangeOAuthCode({
         code,
+        redirectUri: resolvedRedirectUri,
         googleEmail: emailHint,
         scopes: requestedScopes,
         rootFolderName,
