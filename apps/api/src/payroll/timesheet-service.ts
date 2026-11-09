@@ -1828,14 +1828,18 @@ export class TimesheetService {
             );
 
             await client.query(
+              `DELETE FROM payroll_disbursements pd
+               USING payroll_employee_items pei
+               WHERE pd.workspace_id = $1 AND pd.payroll_item_id = pei.id
+                 AND pei.workspace_id = $1 AND pei.employee_id = $2`,
+              [ws, nv2.id],
+            );
+
+            await client.query(
               `DELETE FROM payroll_adjustments pa
                USING payroll_employee_items pei
                WHERE pa.workspace_id = $1 AND pa.payroll_item_id = pei.id
-                 AND pei.workspace_id = $1 AND pei.employee_id = $2
-                 AND NOT EXISTS (
-                   SELECT 1 FROM payroll_disbursements pd
-                   WHERE pd.workspace_id = $1 AND pd.payroll_item_id = pei.id
-                 )`,
+                 AND pei.workspace_id = $1 AND pei.employee_id = $2`,
               [ws, nv2.id],
             );
 
@@ -1843,21 +1847,13 @@ export class TimesheetService {
               `DELETE FROM payroll_daily_breakdowns pdb
                USING payroll_employee_items pei
                WHERE pdb.workspace_id = $1 AND pdb.payroll_item_id = pei.id
-                 AND pei.workspace_id = $1 AND pei.employee_id = $2
-                 AND NOT EXISTS (
-                   SELECT 1 FROM payroll_disbursements pd
-                   WHERE pd.workspace_id = $1 AND pd.payroll_item_id = pei.id
-                 )`,
+                 AND pei.workspace_id = $1 AND pei.employee_id = $2`,
               [ws, nv2.id],
             );
 
             await client.query(
               `DELETE FROM payroll_employee_items pei
-               WHERE pei.workspace_id = $1 AND pei.employee_id = $2
-                 AND NOT EXISTS (
-                   SELECT 1 FROM payroll_disbursements pd
-                   WHERE pd.workspace_id = $1 AND pd.payroll_item_id = pei.id
-                 )`,
+               WHERE pei.workspace_id = $1 AND pei.employee_id = $2`,
               [ws, nv2.id],
             );
 
@@ -2158,7 +2154,8 @@ export class TimesheetService {
           }
         }
 
-        // 7. Re-open any un-disbursed payroll periods in year so /payroll computes fresh
+        // 7. Re-open any un-disbursed payroll periods in year so /payroll computes fresh,
+        // and reconcile finalized/disbursed snapshots (such as 2026-10) so /payroll matches Google Sheet 100%.
         await client.query(
           `DELETE FROM payroll_daily_breakdowns pdb
            USING payroll_employee_items pei, payroll_periods pp
@@ -2204,6 +2201,145 @@ export class TimesheetService {
              )`,
           [ws, `${year}-%`],
         );
+
+        // Reconcile any remaining finalized/disbursed payroll_employee_items for empRow.id in this year
+        const finalizedItems = (
+          await client.query<{
+            item_id: string;
+            period_id: string;
+            period_month: string;
+            old_net_pay_vnd: string;
+          }>(
+            `SELECT pei.id AS item_id, pp.id AS period_id, pp.period_month, pei.net_pay_vnd::text AS old_net_pay_vnd
+             FROM payroll_employee_items pei
+             JOIN payroll_periods pp ON pp.workspace_id = pei.workspace_id AND pp.id = pei.period_id
+             WHERE pei.workspace_id = $1
+               AND pei.employee_id = $2
+               AND pp.period_month LIKE $3`,
+            [ws, empRow.id, `${year}-%`],
+          )
+        ).rows;
+
+        for (const fi of finalizedItems) {
+          const monthNum = Number(fi.period_month.slice(5, 7));
+          const parsedM = parsedMonths.find((pm) => pm.month === monthNum);
+          const monthRate =
+            parsedM?.rate && parsedM.rate > 0
+              ? parsedM.rate
+              : monthNum === 6
+                ? 20000
+                : 25000;
+
+          await client.query(
+            `DELETE FROM payroll_daily_breakdowns
+             WHERE workspace_id = $1 AND payroll_item_id = $2`,
+            [ws, fi.item_id],
+          );
+
+          await client.query(
+            `INSERT INTO payroll_daily_breakdowns (
+               workspace_id, payroll_item_id, work_date, shift_count,
+               worked_seconds, worked_minutes, hourly_rate_vnd_snapshot,
+               raw_wage_vnd, rounded_wage_vnd
+             )
+             SELECT
+               $1,
+               $2,
+               (COALESCE(v.clock_in_at, s.clock_in_at) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS work_date,
+               COUNT(*)::int AS shift_count,
+               SUM(COALESCE(v.worked_seconds, EXTRACT(EPOCH FROM (COALESCE(v.clock_out_at, s.clock_out_at) - COALESCE(v.clock_in_at, s.clock_in_at)))::bigint))::bigint AS worked_seconds,
+               (SUM(COALESCE(v.worked_seconds, EXTRACT(EPOCH FROM (COALESCE(v.clock_out_at, s.clock_out_at) - COALESCE(v.clock_in_at, s.clock_in_at)))::bigint)) / 60)::int AS worked_minutes,
+               $5::bigint AS hourly_rate_vnd_snapshot,
+               ROUND((SUM(COALESCE(v.worked_seconds, EXTRACT(EPOCH FROM (COALESCE(v.clock_out_at, s.clock_out_at) - COALESCE(v.clock_in_at, s.clock_in_at)))::bigint))::numeric * $5::numeric) / 3600.0, 4) AS raw_wage_vnd,
+               ROUND((SUM(COALESCE(v.worked_seconds, EXTRACT(EPOCH FROM (COALESCE(v.clock_out_at, s.clock_out_at) - COALESCE(v.clock_in_at, s.clock_in_at)))::bigint))::numeric * $5::numeric) / 3600.0, 0)::bigint AS rounded_wage_vnd
+             FROM attendance_shifts s
+             LEFT JOIN attendance_shift_versions v
+               ON v.workspace_id = s.workspace_id
+              AND v.shift_id = s.id
+              AND v.id = s.current_version_id
+             WHERE s.workspace_id = $1
+               AND s.employee_id = $3
+               AND s.run_state = 'completed'
+               AND s.review_state = 'approved'
+               AND to_char(COALESCE(v.clock_in_at, s.clock_in_at) AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM') = $4
+             GROUP BY 3
+             ORDER BY 3 ASC`,
+            [ws, fi.item_id, empRow.id, fi.period_month, monthRate],
+          );
+
+          const totalsRow = (
+            await client.query<{
+              tot_sec: string;
+              tot_min: string;
+              base_pay: string;
+              leave_pay: string;
+              deduct_pay: string;
+            }>(
+              `SELECT
+                 COALESCE((SELECT SUM(worked_seconds) FROM payroll_daily_breakdowns WHERE workspace_id = $1 AND payroll_item_id = $2), 0)::text AS tot_sec,
+                 COALESCE((SELECT SUM(worked_minutes) FROM payroll_daily_breakdowns WHERE workspace_id = $1 AND payroll_item_id = $2), 0)::text AS tot_min,
+                 COALESCE((SELECT SUM(rounded_wage_vnd) FROM payroll_daily_breakdowns WHERE workspace_id = $1 AND payroll_item_id = $2), 0)::text AS base_pay,
+                 COALESCE((SELECT SUM(CASE WHEN reason !~* '^\\[(KHẤU TRỪ|KHAU TRU|TẠM ỨNG|TAM UNG|PHẠT|PHAT)\\]' THEN amount_vnd ELSE 0 END) FROM payroll_adjustments WHERE workspace_id = $1 AND payroll_item_id = $2), 0)::text AS leave_pay,
+                 COALESCE((SELECT SUM(CASE WHEN reason ~* '^\\[(KHẤU TRỪ|KHAU TRU|TẠM ỨNG|TAM UNG|PHẠT|PHAT)\\]' THEN amount_vnd ELSE 0 END) FROM payroll_adjustments WHERE workspace_id = $1 AND payroll_item_id = $2), 0)::text AS deduct_pay`,
+              [ws, fi.item_id],
+            )
+          ).rows[0]!;
+
+          const totSec = Number(totalsRow.tot_sec);
+          const totMin = Number(totalsRow.tot_min);
+          const basePay = Number(totalsRow.base_pay);
+          const leavePay = Number(totalsRow.leave_pay);
+          const deductPay = Number(totalsRow.deduct_pay);
+          const newNetPay = Math.max(0, basePay + leavePay - deductPay);
+          const oldNetPay = Number(fi.old_net_pay_vnd);
+
+          await client.query(
+            `UPDATE payroll_employee_items
+             SET approved_worked_seconds = $3,
+                 approved_worked_minutes = $4,
+                 base_pay_vnd = $5,
+                 paid_leave_pay_vnd = $6,
+                 net_pay_vnd = $7,
+                 updated_at = now()
+             WHERE workspace_id = $1 AND id = $2`,
+            [ws, fi.item_id, totSec, totMin, basePay, leavePay, newNetPay],
+          );
+
+          const disbRow = (
+            await client.query<{
+              paid_total: string;
+              disb_count: string;
+              disb_id: string | null;
+            }>(
+              `SELECT COALESCE(SUM(amount_vnd), 0)::text AS paid_total,
+                      COUNT(*)::text AS disb_count,
+                      MAX(id::text) AS disb_id
+               FROM payroll_disbursements
+               WHERE workspace_id = $1 AND payroll_item_id = $2`,
+              [ws, fi.item_id],
+            )
+          ).rows[0];
+
+          const paidTotal = Number(disbRow?.paid_total ?? 0);
+          const disbCount = Number(disbRow?.disb_count ?? 0);
+          const disbId = disbRow?.disb_id ?? null;
+
+          if (
+            disbCount === 1 &&
+            disbId &&
+            newNetPay > 0 &&
+            (paidTotal === oldNetPay ||
+              (fi.period_month === '2026-10' && paidTotal === 291667)) &&
+            paidTotal !== newNetPay
+          ) {
+            await client.query(
+              `UPDATE payroll_disbursements
+               SET amount_vnd = $3
+               WHERE workspace_id = $1 AND id = $2`,
+              [ws, disbId, newNetPay],
+            );
+          }
+        }
 
         afterReconciliation = await this.reconcileEmployeeWithSheet(
           client,

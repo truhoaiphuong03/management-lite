@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.13';
-export const SYSTEM_COMMIT = 'ab60935';
+export const SYSTEM_VERSION = '0.9.14';
+export const SYSTEM_COMMIT = '74b78e6';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.13',
+    version: '0.9.14',
     commit: 'latest',
+    released_at: '2026-11-09',
+    summary:
+      'Đồng bộ lại các kỳ lương đã chốt & đã chi trả (tháng 10/2026 và các tháng 2026) trên /payroll để khớp 100% với bản Excel Google Sheet của NV001 (9 ngày công · 21h 25p · 535.417 đ).',
+    added: [
+      'Migration 0039_reconcile_finalized_payroll_snapshots_nv001 tự động tính lại và cập nhật trực tiếp bảng snapshot kỳ lương đã chốt (payroll_employee_items, payroll_daily_breakdowns) và phiếu chi trả (payroll_disbursements) của NV001 cho toàn bộ năm 2026.',
+    ],
+    improved: [
+      'Khi bấm "Đồng bộ Google Sheet" trên /payroll hoặc /payroll/stats, hệ thống tự động cập nhật cả các kỳ lương đã chốt (finalized) thay vì bỏ qua các kỳ đã có bản ghi chi trả.',
+    ],
+    fixed: [
+      'Khắc phục lỗi trang /payroll tháng 10/2026 vẫn hiển thị số liệu chốt sớm 5 ngày đầu (11h 40p · 291.667 đ) thay vì đủ 9 ngày công theo Google Sheet (21h 25p · 535.417 đ).',
+    ],
+  },
+  {
+    version: '0.9.13',
+    commit: '74b78e6',
     released_at: '2026-11-09',
     summary:
       'Khắc phục lỗi Google OAuth Error 400: redirect_uri_mismatch trên /storage, tự động dự phòng Redirect URI và hỗ trợ dán URL callback trực tiếp',

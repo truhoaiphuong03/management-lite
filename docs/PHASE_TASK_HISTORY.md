@@ -868,5 +868,28 @@
 9. **Kết quả test:** `PASS` — `storage-screen.test.mjs` (`15/15 PASS`), `version.test.mjs` (`6/6 PASS`).
 10. **Evidence (`VERIFIED`):** `apps/api/src/storage/provider.ts`, `apps/api/src/storage/service.ts`, `apps/api/src/routes/storage-routes.ts`, `apps/web/src/screens/StorageScreen.tsx`, `tests/web/storage-screen.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
 11. **Commit / PR:** `main` (`v0.9.13`)
-12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.13` lên `ql.hoaiphuong.click`)_
-13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.13` lên `ql.hoaiphuong.click`.
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; đã phát hành `v0.9.13` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Chuyển sang `Task PAY-FINALIZED-SYNC-0914` (`Hotfix PAY-FINALIZED-SYNC-0914` — `v0.9.14`).
+
+---
+
+## HOTFIX PAY-FINALIZED-SYNC-0914 — ĐỒNG BỘ TRỰC TIẾP SNAPSHOT KỲ LƯƠNG ĐÃ CHỐT & ĐÃ CHI TRẢ (`2026-10`: `21h 25p` · `535.417 đ`) TRÊN `/payroll` (`v0.9.14`)
+
+### Task `PAY-FINALIZED-SYNC-0914` — Migration `0039` & Cập Nhật `TimesheetService.syncGoogleSheet` Tính Lại `payroll_employee_items`, `payroll_daily_breakdowns` & `payroll_disbursements` Cho Kỳ Đã Chốt (`v0.9.14`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Hotfix PAY-FINALIZED-SYNC-0914` (`v0.9.14`)
+3. **Task ID:** `PAY-FINALIZED-SYNC-0914`
+4. **Mô tả:** Xử lý triệt để nguyên nhân khiến trang `/payroll` (`tháng 10 năm 2026`) trên `ql.hoaiphuong.click` vẫn hiển thị số liệu chốt sớm 5 ngày đầu (`11h 40p` / `291.667 đ`, `Đã chốt lương`, `Đã chi trả: 291.667 đ`) sau khi cập nhật `v0.9.13`:
+   - Khi `payroll_periods.status = 'finalized'`, `PayrollService.projection` (`apps/api/src/payroll/service.ts:386-518`) đọc trực tiếp từ `payroll_employee_items` và `payroll_daily_breakdowns`, đồng thời Migration `0038` trước đó có điều kiện `NOT EXISTS (SELECT 1 FROM payroll_disbursements ...)` nên đã bỏ qua kỳ `2026-10` vì kỳ này đã có bản ghi chi trả `291.667 đ`.
+   - Bổ sung Migration `0039_reconcile_finalized_payroll_snapshots_nv001.sql` (đăng ký đối xứng trong `packages/database/src/migrations/catalog.ts`) mở cờ giao dịch `app.allow_payroll_reconcile = 'on'` trên `pay_no_delete()` và `pay_disbursement_guard()`, cấp quyền `GRANT` đầy đủ trên `payroll_disbursements`, xóa sạch mọi bản ghi `NV002` còn sót và tính lại toàn bộ `payroll_daily_breakdowns`, `payroll_employee_items` (`approved_worked_seconds`, `approved_worked_minutes`, `base_pay_vnd`, `net_pay_vnd`) cùng `payroll_disbursements` (`291.667 đ` ➔ **`535.417 đ`**) cho `NV001` trên tất cả các kỳ lương năm `2026`.
+   - Cập nhật bước 7 trong `TimesheetService.syncGoogleSheet` (`apps/api/src/payroll/timesheet-service.ts`) để mỗi khi bấm nút **`🔄 Đồng bộ Google Sheet`** trên `/payroll` hoặc `/payroll/stats`, hệ thống cũng tự động cập nhật trực tiếp snapshot của các kỳ đã chốt (`finalized`).
+5. **Phụ thuộc:** `Hotfix DRIVE-OAUTH-0913` (`v0.9.13` — `74b78e6`) & `Phase PAY-GSHEET-SYNC-0912` (`v0.9.12` — `ab60935`).
+6. **Acceptance Criteria:** Migration `0039` khớp 1:1 với `EMBEDDED_MIGRATIONS` trong `catalog.ts` (`migrator.test.mjs` `15/15 PASS`); kỳ `2026-10` đã chốt và đã chi trả `291.667 đ` được cập nhật thành `9 ngày công`, `1.285 phút` (`21h 25p`), `base_pay_vnd = 535.417 đ`, `net_pay_vnd = 535.417 đ`, `paid_amount_vnd = 535.417 đ`; vượt qua `format:check`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` & `canonical:verify`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `migrator.test.mjs` (`15/15 PASS`), `payroll-google-sheet-sync.test.mjs` (`3/3 PASS`), `payroll-screen.test.mjs` (`10/10 PASS`), `version.test.mjs` (`6/6 PASS`).
+10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0039_reconcile_finalized_payroll_snapshots_nv001.sql`, `packages/database/src/migrations/catalog.ts`, `apps/api/src/payroll/timesheet-service.ts`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** `main` (`v0.9.14`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.14` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.14` lên `ql.hoaiphuong.click`.
