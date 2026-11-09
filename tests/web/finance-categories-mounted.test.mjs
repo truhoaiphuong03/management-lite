@@ -423,3 +423,39 @@ test('FinanceCategoriesScreen: category search and empty search state filter ite
     await act(async () => root.unmount());
   }
 });
+
+test('FinanceCategoriesScreen: Option A standard table layout renders aligned columns (STT, Tên danh mục, Phân loại, Trạng thái, Thao tác) without grey grid gap slab', async () => {
+  setupMockServer();
+  const container = dom.container();
+  const root = createRoot(container);
+
+  try {
+    await act(async () =>
+      root.render(
+        h(FinanceCategoriesScreen, { identity, onNavigate: () => {} }),
+      ),
+    );
+    await flush();
+
+    assert.match(container.textContent, /STT/);
+    assert.match(container.textContent, /Tên danh mục/);
+    assert.match(container.textContent, /Phân loại/);
+    assert.match(container.textContent, /Trạng thái/);
+    assert.match(container.textContent, /Thao tác/);
+    assert.match(container.textContent, /01/);
+    assert.match(container.textContent, /02/);
+
+    const listEl = dom.find(
+      container,
+      (n) => n.getAttribute('data-testid') === 'category-list',
+    )[0];
+    assert.ok(listEl, 'Must render category-list container');
+    assert.match(
+      listEl.style.backgroundColor,
+      /var\(--surface-color/,
+      'Category list must use clean surface background instead of borderSubtle grey grid slab',
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});

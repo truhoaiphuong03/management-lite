@@ -796,6 +796,30 @@
 8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
 9. **Kết quả test:** `PASS` — `settings-screen.test.mjs`, `issues-screen.test.mjs`, `issues-b01.test.mjs`, `phase21-error-alert-and-fix.test.mjs`, `ui-report.test.mjs`, `ui-tasks-v084.test.mjs` & `printquote-pricing-engine.test.mjs` (`43/43 PASS`, `0 fail`), `check:bundle` (`443.5 KB / 129.6 KB`), `canonical:verify` (`PASS`).
 10. **Evidence (`VERIFIED`):** `apps/web/src/AppShell.tsx`, `apps/web/src/components/ReportBugWidget.tsx`, `apps/web/src/screens/IssueDetailScreen.tsx`, `apps/web/src/screens/IssuesScreen.tsx`, `apps/web/src/screens/PrintQuoteScreen.tsx`, `apps/web/src/screens/SettingsScreen.tsx`, `apps/web/src/screens/SystemLogsScreen.tsx`, `apps/web/src/screens/WorkScreen.tsx`, `apps/web/src/screens/helpers/issues-helpers.ts`, `apps/web/src/screens/printquote/CreateQuoteTab.tsx`, `packages/contracts/src/printquote.ts`.
-11. **Commit / PR:** Nhánh `feat/ui-report-01-mvp` (`https://github.com/truhoaiphuong03/management-lite/pull/new/feat/ui-report-01-mvp`)
-12. **Approval:** `PENDING_OWNER_FINAL_MERGE_AND_RELEASE_APPROVAL` _(Owner đã duyệt thực thi & `NEXT_ACTION`; chờ Owner merge PR vào `main` và ký phát hành qua cổng `Owner-Locked Release Gate`)_
-13. **NEXT_ACTION:** Owner mở & merge PR từ `feat/ui-report-01-mvp` vào `main`, chờ GitHub Actions CI hoàn tất (`success`), chạy `Invoke-OwnerReleaseToWeb.ps1` trong PowerShell Administrator theo `docs/deployment/OWNER-RELEASE-RUNBOOK.md`, sau đó nghiệm thu và bấm `Xác nhận đã sửa` cho các phiếu `BUG-0021..BUG-0040` trên `/issues`.
+11. **Commit / PR:** `main` (`1448a5d` • `v0.9.10`)
+12. **Approval:** `APPROVED` _(Owner đã phê duyệt và phát hành `v0.9.10` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Chuyển sang `Task FIN-CAT-UI-01` (`Phase FIN-CAT-UI-01` — `v0.9.11`).
+
+---
+
+## PHASE FIN-CAT-UI-01 — THIẾT KẾ LẠI GIAO DIỆN DANH MỤC THU CHI (`/finance/categories`) THEO PHƯƠNG ÁN A (`v0.9.11`)
+
+### Task `FIN-CAT-UI-01` — Chuyển `/finance/categories` Sang Bảng Danh Sách 5 Cột Thẳng Hàng, Căn Trục Form Tạo Nhanh & Chống Đè Nút Báo Lỗi (`v0.9.11`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase FIN-CAT-UI-01` (`v0.9.11`)
+3. **Task ID:** `FIN-CAT-UI-01`
+4. **Mô tả:** Thiết kế lại trang **Danh mục thu chi (`/finance/categories` — `apps/web/src/screens/FinanceCategoriesScreen.tsx`)** theo Phương án A đã được Owner chốt:
+   - Căn thẳng hàng 2 tầng (Nhãn + Ô điều khiển cao `40px`) giữa bộ chọn **Loại danh mục (`Khoản chi | Nguồn thu`)** và biểu mẫu **Thêm danh mục mới (`+ Tạo danh mục`)** trên nền trắng sáng (`var(--surface-color)`).
+   - Gộp thanh tiêu đề bảng (`Danh sách danh mục khoản chi (N)` + huy hiệu tóm tắt `N đang dùng · M ngừng dùng`) và ô tìm kiếm (`category-search-input`) lên cùng 1 hàng thanh thoát.
+   - Chuyển danh sách từ lưới 3 cột nền xám (`gap: 1px` gây mảng xám trống 2/3 màn hình ở hàng cuối khi lẻ cột và cắt chữ `...` tên danh mục dài) sang **Bảng danh sách 5 cột thẳng hàng (`STT`, `Tên danh mục`, `Phân loại`, `Trạng thái`, `Thao tác`)** trên nền trắng (`var(--surface-color)`), hiển thị trọn vẹn 100% tên danh mục.
+   - Đưa thanh phân trang (`<FinancePager testId="cat-pager" />`) vào chân thẻ kèm khoảng đệm phải (`148px` trên Desktop) để không bao giờ bị nút nổi `⚠️ Báo lỗi` che khuất.
+5. **Phụ thuộc:** `Phase ISSUE-BATCH-040` (`v0.9.10` — `1448a5d`).
+6. **Acceptance Criteria:** Trang `/finance/categories` hiển thị bảng 5 cột thẳng hàng trên Desktop và danh sách gọn trên Mobile (`0px` tràn ngang); không còn mảng xám trống ở hàng cuối; tên danh mục dài không bị cắt `...`; thanh phân trang không bị nút `Báo lỗi` che; vượt qua `finance-categories-mounted.test.mjs` (`7/7 PASS`), `mobile-responsive-p0.test.mjs` (`6/6 PASS`), `version.test.mjs` (`6/6 PASS`), `format`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` & `canonical:verify`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `finance-categories-mounted.test.mjs` (`7/7 PASS`), `mobile-responsive-p0.test.mjs` (`6/6 PASS`), `version.test.mjs` (`6/6 PASS`), `check:bundle` (`432.0 KB raw / 126.2 KB gzip`), `canonical:verify` (`PASS`).
+10. **Evidence (`VERIFIED`):** `apps/web/src/screens/FinanceCategoriesScreen.tsx`, `tests/web/finance-categories-mounted.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** `main` (`v0.9.11`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner đã chốt Phương án A; chờ Owner chạy lệnh phát hành lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Chờ GitHub Actions CI cho `v0.9.11` trên `main` báo xanh, sau đó Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.11` lên `ql.hoaiphuong.click`.

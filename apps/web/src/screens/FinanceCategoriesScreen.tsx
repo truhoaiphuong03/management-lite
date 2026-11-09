@@ -129,51 +129,70 @@ export function FinanceCategoriesScreen({
         description="Quản lý nguồn thu và khoản chi dùng khi ghi giao dịch."
       />
 
-      {/* Một khối điều khiển: tab Khoản chi / Nguồn thu + thêm danh mục mới */}
-      <AppCard padding="12px 14px">
+      {/* Thanh công cụ tạo nhanh & chuyển loại danh mục: căn thẳng hàng 2 tầng Nhãn + Ô điều khiển */}
+      <AppCard padding="16px 18px">
         <div
           style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'flex-end',
-            gap: '12px 16px',
+            display: 'grid',
+            gridTemplateColumns: narrow
+              ? '1fr'
+              : 'auto minmax(min(100%, 360px), 1fr)',
+            alignItems: 'end',
+            gap: '14px 20px',
           }}
         >
-          <div
-            role="tablist"
-            aria-label="Loại danh mục"
-            style={{
-              display: 'inline-flex',
-              gap: 4,
-              padding: 3,
-              backgroundColor: THEME_COLORS.surfaceSubtle,
-              borderRadius: TOKENS.radii.sm,
-              border: `1px solid ${THEME_COLORS.borderSubtle}`,
-            }}
-          >
-            <AppButton
-              type="button"
-              role="tab"
-              aria-selected={isExpense}
-              variant={isExpense ? 'primary' : 'quiet'}
-              size="sm"
-              disabled={m.busy}
-              onClick={() => switchDirection('expense')}
+          <div style={{ display: 'grid', gap: 6 }}>
+            <span
+              style={{
+                fontSize: TOKENS.typography.fontSize.xs,
+                fontWeight: TOKENS.typography.fontWeight.semibold,
+                color: THEME_COLORS.textSecondary,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}
             >
-              Khoản chi
-            </AppButton>
-            <AppButton
-              type="button"
-              role="tab"
-              aria-selected={!isExpense}
-              variant={!isExpense ? 'primary' : 'quiet'}
-              size="sm"
-              disabled={m.busy}
-              onClick={() => switchDirection('income')}
+              Loại danh mục
+            </span>
+            <div
+              role="tablist"
+              aria-label="Loại danh mục"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                minHeight: 40,
+                boxSizing: 'border-box',
+                gap: 4,
+                padding: 3,
+                backgroundColor: THEME_COLORS.surfaceSubtle,
+                borderRadius: TOKENS.radii.sm,
+                border: `1px solid ${THEME_COLORS.borderSubtle}`,
+              }}
             >
-              Nguồn thu
-            </AppButton>
+              <AppButton
+                type="button"
+                role="tab"
+                aria-selected={isExpense}
+                variant={isExpense ? 'primary' : 'quiet'}
+                size="sm"
+                disabled={m.busy}
+                onClick={() => switchDirection('expense')}
+              >
+                Khoản chi
+              </AppButton>
+              <AppButton
+                type="button"
+                role="tab"
+                aria-selected={!isExpense}
+                variant={!isExpense ? 'primary' : 'quiet'}
+                size="sm"
+                disabled={m.busy}
+                onClick={() => switchDirection('income')}
+              >
+                Nguồn thu
+              </AppButton>
+            </div>
           </div>
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -182,7 +201,6 @@ export function FinanceCategoriesScreen({
               }
             }}
             style={{
-              flex: '1 1 320px',
               minWidth: 0,
               display: 'flex',
               flexWrap: 'wrap',
@@ -190,7 +208,7 @@ export function FinanceCategoriesScreen({
               gap: 10,
             }}
           >
-            <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+            <div style={{ flex: '1 1 220px', minWidth: 0 }}>
               <AppInput
                 label={`Thêm danh mục ${isExpense ? 'khoản chi' : 'nguồn thu'} mới`}
                 placeholder={
@@ -202,6 +220,10 @@ export function FinanceCategoriesScreen({
                 value={name}
                 disabled={m.busy || Boolean(m.pending)}
                 onChange={(e) => setName(e.target.value)}
+                style={{
+                  backgroundColor: THEME_COLORS.surface,
+                  minHeight: 40,
+                }}
               />
             </div>
             <AppButton
@@ -209,8 +231,9 @@ export function FinanceCategoriesScreen({
               variant="primary"
               disabled={!m.ready || m.busy || (!m.pending && !name.trim())}
               isLoading={m.busy}
+              style={{ minHeight: 40, whiteSpace: 'nowrap' }}
             >
-              {m.pending ? 'Thử lại yêu cầu đã lưu' : 'Tạo danh mục'}
+              {m.pending ? 'Thử lại yêu cầu đã lưu' : '+ Tạo danh mục'}
             </AppButton>
           </form>
         </div>
@@ -231,66 +254,83 @@ export function FinanceCategoriesScreen({
       <MutationNotice mutation={m} />
       <ReadStatus {...r} />
 
-      {/* Danh sách danh mục dạng bảng gọn */}
+      {/* Phương án A: Bảng danh sách thẳng cột, nền trắng sáng, không còn ô xám trống */}
       <AppCard padding="0">
+        {/* Thanh tiêu đề & tìm kiếm gộp gọn trên 1 hàng */}
         <div
           style={{
             padding: '14px 18px',
             borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
             display: 'flex',
+            flexWrap: 'wrap',
             justifyContent: 'space-between',
             alignItems: 'center',
-            backgroundColor: THEME_COLORS.surfaceSubtle,
+            gap: '10px 16px',
+            backgroundColor: THEME_COLORS.surface,
             borderTopLeftRadius: TOKENS.radii.md,
             borderTopRightRadius: TOKENS.radii.md,
           }}
         >
-          <span
+          <div
             style={{
-              fontSize: TOKENS.typography.fontSize.sm,
-              fontWeight: TOKENS.typography.fontWeight.semibold,
-              color: THEME_COLORS.textSecondary,
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px 12px',
             }}
           >
-            Danh sách danh mục {isExpense ? 'khoản chi' : 'nguồn thu'} ({total})
-          </span>
-          <span
-            style={{
-              fontSize: TOKENS.typography.fontSize.xs,
-              color: THEME_COLORS.muted,
-            }}
-          >
-            Trang này: {activeCount} đang dùng · {rows.length - activeCount}{' '}
-            ngừng dùng
-          </span>
-        </div>
+            <span
+              style={{
+                fontSize: TOKENS.typography.fontSize.base,
+                fontWeight: TOKENS.typography.fontWeight.bold,
+                color: THEME_COLORS.text,
+              }}
+            >
+              Danh sách danh mục {isExpense ? 'khoản chi' : 'nguồn thu'} (
+              {total})
+            </span>
+            <span
+              style={{
+                fontSize: TOKENS.typography.fontSize.xs,
+                color: THEME_COLORS.muted,
+                padding: '3px 10px',
+                borderRadius: 999,
+                backgroundColor: THEME_COLORS.surfaceSubtle,
+                border: `1px solid ${THEME_COLORS.borderSubtle}`,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {activeCount} đang dùng · {rows.length - activeCount} ngừng dùng
+            </span>
+          </div>
 
-        {/* Search Bar */}
-        <div
-          style={{
-            padding: '10px 18px',
-            borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
-            backgroundColor: THEME_COLORS.surface,
-          }}
-        >
-          <input
-            type="text"
-            data-testid="category-search-input"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={`Tìm kiếm danh mục ${isExpense ? 'khoản chi' : 'nguồn thu'}...`}
+          <div
             style={{
-              width: '100%',
-              padding: '8px 12px',
-              backgroundColor: THEME_COLORS.surfaceSubtle,
-              border: `1px solid ${THEME_COLORS.borderSubtle}`,
-              borderRadius: TOKENS.radii.sm,
-              color: THEME_COLORS.text,
-              fontSize: TOKENS.typography.fontSize.sm,
-              outline: 'none',
-              boxSizing: 'border-box',
+              flex: narrow ? '1 1 100%' : '0 1 280px',
+              minWidth: narrow ? 0 : 220,
             }}
-          />
+          >
+            <input
+              type="text"
+              data-testid="category-search-input"
+              aria-label={`Tìm kiếm danh mục ${isExpense ? 'khoản chi' : 'nguồn thu'}`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={`Tìm kiếm danh mục ${isExpense ? 'khoản chi' : 'nguồn thu'}…`}
+              style={{
+                width: '100%',
+                minHeight: 36,
+                padding: '6px 12px',
+                backgroundColor: THEME_COLORS.surface,
+                border: `1px solid ${THEME_COLORS.border}`,
+                borderRadius: TOKENS.radii.sm,
+                color: THEME_COLORS.text,
+                fontSize: TOKENS.typography.fontSize.sm,
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
         </div>
 
         {rows.length === 0 && !r.loading && !r.error ? (
@@ -331,44 +371,102 @@ export function FinanceCategoriesScreen({
           <div
             data-testid="category-list"
             style={{
-              display: 'grid',
-              gridTemplateColumns: narrow
-                ? '1fr'
-                : 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
-              gap: 1,
-              backgroundColor: THEME_COLORS.borderSubtle,
-              borderBottomLeftRadius: TOKENS.radii.md,
-              borderBottomRightRadius: TOKENS.radii.md,
-              overflow: 'hidden',
+              backgroundColor: THEME_COLORS.surface,
+              overflowX: 'auto',
             }}
           >
-            {filteredRows.map((c) => {
+            {/* Tiêu đề cột chuẩn bảng trên màn hình rộng */}
+            {!narrow && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    '56px minmax(200px, 1fr) 150px 150px 116px',
+                  alignItems: 'center',
+                  padding: '10px 18px',
+                  backgroundColor: THEME_COLORS.surfaceSubtle,
+                  borderBottom: `1px solid ${THEME_COLORS.borderSubtle}`,
+                  fontSize: TOKENS.typography.fontSize.xs,
+                  fontWeight: TOKENS.typography.fontWeight.semibold,
+                  color: THEME_COLORS.muted,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                <span>STT</span>
+                <span>Tên danh mục</span>
+                <span>Phân loại</span>
+                <span>Trạng thái</span>
+                <span style={{ textAlign: 'right' }}>Thao tác</span>
+              </div>
+            )}
+
+            {filteredRows.map((c, idx) => {
+              const rowNumber = String(page * pageSize + idx + 1).padStart(
+                2,
+                '0',
+              );
               return (
                 <div
                   key={c.id}
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
+                    display: narrow ? 'flex' : 'grid',
+                    gridTemplateColumns: narrow
+                      ? undefined
+                      : '56px minmax(200px, 1fr) 150px 150px 116px',
+                    justifyContent: narrow ? 'space-between' : undefined,
                     alignItems: 'center',
-                    padding: '6px 14px',
-                    gap: '8px 12px',
-                    flexWrap: 'wrap',
+                    padding: narrow ? '12px 14px' : '10px 18px',
+                    gap: narrow ? '10px 12px' : 0,
+                    flexWrap: narrow ? 'wrap' : undefined,
                     minWidth: 0,
+                    borderBottom:
+                      idx === filteredRows.length - 1
+                        ? 'none'
+                        : `1px solid ${THEME_COLORS.borderSubtle}`,
                     backgroundColor: c.is_active
                       ? THEME_COLORS.surface
                       : THEME_COLORS.surfaceSubtle,
                   }}
                 >
-                  {/* Category Name & Status Badge */}
+                  {!narrow && (
+                    <span
+                      style={{
+                        fontSize: TOKENS.typography.fontSize.xs,
+                        fontWeight: TOKENS.typography.fontWeight.semibold,
+                        color: THEME_COLORS.muted,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {rowNumber}
+                    </span>
+                  )}
+
+                  {/* Tên danh mục hiển thị đầy đủ, không cắt chữ */}
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      flex: '1 1 160px',
+                      gap: 10,
+                      flex: narrow ? '1 1 180px' : undefined,
                       minWidth: 0,
+                      paddingRight: narrow ? 0 : 12,
                     }}
                   >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 999,
+                        flexShrink: 0,
+                        backgroundColor: !c.is_active
+                          ? THEME_COLORS.muted
+                          : isExpense
+                            ? THEME_COLORS.warning
+                            : THEME_COLORS.success,
+                      }}
+                    />
                     <span
                       style={{
                         fontSize: TOKENS.typography.fontSize.base,
@@ -376,23 +474,53 @@ export function FinanceCategoriesScreen({
                         color: c.is_active
                           ? THEME_COLORS.text
                           : THEME_COLORS.muted,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        overflowWrap: 'anywhere',
                       }}
                     >
                       {c.name}
                     </span>
-                    <AppBadge
-                      variant={c.is_active ? 'success' : 'muted'}
-                      size="sm"
-                    >
-                      {c.is_active ? 'Đang dùng' : 'Ngừng dùng'}
-                    </AppBadge>
+                    {narrow && (
+                      <AppBadge
+                        variant={c.is_active ? 'success' : 'muted'}
+                        size="sm"
+                      >
+                        {c.is_active ? 'Đang dùng' : 'Ngừng dùng'}
+                      </AppBadge>
+                    )}
                   </div>
 
-                  {/* Actions Buttons with clear spacing and design-system variants */}
-                  <div style={iconActionsStyle}>
+                  {/* Cột Phân loại */}
+                  {!narrow && (
+                    <span
+                      style={{
+                        fontSize: TOKENS.typography.fontSize.sm,
+                        color: THEME_COLORS.textSecondary,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {isExpense ? 'Khoản chi' : 'Nguồn thu'}
+                    </span>
+                  )}
+
+                  {/* Cột Trạng thái thẳng hàng */}
+                  {!narrow && (
+                    <div>
+                      <AppBadge
+                        variant={c.is_active ? 'success' : 'muted'}
+                        size="sm"
+                      >
+                        {c.is_active ? 'Đang dùng' : 'Ngừng dùng'}
+                      </AppBadge>
+                    </div>
+                  )}
+
+                  {/* Cột Thao tác căn phải */}
+                  <div
+                    style={{
+                      ...iconActionsStyle,
+                      justifyContent: 'flex-end',
+                    }}
+                  >
                     <FinanceIconButton
                       action="edit"
                       target={c.name}
@@ -432,21 +560,32 @@ export function FinanceCategoriesScreen({
             })}
           </div>
         )}
-      </AppCard>
 
-      <FinancePager
-        testId="cat-pager"
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        loading={r.loading}
-        pageSizes={PAGE_SIZE_OPTIONS}
-        onPage={setPage}
-        onPageSize={(n) => {
-          setPageSize(n);
-          setPage(0);
-        }}
-      />
+        {/* Thanh phân trang nằm gọn trong chân thẻ, chừa khoảng đệm phải tránh nút Báo lỗi nổi */}
+        <div
+          style={{
+            padding: narrow ? '12px 14px' : '12px 148px 12px 18px',
+            borderTop: `1px solid ${THEME_COLORS.borderSubtle}`,
+            backgroundColor: THEME_COLORS.surfaceSubtle,
+            borderBottomLeftRadius: TOKENS.radii.md,
+            borderBottomRightRadius: TOKENS.radii.md,
+          }}
+        >
+          <FinancePager
+            testId="cat-pager"
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            loading={r.loading}
+            pageSizes={PAGE_SIZE_OPTIONS}
+            onPage={setPage}
+            onPageSize={(n) => {
+              setPageSize(n);
+              setPage(0);
+            }}
+          />
+        </div>
+      </AppCard>
 
       {/* Dialog Đổi tên */}
       <AppDialog

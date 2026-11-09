@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.10';
-export const SYSTEM_COMMIT = '8734c7a';
+export const SYSTEM_VERSION = '0.9.11';
+export const SYSTEM_COMMIT = '1448a5d';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,24 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.10',
+    version: '0.9.11',
     commit: 'latest',
+    released_at: '2026-11-09',
+    summary:
+      'Thiết kế lại trang Danh mục thu chi (/finance/categories) theo Phương án A: Bảng danh sách 5 cột thẳng hàng, nền trắng sáng, xóa mảng xám thừa và chống nút Báo lỗi đè phân trang',
+    added: [
+      'Bảng danh sách 5 cột chuẩn mực (STT, Tên danh mục, Phân loại, Trạng thái, Thao tác) trên /finance/categories kèm kiểm thử hồi quy giao diện.',
+    ],
+    improved: [
+      'Căn thẳng trục ngang/dọc giữa bộ chuyển Khoản chi / Nguồn thu và form Thêm danh mục mới; gộp thanh tiêu đề và ô tìm kiếm trên 1 hàng gọn đẹp.',
+    ],
+    fixed: [
+      'Xóa triệt để mảng xám trống 2/3 màn hình ở hàng cuối khi số lượng danh mục lẻ cột, khắc phục cắt chữ (...) tên danh mục dài và chống nút Báo lỗi nổi đè lên thanh phân trang.',
+    ],
+  },
+  {
+    version: '0.9.10',
+    commit: '1448a5d',
     released_at: '2026-11-08',
     summary:
       'Hợp nhất v0.9.10: Chuẩn hóa /accounts (UI-099), quy đổi mức cần kiếm Ngày → Tuần → Tháng → Năm từ khoản chi trên /finance/plan (FIN-PLAN-099) và xử lý trọn bộ 10 vấn đề mở BUG-0031..BUG-0040',
