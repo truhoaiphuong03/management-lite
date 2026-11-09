@@ -327,16 +327,18 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (status: string | undefined) => {
+    const normalized = (status || 'active').toLowerCase();
+    switch (normalized) {
       case 'active':
         return <StatusBadge status="success" label="Đang hoạt động" />;
       case 'invited':
         return <StatusBadge status="warning" label="Chờ kích hoạt" />;
       case 'suspended':
+      case 'inactive':
         return <StatusBadge status="error" label="Tạm ngưng" />;
       default:
-        return <StatusBadge status="muted" label={status} />;
+        return <StatusBadge status="muted" label={status || 'Đang hoạt động'} />;
     }
   };
 
@@ -903,7 +905,12 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                     </div>
                   </div>
                 </div>
-                <div>{getStatusBadge(emp.employment_status)}</div>
+                <div>
+                  {getStatusBadge(
+                    emp.employment_status ||
+                      (emp as { status?: string }).status,
+                  )}
+                </div>
               </div>
 
               <div
@@ -918,9 +925,13 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                 }}
               >
                 <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-                  {emp.is_payroll_eligible
-                    ? 'Tính lương tự động'
-                    : 'Không tính lương (Owner)'}
+                  {emp.is_payroll_eligible === false ||
+                  (emp.role ||
+                    emp.user?.role ||
+                    (emp.employee_code === 'OWNER' ? 'owner' : 'staff')) ===
+                    'owner'
+                    ? 'Không tính lương (Owner)'
+                    : 'Tính lương tự động'}
                 </div>
                 <div
                   style={{

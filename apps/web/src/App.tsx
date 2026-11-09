@@ -632,9 +632,17 @@ export const App: React.FC = () => {
       const preservedDraftPath = !returnUrl
         ? getVerifiedActivePrintQuoteEditorPath()
         : null;
-      const targetPath = preservedDraftPath
+      const candidatePath = preservedDraftPath
         ? sanitizePostLoginRedirect(preservedDraftPath)
         : sanitizePostLoginRedirect(returnUrl);
+      const candidateClean = candidatePath.split(/[?#]/, 1)[0] || '/';
+      const postLoginAccess = evaluateRouteAccess(
+        candidateClean,
+        sessionTrackerRef.current.verifiedOwnerSession,
+        sessionTrackerRef.current.role,
+        sessionTrackerRef.current.subRole,
+      );
+      const targetPath = postLoginAccess.isForbidden ? '/' : candidatePath;
 
       handleNavigate(targetPath);
     } else {
@@ -806,7 +814,9 @@ export const App: React.FC = () => {
     isIssuesRoute,
     isPrintQuotesRoute,
     isForbidden,
-  } = evaluateRouteAccess(currentPath, verifiedOwnerSession, role);
+  } = evaluateRouteAccess(currentPath, verifiedOwnerSession, role, subRole);
+  const effectiveOperationalRole: UserRole =
+    role === 'owner' || subRole === 'admin' ? 'owner' : role;
 
   const renderContent = () => {
     if (isForbidden) {
@@ -911,16 +921,25 @@ export const App: React.FC = () => {
           <ClockScreen role={role} mode="history" onNavigate={handleNavigate} />
         );
       case '/attendance/review':
-        if (role !== 'owner') {
+        if (role !== 'owner' && subRole !== 'admin') {
           return (
             <NotFoundScreen isForbidden onGoHome={() => handleNavigate('/')} />
           );
         }
         return (
-          <ClockScreen role={role} mode="review" onNavigate={handleNavigate} />
+          <ClockScreen
+            role={effectiveOperationalRole}
+            mode="review"
+            onNavigate={handleNavigate}
+          />
         );
       case '/schedule':
-        return <ScheduleScreen role={role} onNavigate={handleNavigate} />;
+        return (
+          <ScheduleScreen
+            role={effectiveOperationalRole}
+            onNavigate={handleNavigate}
+          />
+        );
       case '/reports/new':
       case '/reports':
         return <ReportsScreen role={role} onNavigate={handleNavigate} />;
@@ -932,31 +951,58 @@ export const App: React.FC = () => {
         return (
           <EmployeeDetailScreen
             employeeId={params['id'] || ''}
-            role={role}
+            role={effectiveOperationalRole}
             initialEdit={new URLSearchParams(currentSearch).get('edit') === '1'}
             onNavigate={handleNavigate}
           />
         );
       case '/payroll/stats':
-        return <PayrollStatsScreen role={role} onNavigate={handleNavigate} />;
+        return (
+          <PayrollStatsScreen
+            role={effectiveOperationalRole}
+            onNavigate={handleNavigate}
+          />
+        );
       case '/payroll':
       case '/payroll/:id':
+        return (
+          <PayrollScreen
+            role={effectiveOperationalRole}
+            onNavigate={handleNavigate}
+          />
+        );
       case '/my-pay':
         return <PayrollScreen role={role} onNavigate={handleNavigate} />;
       case '/work':
-        return <WorkScreen role={role} onNavigate={handleNavigate} />;
+        return (
+          <WorkScreen
+            role={effectiveOperationalRole}
+            onNavigate={handleNavigate}
+          />
+        );
       case '/work/new':
-        return <WorkScreen role={role} isNew onNavigate={handleNavigate} />;
+        return (
+          <WorkScreen
+            role={effectiveOperationalRole}
+            isNew
+            onNavigate={handleNavigate}
+          />
+        );
       case '/work/:id':
         return (
           <WorkScreen
-            role={role}
+            role={effectiveOperationalRole}
             workId={params['id']}
             onNavigate={handleNavigate}
           />
         );
       case '/accounts':
-        return <AccountsScreen role={role} onNavigate={handleNavigate} />;
+        return (
+          <AccountsScreen
+            role={effectiveOperationalRole}
+            onNavigate={handleNavigate}
+          />
+        );
       case '/print-quotes':
       case '/print-quotes/new':
       case '/print-quotes/orders':

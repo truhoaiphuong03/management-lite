@@ -5099,7 +5099,8 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                   data-testid="adjustment-category-pills"
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(min(100%, 170px), 1fr))',
                     gap: '6px',
                     marginBottom: '12px',
                   }}

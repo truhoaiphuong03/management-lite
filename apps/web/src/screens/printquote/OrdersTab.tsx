@@ -1211,7 +1211,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
               gap: '10px',
             }}
           >
@@ -1560,7 +1561,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
               gap: '10px',
             }}
           >

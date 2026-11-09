@@ -2462,6 +2462,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     display: 'flex',
                     alignItems: 'baseline',
                     justifyContent: 'space-between',
+                    gap: '6px',
+                    flexWrap: 'wrap',
                     marginTop: '4px',
                   }}
                 >
@@ -2497,6 +2499,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     display: 'flex',
                     alignItems: 'baseline',
                     justifyContent: 'space-between',
+                    gap: '6px',
+                    flexWrap: 'wrap',
                     marginTop: '4px',
                   }}
                 >
@@ -2541,6 +2545,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     display: 'flex',
                     alignItems: 'baseline',
                     justifyContent: 'space-between',
+                    gap: '6px',
+                    flexWrap: 'wrap',
                     marginTop: '4px',
                   }}
                 >
@@ -2588,6 +2594,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     display: 'flex',
                     alignItems: 'baseline',
                     justifyContent: 'space-between',
+                    gap: '6px',
+                    flexWrap: 'wrap',
                     marginTop: '4px',
                   }}
                 >
@@ -4171,10 +4179,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                   openQuickAddChildModal(account, 'tiktok')
                                 }
                                 style={{
-                                  padding: '4px 7px',
+                                  padding: '4px 8px',
+                                  minHeight: '32px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
                                   backgroundColor: 'rgba(59, 130, 246, 0.12)',
                                   border: '1px solid rgba(59, 130, 246, 0.3)',
-                                  borderRadius: '4px',
+                                  borderRadius: '6px',
                                   color: 'var(--info-text, #60A5FA)',
                                   fontSize: '12px',
                                   fontWeight: 600,
@@ -4205,9 +4216,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               }}
                               style={{
                                 padding: '4px 8px',
+                                minHeight: '32px',
                                 backgroundColor: 'rgba(20, 184, 166, 0.1)',
                                 border: '1px solid rgba(20, 184, 166, 0.3)',
-                                borderRadius: '4px',
+                                borderRadius: '6px',
                                 color: 'var(--accent-text)',
                                 fontSize: '12px',
                                 cursor: 'pointer',

@@ -985,6 +985,14 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                       marginTop: '6px',
                                     }}
                                     href={`/work?schedule_id=${mySchedule?.id}&work_date=${entry.work_date}`}
+                                    onClick={(ev) => {
+                                      if (onNavigate) {
+                                        ev.preventDefault();
+                                        onNavigate(
+                                          `/work?schedule_id=${mySchedule?.id}&work_date=${entry.work_date}`,
+                                        );
+                                      }
+                                    }}
                                   >
                                     Công việc trong ca
                                   </a>
@@ -1720,6 +1728,14 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                         color: 'var(--accent-text)',
                                       }}
                                       href={`/work?schedule_id=${schedule.id}&work_date=${e.work_date}`}
+                                      onClick={(ev) => {
+                                        if (onNavigate) {
+                                          ev.preventDefault();
+                                          onNavigate(
+                                            `/work?schedule_id=${schedule.id}&work_date=${e.work_date}`,
+                                          );
+                                        }
+                                      }}
                                     >
                                       Công việc trong ca
                                     </a>

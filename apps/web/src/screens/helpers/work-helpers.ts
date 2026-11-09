@@ -20,37 +20,54 @@ export function formatDateTimeDisplay(iso: string | null | undefined): string {
   }
 }
 
-export function getPriorityLabel(p: WorkPriority): string {
+export function getPriorityLabel(p: WorkPriority | undefined): string {
   switch (p) {
     case 'urgent':
       return 'Khẩn cấp';
     case 'high':
       return 'Cao';
     case 'medium':
+    case 'normal' as WorkPriority:
       return 'Bình thường';
     case 'low':
       return 'Thấp';
     default:
-      return p;
+      return p || 'Bình thường';
   }
 }
 
-export function getPriorityColor(p: WorkPriority): string {
+export function getPriorityColor(p: WorkPriority | undefined): string {
   switch (p) {
     case 'urgent':
-      return '#EF4444';
+      return 'var(--danger-text)';
     case 'high':
-      return '#F59E0B';
+      return 'var(--warning-text)';
     case 'medium':
-      return '#38BDF8';
+    case 'normal' as WorkPriority:
+      return 'var(--info-text)';
     case 'low':
-      return '#94A3B8';
+      return 'var(--muted-color)';
     default:
-      return '#94A3B8';
+      return 'var(--muted-color)';
   }
 }
 
-export function getWorkTypeLabel(t: WorkType): string {
+export function getPriorityBg(p: WorkPriority | undefined): string {
+  switch (p) {
+    case 'urgent':
+      return 'var(--danger-subtle)';
+    case 'high':
+      return 'var(--warning-subtle)';
+    case 'medium':
+    case 'normal' as WorkPriority:
+      return 'var(--info-subtle)';
+    case 'low':
+    default:
+      return 'var(--surface-hover)';
+  }
+}
+
+export function getWorkTypeLabel(t: WorkType | undefined): string {
   switch (t) {
     case 'general':
       return 'Việc chung';
@@ -63,6 +80,6 @@ export function getWorkTypeLabel(t: WorkType): string {
     case 'other':
       return 'Khác';
     default:
-      return t;
+      return t || 'Việc chung';
   }
 }

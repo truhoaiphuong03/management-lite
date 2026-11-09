@@ -249,6 +249,14 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
             const isHistoryOpen = expandedQuoteHistoryId === q.id;
             const editable = isQuoteStatusEditable(q.status);
             const pendingCost = isQuotePendingCost(q);
+            const curVersion =
+              Number(
+                q.current_version ?? (q as { version?: number }).version,
+              ) || 1;
+            const historyCount =
+              q.versions?.length ||
+              Number((q as { version_count?: number }).version_count) ||
+              curVersion;
 
             return (
               <article
@@ -287,7 +295,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                         <StatusBadge status="warning" label="Chờ giá xưởng" />
                       )}
                       <span className="pq-version-pill">
-                        v{q.current_version}
+                        v{curVersion}
                       </span>
                     </div>
 
@@ -439,7 +447,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                         <span>
                           {pendingCost
                             ? 'Nhập giá xưởng'
-                            : `Sửa / Tạo phiên bản (v${q.current_version + 1})`}
+                            : `Sửa / Tạo phiên bản (v${curVersion + 1})`}
                         </span>
                       </button>
                     ) : (
@@ -487,7 +495,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                     >
                       <PqHistoryIcon size={14} />
                       <span>
-                        Lịch sử ({q.versions?.length || q.current_version})
+                        Lịch sử ({historyCount})
                       </span>
                     </button>
                   </div>

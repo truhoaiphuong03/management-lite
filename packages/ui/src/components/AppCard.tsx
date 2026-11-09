@@ -46,6 +46,14 @@ export const AppCard: React.FC<AppCardProps> = ({
   };
 
   const vStyles = getVariantStyles();
+  const resolvedPadding =
+    padding === 'large'
+      ? '24px'
+      : padding === 'medium'
+        ? '20px'
+        : padding === 'small'
+          ? '12px'
+          : padding;
 
   return (
     <div
@@ -64,7 +72,7 @@ export const AppCard: React.FC<AppCardProps> = ({
           interactive && isHovered ? 'rgba(20, 184, 166, 0.4)' : vStyles.border
         }`,
         borderRadius: TOKENS.radii.md, // 12px
-        padding,
+        padding: resolvedPadding,
         color: THEME_COLORS.text,
         boxShadow:
           interactive && isHovered ? TOKENS.shadows.md : TOKENS.shadows.sm,

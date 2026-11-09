@@ -1978,6 +1978,7 @@ export function createRequestHandler(
           'full_name',
           'email',
           'username',
+          'password',
           'role',
           'phone',
           'date_of_birth',
@@ -2117,6 +2118,9 @@ export function createRequestHandler(
           const body = await parseJsonBody<Record<string, unknown>>(req);
           assertAllowedFields(body, [
             'full_name',
+            'username',
+            'email',
+            'password',
             'role',
             'sub_permissions',
             'is_payroll_eligible',

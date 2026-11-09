@@ -317,17 +317,44 @@ export function FinanceEntryScreen({
           <ReadStatus {...detail} />
           {detail.data && (
             <AppCard>
-              <p>
+              <div
+                style={{
+                  fontSize: '13px',
+                  color: 'var(--muted-color)',
+                  marginBottom: '6px',
+                }}
+              >
                 {detail.data.occurred_at
                   ? detail.data.occurred_at.replace('T', ' ').slice(0, 16)
                   : detail.data.occurred_on}{' '}
                 · {detail.data.category_name_snapshot}
-              </p>
-              <strong>{formatVnd(detail.data.amount_vnd)}</strong>
-              <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                {detail.data.note}
-              </p>
-              <p>Phiên bản {detail.data.version}</p>
+              </div>
+              <strong
+                style={{
+                  display: 'block',
+                  fontSize: '20px',
+                  color: 'var(--text-color)',
+                  marginBottom: '8px',
+                }}
+              >
+                {formatVnd(detail.data.amount_vnd)}
+              </strong>
+              {detail.data.note && (
+                <p
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    overflowWrap: 'anywhere',
+                    margin: '0 0 8px 0',
+                    color: 'var(--text-color)',
+                    fontSize: '14px',
+                  }}
+                >
+                  {detail.data.note}
+                </p>
+              )}
+              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+                Phiên bản {detail.data.version}
+              </div>
               <div
                 style={{
                   display: 'flex',

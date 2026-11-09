@@ -848,4 +848,134 @@ test('EmployeeDetailScreen & EMP-009: Mounted lifecycle & hourly rate configurat
       }
     },
   );
+
+  await t.test(
+    'Owner can directly set/reset username and password for NV002 in Edit form and Sub-Admin route access works',
+    async () => {
+      const { container, root, flush, cleanup } = createTestContainer();
+      const { evaluateRouteAccess } = await import(
+        '../../dist/apps/web/src/session-manager.js'
+      );
+
+      // Verify Sub-Admin (role='staff', subRole='admin') can access delegated operational routes
+      assert.equal(
+        evaluateRouteAccess('/employees', false, 'staff', 'admin').isForbidden,
+        false,
+      );
+      assert.equal(
+        evaluateRouteAccess('/accounts', false, 'staff', 'admin').isForbidden,
+        false,
+      );
+      assert.equal(
+        evaluateRouteAccess('/attendance/review', false, 'staff', 'admin')
+          .isForbidden,
+        false,
+      );
+      // Strict Owner-only routes remain forbidden for Sub-Admin
+      assert.equal(
+        evaluateRouteAccess('/print-quotes', false, 'staff', 'admin')
+          .isForbidden,
+        true,
+      );
+      assert.equal(
+        evaluateRouteAccess('/issues', false, 'staff', 'admin').isForbidden,
+        true,
+      );
+
+      let currentEmp = {
+        id: 'emp-nv002',
+        full_name: 'DƯƠNG CẨM BÌNH',
+        employee_code: 'NV002',
+        role: 'admin',
+        sub_permissions: ['attendance:review', 'work:manage', 'employees:manage', 'accounts:manage'],
+        employment_status: 'active',
+        is_payroll_eligible: false,
+        version: 1,
+        created_at: '2026-01-01T00:00:00Z',
+        user_id: null,
+        user: null,
+      };
+      let patchBody = null;
+
+      globalThis.fetch = async (url, options = {}) => {
+        if (url.includes('/auth/me')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: { csrf_token: 'csrf-nv002', user: { id: 'owner-01' } },
+            }),
+          };
+        }
+        if (url.includes('/api/v1/employees/emp-nv002')) {
+          if (options.method === 'PATCH') {
+            patchBody = JSON.parse(options.body);
+            currentEmp = {
+              ...currentEmp,
+              version: currentEmp.version + 1,
+              user_id: 'linked-nv002-uid',
+              user: {
+                id: 'linked-nv002-uid',
+                username: patchBody.username || 'nv002',
+                email: 'nv002@hoaiphuong.local',
+                status: 'active',
+                role: patchBody.role,
+              },
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true, data: currentEmp }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: [] }),
+        };
+      };
+
+      try {
+        await act(async () => {
+          root.render(
+            React.createElement(EmployeeDetailScreen, {
+              employeeId: 'emp-nv002?edit=1',
+              role: 'owner',
+              onNavigate: () => {},
+            }),
+          );
+        });
+        await flush();
+
+        const usernameInput = container.querySelector(
+          '[data-testid="edit-employee-username-input"]',
+        );
+        const passwordInput = container.querySelector(
+          '[data-testid="edit-employee-password-input"]',
+        );
+        assert.ok(usernameInput, 'Username input must exist in Edit mode');
+        assert.ok(passwordInput, 'Password input must exist in Edit mode');
+
+        await act(async () => {
+          getProps(usernameInput).onChange({ target: { value: 'nv002' } });
+          getProps(passwordInput).onChange({ target: { value: 'Nv002@123' } });
+        });
+        await flush();
+
+        const form = container.querySelector('form');
+        await act(async () => {
+          getProps(form).onSubmit({ preventDefault() {} });
+        });
+        await flush();
+
+        assert.ok(patchBody, 'PATCH /api/v1/employees/emp-nv002 must be sent');
+        assert.equal(patchBody.username, 'nv002');
+        assert.equal(patchBody.password, 'Nv002@123');
+      } finally {
+        await cleanup();
+      }
+    },
+  );
 });

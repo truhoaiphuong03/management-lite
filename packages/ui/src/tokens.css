@@ -681,14 +681,17 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   .page-header-subtitle {
     display: none !important;
   }
+  .app-toast {
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important;
+    right: 16px !important;
+  }
   .btn-floating-report-bug span {
     display: none !important;
   }
   .btn-floating-report-bug {
-    padding: 7px !important;
+    padding: 8px !important;
     border-radius: 999px !important;
-    opacity: 0.72;
-    transform: scale(0.88);
+    justify-content: center !important;
   }
   .app-subnav-bar {
     flex-wrap: wrap !important;
@@ -810,6 +813,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   }
 }
 
+[role='dialog'] > div {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
 /* Responsive tables: rows become cards on narrow screens (see apps/web/src/responsive-tables.ts) */
 @media (max-width: 768px) {
   table.rt-cards {
@@ -886,7 +895,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   table.rt-cards td:first-child::before {
     display: none !important;
   }
-  table.rt-cards td:last-child {
+  table.rt-cards td[data-actions-cell='true'] {
     display: flex;
     justify-content: flex-end;
     align-items: center;
@@ -894,7 +903,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     flex-wrap: wrap;
     padding: 8px 0 6px 0 !important;
   }
-  table.rt-cards td:last-child::before {
+  table.rt-cards td[data-actions-cell='true']::before {
     display: none !important;
   }
 }

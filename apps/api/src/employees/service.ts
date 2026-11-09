@@ -4,6 +4,7 @@ import {
   generateCsprngToken,
   hashToken,
 } from '../../../../packages/security/src/tokens.js';
+import { hashPassword } from '../../../../packages/security/src/password.js';
 import { AuthError, type AuthenticatedContext } from '../auth/service.js';
 import { requireRole } from '../auth/guard.js';
 import {
@@ -659,6 +660,19 @@ export class EmployeeService {
       }
 
       // 2. Check / Create User
+      const rawPassword =
+        typeof body.password === 'string' && body.password.trim().length > 0
+          ? body.password.trim()
+          : null;
+      if (rawPassword !== null && rawPassword.length < 6) {
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          'Mật khẩu đăng nhập phải có ít nhất 6 ký tự',
+          400,
+          [{ field: 'password', message: 'Mật khẩu tối thiểu 6 ký tự' }],
+        );
+      }
+
       let userId: string;
       const existingUser = await client.query<{ id: string }>(
         `SELECT id FROM users WHERE email_normalized = $1 OR username_normalized = $2 FOR UPDATE;`,
@@ -680,12 +694,34 @@ export class EmployeeService {
             409,
           );
         }
+        if (rawPassword !== null) {
+          await client.query(
+            `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status <> 'suspended';`,
+            [userId],
+          );
+        }
       } else {
+        const initialUserStatus =
+          rawPassword !== null ? 'active' : 'pending_activation';
         const userInsert = await client.query<{ id: string }>(
-          `INSERT INTO users (username_normalized, email_normalized, status) VALUES ($1, $2, 'pending_activation') RETURNING id;`,
-          [username, email],
+          `INSERT INTO users (username_normalized, email_normalized, status) VALUES ($1, $2, $3) RETURNING id;`,
+          [username, email, initialUserStatus],
         );
         userId = userInsert.rows[0]!.id;
+      }
+
+      if (rawPassword !== null) {
+        const pwHash = await hashPassword(rawPassword);
+        await client.query(
+          `INSERT INTO user_credentials (user_id, password_hash, credential_version, password_updated_at, updated_at)
+           VALUES ($1, $2, 1, now(), now())
+           ON CONFLICT (user_id) DO UPDATE
+           SET password_hash = EXCLUDED.password_hash,
+               credential_version = GREATEST(user_credentials.credential_version, 0) + 1,
+               password_updated_at = now(),
+               updated_at = now();`,
+          [userId, pwHash],
+        );
       }
 
       if (body.role && body.role !== 'staff') {
@@ -698,10 +734,12 @@ export class EmployeeService {
 
       // 3. Insert workspace_membership with staff role (only owner/staff supported in CP2.2)
       const memberRole = 'staff';
+      const initialMembershipStatus =
+        rawPassword !== null ? 'active' : 'invited';
       await client.query(
-        `INSERT INTO workspace_memberships (workspace_id, user_id, role, status) VALUES ($1, $2, $3, 'invited')
-         ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = $3, status = 'invited';`,
-        [context.workspace.id, userId, memberRole],
+        `INSERT INTO workspace_memberships (workspace_id, user_id, role, status) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = $3, status = $4;`,
+        [context.workspace.id, userId, memberRole, initialMembershipStatus],
       );
 
       // 4. Insert user_workspace_binding
@@ -712,15 +750,17 @@ export class EmployeeService {
       );
 
       // 5. Insert employee
+      const initialEmploymentStatus =
+        rawPassword !== null ? 'active' : 'invited';
       const empRes = await client.query<{ id: string; version: number }>(
         `
         INSERT INTO employees (
           workspace_id, user_id, employee_code, full_name, employment_status, is_payroll_eligible, version
         ) VALUES (
-          $1, $2, $3, $4, 'invited', true, 1
+          $1, $2, $3, $4, $5, true, 1
         ) RETURNING id, version;
       `,
-        [context.workspace.id, userId, code, fullName],
+        [context.workspace.id, userId, code, fullName, initialEmploymentStatus],
       );
       const employeeId = empRes.rows[0]!.id;
       const extraCols = [
@@ -804,7 +844,7 @@ export class EmployeeService {
         user_id: userId,
         employee_code: code,
         full_name: fullName,
-        employment_status: 'invited',
+        employment_status: initialEmploymentStatus,
         version: 1,
         invite_token: rawToken,
       };
@@ -942,6 +982,185 @@ export class EmployeeService {
         );
       }
 
+      const rawUpdateUsername =
+        typeof body.username === 'string' && body.username.trim().length > 0
+          ? body.username.trim().toLowerCase()
+          : null;
+      const rawUpdateEmail =
+        typeof body.email === 'string' && body.email.trim().length > 0
+          ? body.email.trim().toLowerCase()
+          : null;
+      const rawUpdatePassword =
+        typeof body.password === 'string' && body.password.trim().length > 0
+          ? body.password.trim()
+          : null;
+
+      if (rawUpdateEmail !== null && !rawUpdateEmail.includes('@')) {
+        throw new AuthError('VALIDATION_ERROR', 'Email không hợp lệ', 400, [
+          { field: 'email', message: 'Email không đúng định dạng' },
+        ]);
+      }
+      if (rawUpdatePassword !== null && rawUpdatePassword.length < 6) {
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          'Mật khẩu đăng nhập phải có ít nhất 6 ký tự',
+          400,
+          [{ field: 'password', message: 'Mật khẩu tối thiểu 6 ký tự' }],
+        );
+      }
+
+      let newlyLinkedUserId: string | null = null;
+      if (
+        !emp.user_id &&
+        (body.role !== undefined ||
+          validatedBodySubPermissions !== undefined ||
+          rawUpdateUsername !== null ||
+          rawUpdateEmail !== null ||
+          rawUpdatePassword !== null)
+      ) {
+        const fallbackCode = (emp.employee_code || 'staff')
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9._-]/g, '');
+        const candidateUsername = rawUpdateUsername || fallbackCode || 'staff';
+        const candidateEmail =
+          rawUpdateEmail || `${candidateUsername}@hoaiphuong.local`;
+
+        const existingUserRes = await client.query<{ id: string }>(
+          `SELECT u.id
+           FROM users u
+           LEFT JOIN employees e ON e.user_id = u.id AND e.workspace_id = $3
+           WHERE (u.username_normalized = $1 OR u.email_normalized = $2)
+             AND (e.id IS NULL OR e.id = $4)
+           LIMIT 1`,
+          [candidateUsername, candidateEmail, context.workspace.id, employeeId],
+        );
+
+        if (existingUserRes.rows[0]?.id) {
+          newlyLinkedUserId = existingUserRes.rows[0].id;
+          await client.query(
+            `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status <> 'suspended'`,
+            [newlyLinkedUserId],
+          );
+        } else {
+          const suffix = employeeId.replace(/[^a-z0-9]/gi, '').slice(0, 6).toLowerCase();
+          const conflictCheck = await client.query<{ id: string }>(
+            `SELECT id FROM users WHERE username_normalized = $1 OR email_normalized = $2 LIMIT 1`,
+            [candidateUsername, candidateEmail],
+          );
+          const finalUsername =
+            conflictCheck.rows.length > 0
+              ? `${candidateUsername}_${suffix}`
+              : candidateUsername;
+          const finalEmail =
+            conflictCheck.rows.length > 0 && !rawUpdateEmail
+              ? `${finalUsername}@hoaiphuong.local`
+              : candidateEmail;
+          const insUser = await client.query<{ id: string }>(
+            `INSERT INTO users (username_normalized, email_normalized, status)
+             VALUES ($1, $2, 'active')
+             RETURNING id`,
+            [finalUsername, finalEmail],
+          );
+          newlyLinkedUserId = insUser.rows[0]!.id;
+        }
+
+        await client.query(
+          `INSERT INTO workspace_memberships (workspace_id, user_id, role, status)
+           VALUES ($1, $2, 'staff', 'active')
+           ON CONFLICT (workspace_id, user_id) DO UPDATE
+           SET status = CASE WHEN workspace_memberships.status = 'suspended' THEN workspace_memberships.status ELSE 'active' END,
+               updated_at = now()`,
+          [context.workspace.id, newlyLinkedUserId],
+        );
+        await client.query(
+          `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version)
+           VALUES ($1, $2, 'active', 1)
+           ON CONFLICT (user_id) DO UPDATE
+           SET workspace_id = EXCLUDED.workspace_id,
+               status = CASE WHEN user_workspace_bindings.status = 'suspended' THEN user_workspace_bindings.status ELSE 'active' END,
+               version = user_workspace_bindings.version + 1,
+               updated_at = now()`,
+          [context.workspace.id, newlyLinkedUserId],
+        );
+        emp.user_id = newlyLinkedUserId;
+      }
+
+      if (emp.user_id && (rawUpdateUsername !== null || rawUpdateEmail !== null)) {
+        if (rawUpdateUsername !== null) {
+          const takenUser = await client.query<{ id: string }>(
+            `SELECT id FROM users WHERE username_normalized = $1 AND id <> $2 LIMIT 1`,
+            [rawUpdateUsername, emp.user_id],
+          );
+          if (takenUser.rows.length > 0) {
+            throw new AuthError(
+              'CONFLICT',
+              `Tên đăng nhập "${rawUpdateUsername}" đã được sử dụng`,
+              409,
+              [{ field: 'username', message: 'Tên đăng nhập đã tồn tại' }],
+            );
+          }
+          await client.query(
+            `UPDATE users SET username_normalized = $1, updated_at = now() WHERE id = $2`,
+            [rawUpdateUsername, emp.user_id],
+          );
+        }
+        if (rawUpdateEmail !== null) {
+          const takenEmail = await client.query<{ id: string }>(
+            `SELECT id FROM users WHERE email_normalized = $1 AND id <> $2 LIMIT 1`,
+            [rawUpdateEmail, emp.user_id],
+          );
+          if (takenEmail.rows.length > 0) {
+            throw new AuthError(
+              'CONFLICT',
+              `Email "${rawUpdateEmail}" đã được sử dụng`,
+              409,
+              [{ field: 'email', message: 'Email đã tồn tại' }],
+            );
+          }
+          await client.query(
+            `UPDATE users SET email_normalized = $1, updated_at = now() WHERE id = $2`,
+            [rawUpdateEmail, emp.user_id],
+          );
+        }
+      }
+
+      if (emp.user_id && rawUpdatePassword !== null) {
+        const pwHash = await hashPassword(rawUpdatePassword);
+        await client.query(
+          `INSERT INTO user_credentials (user_id, password_hash, credential_version, password_updated_at, updated_at)
+           VALUES ($1, $2, 1, now(), now())
+           ON CONFLICT (user_id) DO UPDATE
+           SET password_hash = EXCLUDED.password_hash,
+               credential_version = GREATEST(user_credentials.credential_version, 0) + 1,
+               password_updated_at = now(),
+               updated_at = now()`,
+          [emp.user_id, pwHash],
+        );
+        await client.query(
+          `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status <> 'suspended'`,
+          [emp.user_id],
+        );
+        await client.query(
+          `INSERT INTO workspace_memberships (workspace_id, user_id, role, status)
+           VALUES ($1, $2, 'staff', 'active')
+           ON CONFLICT (workspace_id, user_id) DO UPDATE
+           SET status = CASE WHEN workspace_memberships.status = 'suspended' THEN workspace_memberships.status ELSE 'active' END,
+               updated_at = now()`,
+          [context.workspace.id, emp.user_id],
+        );
+        await client.query(
+          `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version)
+           VALUES ($1, $2, 'active', 1)
+           ON CONFLICT (user_id) DO UPDATE
+           SET workspace_id = EXCLUDED.workspace_id,
+               status = CASE WHEN user_workspace_bindings.status = 'suspended' THEN user_workspace_bindings.status ELSE 'active' END,
+               version = user_workspace_bindings.version + 1,
+               updated_at = now()`,
+          [context.workspace.id, emp.user_id],
+        );
+      }
+
       let previousRole: EmployeeMemberRole | undefined;
       let nextSubRoleToSave: EmployeeMemberRole | undefined;
       let nextSubPermissionsToSave: EmployeeSubPermission[] | undefined;
@@ -953,23 +1172,6 @@ export class EmployeeService {
         validatedBodySubPermissions !== undefined
       ) {
         if (!emp.user_id) {
-          if (
-            body.role &&
-            body.role !== 'staff' &&
-            emp.employee_code !== 'OWNER'
-          ) {
-            throw new AuthError(
-              'VALIDATION_ERROR',
-              'Nhân viên chưa có tài khoản đăng nhập liên kết để phân quyền',
-              400,
-              [
-                {
-                  field: 'role',
-                  message: 'Chưa liên kết tài khoản người dùng',
-                },
-              ],
-            );
-          }
           const existingResolved = resolveEmployeeRoleAndPermissions({
             user_role: 'staff',
             employee_code: emp.employee_code,
@@ -1135,6 +1337,14 @@ export class EmployeeService {
         extraSets.push(`sub_role = $${extraVals.length}`);
         extraVals.push(JSON.stringify(nextSubPermissionsToSave));
         extraSets.push(`sub_permissions = $${extraVals.length}::jsonb`);
+      }
+      if (newlyLinkedUserId !== null) {
+        extraVals.push(newlyLinkedUserId);
+        extraSets.push(`user_id = $${extraVals.length}`);
+      }
+      if (rawUpdatePassword !== null || newlyLinkedUserId !== null) {
+        extraVals.push('active');
+        extraSets.push(`employment_status = $${extraVals.length}`);
       }
       if (extraSets.length === 0) {
         await client.query(
@@ -1479,18 +1689,60 @@ export class EmployeeService {
       const empRes = await client.query<{
         id: string;
         user_id: string | null;
+        employee_code: string;
       }>(
-        `SELECT id, user_id FROM employees WHERE workspace_id = $1 AND id = $2 FOR UPDATE;`,
+        `SELECT id, user_id, employee_code FROM employees WHERE workspace_id = $1 AND id = $2 FOR UPDATE;`,
         [context.workspace.id, employeeId],
       );
 
       const emp = empRes.rows[0];
-      if (!emp || !emp.user_id) {
+      if (!emp) {
         throw new AuthError(
           'NOT_FOUND',
           'Employee or associated user not found',
           404,
         );
+      }
+
+      if (!emp.user_id) {
+        const fallbackUsername = (emp.employee_code || 'staff')
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9._-]/g, '');
+        const suffix = employeeId.replace(/[^a-z0-9]/gi, '').slice(0, 6).toLowerCase();
+        const conflictCheck = await client.query<{ id: string }>(
+          `SELECT id FROM users WHERE username_normalized = $1 OR email_normalized = $2 LIMIT 1`,
+          [fallbackUsername, `${fallbackUsername}@hoaiphuong.local`],
+        );
+        const finalUsername =
+          conflictCheck.rows.length > 0
+            ? `${fallbackUsername}_${suffix}`
+            : fallbackUsername;
+        const finalEmail = `${finalUsername}@hoaiphuong.local`;
+        const insUser = await client.query<{ id: string }>(
+          `INSERT INTO users (username_normalized, email_normalized, status)
+           VALUES ($1, $2, 'pending_activation')
+           RETURNING id`,
+          [finalUsername, finalEmail],
+        );
+        const newUserId = insUser.rows[0]!.id;
+        await client.query(
+          `INSERT INTO workspace_memberships (workspace_id, user_id, role, status)
+           VALUES ($1, $2, 'staff', 'invited')
+           ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+          [context.workspace.id, newUserId],
+        );
+        await client.query(
+          `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version)
+           VALUES ($1, $2, 'active', 1)
+           ON CONFLICT (user_id) DO UPDATE SET workspace_id = EXCLUDED.workspace_id, status = 'active'`,
+          [context.workspace.id, newUserId],
+        );
+        await client.query(
+          `UPDATE employees SET user_id = $1, updated_at = now() WHERE workspace_id = $2 AND id = $3`,
+          [newUserId, context.workspace.id, employeeId],
+        );
+        emp.user_id = newUserId;
       }
 
       // Revoke prior active invites

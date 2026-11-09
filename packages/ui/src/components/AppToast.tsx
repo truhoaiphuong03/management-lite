@@ -91,6 +91,7 @@ export const AppToast: React.FC<AppToastProps> = ({
 
   return (
     <div
+      className="app-toast"
       data-testid={testId}
       role={variant === 'error' ? 'alert' : 'status'}
       aria-live={variant === 'error' ? 'assertive' : 'polite'}
@@ -102,7 +103,7 @@ export const AppToast: React.FC<AppToastProps> = ({
         width: 'calc(100vw - 32px)',
         zIndex: 1000,
         backgroundColor: THEME_COLORS.surface,
-        border: `1px solid ${variantStyles.color}40`,
+        border: `1px solid ${THEME_COLORS.border}`,
         borderLeft: `4px solid ${variantStyles.color}`,
         borderRadius: TOKENS.radii.md,
         boxShadow:

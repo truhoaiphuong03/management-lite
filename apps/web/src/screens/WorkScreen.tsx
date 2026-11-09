@@ -48,6 +48,7 @@ import {
   formatDateTimeDisplay,
   getPriorityLabel,
   getPriorityColor,
+  getPriorityBg,
   getWorkTypeLabel,
 } from './helpers/work-helpers.js';
 
@@ -1675,7 +1676,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     fontWeight: 700,
                     padding: '2px 8px',
                     borderRadius: '4px',
-                    backgroundColor: `${getPriorityColor(item.priority)}22`,
+                    backgroundColor: getPriorityBg(item.priority),
                     color: getPriorityColor(item.priority),
                   }}
                 >
@@ -1847,6 +1848,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     >
                       <a
                         href="/schedule"
+                        onClick={(e) => {
+                          if (onNavigate) {
+                            e.preventDefault();
+                            onNavigate('/schedule');
+                          }
+                        }}
                         style={{ color: 'var(--accent-text)' }}
                       >
                         {link.work_date} · {link.start_time} ·{' '}
@@ -1888,6 +1895,16 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           type="date"
                           value={scheduleDate}
                           onChange={(e) => setScheduleDate(e.target.value)}
+                          style={{
+                            minHeight: '38px',
+                            padding: '0 10px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-color)',
+                            color: 'var(--text-color)',
+                            fontSize: '13px',
+                            boxSizing: 'border-box',
+                          }}
                         />
                         <AppButton
                           disabled={submitting || !scheduleDate}
@@ -3052,7 +3069,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         fontWeight: 700,
                         padding: '2px 6px',
                         borderRadius: '4px',
-                        backgroundColor: `${getPriorityColor(item.priority)}22`,
+                        backgroundColor: getPriorityBg(item.priority),
                         color: getPriorityColor(item.priority),
                       }}
                     >
@@ -3083,8 +3100,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           fontWeight: 700,
                           padding: '2px 6px',
                           borderRadius: '4px',
-                          backgroundColor: 'rgba(249, 115, 22, 0.16)',
-                          color: '#FB923C',
+                          backgroundColor: 'var(--warning-subtle)',
+                          color: 'var(--warning-text)',
                         }}
                       >
                         ⛔ Cần sửa / Bị chặn

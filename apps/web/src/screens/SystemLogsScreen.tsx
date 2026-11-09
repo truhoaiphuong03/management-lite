@@ -1020,6 +1020,17 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                     setRequestId(detail.log.request_id!);
                     setDetail(null);
                   }}
+                  style={{
+                    marginLeft: 6,
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--surface-hover)',
+                    color: 'var(--text-color)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
                 >
                   Lọc theo ID
                 </button>
@@ -1035,6 +1046,17 @@ export const SystemLogsScreen: React.FC<SystemLogsScreenProps> = ({
                 onClick={() => {
                   setFingerprint(detail.log.fingerprint);
                   setDetail(null);
+                }}
+                style={{
+                  marginLeft: 6,
+                  padding: '3px 8px',
+                  borderRadius: 6,
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--surface-hover)',
+                  color: 'var(--text-color)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
                 }}
               >
                 Xem tất cả

@@ -119,6 +119,8 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
     return false;
   });
   const [fullName, setFullName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const [memberRole, setMemberRole] = useState<EmployeeMemberRole>('staff');
   const [subPermissions, setSubPermissions] = useState<EmployeeSubPermission[]>(
     [],
@@ -243,6 +245,8 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
       }
       setEmployee(data.data);
       setFullName(data.data.full_name || '');
+      setEditUsername(data.data.user?.username || '');
+      setEditPassword('');
       const resolvedRole: EmployeeMemberRole =
         data.data.role === 'owner' ||
         data.data.user?.role === 'owner' ||
@@ -402,6 +406,11 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
         credentials: 'include',
         body: JSON.stringify({
           full_name: fullName.trim(),
+          ...(editUsername.trim() &&
+          editUsername.trim() !== (employee.user?.username || '')
+            ? { username: editUsername.trim() }
+            : {}),
+          ...(editPassword.trim() ? { password: editPassword.trim() } : {}),
           role: memberRole,
           sub_permissions:
             memberRole === 'owner' ? ALL_SUB_PERMS : subPermissions,
@@ -440,6 +449,10 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
             ? DEFAULT_ADMIN_SUB_PERMS
             : [];
       setSubPermissions(updatedPerms);
+      setEditUsername(
+        data.data.user?.username || editUsername.trim() || '',
+      );
+      setEditPassword('');
       setIsEditing(false);
       clearEditQueryParam();
       setActionNotice('Đã cập nhật thông tin nhân viên thành công.');
@@ -1479,6 +1492,76 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
 
               <div>
                 <label
+                  htmlFor="editUsername"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: 'var(--muted-color)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Tên đăng nhập (hoặc đăng nhập bằng mã {employee.employee_code}):
+                </label>
+                <input
+                  id="editUsername"
+                  data-testid="edit-employee-username-input"
+                  type="text"
+                  autoComplete="off"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  placeholder={`VD: ${employee.employee_code.toLowerCase()}`}
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editPassword"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: 'var(--muted-color)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Đặt / Đổi mật khẩu đăng nhập mới (tùy chọn):
+                </label>
+                <input
+                  id="editPassword"
+                  data-testid="edit-employee-password-input"
+                  type="password"
+                  autoComplete="new-password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Nhập tối thiểu 6 ký tự để đặt lại mật khẩu…"
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-color)',
+                    color: 'var(--text-color)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
                   htmlFor="editPositionTitle"
                   style={{
                     display: 'block',
@@ -1875,11 +1958,12 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
               </AppButton>
             )}
 
-            {employee.employment_status === 'invited' && (
-              <AppButton variant="secondary" onClick={handleGetInvite}>
-                Cấp lại link kích hoạt
-              </AppButton>
-            )}
+            {employee.employment_status !== 'suspended' &&
+              employee.employee_code !== 'OWNER' && (
+                <AppButton variant="secondary" onClick={handleGetInvite}>
+                  Cấp lại link kích hoạt
+                </AppButton>
+              )}
 
             {employee.employment_status === 'active' &&
               ((currentUserId && employee.user_id === currentUserId) ||

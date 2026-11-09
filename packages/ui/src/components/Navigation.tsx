@@ -293,7 +293,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       (isOwnerVerified !== true || role !== 'owner')
     )
       return false;
-    if (role === 'staff' && item.ownerOnly) return false;
+    if (
+      (item.id === 'audit' || item.id === 'system-logs') &&
+      role !== 'owner'
+    )
+      return false;
+    if (role === 'staff' && subRole !== 'admin' && item.ownerOnly) return false;
     if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
       return false; // C04/PAY-02: Owner has no payroll entry
     return true;
@@ -675,13 +680,17 @@ export interface MobileBottomNavProps {
   onOpenMore?: () => void;
   isMoreOpen?: boolean;
   role?: 'owner' | 'admin' | 'staff' | undefined;
+  subRole?: 'admin' | undefined;
   isOwnerVerified?: boolean | undefined;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   currentPath,
   onNavigate,
+  onOpenMore,
+  isMoreOpen = false,
   role = 'owner',
+  subRole,
   isOwnerVerified = false,
 }) => {
   const isItemVisible = (item: NavItem) => {
@@ -692,7 +701,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       (isOwnerVerified !== true || role !== 'owner')
     )
       return false;
-    if (role === 'staff' && item.ownerOnly) return false;
+    if (
+      (item.id === 'audit' || item.id === 'system-logs') &&
+      role !== 'owner'
+    )
+      return false;
+    if (role === 'staff' && subRole !== 'admin' && item.ownerOnly) return false;
     if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
       return false;
     return true;
@@ -727,7 +741,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         borderTop: '1px solid var(--border-color, #334155)',
         display: 'flex',
         alignItems: 'stretch',
-        justifyContent: 'space-around',
+        justifyContent: 'flex-start',
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        scrollbarWidth: 'none',
         gap: '2px',
         paddingTop: '4px',
         paddingBottom: 'calc(6px + env(safe-area-inset-bottom, 0px))',
@@ -760,9 +777,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             aria-label={group.title}
             className="mobile-bottom-nav-btn"
             style={{
-              flex: '1 1 0px',
-              minWidth: 0,
-              overflow: 'hidden',
+              flex: '1 0 auto',
+              minWidth: '54px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -779,7 +795,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               cursor: 'pointer',
               gap: '3px',
               boxSizing: 'border-box',
-              padding: '4px 1px',
+              padding: '4px 6px',
               touchAction: 'manipulation',
               transition: 'color 0.15s ease, background-color 0.15s ease',
             }}
@@ -804,10 +820,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 lineHeight: 1.2,
                 letterSpacing: '-0.02em',
                 fontWeight: isGroupActive ? 600 : 500,
-                maxWidth: '100%',
                 textAlign: 'center',
                 whiteSpace: 'nowrap',
-                overflow: 'hidden',
                 textOverflow: 'ellipsis',
               }}
             >
@@ -816,6 +830,65 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </button>
         );
       })}
+      {onOpenMore && (
+        <button
+          type="button"
+          onClick={onOpenMore}
+          aria-expanded={isMoreOpen}
+          aria-label="Tất cả chức năng"
+          data-testid="mobile-nav-more-btn"
+          className="mobile-bottom-nav-btn"
+          style={{
+            flex: '1 0 auto',
+            minWidth: '50px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '52px',
+            border: 'none',
+            borderRadius: '8px',
+            backgroundColor: isMoreOpen ? 'var(--accent-soft)' : 'transparent',
+            color: isMoreOpen
+              ? 'var(--accent-text, #14B8A6)'
+              : 'var(--muted-color, #94A3B8)',
+            cursor: 'pointer',
+            gap: '3px',
+            boxSizing: 'border-box',
+            padding: '4px 6px',
+            touchAction: 'manipulation',
+            transition: 'color 0.15s ease, background-color 0.15s ease',
+          }}
+        >
+          <span
+            style={{
+              width: '22px',
+              height: '20px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+            aria-hidden="true"
+          >
+            <NavIcon id="more" size={18} />
+          </span>
+          <span
+            className="mobile-nav-label"
+            style={{
+              fontSize: '11px',
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              fontWeight: isMoreOpen ? 600 : 500,
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            Menu
+          </span>
+        </button>
+      )}
     </nav>
   );
 };

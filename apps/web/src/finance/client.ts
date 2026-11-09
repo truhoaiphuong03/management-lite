@@ -46,9 +46,10 @@ export function errorMessage(status: number): string {
     'Chưa xác định kết quả. Không tạo thao tác mới; hãy thử lại yêu cầu đã lưu.'
   );
 }
-export function formatVnd(value: string): string {
-  if (!/^-?\d+$/.test(value)) return '—';
-  return BigInt(value).toLocaleString('vi-VN') + ' ₫';
+export function formatVnd(value: string | number | null | undefined): string {
+  const str = String(value ?? '');
+  if (!/^-?\d+$/.test(str)) return '—';
+  return BigInt(str).toLocaleString('vi-VN') + ' ₫';
 }
 export async function verifyIdentity(
   identity: FinanceIdentity,

@@ -1821,7 +1821,7 @@ export class TimesheetService {
             await client.query(
               `UPDATE employees
                SET is_payroll_eligible = FALSE,
-                   employment_status = CASE WHEN user_id IS NULL THEN 'inactive' ELSE employment_status END,
+                   employment_status = CASE WHEN employment_status = 'inactive' THEN 'active' ELSE employment_status END,
                    updated_at = now()
                WHERE workspace_id = $1 AND id = $2`,
               [ws, nv2.id],

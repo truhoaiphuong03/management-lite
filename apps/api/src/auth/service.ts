@@ -223,7 +223,7 @@ export class AuthService {
       throw new AuthError('INVALID_CREDENTIALS', 'Invalid credentials', 401);
     };
 
-    // 2. Query user identity & credentials
+    // 2. Query user identity & credentials (supports username, email, employee_code e.g. NV002, or phone)
     const userRes = await this.pool.query<{
       id: string;
       username_normalized: string;
@@ -232,6 +232,7 @@ export class AuthService {
       user_status: string;
       password_hash: string | null;
       credential_version: number | null;
+      active_employee_workspace_id?: string | null;
     }>(
       `
       SELECT
@@ -241,10 +242,35 @@ export class AuthService {
         u.email_verified,
         u.status AS user_status,
         uc.password_hash,
-        uc.credential_version
+        uc.credential_version,
+        (
+          SELECT e.workspace_id
+          FROM employees e
+          JOIN workspaces w ON w.id = e.workspace_id AND w.status = 'active'
+          WHERE e.user_id = u.id
+            AND e.employment_status NOT IN ('suspended', 'archived')
+          ORDER BY e.updated_at DESC
+          LIMIT 1
+        ) AS active_employee_workspace_id
       FROM users u
       LEFT JOIN user_credentials uc ON uc.user_id = u.id
-      WHERE u.username_normalized = $1 OR u.email_normalized = $1
+      WHERE u.username_normalized = $1
+         OR u.email_normalized = $1
+         OR EXISTS (
+           SELECT 1
+           FROM employees e
+           JOIN workspaces w ON w.id = e.workspace_id AND w.status = 'active'
+           WHERE e.user_id = u.id
+             AND e.employment_status NOT IN ('suspended', 'archived')
+             AND (
+               LOWER(btrim(e.employee_code)) = $1
+               OR LOWER(btrim(COALESCE(to_jsonb(e) ->> 'phone', ''))) = $1
+               OR (
+                 length(regexp_replace($1, '[^0-9]', '', 'g')) >= 7
+                 AND regexp_replace(COALESCE(to_jsonb(e) ->> 'phone', ''), '[^0-9]', '', 'g') = regexp_replace($1, '[^0-9]', '', 'g')
+               )
+             )
+         )
     `,
       [normalizedIdentifier],
     );
@@ -258,20 +284,64 @@ export class AuthService {
     }
     const userRow = userRes.rows[0];
 
+    const canAutoHealEmployeeStatus = Boolean(
+      userRow &&
+      userRow.active_employee_workspace_id &&
+      userRow.user_status === 'pending_activation',
+    );
+
     // Constant-time anti-enumeration when user does not exist, has no credentials, or is not active
     if (
       !userRow ||
-      !userRow.password_hash ||
-      userRow.user_status !== 'active'
+      (!userRow.password_hash && userRow.credential_version !== 0) ||
+      (userRow.user_status !== 'active' && !canAutoHealEmployeeStatus)
     ) {
       await verifyPassword(password, await getDummyHash());
       return failCredentials();
     }
 
-    // 3. Verify Argon2id password hash
-    const passwordMatch = await verifyPassword(password, userRow.password_hash);
+    // 3. Verify Argon2id password hash (with first-login bootstrap lock-in when credential_version === 0)
+    let passwordMatch = userRow.password_hash
+      ? await verifyPassword(password, userRow.password_hash)
+      : false;
+    if (
+      !passwordMatch &&
+      userRow.credential_version === 0 &&
+      userRow.active_employee_workspace_id &&
+      password.trim().length >= 4
+    ) {
+      const bootstrapHash = await hashPassword(password.trim());
+      await this.pool.query(
+        `INSERT INTO user_credentials (user_id, password_hash, credential_version, password_updated_at, updated_at)
+         VALUES ($1, $2, 1, now(), now())
+         ON CONFLICT (user_id) DO UPDATE
+         SET password_hash = EXCLUDED.password_hash,
+             credential_version = 1,
+             password_updated_at = now(),
+             updated_at = now()`,
+        [userRow.id, bootstrapHash],
+      );
+      userRow.password_hash = bootstrapHash;
+      userRow.credential_version = 1;
+      passwordMatch = true;
+    }
     if (!passwordMatch) {
       return failCredentials();
+    }
+
+    if (userRow.user_status === 'pending_activation' && canAutoHealEmployeeStatus) {
+      await this.pool.query(
+        `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status = 'pending_activation'`,
+        [userRow.id],
+      );
+      userRow.user_status = 'active';
+    }
+    if (userRow.credential_version === 0) {
+      await this.pool.query(
+        `UPDATE user_credentials SET credential_version = 1, updated_at = now() WHERE user_id = $1 AND credential_version = 0`,
+        [userRow.id],
+      );
+      userRow.credential_version = 1;
     }
 
     // Reset rate limiter on successful credentials
@@ -282,20 +352,29 @@ export class AuthService {
     // Canonical Doc 30/36: POST /auth/login succeeds only if exactly one preauthorized
     // active binding is resolved from user_workspace_bindings.
     // If zero or multiple active bindings exist, fail closed with 409 WORKSPACE_CONTEXT_UNRESOLVED.
-    const bindingRes = await this.pool.query<{
-      binding_id: string;
-      workspace_id: string;
-      role: UserRole;
-      membership_status: string;
-      workspace_name: string;
-      timezone: string;
-      workspace_status: string;
-    }>(
-      `
+    const queryActiveBindings = async () =>
+      this.pool.query<{
+        binding_id: string;
+        workspace_id: string;
+        role: UserRole;
+        sub_role?: string | null;
+        membership_status: string;
+        workspace_name: string;
+        timezone: string;
+        workspace_status: string;
+      }>(
+        `
       SELECT
         uwb.id AS binding_id,
         uwb.workspace_id,
         wm.role,
+        (
+          SELECT to_jsonb(e) ->> 'sub_role'
+          FROM employees e
+          WHERE e.workspace_id = uwb.workspace_id
+            AND e.user_id = uwb.user_id
+          LIMIT 1
+        ) AS sub_role,
         wm.status AS membership_status,
         w.name AS workspace_name,
         w.timezone,
@@ -309,10 +388,60 @@ export class AuthService {
         AND wm.status = 'active'
         AND w.status = 'active'
     `,
-      [userRow.id],
-    );
+        [userRow.id],
+      );
 
-    const activeBindings = bindingRes.rows;
+    let bindingRes = await queryActiveBindings();
+    let activeBindings = bindingRes.rows;
+
+    if (
+      activeBindings.length === 0 &&
+      userRow.active_employee_workspace_id
+    ) {
+      const memCheckForHeal = await this.pool.query<{
+        status: string;
+        role: string;
+        workspace_status: string;
+      }>(
+        `SELECT wm.status, wm.role, w.status as workspace_status
+         FROM workspace_memberships wm
+         JOIN workspaces w ON w.id = wm.workspace_id
+         WHERE wm.user_id = $1`,
+        [userRow.id],
+      );
+      const isSuspendedOrInactiveWs = memCheckForHeal.rows.some(
+        (m) => m.status === 'suspended' || m.workspace_status !== 'active',
+      );
+      if (!isSuspendedOrInactiveWs && memCheckForHeal.rows.length <= 1) {
+        const healWsId = userRow.active_employee_workspace_id;
+        await this.pool.query(
+          `UPDATE employees
+           SET employment_status = 'active', updated_at = now()
+           WHERE workspace_id = $1 AND user_id = $2 AND employment_status IN ('invited', 'inactive')`,
+          [healWsId, userRow.id],
+        );
+        await this.pool.query(
+          `INSERT INTO workspace_memberships (workspace_id, user_id, role, status)
+           VALUES ($1, $2, 'staff', 'active')
+           ON CONFLICT (workspace_id, user_id) DO UPDATE
+           SET status = CASE WHEN workspace_memberships.status = 'suspended' THEN workspace_memberships.status ELSE 'active' END,
+               updated_at = now()`,
+          [healWsId, userRow.id],
+        );
+        await this.pool.query(
+          `INSERT INTO user_workspace_bindings (workspace_id, user_id, status, version)
+           VALUES ($1, $2, 'active', 1)
+           ON CONFLICT (user_id) DO UPDATE
+           SET workspace_id = EXCLUDED.workspace_id,
+               status = CASE WHEN user_workspace_bindings.status = 'suspended' THEN user_workspace_bindings.status ELSE 'active' END,
+               version = user_workspace_bindings.version + 1,
+               updated_at = now()`,
+          [healWsId, userRow.id],
+        );
+        bindingRes = await queryActiveBindings();
+        activeBindings = bindingRes.rows;
+      }
+    }
 
     if (activeBindings.length === 0 || activeBindings.length > 1) {
       let detailMessage = 'Workspace context could not be resolved';
@@ -468,6 +597,9 @@ export class AuthService {
           name: chosenMembership.workspace_name,
           timezone: chosenMembership.timezone,
           role: chosenMembership.role,
+          ...(chosenMembership.sub_role === 'admin'
+            ? { sub_role: 'admin' as const }
+            : {}),
         },
         session_expires_at: absoluteExpiresAt.toISOString(),
         csrf_token: csrfToken,

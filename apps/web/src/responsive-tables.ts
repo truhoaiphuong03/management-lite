@@ -30,6 +30,16 @@ export function enhanceTables(root: ParentNode): void {
         if (cell.getAttribute('data-label') !== label) {
           cell.setAttribute('data-label', label);
         }
+        const isLastCol = col === heads.length - 1;
+        const isActionColumn =
+          isLastCol &&
+          (label === '' ||
+            /^(thao tác|hành động|xử lý|tác vụ|chức năng)$/i.test(label));
+        if (isActionColumn) {
+          cell.setAttribute('data-actions-cell', 'true');
+        } else {
+          cell.removeAttribute('data-actions-cell');
+        }
         const rawText = (cell.textContent ?? '').trim();
         const isEmptyPlaceholder =
           col > 0 &&

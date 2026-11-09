@@ -963,6 +963,34 @@
 8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
 9. **Kết quả test:** `PASS` — `reports-pagination.test.mjs` (`11/11 PASS`), `reports-by-employee-qa.test.mjs` (`2/2 PASS`), `rep-mvp.test.mjs` (`1/1 PASS`), `report-work-link-postgres.test.mjs` (`5/5 PASS`), `ui-report.test.mjs` (`2/2 PASS`), `version.test.mjs` (`6/6 PASS`), `check:bundle` (`439.3 KB raw / 128.4 KB gzip — OK`).
 10. **Evidence (`VERIFIED`):** `packages/contracts/src/reports.ts`, `packages/contracts/src/version.ts`, `apps/api/src/app.ts`, `apps/api/src/reports/service.ts`, `apps/web/src/screens/ReportsScreen.tsx`, `tests/web/reports-pagination.test.mjs`, `tests/backend/rep-mvp.test.mjs`, `package.json`.
+11. **Commit / PR:** `main` (`eb5bc5d` • `v0.9.17`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner gửi báo cáo lỗi trực tiếp; tiếp tục `Task AUTH-NV002-LOGIN-0917` trong `v0.9.17`)_
+13. **NEXT_ACTION:** Chuyển sang `Task AUTH-NV002-LOGIN-0917` (`Hotfix AUTH-NV002-LOGIN-0917` — `v0.9.17`).
+
+---
+
+## HOTFIX AUTH-NV002-LOGIN-0917 — SỬA LỖI ĐĂNG NHẬP `NV002` & NHÂN SỰ, TỰ ĐỘNG KHÔI PHỤC TÀI KHOẢN & ĐẶT MẬT KHẨU TRỰC TIẾP TRÊN `/employees` (`v0.9.17`)
+
+### Task `AUTH-NV002-LOGIN-0917` — Hỗ Trợ Đăng Nhập Bằng Mã Nhân Viên (`NV002` / `NV001`...) / Tên Đăng Nhập / SĐT / Email, Migration `0041` Tự Động Liên Kết Tài Khoản & Đặt Mật Khẩu Trực Tiếp (`v0.9.17`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Hotfix AUTH-NV002-LOGIN-0917` (`v0.9.17`)
+3. **Task ID:** `AUTH-NV002-LOGIN-0917`
+4. **Mô tả:** Khắc phục triệt để lỗi nhân viên `NV002` (`DƯƠNG CẨM BÌNH`) và các nhân sự không đăng nhập được vào hệ thống (`https://ql.hoaiphuong.click`):
+   - **Nguyên nhân gốc rễ:**
+     1. Hồ sơ `NV002` được tạo từ nguồn đồng bộ bảng công với `user_id = NULL`, và Migration `0038` đã gán `employment_status = CASE WHEN user_id IS NULL THEN 'inactive' ELSE employment_status END` khiến `NV002` bị chuyển sang `'inactive'` (đồng thời thiếu liên kết `users`, `user_credentials`, `workspace_memberships`, `user_workspace_bindings`).
+     2. `AuthService.loginUser` chỉ tìm theo `u.username_normalized` hoặc `u.email_normalized` (không nhận diện mã nhân viên `NV002`/`nv002` hoặc số điện thoại `employees.phone`), và chặn cứng tài khoản ở trạng thái `pending_activation` / `invited` / `inactive`.
+     3. Chủ sở hữu (`Owner`) không có ô đặt/đổi mật khẩu trực tiếp cho nhân viên trên `/employees/:id` hoặc `/employees/new` (chỉ có cấp link kích hoạt, và `issueActivationInvite` trả lỗi `404` nếu `employees.user_id IS NULL`).
+   - **Giải pháp đã triển khai:**
+     - **Migration `0041_fix_nv002_and_employee_login_access.sql` (`catalog.ts`):** Cấp đủ quyền `SELECT, INSERT, UPDATE, DELETE` trên `users, user_credentials, workspace_memberships, user_workspace_bindings, activation_invites, auth_sessions, employees` cho `mglite_app`, `hp_app_runtime`; tự động tạo/liên kết `users` cho `NV002` (và mọi nhân viên không bị đình chỉ trong Workspace chính), khôi phục `employees.employment_status = 'active'`, kích hoạt `users.status = 'active'`, `workspace_memberships.status = 'active'`, `user_workspace_bindings.status = 'active'`, và khởi tạo mật khẩu mặc định (`Nv002@123`, `credential_version = 0`) nếu nhân viên chưa có mật khẩu; đồng thời sửa `timesheet-service.ts` không còn gán `employment_status = 'inactive'` cho `NV002`.
+     - **Đăng nhập đa định danh & Tự phục hồi (`AuthService.loginUser`):** Cho phép đăng nhập bằng **Mã nhân viên (`NV002`, `nv002`, `NV001`, `ADM01`...)**, **Tên đăng nhập (`username`)**, **Số điện thoại (`phone`)** hoặc **Email (`email`)** trong 1 truy vấn duy nhất (`FROM users u`), tự động khóa mật khẩu lần đầu khi `credential_version = 0` và tự động đồng bộ `workspace_memberships` / `user_workspace_bindings` / `sub_role`.
+     - **Đặt/đổi mật khẩu & tên đăng nhập trực tiếp trên `/employees` (`EmployeeService`, `EmployeeDetailScreen.tsx`, `EmployeeNewScreen.tsx`):** Bổ sung ô `Tên đăng nhập (Username)` (`edit-employee-username-input`) và `Đặt / Đổi mật khẩu đăng nhập` (`edit-employee-password-input`, `new-employee-password-input`) giúp Owner đặt mật khẩu trực tiếp và kích hoạt ngay tài khoản nhân viên không cần qua link mời; đồng thời đồng bộ điều hướng `sub_role = 'admin'` (`Navigation.tsx`, `AppShell.tsx`, `App.tsx`, `session-manager.ts`).
+5. **Phụ thuộc:** `Hotfix REP-MODAL-MERGE-0917` (`v0.9.17` — `eb5bc5d`).
+6. **Acceptance Criteria:** Migration `0041` khớp 1:1 với `EMBEDDED_MIGRATIONS` trong `catalog.ts` (`migrator.test.mjs` `15/15 PASS`); `AuthService.loginUser` giữ nguyên chuẩn bảo mật chống timing/enumeration (`sec-05a.test.mjs` `7/7 PASS`, `phase14-hardening.test.mjs` `10/10 PASS`); không có DDL runtime (`phase19-ops-data-hygiene.test.mjs` `5/5 PASS`); giao diện `/login`, `/employees/:id`, `/employees/new` và điều hướng Sub-Admin hoạt động chuẩn xác (`employee-detail-screen.test.mjs` `3/3 PASS`, `login-screen.test.mjs` `2/2 PASS`, `ui-shell-02.test.mjs` `12/12 PASS`, `version.test.mjs` `6/6 PASS`, `check:bundle` `442.1 KB raw / 128.9 KB gzip — OK`).
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `migrator.test.mjs` (`15/15 PASS`), `sec-05a.test.mjs` (`7/7 PASS`), `phase19-ops-data-hygiene.test.mjs` (`5/5 PASS`), `phase14-hardening.test.mjs` (`10/10 PASS`), `employee-detail-screen.test.mjs` (`3/3 PASS`), `login-screen.test.mjs` (`2/2 PASS`), `ui-shell-02.test.mjs` (`12/12 PASS`), `version.test.mjs` (`6/6 PASS`), `check:bundle` (`442.1 KB raw / 128.9 KB gzip — OK`).
+10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0041_fix_nv002_and_employee_login_access.sql`, `packages/database/src/migrations/catalog.ts`, `packages/contracts/src/employees.ts`, `packages/contracts/src/version.ts`, `apps/api/src/auth/service.ts`, `apps/api/src/employees/service.ts`, `apps/api/src/app.ts`, `apps/api/src/payroll/timesheet-service.ts`, `apps/web/src/screens/LoginScreen.tsx`, `apps/web/src/screens/EmployeeDetailScreen.tsx`, `apps/web/src/screens/EmployeeNewScreen.tsx`, `apps/web/src/session-manager.ts`, `apps/web/src/AppShell.tsx`, `apps/web/src/App.tsx`, `packages/ui/src/components/Navigation.tsx`, `tests/web/employee-detail-screen.test.mjs`.
 11. **Commit / PR:** `main` (`v0.9.17`)
-12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner gửi báo cáo lỗi trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.17` lên `ql.hoaiphuong.click`)_
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.17` lên `ql.hoaiphuong.click`)_
 13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.17` lên `ql.hoaiphuong.click`.

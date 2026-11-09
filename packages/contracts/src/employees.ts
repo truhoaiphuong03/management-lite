@@ -50,6 +50,7 @@ export interface CreateEmployeeRequestBody {
   full_name: string;
   email: string;
   username?: string;
+  password?: string | null;
   role?: 'staff' | 'admin';
   phone?: string | null;
   date_of_birth?: string | null;
@@ -75,6 +76,9 @@ export interface CreateEmployeeResponseData {
 
 export interface UpdateEmployeeRequestBody {
   full_name?: string;
+  username?: string | null;
+  email?: string | null;
+  password?: string | null;
   role?: EmployeeMemberRole;
   sub_permissions?: EmployeeSubPermission[];
   is_payroll_eligible?: boolean;

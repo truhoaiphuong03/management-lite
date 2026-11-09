@@ -581,7 +581,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   color: 'var(--text-secondary)',
                 }}
               >
-                Tên đăng nhập hoặc Email:
+                Mã nhân viên (NV001, NV002…), Tên đăng nhập hoặc Email:
               </label>
               <input
                 ref={identifierInputRef}
@@ -615,7 +615,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     );
                   }
                 }}
-                placeholder="admin, staff hoặc email…"
+                placeholder="NV001, NV002, tên đăng nhập, SĐT hoặc email…"
                 disabled={isLoading}
                 style={{
                   width: '100%',

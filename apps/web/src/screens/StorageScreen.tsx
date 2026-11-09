@@ -4427,6 +4427,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
 
           <table
             className="storage-desktop-table"
+            data-no-cards="true"
             style={{
               width: '100%',
               borderCollapse: 'collapse',

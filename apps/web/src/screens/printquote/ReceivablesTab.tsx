@@ -1857,6 +1857,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
+                        flexWrap: 'wrap',
                         gap: '8px',
                         padding: '4px 0',
                         fontSize: '12.5px',

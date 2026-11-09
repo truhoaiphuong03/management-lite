@@ -1233,6 +1233,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                         type="checkbox"
                         id={`checkbox-issue-${issue.id}`}
                         data-testid={`checkbox-issue-${issue.id}`}
+                        aria-label={`Chọn vấn đề ${issue.bug_code || (issue as { code?: string }).code || issue.title || issue.id}`}
                         checked={isSelected}
                         onChange={(e) => {
                           e.stopPropagation();
@@ -1248,7 +1249,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     </div>
 
                     {/* Bug Code Badge */}
-                    {issue.bug_code && (
+                    {(issue.bug_code || (issue as { code?: string }).code) && (
                       <span
                         data-testid={`badge-bug-code-${issue.id}`}
                         style={{
@@ -1263,7 +1264,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                           fontWeight: 700,
                         }}
                       >
-                        {issue.bug_code}
+                        {issue.bug_code || (issue as { code?: string }).code}
                       </span>
                     )}
 
@@ -1330,30 +1331,38 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                         </span>
                       )}
 
-                    <span
-                      style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: 'var(--surface-hover)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-color)',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '12px',
-                        maxWidth: '220px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {issue.route_template}
-                    </span>
+                    {(issue.route_template ||
+                      (issue as { category?: string }).category) && (
+                      <span
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: 'var(--surface-hover)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-color)',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '12px',
+                          maxWidth: '220px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {issue.route_template ||
+                          (issue as { category?: string }).category}
+                      </span>
+                    )}
                     <span
                       style={{
                         fontSize: '12px',
                         color: 'var(--muted-color)',
                       }}
                     >
-                      v{issue.version}
+                      v
+                      {issue.version ||
+                        (issue as { app_version?: string | number })
+                          .app_version ||
+                        1}
                     </span>
                   </div>
 
@@ -1523,15 +1532,17 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           />
 
           {/* Unified List Footer */}
-          <ListFooter
-            testId="issues-list-footer"
-            itemCount={issues.length}
-            hasNextPage={hasMore && Boolean(nextCursor)}
-            onLoadMore={handleLoadMore}
-            isLoadingMore={loadingMore}
-            loadMoreLabel="Tải thêm vấn đề cũ hơn"
-            loadMoreTestId="btn-load-more"
-          />
+          {hasMore && Boolean(nextCursor) && (
+            <ListFooter
+              testId="issues-list-footer"
+              itemCount={issues.length}
+              hasNextPage={hasMore && Boolean(nextCursor)}
+              onLoadMore={handleLoadMore}
+              isLoadingMore={loadingMore}
+              loadMoreLabel="Tải thêm vấn đề cũ hơn"
+              loadMoreTestId="btn-load-more"
+            />
+          )}
         </div>
       )}
     </div>

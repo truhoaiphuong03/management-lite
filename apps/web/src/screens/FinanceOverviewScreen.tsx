@@ -63,7 +63,7 @@ export function FinanceOverviewScreen({
       (c) => c.direction !== 'income',
     ) ?? [];
   const sum = (rows: typeof income) =>
-    rows.reduce((t, c) => t + BigInt(c.total_vnd), 0n);
+    rows.reduce((t, c) => t + BigInt(c.total_vnd ?? 0), 0n);
 
   const group = (
     title: string,
@@ -116,7 +116,7 @@ export function FinanceOverviewScreen({
           rows.map((c, index) => {
             const pct =
               total > 0n
-                ? Number((BigInt(c.total_vnd) * 1000n) / total) / 10
+                ? Number((BigInt(c.total_vnd ?? 0) * 1000n) / total) / 10
                 : 0;
             return (
               <div
@@ -334,7 +334,7 @@ export function FinanceOverviewScreen({
               label="Chênh lệch thu chi"
               value={formatVnd(r.data.net_vnd)}
               color={
-                BigInt(r.data.net_vnd) >= 0n
+                BigInt(r.data.net_vnd ?? 0) >= 0n
                   ? THEME_COLORS.primary
                   : THEME_COLORS.error
               }

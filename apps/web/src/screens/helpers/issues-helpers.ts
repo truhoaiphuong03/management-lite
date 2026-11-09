@@ -35,6 +35,8 @@ export function getStatusBadge(status: IssueStatus): {
       return { status: 'warning', label: 'AI đang phân tích' };
     case 'fixing':
       return { status: 'warning', label: 'Đang sửa (Fixing)' };
+    case 'in_progress' as IssueStatus:
+      return { status: 'warning', label: 'Đang xử lý' };
     case 'testing':
       return { status: 'warning', label: 'Đang test (Testing)' };
     case 'deploying':
@@ -52,7 +54,7 @@ export function getStatusBadge(status: IssueStatus): {
     case 'closed':
       return { status: 'success', label: 'Đã đóng' };
     default:
-      return { status: 'muted', label: status };
+      return { status: 'muted', label: status || 'Mới (Open)' };
   }
 }
 
@@ -116,7 +118,7 @@ export function getTestResultBadge(testResult?: IssueTestResult | null): {
   }
 }
 
-export function getTypeBadge(type: IssueType): {
+export function getTypeBadge(type: IssueType | undefined): {
   status: 'error' | 'neutral';
   label: string;
 } {
@@ -126,7 +128,7 @@ export function getTypeBadge(type: IssueType): {
     case 'improvement':
       return { status: 'neutral', label: 'Cải tiến' };
     default:
-      return { status: 'neutral', label: type };
+      return { status: 'neutral', label: type || 'Lỗi (Bug)' };
   }
 }
 

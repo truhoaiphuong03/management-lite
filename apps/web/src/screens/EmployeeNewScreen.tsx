@@ -8,6 +8,8 @@ import {
   CopyIcon,
   AppToast,
   useAutoDismiss,
+  VnDateOfBirthSelect,
+  VnBankAutocompleteInput,
 } from '../../../../packages/ui/src/components/index.js';
 
 export interface EmployeeNewScreenProps {
@@ -23,6 +25,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [role, setRole] = useState<'staff' | 'admin'>('staff');
   const [phone, setPhone] = useState('');
   const [positionTitle, setPositionTitle] = useState('');
@@ -139,6 +142,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
           full_name: fullName.trim(),
           email: email.trim(),
           username: username.trim() || undefined,
+          password: password.trim() || undefined,
           role,
           phone: phone.trim() || undefined,
           position_title: positionTitle.trim() || undefined,
@@ -423,9 +427,8 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               }}
             >
               <option value="staff">Nhân viên (Staff) - Mặc định</option>
-              <option value="admin" disabled>
-                Quản trị viên (Admin) - Cần migration nâng cấp schema để kích
-                hoạt
+              <option value="admin">
+                Quản lý phụ (Admin) - Phân quyền vận hành theo nhóm
               </option>
             </select>
           </div>
@@ -502,7 +505,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
             />
           </div>
 
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <label
               htmlFor="username"
               style={{
@@ -520,7 +523,43 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Mặc định lấy từ tiền tố email"
+              placeholder="Mặc định lấy từ tiền tố email hoặc mã nhân viên (NV002)"
+              disabled={isLoading}
+              style={{
+                width: '100%',
+                minHeight: '44px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-color)',
+                color: 'var(--text-color)',
+                fontSize: '14px',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '24px' }}>
+            <label
+              htmlFor="newEmpPassword"
+              style={{
+                display: 'block',
+                fontSize: '14px',
+                marginBottom: '6px',
+                color: 'var(--muted-color)',
+              }}
+            >
+              Mật khẩu đăng nhập ban đầu (tùy chọn — nếu nhập sẽ kích hoạt ngay):
+            </label>
+            <input
+              id="newEmpPassword"
+              data-testid="new-employee-password-input"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Tối thiểu 6 ký tự (để trống nếu muốn gửi link kích hoạt)"
               disabled={isLoading}
               style={{
                 width: '100%',
@@ -640,23 +679,12 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 >
                   Ngày sinh:
                 </label>
-                <input
+                <VnDateOfBirthSelect
                   id="newEmpDob"
-                  type="date"
+                  testId="new-employee-dob-select"
                   value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  onChange={setDateOfBirth}
                   disabled={isLoading}
-                  style={{
-                    width: '100%',
-                    minHeight: '42px',
-                    padding: '0 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                  }}
                 />
               </div>
               <div>
@@ -832,24 +860,13 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                 >
                   Ngân hàng:
                 </label>
-                <input
+                <VnBankAutocompleteInput
                   id="newEmpBankName"
-                  type="text"
+                  testId="new-employee-bank-name-input"
                   value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  placeholder="VD: Vietcombank, MB Bank…"
+                  onChange={setBankName}
                   disabled={isLoading}
-                  style={{
-                    width: '100%',
-                    minHeight: '42px',
-                    padding: '0 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-color)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                  }}
+                  placeholder="Gõ tên NH (VD: Vietcombank, MB…)"
                 />
               </div>
               <div>

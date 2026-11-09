@@ -243,6 +243,13 @@ export function executeLogout(tracker: SessionStateTracker) {
   tracker.authEpoch++;
   resetSessionTrackerClosed(tracker);
   tracker.csrfToken = '';
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('post_login_redirect');
+    }
+  } catch {
+    // Ignore storage errors
+  }
 }
 
 export function isPublicAuthRoute(pathname: string): boolean {
@@ -277,6 +284,7 @@ export function evaluateRouteAccess(
   currentPath: string,
   verifiedOwnerSession: boolean,
   role: UserRole,
+  subRole?: 'admin' | undefined,
 ) {
   const { route: routeMeta, params } = matchRoute(currentPath);
   const isIssuesRoute = Boolean(
@@ -290,16 +298,27 @@ export function evaluateRouteAccess(
     currentPath === '/print-quotes' ||
     currentPath.startsWith('/print-quotes/'),
   );
+  const isStrictOwnerAdminRoute =
+    routeMeta?.path === '/audit' || routeMeta?.path === '/system-logs';
+
+  const isSubAdminAllowedOwnerRoute =
+    subRole === 'admin' &&
+    routeMeta?.category !== 'finance' &&
+    !isIssuesRoute &&
+    !isPrintQuotesRoute &&
+    !isStrictOwnerAdminRoute;
 
   const isForbidden = Boolean(
     (routeMeta?.category === 'finance' &&
       (!verifiedOwnerSession || role !== 'owner')) ||
     (isIssuesRoute && (!verifiedOwnerSession || role !== 'owner')) ||
     (isPrintQuotesRoute && (!verifiedOwnerSession || role !== 'owner')) ||
+    (isStrictOwnerAdminRoute && role !== 'owner') ||
     (!isIssuesRoute &&
       !isPrintQuotesRoute &&
       routeMeta?.ownerOnly &&
-      role === 'staff') ||
+      role === 'staff' &&
+      !isSubAdminAllowedOwnerRoute) ||
     (!isIssuesRoute &&
       !isPrintQuotesRoute &&
       routeMeta?.staffOnly &&

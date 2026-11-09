@@ -1598,13 +1598,18 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
       {/* Floating button responsive styles */}
       <style>{`
         .app-shell-report-dock .btn-floating-report-bug {
-          position: fixed;
+          position: relative;
+          bottom: auto !important;
+          right: auto !important;
           z-index: 900;
+        }
+        .app-shell-report-dock .btn-floating-report-bug[data-dragged="true"] {
+          position: fixed;
         }
         @media (max-width: 768px) {
           .btn-floating-report-bug:not([data-dragged="true"]) {
-            bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
-            right: 16px !important;
+            bottom: auto !important;
+            right: auto !important;
           }
           .btn-floating-report-bug {
             padding: 8px 14px !important;

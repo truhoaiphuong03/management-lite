@@ -779,7 +779,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       marginTop: '2px',
                     }}
                   >
-                    {profile.employment_status === 'active'
+                    {!profile.employment_status ||
+                    profile.employment_status.toLowerCase() === 'active'
                       ? 'Đang hoạt động'
                       : profile.employment_status}
                   </div>
@@ -2427,14 +2428,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 }}
               >
                 <strong style={{ color: 'var(--info-text)' }}>
-                  🛡️ ADMIN (Quản lý vận hành)
+                  🛡️ ADMIN (Quản lý phụ)
                 </strong>
                 <div
                   style={{ color: 'var(--text-secondary)', marginTop: '4px' }}
                 >
-                  Đề xuất chưa bật trong hệ thống hiện tại. Quyền quản lý vận
-                  hành đang chờ hoàn thiện và nghiệm thu; không tự cấp quyền từ
-                  chức vụ.
+                  Được Chủ sở hữu ủy quyền theo 6 nhóm quyền phụ chi tiết (Duyệt
+                  công, Quản lý việc, Nhân sự, Tài khoản, Bảng lương, Sổ thu
+                  chi); không thể tự nâng quyền hoặc hạ quyền Chủ sở hữu.
                 </div>
               </div>
               <div

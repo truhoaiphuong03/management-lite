@@ -573,7 +573,7 @@ export function FinanceCategoriesScreen({
         >
           <FinancePager
             testId="cat-pager"
-            total={total}
+            total={searchQuery.trim() ? filteredRows.length : total}
             page={page}
             pageSize={pageSize}
             loading={r.loading}

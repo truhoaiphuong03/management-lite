@@ -499,7 +499,12 @@ export const AppShell: React.FC<AppShellProps> = ({
       (isOwnerVerified !== true || role !== 'owner')
     )
       return false;
-    if (role === 'staff' && item.ownerOnly) return false;
+    if (
+      (item.id === 'audit' || item.id === 'system-logs') &&
+      role !== 'owner'
+    )
+      return false;
+    if (role === 'staff' && subRole !== 'admin' && item.ownerOnly) return false;
     if (role === 'owner' && (item.staffOnly || item.id === 'my-pay'))
       return false;
     return true;
@@ -971,6 +976,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           onOpenMore={() => setIsMoreOpen(!isMoreOpen)}
           isMoreOpen={isMoreOpen}
           role={role}
+          subRole={subRole}
           isOwnerVerified={isOwnerVerified}
         />
       </div>
@@ -983,7 +989,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             inset: 0,
             backgroundColor: 'var(--overlay-bg, rgba(11, 18, 32, 0.85))',
             backdropFilter: 'blur(4px)',
-            zIndex: 40,
+            zIndex: 950,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-end',
@@ -1244,8 +1250,13 @@ export const AppShell: React.FC<AppShellProps> = ({
       {/* Responsive styles */}
       <style>{`
         .app-shell-report-dock .btn-floating-report-bug {
-          position: fixed;
+          position: relative;
+          bottom: auto !important;
+          right: auto !important;
           z-index: 900;
+        }
+        .app-shell-report-dock .btn-floating-report-bug[data-dragged="true"] {
+          position: fixed;
         }
         html[data-mobile-keyboard="open"] .mobile-bottom-nav-wrapper,
         .app-shell-root[data-mobile-keyboard="open"] .mobile-bottom-nav-wrapper,
@@ -1281,7 +1292,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             pointer-events: none !important;
           }
           main {
-            padding: 12px 12px calc(132px + env(safe-area-inset-bottom, 0px)) 12px !important;
+            padding: 12px 12px calc(88px + env(safe-area-inset-bottom, 0px)) 12px !important;
           }
           .app-shell-root[data-pq-editor="true"] main {
             padding: 12px 12px calc(32px + env(safe-area-inset-bottom, 0px)) 12px !important;
