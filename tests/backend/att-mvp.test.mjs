@@ -582,6 +582,65 @@ test('MVP Phase 3 ATT: Clock in/out, Break, History, Owner review, Correction, a
         filteredMeRes.body.data.recent_shifts.some((s) => s.id === shiftId),
         'Filtered personal history must include approved shift',
       );
+
+      // 20. Verify POST /api/v1/attendance/reset-today resets web clock-in & open shifts while preserving imported shifts
+      const importedShiftId = crypto.randomUUID();
+      await pool.query(
+        `
+        INSERT INTO attendance_shifts (
+          id, workspace_id, employee_id, clock_in_at, clock_out_at,
+          run_state, review_state, source, import_ref
+        ) VALUES (
+          $1, $2, $3, '2026-11-05T08:30:00+07:00'::timestamptz, '2026-11-05T17:30:00+07:00'::timestamptz,
+          'completed', 'approved', 'import', 'sheet-test-row-1'
+        );
+      `,
+        [importedShiftId, wsId, staffEmpId],
+      );
+
+      const resetRes = await makeRequest(
+        `${baseUrl}/api/v1/attendance/reset-today`,
+        {
+          method: 'POST',
+          headers: {
+            Cookie: ownerAuth.cookie,
+            Origin: allowedOrigin,
+            'X-CSRF-Token': ownerAuth.csrfToken,
+          },
+          body: { scope: 'workspace_clock' },
+        },
+      );
+      assert.equal(resetRes.status, 200);
+      assert.equal(resetRes.body.data.scope, 'workspace_clock');
+      assert.ok(
+        resetRes.body.data.reset_shifts_count >= 1,
+        'Reset must clear web clock-in test shifts',
+      );
+
+      // Verify imported shift is preserved while web clock shift is removed
+      const remainingShiftsRes = await makeRequest(
+        `${baseUrl}/api/v1/attendance/shifts`,
+        {
+          headers: { Cookie: ownerAuth.cookie },
+        },
+      );
+      assert.equal(remainingShiftsRes.status, 200);
+      assert.equal(remainingShiftsRes.body.data.shifts.length, 1);
+      assert.equal(remainingShiftsRes.body.data.shifts[0].id, importedShiftId);
+
+      const meAfterResetRes = await makeRequest(
+        `${baseUrl}/api/v1/attendance/me`,
+        {
+          headers: { Cookie: staffAuth.cookie },
+        },
+      );
+      assert.equal(meAfterResetRes.status, 200);
+      assert.equal(meAfterResetRes.body.data.current_shift, null);
+      assert.equal(meAfterResetRes.body.data.recent_shifts.length, 1);
+      assert.equal(
+        meAfterResetRes.body.data.recent_shifts[0].id,
+        importedShiftId,
+      );
     } finally {
       await new Promise((res) => server.close(res));
     }

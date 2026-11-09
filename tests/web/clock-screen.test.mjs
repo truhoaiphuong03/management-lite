@@ -222,3 +222,37 @@ test('PHASE-28-29: Attendance grouped by employee, CSV summary export, batch app
     'WorkService.list must accept optional limit query parameter without throwing 400 Invalid filter',
   );
 });
+
+test('ATT-RESET-TODAY-01: Live shift timer, Today summary, 1-click Clock-out from break, and Reset to start fresh from today', () => {
+  const clockScreen = readFileSync(
+    resolve(root, 'apps/web/src/screens/ClockScreen.tsx'),
+    'utf8',
+  );
+  const attendanceService = readFileSync(
+    resolve(root, 'apps/api/src/attendance/service.ts'),
+    'utf8',
+  );
+  const appRoutes = readFileSync(resolve(root, 'apps/api/src/app.ts'), 'utf8');
+
+  assert.ok(
+    clockScreen.includes('data-testid="live-shift-timer"') &&
+      clockScreen.includes('data-testid="today-attendance-summary"'),
+    'ClockScreen must render live HH:MM:SS shift timer and today attendance summary badge',
+  );
+  assert.ok(
+    clockScreen.includes('data-testid="btn-reset-clock-today"') &&
+      clockScreen.includes('/api/v1/attendance/reset-today') &&
+      clockScreen.includes('executeResetClockToday'),
+    'ClockScreen must provide 1-click Reset Today button calling POST /api/v1/attendance/reset-today',
+  );
+  assert.ok(
+    clockScreen.includes("if (currentShift.run_state === 'paused')") &&
+      clockScreen.includes('/resume'),
+    'ClockScreen executeClockOut must automatically end break (/resume) before clocking out when shift is paused',
+  );
+  assert.ok(
+    attendanceService.includes('async resetClockShifts(') &&
+      appRoutes.includes("'/api/v1/attendance/reset-today'"),
+    'Backend must expose POST /api/v1/attendance/reset-today and AttendanceService.resetClockShifts',
+  );
+});

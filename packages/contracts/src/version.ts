@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.15';
-export const SYSTEM_COMMIT = '500af9b';
+export const SYSTEM_VERSION = '0.9.16';
+export const SYSTEM_COMMIT = '13e9847';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,25 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.15',
+    version: '0.9.16',
     commit: 'latest',
+    released_at: '2026-11-09',
+    summary:
+      'Kiểm toán & nâng cấp toàn diện trang Bấm giờ (/clock, /attendance) và đặt lại trạng thái chấm công để bắt đầu làm việc mới từ hôm nay (giữ nguyên 100% 61 ca bảng công Google Sheet của NV001).',
+    added: [
+      'Nút "🔄 Đặt lại để bắt đầu từ hôm nay" (POST /api/v1/attendance/reset-today) và Migration 0040 tự động xóa các ca bấm giờ thử nghiệm / ca treo trên web để bắt đầu làm việc mới từ hôm nay.',
+      'Đồng hồ đếm giờ làm việc trực tiếp từng giây (HH:MM:SS) và huy hiệu tổng hợp ca hôm nay ngay trên thẻ Bấm giờ (/clock).',
+    ],
+    improved: [
+      'Cho phép bấm "Kết thúc ca" trực tiếp khi đang ở trạng thái tạm nghỉ (tự động đóng lượt nghỉ trước khi kết thúc ca) và bổ sung nút xử lý đơn giải trình trực tiếp trong chế độ xem "Theo từng nhân viên".',
+    ],
+    fixed: [
+      'Chuẩn hóa múi giờ Việt Nam (Asia/Ho_Chi_Minh, +07:00) cho bộ chọn ngày/giờ giải trình chấm công, nâng giới hạn tải lịch sử lên 500 ca và khắc phục độ tương phản màu sắc ở chế độ Sáng (Light Mode).',
+    ],
+  },
+  {
+    version: '0.9.15',
+    commit: '13e9847',
     released_at: '2026-11-09',
     summary:
       'Đổi bộ chọn tháng trên /payroll và /finance/plan sang menu thả xuống (<select>) kèm dải nút chọn nhanh T6..T11 1-chạm để bấm vào tháng là nhảy ra danh sách tháng ngay lập tức.',

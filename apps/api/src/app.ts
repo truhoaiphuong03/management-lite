@@ -46,6 +46,7 @@ import type {
   ReviewShiftRequestBody,
   CreateCorrectionRequestBody,
   DecideCorrectionRequestBody,
+  ResetClockShiftsRequestBody,
 } from '../../../packages/contracts/src/attendance.js';
 import type {
   CreateReportRequestBody,
@@ -2396,6 +2397,39 @@ export function createRequestHandler(
           sessionContext,
           crId,
           body as unknown as DecideCorrectionRequestBody,
+          requestId,
+        );
+        return sendJson(res, 200, createSuccessEnvelope(result, requestId));
+      }
+
+      // 17b. POST /api/v1/attendance/reset-today (Reset web clock-in test/open shifts to start working from today)
+      if (method === 'POST' && pathname === '/api/v1/attendance/reset-today') {
+        if (!authService || !attendanceService) {
+          return sendJson(
+            res,
+            503,
+            createErrorEnvelope(
+              'DATABASE_UNAVAILABLE',
+              'Service unavailable',
+              requestId,
+            ),
+          );
+        }
+
+        const sessionContext = await requireAuth(
+          authService,
+          req,
+          isProduction,
+          sessionCookieName,
+        );
+        requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+
+        const body = await parseJsonBody<Record<string, unknown>>(req);
+        assertAllowedFields(body, ['scope']);
+
+        const result = await attendanceService.resetClockShifts(
+          sessionContext,
+          body as unknown as ResetClockShiftsRequestBody,
           requestId,
         );
         return sendJson(res, 200, createSuccessEnvelope(result, requestId));

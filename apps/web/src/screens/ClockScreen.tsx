@@ -131,11 +131,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
         return false;
       }
       if (myFromDate) {
-        const start = new Date(`${myFromDate}T00:00:00`);
+        const start = new Date(`${myFromDate}T00:00:00+07:00`);
         if (new Date(shift.clock_in_at) < start) return false;
       }
       if (myToDate) {
-        const end = new Date(`${myToDate}T23:59:59.999`);
+        const end = new Date(`${myToDate}T23:59:59.999+07:00`);
         if (new Date(shift.clock_in_at) > end) return false;
       }
       return true;
@@ -147,6 +147,114 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     myFromDate,
     myToDate,
   ]);
+
+  const [nowTick, setNowTick] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    if (
+      !currentShift ||
+      (currentShift.run_state !== 'working' &&
+        currentShift.run_state !== 'paused')
+    ) {
+      return;
+    }
+    setNowTick(Date.now());
+    const timerId = setInterval(() => {
+      setNowTick(Date.now());
+    }, 1000);
+    return () => clearInterval(timerId);
+  }, [currentShift?.id, currentShift?.run_state]);
+
+  const liveShiftMetrics = React.useMemo(() => {
+    if (!currentShift) {
+      return { liveWorkedSeconds: 0, currentBreakSeconds: 0 };
+    }
+    const clockInMs = new Date(currentShift.clock_in_at).getTime();
+    if (Number.isNaN(clockInMs)) {
+      return {
+        liveWorkedSeconds: currentShift.worked_seconds || 0,
+        currentBreakSeconds: 0,
+      };
+    }
+    let unpaidBreakMs = 0;
+    let activeBreakSec = 0;
+    for (const br of currentShift.breaks || []) {
+      const startMs = new Date(br.started_at).getTime();
+      if (Number.isNaN(startMs)) continue;
+      if (br.ended_at) {
+        const endMs = new Date(br.ended_at).getTime();
+        if (!Number.isNaN(endMs) && br.unpaid) {
+          unpaidBreakMs += Math.max(0, endMs - startMs);
+        }
+      } else {
+        const curDurMs = Math.max(0, nowTick - startMs);
+        activeBreakSec = Math.floor(curDurMs / 1000);
+        if (br.unpaid) {
+          unpaidBreakMs += curDurMs;
+        }
+      }
+    }
+    const totalElapsedMs = Math.max(0, nowTick - clockInMs - unpaidBreakMs);
+    return {
+      liveWorkedSeconds: Math.max(
+        currentShift.worked_seconds || 0,
+        Math.floor(totalElapsedMs / 1000),
+      ),
+      currentBreakSeconds: activeBreakSec,
+    };
+  }, [currentShift, nowTick]);
+
+  const todaySummary = React.useMemo(() => {
+    const todayVnIso = new Date().toLocaleDateString('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+    });
+    let todayShiftsCount = 0;
+    let todayWorkedSeconds = 0;
+    for (const s of recentShifts) {
+      const shiftDay = new Date(s.clock_in_at).toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+      });
+      if (shiftDay === todayVnIso) {
+        todayShiftsCount += 1;
+        todayWorkedSeconds += s.worked_seconds || 0;
+      }
+    }
+    if (currentShift) {
+      const curDay = new Date(currentShift.clock_in_at).toLocaleDateString(
+        'en-CA',
+        { timeZone: 'Asia/Ho_Chi_Minh' },
+      );
+      if (
+        curDay === todayVnIso &&
+        !recentShifts.some((s) => s.id === currentShift.id)
+      ) {
+        todayShiftsCount += 1;
+        todayWorkedSeconds += liveShiftMetrics.liveWorkedSeconds;
+      }
+    }
+    return { todayVnIso, todayShiftsCount, todayWorkedSeconds };
+  }, [recentShifts, currentShift, liveShiftMetrics.liveWorkedSeconds]);
+
+  const toVnDateTimeLocalValue = (isoString?: string | null): string => {
+    try {
+      const dt = isoString ? new Date(isoString) : new Date();
+      if (Number.isNaN(dt.getTime())) return '';
+      const sv = dt.toLocaleString('sv-SE', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+      });
+      return sv.replace(' ', 'T').slice(0, 16);
+    } catch {
+      return '';
+    }
+  };
+
+  const formatHmsCounter = (totalSecs: number): string => {
+    const safe = Math.max(0, Math.floor(totalSecs));
+    const hrs = Math.floor(safe / 3600);
+    const mins = Math.floor((safe % 3600) / 60);
+    const secs = safe % 60;
+    return [hrs, mins, secs].map((v) => String(v).padStart(2, '0')).join(':');
+  };
 
   const myMonthlySummary = React.useMemo(() => {
     let totalWorkedSeconds = 0;
@@ -200,6 +308,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
   useAutoDismiss(toast, () => setToast(null), 4000);
   const [clockActionDialog, setClockActionDialog] = useState<
     | { type: 'confirm_clock_out' }
+    | { type: 'reset_today'; scope: 'me_today' | 'workspace_clock' }
     | { type: 'review_approve'; shift: ShiftData; reason: string }
     | { type: 'review_reject'; shift: ShiftData; reason: string }
     | {
@@ -268,20 +377,26 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     try {
       const authInit: RequestInit = { credentials: 'include' };
       if (signal) authInit.signal = signal;
-      const authRes = await fetch('/api/v1/auth/me', authInit);
-      if (authRes.ok) {
-        const authData = await authRes.json();
-        if (signal?.aborted) return;
-        if (authData.data?.csrf_token) {
-          setCsrfToken(authData.data.csrf_token);
+      const authTask = (async () => {
+        const authRes = await fetch('/api/v1/auth/me', authInit);
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          if (signal?.aborted) return;
+          if (authData.data?.csrf_token) {
+            setCsrfToken(authData.data.csrf_token);
+          }
         }
-      }
-
-      await fetchMyAttendance(signal);
+      })();
 
       if (role === 'owner') {
-        await fetchOwnerEmployees(signal);
-        await fetchOwnerShifts(signal);
+        await Promise.all([
+          authTask,
+          fetchMyAttendance(signal),
+          fetchOwnerEmployees(signal),
+          fetchOwnerShifts(signal),
+        ]);
+      } else {
+        await Promise.all([authTask, fetchMyAttendance(signal)]);
       }
     } catch (err: unknown) {
       if (
@@ -302,7 +417,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     try {
       const attInit: RequestInit = { credentials: 'include' };
       if (signal) attInit.signal = signal;
-      const res = await fetch('/api/v1/attendance/me', attInit);
+      const res = await fetch('/api/v1/attendance/me?limit=500', attInit);
       if (!res.ok) {
         throw new Error('Lỗi khi tải dữ liệu chấm công.');
       }
@@ -415,14 +530,14 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
         params.append('employee_id', selectedEmployeeId);
       }
       if (selectedDate) {
-        const start = new Date(`${selectedDate}T00:00:00`);
+        const start = new Date(`${selectedDate}T00:00:00+07:00`);
         params.append('from_date', start.toISOString());
       }
       if (selectedToDate) {
-        const end = new Date(`${selectedToDate}T23:59:59.999`);
+        const end = new Date(`${selectedToDate}T23:59:59.999+07:00`);
         params.append('to_date', end.toISOString());
       } else if (selectedDate) {
-        const end = new Date(`${selectedDate}T23:59:59.999`);
+        const end = new Date(`${selectedDate}T23:59:59.999+07:00`);
         params.append('to_date', end.toISOString());
       }
       if (
@@ -434,7 +549,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       if (selectedRunState !== 'all') {
         params.append('run_state', selectedRunState);
       }
-      params.append('limit', '100');
+      params.append('limit', '500');
       const url = `/api/v1/attendance/shifts?${params.toString()}`;
       const shiftInit: RequestInit = { credentials: 'include' };
       if (signal) shiftInit.signal = signal;
@@ -911,6 +1026,28 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
+      if (currentShift.run_state === 'paused') {
+        const resumeRes = await fetch(
+          `/api/v1/attendance/shifts/${currentShift.id}/resume`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': csrfToken,
+            },
+            credentials: 'include',
+            body: JSON.stringify({}),
+          },
+        );
+        const resumeBody = await resumeRes.json().catch(() => null);
+        if (!resumeRes.ok || !resumeBody?.success) {
+          throw new Error(
+            resumeBody?.error?.message ||
+              'Không thể kết thúc tạm nghỉ trước khi đóng ca.',
+          );
+        }
+      }
+
       const res = await fetch(
         `/api/v1/attendance/shifts/${currentShift.id}/clock-out`,
         {
@@ -930,7 +1067,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       }
 
       const msg =
-        'Kết thúc ca thành công! Ca làm đã được chuyển đến Owner để duyệt.';
+        role === 'owner'
+          ? 'Kết thúc ca thành công! Ca làm của Chủ sở hữu đã được tự động ghi nhận.'
+          : 'Kết thúc ca thành công! Ca làm đã được chuyển đến Owner để duyệt.';
       setJustClockedOut(true);
       setSuccessMessage(msg);
       setToast({ message: msg, variant: 'success' });
@@ -939,6 +1078,69 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       if (role === 'owner') fetchOwnerShifts();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Thao tác thất bại';
+      setErrorMessage(msg);
+      setToast({ message: msg, variant: 'error' });
+    } finally {
+      setDialogLoading(false);
+      setActionLoading(false);
+    }
+  };
+
+  const handleResetClockToday = () => {
+    setClockActionDialog({
+      type: 'reset_today',
+      scope: role === 'owner' ? 'workspace_clock' : 'me_today',
+    });
+  };
+
+  const executeResetClockToday = async (
+    scope: 'me_today' | 'workspace_clock',
+  ) => {
+    setDialogLoading(true);
+    setActionLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const res = await fetch('/api/v1/attendance/reset-today', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ scope }),
+      });
+
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(
+          body.error?.message || 'Không thể đặt lại trạng thái chấm công.',
+        );
+      }
+
+      const resetCount = Number(body.data?.reset_shifts_count ?? 0);
+      setCurrentShift(null);
+      setJustClockedOut(false);
+      setMySelectedMonth('all');
+      setMyFromDate('');
+      setMyToDate('');
+      setMyReviewStateFilter('all');
+      setMyShiftPage(0);
+      setClockActionDialog(null);
+
+      const msg =
+        resetCount > 0
+          ? `Đã đặt lại ${resetCount} ca bấm giờ thử nghiệm — Sẵn sàng bắt đầu làm việc từ hôm nay!`
+          : 'Trạng thái chấm công đã sạch sẽ — Sẵn sàng bắt đầu làm việc từ hôm nay!';
+      setSuccessMessage(msg);
+      setToast({ message: msg, variant: 'success' });
+      await fetchMyAttendance();
+      if (role === 'owner') {
+        await fetchOwnerShifts();
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Không thể đặt lại chấm công';
       setErrorMessage(msg);
       setToast({ message: msg, variant: 'error' });
     } finally {
@@ -1275,11 +1477,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
         reason: 'Không đủ bằng chứng xác thực',
       });
     } else {
-      const defaultDate = shift.pending_correction?.claimed_clock_out_at
-        ? new Date(shift.pending_correction.claimed_clock_out_at)
-            .toISOString()
-            .slice(0, 16)
-        : new Date().toISOString().slice(0, 16);
+      const defaultDate = toVnDateTimeLocalValue(
+        shift.pending_correction?.claimed_clock_out_at ||
+          shift.clock_out_at ||
+          new Date().toISOString(),
+      );
 
       setClockActionDialog({
         type: 'correction_accept',
@@ -1297,6 +1499,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     reason: string,
     clockOutAt?: string,
   ) => {
+    if (decision === 'accept' && !clockOutAt) {
+      const msg = 'Vui lòng nhập giờ kết thúc ca hợp lệ.';
+      setErrorMessage(msg);
+      setToast({ message: msg, variant: 'warning' });
+      return;
+    }
     setDialogLoading(true);
     setOwnerLoading(true);
     try {
@@ -1432,7 +1640,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             marginBottom: '16px',
             padding: '12px 16px',
             borderRadius: '8px',
-            backgroundColor: '#064E3B',
+            backgroundColor: 'rgba(16, 185, 129, 0.14)',
+            border: '1px solid rgba(16, 185, 129, 0.35)',
             color: 'var(--success-text)',
             display: 'flex',
             alignItems: 'center',
@@ -1517,10 +1726,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             >
               <div
                 style={{
-                  marginBottom: '20px',
+                  marginBottom: '14px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  gap: '8px',
+                  flexWrap: 'wrap',
                 }}
               >
                 <StatusBadge
@@ -1539,23 +1750,80 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         : 'Chưa vào ca làm việc'
                   }
                 />
+                <span
+                  data-testid="today-attendance-summary"
+                  style={{
+                    fontSize: '12.5px',
+                    color: 'var(--muted-color)',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-subtle)',
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                    fontWeight: 500,
+                  }}
+                >
+                  Hôm nay ({formatIsoToVnLabel(todaySummary.todayVnIso)}):{' '}
+                  <strong style={{ color: 'var(--text-color)' }}>
+                    {todaySummary.todayShiftsCount} ca
+                  </strong>{' '}
+                  •{' '}
+                  <strong style={{ color: 'var(--accent-text)' }}>
+                    {formatHoursMinutes(todaySummary.todayWorkedSeconds)}
+                  </strong>
+                </span>
               </div>
 
               {currentShift && (
                 <div
                   style={{
-                    fontSize: '13px',
-                    color: 'var(--muted-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
                     marginBottom: '20px',
-                    backgroundColor: 'var(--surface-hover)',
-                    padding: '6px 14px',
-                    borderRadius: '20px',
                   }}
                 >
-                  Bắt đầu ca: {formatVnTime(currentShift.clock_in_at)} ngày{' '}
-                  {formatVnDate(currentShift.clock_in_at)}
-                  {currentShift.breaks.length > 0 &&
-                    ` • ${currentShift.breaks.length} lần tạm nghỉ`}
+                  <div
+                    data-testid="live-shift-timer"
+                    style={{
+                      fontSize: '28px',
+                      fontWeight: 800,
+                      fontVariantNumeric: 'tabular-nums',
+                      color:
+                        currentShift.run_state === 'paused'
+                          ? 'var(--warning-text)'
+                          : 'var(--accent-text)',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    {formatHmsCounter(liveShiftMetrics.liveWorkedSeconds)}
+                  </div>
+                  {currentShift.run_state === 'paused' && (
+                    <div
+                      style={{
+                        fontSize: '12.5px',
+                        color: 'var(--warning-text)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Đang tạm nghỉ:{' '}
+                      {formatHmsCounter(liveShiftMetrics.currentBreakSeconds)}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      color: 'var(--muted-color)',
+                      backgroundColor: 'var(--surface-hover)',
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                    }}
+                  >
+                    Bắt đầu ca: {formatVnTime(currentShift.clock_in_at)} ngày{' '}
+                    {formatVnDate(currentShift.clock_in_at)}
+                    {currentShift.breaks.length > 0 &&
+                      ` • ${currentShift.breaks.length} lần tạm nghỉ`}
+                  </div>
                 </div>
               )}
 
@@ -1567,7 +1835,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   flexWrap: 'wrap',
                   justifyContent: 'center',
                   width: '100%',
-                  maxWidth: '440px',
+                  maxWidth: '460px',
                 }}
               >
                 {!currentShift && (
@@ -1608,30 +1876,59 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 )}
 
                 {currentShift?.run_state === 'paused' && (
-                  <AppButton
-                    variant="primary"
-                    disabled={actionLoading}
-                    onClick={handleResume}
-                    style={{
-                      flex: 1,
-                      minWidth: '220px',
-                      height: '48px',
-                      fontSize: '16px',
-                    }}
-                  >
-                    <PlayIcon size={20} /> Tiếp tục làm việc
-                  </AppButton>
+                  <>
+                    <AppButton
+                      variant="primary"
+                      disabled={actionLoading}
+                      onClick={handleResume}
+                      style={{
+                        flex: 1,
+                        minWidth: '160px',
+                        height: '48px',
+                        fontSize: '15px',
+                      }}
+                    >
+                      <PlayIcon size={18} /> Tiếp tục làm việc
+                    </AppButton>
+                    <AppButton
+                      variant="destructive"
+                      disabled={actionLoading}
+                      onClick={handleClockOut}
+                      style={{
+                        flex: 1,
+                        minWidth: '140px',
+                        height: '48px',
+                        fontSize: '15px',
+                      }}
+                    >
+                      <StopIcon size={18} /> Kết thúc ca
+                    </AppButton>
+                  </>
                 )}
               </div>
 
-              {/* Forgotten Clock Out / Correction link */}
-              {currentShift && (
-                <div style={{ marginTop: '16px' }}>
+              {/* Forgotten Clock Out / Correction link & Reset Today button */}
+              <div
+                style={{
+                  marginTop: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}
+              >
+                {currentShift && (
                   <button
                     type="button"
                     data-testid="clock-correction-btn"
                     onClick={() => {
                       setTargetShiftForCorrection(currentShift);
+                      setClaimedClockOut(
+                        toVnDateTimeLocalValue(
+                          currentShift.clock_out_at || new Date().toISOString(),
+                        ),
+                      );
                       setShowCorrectionModal(true);
                     }}
                     style={{
@@ -1646,8 +1943,26 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   >
                     Quên bấm giờ hoặc cần giải trình ca này?
                   </button>
-                </div>
-              )}
+                )}
+                <button
+                  type="button"
+                  data-testid="btn-reset-clock-today"
+                  disabled={actionLoading}
+                  onClick={handleResetClockToday}
+                  style={{
+                    background: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '999px',
+                    color: 'var(--muted-color)',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: actionLoading ? 'not-allowed' : 'pointer',
+                    padding: '6px 12px',
+                  }}
+                >
+                  🔄 Đặt lại để bắt đầu từ hôm nay
+                </button>
+              </div>
             </div>
           </AppCard>
 
@@ -1676,46 +1991,66 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
               >
                 <CalendarIcon size={20} /> Lịch sử chấm công cá nhân
               </h3>
-              {recentShifts.length > 0 && (
+              {filteredRecentShifts.length > 0 && (
                 <AppButton
                   variant="secondary"
                   data-testid="btn-export-attendance-csv"
                   onClick={() => {
+                    const escapeCsvCell = (val: unknown) => {
+                      const raw = String(val ?? '');
+                      const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+                      return `"${safe.replace(/"/g, '""')}"`;
+                    };
                     const headers = [
-                      'Mã ca',
-                      'Vào ca',
-                      'Ra ca',
-                      'Trạng thái',
+                      'Ngày làm việc',
+                      'Giờ vào ca',
+                      'Giờ ra ca',
+                      'Thời lượng làm việc',
                       'Tổng phút',
+                      'Trạng thái duyệt',
+                      'Ghi chú duyệt',
                     ];
-                    const rows = recentShifts.map((s) => [
-                      s.id,
-                      s.clock_in_at,
-                      s.clock_out_at || '',
-                      s.review_state || s.run_state,
+                    const rows = filteredRecentShifts.map((s) => [
+                      formatVnDate(s.clock_in_at),
+                      formatVnTimeShort(s.clock_in_at),
+                      s.clock_out_at
+                        ? formatVnTimeShort(s.clock_out_at)
+                        : 'Đang mở',
+                      formatHoursMinutes(s.worked_seconds ?? 0),
                       String(Math.round((s.worked_seconds ?? 0) / 60)),
+                      s.review_state === 'approved' || s.is_self_shift
+                        ? 'Đã duyệt'
+                        : s.review_state === 'rejected'
+                          ? 'Bị từ chối'
+                          : s.review_state === 'needs_review'
+                            ? 'Cần giải trình'
+                            : 'Chờ duyệt',
+                      formatReviewNoteLabel(s.review_reason || ''),
                     ]);
                     const csv =
                       '\uFEFF' +
                       [headers, ...rows]
-                        .map((r) =>
-                          r
-                            .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-                            .join(','),
-                        )
-                        .join('\n');
-                    const blob = new Blob([csv], {
-                      type: 'text/csv;charset=utf-8;',
-                    });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `attendance-${new Date().toISOString().slice(0, 10)}.csv`;
-                    a.click();
-                    URL.revokeObjectURL(url);
+                        .map((r) => r.map(escapeCsvCell).join(','))
+                        .join('\r\n');
+                    if (
+                      typeof Blob !== 'undefined' &&
+                      typeof URL !== 'undefined' &&
+                      typeof URL.createObjectURL === 'function'
+                    ) {
+                      const blob = new Blob([csv], {
+                        type: 'text/csv;charset=utf-8;',
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `lich-su-cham-cong-${todaySummary.todayVnIso}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }
                   }}
                 >
-                  📥 Xuất Excel/CSV ({recentShifts.length})
+                  <DownloadIcon size={15} /> Xuất Excel/CSV (
+                  {filteredRecentShifts.length})
                 </AppButton>
               )}
             </div>
@@ -2111,8 +2446,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                                 fontSize: '12px',
                                 padding: '2px 8px',
                                 borderRadius: '4px',
-                                backgroundColor: 'rgba(139, 92, 246, 0.2)',
-                                color: '#C4B5FD',
+                                backgroundColor: 'rgba(139, 92, 246, 0.18)',
+                                color: 'var(--purple-text)',
                                 border: '1px solid rgba(139, 92, 246, 0.4)',
                                 fontWeight: 500,
                               }}
@@ -2213,6 +2548,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                             data-testid="shift-correction-btn"
                             onClick={() => {
                               setTargetShiftForCorrection(shift);
+                              setClaimedClockOut(
+                                toVnDateTimeLocalValue(
+                                  shift.clock_out_at ||
+                                    new Date().toISOString(),
+                                ),
+                              );
                               setShowCorrectionModal(true);
                             }}
                             style={{
@@ -2665,8 +3006,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     justifyContent: 'space-between',
                     padding: '8px 12px',
                     marginBottom: '12px',
-                    backgroundColor: '#451A1A',
-                    border: '1px solid #7F1D1D',
+                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
                     borderRadius: '6px',
                     color: 'var(--danger-text)',
                     fontSize: '12px',
@@ -3525,6 +3866,113 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                                         : ''}
                                     </div>
                                   )}
+
+                                {shift.pending_correction && (
+                                  <div
+                                    style={{
+                                      marginTop: '8px',
+                                      padding: '10px 12px',
+                                      backgroundColor:
+                                        'rgba(245, 158, 11, 0.1)',
+                                      borderLeft: '3px solid #F59E0B',
+                                      borderRadius: '6px',
+                                      fontSize: '12.5px',
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        fontWeight: 600,
+                                        color: 'var(--warning-text)',
+                                        marginBottom: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                      }}
+                                    >
+                                      <AlertTriangleIcon size={14} /> Đơn giải
+                                      trình chấm công từ nhân viên
+                                    </div>
+                                    <div
+                                      style={{
+                                        color: 'var(--text-color)',
+                                        marginBottom: '4px',
+                                      }}
+                                    >
+                                      Lý do:{' '}
+                                      <em>
+                                        "{shift.pending_correction.reason}"
+                                      </em>
+                                    </div>
+                                    {shift.pending_correction
+                                      .claimed_clock_out_at && (
+                                      <div
+                                        style={{ color: 'var(--muted-color)' }}
+                                      >
+                                        Giờ báo kết thúc:{' '}
+                                        {formatVnDate(
+                                          shift.pending_correction
+                                            .claimed_clock_out_at,
+                                        )}{' '}
+                                        {formatVnTimeShort(
+                                          shift.pending_correction
+                                            .claimed_clock_out_at,
+                                        )}
+                                      </div>
+                                    )}
+                                    {shift.pending_correction.evidence_note && (
+                                      <div
+                                        style={{ color: 'var(--muted-color)' }}
+                                      >
+                                        Minh chứng:{' '}
+                                        {shift.pending_correction.evidence_note}
+                                      </div>
+                                    )}
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        gap: '8px',
+                                        marginTop: '8px',
+                                        flexWrap: 'wrap',
+                                      }}
+                                    >
+                                      <AppButton
+                                        variant="primary"
+                                        onClick={() =>
+                                          handleDecideCorrection(
+                                            shift.pending_correction!.id,
+                                            'accept',
+                                            shift,
+                                          )
+                                        }
+                                        style={{
+                                          minHeight: '32px',
+                                          padding: '4px 10px',
+                                          fontSize: '12px',
+                                        }}
+                                      >
+                                        <CheckIcon size={13} /> Chấp nhận điều
+                                        chỉnh
+                                      </AppButton>
+                                      <AppButton
+                                        variant="destructive"
+                                        onClick={() =>
+                                          handleDecideCorrection(
+                                            shift.pending_correction!.id,
+                                            'reject',
+                                            shift,
+                                          )
+                                        }
+                                        style={{
+                                          minHeight: '32px',
+                                          padding: '4px 10px',
+                                          fontSize: '12px',
+                                        }}
+                                      >
+                                        <CloseIcon size={13} /> Từ chối
+                                      </AppButton>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -3639,8 +4087,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                                 fontSize: '12px',
                                 padding: '2px 8px',
                                 borderRadius: '4px',
-                                backgroundColor: 'rgba(139, 92, 246, 0.2)',
-                                color: '#C4B5FD',
+                                backgroundColor: 'rgba(139, 92, 246, 0.18)',
+                                color: 'var(--purple-text)',
                                 border: '1px solid rgba(139, 92, 246, 0.4)',
                                 fontWeight: 500,
                               }}
@@ -3772,7 +4220,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       <div
                         style={{
                           padding: '12px',
-                          backgroundColor: '#27272A',
+                          backgroundColor: 'rgba(245, 158, 11, 0.1)',
                           borderLeft: '4px solid #F59E0B',
                           borderRadius: '6px',
                           marginBottom: '14px',
@@ -4117,10 +4565,32 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           isOpen
           onClose={() => !dialogLoading && setClockActionDialog(null)}
           title="Xác nhận kết thúc ca làm việc"
-          description="Bạn có chắc chắn muốn kết thúc ca làm việc này? Dữ liệu ca làm sẽ được lưu và chuyển sang trạng thái chờ duyệt."
+          description={
+            role === 'owner'
+              ? 'Bạn có chắc chắn muốn kết thúc ca làm việc này? Ca làm của Chủ sở hữu sẽ được lưu và tự động ghi nhận.'
+              : 'Bạn có chắc chắn muốn kết thúc ca làm việc này? Dữ liệu ca làm sẽ được lưu và chuyển sang trạng thái chờ duyệt.'
+          }
           confirmLabel="Kết thúc ca"
           cancelLabel="Hủy"
           onConfirm={executeClockOut}
+          confirmVariant="primary"
+          isLoading={dialogLoading}
+        />
+      )}
+
+      {clockActionDialog?.type === 'reset_today' && (
+        <AppDialog
+          isOpen
+          onClose={() => !dialogLoading && setClockActionDialog(null)}
+          title="Đặt lại chấm công để bắt đầu từ hôm nay"
+          description={
+            role === 'owner'
+              ? 'Thao tác này sẽ đóng và xóa các ca bấm giờ thử nghiệm hoặc ca đang treo trên web để bắt đầu làm việc mới từ hôm nay. Toàn bộ 61 ca bảng công Google Sheet của NV001 (Tháng 6 – Tháng 11) và các kỳ lương đã chốt vẫn được giữ nguyên 100%.'
+              : 'Thao tác này sẽ xóa các ca bấm giờ thử nghiệm trong ngày hôm nay hoặc ca đang mở của bạn để bắt đầu làm việc mới từ hôm nay.'
+          }
+          confirmLabel="Xác nhận đặt lại"
+          cancelLabel="Hủy"
+          onConfirm={() => executeResetClockToday(clockActionDialog.scope)}
           confirmVariant="primary"
           isLoading={dialogLoading}
         />
@@ -4315,14 +4785,21 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           title="Chấp nhận điều chỉnh ca làm việc"
           confirmLabel="Chấp nhận điều chỉnh"
           cancelLabel="Hủy"
-          onConfirm={() =>
+          onConfirm={() => {
+            const parsedDt = clockActionDialog.time
+              ? new Date(clockActionDialog.time)
+              : null;
+            const validIso =
+              parsedDt && !Number.isNaN(parsedDt.getTime())
+                ? parsedDt.toISOString()
+                : undefined;
             executeDecideCorrection(
               clockActionDialog.crId,
               'accept',
               clockActionDialog.reason,
-              new Date(clockActionDialog.time).toISOString(),
-            )
-          }
+              validIso,
+            );
+          }}
           confirmVariant="primary"
           isLoading={dialogLoading}
         >

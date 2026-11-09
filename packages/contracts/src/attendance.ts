@@ -115,3 +115,13 @@ export interface DecideCorrectionRequestBody {
   reason: string;
   clock_out_at?: string | undefined;
 }
+
+export interface ResetClockShiftsRequestBody {
+  scope?: 'me_today' | 'workspace_clock' | undefined;
+}
+
+export interface ResetClockShiftsResponseData {
+  reset_shifts_count: number;
+  scope: 'me_today' | 'workspace_clock';
+  reset_at: string;
+}

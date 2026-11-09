@@ -17,6 +17,8 @@ import type {
   ReviewShiftResponseData,
   CreateCorrectionRequestBody,
   DecideCorrectionRequestBody,
+  ResetClockShiftsRequestBody,
+  ResetClockShiftsResponseData,
 } from '../../../../packages/contracts/src/attendance.js';
 
 export class AttendanceService {
@@ -60,7 +62,7 @@ export class AttendanceService {
        WHERE workspace_id = $1 AND user_id IS NULL
          AND (
            LOWER(employee_code) = $2
-           OR ($3 = 'owner' AND employee_code IN ('OWNER', 'OWNER_01'))
+           OR ($3 = 'owner' AND employee_code IN ('OWNER', 'OWNER_01', 'ADM01', 'ADMIN'))
          )
        FOR UPDATE;`,
       [context.workspace.id, username, context.workspace.role],
@@ -248,7 +250,7 @@ export class AttendanceService {
       return { current_shift: null, recent_shifts: [], total: 0 };
     }
 
-    const limit = Math.min(Math.max(Number(filters.limit) || 30, 1), 100);
+    const limit = Math.min(Math.max(Number(filters.limit) || 30, 1), 500);
     const offset = Math.max(Number(filters.offset) || 0, 0);
     const parsedCursor = this.parseKeysetCursor(filters.cursor);
     const filterParams: unknown[] = [context.workspace.id, employee.id];
@@ -477,8 +479,11 @@ export class AttendanceService {
       breaksByShift.set(b.shift_id, list);
     }
 
+    const ownerSelfUserId =
+      context.workspace.role === 'owner' ? context.user.id : undefined;
+
     const recentMapped = shiftsRes.rows.map((row) =>
-      this.mapShiftData(row, breaksByShift.get(row.id) || []),
+      this.mapShiftData(row, breaksByShift.get(row.id) || [], ownerSelfUserId),
     );
 
     const openRow = openShiftRes.rows[0];
@@ -489,8 +494,10 @@ export class AttendanceService {
             approval_reason: null,
             approval_reviewed_at: null,
             approval_reviewer_user_id: null,
+            employee_user_id: context.user.id,
           },
           breaksByShift.get(openRow.id) || [],
+          ownerSelfUserId,
         )
       : null;
 
@@ -1036,7 +1043,7 @@ export class AttendanceService {
   ): Promise<AttendanceShiftsResponseData> {
     requireRole(['owner'], context);
 
-    const limit = Math.min(Math.max(Number(filters.limit) || 50, 1), 100);
+    const limit = Math.min(Math.max(Number(filters.limit) || 50, 1), 500);
     const offset = Math.max(Number(filters.offset) || 0, 0);
     const parsedCursor = this.parseKeysetCursor(filters.cursor);
     const filterParams: unknown[] = [context.workspace.id];
@@ -1634,11 +1641,12 @@ export class AttendanceService {
       id: string;
       workspace_id: string;
       employee_id: string;
+      clock_in_at: Date;
       run_state: string;
       employee_user_id: string | null;
     }>(
       `
-      SELECT s.id, s.workspace_id, s.employee_id, s.run_state, e.user_id AS employee_user_id
+      SELECT s.id, s.workspace_id, s.employee_id, s.clock_in_at, s.run_state, e.user_id AS employee_user_id
       FROM attendance_shifts s
       JOIN employees e ON e.id = s.employee_id
       WHERE s.id = $1 AND s.workspace_id = $2;
@@ -1682,6 +1690,17 @@ export class AttendanceService {
     const claimedTime = body.claimed_clock_out_at
       ? new Date(body.claimed_clock_out_at)
       : null;
+
+    if (
+      claimedTime &&
+      (isNaN(claimedTime.getTime()) || claimedTime <= shift.clock_in_at)
+    ) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Giờ kết thúc ca đề xuất không hợp lệ hoặc sớm hơn giờ vào ca.',
+        400,
+      );
+    }
 
     const client = await this.pool.connect();
     try {
@@ -2099,6 +2118,173 @@ export class AttendanceService {
 
       await client.query('COMMIT');
       return { id: cr.id, status: 'accepted', shift_id: cr.shift_id };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * POST /api/v1/attendance/reset-today
+   * Resets web clock-in test shifts and any open/hanging shifts so the user or workspace
+   * can start working fresh from today, while strictly preserving all imported timesheet
+   * shifts (`source = 'import'`) and finalized payroll snapshots.
+   */
+  async resetClockShifts(
+    context: AuthenticatedContext,
+    body: ResetClockShiftsRequestBody = {},
+    requestId: string,
+  ): Promise<ResetClockShiftsResponseData> {
+    const requestedScope = body.scope;
+    if (
+      requestedScope !== undefined &&
+      requestedScope !== 'me_today' &&
+      requestedScope !== 'workspace_clock'
+    ) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        "Phạm vi đặt lại (scope) phải là 'me_today' hoặc 'workspace_clock'.",
+        400,
+      );
+    }
+
+    if (
+      requestedScope === 'workspace_clock' &&
+      context.workspace.role !== 'owner'
+    ) {
+      throw new AuthError(
+        'FORBIDDEN',
+        'Chỉ Chủ sở hữu (Owner) mới được đặt lại dữ liệu bấm giờ của toàn chi nhánh.',
+        403,
+      );
+    }
+
+    const effectiveScope: 'me_today' | 'workspace_clock' =
+      requestedScope ||
+      (context.workspace.role === 'owner' ? 'workspace_clock' : 'me_today');
+
+    const now = new Date();
+    const todayVnDateStr = now.toLocaleDateString('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+    });
+    const todayVnStart = new Date(`${todayVnDateStr}T00:00:00.000+07:00`);
+
+    let employeeIdForMe: string | null = null;
+    if (effectiveScope === 'me_today') {
+      const emp = await this.getEmployeeForUser(context);
+      if (!emp) {
+        return {
+          reset_shifts_count: 0,
+          scope: effectiveScope,
+          reset_at: now.toISOString(),
+        };
+      }
+      employeeIdForMe = emp.id;
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        "SELECT set_config('app.allow_payroll_reconcile', 'on', true);",
+      );
+
+      const targetShiftsRes =
+        effectiveScope === 'workspace_clock'
+          ? await client.query<{ id: string }>(
+              `
+              SELECT s.id
+              FROM attendance_shifts s
+              WHERE s.workspace_id = $1
+                AND (
+                  s.run_state IN ('working', 'paused')
+                  OR COALESCE(to_jsonb(s) ->> 'source', 'clock') = 'clock'
+                )
+              FOR UPDATE;
+            `,
+              [context.workspace.id],
+            )
+          : await client.query<{ id: string }>(
+              `
+              SELECT s.id
+              FROM attendance_shifts s
+              WHERE s.workspace_id = $1
+                AND s.employee_id = $2
+                AND (
+                  s.run_state IN ('working', 'paused')
+                  OR (
+                    COALESCE(to_jsonb(s) ->> 'source', 'clock') = 'clock'
+                    AND s.clock_in_at >= $3
+                  )
+                )
+              FOR UPDATE;
+            `,
+              [context.workspace.id, employeeIdForMe, todayVnStart],
+            );
+
+      const shiftIds = targetShiftsRes.rows.map((r) => r.id);
+
+      if (shiftIds.length > 0) {
+        await client.query(
+          `
+          UPDATE attendance_shifts
+          SET current_version_id = NULL
+          WHERE workspace_id = $1 AND id = ANY($2::uuid[]);
+        `,
+          [context.workspace.id, shiftIds],
+        );
+
+        for (const childTable of [
+          'attendance_approvals',
+          'attendance_adjustments',
+          'attendance_correction_requests',
+          'attendance_breaks',
+          'attendance_shift_versions',
+        ]) {
+          await client.query(
+            `
+            DELETE FROM ${childTable}
+            WHERE workspace_id = $1 AND shift_id = ANY($2::uuid[]);
+          `,
+            [context.workspace.id, shiftIds],
+          );
+        }
+
+        await client.query(
+          `
+          DELETE FROM attendance_shifts
+          WHERE workspace_id = $1 AND id = ANY($2::uuid[]);
+        `,
+          [context.workspace.id, shiftIds],
+        );
+      }
+
+      await recordAuditEvent(client, {
+        workspaceId: context.workspace.id,
+        actorUserId: context.user.id,
+        action: 'attendance.reset_clock_shifts',
+        entityType: 'attendance_shift',
+        entityId: context.workspace.id,
+        requestId,
+        metadata: {
+          scope: effectiveScope,
+          reset_shifts_count: shiftIds.length,
+          today_vn: todayVnDateStr,
+        },
+      });
+
+      await client.query(
+        "SELECT set_config('app.allow_payroll_reconcile', 'off', true);",
+      );
+      await client.query('COMMIT');
+
+      return {
+        reset_shifts_count: shiftIds.length,
+        scope: effectiveScope,
+        reset_at: now.toISOString(),
+      };
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;

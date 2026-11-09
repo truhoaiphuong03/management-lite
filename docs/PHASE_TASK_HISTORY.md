@@ -912,6 +912,33 @@
 8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
 9. **Kết quả test:** `PASS` — `payroll-google-sheet-sync.test.mjs` (`3/3 PASS`), `payroll-screen.test.mjs` (`10/10 PASS`), `version.test.mjs` (`6/6 PASS`).
 10. **Evidence (`VERIFIED`):** `apps/web/src/screens/PayrollScreen.tsx`, `apps/web/src/screens/FinancePlanScreen.tsx`, `tests/web/payroll-google-sheet-sync.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
-11. **Commit / PR:** `main` (`v0.9.15`)
-12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.15` lên `ql.hoaiphuong.click`)_
-13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.15` lên `ql.hoaiphuong.click`.
+11. **Commit / PR:** `main` (`13e9847` • `v0.9.15`)
+12. **Approval:** `APPROVED` _(Owner đã xác nhận và chuyển sang kiểm tra & reset `/clock` trong `v0.9.16`)_
+13. **NEXT_ACTION:** Chuyển sang `Task ATT-CLOCK-RESET-0916` (`Hotfix ATT-CLOCK-RESET-0916` — `v0.9.16`).
+
+---
+
+## HOTFIX ATT-CLOCK-RESET-0916 — KIỂM TOÁN TOÀN DIỆN TRANG BẤM GIỜ (`/clock`, `/attendance`) & ĐẶT LẠI TRẠNG THÁI ĐỂ BẮT ĐẦU LÀM VIỆC TỪ HÔM NAY (`v0.9.16`)
+
+### Task `ATT-CLOCK-RESET-0916` — Kiểm Toán Chức Năng `/clock`, Đồng Hồ Đếm Giây Trực Tiếp & Đặt Lại Chấm Công Bắt Đầu Từ Hôm Nay (`v0.9.16`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Hotfix ATT-CLOCK-RESET-0916` (`v0.9.16`)
+3. **Task ID:** `ATT-CLOCK-RESET-0916`
+4. **Mô tả:** Kiểm tra, sửa lỗi và nâng cấp toàn bộ chức năng của trang Bấm giờ & Chấm công (`/clock`, `/attendance`, `/attendance/review`), đồng thời đặt lại trạng thái chấm công để bắt đầu làm việc mới từ hôm nay (`2026-11-09`):
+   - **Migration `0040_reset_clock_shifts_start_from_today.sql` (`catalog.ts`):** Đảm bảo quyền truy cập runtime trên các bảng chấm công, đảm bảo Owner có hồ sơ nhân sự liên kết hợp lệ (`is_payroll_eligible = FALSE`, `employment_status = 'active'`) để bấm giờ trực tiếp trên `/clock`, và tự động xóa sạch mọi ca đang treo (`working`/`paused`) cùng các ca bấm giờ thử nghiệm trên web (`COALESCE(source, 'clock') = 'clock'`) trong khi bảo toàn nguyên vẹn 100% 61 ca bảng công Google Sheet của `NV001` (`source = 'import'`, `T6..T11`) và các kỳ lương đã chốt.
+   - **API `POST /api/v1/attendance/reset-today` (`AttendanceService.resetClockShifts`) & Nút `🔄 Đặt lại để bắt đầu từ hôm nay` (`btn-reset-clock-today`):** Cho phép đặt lại trạng thái chấm công 1-chạm ngay trên giao diện `/clock` kèm hộp thoại xác nhận an toàn và ghi nhận sự kiện kiểm toán `attendance.reset_clock_shifts`.
+   - **Kiểm toán & sửa lỗi chức năng `/clock` (`ClockScreen.tsx`, `AttendanceService`):**
+     - Bổ sung đồng hồ đếm thời gian làm việc trực tiếp từng giây (`HH:MM:SS`, `data-testid="live-shift-timer"`), thời gian tạm nghỉ hiện tại và huy hiệu tổng hợp ca hôm nay (`data-testid="today-attendance-summary"`).
+     - Cho phép bấm nút **`Kết thúc ca`** trực tiếp ngay cả khi đang ở trạng thái tạm nghỉ (`paused` — tự động gọi `/resume` kết thúc lượt nghỉ trước khi gọi `/clock-out`).
+     - Bổ sung hiển thị chi tiết đơn giải trình và 2 nút **`Chấp nhận điều chỉnh` / `Từ chối`** trực tiếp trong chế độ xem **`Theo từng nhân viên` (`by_employee`)**.
+     - Chuẩn hóa múi giờ Việt Nam (`Asia/Ho_Chi_Minh`, `+07:00`) cho `<input type="datetime-local">` và bộ lọc ngày, nâng giới hạn tải lịch sử từ `100` lên `500` ca, tải song song dữ liệu khởi tạo (`Promise.all`) và sửa độ tương phản màu sắc ở chế độ Sáng (`Light Mode`).
+5. **Phụ thuộc:** `Hotfix PAY-MONTH-SELECT-0915` (`v0.9.15` — `13e9847`).
+6. **Acceptance Criteria:** Migration `0040` khớp 1:1 với `EMBEDDED_MIGRATIONS` trong `catalog.ts` (`migrator.test.mjs` `15/15 PASS`); toàn bộ luồng `clock-in`, `breaks`, `resume`, `clock-out`, `correction-requests`, `decide`, `reviews`, `owner-close`, `reset-today` hoạt động chuẩn xác (`att-mvp.test.mjs` & `issue-cp22-fixes.test.mjs` `13/13 PASS`); giữ nguyên 61 ca `import` của `NV001`; vượt qua `clock-screen.test.mjs`, `version.test.mjs`, `typecheck`, `build`, `build:web` & `check:bundle`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `att-mvp.test.mjs` (`1/1 PASS`), `issue-cp22-fixes.test.mjs` (`12/12 PASS`), `migrator.test.mjs` (`15/15 PASS`), `clock-screen.test.mjs` (`6/6 PASS`), `version.test.mjs` (`6/6 PASS`), `check:bundle` (`438.1 KB raw / 128.1 KB gzip — OK`).
+10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0040_reset_clock_shifts_start_from_today.sql`, `packages/database/src/migrations/catalog.ts`, `packages/contracts/src/attendance.ts`, `apps/api/src/attendance/service.ts`, `apps/api/src/app.ts`, `apps/web/src/screens/ClockScreen.tsx`, `tests/backend/att-mvp.test.mjs`, `tests/web/clock-screen.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** `main` (`v0.9.16`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.16` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.16` lên `ql.hoaiphuong.click`.
