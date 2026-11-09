@@ -26,6 +26,7 @@ export class ReportsService {
     client: PoolClient | Pool,
     workspaceId: string,
     userId: string,
+    options?: { allowOwnerAutoProvision?: boolean },
   ): Promise<{ id: string; full_name: string }> {
     const res = await client.query<{ id: string; full_name: string }>(
       `SELECT e.id, e.full_name
@@ -37,6 +38,90 @@ export class ReportsService {
     );
 
     if (res.rows.length === 0 || !res.rows[0]) {
+      const memberRes = await client.query<{
+        role: string;
+        username_normalized: string;
+      }>(
+        `SELECT m.role, u.username_normalized
+         FROM workspace_memberships m
+         JOIN users u ON u.id = m.user_id
+         WHERE m.workspace_id = $1 AND m.user_id = $2 AND m.status = 'active'
+         LIMIT 1;`,
+        [workspaceId, userId],
+      );
+      const member = memberRes.rows[0];
+      if (member) {
+        const username = (member.username_normalized || '')
+          .trim()
+          .toLowerCase();
+        const candidateRes = await client.query<{
+          id: string;
+          full_name: string;
+          employment_status: string;
+        }>(
+          `SELECT id, full_name, employment_status
+           FROM employees
+           WHERE workspace_id = $1
+             AND (
+               user_id = $2
+               OR (
+                 user_id IS NULL
+                 AND (
+                   LOWER(employee_code) = $3
+                   OR ($4 = 'owner' AND UPPER(employee_code) IN ('OWNER', 'OWNER_01', 'ADM01', 'ADMIN'))
+                 )
+               )
+             )
+           ORDER BY (user_id = $2) DESC, (employment_status = 'active') DESC, created_at ASC
+           LIMIT 1;`,
+          [workspaceId, userId, username, member.role],
+        );
+
+        if (candidateRes.rows.length > 0 && candidateRes.rows[0]) {
+          const candidate = candidateRes.rows[0];
+          if (
+            candidate.employment_status === 'active' ||
+            member.role === 'owner'
+          ) {
+            await client.query(
+              `UPDATE employees
+               SET user_id = COALESCE(user_id, $1),
+                   employment_status = 'active',
+                   updated_at = now()
+               WHERE id = $2 AND workspace_id = $3;`,
+              [userId, candidate.id, workspaceId],
+            );
+            return { id: candidate.id, full_name: candidate.full_name };
+          }
+        }
+
+        if (options?.allowOwnerAutoProvision && member.role === 'owner') {
+          const codeCandidate = 'ADM01';
+          const createdOwnerEmp = await client.query<{
+            id: string;
+            full_name: string;
+          }>(
+            `INSERT INTO employees (
+               workspace_id,
+               user_id,
+               employee_code,
+               full_name,
+               employment_status,
+               is_payroll_eligible
+             ) VALUES ($1, $2, $3, $4, 'active', false)
+             ON CONFLICT (workspace_id, employee_code) DO UPDATE
+               SET user_id = COALESCE(employees.user_id, EXCLUDED.user_id),
+                   employment_status = 'active',
+                   updated_at = now()
+             RETURNING id, full_name;`,
+            [workspaceId, userId, codeCandidate, 'Quản trị viên (Admin)'],
+          );
+          if (createdOwnerEmp.rows[0]) {
+            return createdOwnerEmp.rows[0];
+          }
+        }
+      }
+
       throw new AuthError(
         'EMPLOYEE_NOT_FOUND',
         'Active employee profile required in workspace',
@@ -85,6 +170,7 @@ export class ReportsService {
       notes?: string | null | undefined;
       work_item_id?: string | null | undefined;
     }>,
+    startSortOrder = 0,
   ): Promise<ReportEntryData[]> {
     const linked = [
       ...new Set(
@@ -126,7 +212,7 @@ export class ReportsService {
           item.work_type.trim(),
           Number(item.reported_count),
           item.notes || null,
-          i,
+          startSortOrder + i,
           item.work_item_id ?? null,
         ],
       );
@@ -286,11 +372,23 @@ export class ReportsService {
       cursor?: string | undefined;
     } = {},
   ): Promise<ListReportsResponseData> {
-    const employee = await this.resolveEmployeeForUser(
-      this.pool,
-      context.workspace.id,
-      context.user.id,
-    );
+    let employee: { id: string; full_name: string };
+    try {
+      employee = await this.resolveEmployeeForUser(
+        this.pool,
+        context.workspace.id,
+        context.user.id,
+      );
+    } catch (err) {
+      if (
+        err instanceof AuthError &&
+        err.code === 'EMPLOYEE_NOT_FOUND' &&
+        context.workspace.role === 'owner'
+      ) {
+        return { items: [], next_cursor: null };
+      }
+      throw err;
+    }
 
     const limit = Math.min(Math.max(Number(options.limit) || 30, 1), 100);
     const conditions: string[] = ['r.workspace_id = $1', 'r.employee_id = $2'];
@@ -587,17 +685,56 @@ export class ReportsService {
 
   /**
    * POST /api/v1/reports/daily
-   * Creates a new draft daily report with initial entries and draft revision.
+   * Creates a new draft daily report with initial entries and draft revision,
+   * or merges/submits when requested.
    */
   async createReport(
     context: AuthenticatedContext,
     payload: CreateReportRequestBody,
   ): Promise<DailyReportData> {
-    const employee = await this.resolveEmployeeForUser(
-      this.pool,
-      context.workspace.id,
-      context.user.id,
-    );
+    let employee: { id: string; full_name: string };
+    const requestedEmpId =
+      typeof payload.employee_id === 'string' ? payload.employee_id.trim() : '';
+
+    if (
+      requestedEmpId &&
+      requestedEmpId !== 'self' &&
+      context.workspace.role === 'owner'
+    ) {
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          requestedEmpId,
+        )
+      ) {
+        throw new AuthError(
+          'INVALID_REQUEST',
+          'Mã nhân viên báo cáo không hợp lệ.',
+          400,
+        );
+      }
+      const empRes = await this.pool.query<{ id: string; full_name: string }>(
+        `SELECT id, full_name
+         FROM employees
+         WHERE workspace_id = $1 AND id = $2 AND employment_status = 'active'
+         LIMIT 1;`,
+        [context.workspace.id, requestedEmpId],
+      );
+      if (empRes.rows.length === 0 || !empRes.rows[0]) {
+        throw new AuthError(
+          'EMPLOYEE_NOT_FOUND',
+          'Nhân sự được chọn không tồn tại hoặc đã ngừng hoạt động.',
+          404,
+        );
+      }
+      employee = empRes.rows[0];
+    } else {
+      employee = await this.resolveEmployeeForUser(
+        this.pool,
+        context.workspace.id,
+        context.user.id,
+        { allowOwnerAutoProvision: context.workspace.role === 'owner' },
+      );
+    }
 
     if (
       !payload.report_date ||
@@ -612,27 +749,174 @@ export class ReportsService {
 
     const reportDate = payload.report_date.trim();
     this.validateEntries(payload.entries);
+    const submitNow = Boolean(payload.submit_now);
+    const mergeIfExists = Boolean(payload.merge_if_exists);
 
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Check duplicate report for this date
-      const checkRes = await client.query(
-        `SELECT id FROM daily_reports
-         WHERE workspace_id = $1 AND employee_id = $2 AND report_date = $3;`,
+      // Check existing report for this date
+      const checkRes = await client.query<{
+        id: string;
+        workspace_id: string;
+        employee_id: string;
+        report_date: string;
+        status: 'draft' | 'submitted';
+        current_revision: number;
+        version: number;
+        notes: string | null;
+        created_at: string;
+        updated_at: string;
+        submitted_at: string | null;
+      }>(
+        `SELECT id, workspace_id, employee_id, report_date::text, status, current_revision, version, notes, created_at::text, updated_at::text, submitted_at::text
+         FROM daily_reports
+         WHERE workspace_id = $1 AND employee_id = $2 AND report_date = $3
+         FOR UPDATE;`,
         [context.workspace.id, employee.id, reportDate],
       );
 
-      if (checkRes.rows.length > 0) {
-        throw new AuthError(
-          'REPORT_ALREADY_EXISTS',
-          `Daily report already exists for ${reportDate}`,
-          409,
+      if (checkRes.rows.length > 0 && checkRes.rows[0]) {
+        if (!mergeIfExists) {
+          throw new AuthError(
+            'REPORT_ALREADY_EXISTS',
+            `Daily report already exists for ${reportDate}`,
+            409,
+          );
+        }
+
+        const existing = checkRes.rows[0];
+        const maxSortRes = await client.query<{ max_sort: number }>(
+          `SELECT COALESCE(MAX(sort_order), -1)::int AS max_sort
+           FROM daily_report_entries
+           WHERE workspace_id = $1 AND report_id = $2;`,
+          [context.workspace.id, existing.id],
         );
+        const startSortOrder = (maxSortRes.rows[0]?.max_sort ?? -1) + 1;
+
+        await this.insertEntries(
+          client,
+          context.workspace.id,
+          existing.id,
+          payload.entries,
+          startSortOrder,
+        );
+
+        const allEntriesRes = await client.query<ReportEntryData>(
+          `SELECT e.id, e.work_type, e.reported_count, e.notes, e.sort_order,
+                  e.work_item_id, w.title AS work_item_title
+           FROM daily_report_entries e
+           LEFT JOIN work_items w ON w.workspace_id = e.workspace_id AND w.id = e.work_item_id
+           WHERE e.workspace_id = $1 AND e.report_id = $2
+           ORDER BY e.sort_order ASC, e.created_at ASC;`,
+          [context.workspace.id, existing.id],
+        );
+        const allEntries = allEntriesRes.rows;
+
+        const incomingNotes = (payload.notes || '').trim();
+        const currentNotes = (existing.notes || '').trim();
+        let mergedNotes: string | null = existing.notes;
+        if (incomingNotes) {
+          if (!currentNotes) {
+            mergedNotes = incomingNotes;
+          } else if (!currentNotes.includes(incomingNotes)) {
+            mergedNotes = `${currentNotes} | ${incomingNotes}`;
+          }
+        }
+
+        const shouldBeSubmitted = existing.status === 'submitted' || submitNow;
+        const nextRevision =
+          existing.status === 'submitted'
+            ? existing.current_revision + 1
+            : existing.current_revision;
+
+        const updatedReportRes = await client.query<{
+          id: string;
+          workspace_id: string;
+          employee_id: string;
+          report_date: string;
+          status: 'draft' | 'submitted';
+          current_revision: number;
+          version: number;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          submitted_at: string | null;
+        }>(
+          `UPDATE daily_reports
+           SET status = $1,
+               current_revision = $2,
+               notes = $3,
+               submitted_at = CASE WHEN $1 = 'submitted' THEN COALESCE(submitted_at, now()) ELSE submitted_at END,
+               version = version + 1,
+               updated_at = now()
+           WHERE workspace_id = $4 AND id = $5
+           RETURNING id, workspace_id, employee_id, report_date::text, status, current_revision, version, notes, created_at::text, updated_at::text, submitted_at::text;`,
+          [
+            shouldBeSubmitted ? 'submitted' : 'draft',
+            nextRevision,
+            mergedNotes,
+            context.workspace.id,
+            existing.id,
+          ],
+        );
+
+        const updatedReport = updatedReportRes.rows[0]!;
+
+        if (shouldBeSubmitted) {
+          await client.query(
+            `INSERT INTO daily_report_revisions (
+               workspace_id,
+               report_id,
+               revision_number,
+               status,
+               snapshot,
+               reason,
+               edited_by
+             ) VALUES ($1, $2, $3, 'submitted', $4, $5, $6);`,
+            [
+              context.workspace.id,
+              existing.id,
+              nextRevision,
+              JSON.stringify({
+                entries: allEntries.map((e) => ({
+                  work_type: e.work_type,
+                  reported_count: e.reported_count,
+                  notes: e.notes,
+                  work_item_id: e.work_item_id ?? null,
+                })),
+                notes: mergedNotes,
+              }),
+              existing.status === 'submitted'
+                ? 'Bổ sung công việc trong ngày'
+                : 'Nộp báo cáo',
+              context.user.id,
+            ],
+          );
+        }
+
+        await client.query('COMMIT');
+
+        return {
+          id: updatedReport.id,
+          workspace_id: updatedReport.workspace_id,
+          employee_id: updatedReport.employee_id,
+          employee_name: employee.full_name,
+          report_date: updatedReport.report_date,
+          status: updatedReport.status,
+          current_revision: updatedReport.current_revision,
+          version: updatedReport.version,
+          notes: updatedReport.notes,
+          created_at: updatedReport.created_at,
+          updated_at: updatedReport.updated_at,
+          submitted_at: updatedReport.submitted_at,
+          entries: allEntries,
+        };
       }
 
-      // Create report in draft status
+      // Create new report in draft or submitted status
+      const initialStatus = submitNow ? 'submitted' : 'draft';
       const insertReportRes = await client.query<{
         id: string;
         workspace_id: string;
@@ -653,10 +937,17 @@ export class ReportsService {
            status,
            current_revision,
            version,
-           notes
-         ) VALUES ($1, $2, $3, 'draft', 1, 1, $4)
+           notes,
+           submitted_at
+         ) VALUES ($1, $2, $3, $4, 1, 1, $5, CASE WHEN $4 = 'submitted' THEN now() ELSE NULL END)
          RETURNING id, workspace_id, employee_id, report_date::text, status, current_revision, version, notes, created_at::text, updated_at::text, submitted_at::text;`,
-        [context.workspace.id, employee.id, reportDate, payload.notes || null],
+        [
+          context.workspace.id,
+          employee.id,
+          reportDate,
+          initialStatus,
+          payload.notes || null,
+        ],
       );
 
       const report = insertReportRes.rows[0]!;
@@ -668,6 +959,34 @@ export class ReportsService {
         report.id,
         payload.entries,
       );
+
+      if (submitNow) {
+        await client.query(
+          `INSERT INTO daily_report_revisions (
+             workspace_id,
+             report_id,
+             revision_number,
+             status,
+             snapshot,
+             reason,
+             edited_by
+           ) VALUES ($1, $2, 1, 'submitted', $3, 'Nộp báo cáo', $4);`,
+          [
+            context.workspace.id,
+            report.id,
+            JSON.stringify({
+              entries: createdEntries.map((e) => ({
+                work_type: e.work_type,
+                reported_count: e.reported_count,
+                notes: e.notes,
+                work_item_id: e.work_item_id ?? null,
+              })),
+              notes: report.notes,
+            }),
+            context.user.id,
+          ],
+        );
+      }
 
       await client.query('COMMIT');
 
@@ -754,8 +1073,10 @@ export class ReportsService {
 
       const report = selectRes.rows[0];
 
-      // Only report owner can edit draft
-      if (report.report_user_id !== context.user.id) {
+      // Only report owner or workspace Owner can edit draft
+      const isOwner = context.workspace.role === 'owner';
+      const isReportOwner = report.report_user_id === context.user.id;
+      if (!isOwner && !isReportOwner) {
         throw new AuthError('REPORT_NOT_FOUND', 'Daily report not found', 404);
       }
 
@@ -891,7 +1212,9 @@ export class ReportsService {
 
       const report = selectRes.rows[0];
 
-      if (report.report_user_id !== context.user.id) {
+      const isOwner = context.workspace.role === 'owner';
+      const isReportOwner = report.report_user_id === context.user.id;
+      if (!isOwner && !isReportOwner) {
         throw new AuthError('REPORT_NOT_FOUND', 'Daily report not found', 404);
       }
 
@@ -1039,7 +1362,9 @@ export class ReportsService {
 
       const report = selectRes.rows[0];
 
-      if (report.report_user_id !== context.user.id) {
+      const isOwner = context.workspace.role === 'owner';
+      const isReportOwner = report.report_user_id === context.user.id;
+      if (!isOwner && !isReportOwner) {
         throw new AuthError('REPORT_NOT_FOUND', 'Daily report not found', 404);
       }
 

@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.16';
-export const SYSTEM_COMMIT = '13e9847';
+export const SYSTEM_VERSION = '0.9.17';
+export const SYSTEM_COMMIT = '9b599df';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,28 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.16',
+    version: '0.9.17',
     commit: 'latest',
+    released_at: '2026-11-09',
+    summary:
+      'Khắc phục triệt để lỗi đăng nhập NV002 & nhân sự (Migration 0041): hỗ trợ đăng nhập bằng Mã nhân viên (NV002, NV001…), tên đăng nhập, SĐT hoặc email; tự động kích hoạt tài khoản NV002 và bổ sung đặt/đổi mật khẩu trực tiếp cho nhân viên trên trang Nhân sự.',
+    added: [
+      'Cho phép đăng nhập bằng Mã nhân viên (NV002 / nv002, NV001…), tên đăng nhập, số điện thoại hoặc email trên trang Đăng nhập (/login).',
+      'Bổ sung ô Đặt / Đổi mật khẩu đăng nhập và Tên đăng nhập trực tiếp cho Chủ sở hữu trên trang Tạo nhân sự mới (/employees/new) và Chi tiết nhân sự (/employees/:id).',
+      'Nút "Nộp báo cáo ngay" / "Bổ sung & Cập nhật báo cáo" 1-chạm và ô chọn "Nhân viên báo cáo" cho Chủ sở hữu trên trang Báo cáo ngày (/reports).',
+    ],
+    improved: [
+      'Tự động liên kết & kích hoạt tài khoản đăng nhập, quyền truy cập workspace và quyền Quản lý phụ (Sub-Admin) cho NV002 ngay khi đăng nhập hoặc cập nhật hồ sơ.',
+      'Tự động cộng gộp bổ sung đầu mục mới vào báo cáo đã có trong cùng ngày (/reports) thay vì báo lỗi 409 trùng ngày.',
+    ],
+    fixed: [
+      'Khắc phục lỗi NV002 bị kẹt trạng thái chưa kích hoạt / inactive hoặc thiếu liên kết tài khoản khiến đăng nhập báo lỗi 401/409 (Migration 0041).',
+      'Xóa URL chuyển hướng cũ (post_login_redirect) không đủ quyền sau khi đăng nhập để nhân viên / Quản lý phụ không bị rơi vào màn hình 403.',
+    ],
+  },
+  {
+    version: '0.9.16',
+    commit: '9b599df',
     released_at: '2026-11-09',
     summary:
       'Kiểm toán & nâng cấp toàn diện trang Bấm giờ (/clock, /attendance) và đặt lại trạng thái chấm công để bắt đầu làm việc mới từ hôm nay (giữ nguyên 100% 61 ca bảng công Google Sheet của NV001).',

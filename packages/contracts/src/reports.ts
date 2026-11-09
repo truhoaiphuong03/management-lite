@@ -76,6 +76,9 @@ export interface CreateReportRequestBody {
     work_item_id?: string | null | undefined;
   }>;
   notes?: string | null | undefined;
+  employee_id?: string | null | undefined;
+  merge_if_exists?: boolean | undefined;
+  submit_now?: boolean | undefined;
 }
 
 export interface UpdateReportRequestBody {

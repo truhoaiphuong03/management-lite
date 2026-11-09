@@ -2540,7 +2540,14 @@ export function createRequestHandler(
         requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
 
         const body = await parseJsonBody<Record<string, unknown>>(req);
-        assertAllowedFields(body, ['report_date', 'entries', 'notes']);
+        assertAllowedFields(body, [
+          'report_date',
+          'entries',
+          'notes',
+          'employee_id',
+          'merge_if_exists',
+          'submit_now',
+        ]);
 
         const data = await reportsService.createReport(
           sessionContext,

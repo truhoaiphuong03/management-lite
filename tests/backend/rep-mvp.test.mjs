@@ -553,6 +553,45 @@ test('MVP Phase 4 REP: Draft, Submit, Revise (C02), History, Owner View, and RBA
         /daily_report_revisions is append-only/,
         'Trigger must block DELETE on daily_report_revisions',
       );
+
+      // =========================================================================
+      // Test 10: Owner merge_if_exists + employee_id + submit_now (v0.9.17)
+      // =========================================================================
+      const ownerMergeRes = await makeRequest(
+        `${baseUrl}/api/v1/reports/daily`,
+        {
+          method: 'POST',
+          headers: {
+            Origin: allowedOrigin,
+            Cookie: owner.cookie,
+            'X-CSRF-Token': owner.csrfToken,
+          },
+          body: {
+            report_date: today,
+            employee_id: staff1.empId,
+            merge_if_exists: true,
+            submit_now: true,
+            entries: [
+              {
+                work_type: 'Làm video Hưng',
+                reported_count: 3,
+                notes: '1 cái đã đăng 2 cái nháp',
+              },
+            ],
+            notes: '1 cái đã đăng 2 cái nháp',
+          },
+        },
+      );
+      assert.equal(ownerMergeRes.status, 201);
+      assert.equal(ownerMergeRes.body.data.id, reportId);
+      assert.equal(ownerMergeRes.body.data.status, 'submitted');
+      assert.equal(ownerMergeRes.body.data.current_revision, 3);
+      assert.equal(ownerMergeRes.body.data.entries.length, 3);
+      assert.equal(
+        ownerMergeRes.body.data.entries[2].work_type,
+        'Làm video Hưng',
+      );
+      assert.equal(ownerMergeRes.body.data.entries[2].reported_count, 3);
     } finally {
       await new Promise((res) => server.close(res));
     }

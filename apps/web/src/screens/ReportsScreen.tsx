@@ -155,7 +155,12 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
 }) => {
   // Work items the user can link a report entry to (nhận việc ↔ báo cáo).
   const [workOptions, setWorkOptions] = useState<
-    { id: string; title: string; status: string }[]
+    {
+      id: string;
+      title: string;
+      status: string;
+      assignments?: { employee_id: string }[];
+    }[]
   >([]);
   useEffect(() => {
     let alive = true;
@@ -170,6 +175,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
           id: string;
           title: string;
           status: string;
+          assignments?: { employee_id: string }[];
         }[];
         if (alive)
           setWorkOptions(items.filter((w) => w.status !== 'cancelled'));
@@ -188,6 +194,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
 
   // Auth / CSRF State
   const [csrfToken, setCsrfToken] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
 
   // Data states
   const [myReports, setMyReports] = useState<DailyReportListItem[]>([]);
@@ -265,6 +272,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
     typeof window !== 'undefined' &&
       window.location.pathname === '/reports/new',
   );
+  const [createEmployeeId, setCreateEmployeeId] = useState<string>('self');
   const [newReportDate, setNewReportDate] = useState<string>(
     getVietnamTodayString(),
   );
@@ -430,6 +438,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
         if (signal?.aborted) return;
         if (authData.data?.csrf_token) {
           setCsrfToken(authData.data.csrf_token);
+        }
+        if (authData.data?.user?.id) {
+          setCurrentUserId(authData.data.user.id);
         }
       }
 
@@ -663,8 +674,67 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
     }
   }, [filterEmployeeId, filterStatus, filterDate]);
 
+  const myEmployeeId = useMemo(() => {
+    if (myReports.length > 0 && myReports[0]?.employee_id) {
+      return myReports[0].employee_id;
+    }
+    if (currentUserId && employees.length > 0) {
+      const found = employees.find((e) => e.user_id === currentUserId);
+      if (found) return found.id;
+    }
+    return '';
+  }, [myReports, currentUserId, employees]);
+
+  const existingReportForSelection = useMemo(() => {
+    if (!newReportDate) return null;
+    if (role === 'owner' && createEmployeeId && createEmployeeId !== 'self') {
+      return (
+        allReports.find(
+          (r) =>
+            r.employee_id === createEmployeeId &&
+            r.report_date === newReportDate,
+        ) || null
+      );
+    }
+    return (
+      myReports.find((r) => r.report_date === newReportDate) ||
+      (myEmployeeId
+        ? allReports.find(
+            (r) =>
+              r.employee_id === myEmployeeId && r.report_date === newReportDate,
+          ) || null
+        : null)
+    );
+  }, [
+    newReportDate,
+    role,
+    createEmployeeId,
+    allReports,
+    myReports,
+    myEmployeeId,
+  ]);
+
+  const createModalWorkOptions = useMemo(() => {
+    const targetEmpId =
+      role === 'owner' && createEmployeeId && createEmployeeId !== 'self'
+        ? createEmployeeId
+        : myEmployeeId;
+    if (!targetEmpId) return workOptions;
+    return workOptions.filter((w) => {
+      if (!Array.isArray(w.assignments)) return true;
+      return w.assignments.some((a) => a.employee_id === targetEmpId);
+    });
+  }, [workOptions, role, createEmployeeId, myEmployeeId]);
+
   // Open Create Modal
-  const handleOpenCreateModal = () => {
+  const handleOpenCreateModal = (targetEmpId?: string | React.MouseEvent) => {
+    const explicitEmpId =
+      typeof targetEmpId === 'string' && targetEmpId.trim()
+        ? targetEmpId.trim()
+        : role === 'owner' && filterEmployeeId !== 'all'
+          ? filterEmployeeId
+          : 'self';
+    setCreateEmployeeId(explicitEmpId);
     setNewReportDate(getVietnamTodayString());
     setNewReportNotes('');
     setNewReportEntries([
@@ -705,20 +775,53 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
     );
   };
 
-  // Create Draft Report
-  const handleCreateReport = async () => {
+  // Create or Merge Daily Report (Draft or Immediate Submit)
+  const handleCreateReport = async (submitNow = false) => {
     if (!newReportDate) {
-      setErrorMessage('Vui lòng chọn ngày báo cáo');
+      setErrorMessage('Vui lòng chọn ngày báo cáo.');
       return;
     }
     if (newReportEntries.length === 0) {
-      setErrorMessage('Báo cáo phải có ít nhất một đầu mục công việc');
+      setErrorMessage('Báo cáo phải có ít nhất một đầu mục công việc.');
       return;
     }
+    for (let i = 0; i < newReportEntries.length; i++) {
+      const entry = newReportEntries[i]!;
+      if (!entry.work_type || !entry.work_type.trim()) {
+        setErrorMessage(
+          `Vui lòng nhập tên hoặc loại công việc ở đầu mục #${i + 1}.`,
+        );
+        return;
+      }
+      const count = Number(entry.reported_count);
+      if (!Number.isInteger(count) || count < 0) {
+        setErrorMessage(
+          `Số lượng (SL) ở đầu mục #${i + 1} phải là số nguyên không âm.`,
+        );
+        return;
+      }
+    }
 
+    const hadExisting = Boolean(existingReportForSelection);
     setActionLoading(true);
     setErrorMessage(null);
     try {
+      const payloadBody: Record<string, unknown> = {
+        report_date: newReportDate,
+        entries: newReportEntries.map((e) => ({
+          work_type: e.work_type.trim(),
+          reported_count: Number(e.reported_count) || 0,
+          notes: e.notes?.trim() ? e.notes.trim() : undefined,
+          work_item_id: e.work_item_id || null,
+        })),
+        notes: newReportNotes.trim() || undefined,
+        merge_if_exists: true,
+        submit_now: Boolean(submitNow),
+      };
+      if (role === 'owner' && createEmployeeId && createEmployeeId !== 'self') {
+        payloadBody.employee_id = createEmployeeId;
+      }
+
       const res = await fetch('/api/v1/reports/daily', {
         method: 'POST',
         headers: {
@@ -726,26 +829,30 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
           'X-CSRF-Token': csrfToken,
         },
         credentials: 'include',
-        body: JSON.stringify({
-          report_date: newReportDate,
-          entries: newReportEntries.map((e) => ({
-            work_type: e.work_type,
-            reported_count: Number(e.reported_count) || 0,
-            notes: e.notes || undefined,
-            work_item_id: e.work_item_id || null,
-          })),
-          notes: newReportNotes || undefined,
-        }),
+        body: JSON.stringify(payloadBody),
       });
 
       const data = await res.json();
       if (!res.ok) {
         throw new Error(
-          data.error?.message || 'Không thể tạo bản nháp báo cáo',
+          data.error?.message || 'Không thể lưu báo cáo công việc',
         );
       }
 
-      setSuccessMessage('Đã tạo bản nháp báo cáo thành công!');
+      const savedStatus = data.data?.status;
+      if (hadExisting) {
+        setSuccessMessage(
+          savedStatus === 'submitted'
+            ? `Đã bổ sung đầu mục và cập nhật báo cáo ngày ${formatVnReportDate(newReportDate)} thành công!`
+            : `Đã cộng gộp đầu mục vào bản nháp ngày ${formatVnReportDate(newReportDate)}!`,
+        );
+      } else if (submitNow || savedStatus === 'submitted') {
+        setSuccessMessage(
+          `Đã tạo và nộp báo cáo ngày ${formatVnReportDate(newReportDate)} thành công!`,
+        );
+      } else {
+        setSuccessMessage('Đã tạo bản nháp báo cáo thành công!');
+      }
       setShowCreateModal(false);
       await fetchMyReports();
       if (role === 'owner') await fetchAllReports();
@@ -1133,14 +1240,17 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
       )}
 
       {/* Feedback Messages */}
-      {errorMessage && (
-        <div style={{ marginBottom: '16px' }}>
-          <ErrorState
-            message={errorMessage}
-            onRetry={() => setErrorMessage(null)}
-          />
-        </div>
-      )}
+      {errorMessage &&
+        !showCreateModal &&
+        !showEditDraftModal &&
+        !showReviseModal && (
+          <div style={{ marginBottom: '16px' }}>
+            <ErrorState
+              message={errorMessage}
+              onRetry={() => setErrorMessage(null)}
+            />
+          </div>
+        )}
 
       {successMessage && (
         <div
@@ -1739,6 +1849,30 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         </option>
                       </select>
                     )}
+
+                    <button
+                      type="button"
+                      data-testid={`create-report-for-${group.employeeId}`}
+                      onClick={() => handleOpenCreateModal(group.employeeId)}
+                      disabled={actionLoading}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                        color: 'var(--accent-text)',
+                        border: '1px solid rgba(20, 184, 166, 0.45)',
+                        minHeight: '34px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <PlusIcon size={13} />
+                      <span>Thêm / Bổ sung</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1839,12 +1973,56 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                             )}
                           </div>
 
-                          <ActionIconButton
-                            action="view"
-                            target={`Báo cáo ngày ${formatVnReportDate(report.report_date)}`}
-                            label="Chi tiết & Lịch sử"
-                            onClick={() => handleOpenDetailModal(report.id)}
-                          />
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            {isDraft ? (
+                              <>
+                                <ActionIconButton
+                                  action="edit"
+                                  target={`Nháp ngày ${formatVnReportDate(report.report_date)}`}
+                                  label="Sửa nháp"
+                                  onClick={() => handleOpenEditDraft(report)}
+                                  disabled={actionLoading}
+                                />
+                                <AppButton
+                                  variant="primary"
+                                  onClick={() => handleSubmitReport(report)}
+                                  disabled={actionLoading}
+                                  style={{
+                                    fontSize: '12px',
+                                    minHeight: '34px',
+                                    padding: '4px 10px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                >
+                                  <CheckIcon size={13} />
+                                  <span>Nộp</span>
+                                </AppButton>
+                              </>
+                            ) : (
+                              <ActionIconButton
+                                action="edit"
+                                target={`Báo cáo ngày ${formatVnReportDate(report.report_date)}`}
+                                label="Chỉnh sửa / Bổ sung (C02)"
+                                onClick={() => handleOpenReviseModal(report)}
+                                disabled={actionLoading}
+                              />
+                            )}
+                            <ActionIconButton
+                              action="view"
+                              target={`Báo cáo ngày ${formatVnReportDate(report.report_date)}`}
+                              label="Chi tiết & Lịch sử"
+                              onClick={() => handleOpenDetailModal(report.id)}
+                            />
+                          </div>
                         </div>
 
                         {cleanNotes && (
@@ -2183,7 +2361,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               border: '1px solid var(--border-subtle)',
               borderRadius: '12px',
               width: '100%',
-              maxWidth: '600px',
+              maxWidth: '680px',
               maxHeight: '90vh',
               overflowY: 'auto',
               padding: '24px',
@@ -2212,6 +2390,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               </h3>
               <button
                 type="button"
+                aria-label="Đóng cửa sổ tạo báo cáo"
                 onClick={() => setShowCreateModal(false)}
                 style={{
                   background: 'none',
@@ -2225,34 +2404,151 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               </button>
             </div>
 
-            <div>
-              <label
+            {errorMessage && (
+              <div
+                data-testid="modal-error-banner"
+                role="alert"
                 style={{
-                  display: 'block',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: 'var(--danger-text, #EF4444)',
                   fontSize: '13px',
-                  color: 'var(--muted-color)',
-                  marginBottom: '6px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '10px',
                 }}
               >
-                Ngày báo cáo *
-              </label>
-              <input
-                type="date"
-                value={newReportDate}
-                onChange={(e) => setNewReportDate(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  color: 'var(--text-color)',
-                  fontSize: '14px',
-                  minHeight: '44px',
-                  boxSizing: 'border-box',
-                }}
-              />
+                <span>⚠️ {errorMessage}</span>
+                <button
+                  type="button"
+                  aria-label="Đóng thông báo lỗi"
+                  onClick={() => setErrorMessage(null)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--danger-text, #EF4444)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                  }}
+                >
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+            )}
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  role === 'owner'
+                    ? 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))'
+                    : '1fr',
+                gap: '12px',
+              }}
+            >
+              {role === 'owner' && (
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      color: 'var(--muted-color)',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Nhân viên báo cáo *
+                  </label>
+                  <select
+                    aria-label="Nhân viên báo cáo"
+                    data-testid="create-report-employee-select"
+                    value={createEmployeeId}
+                    onChange={(e) => setCreateEmployeeId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: 'var(--surface-subtle)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      color: 'var(--text-color)',
+                      fontSize: '14px',
+                      minHeight: '44px',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <option value="self">
+                      Bản thân (Chủ sở hữu / Quản trị viên)
+                    </option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.full_name} ({emp.employee_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: 'var(--muted-color)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Ngày báo cáo *
+                </label>
+                <input
+                  type="date"
+                  value={newReportDate}
+                  onChange={(e) => setNewReportDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    color: 'var(--text-color)',
+                    fontSize: '14px',
+                    minHeight: '44px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
             </div>
+
+            {existingReportForSelection && (
+              <div
+                data-testid="existing-report-merge-notice"
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                  border: '1px solid rgba(20, 184, 166, 0.35)',
+                  color: 'var(--text-color)',
+                  fontSize: '12px',
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong style={{ color: 'var(--accent-text)' }}>
+                  ℹ️ Đã có báo cáo ngày {formatVnReportDate(newReportDate)}:
+                </strong>{' '}
+                Hiện đang ở trạng thái{' '}
+                <strong>
+                  {existingReportForSelection.status === 'submitted'
+                    ? 'Đã nộp'
+                    : 'Bản nháp'}
+                </strong>{' '}
+                ({existingReportForSelection.entries_count} đầu mục • Tổng sản
+                lượng: {existingReportForSelection.total_reported_count}). Các
+                đầu mục công việc bạn nhập dưới đây sẽ được{' '}
+                <strong>cộng gộp bổ sung</strong> vào báo cáo ngày này.
+              </div>
+            )}
 
             {/* Entries Form List */}
             <div>
@@ -2290,137 +2586,185 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               </div>
 
               <div
-                style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}
               >
                 {newReportEntries.map((item, index) => (
                   <div
                     key={index}
                     style={{
                       display: 'flex',
+                      flexDirection: 'column',
                       gap: '8px',
-                      alignItems: 'center',
                       backgroundColor: 'var(--surface-subtle)',
-                      padding: '8px 10px',
-                      borderRadius: '6px',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
                       border: '1px solid var(--border-subtle)',
                     }}
                   >
-                    <input
-                      type="text"
-                      placeholder="Loại công việc (vd: video_editing, support)"
-                      value={item.work_type}
-                      onChange={(e) =>
-                        handleUpdateEntryRow(
-                          index,
-                          'work_type',
-                          e.target.value,
-                          setNewReportEntries,
-                        )
-                      }
+                    <div
                       style={{
-                        flex: '2 1 140px',
-                        padding: '8px 10px',
-                        backgroundColor: 'var(--bg-color)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        color: 'var(--text-color)',
-                        fontSize: '13px',
+                        display: 'flex',
+                        gap: '8px',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
                       }}
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="SL"
-                      value={item.reported_count}
-                      onChange={(e) =>
-                        handleUpdateEntryRow(
-                          index,
-                          'reported_count',
-                          Number(e.target.value),
-                          setNewReportEntries,
-                        )
-                      }
-                      style={{
-                        width: '70px',
-                        padding: '8px 10px',
-                        backgroundColor: 'var(--bg-color)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        color: 'var(--text-color)',
-                        fontSize: '13px',
-                        textAlign: 'right',
-                      }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Ghi chú (tùy chọn)"
-                      value={item.notes}
-                      onChange={(e) =>
-                        handleUpdateEntryRow(
-                          index,
-                          'notes',
-                          e.target.value,
-                          setNewReportEntries,
-                        )
-                      }
-                      style={{
-                        flex: '3 1 160px',
-                        padding: '8px 10px',
-                        backgroundColor: 'var(--bg-color)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        color: 'var(--text-color)',
-                        fontSize: '13px',
-                      }}
-                    />
-                    {workOptions.length > 0 && (
-                      <select
-                        aria-label="Công việc liên quan"
-                        value={item.work_item_id ?? ''}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Tên / Loại công việc (vd: Làm video Hưng, video_editing)"
+                        value={item.work_type}
                         onChange={(e) =>
                           handleUpdateEntryRow(
                             index,
-                            'work_item_id',
+                            'work_type',
                             e.target.value,
                             setNewReportEntries,
                           )
                         }
                         style={{
-                          flex: '2 1 150px',
-                          minWidth: 0,
+                          flex: '1 1 220px',
                           padding: '8px 10px',
                           backgroundColor: 'var(--bg-color)',
                           border: '1px solid var(--border-color)',
-                          borderRadius: '4px',
+                          borderRadius: '6px',
                           color: 'var(--text-color)',
                           fontSize: '13px',
+                          minHeight: '38px',
+                        }}
+                      />
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
                         }}
                       >
-                        <option value="">Công việc liên quan (tùy chọn)</option>
-                        {workOptions.map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.title}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    {newReportEntries.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleRemoveEntryRow(index, setNewReportEntries)
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--muted-color)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          SL:
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="SL"
+                          value={item.reported_count}
+                          onChange={(e) =>
+                            handleUpdateEntryRow(
+                              index,
+                              'reported_count',
+                              Number(e.target.value),
+                              setNewReportEntries,
+                            )
+                          }
+                          style={{
+                            width: '80px',
+                            padding: '8px 10px',
+                            backgroundColor: 'var(--bg-color)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '6px',
+                            color: 'var(--text-color)',
+                            fontSize: '13px',
+                            textAlign: 'right',
+                            fontWeight: 700,
+                            minHeight: '38px',
+                          }}
+                        />
+                      </div>
+                      {newReportEntries.length > 1 && (
+                        <button
+                          type="button"
+                          aria-label={`Xóa đầu mục ${index + 1}`}
+                          onClick={() =>
+                            handleRemoveEntryRow(index, setNewReportEntries)
+                          }
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--danger-text)',
+                            cursor: 'pointer',
+                            padding: '4px',
+                          }}
+                        >
+                          <CloseIcon size={16} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '8px',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Ghi chú chi tiết đầu mục (vd: 1 cái đã đăng, 2 cái nháp)"
+                        value={item.notes}
+                        onChange={(e) =>
+                          handleUpdateEntryRow(
+                            index,
+                            'notes',
+                            e.target.value,
+                            setNewReportEntries,
+                          )
                         }
                         style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--danger-text)',
-                          cursor: 'pointer',
-                          padding: '4px',
+                          flex: '2 1 220px',
+                          padding: '8px 10px',
+                          backgroundColor: 'var(--bg-color)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '6px',
+                          color: 'var(--text-color)',
+                          fontSize: '13px',
+                          minHeight: '38px',
                         }}
-                      >
-                        <CloseIcon size={16} />
-                      </button>
-                    )}
+                      />
+                      {createModalWorkOptions.length > 0 && (
+                        <select
+                          aria-label="Công việc liên quan"
+                          value={item.work_item_id ?? ''}
+                          onChange={(e) =>
+                            handleUpdateEntryRow(
+                              index,
+                              'work_item_id',
+                              e.target.value,
+                              setNewReportEntries,
+                            )
+                          }
+                          style={{
+                            flex: '1 1 200px',
+                            minWidth: 0,
+                            padding: '8px 10px',
+                            backgroundColor: 'var(--bg-color)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '6px',
+                            color: 'var(--text-color)',
+                            fontSize: '13px',
+                            minHeight: '38px',
+                          }}
+                        >
+                          <option value="">
+                            Công việc liên quan (tùy chọn)
+                          </option>
+                          {createModalWorkOptions.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.title}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -2460,6 +2804,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 display: 'flex',
                 gap: '10px',
                 justifyContent: 'flex-end',
+                flexWrap: 'wrap',
                 marginTop: '10px',
               }}
             >
@@ -2471,13 +2816,29 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               >
                 Hủy bỏ
               </AppButton>
+              {(!existingReportForSelection ||
+                existingReportForSelection.status === 'draft') && (
+                <AppButton
+                  variant="secondary"
+                  onClick={() => handleCreateReport(false)}
+                  disabled={actionLoading}
+                  style={{ minHeight: '44px' }}
+                >
+                  {actionLoading ? 'Đang lưu…' : 'Lưu bản nháp'}
+                </AppButton>
+              )}
               <AppButton
+                data-testid="create-and-submit-report-btn"
                 variant="primary"
-                onClick={handleCreateReport}
+                onClick={() => handleCreateReport(true)}
                 disabled={actionLoading}
                 style={{ minHeight: '44px' }}
               >
-                {actionLoading ? 'Đang lưu…' : 'Lưu bản nháp'}
+                {actionLoading
+                  ? 'Đang xử lý…'
+                  : existingReportForSelection?.status === 'submitted'
+                    ? 'Bổ sung & Cập nhật báo cáo'
+                    : 'Nộp báo cáo ngay'}
               </AppButton>
             </div>
           </div>
@@ -2535,6 +2896,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               </h3>
               <button
                 type="button"
+                aria-label="Đóng cửa sổ chỉnh sửa bản nháp"
                 onClick={() => setShowEditDraftModal(false)}
                 style={{
                   background: 'none',
@@ -2547,6 +2909,42 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 <CloseIcon size={20} />
               </button>
             </div>
+
+            {errorMessage && (
+              <div
+                data-testid="modal-error-banner"
+                role="alert"
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: 'var(--danger-text, #EF4444)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                <span>⚠️ {errorMessage}</span>
+                <button
+                  type="button"
+                  aria-label="Đóng thông báo lỗi"
+                  onClick={() => setErrorMessage(null)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--danger-text, #EF4444)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                  }}
+                >
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+            )}
 
             {/* Entries Form List */}
             <div>
@@ -2843,6 +3241,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
               </div>
               <button
                 type="button"
+                aria-label="Đóng cửa sổ chỉnh sửa báo cáo"
                 onClick={() => setShowReviseModal(false)}
                 style={{
                   background: 'none',
@@ -2855,6 +3254,42 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 <CloseIcon size={20} />
               </button>
             </div>
+
+            {errorMessage && (
+              <div
+                data-testid="modal-error-banner"
+                role="alert"
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: 'var(--danger-text, #EF4444)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                <span>⚠️ {errorMessage}</span>
+                <button
+                  type="button"
+                  aria-label="Đóng thông báo lỗi"
+                  onClick={() => setErrorMessage(null)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--danger-text, #EF4444)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                  }}
+                >
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+            )}
 
             <div
               style={{

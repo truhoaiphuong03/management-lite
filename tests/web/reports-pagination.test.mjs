@@ -443,4 +443,46 @@ test('REPORTS-PAGINATION — Contract & Implementation Verification', async (t) 
       );
     },
   );
+
+  // 11. REP-MODAL-MERGE-0917: Modal error banner, Owner employee selector, same-day merge_if_exists & 1-click submit_now
+  await t.test(
+    '11. REP-MODAL-MERGE-0917: ReportsScreen renders modal-error-banner, employee selector, merge_if_exists & submit_now',
+    () => {
+      const screen = readFileSync(screenPath, 'utf8');
+      assert.ok(
+        screen.includes('data-testid="modal-error-banner"'),
+        'Must render modal-error-banner inside modal dialog so errors are never hidden behind backdrop',
+      );
+      assert.ok(
+        screen.includes('data-testid="create-report-employee-select"'),
+        'Must allow Owner to select target employee in Create Report modal',
+      );
+      assert.ok(
+        screen.includes('data-testid="existing-report-merge-notice"'),
+        'Must display existing-report-merge-notice when date already has a report',
+      );
+      assert.ok(
+        screen.includes('data-testid="create-and-submit-report-btn"'),
+        'Must provide 1-click create-and-submit-report-btn in Create Report modal',
+      );
+      assert.ok(
+        screen.includes('merge_if_exists: true'),
+        'Must pass merge_if_exists: true from Create Report modal',
+      );
+      assert.ok(
+        serviceCode.includes('payload.merge_if_exists'),
+        'ReportsService.createReport must merge into existing report when merge_if_exists is true',
+      );
+      assert.ok(
+        serviceCode.includes('payload.submit_now'),
+        'ReportsService.createReport must support 1-step submit_now',
+      );
+      assert.ok(
+        appCode.includes("'merge_if_exists'") &&
+          appCode.includes("'submit_now'") &&
+          appCode.includes("'employee_id'"),
+        'app.ts must allow employee_id, merge_if_exists, and submit_now on POST /api/v1/reports/daily',
+      );
+    },
+  );
 });

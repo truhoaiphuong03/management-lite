@@ -939,6 +939,30 @@
 8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
 9. **Kết quả test:** `PASS` — `att-mvp.test.mjs` (`1/1 PASS`), `issue-cp22-fixes.test.mjs` (`12/12 PASS`), `migrator.test.mjs` (`15/15 PASS`), `clock-screen.test.mjs` (`6/6 PASS`), `version.test.mjs` (`6/6 PASS`), `check:bundle` (`438.1 KB raw / 128.1 KB gzip — OK`).
 10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0040_reset_clock_shifts_start_from_today.sql`, `packages/database/src/migrations/catalog.ts`, `packages/contracts/src/attendance.ts`, `apps/api/src/attendance/service.ts`, `apps/api/src/app.ts`, `apps/web/src/screens/ClockScreen.tsx`, `tests/backend/att-mvp.test.mjs`, `tests/web/clock-screen.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
-11. **Commit / PR:** `main` (`v0.9.16`)
-12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.16` lên `ql.hoaiphuong.click`)_
-13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.16` lên `ql.hoaiphuong.click`.
+11. **Commit / PR:** `main` (`9b599df` • `v0.9.16`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chuyển sang `Task REP-MODAL-MERGE-0917` `v0.9.17`)_
+13. **NEXT_ACTION:** Chuyển sang `Task REP-MODAL-MERGE-0917` (`Hotfix REP-MODAL-MERGE-0917` — `v0.9.17`).
+
+---
+
+## HOTFIX REP-MODAL-MERGE-0917 — SỬA LỖI HỘP THOẠI TẠO/BỔ SUNG BÁO CÁO CÔNG VIỆC NGÀY TRÊN `/reports` (`v0.9.17`)
+
+### Task `REP-MODAL-MERGE-0917` — Hiển Thị Lỗi Trực Tiếp Trong Modal, Tự Động Gộp Bổ Sung Vào Báo Cáo Cùng Ngày (`merge_if_exists`), Chọn Nhân Viên Cho Owner & Nút Nộp Ngay (`v0.9.17`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Hotfix REP-MODAL-MERGE-0917` (`v0.9.17`)
+3. **Task ID:** `REP-MODAL-MERGE-0917`
+4. **Mô tả:** Xử lý triệt để lỗi báo cáo trên trang `/reports` (`https://ql.hoaiphuong.click/reports` — ảnh chụp màn hình `19:01 09/11/2026` khi nhập `"Làm video Hưng | 3 | 1 cái đã đăng 2 cái nháp"` trong hộp thoại **Tạo báo cáo công việc ngày**):
+   - **Sửa lỗi khung báo lỗi bị che khuất phía sau màn chắn Modal (`ReportsScreen.tsx`):** Trước đây `errorMessage` chỉ hiển thị ở `<ErrorState>` trên trang nền phía sau lớp phủ `zIndex: 1000` (hiện vệt hồng/đỏ hai bên hông hộp thoại nhưng người dùng trong modal không đọc được nội dung lỗi). Đã bổ sung `data-testid="modal-error-banner"` hiển thị trực tiếp bên trong cả 3 hộp thoại (`Tạo báo cáo ngày`, `Chỉnh sửa báo cáo nháp`, `Chỉnh sửa báo cáo đã nộp`) và tự động ẩn `<ErrorState>` nền khi hộp thoại đang mở.
+   - **Tự động gộp bổ sung đầu mục khi ngày báo cáo đã có sẵn báo cáo (`merge_if_exists: true`):** Khi nhân viên (như `NV001 Nguyễn Huỳnh Thế Vinh` đã nộp báo cáo ngày `09/11/2026` lúc `17:01`) hoặc Owner bấm **`+ Tạo báo cáo ngày`** lúc `19:01` để ghi thêm đầu mục công việc mới trong cùng ngày, hệ thống hiển thị thông báo xanh (`existing-report-merge-notice`) và tự động nối thêm đầu mục mới + ghi chú vào báo cáo hiện có (nếu đã nộp sẽ tự động nâng lên phiên bản cập nhật `v2, v3...` giữ nguyên lịch sử C02) thay vì chặn bằng lỗi `409 Conflict: Daily report already exists for 2026-11-09`.
+   - **Cho phép Chủ sở hữu (`Owner`) chọn nhân viên báo cáo & tự động liên kết/khởi tạo `ADM01` (`ReportsService`):** Bổ sung ô chọn **`Nhân viên báo cáo`** (`data-testid="create-report-employee-select"`) trong hộp thoại tạo báo cáo cho Owner, nút **`+ Thêm / Bổ sung`** ngay trên từng thẻ nhân viên ở góc nhìn `Theo từng nhân viên`, tự động liên kết/khởi tạo hồ sơ `ADM01` trong `resolveEmployeeForUser`, và cho phép Owner cùng sửa nháp / nộp / cập nhật báo cáo trong Workspace.
+   - **Nút `Nộp báo cáo ngay` (`submit_now: true`) & Bố cục 2 dòng rõ ràng không cắt chữ:** Mở rộng hộp thoại lên `680px`, tách mỗi đầu mục công việc thành bố cục 2 dòng thoáng đãng (hàng 1: `Nội dung công việc *` + `Số lượng *`, hàng 2: `Ghi chú chi tiết` + `Công việc được giao liên quan` lọc đúng theo nhân viên) để không còn bị cắt chữ `"1 cái đã đăng 2 cái nh..."`, đồng thời bổ sung nút **`Nộp báo cáo ngay`** (`create-and-submit-report-btn`) cạnh nút `Lưu bản nháp`.
+5. **Phụ thuộc:** `Hotfix ATT-CLOCK-RESET-0916` (`v0.9.16` — `9b599df`).
+6. **Acceptance Criteria:** `modal-error-banner` hiển thị rõ bên trong modal; tạo/bổ sung báo cáo trùng ngày với `merge_if_exists: true` gộp thành công (`201`) trong khi gọi API mặc định không cờ vẫn giữ nguyên `409 REPORT_ALREADY_EXISTS`; Owner chọn được nhân viên báo cáo và lọc đúng công việc của nhân viên đó; vượt qua `reports-pagination.test.mjs` (`11/11 PASS`), `reports-by-employee-qa.test.mjs` (`2/2 PASS`), `rep-mvp.test.mjs` (`1/1 PASS` gồm Test 10), `report-work-link-postgres.test.mjs` (`5/5 PASS`), `version.test.mjs` (`6/6 PASS`), `typecheck`, `build`, `build:web` & `check:bundle`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `reports-pagination.test.mjs` (`11/11 PASS`), `reports-by-employee-qa.test.mjs` (`2/2 PASS`), `rep-mvp.test.mjs` (`1/1 PASS`), `report-work-link-postgres.test.mjs` (`5/5 PASS`), `ui-report.test.mjs` (`2/2 PASS`), `version.test.mjs` (`6/6 PASS`), `check:bundle` (`439.3 KB raw / 128.4 KB gzip — OK`).
+10. **Evidence (`VERIFIED`):** `packages/contracts/src/reports.ts`, `packages/contracts/src/version.ts`, `apps/api/src/app.ts`, `apps/api/src/reports/service.ts`, `apps/web/src/screens/ReportsScreen.tsx`, `tests/web/reports-pagination.test.mjs`, `tests/backend/rep-mvp.test.mjs`, `package.json`.
+11. **Commit / PR:** `main` (`v0.9.17`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner gửi báo cáo lỗi trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.17` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.17` lên `ql.hoaiphuong.click`.
