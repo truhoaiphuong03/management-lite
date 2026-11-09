@@ -2762,11 +2762,12 @@ export function createRequestHandler(
         return;
       }
 
-      // Payroll tools (Owner): statistics by day/week/month/year and timesheet xlsx export/import.
+      // Payroll tools (Owner): statistics by day/week/month/year and timesheet xlsx export/import/sync-google-sheet.
       if (
         pathname === '/api/v1/payroll-tools/stats' ||
         pathname === '/api/v1/payroll-tools/timesheet/export' ||
-        pathname === '/api/v1/payroll-tools/timesheet/import'
+        pathname === '/api/v1/payroll-tools/timesheet/import' ||
+        pathname === '/api/v1/payroll-tools/timesheet/sync-google-sheet'
       ) {
         if (!authService || !timesheetService)
           throw new AuthError(
@@ -2825,6 +2826,41 @@ export function createRequestHandler(
             toolAuth,
             body as unknown as Parameters<
               TimesheetService['importWorkbook']
+            >[1],
+            requestId,
+          );
+          sendJson(
+            res,
+            data.committed ? 201 : 200,
+            createSuccessEnvelope(data, requestId),
+          );
+          return;
+        }
+        if (method === 'POST' && pathname.endsWith('/sync-google-sheet')) {
+          requireCsrf(req, toolAuth, csrfSecret, allowedOrigins);
+          const body = await parseJsonBody<Record<string, unknown>>(
+            req,
+            3 * 1024 * 1024,
+          );
+          if (!body || typeof body !== 'object' || Array.isArray(body))
+            throw new AuthError(
+              'VALIDATION_ERROR',
+              'Object body required',
+              400,
+            );
+          assertAllowedFields(body, [
+            'sheet_url',
+            'file_base64',
+            'year',
+            'employee_id',
+            'remove_nv002_payroll',
+            'preserve_newer_web_clockins',
+            'commit',
+          ]);
+          const data = await timesheetService.syncGoogleSheet(
+            toolAuth,
+            body as unknown as Parameters<
+              TimesheetService['syncGoogleSheet']
             >[1],
             requestId,
           );

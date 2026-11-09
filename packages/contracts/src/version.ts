@@ -3,8 +3,8 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.9.11';
-export const SYSTEM_COMMIT = '1448a5d';
+export const SYSTEM_VERSION = '0.9.12';
+export const SYSTEM_COMMIT = '90a6c5d';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {
@@ -41,8 +41,25 @@ export interface ReleaseHistoryEntry extends ReleaseNoteItem {
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.11',
+    version: '0.9.12',
     commit: 'latest',
+    released_at: '2026-11-09',
+    summary:
+      'Tự động đồng bộ & đối chiếu bảng lương trực tiếp từ Google Sheet (T6–T11), sửa bảng lương tháng 10 của NV001 (535.417 đ) và loại bỏ hoàn toàn lương NV002',
+    added: [
+      'Tính năng Tự động đồng bộ & Đối chiếu Chấm công Hệ thống ↔ Google Sheet trực tiếp trên /payroll/stats và nút 1-chạm trên /payroll (API POST /api/v1/payroll-tools/timesheet/sync-google-sheet).',
+      'Bảng đối chiếu chi tiết theo từng tháng và từng ngày (Khớp 100%, Lệch giờ, Thiếu trên HT, Chỉ có trên Web) phục vụ giai đoạn nhân viên chấm công trên Web song song với đối chiếu Excel.',
+    ],
+    improved: [
+      'Chuẩn hóa toàn diện lương NV001 (Nguyễn Huỳnh Thế Vinh, VCB 1031739417) từ T6 đến T11 khớp 100% với Google Sheet (61 ngày công, 188,53 giờ, tổng lương 4.427.502 đ).',
+    ],
+    fixed: [
+      'Sửa bảng lương tháng 10 (2026-10) của NV001 đúng đủ 9 ngày công (05, 13, 14, 15, 21, 27, 28, 29, 30/10 — 21,42 giờ — đơn giá 25.000 đ/h — 535.417 đ) và loại bỏ hoàn toàn lương/ca trùng của NV002 (Migration 0038).',
+    ],
+  },
+  {
+    version: '0.9.11',
+    commit: '90a6c5d',
     released_at: '2026-11-09',
     summary:
       'Thiết kế lại trang Danh mục thu chi (/finance/categories) theo Phương án A: Bảng danh sách 5 cột thẳng hàng, nền trắng sáng, xóa mảng xám thừa và chống nút Báo lỗi đè phân trang',

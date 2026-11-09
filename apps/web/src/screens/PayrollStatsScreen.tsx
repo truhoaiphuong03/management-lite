@@ -66,7 +66,98 @@ interface EmployeeOption {
   id: string;
   employee_code: string;
   full_name: string;
+  is_payroll_eligible?: boolean;
 }
+interface GoogleSheetDayRecon {
+  date: string;
+  month: number;
+  rate_vnd: number;
+  system_start: string | null;
+  system_end: string | null;
+  system_minutes: number;
+  system_hours: number;
+  system_wage_vnd: number;
+  system_source: 'clock' | 'import' | 'mixed' | null;
+  excel_start: string | null;
+  excel_end: string | null;
+  excel_minutes: number;
+  excel_hours: number;
+  excel_wage_vnd: number;
+  task: string;
+  diff_minutes: number;
+  diff_wage_vnd: number;
+  status: 'matched' | 'diff_hours' | 'only_excel' | 'only_system';
+}
+interface GoogleSheetMonthRecon {
+  month: string;
+  rate_vnd: number;
+  system_days: number;
+  system_minutes: number;
+  system_hours: number;
+  system_wage_vnd: number;
+  excel_days: number;
+  excel_minutes: number;
+  excel_hours: number;
+  excel_wage_vnd: number;
+  excel_formula_wage_vnd: number;
+  diff_days: number;
+  diff_minutes: number;
+  diff_hours: number;
+  diff_wage_vnd: number;
+  matched_days: number;
+  diff_hours_days: number;
+  only_excel_days: number;
+  only_system_days: number;
+  status: 'matched' | 'mismatch';
+}
+interface GoogleSheetReconSummary {
+  months: GoogleSheetMonthRecon[];
+  days: GoogleSheetDayRecon[];
+  totals: {
+    system_days: number;
+    system_minutes: number;
+    system_hours: number;
+    system_wage_vnd: number;
+    excel_days: number;
+    excel_minutes: number;
+    excel_hours: number;
+    excel_wage_vnd: number;
+    excel_formula_wage_vnd: number;
+    diff_days: number;
+    diff_minutes: number;
+    diff_hours: number;
+    diff_wage_vnd: number;
+    matched_days: number;
+    diff_hours_days: number;
+    only_excel_days: number;
+    only_system_days: number;
+  };
+}
+interface GoogleSheetSyncResponse {
+  committed: boolean;
+  sheet_id: string;
+  sheet_url: string;
+  source_mode: 'live_google_sheet' | 'uploaded_file' | 'canonical_fallback';
+  year: number;
+  employee: {
+    id: string;
+    code: string;
+    full_name: string;
+    bank_name: string | null;
+    bank_account_number: string | null;
+  };
+  nv002_status: {
+    found: boolean;
+    removed_from_payroll: boolean;
+    shifts_removed: number;
+  };
+  before_reconciliation: GoogleSheetReconSummary;
+  reconciliation: GoogleSheetReconSummary;
+  warnings: string[];
+}
+
+const DEFAULT_GOOGLE_SHEET_URL =
+  'https://docs.google.com/spreadsheets/d/11n-8Q2hjTZL9eC2RfHZoPTi6a5XHgQSVzFFl2qE-ktw/edit?usp=drive_link';
 interface ImportResult {
   committed: boolean;
   year: number;
@@ -168,6 +259,19 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
   useAutoDismiss(importMsg, () => setImportMsg(null), 4000);
   const [preview, setPreview] = useState<ImportResult | null>(null);
 
+  const [sheetUrl, setSheetUrl] = useState(DEFAULT_GOOGLE_SHEET_URL);
+  const [removeNv002, setRemoveNv002] = useState(true);
+  const [preserveNewerWeb, setPreserveNewerWeb] = useState(true);
+  const [gsBusy, setGsBusy] = useState(false);
+  const [gsMsg, setGsMsg] = useState<string | null>(null);
+  useAutoDismiss(gsMsg, () => setGsMsg(null), 5000);
+  const [gsResult, setGsResult] = useState<GoogleSheetSyncResponse | null>(
+    null,
+  );
+  const [reconFilter, setReconFilter] = useState<
+    'all' | 'mismatch_only' | string
+  >('all');
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -208,9 +312,15 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
           credentials: 'include',
         });
         const body = await res.json().catch(() => null);
-        const items = (body?.data?.items ?? []) as EmployeeOption[];
+        const rawItems = (body?.data?.items ?? []) as EmployeeOption[];
+        const eligibleItems = rawItems.filter(
+          (e) => e.is_payroll_eligible !== false && e.employee_code !== 'NV002',
+        );
+        const items = eligibleItems.length > 0 ? eligibleItems : rawItems;
         setEmployees(items);
-        if (items[0]) setXlsEmployee(items[0].id);
+        const nv001 =
+          items.find((e) => e.employee_code === 'NV001') ?? items[0];
+        if (nv001) setXlsEmployee(nv001.id);
       } catch {
         /* optional */
       }
@@ -233,6 +343,79 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
       `/reports?employee=${encodeURIComponent(employee)}&date=${encodeURIComponent(date)}`,
     );
     onNavigate?.('/reports');
+  };
+
+  const runGoogleSheetSync = async (commit: boolean) => {
+    setGsBusy(true);
+    setGsMsg(null);
+    try {
+      let token = csrf;
+      if (!token) {
+        const me = await fetch('/api/v1/auth/me', { credentials: 'include' });
+        const mb = await me.json().catch(() => null);
+        if (typeof mb?.data?.csrf_token === 'string') {
+          token = mb.data.csrf_token;
+          setCsrf(token);
+        }
+      }
+      const payload: Record<string, unknown> = {
+        sheet_url: sheetUrl.trim() || DEFAULT_GOOGLE_SHEET_URL,
+        year: xlsYear,
+        remove_nv002_payroll: removeNv002,
+        preserve_newer_web_clockins: preserveNewerWeb,
+        commit,
+      };
+      if (xlsEmployee) payload['employee_id'] = xlsEmployee;
+      const res = await fetch(
+        '/api/v1/payroll-tools/timesheet/sync-google-sheet',
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': token,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.success) {
+        throw new Error(
+          body?.error?.message ??
+            `Lỗi đồng bộ Google Sheet (HTTP ${res.status}).`,
+        );
+      }
+      const result = body.data as GoogleSheetSyncResponse;
+      setGsResult(result);
+      if (commit) {
+        setGsMsg(
+          `Đã đồng bộ chuẩn bảng lương ${result.employee.code} (${result.employee.full_name}): ${result.reconciliation.totals.excel_days} ngày công · ${result.reconciliation.totals.excel_hours} giờ · Tổng lương ${fmtVnd(result.reconciliation.totals.excel_wage_vnd)}${result.nv002_status.removed_from_payroll ? ' · Đã loại bỏ lương NV002' : ''}.`,
+        );
+        const yStart = `${result.year}-01-01`;
+        const yEnd = `${result.year}-12-31`;
+        if (from > yStart) setFrom(yStart);
+        if (to < yEnd) setTo(yEnd);
+        void load();
+      } else {
+        const diffDays =
+          result.reconciliation.totals.diff_hours_days +
+          result.reconciliation.totals.only_excel_days +
+          result.reconciliation.totals.only_system_days;
+        setGsMsg(
+          diffDays === 0
+            ? `✓ Đối chiếu hoàn tất: Hệ thống khớp 100% với Google Sheet (${result.reconciliation.totals.excel_days} ngày công · ${fmtVnd(result.reconciliation.totals.excel_wage_vnd)}).`
+            : `Phát hiện ${diffDays} ngày có chênh lệch giữa Hệ thống và Google Sheet. Bấm "⚡ Đồng bộ chuẩn theo Google Sheet" để chuẩn hóa.`,
+        );
+      }
+    } catch (e) {
+      setGsMsg(
+        e instanceof Error
+          ? e.message
+          : 'Không thể kết nối hoặc đồng bộ Google Sheet.',
+      );
+    } finally {
+      setGsBusy(false);
+    }
   };
 
   const runImport = async (commit: boolean) => {
@@ -552,6 +735,455 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
           </ul>
         </>
       )}
+
+      <AppCard
+        data-testid="google-sheet-sync-card"
+        style={{
+          ...card,
+          border: '1px solid rgba(20, 184, 166, 0.35)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            marginBottom: 8,
+          }}
+        >
+          <h3 style={{ margin: 0 }}>
+            🔄 Tự động Đồng bộ & Đối chiếu Bảng lương từ Google Sheet
+          </h3>
+          <a
+            href={sheetUrl.trim() || DEFAULT_GOOGLE_SHEET_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--accent-text, #0d9488)',
+              textDecoration: 'none',
+            }}
+          >
+            Mở Google Sheet gốc ↗
+          </a>
+        </div>
+        <p style={{ opacity: 0.8, fontSize: 13, marginTop: 0 }}>
+          Giai đoạn đầu nhân viên chấm công trực tiếp trên Web (
+          <code>/clock</code>) và đối chiếu song song với Google Sheet để kiểm
+          tra độ chính xác từng ngày/tháng. Bạn có thể bấm{' '}
+          <strong>Đối chiếu Hệ thống ↔ Excel</strong> để xem so sánh chi tiết
+          hoặc <strong>Đồng bộ chuẩn theo Google Sheet</strong> để chuẩn hóa
+          lương <strong>NV001</strong> và loại bỏ lương <strong>NV002</strong>.
+        </p>
+
+        <div style={grid}>
+          <label style={{ ...field, gridColumn: '1 / -1' }}>
+            Đường dẫn Google Sheet bảng chấm công
+            <input
+              data-testid="google-sheet-url-input"
+              style={input}
+              value={sheetUrl}
+              placeholder={DEFAULT_GOOGLE_SHEET_URL}
+              onChange={(e) => setSheetUrl(e.target.value)}
+            />
+          </label>
+          <label style={field}>
+            Năm đối chiếu
+            <input
+              type="number"
+              style={input}
+              min={2000}
+              max={2100}
+              value={xlsYear}
+              onChange={(e) => setXlsYear(Number(e.target.value))}
+            />
+          </label>
+          <label style={field}>
+            Nhân sự áp dụng (Mặc định NV001)
+            <select
+              style={input}
+              value={xlsEmployee}
+              onChange={(e) => setXlsEmployee(e.target.value)}
+            >
+              {employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.employee_code} — {e.full_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            gap: 16,
+            flexWrap: 'wrap',
+            marginTop: 12,
+            fontSize: 13,
+          }}
+        >
+          <label
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={preserveNewerWeb}
+              onChange={(e) => setPreserveNewerWeb(e.target.checked)}
+            />
+            <span>
+              Giữ nguyên các ca nhân viên chấm công trên Web phát sinh sau ngày
+              cuối trên Excel
+            </span>
+          </label>
+          <label
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={removeNv002}
+              onChange={(e) => setRemoveNv002(e.target.checked)}
+            />
+            <span>Loại bỏ hoàn toàn lương & ca trùng của NV002</span>
+          </label>
+        </div>
+
+        <div
+          style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}
+        >
+          <AppButton
+            data-testid="btn-reconcile-google-sheet"
+            variant="secondary"
+            isLoading={gsBusy}
+            onClick={() => void runGoogleSheetSync(false)}
+          >
+            🔍 Đối chiếu Hệ thống ↔ Excel
+          </AppButton>
+          <AppButton
+            data-testid="btn-sync-google-sheet"
+            variant="primary"
+            isLoading={gsBusy}
+            onClick={() => void runGoogleSheetSync(true)}
+          >
+            ⚡ Đồng bộ chuẩn theo Google Sheet (Chuẩn hóa NV001 & Loại bỏ NV002)
+          </AppButton>
+        </div>
+
+        {gsMsg && (
+          <div
+            role="status"
+            style={{
+              marginTop: 12,
+              padding: '10px 14px',
+              borderRadius: 8,
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {gsMsg}
+          </div>
+        )}
+
+        {gsResult && (
+          <div style={{ marginTop: 16 }}>
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 8,
+                backgroundColor: 'var(--surface-subtle, rgba(15,23,42,0.04))',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                fontSize: 13,
+                marginBottom: 14,
+              }}
+            >
+              <strong>
+                {gsResult.employee.code} — {gsResult.employee.full_name}
+              </strong>
+              {gsResult.employee.bank_account_number && (
+                <span>
+                  {' '}
+                  · TK: {gsResult.employee.bank_name ?? 'VCB'}{' '}
+                  {gsResult.employee.bank_account_number}
+                </span>
+              )}
+              {' · '}Tổng Hệ thống:{' '}
+              <strong>
+                {gsResult.reconciliation.totals.system_days} ngày (
+                {gsResult.reconciliation.totals.system_hours}h) ={' '}
+                {fmtVnd(gsResult.reconciliation.totals.system_wage_vnd)}
+              </strong>
+              {' · '}Tổng Excel:{' '}
+              <strong>
+                {gsResult.reconciliation.totals.excel_days} ngày (
+                {gsResult.reconciliation.totals.excel_hours}h) ={' '}
+                {fmtVnd(gsResult.reconciliation.totals.excel_wage_vnd)}
+              </strong>
+              {' · '}Chênh lệch:{' '}
+              <strong
+                style={{
+                  color:
+                    gsResult.reconciliation.totals.diff_wage_vnd === 0
+                      ? 'var(--success-text, #059669)'
+                      : 'var(--warning-text, #d97706)',
+                }}
+              >
+                {fmtVnd(gsResult.reconciliation.totals.diff_wage_vnd)}
+              </strong>
+              {gsResult.nv002_status.removed_from_payroll && (
+                <span
+                  style={{
+                    marginLeft: 8,
+                    color: 'var(--success-text, #059669)',
+                  }}
+                >
+                  · ✓ Đã loại bỏ lương NV002
+                </span>
+              )}
+            </div>
+
+            <h4 style={{ margin: '0 0 8px 0', fontSize: 14 }}>
+              1. Bảng tổng hợp đối chiếu theo tháng (Hệ thống ↔ File Excel)
+            </h4>
+            <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Tháng</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Đơn giá/giờ</th>
+                    <th style={{ ...th, textAlign: 'right' }}>
+                      Ngày (HT / Excel)
+                    </th>
+                    <th style={{ ...th, textAlign: 'right' }}>
+                      Số giờ (HT / Excel)
+                    </th>
+                    <th style={{ ...th, textAlign: 'right' }}>
+                      Lương Hệ thống
+                    </th>
+                    <th style={{ ...th, textAlign: 'right' }}>
+                      Lương File Excel
+                    </th>
+                    <th style={{ ...th, textAlign: 'right' }}>Chênh lệch</th>
+                    <th style={th}>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gsResult.reconciliation.months.map((m) => (
+                    <tr key={m.month}>
+                      <td style={td}>
+                        <strong>{m.month}</strong>
+                      </td>
+                      <td style={num}>{fmtVnd(m.rate_vnd)}</td>
+                      <td style={num}>
+                        {m.system_days} / {m.excel_days} ngày
+                      </td>
+                      <td style={num}>
+                        {m.system_hours}h / {m.excel_hours}h
+                      </td>
+                      <td style={num}>
+                        <strong>{fmtVnd(m.system_wage_vnd)}</strong>
+                      </td>
+                      <td style={num}>
+                        <strong>{fmtVnd(m.excel_wage_vnd)}</strong>
+                      </td>
+                      <td
+                        style={{
+                          ...num,
+                          color:
+                            m.diff_wage_vnd === 0
+                              ? 'var(--success-text, #059669)'
+                              : 'var(--danger-text, #dc2626)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {m.diff_wage_vnd === 0
+                          ? '0 đ'
+                          : `${m.diff_wage_vnd > 0 ? '+' : ''}${fmtVnd(m.diff_wage_vnd)}`}
+                      </td>
+                      <td style={td}>
+                        {m.status === 'matched' ? (
+                          <span
+                            style={{
+                              color: 'var(--success-text, #059669)',
+                              fontWeight: 600,
+                            }}
+                          >
+                            ✓ Khớp 100% ({m.matched_days} ngày)
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              color: 'var(--warning-text, #d97706)',
+                              fontWeight: 600,
+                            }}
+                          >
+                            ⚠ Lệch (Khớp {m.matched_days}, Lệch giờ{' '}
+                            {m.diff_hours_days}, Thiếu {m.only_excel_days}, Dư{' '}
+                            {m.only_system_days})
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 8,
+                flexWrap: 'wrap',
+                marginBottom: 8,
+              }}
+            >
+              <h4 style={{ margin: 0, fontSize: 14 }}>
+                2. Đối chiếu chi tiết từng ngày chấm công (Web ↔ Excel)
+              </h4>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <AppButton
+                  variant={reconFilter === 'all' ? 'primary' : 'secondary'}
+                  type="button"
+                  onClick={() => setReconFilter('all')}
+                >
+                  Tất cả ({gsResult.reconciliation.days.length})
+                </AppButton>
+                <AppButton
+                  variant={
+                    reconFilter === 'mismatch_only' ? 'primary' : 'secondary'
+                  }
+                  type="button"
+                  onClick={() => setReconFilter('mismatch_only')}
+                >
+                  Chỉ ngày lệch (
+                  {
+                    gsResult.reconciliation.days.filter(
+                      (d) => d.status !== 'matched',
+                    ).length
+                  }
+                  )
+                </AppButton>
+                {gsResult.reconciliation.months.map((m) => (
+                  <AppButton
+                    key={m.month}
+                    variant={reconFilter === m.month ? 'primary' : 'secondary'}
+                    type="button"
+                    onClick={() => setReconFilter(m.month)}
+                  >
+                    T{Number(m.month.slice(5, 7))}
+                  </AppButton>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto', maxHeight: 360 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Ngày</th>
+                    <th style={th}>Giờ Hệ thống</th>
+                    <th style={th}>Giờ Excel</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Số giờ HT</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Số giờ Excel</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Lương ngày</th>
+                    <th style={th}>Công việc (Excel)</th>
+                    <th style={th}>Kết quả</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gsResult.reconciliation.days
+                    .filter((d) => {
+                      if (reconFilter === 'mismatch_only')
+                        return d.status !== 'matched';
+                      if (reconFilter !== 'all')
+                        return d.date.startsWith(reconFilter);
+                      return true;
+                    })
+                    .map((d) => (
+                      <tr key={d.date}>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                          {fmtDate(d.date)}
+                        </td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                          {d.system_start && d.system_end
+                            ? `${d.system_start} – ${d.system_end} (${d.system_source === 'clock' ? 'Web' : 'Excel'})`
+                            : '—'}
+                        </td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                          {d.excel_start && d.excel_end
+                            ? `${d.excel_start} – ${d.excel_end}`
+                            : '—'}
+                        </td>
+                        <td style={num}>{d.system_hours}h</td>
+                        <td style={num}>{d.excel_hours}h</td>
+                        <td style={num}>{fmtVnd(d.excel_wage_vnd)}</td>
+                        <td style={{ ...td, maxWidth: 280 }}>
+                          {d.task || '—'}
+                        </td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                          {d.status === 'matched' ? (
+                            <span
+                              style={{
+                                color: 'var(--success-text, #059669)',
+                                fontWeight: 600,
+                              }}
+                            >
+                              ✓ Khớp
+                            </span>
+                          ) : d.status === 'diff_hours' ? (
+                            <span
+                              style={{
+                                color: 'var(--warning-text, #d97706)',
+                                fontWeight: 600,
+                              }}
+                            >
+                              ⚠ Lệch {d.diff_minutes > 0 ? '+' : ''}
+                              {d.diff_minutes} phút
+                            </span>
+                          ) : d.status === 'only_excel' ? (
+                            <span
+                              style={{
+                                color: 'var(--danger-text, #dc2626)',
+                                fontWeight: 600,
+                              }}
+                            >
+                              📌 Thiếu trên HT
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                color: 'var(--info-text, #0284c7)',
+                                fontWeight: 600,
+                              }}
+                            >
+                              🖥️ Chỉ có trên Web
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </AppCard>
 
       <AppCard style={card}>
         <h3 style={{ marginTop: 0 }}>Excel chấm công theo năm</h3>

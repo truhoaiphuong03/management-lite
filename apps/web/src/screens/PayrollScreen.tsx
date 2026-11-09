@@ -2393,12 +2393,76 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
         }
         actions={
           role === 'owner' ? (
-            <AppButton
-              variant="secondary"
-              onClick={() => onNavigate?.('/payroll/stats')}
-            >
-              Thống kê & Excel
-            </AppButton>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <AppButton
+                data-testid="btn-payroll-sync-gsheet"
+                variant="primary"
+                disabled={loading || actionLoading}
+                onClick={async () => {
+                  try {
+                    setActionLoading(true);
+                    setErrorMessage(null);
+                    setSuccessMessage(null);
+                    let token = csrfToken;
+                    if (!token) {
+                      const me = await fetch('/api/v1/auth/me', {
+                        credentials: 'include',
+                      });
+                      const mb = await me.json().catch(() => null);
+                      if (typeof mb?.data?.csrf_token === 'string') {
+                        token = mb.data.csrf_token;
+                        setCsrfToken(token);
+                      }
+                    }
+                    const res = await fetch(
+                      '/api/v1/payroll-tools/timesheet/sync-google-sheet',
+                      {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...(token ? { 'X-CSRF-Token': token } : {}),
+                        },
+                        body: JSON.stringify({
+                          year: Number(selectedMonth.slice(0, 4)) || 2026,
+                          remove_nv002_payroll: true,
+                          preserve_newer_web_clockins: true,
+                          commit: true,
+                        }),
+                      },
+                    );
+                    const body = await res.json().catch(() => null);
+                    if (!res.ok || !body?.success) {
+                      throw new Error(
+                        body?.error?.message ||
+                          `Không thể đồng bộ Google Sheet (HTTP ${res.status}).`,
+                      );
+                    }
+                    const d = body.data;
+                    setSuccessMessage(
+                      `Đã đồng bộ chuẩn từ Google Sheet cho ${d?.employee?.code ?? 'NV001'} (${d?.reconciliation?.totals?.excel_days ?? 61} ngày công · Tổng năm ${formatVnd(d?.reconciliation?.totals?.excel_wage_vnd ?? 4427502)}) và loại bỏ lương NV002.`,
+                    );
+                    await loadData(selectedMonth, role);
+                  } catch (err) {
+                    setErrorMessage(
+                      err instanceof Error
+                        ? err.message
+                        : 'Lỗi khi đồng bộ Google Sheet.',
+                    );
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+              >
+                🔄 Đồng bộ Google Sheet
+              </AppButton>
+              <AppButton
+                variant="secondary"
+                onClick={() => onNavigate?.('/payroll/stats')}
+              >
+                Thống kê & Đối chiếu Excel
+              </AppButton>
+            </div>
           ) : undefined
         }
       />

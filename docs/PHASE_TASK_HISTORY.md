@@ -820,6 +820,30 @@
 8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
 9. **Kết quả test:** `PASS` — `finance-categories-mounted.test.mjs` (`7/7 PASS`), `mobile-responsive-p0.test.mjs` (`6/6 PASS`), `version.test.mjs` (`6/6 PASS`), `check:bundle` (`432.0 KB raw / 126.2 KB gzip`), `canonical:verify` (`PASS`).
 10. **Evidence (`VERIFIED`):** `apps/web/src/screens/FinanceCategoriesScreen.tsx`, `tests/web/finance-categories-mounted.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
-11. **Commit / PR:** `main` (`v0.9.11`)
+11. **Commit / PR:** `main` (`90a6c5d` • `v0.9.11`)
 12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner đã chốt Phương án A; chờ Owner chạy lệnh phát hành lên `ql.hoaiphuong.click`)_
-13. **NEXT_ACTION:** Chờ GitHub Actions CI cho `v0.9.11` trên `main` báo xanh, sau đó Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.11` lên `ql.hoaiphuong.click`.
+13. **NEXT_ACTION:** Chuyển sang `Task PAY-GSHEET-SYNC-0912` (`Phase PAY-GSHEET-SYNC-0912` — `v0.9.12`).
+
+---
+
+## PHASE PAY-GSHEET-SYNC-0912 — TỰ ĐỒNG BỘ & ĐỐI CHIẾU BẢNG LƯƠNG TỪ GOOGLE SHEET, SỬA BẢNG LƯƠNG THÁNG 10 `NV001` & LOẠI BỎ LƯƠNG `NV002` (`v0.9.12`)
+
+### Task `PAY-GSHEET-SYNC-0912` — Kết Nối Google Sheet Bảng Chấm Công (`11n-8Q2hjTZL9eC2RfHZoPTi6a5XHgQSVzFFl2qE-ktw`), Chuẩn Hóa Lương `NV001` (`T6→T11`), Loại Bỏ `NV002` & Bảng Đối Chiếu Hệ Thống ↔ Excel (`v0.9.12`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase PAY-GSHEET-SYNC-0912` (`v0.9.12`)
+3. **Task ID:** `PAY-GSHEET-SYNC-0912`
+4. **Mô tả:** Giải quyết đồng bộ 4 yêu cầu của Owner từ file Google Sheet `https://docs.google.com/spreadsheets/d/11n-8Q2hjTZL9eC2RfHZoPTi6a5XHgQSVzFFl2qE-ktw/edit?usp=drive_link`:
+   - **Loại bỏ lương của `NV002`:** Đặt `is_payroll_eligible = false`, xóa toàn bộ ca chấm công nhập trùng, báo cáo ngày, lịch sử đơn giá và dòng bảng lương chưa giải ngân của `NV002`, đồng thời ẩn `NV002` khỏi bộ chọn nhân sự thống kê/nhập lương.
+   - **Sửa bảng lương Tháng 10 (`2026-10`) & chuẩn hóa tổng thể `NV001` (`Nguyễn Huỳnh Thế Vinh`, `VCB 1031739417`):** Cập nhật đầy đủ 9 ngày công Tháng 10 (`05, 13, 14, 15, 21, 27, 28, 29, 30/10` = `1.285 phút` / `21,42 giờ` × `25.000 đ/h` = **`535.417 đ`**) và toàn bộ 6 tháng `T6 → T11/2026` (`61 ngày công` | `11.312 phút` / `188,53 giờ` | tổng lương **`4.427.502 đ`** khớp file Excel `4.427.500 đ`) qua cả Migration `0038_sync_nv001_timesheet_and_remove_nv002_payroll.sql` (tự động áp dụng khi nâng cấp) và API `POST /api/v1/payroll-tools/timesheet/sync-google-sheet`.
+   - **Tự đồng bộ từ Google Sheet 1-chạm:** Tích hợp thẻ **🔄 Tự động Đồng bộ & Đối chiếu Bảng lương từ Google Sheet** trên `/payroll/stats` (`PayrollStatsScreen.tsx`) và nút **`🔄 Đồng bộ Google Sheet`** trên `/payroll` (`PayrollScreen.tsx`), cho phép tải trực tiếp file `.xlsx` từ Google Sheet hoặc dùng dữ liệu chuẩn `CANONICAL_NV001_MONTHS_2026` khi máy chủ ngoại tuyến, đồng thời bảo toàn các ca nhân viên chấm công trên Web phát sinh sau ngày cuối trên Excel (`preserve_newer_web_clockins`).
+   - **Đối chiếu Hệ thống ↔ Excel từng tháng & từng ngày:** Hiển thị bảng tổng hợp đối chiếu theo tháng (`T6..T11`) và bảng đối chiếu chi tiết từng ngày (`Tất cả`, `Chỉ ngày lệch`, lọc riêng `T6..T11`) để Owner và nhân viên dễ dàng quan sát độ chính xác giữa chấm công Web (`/clock`) và file Excel trong giai đoạn đầu vận hành.
+5. **Phụ thuộc:** `Phase FIN-CAT-UI-01` (`v0.9.11` — `90a6c5d`).
+6. **Acceptance Criteria:** Migration `0038` khớp 1:1 với `EMBEDDED_MIGRATIONS` trong `catalog.ts`; `CANONICAL_NV001_MONTHS_2026` khớp chính xác từng tháng `T6..T11` (đặc biệt `T10` = `9 ngày`, `21,42h`, `535.417 đ` và tổng `61 ngày`, `188,53h`, `4.427.502 đ`); `NV002` bị loại khỏi bảng lương; vượt qua `payroll-google-sheet-sync.test.mjs`, `migrator.test.mjs`, `payroll-screen.test.mjs`, `version.test.mjs`, `settings-screen.test.mjs` (`40/40 PASS`), `format`, `lint`, `typecheck`, `build`, `build:web`, `check:bundle` (`434.1 KB / 126.8 KB`) & `canonical:verify`.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `payroll-google-sheet-sync.test.mjs` (`3/3 PASS`), `migrator.test.mjs` (`15/15 PASS`), `payroll-screen.test.mjs` (`10/10 PASS`), `version.test.mjs` (`6/6 PASS`), `settings-screen.test.mjs` (`6/6 PASS`), `check:bundle` (`434.1 KB raw / 126.8 KB gzip`), `canonical:verify` (`PASS`).
+10. **Evidence (`VERIFIED`):** `packages/database/src/migrations/0038_sync_nv001_timesheet_and_remove_nv002_payroll.sql`, `packages/database/src/migrations/catalog.ts`, `apps/api/src/payroll/timesheet-service.ts`, `apps/api/src/app.ts`, `apps/web/src/screens/PayrollStatsScreen.tsx`, `apps/web/src/screens/PayrollScreen.tsx`, `tests/web/payroll-google-sheet-sync.test.mjs`, `package.json`, `packages/contracts/src/version.ts`.
+11. **Commit / PR:** `main` (`v0.9.12`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner yêu cầu trực tiếp; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.12` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Chờ GitHub Actions CI cho `v0.9.12` trên `main` báo xanh, sau đó Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để đưa `v0.9.12` lên `ql.hoaiphuong.click`.
