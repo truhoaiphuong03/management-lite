@@ -75,7 +75,6 @@ import { OrdersTab } from './printquote/OrdersTab.js';
 import { AnalyticsTab } from './printquote/AnalyticsTab.js';
 import type { ReceivablesLedgerPayload } from './printquote/ReceivablesTab.js';
 import type { PayablesLedgerPayload } from './printquote/PayablesTab.js';
-import { PdfPreviewModal } from './printquote/PdfPreviewModal.js';
 import { CatalogModalDialog } from './printquote/CatalogModalDialog.js';
 import { PqFileTextIcon } from './printquote/PrintQuoteIcons.js';
 import { PRINTQUOTE_STYLES } from './printquote/printquote-styles.js';
@@ -84,6 +83,12 @@ import type {
   PrintFinancialReportData,
   PrintHistoricalImportBatchData,
 } from '../../../../packages/contracts/src/printquote-finance.js';
+
+const LazyPdfPreviewModal = React.lazy(() =>
+  import('./printquote/PdfPreviewModal.js').then((m) => ({
+    default: m.PdfPreviewModal,
+  })),
+);
 
 const LazyReceivablesTab = React.lazy(() =>
   import('./printquote/ReceivablesTab.js').then((m) => ({
@@ -318,6 +323,8 @@ const PRINTQUOTE_CLIENT_CACHE_TTL_MS = 15_000;
 interface PrintQuoteClientCacheEntry {
   fetchRef: typeof fetch;
   coreFetchedAt: number;
+  ordersFetchedAt: number;
+  vendorsFetchedAt: number;
   vendors: PrintVendorData[];
   priceItems: PrintVendorPriceItemData[];
   customers: PrintCustomerData[];
@@ -336,14 +343,10 @@ interface PrintQuoteClientCacheEntry {
   importBatches: PrintHistoricalImportBatchData[];
 }
 
-const printQuoteClientCache = new Map<string, PrintQuoteClientCacheEntry>();
+let printQuoteCacheEpoch = 0;
 
-export function invalidatePrintQuoteClientCache(workspaceKey?: string): void {
-  if (!workspaceKey) {
-    printQuoteClientCache.clear();
-    return;
-  }
-  printQuoteClientCache.delete(workspaceKey);
+export function invalidatePrintQuoteClientCache(): void {
+  printQuoteCacheEpoch += 1;
 }
 
 export interface PrintQuoteScreenProps {
@@ -677,25 +680,117 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     }
   }, []);
 
-  const cacheKey = workspaceName || 'default';
+  const instanceCacheRef = useRef<PrintQuoteClientCacheEntry | null>(null);
+  const cacheEpochRef = useRef<number>(printQuoteCacheEpoch);
+  const mountedRef = useRef<boolean>(true);
+  const fetchGenRef = useRef<number>(0);
+  const ordersGenRef = useRef<number>(0);
   const viewModeRef = useRef<PrintQuoteViewMode>(viewMode);
   viewModeRef.current = viewMode;
+  const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [ordersAuthBlocked, setOrdersAuthBlocked] = useState<boolean>(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      fetchGenRef.current += 1;
+      ordersGenRef.current += 1;
+      instanceCacheRef.current = null;
+    };
+  }, []);
+
+  const handleEnsureVendorsLoaded = useCallback(async () => {
+    if (typeof window === 'undefined' || typeof fetch !== 'function') return;
+    const currentFetch = fetch;
+    const now = Date.now();
+    if (cacheEpochRef.current !== printQuoteCacheEpoch) {
+      instanceCacheRef.current = null;
+      cacheEpochRef.current = printQuoteCacheEpoch;
+    }
+    const entry = instanceCacheRef.current;
+    if (
+      entry &&
+      entry.fetchRef === currentFetch &&
+      entry.vendorsFetchedAt > 0 &&
+      now - entry.vendorsFetchedAt <= PRINTQUOTE_CLIENT_CACHE_TTL_MS
+    ) {
+      setVendors(entry.vendors);
+      return;
+    }
+    const reqEpoch = printQuoteCacheEpoch;
+    const reqGen = fetchGenRef.current;
+    try {
+      const vRes = await currentFetch('/api/v1/print-quotes/vendors', {
+        credentials: 'include',
+      });
+      if (
+        !mountedRef.current ||
+        reqEpoch !== printQuoteCacheEpoch ||
+        reqGen !== fetchGenRef.current
+      ) {
+        return;
+      }
+      if (vRes.ok) {
+        const j = await vRes.json();
+        if (
+          !mountedRef.current ||
+          reqEpoch !== printQuoteCacheEpoch ||
+          reqGen !== fetchGenRef.current
+        ) {
+          return;
+        }
+        const items: PrintVendorData[] = j?.data?.items || [];
+        setVendors(items);
+        const existing = instanceCacheRef.current;
+        if (existing && existing.fetchRef === currentFetch) {
+          existing.vendors = items;
+          existing.vendorsFetchedAt = Date.now();
+        }
+      }
+    } catch {
+      // Ignore vendor background fetch error
+    }
+  }, []);
 
   const loadDataForView = useCallback(
     async (targetView: PrintQuoteViewMode, force = false) => {
       if (typeof window === 'undefined' || typeof fetch !== 'function') return;
       const currentFetch = fetch;
       const now = Date.now();
-      let entry = printQuoteClientCache.get(cacheKey);
+      if (cacheEpochRef.current !== printQuoteCacheEpoch) {
+        instanceCacheRef.current = null;
+        cacheEpochRef.current = printQuoteCacheEpoch;
+      }
+      let entry = instanceCacheRef.current ?? undefined;
       if (entry && entry.fetchRef !== currentFetch) {
         entry = undefined;
+        instanceCacheRef.current = null;
       }
+      if (force) {
+        fetchGenRef.current += 1;
+      }
+      const reqGen = fetchGenRef.current;
+      const reqEpoch = printQuoteCacheEpoch;
+      const isStale = () =>
+        !mountedRef.current ||
+        reqGen !== fetchGenRef.current ||
+        reqEpoch !== printQuoteCacheEpoch;
 
+      const isIsolatedOrdersView = targetView === 'orders';
+      const needOrders =
+        isIsolatedOrdersView &&
+        (force ||
+          !entry ||
+          entry.ordersFetchedAt === 0 ||
+          now - entry.ordersFetchedAt > PRINTQUOTE_CLIENT_CACHE_TTL_MS);
       const needCore =
-        force ||
-        !entry ||
-        entry.coreFetchedAt === 0 ||
-        now - entry.coreFetchedAt > PRINTQUOTE_CLIENT_CACHE_TTL_MS;
+        !isIsolatedOrdersView &&
+        (force ||
+          !entry ||
+          entry.coreFetchedAt === 0 ||
+          now - entry.coreFetchedAt > PRINTQUOTE_CLIENT_CACHE_TTL_MS);
       const needReceivables =
         targetView === 'receivables' &&
         (force ||
@@ -735,6 +830,13 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           setQuotes(entry.quotes);
           setOrders(entry.orders);
           setStats(entry.stats);
+        } else {
+          if (entry.ordersFetchedAt > 0) {
+            setOrders(entry.orders);
+          }
+          if (entry.vendorsFetchedAt > 0) {
+            setVendors(entry.vendors);
+          }
         }
         if (entry.receivablesFetchedAt > 0) {
           setReceivablesSummary(entry.receivablesSummary);
@@ -754,6 +856,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       }
 
       if (
+        !needOrders &&
         !needCore &&
         !needReceivables &&
         !needPayables &&
@@ -765,10 +868,16 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       }
 
       setLoading(true);
+      if (needOrders) {
+        setOrdersLoading(true);
+        setOrdersError(null);
+      }
       try {
         const nextEntry: PrintQuoteClientCacheEntry = entry ?? {
           fetchRef: currentFetch,
           coreFetchedAt: 0,
+          ordersFetchedAt: 0,
+          vendorsFetchedAt: 0,
           vendors: [],
           priceItems: [],
           customers: [],
@@ -789,7 +898,63 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
         const tasks: Promise<void>[] = [];
 
+        if (needOrders) {
+          const reqOrderGen = ++ordersGenRef.current;
+          tasks.push(
+            (async () => {
+              try {
+                const oRes = await currentFetch('/api/v1/print-quotes/orders', {
+                  credentials: 'include',
+                });
+                if (isStale() || reqOrderGen !== ordersGenRef.current) return;
+                if (oRes.status === 401 || oRes.status === 403) {
+                  nextEntry.orders = [];
+                  nextEntry.ordersFetchedAt = 0;
+                  instanceCacheRef.current = null;
+                  setOrders([]);
+                  setPaymentOrderTarget(null);
+                  setOrdersAuthBlocked(true);
+                  const errJson = await oRes.json().catch(() => null);
+                  if (isStale() || reqOrderGen !== ordersGenRef.current) return;
+                  setOrdersError(
+                    errJson?.error?.message ||
+                      'Phiên làm việc đã hết hạn hoặc bạn không có quyền xem đơn hàng.',
+                  );
+                  return;
+                }
+                if (!oRes.ok) {
+                  const errJson = await oRes.json().catch(() => null);
+                  if (isStale() || reqOrderGen !== ordersGenRef.current) return;
+                  setOrdersError(
+                    errJson?.error?.message ||
+                      `Lỗi tải danh sách đơn hàng (HTTP ${oRes.status}).`,
+                  );
+                  return;
+                }
+                const j = await oRes.json();
+                if (isStale() || reqOrderGen !== ordersGenRef.current) return;
+                const items = j?.data?.items || [];
+                nextEntry.orders = items;
+                nextEntry.ordersFetchedAt = Date.now();
+                setOrdersAuthBlocked(false);
+                setOrders(items);
+                setOrdersError(null);
+              } catch {
+                if (isStale() || reqOrderGen !== ordersGenRef.current) return;
+                setOrdersError(
+                  'Không thể kết nối máy chủ để tải danh sách đơn hàng.',
+                );
+              } finally {
+                if (!isStale() && reqOrderGen === ordersGenRef.current) {
+                  setOrdersLoading(false);
+                }
+              }
+            })(),
+          );
+        }
+
         if (needCore) {
+          const reqOrderGen = ++ordersGenRef.current;
           tasks.push(
             (async () => {
               const [vRes, pRes, cRes, qRes, oRes, sRes] = await Promise.all([
@@ -812,44 +977,74 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                   credentials: 'include',
                 }),
               ]);
+              if (isStale()) return;
 
+              const fetchedAt = Date.now();
               if (vRes.ok) {
                 const j = await vRes.json();
-                const items = j?.data?.items || [];
-                nextEntry.vendors = items;
-                setVendors(items);
+                if (!isStale()) {
+                  const items = j?.data?.items || [];
+                  nextEntry.vendors = items;
+                  nextEntry.vendorsFetchedAt = fetchedAt;
+                  setVendors(items);
+                }
               }
               if (pRes.ok) {
                 const j = await pRes.json();
-                const items = j?.data?.items || [];
-                nextEntry.priceItems = items;
-                setPriceItems(items);
+                if (!isStale()) {
+                  const items = j?.data?.items || [];
+                  nextEntry.priceItems = items;
+                  setPriceItems(items);
+                }
               }
               if (cRes.ok) {
                 const j = await cRes.json();
-                const items = j?.data?.items || [];
-                nextEntry.customers = items;
-                setCustomers(items);
+                if (!isStale()) {
+                  const items = j?.data?.items || [];
+                  nextEntry.customers = items;
+                  setCustomers(items);
+                }
               }
               if (qRes.ok) {
                 const j = await qRes.json();
-                const items = j?.data?.items || [];
-                nextEntry.quotes = items;
-                setQuotes(items);
+                if (!isStale()) {
+                  const items = j?.data?.items || [];
+                  nextEntry.quotes = items;
+                  setQuotes(items);
+                }
               }
-              if (oRes.ok) {
-                const j = await oRes.json();
-                const items = j?.data?.items || [];
-                nextEntry.orders = items;
-                setOrders(items);
+              if (reqOrderGen === ordersGenRef.current) {
+                if (oRes.status === 401 || oRes.status === 403) {
+                  if (!isStale()) {
+                    nextEntry.orders = [];
+                    nextEntry.ordersFetchedAt = 0;
+                    setOrders([]);
+                    setPaymentOrderTarget(null);
+                    setOrdersAuthBlocked(true);
+                  }
+                } else if (oRes.ok) {
+                  const j = await oRes.json();
+                  if (!isStale() && reqOrderGen === ordersGenRef.current) {
+                    const items = j?.data?.items || [];
+                    nextEntry.orders = items;
+                    nextEntry.ordersFetchedAt = fetchedAt;
+                    setOrdersAuthBlocked(false);
+                    setOrders(items);
+                    setOrdersError(null);
+                  }
+                }
               }
               if (sRes.ok) {
                 const j = await sRes.json();
-                const data = j?.data || null;
-                nextEntry.stats = data;
-                setStats(data);
+                if (!isStale()) {
+                  const data = j?.data || null;
+                  nextEntry.stats = data;
+                  setStats(data);
+                }
               }
-              nextEntry.coreFetchedAt = Date.now();
+              if (!isStale()) {
+                nextEntry.coreFetchedAt = fetchedAt;
+              }
             })(),
           );
         }
@@ -861,13 +1056,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                 '/api/v1/print-quotes/receivables',
                 { credentials: 'include' },
               );
-              if (arRes.ok) {
+              if (!isStale() && arRes.ok) {
                 const j = await arRes.json();
-                const val =
-                  j?.data && Array.isArray(j.data.summaries) ? j.data : null;
-                nextEntry.receivablesSummary = val;
-                nextEntry.receivablesFetchedAt = Date.now();
-                setReceivablesSummary(val);
+                if (!isStale()) {
+                  const val =
+                    j?.data && Array.isArray(j.data.summaries) ? j.data : null;
+                  nextEntry.receivablesSummary = val;
+                  nextEntry.receivablesFetchedAt = Date.now();
+                  setReceivablesSummary(val);
+                }
               }
             })(),
           );
@@ -880,13 +1077,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                 '/api/v1/print-quotes/payables',
                 { credentials: 'include' },
               );
-              if (apRes.ok) {
+              if (!isStale() && apRes.ok) {
                 const j = await apRes.json();
-                const val =
-                  j?.data && Array.isArray(j.data.summaries) ? j.data : null;
-                nextEntry.payablesSummary = val;
-                nextEntry.payablesFetchedAt = Date.now();
-                setPayablesSummary(val);
+                if (!isStale()) {
+                  const val =
+                    j?.data && Array.isArray(j.data.summaries) ? j.data : null;
+                  nextEntry.payablesSummary = val;
+                  nextEntry.payablesFetchedAt = Date.now();
+                  setPayablesSummary(val);
+                }
               }
             })(),
           );
@@ -899,12 +1098,16 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                 '/api/v1/print-quotes/transactions',
                 { credentials: 'include' },
               );
-              if (txRes.ok) {
+              if (!isStale() && txRes.ok) {
                 const j = await txRes.json();
-                const val = Array.isArray(j?.data?.items) ? j.data.items : [];
-                nextEntry.unifiedTransactions = val;
-                nextEntry.transactionsFetchedAt = Date.now();
-                setUnifiedTransactions(val);
+                if (!isStale()) {
+                  const val = Array.isArray(j?.data?.items)
+                    ? j.data.items
+                    : [];
+                  nextEntry.unifiedTransactions = val;
+                  nextEntry.transactionsFetchedAt = Date.now();
+                  setUnifiedTransactions(val);
+                }
               }
             })(),
           );
@@ -917,15 +1120,17 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                 '/api/v1/print-quotes/financial-report',
                 { credentials: 'include' },
               );
-              if (frRes.ok) {
+              if (!isStale() && frRes.ok) {
                 const j = await frRes.json();
-                const val =
-                  j?.data && j.data.reconciled && j.data.cashflow_and_debt
-                    ? j.data
-                    : null;
-                nextEntry.financialReport = val;
-                nextEntry.reportsFetchedAt = Date.now();
-                setFinancialReport(val);
+                if (!isStale()) {
+                  const val =
+                    j?.data && j.data.reconciled && j.data.cashflow_and_debt
+                      ? j.data
+                      : null;
+                  nextEntry.financialReport = val;
+                  nextEntry.reportsFetchedAt = Date.now();
+                  setFinancialReport(val);
+                }
               }
             })(),
           );
@@ -938,32 +1143,41 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                 '/api/v1/print-quotes/import-history/batches',
                 { credentials: 'include' },
               );
-              if (imRes.ok) {
+              if (!isStale() && imRes.ok) {
                 const j = await imRes.json();
-                const val = Array.isArray(j?.data?.items) ? j.data.items : [];
-                nextEntry.importBatches = val;
-                nextEntry.importBatchesFetchedAt = Date.now();
-                setImportBatches(val);
+                if (!isStale()) {
+                  const val = Array.isArray(j?.data?.items)
+                    ? j.data.items
+                    : [];
+                  nextEntry.importBatches = val;
+                  nextEntry.importBatchesFetchedAt = Date.now();
+                  setImportBatches(val);
+                }
               }
             })(),
           );
         }
 
         await Promise.all(tasks);
-        printQuoteClientCache.set(cacheKey, nextEntry);
+        if (!isStale()) {
+          instanceCacheRef.current = nextEntry;
+        }
       } catch {
         // Ignore fetch errors in offline/SSR test environments
       } finally {
-        setLoading(false);
+        if (!isStale()) {
+          setLoading(false);
+        }
       }
     },
-    [cacheKey],
+    [],
   );
 
   const loadAllData = useCallback(async () => {
-    invalidatePrintQuoteClientCache(cacheKey);
+    instanceCacheRef.current = null;
+    invalidatePrintQuoteClientCache();
     await loadDataForView(viewModeRef.current, true);
-  }, [cacheKey, loadDataForView]);
+  }, [loadDataForView]);
 
   const handleMutateLedger = useCallback(
     async (
@@ -2411,45 +2625,65 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
     return true;
   };
 
+  const recordingPaymentRef = useRef<boolean>(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState<boolean>(false);
+
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paymentOrderTarget || paymentAmount <= 0) return;
-    const csrf = await getCsrfToken();
-    const res = await fetch(
-      `/api/v1/print-quotes/orders/${paymentOrderTarget.id}/payments`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrf,
-          'Idempotency-Key': `pay-${paymentOrderTarget.id}-${Date.now()}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          payment_type: paymentType,
-          amount: Math.round(Number(paymentAmount)),
-          payment_method: paymentMethod,
-          note: paymentNote.trim() || null,
-        }),
-      },
-    );
-    if (!res.ok) {
-      const json = await res.json().catch(() => null);
-      setBannerMessage({
-        type: 'error',
-        text:
-          json?.error?.message || 'Không thể ghi nhận giao dịch thanh toán.',
-      });
+    if (
+      recordingPaymentRef.current ||
+      ordersAuthBlocked ||
+      !paymentOrderTarget ||
+      paymentAmount <= 0
+    ) {
       return;
     }
-    await loadAllData();
-    setPaymentOrderTarget(null);
-    setPaymentAmount(0);
-    setPaymentNote('');
-    setBannerMessage({
-      type: 'success',
-      text: 'Đã ghi nhận thanh toán đơn hàng!',
-    });
+    recordingPaymentRef.current = true;
+    setPaymentSubmitting(true);
+    try {
+      const csrf = await getCsrfToken();
+      const res = await fetch(
+        `/api/v1/print-quotes/orders/${paymentOrderTarget.id}/payments`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf,
+            'Idempotency-Key': `pay-${paymentOrderTarget.id}-${Date.now()}`,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            payment_type: paymentType,
+            amount: Math.round(Number(paymentAmount)),
+            payment_method: paymentMethod,
+            note: paymentNote.trim() || null,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setBannerMessage({
+          type: 'error',
+          text:
+            json?.error?.message ||
+            'Không thể ghi nhận giao dịch thanh toán.',
+        });
+        return;
+      }
+      await loadAllData();
+      setPaymentOrderTarget(null);
+      setPaymentAmount(0);
+      setPaymentNote('');
+      setBannerMessage({
+        type: 'success',
+        text: 'Đã ghi nhận thanh toán đơn hàng!',
+      });
+    } finally {
+      recordingPaymentRef.current = false;
+      if (mountedRef.current) {
+        setPaymentSubmitting(false);
+      }
+    }
   };
 
   if (role !== 'owner' || isOwnerVerified === false) {
@@ -2924,6 +3158,11 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         <OrdersTab
           orders={orders}
           vendors={vendors}
+          loading={ordersLoading}
+          error={ordersError}
+          authBlocked={ordersAuthBlocked}
+          onRetry={() => void loadDataForView('orders', true)}
+          onEnsureVendors={handleEnsureVendorsLoaded}
           onMutateLedger={handleMutateLedger}
           onUpdateOrderField={handleUpdateOrderField}
           paymentOrderTarget={paymentOrderTarget}
@@ -2937,6 +3176,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           paymentNote={paymentNote}
           setPaymentNote={setPaymentNote}
           onRecordPayment={handleRecordPayment}
+          paymentSubmitting={paymentSubmitting}
         />
       )}
 
@@ -3020,13 +3260,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
       {/* A4 PDF Preview & Print Modal */}
       {pdfPreviewState && (
-        <PdfPreviewModal
-          previewState={pdfPreviewState}
-          onClose={() => setPdfPreviewState(null)}
-          onDownloadSavedPdf={handleDownloadSavedQuotePdfFile}
-          onDownloadLivePdf={handleDownloadLivePdfFile}
-          onPrintWindow={handlePrintA4Window}
-        />
+        <React.Suspense fallback={null}>
+          <LazyPdfPreviewModal
+            previewState={pdfPreviewState}
+            onClose={() => setPdfPreviewState(null)}
+            onDownloadSavedPdf={handleDownloadSavedQuotePdfFile}
+            onDownloadLivePdf={handleDownloadLivePdfFile}
+            onPrintWindow={handlePrintA4Window}
+          />
+        </React.Suspense>
       )}
 
       {/* 2-Button Leave PrintQuote Module Confirmation Dialog */}

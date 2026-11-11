@@ -1072,13 +1072,21 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     const orderTestId = await orderCard.getAttribute('data-testid');
     const savedOrderCode = orderTestId.replace('order-card-', '');
 
+    const openOrderPaymentDialog = async (code) => {
+      const paymentBtn = page
+        .locator(`[data-testid="pq-order-record-payment-${code}"]`)
+        .first();
+      if (!(await paymentBtn.isVisible())) {
+        await page.click(`[data-testid="pq-order-overflow-btn-${code}"]`);
+      }
+      await paymentBtn.click();
+      await page.waitForSelector(
+        'div[role="dialog"][aria-label="Ghi nhận thanh toán đơn hàng"]',
+      );
+    };
+
     // 11a. Record Deposit = 40.000 ₫ -> Paid 40.000 ₫, Debt 60.000 ₫
-    await page.click(
-      `[data-testid="pq-order-record-payment-${savedOrderCode}"]`,
-    );
-    await page.waitForSelector(
-      'div[role="dialog"][aria-label="Ghi nhận thanh toán đơn hàng"]',
-    );
+    await openOrderPaymentDialog(savedOrderCode);
     await page.selectOption('select[aria-label="Loại thanh toán"]', 'DEPOSIT');
     await page.fill('input[aria-label="Số tiền thanh toán"]', '40000');
     await page.fill(
@@ -1095,12 +1103,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     assert.match(await orderCard.textContent(), /60\.000\s*₫/);
 
     // 11b. Record Installment = 30.000 ₫ -> Paid 70.000 ₫, Debt 30.000 ₫
-    await page.click(
-      `[data-testid="pq-order-record-payment-${savedOrderCode}"]`,
-    );
-    await page.waitForSelector(
-      'div[role="dialog"][aria-label="Ghi nhận thanh toán đơn hàng"]',
-    );
+    await openOrderPaymentDialog(savedOrderCode);
     await page.selectOption(
       'select[aria-label="Loại thanh toán"]',
       'INSTALLMENT',
@@ -1117,12 +1120,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     }, savedOrderCode);
 
     // 11c. Record Refund = 10.000 ₫ -> Paid 60.000 ₫, Debt 40.000 ₫
-    await page.click(
-      `[data-testid="pq-order-record-payment-${savedOrderCode}"]`,
-    );
-    await page.waitForSelector(
-      'div[role="dialog"][aria-label="Ghi nhận thanh toán đơn hàng"]',
-    );
+    await openOrderPaymentDialog(savedOrderCode);
     await page.selectOption('select[aria-label="Loại thanh toán"]', 'REFUND');
     await page.fill('input[aria-label="Số tiền thanh toán"]', '10000');
     await page.fill(
@@ -1161,12 +1159,7 @@ test('Task QA-03 & WIN-3/WIN-4: Real-Browser Playwright E2E — Full 12-Step Pri
     }, savedOrderCode);
 
     // 11d. Record Final Settlement = 40.000 ₫ -> Paid 100.000 ₫, Debt = 0 ₫, Status = Đã tất toán
-    await page.click(
-      `[data-testid="pq-order-record-payment-${savedOrderCode}"]`,
-    );
-    await page.waitForSelector(
-      'div[role="dialog"][aria-label="Ghi nhận thanh toán đơn hàng"]',
-    );
+    await openOrderPaymentDialog(savedOrderCode);
     await page.selectOption('select[aria-label="Loại thanh toán"]', 'FINAL');
     await page.fill('input[aria-label="Số tiền thanh toán"]', '40000');
     await page.fill(

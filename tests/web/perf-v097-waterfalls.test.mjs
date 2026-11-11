@@ -69,14 +69,23 @@ test('PERF-02B: PrintQuoteScreen inline CSS is modularized into printquote-style
     ROOT,
     'apps/web/src/screens/PrintQuoteScreen.tsx',
   );
-  const lineCount = fs.readFileSync(pqScreenPath, 'utf8').split(/\r?\n/).length;
-  assert.ok(
-    lineCount < 3300,
-    `Expected PrintQuoteScreen.tsx < 3300 lines after CSS extraction, got ${lineCount}`,
+  const pqScreenSrc = fs.readFileSync(pqScreenPath, 'utf8');
+  assert.match(
+    pqScreenSrc,
+    /import\s*\{\s*PRINTQUOTE_STYLES\s*\}\s*from\s*['"]\.\/printquote\/printquote-styles\.js['"]/,
+    'PrintQuoteScreen.tsx must import PRINTQUOTE_STYLES from ./printquote/printquote-styles.js',
+  );
+  const styleTagMatches =
+    pqScreenSrc.match(/<style\b[^>]*>[\s\S]*?<\/style>/g) ?? [];
+  assert.deepEqual(
+    styleTagMatches,
+    ['<style>{PRINTQUOTE_STYLES}</style>'],
+    'The only JSX <style> tag in PrintQuoteScreen.tsx must reference PRINTQUOTE_STYLES from its module',
   );
   assert.ok(
     PRINTQUOTE_STYLES.includes('.pq-module-nav') &&
-      PRINTQUOTE_STYLES.includes('.pq-directory-table'),
+      PRINTQUOTE_STYLES.includes('.pq-directory-table') &&
+      PRINTQUOTE_STYLES.includes('.pq-orders-todo-strip'),
   );
 
   invalidatePrintQuoteClientCache();
@@ -87,7 +96,10 @@ test('PERF-02B: PrintQuoteScreen inline CSS is modularized into printquote-style
     }),
   );
   assert.ok(html.includes('data-testid="printquote-screen"'));
+  assert.ok(html.includes('<style>'));
+  assert.ok(html.includes('.pq-module-nav'));
   assert.ok(html.includes('.pq-directory-table'));
+  assert.ok(html.includes('.pq-orders-todo-strip'));
 });
 
 test('PERF-02C: BridgeService caches TikTok V4 summary for 60s (< 15ms warm hit) without blocking /dashboard', async (t) => {
@@ -354,6 +366,17 @@ test('PERF-02D: Browser E2E proves /print-quotes eliminates 2-wave 11-API waterf
       pqRequests.length,
       0,
       'Switching back to Báo giá within 15s must hit client cache with 0 network calls',
+    );
+
+    // Verify direct entry to /print-quotes/orders isolates order fetching
+    pqRequests.length = 0;
+    await page.goto(`http://127.0.0.1:${webPort}/print-quotes/orders`, {
+      waitUntil: 'networkidle',
+    });
+    assert.deepEqual(
+      pqRequests,
+      ['/api/v1/print-quotes/orders'],
+      `Opening /print-quotes/orders directly must fetch ONLY /api/v1/print-quotes/orders without unrelated requests, got: ${pqRequests.join(', ')}`,
     );
   } finally {
     if (browser) {

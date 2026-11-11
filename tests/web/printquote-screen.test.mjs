@@ -1683,4 +1683,298 @@ describe('MGL-PRINTQUOTE UX V2 — Web Routes, RBAC, Modal Catalogs, Honest KPIs
     assert.ok(serverA4.includes('THIẾT KẾ IN ẤN TOÀN GIA PHÁT'));
     assert.ok(!serverA4.includes('HOÀI PHƯƠNG MEDIA'));
   });
+
+  it('renders Seller Center Orders UI (/print-quotes/orders) with Cần xử lý shortcuts, underline tabs, single main action priority, loading/error states, and synthetic 100/1000 orders p95 benchmark', async () => {
+    const {
+      OrdersTab,
+      computeOrderStatusCounts,
+      filterPrintOrders,
+      resolveOrderPrimaryAction,
+      INITIAL_VISIBLE_ORDERS_LIMIT,
+    } = await import('../../dist/apps/web/src/screens/printquote/OrdersTab.js');
+
+    const makeSyntheticOrder = (index, overrides = {}) => {
+      const n = index + 1;
+      const code = `DH-2026-${String(n).padStart(4, '0')}`;
+      return {
+        id: `ord-syn-${n}`,
+        order_code: code,
+        quote_id: `q-syn-${n}`,
+        quote_code: `BG-202611-${String(n).padStart(4, '0')}`,
+        quote_version: 1,
+        customer_id: `cust-${(n % 20) + 1}`,
+        customer_name: `Khách hàng In Ấn ${n}`,
+        vendor_id: `ven-${(n % 5) + 1}`,
+        print_ordered_at: '2026-11-10',
+        production_status:
+          n % 10 === 0
+            ? 'CANCELLED'
+            : n % 3 === 0
+              ? 'COMPLETED'
+              : 'IN_PRODUCTION',
+        delivery_status:
+          n % 4 === 0 ? 'DELIVERED' : n % 2 === 0 ? 'PACKING' : 'PENDING',
+        payment_status: n % 5 === 0 ? 'PAID' : 'PARTIALLY_PAID',
+        total_quote_amount: 1000000,
+        total_paid_amount: n % 5 === 0 ? 1000000 : 400000,
+        remaining_debt_amount: n % 10 === 0 || n % 5 === 0 ? 0 : 600000,
+        expected_vendor_cost: 600000,
+        expected_profit: 400000,
+        entered_vendor_cost: n % 7 === 0 ? 580000 : null,
+        entered_shipping_fee: null,
+        entered_extra_cost: null,
+        actual_cost_confirmed: n % 2 === 0,
+        actual_vendor_cost: n % 2 === 0 ? 590000 : null,
+        actual_shipping_fee: n % 2 === 0 ? 20000 : null,
+        actual_extra_cost: n % 2 === 0 ? 0 : null,
+        actual_profit: n % 2 === 0 ? 390000 : null,
+        cost_reconciliation_status:
+          n % 2 === 0
+            ? 'CONFIRMED'
+            : n % 7 === 0
+              ? 'PARTIAL_ENTERED'
+              : 'UNENTERED',
+        vendor_paid_amount: 0,
+        workshop_jobs: [],
+        ...overrides,
+      };
+    };
+
+    // 1. Verify single main action priority rules:
+    // Priority 1: Cancellation settlement when cancelled + paid > 0 + ledger mutation allowed
+    const cancelledWithDeposit = makeSyntheticOrder(0, {
+      order_code: 'DH-PRIO-1',
+      production_status: 'CANCELLED',
+      total_paid_amount: 300000,
+      actual_cost_confirmed: false,
+      remaining_debt_amount: 0,
+    });
+    assert.equal(
+      resolveOrderPrimaryAction(cancelledWithDeposit, true),
+      'SETTLE_CANCEL',
+    );
+    assert.equal(
+      resolveOrderPrimaryAction(cancelledWithDeposit, false),
+      'CONFIRM_COST',
+    );
+
+    // Priority 2: Actual cost confirmation when unconfirmed
+    const unconfirmedWithDebt = makeSyntheticOrder(1, {
+      order_code: 'DH-PRIO-2',
+      production_status: 'IN_PRODUCTION',
+      actual_cost_confirmed: false,
+      remaining_debt_amount: 500000,
+    });
+    assert.equal(
+      resolveOrderPrimaryAction(unconfirmedWithDebt, true),
+      'CONFIRM_COST',
+    );
+
+    // Priority 3: Payment when cost confirmed and debt > 0
+    const confirmedWithDebt = makeSyntheticOrder(2, {
+      order_code: 'DH-PRIO-3',
+      production_status: 'COMPLETED',
+      actual_cost_confirmed: true,
+      remaining_debt_amount: 500000,
+    });
+    assert.equal(
+      resolveOrderPrimaryAction(confirmedWithDebt, true),
+      'RECORD_PAYMENT',
+    );
+
+    // Priority 4: null (detail CTA) when cost confirmed and fully paid
+    const settledOrder = makeSyntheticOrder(3, {
+      order_code: 'DH-PRIO-4',
+      production_status: 'COMPLETED',
+      actual_cost_confirmed: true,
+      remaining_debt_amount: 0,
+      total_paid_amount: 1000000,
+      payment_status: 'PAID',
+    });
+    assert.equal(resolveOrderPrimaryAction(settledOrder, true), null);
+
+    // 2. Verify Seller Center markup (Cần xử lý shortcuts, underline tabs, compact table columns, single main action per row)
+    const noop = () => {};
+    const html = renderToStaticMarkup(
+      React.createElement(OrdersTab, {
+        orders: [
+          cancelledWithDeposit,
+          unconfirmedWithDebt,
+          confirmedWithDebt,
+          settledOrder,
+        ],
+        onMutateLedger: async () => ({ ok: true }),
+        onUpdateOrderField: noop,
+        paymentOrderTarget: null,
+        setPaymentOrderTarget: noop,
+        paymentAmount: 0,
+        setPaymentAmount: noop,
+        paymentType: 'INSTALLMENT',
+        setPaymentType: noop,
+        paymentMethod: 'BANK_TRANSFER',
+        setPaymentMethod: noop,
+        paymentNote: '',
+        setPaymentNote: noop,
+        onRecordPayment: noop,
+      }),
+    );
+
+    assert.ok(html.includes('data-testid="pq-orders-todo-strip"'));
+    assert.ok(html.includes('data-testid="pq-orders-todo-pending-delivery"'));
+    assert.ok(html.includes('data-testid="pq-orders-todo-needs-cost-review"'));
+    assert.ok(
+      html.includes('data-testid="pq-orders-todo-cancelled-obligations"'),
+    );
+    assert.ok(html.includes('data-testid="pq-orders-tab-all"'));
+    assert.ok(html.includes('data-testid="pq-orders-tab-in_prod"'));
+    assert.ok(html.includes('data-testid="pq-orders-tab-pending_delivery"'));
+    assert.ok(html.includes('data-testid="pq-orders-tab-has_debt"'));
+    assert.ok(html.includes('data-testid="pq-orders-table"'));
+    assert.ok(html.includes('data-testid="pq-order-settle-cancel-DH-PRIO-1"'));
+    assert.ok(html.includes('data-testid="pq-order-confirm-cost-DH-PRIO-2"'));
+    assert.ok(html.includes('data-testid="pq-order-record-payment-DH-PRIO-3"'));
+    assert.ok(html.includes('data-testid="pq-order-detail-cta-DH-PRIO-4"'));
+
+    // 3. Verify loading and error + retry states
+    const loadingHtml = renderToStaticMarkup(
+      React.createElement(OrdersTab, {
+        orders: [],
+        loading: true,
+        onUpdateOrderField: noop,
+        paymentOrderTarget: null,
+        setPaymentOrderTarget: noop,
+        paymentAmount: 0,
+        setPaymentAmount: noop,
+        paymentType: 'INSTALLMENT',
+        setPaymentType: noop,
+        paymentMethod: 'BANK_TRANSFER',
+        setPaymentMethod: noop,
+        paymentNote: '',
+        setPaymentNote: noop,
+        onRecordPayment: noop,
+      }),
+    );
+    assert.ok(loadingHtml.includes('data-testid="pq-orders-loading"'));
+
+    const errorHtml = renderToStaticMarkup(
+      React.createElement(OrdersTab, {
+        orders: [],
+        error: 'Mất kết nối tạm thời',
+        onRetry: noop,
+        onUpdateOrderField: noop,
+        paymentOrderTarget: null,
+        setPaymentOrderTarget: noop,
+        paymentAmount: 0,
+        setPaymentAmount: noop,
+        paymentType: 'INSTALLMENT',
+        setPaymentType: noop,
+        paymentMethod: 'BANK_TRANSFER',
+        setPaymentMethod: noop,
+        paymentNote: '',
+        setPaymentNote: noop,
+        onRecordPayment: noop,
+      }),
+    );
+    assert.ok(errorHtml.includes('data-testid="pq-orders-error"'));
+    assert.ok(errorHtml.includes('data-testid="pq-orders-retry-btn"'));
+
+    // 4. Synthetic 100 and 1000 orders performance benchmark (render + filter p95 < 200ms and >= 30% improvement vs unbounded)
+    const orders100 = Array.from({ length: 100 }, (_, i) =>
+      makeSyntheticOrder(i),
+    );
+    const orders1000 = Array.from({ length: 1000 }, (_, i) =>
+      makeSyntheticOrder(i),
+    );
+
+    const p95 = (samples) => {
+      const sorted = [...samples].sort((a, b) => a - b);
+      const idx = Math.min(
+        sorted.length - 1,
+        Math.floor(sorted.length * 0.95),
+      );
+      return sorted[idx];
+    };
+
+    const measureRenderSamples = (dataset, initialVisibleLimit, runs = 15) => {
+      const times = [];
+      for (let i = 0; i < runs; i += 1) {
+        const t0 = performance.now();
+        renderToStaticMarkup(
+          React.createElement(OrdersTab, {
+            orders: dataset,
+            initialVisibleLimit,
+            onMutateLedger: async () => ({ ok: true }),
+            onUpdateOrderField: noop,
+            paymentOrderTarget: null,
+            setPaymentOrderTarget: noop,
+            paymentAmount: 0,
+            setPaymentAmount: noop,
+            paymentType: 'INSTALLMENT',
+            setPaymentType: noop,
+            paymentMethod: 'BANK_TRANSFER',
+            setPaymentMethod: noop,
+            paymentNote: '',
+            setPaymentNote: noop,
+            onRecordPayment: noop,
+          }),
+        );
+        times.push(performance.now() - t0);
+      }
+      return p95(times);
+    };
+
+    const measureFilterSamples = (dataset, runs = 25) => {
+      const modes = [
+        'ALL',
+        'IN_PROD',
+        'PENDING_DELIVERY',
+        'HAS_DEBT',
+        'NEEDS_COST_REVIEW',
+        'CANCELLED_OBLIGATIONS',
+      ];
+      const times = [];
+      for (let i = 0; i < runs; i += 1) {
+        const mode = modes[i % modes.length];
+        const query = i % 3 === 0 ? 'DH-2026-00' : '';
+        const t0 = performance.now();
+        computeOrderStatusCounts(dataset);
+        const filtered = filterPrintOrders(dataset, mode, query);
+        filtered.slice(0, INITIAL_VISIBLE_ORDERS_LIMIT);
+        times.push(performance.now() - t0);
+      }
+      return p95(times);
+    };
+
+    const unbounded100P95 = measureRenderSamples(orders100, 100, 12);
+    const bounded100P95 = measureRenderSamples(
+      orders100,
+      INITIAL_VISIBLE_ORDERS_LIMIT,
+      12,
+    );
+    const unbounded1000P95 = measureRenderSamples(orders1000, 1000, 8);
+    const bounded1000P95 = measureRenderSamples(
+      orders1000,
+      INITIAL_VISIBLE_ORDERS_LIMIT,
+      12,
+    );
+    const filter100P95 = measureFilterSamples(orders100, 30);
+    const filter1000P95 = measureFilterSamples(orders1000, 30);
+
+    assert.ok(
+      bounded100P95 < 200,
+      `Expected 100-order render p95 < 200ms, got ${bounded100P95.toFixed(2)}ms`,
+    );
+    assert.ok(
+      bounded1000P95 < 200,
+      `Expected 1000-order bounded render p95 < 200ms, got ${bounded1000P95.toFixed(2)}ms`,
+    );
+    assert.ok(
+      filter100P95 < 200 && filter1000P95 < 200,
+      `Expected filter p95 < 200ms (100=${filter100P95.toFixed(2)}ms, 1000=${filter1000P95.toFixed(2)}ms)`,
+    );
+    assert.ok(
+      bounded1000P95 <= unbounded1000P95 * 0.7,
+      `Expected >= 30% render improvement at 1000 orders (unbounded=${unbounded1000P95.toFixed(2)}ms -> bounded=${bounded1000P95.toFixed(2)}ms, 100unbounded=${unbounded100P95.toFixed(2)}ms -> 100bounded=${bounded100P95.toFixed(2)}ms)`,
+    );
+  });
 });
