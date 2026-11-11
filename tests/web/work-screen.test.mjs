@@ -337,3 +337,125 @@ test('WORK-002 & WORK-010: WorkScreen supports status filtering and Owner cancel
     'Must support ML-04 direct evidence drill-down from work cards',
   );
 });
+
+test('v0.9.20 WORK-UX-REDESIGN: smart sorting, 3-section grouping, interactive checklist, and clean Breadcrumb', async () => {
+  const helpers = await import(
+    `file://${resolve(root, 'dist/apps/web/src/screens/helpers/work-helpers.js')}`
+  );
+  const { resolveNavigationBreadcrumbs } = await import(
+    `file://${resolve(root, 'dist/packages/ui/src/components/Breadcrumb.js')}`
+  );
+  const screenContent = readFileSync(
+    resolve(root, 'apps/web/src/screens/WorkScreen.tsx'),
+    'utf8',
+  );
+
+  // 1. Breadcrumb on /work/:id and /work/new must NOT duplicate "Công việc"
+  const detailTrail = resolveNavigationBreadcrumbs(
+    '/work/6009a634-4b2e-487e-86a9-8fc2d8d6b440',
+  );
+  assert.deepEqual(
+    detailTrail?.items.map((x) => x.label),
+    ['Công việc', 'Chi tiết công việc'],
+  );
+  const newTrail = resolveNavigationBreadcrumbs('/work/new');
+  assert.deepEqual(
+    newTrail?.items.map((x) => x.label),
+    ['Công việc', 'Giao việc mới'],
+  );
+
+  // 2. Smart sorting: completed/cancelled NEVER mix above open items; overdue & urgent rank first
+  const nowMs = Date.parse('2026-11-11T08:30:00+07:00');
+  const sampleItems = [
+    {
+      id: 'done-recent',
+      workspace_id: 'w1',
+      title: 'Việc đã xong',
+      work_type: 'general',
+      status: 'completed',
+      priority: 'urgent',
+      due_at: '2026-11-10T10:00:00Z',
+      created_by: 'u1',
+      version: 2,
+      created_at: '2026-11-11T01:00:00Z',
+      updated_at: '2026-11-11T01:10:00Z',
+    },
+    {
+      id: 'normal-tomorrow',
+      workspace_id: 'w1',
+      title: 'Việc ngày mai P3',
+      work_type: 'general',
+      status: 'todo',
+      priority: 'medium',
+      due_at: '2026-11-12T10:00:00Z',
+      created_by: 'u1',
+      version: 1,
+      created_at: '2026-11-11T01:00:00Z',
+      updated_at: '2026-11-11T01:00:00Z',
+    },
+    {
+      id: 'overdue-p2',
+      workspace_id: 'w1',
+      title: 'Việc quá hạn',
+      work_type: 'general',
+      status: 'in_progress',
+      priority: 'high',
+      due_at: '2026-11-10T10:00:00Z',
+      created_by: 'u1',
+      version: 1,
+      created_at: '2026-11-10T01:00:00Z',
+      updated_at: '2026-11-10T01:00:00Z',
+    },
+    {
+      id: 'today-p1',
+      workspace_id: 'w1',
+      title: 'Việc hôm nay khẩn cấp',
+      work_type: 'video',
+      status: 'todo',
+      priority: 'urgent',
+      due_at: '2026-11-11T10:00:00Z',
+      created_by: 'u1',
+      version: 1,
+      created_at: '2026-11-11T00:30:00Z',
+      updated_at: '2026-11-11T00:30:00Z',
+    },
+  ];
+
+  const sorted = [...sampleItems].sort((a, b) =>
+    helpers.compareWorkItems(a, b, 'smart', nowMs),
+  );
+  assert.deepEqual(
+    sorted.map((x) => x.id),
+    ['overdue-p2', 'today-p1', 'normal-tomorrow', 'done-recent'],
+  );
+  assert.equal(helpers.classifyWorkSection(sorted[0], nowMs), 'attention');
+  assert.equal(helpers.classifyWorkSection(sorted[1], nowMs), 'attention');
+  assert.equal(helpers.classifyWorkSection(sorted[2], nowMs), 'active');
+  assert.equal(helpers.classifyWorkSection(sorted[3], nowMs), 'closed');
+
+  // 3. Checklist parser & toggler preserve [AtlasRef:...] and plain notes
+  const rawDesc =
+    '- [ ] Test 1\n- [x] Test 2\n- [ ] Test 3\nGhi chú riêng cho nhân sự\n\n[AtlasRef:atlas-999]';
+  const parsed = helpers.parseWorkDescriptionChecklist(rawDesc);
+  assert.equal(parsed.totalCount, 3);
+  assert.equal(parsed.completedCount, 1);
+  assert.equal(parsed.atlasRef, 'atlas-999');
+  assert.equal(parsed.cleanNotes, 'Ghi chú riêng cho nhân sự');
+
+  const toggled = helpers.toggleChecklistItemInDescription(rawDesc, 0, true);
+  assert.ok(toggled.includes('- [x] Test 1'));
+  assert.ok(toggled.includes('[AtlasRef:atlas-999]'));
+
+  const appended = helpers.appendChecklistItemToDescription(toggled, 'Test 4');
+  const reparsed = helpers.parseWorkDescriptionChecklist(appended);
+  assert.equal(reparsed.totalCount, 4);
+  assert.equal(reparsed.checklistItems[3].text, 'Test 4');
+  assert.equal(reparsed.atlasRef, 'atlas-999');
+
+  // 4. Redesigned UI testids & capabilities exist in WorkScreen.tsx
+  assert.ok(screenContent.includes('work-detail-summary-grid'));
+  assert.ok(screenContent.includes('work-detail-checklist'));
+  assert.ok(screenContent.includes('work-sort-select'));
+  assert.ok(screenContent.includes('work-toggle-closed-section'));
+  assert.ok(screenContent.includes('btn-edit-work-item'));
+});

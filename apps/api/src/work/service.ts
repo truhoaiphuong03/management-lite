@@ -372,7 +372,8 @@ export class WorkService {
       const rows = (
         await c.query(
           `SELECT w.id FROM work_items w WHERE w.workspace_id=$1 AND ($2='all' OR w.status=$2) AND ($3::text IS NULL OR w.priority=$3) AND strpos(lower(w.title),lower($4))>0 AND ($5::uuid IS NULL OR EXISTS(SELECT 1 FROM work_assignments a WHERE a.workspace_id=w.workspace_id AND a.work_item_id=w.id AND a.employee_id=$5))
-           AND (($6::uuid IS NULL AND $7::date IS NULL) OR EXISTS(SELECT 1 FROM work_schedule_links l JOIN work_assignments a ON a.workspace_id=l.workspace_id AND a.id=l.assignment_id WHERE a.workspace_id=w.workspace_id AND a.work_item_id=w.id AND ($5::uuid IS NULL OR a.employee_id=$5) AND ($6::uuid IS NULL OR l.schedule_id=$6) AND ($7::date IS NULL OR l.work_date=$7))) ORDER BY w.created_at DESC,w.id`,
+           AND (($6::uuid IS NULL AND $7::date IS NULL) OR EXISTS(SELECT 1 FROM work_schedule_links l JOIN work_assignments a ON a.workspace_id=l.workspace_id AND a.id=l.assignment_id WHERE a.workspace_id=w.workspace_id AND a.work_item_id=w.id AND ($5::uuid IS NULL OR a.employee_id=$5) AND ($6::uuid IS NULL OR l.schedule_id=$6) AND ($7::date IS NULL OR l.work_date=$7)))
+           ORDER BY CASE WHEN w.status IN ('completed','cancelled') THEN 1 ELSE 0 END ASC, CASE WHEN w.status NOT IN ('completed','cancelled') AND w.due_at IS NOT NULL AND w.due_at < clock_timestamp() THEN 0 ELSE 1 END ASC, CASE w.priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END ASC, w.due_at ASC NULLS LAST, w.created_at DESC, w.id`,
           [
             auth.workspace.id,
             status,
@@ -602,12 +603,32 @@ export class WorkService {
             targetStatus === 'completed' &&
             item.status !== 'completed'
           ) {
-            const assigns = (
+            let assigns = (
               await c.query(
                 'SELECT a.id, a.status, a.employee_id, e.user_id AS emp_user_id FROM work_assignments a JOIN employees e ON e.workspace_id=a.workspace_id AND e.id=a.employee_id WHERE a.workspace_id=$1 AND a.work_item_id=$2 FOR UPDATE OF a',
                 [auth.workspace.id, id],
               )
             ).rows;
+            if (assigns.length === 0) {
+              const ownerEmp = (
+                await c.query(
+                  "SELECT id, user_id FROM employees WHERE workspace_id=$1 AND user_id=$2 AND employment_status='active' LIMIT 1",
+                  [auth.workspace.id, auth.user.id],
+                )
+              ).rows[0];
+              if (ownerEmp?.id) {
+                await c.query(
+                  'INSERT INTO work_assignments(workspace_id,work_item_id,employee_id,stage,assigned_by) VALUES($1,$2,$3,$4,$5)',
+                  [auth.workspace.id, id, ownerEmp.id, 'primary', auth.user.id],
+                );
+                assigns = (
+                  await c.query(
+                    'SELECT a.id, a.status, a.employee_id, e.user_id AS emp_user_id FROM work_assignments a JOIN employees e ON e.workspace_id=a.workspace_id AND e.id=a.employee_id WHERE a.workspace_id=$1 AND a.work_item_id=$2 FOR UPDATE OF a',
+                    [auth.workspace.id, id],
+                  )
+                ).rows;
+              }
+            }
             for (const a of assigns) {
               if (a.status === 'completed') continue;
               const submitterUserId = a.emp_user_id ?? auth.user.id;

@@ -1095,3 +1095,35 @@
 11. **Commit / PR:** `main` (`v0.9.19`)
 12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner xác nhận phương án A1 + A2 + A3 bằng `"ok"` trực tiếp trong phiên)_
 13. **NEXT_ACTION:** Owner kết nối đồng bộ Web trên `AI Work Atlas` (`🌐 Đồng bộ Web`) và chạy lệnh phát hành 1 dòng trên `WIN-1` khi muốn đưa `v0.9.19` lên `ql.hoaiphuong.click`.
+
+---
+
+## PHASE WORK-UX-REDESIGN-0920 — THIẾT KẾ LẠI TOÀN DIỆN GIAO DIỆN, BỐ CỤC 3 VÙNG, SẮP XẾP THÔNG MINH & CHECKLIST TƯƠNG TÁC TRÊN `/work` & `/work/:id` (`v0.9.20`)
+
+### Task `WORK-UX-REDESIGN-0920` — Thiết Kế Lại Màn Hình Danh Sách Công Việc (`/work`) & Chi Tiết Công Việc (`/work/:id`), Khử Trộn Lẫn Việc Đã Xong / Chưa Làm & Tối Ưu Gói JS Tải Đầu (`v0.9.20`)
+
+1. **Project ID:** `management-lite`
+2. **Phase ID:** `Phase WORK-UX-REDESIGN-0920` (`v0.9.20`)
+3. **Task ID:** `WORK-UX-REDESIGN-0920`
+4. **Mô tả:**
+   - **Màn hình Danh sách Công việc (`/work`):**
+     1. Tách biệt cứng danh sách công việc thành **3 khu vực độc lập** (`classifyWorkSection`): **(1) `Cần xử lý ngay`** (Quá hạn, Hôm nay, Cần sửa, Bị vướng, Chờ duyệt), **(2) `Đang thực hiện & Kế hoạch`** (Đang làm, Sắp tới, Chưa gắn hạn), và **(3) `Đã hoàn thành & Đã đóng`** (mặc định thu gọn dưới thanh bấm mở — chấm dứt hoàn toàn tình trạng việc làm rồi nằm xen kẽ việc chưa làm).
+     2. Bổ sung thuật toán sắp xếp thông minh 3 tầng (`compareWorkItems` đồng bộ với SQL `ORDER BY` trong `WorkService.list`): ưu tiên theo **Độ khẩn thời gian** (`Quá hạn` → `Cần sửa/Chờ duyệt` → `Hôm nay` → `Ngày mai` → `7 ngày tới` → `Xa hơn`) × **Mức độ ưu tiên (`P1 · Khẩn cấp` → `P4 · Thấp`)** × **Hạn chót gần nhất**, kèm bộ chọn chế độ sắp xếp tường minh (`Thông minh`, `Hạn chót gần nhất`, `Ưu tiên cao → thấp`, `Mới tạo gần nhất`).
+     3. Bổ sung dải **4 thẻ KPI tóm tắt** bấm lọc trực tiếp (`Quá hạn / Cần chú ý`, `Đến hạn hôm nay`, `Đang thực hiện`, `Đã hoàn thành`), gộp Tìm kiếm + Lọc nhân sự + Chế độ sắp xếp vào 1 thanh điều khiển gọn gàng, ẩn hộp `Lịch làm việc trong tuần` khi tuần trống (`0` ca), hiển thị viền dọc `4px` theo mức ưu tiên, huy hiệu thời hạn tiếng Việt tự nhiên (`Quá hạn 2 ngày`, `Hôm nay · 17:00`), tiến độ `☑ X/Y bước`, vòng tròn tick hoàn thành 1 chạm cho Chủ sở hữu và đổi trạng thái `Cần làm`/`Chưa bắt đầu` sang màu **Xám trung tính (`muted`)** tách biệt hoàn toàn với màu Xanh lá của `Hoàn thành`.
+   - **Màn hình Chi tiết Công việc (`/work/:id`):**
+     1. Sửa `Breadcrumb.tsx` loại bỏ nhãn lặp `Công việc › Công việc › Chi tiết công việc` thành `Công việc › Chi tiết công việc`.
+     2. Làm gọn thanh thao tác đầu trang (`← Quay lại danh sách` bên trái; `✎ Sửa việc / Gia hạn`, `💬 Copy Zalo`, `✓ Hoàn thành` và nút phụ viền mảnh `Hủy công việc` bên phải — loại bỏ khối nút đỏ khổng lồ gây rối mắt).
+     3. Bổ sung **Lưới tóm tắt 4 cột thông tin cốt lõi** (`Trạng thái hiện tại`, `Mức độ ưu tiên P1..P4`, `Hạn hoàn thành` kèm đếm ngược/quá hạn, `Người phụ trách`), **Checklist tương tác trực tiếp** (chuyển `- [ ]` / `- [x]` thành ô tích bấm trực tiếp kèm thanh `%` tiến độ và ô `+ Nhập thêm bước cần làm`, bảo toàn 100% `[AtlasRef:...]` cho đồng bộ 2 chiều với `AI Work Atlas`), hộp thoại **`✎ Sửa việc / Gia hạn`** cho Chủ sở hữu, thu gọn khu vực `+ Gắn vào ca trực (tùy chọn)` và tự động gán nhân sự Owner khi hoàn thành nhanh việc chung chưa có `work_assignments`.
+   - **Tối ưu hiệu năng tải trang:** Tách `RELEASE_NOTES_CATALOG` sang `packages/contracts/src/release-notes-catalog.ts` + chunk riêng trong `apps/web/vite.config.ts`, giảm gói JS tải đầu trang từ `448.0 KB raw / 130.6 KB gzip` xuống **`364.0 KB raw / 104.0 KB gzip`**.
+5. **Phụ thuộc:** `Phase WORK-ATLAS-SYNC-0919` (`v0.9.19`).
+6. **Acceptance Criteria:**
+   - Danh sách `/work` tách bạch rõ 3 vùng, việc đã hoàn thành/đã hủy không bao giờ nằm lẫn với việc chưa làm; thứ tự sắp xếp mặc định tuân thủ đúng Độ khẩn thời gian × Ưu tiên `P1..P4` × Hạn chót.
+   - Chi tiết `/work/:id` hiển thị rõ 4 ô thông tin cốt lõi, Checklist bấm tick & thêm bước trực tiếp lưu thành công mà vẫn bảo toàn `[AtlasRef:...]`, không còn lặp `Công việc › Công việc`.
+   - Vượt qua toàn bộ kiểm thử Web/Playwright, Security, Bundle Budget (`<= 450 / 130 KB`), Lint, Typecheck và Prettier.
+7. **Trạng thái:** `PASS`
+8. **Người/AI thực hiện:** `Antigravity` (`MacBook-Air-cua-Duong`)
+9. **Kết quả test:** `PASS` — `90/90 PASS` bộ kiểm thử Web & Playwright Real-Browser (`work-screen.test.mjs` `13/13`, `work-screen-actions-pagination.test.mjs`, `ui-final-55.test.mjs`, `uiux-audit-01.test.mjs`, `ui-audit-phase0-2.test.mjs`, `mobile-responsive-p0.test.mjs`, `anti-fix-66.test.mjs`, `anti-implement-61.test.mjs`, `ui-notifications.test.mjs`, `version.test.mjs`), `28/28 PASS` `npm run test:security`, `check:bundle` `364.0 KB raw / 104.0 KB gzip` (`PASS`), `lint` / `typecheck` / `format:check` `0` lỗi.
+10. **Evidence (`VERIFIED`):** `apps/web/src/screens/WorkScreen.tsx`, `apps/web/src/screens/helpers/work-helpers.ts`, `apps/api/src/work/service.ts`, `packages/ui/src/components/Breadcrumb.tsx`, `packages/contracts/src/{version,release-notes-catalog}.ts`, `apps/web/vite.config.ts`, `tests/web/work-screen.test.mjs`.
+11. **Commit / PR:** `main` (`v0.9.20`)
+12. **Approval:** `APPROVED_TO_IMPLEMENT` _(Owner duyệt phương án thiết kế bằng `"Ok"` trực tiếp trong phiên; chờ Owner chạy lệnh phát hành 1 dòng trên `WIN-1` để đưa `v0.9.20` lên `ql.hoaiphuong.click`)_
+13. **NEXT_ACTION:** Owner chạy lệnh PowerShell 1 dòng trên `WIN-1` để phát hành `v0.9.20` lên `ql.hoaiphuong.click`.

@@ -98,9 +98,8 @@ export function resolveNavigationBreadcrumbs(
   if (currentPath === '/work/new') {
     return {
       items: [
-        { label: 'Công việc', path: '/groups/work' },
         { label: 'Công việc', path: '/work' },
-        { label: 'Tạo công việc mới' },
+        { label: 'Giao việc mới' },
       ],
       parentLabel: 'Công việc',
       parentPath: '/work',
@@ -109,11 +108,7 @@ export function resolveNavigationBreadcrumbs(
   if (currentPath.startsWith('/work/')) {
     const currentLabel = options?.customTitle || 'Chi tiết công việc';
     return {
-      items: [
-        { label: 'Công việc', path: '/groups/work' },
-        { label: 'Công việc', path: '/work' },
-        { label: currentLabel },
-      ],
+      items: [{ label: 'Công việc', path: '/work' }, { label: currentLabel }],
       parentLabel: 'Công việc',
       parentPath: '/work',
     };

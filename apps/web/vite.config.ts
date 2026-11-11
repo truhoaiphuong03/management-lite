@@ -40,6 +40,12 @@ export default defineConfig(() => {
             ) {
               return 'printquote-helpers';
             }
+            if (
+              id.includes('packages/contracts/src/release-notes-catalog') ||
+              id.includes('packages\\contracts\\src\\release-notes-catalog')
+            ) {
+              return 'release-notes-catalog';
+            }
           },
         },
       },
