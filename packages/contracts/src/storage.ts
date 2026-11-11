@@ -370,3 +370,32 @@ export interface StorageOperationData {
   created_at: string; // ISO 8601 UTC
   completed_at?: string | null | undefined;
 }
+
+export interface ExportExcelToDriveRequest {
+  folder_name?: string | undefined;
+  file_name?: string | undefined;
+}
+
+export interface ExportExcelToDriveResponseData {
+  file_id: string;
+  provider_file_id: string;
+  file_name: string;
+  size_bytes: number;
+  mime_type: string;
+  drive_url: string;
+  folder_id: string;
+  provider_folder_id: string;
+  folder_name: string;
+  folder_drive_url: string;
+  drive_owner_email: string;
+  private_only: true;
+  public_shared: false;
+  sheets: {
+    employees: number;
+    attendance: number;
+    payroll: number;
+    finance: number;
+  };
+  created_at: string; // ISO 8601 UTC
+}
+

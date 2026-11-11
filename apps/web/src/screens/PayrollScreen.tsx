@@ -29,6 +29,7 @@ import type {
   CreateAdjustmentRequest,
   CreateDisbursementRequest,
 } from '../../../../packages/contracts/src/payroll.js';
+import { ExportDriveExcelButton } from '../components/ExportDriveExcelButton.js';
 
 export interface PayrollScreenProps {
   role?: UserRole;
@@ -2462,6 +2463,11 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               >
                 Thống kê & Đối chiếu Excel
               </AppButton>
+              <ExportDriveExcelButton
+                testId="btn-export-excel-drive-payroll"
+                size="md"
+                variant="secondary"
+              />
             </div>
           ) : undefined
         }

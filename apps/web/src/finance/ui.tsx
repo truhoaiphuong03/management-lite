@@ -28,6 +28,7 @@ import type {
   FinanceCategoryData,
   FinanceEntryData,
 } from '../../../../packages/contracts/src/finance.js';
+import { ExportDriveExcelButton } from '../components/ExportDriveExcelButton.js';
 import type { FinancePlanItemData } from '../../../../packages/contracts/src/finance-plan.js';
 export interface FinanceScreenProps {
   identity: FinanceIdentity;
@@ -195,7 +196,23 @@ export function FinanceHeader({
     <PageHeader
       title={title}
       {...(description !== undefined ? { subtitle: description } : {})}
-      {...(action !== undefined ? { actions: action } : {})}
+      actions={
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            flexWrap: 'wrap',
+            alignItems: 'flex-start',
+          }}
+        >
+          <ExportDriveExcelButton
+            testId="btn-export-excel-drive-finance"
+            size="sm"
+            variant="secondary"
+          />
+          {action}
+        </div>
+      }
       style={{ marginBottom: 4 }}
     />
   );

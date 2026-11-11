@@ -16,6 +16,7 @@ import type {
   InitiateVideoUploadRequest,
   UploadVideoChunkRequest,
   ReviewStorageFileRequest,
+  ExportExcelToDriveRequest,
 } from '../../../../packages/contracts/src/storage.js';
 import type { RouteRequestContext } from './router.js';
 
@@ -161,6 +162,21 @@ export async function handleStorageRoutes(
       requestId,
     );
     sendJson(res, 200, createSuccessEnvelope(result, requestId), {
+      'Cache-Control': 'no-store',
+    });
+    return true;
+  }
+
+  if (pathname === '/api/v1/storage/drive/export-excel' && method === 'POST') {
+    requireCsrf(req, sessionContext, csrfSecret, allowedOrigins);
+    const body = await parseJsonBody<Record<string, unknown>>(req);
+    assertAllowedFields(body, ['folder_name', 'file_name']);
+    const result = await storageService.exportWorkspaceExcelToDrive(
+      sessionContext,
+      body as unknown as ExportExcelToDriveRequest,
+      requestId,
+    );
+    sendJson(res, 201, createSuccessEnvelope(result, requestId), {
       'Cache-Control': 'no-store',
     });
     return true;
