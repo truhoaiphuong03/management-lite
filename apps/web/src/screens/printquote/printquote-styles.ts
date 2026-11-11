@@ -1121,6 +1121,511 @@ export const PRINTQUOTE_STYLES = `
           }
         }
 
+        :root:not([data-theme="dark"]) [data-testid="panel-orders"] {
+          --success-text: #065f46;
+          --warning-text: #92400e;
+          --danger-text: #991b1b;
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-strip {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          margin-bottom: 14px;
+          background: var(--surface-color);
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          box-shadow: var(--card-shadow);
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding-right: 12px;
+          border-right: 1px solid var(--border-color);
+          flex-shrink: 0;
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-title {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-primary);
+          letter-spacing: -0.01em;
+          white-space: nowrap;
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          flex: 1 1 540px;
+          min-width: 0;
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 8px 12px;
+          min-height: 44px;
+          background: var(--surface-muted);
+          border: 1px solid var(--border-color);
+          border-radius: 10px;
+          cursor: pointer;
+          text-align: left;
+          font-family: inherit;
+          transition: background 0.14s ease, border-color 0.14s ease;
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item:hover {
+          background: var(--surface-hover);
+          border-color: var(--border-strong);
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item:focus-visible {
+          outline: 2px solid var(--focus-ring);
+          outline-offset: 2px;
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item.active {
+          background: var(--accent-soft);
+          border-color: var(--accent);
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item.tone-warning.active {
+          background: var(--warning-soft);
+          border-color: var(--warning);
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item.tone-danger.active {
+          background: var(--danger-soft);
+          border-color: var(--danger);
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-label {
+          font-size: 12.5px;
+          font-weight: 600;
+          color: var(--text-secondary);
+          line-height: 1.3;
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item.active .pq-orders-todo-label {
+          color: var(--text-primary);
+          font-weight: 700;
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-count {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 26px;
+          height: 24px;
+          padding: 0 8px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          background: var(--surface-color);
+          color: var(--text-primary);
+          border: 1px solid var(--border-color);
+          flex-shrink: 0;
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item.has-items.tone-accent .pq-orders-todo-count {
+          color: var(--accent-text);
+          border-color: var(--accent);
+          background: var(--accent-soft);
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item.has-items.tone-warning .pq-orders-todo-count {
+          color: var(--warning);
+          border-color: var(--warning);
+          background: var(--warning-soft);
+        }
+        [data-testid="panel-orders"] .pq-orders-todo-item.has-items.tone-danger .pq-orders-todo-count {
+          color: var(--danger);
+          border-color: var(--danger);
+          background: var(--danger-soft);
+        }
+        [data-testid="panel-orders"] .pq-orders-workspace-card {
+          background: var(--surface-color);
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          box-shadow: var(--card-shadow);
+          overflow: visible;
+        }
+        [data-testid="panel-orders"] .pq-orders-toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 0 16px;
+          border-bottom: 1px solid var(--border-color);
+          background: var(--surface-color);
+          border-radius: 12px 12px 0 0;
+        }
+        [data-testid="panel-orders"] .pq-orders-tabs {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          overflow-x: auto;
+          scrollbar-width: none;
+          max-width: 100%;
+        }
+        [data-testid="panel-orders"] .pq-orders-tabs::-webkit-scrollbar {
+          display: none;
+        }
+        [data-testid="panel-orders"] .pq-orders-tab {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 13px 12px 11px;
+          min-height: 44px;
+          border: none;
+          border-bottom: 2px solid transparent;
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 13px;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: color 0.14s ease, border-color 0.14s ease;
+        }
+        [data-testid="panel-orders"] .pq-orders-tab:hover {
+          color: var(--text-primary);
+        }
+        [data-testid="panel-orders"] .pq-orders-tab:focus-visible {
+          outline: 2px solid var(--focus-ring);
+          outline-offset: -2px;
+          border-radius: 6px;
+        }
+        [data-testid="panel-orders"] .pq-orders-tab.active {
+          color: var(--accent-text);
+          border-bottom-color: var(--accent);
+          font-weight: 700;
+        }
+        [data-testid="panel-orders"] .pq-orders-tab-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 20px;
+          height: 19px;
+          padding: 0 6px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          background: var(--surface-muted);
+          color: var(--text-secondary);
+        }
+        [data-testid="panel-orders"] .pq-orders-tab.active .pq-orders-tab-badge {
+          background: var(--accent-soft);
+          color: var(--accent-text);
+        }
+        [data-testid="panel-orders"] .pq-orders-search-bar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 0;
+          flex: 1 1 260px;
+          max-width: 360px;
+          min-width: 200px;
+        }
+        [data-testid="panel-orders"] .pq-orders-search-bar .pq-search-wrap {
+          width: 100%;
+          min-width: 0;
+        }
+        [data-testid="panel-orders"] .pq-orders-search-bar .pq-search-input {
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+          padding-left: 36px;
+          padding-right: 34px;
+          height: 36px;
+          font-size: 13px;
+          border-radius: 9px;
+          border: 1px solid var(--border-color);
+          background: var(--surface-muted);
+          color: var(--text-primary);
+          font-family: inherit;
+        }
+        [data-testid="panel-orders"] .pq-orders-search-bar .pq-search-input:focus-visible {
+          outline: 2px solid var(--focus-ring);
+          outline-offset: 0;
+          border-color: var(--accent);
+          background: var(--surface-color);
+        }
+        [data-testid="panel-orders"] .pq-orders-search-clear {
+          position: absolute;
+          right: 6px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          border: none;
+          background: var(--surface-muted);
+          color: var(--text-secondary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 0;
+          line-height: 1;
+        }
+        [data-testid="panel-orders"] .pq-orders-search-clear:hover {
+          background: var(--surface-hover);
+          color: var(--text-primary);
+        }
+        [data-testid="panel-orders"] .pq-orders-search-clear:focus-visible {
+          outline: 2px solid var(--focus-ring);
+          outline-offset: 1px;
+        }
+        [data-testid="panel-orders"] .pq-orders-active-filter-banner {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 8px 16px;
+          background: var(--surface-muted);
+          border-bottom: 1px solid var(--border-color);
+          font-size: 12.5px;
+          color: var(--text-secondary);
+        }
+        [data-testid="panel-orders"] .pq-orders-table-wrap {
+          border: 0;
+          border-radius: 0 0 12px 12px;
+          box-shadow: none;
+          overflow: visible;
+        }
+        [data-testid="panel-orders"] .pq-orders-table th {
+          padding: 10px 12px;
+          font-size: 12px;
+        }
+        [data-testid="panel-orders"] .pq-orders-table td {
+          padding: 11px 12px;
+          vertical-align: middle;
+          font-size: 13px;
+        }
+        [data-testid="panel-orders"] .pq-order-code-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 2px 0;
+          border: none;
+          background: transparent;
+          color: var(--accent-text);
+          font-family: var(--font-mono);
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
+          text-align: left;
+          text-decoration: underline;
+          text-decoration-color: transparent;
+          text-underline-offset: 3px;
+        }
+        [data-testid="panel-orders"] .pq-order-code-btn:hover {
+          text-decoration-color: var(--accent-text);
+        }
+        [data-testid="panel-orders"] .pq-order-code-btn:focus-visible {
+          outline: 2px solid var(--focus-ring);
+          outline-offset: 2px;
+          border-radius: 4px;
+        }
+        [data-testid="panel-orders"] .pq-order-subtext {
+          font-size: 12px;
+          color: var(--text-muted);
+          line-height: 1.35;
+          margin-top: 2px;
+        }
+        [data-testid="panel-orders"] .pq-order-alert-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: 4px;
+          padding: 2px 7px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.25;
+        }
+        [data-testid="panel-orders"] .pq-order-alert-tag.warning {
+          background: var(--warning-soft);
+          color: var(--warning);
+        }
+        [data-testid="panel-orders"] .pq-order-alert-tag.danger {
+          background: var(--danger-soft);
+          color: var(--danger);
+        }
+        [data-testid="panel-orders"] .pq-order-alert-tag.success {
+          background: var(--success-soft);
+          color: var(--success);
+        }
+        [data-testid="panel-orders"] .pq-order-inline-select {
+          height: 32px;
+          min-width: 132px;
+          max-width: 170px;
+          padding: 0 8px;
+          font-size: 12px;
+          font-weight: 600;
+          border-radius: 7px;
+          border: 1px solid var(--border-color);
+          background: var(--surface-muted);
+          color: var(--text-primary);
+          cursor: pointer;
+        }
+        [data-testid="panel-orders"] .pq-order-inline-select:focus-visible {
+          outline: 2px solid var(--focus-ring);
+          border-color: var(--accent);
+        }
+        [data-testid="panel-orders"] .pq-order-actions-wrap {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 6px;
+          flex-wrap: nowrap;
+        }
+        [data-testid="panel-orders"] .pq-order-overflow-btn {
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          border-radius: 8px;
+          border: 1px solid var(--border-color);
+          background: var(--surface-color);
+          color: var(--text-secondary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 15px;
+          font-weight: 800;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        [data-testid="panel-orders"] .pq-order-overflow-btn:hover {
+          background: var(--surface-hover);
+          color: var(--text-primary);
+          border-color: var(--border-strong);
+        }
+        [data-testid="panel-orders"] .pq-order-overflow-btn:focus-visible {
+          outline: 2px solid var(--focus-ring);
+          outline-offset: 2px;
+        }
+        [data-testid="panel-orders"] .pq-order-overflow-menu {
+          position: absolute;
+          right: 0;
+          top: calc(100% + 4px);
+          z-index: 40;
+          min-width: 210px;
+          padding: 6px;
+          background: var(--surface-color);
+          border: 1px solid var(--border-strong);
+          border-radius: 10px;
+          box-shadow: var(--card-shadow-hover);
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          text-align: left;
+        }
+        [data-testid="panel-orders"] .pq-order-overflow-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          width: 100%;
+          padding: 8px 10px;
+          border: none;
+          border-radius: 7px;
+          background: transparent;
+          color: var(--text-primary);
+          font-size: 12.5px;
+          font-weight: 600;
+          font-family: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+        [data-testid="panel-orders"] .pq-order-overflow-item:hover {
+          background: var(--surface-hover);
+        }
+        [data-testid="panel-orders"] .pq-order-overflow-item:focus-visible {
+          outline: 2px solid var(--focus-ring);
+          outline-offset: -1px;
+        }
+        [data-testid="panel-orders"] .pq-order-overflow-item.danger {
+          color: var(--danger);
+        }
+        [data-testid="panel-orders"] .pq-order-overflow-item.warning {
+          color: var(--warning);
+        }
+        [data-testid="panel-orders"] .pq-orders-pagination-bar,
+        [data-testid="panel-orders"] .pq-orders-load-more-bar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 12px 16px;
+          border-top: 1px solid var(--border-color);
+          background: var(--surface-muted);
+          border-radius: 0 0 12px 12px;
+          font-size: 12.5px;
+          color: var(--text-secondary);
+        }
+        @media (max-width: 768px) {
+          [data-testid="panel-orders"] .pq-orders-todo-strip {
+            padding: 10px 12px;
+            gap: 8px;
+          }
+          [data-testid="panel-orders"] .pq-orders-todo-header {
+            width: 100%;
+            border-right: 0;
+            padding-right: 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border-color);
+          }
+          [data-testid="panel-orders"] .pq-orders-todo-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+            width: 100%;
+          }
+          [data-testid="panel-orders"] .pq-orders-todo-item {
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 8px;
+            gap: 4px;
+          }
+          [data-testid="panel-orders"] .pq-orders-toolbar {
+            padding: 0 12px;
+            gap: 6px;
+          }
+          [data-testid="panel-orders"] .pq-orders-search-bar {
+            max-width: 100%;
+            width: 100%;
+            flex: 1 1 100%;
+            padding: 6px 0 10px;
+          }
+          [data-testid="panel-orders"] .pq-orders-table-wrap {
+            padding: 10px;
+          }
+          [data-testid="panel-orders"] .pq-order-inline-select {
+            display: none;
+          }
+          [data-testid="panel-orders"] .pq-order-actions-wrap {
+            width: 100%;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+          }
+        }
+        @media (max-width: 400px) {
+          [data-testid="panel-orders"] .pq-orders-todo-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          [data-testid="panel-orders"] .pq-orders-todo-item {
+            flex-direction: row;
+            align-items: center;
+          }
+          [data-testid="panel-orders"] .pq-orders-tab {
+            padding: 10px 8px;
+            font-size: 12px;
+          }
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .pq-btn,
           .pq-module-nav-item,

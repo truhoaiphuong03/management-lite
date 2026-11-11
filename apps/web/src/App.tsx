@@ -1024,6 +1024,7 @@ export const App: React.FC = () => {
         }
         return (
           <PrintQuoteScreen
+            key={`${userId ?? ''}:${workspaceId ?? ''}`}
             role={role}
             isOwnerVerified={verifiedOwnerSession}
             workspaceName={workspaceName}

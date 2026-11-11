@@ -1,8 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import {
-  StatusBadge,
-  useAutoDismiss,
-} from '../../../../../packages/ui/src/components/index.js';
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  useRef,
+} from 'react';
+import { StatusBadge } from '../../../../../packages/ui/src/components/index.js';
 import {
   PrintProductionStatus,
   PrintDeliveryStatus,
@@ -11,27 +14,61 @@ import {
   type PrintDeliveryStatusType,
   type PrintOrderData,
   type PrintVendorData,
-  type OrderCostHistoryActionType,
 } from '../../../../../packages/contracts/src/printquote.js';
 import {
   formatVnd,
-  parseNumericDraftValue,
   PRODUCTION_STATUS_LABELS,
   DELIVERY_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
 } from '../helpers/printquote-helpers.js';
-import { cardStyle, inputStyle, labelStyle, tabularNumStyle } from './types.js';
-import { NumericDraftInput } from './NumericDraftInput.js';
-import { CatalogModalDialog } from './CatalogModalDialog.js';
+import { tabularNumStyle } from './types.js';
 import {
   PqPackageIcon,
   PqSearchIcon,
   PqWalletIcon,
 } from './PrintQuoteIcons.js';
 
+const LazyOrdersTabModals = React.lazy(() =>
+  import('./OrdersTabModals.js').then((m) => ({
+    default: m.OrdersTabModals,
+  })),
+);
+
+export const INITIAL_VISIBLE_ORDERS_LIMIT = 50;
+export const VISIBLE_ORDERS_STEP = 50;
+
+export type OrderFilterMode =
+  | 'ALL'
+  | 'IN_PROD'
+  | 'PENDING_DELIVERY'
+  | 'HAS_DEBT'
+  | 'NEEDS_COST_REVIEW'
+  | 'CANCELLED_OBLIGATIONS';
+
+export type OrderPrimaryActionType =
+  | 'SETTLE_CANCEL'
+  | 'CONFIRM_COST'
+  | 'RECORD_PAYMENT'
+  | null;
+
+export interface OrderStatusCounts {
+  all: number;
+  inProd: number;
+  pendingDelivery: number;
+  hasDebt: number;
+  needsCostReview: number;
+  cancelledObligations: number;
+}
+
 export interface OrdersTabProps {
   orders: PrintOrderData[];
   vendors?: PrintVendorData[] | undefined;
+  loading?: boolean | undefined;
+  error?: string | null | undefined;
+  authBlocked?: boolean | undefined;
+  onRetry?: (() => void) | undefined;
+  onEnsureVendors?: (() => void | Promise<void>) | undefined;
+  initialVisibleLimit?: number | undefined;
   onMutateLedger?:
     | ((
         endpoint: string,
@@ -54,25 +91,10 @@ export interface OrdersTabProps {
   paymentNote: string;
   setPaymentNote: (v: string) => void;
   onRecordPayment: (e: React.FormEvent) => void;
+  paymentSubmitting?: boolean | undefined;
 }
 
-type OrderFilterMode =
-  | 'ALL'
-  | 'IN_PROD'
-  | 'PENDING_DELIVERY'
-  | 'HAS_DEBT'
-  | 'NEEDS_COST_REVIEW'
-  | 'CANCELLED_OBLIGATIONS';
-
-const HISTORY_ACTION_LABELS: Record<OrderCostHistoryActionType, string> = {
-  ENTERED: 'Nhập nháp chi phí',
-  CONFIRMED: 'Xác nhận chi phí thực tế',
-  ADJUSTED: 'Điều chỉnh chi phí xác nhận',
-  UNCONFIRMED: 'Bỏ xác nhận (mở rà soát lại)',
-  VENDOR_PAYMENT_NOTE: 'Cập nhật ghi chú chi xưởng',
-};
-
-function hasCancelledObligation(ord: PrintOrderData): boolean {
+export function hasCancelledObligation(ord: PrintOrderData): boolean {
   if (ord.production_status !== 'CANCELLED') return false;
   const enteredSum =
     (ord.entered_vendor_cost ?? 0) +
@@ -91,9 +113,131 @@ function hasCancelledObligation(ord: PrintOrderData): boolean {
   );
 }
 
+export function isNeedsCostReview(ord: PrintOrderData): boolean {
+  return (
+    !ord.actual_cost_confirmed &&
+    (ord.cost_reconciliation_status ===
+      OrderCostReconciliationStatus.NEEDS_REVIEW ||
+      ord.cost_reconciliation_status ===
+        OrderCostReconciliationStatus.PARTIAL_ENTERED ||
+      ord.cost_reconciliation_status ===
+        OrderCostReconciliationStatus.ENTERED_UNCONFIRMED)
+  );
+}
+
+export function isPendingDelivery(ord: PrintOrderData): boolean {
+  return (
+    ord.production_status !== 'CANCELLED' &&
+    ord.delivery_status !== 'DELIVERED' &&
+    ord.delivery_status !== 'RETURNED'
+  );
+}
+
+export function isInProduction(ord: PrintOrderData): boolean {
+  return (
+    ord.production_status !== 'COMPLETED' &&
+    ord.production_status !== 'CANCELLED'
+  );
+}
+
+export function hasRemainingDebt(ord: PrintOrderData): boolean {
+  return ord.production_status !== 'CANCELLED' && ord.remaining_debt_amount > 0;
+}
+
+export function computeOrderStatusCounts(
+  orders: readonly PrintOrderData[],
+): OrderStatusCounts {
+  let inProd = 0;
+  let pendingDelivery = 0;
+  let hasDebt = 0;
+  let needsCostReview = 0;
+  let cancelledObligations = 0;
+
+  for (let i = 0; i < orders.length; i += 1) {
+    const ord = orders[i];
+    if (!ord) continue;
+    if (isInProduction(ord)) inProd += 1;
+    if (isPendingDelivery(ord)) pendingDelivery += 1;
+    if (hasRemainingDebt(ord)) hasDebt += 1;
+    if (isNeedsCostReview(ord)) needsCostReview += 1;
+    if (hasCancelledObligation(ord)) cancelledObligations += 1;
+  }
+
+  return {
+    all: orders.length,
+    inProd,
+    pendingDelivery,
+    hasDebt,
+    needsCostReview,
+    cancelledObligations,
+  };
+}
+
+export function filterPrintOrders(
+  orders: readonly PrintOrderData[],
+  filterMode: OrderFilterMode,
+  searchQuery: string,
+): PrintOrderData[] {
+  const q = searchQuery.trim().toLowerCase();
+  const result: PrintOrderData[] = [];
+
+  for (let i = 0; i < orders.length; i += 1) {
+    const ord = orders[i];
+    if (!ord) continue;
+    if (filterMode === 'IN_PROD' && !isInProduction(ord)) continue;
+    if (filterMode === 'PENDING_DELIVERY' && !isPendingDelivery(ord)) continue;
+    if (filterMode === 'HAS_DEBT' && !hasRemainingDebt(ord)) continue;
+    if (filterMode === 'NEEDS_COST_REVIEW' && !isNeedsCostReview(ord)) continue;
+    if (
+      filterMode === 'CANCELLED_OBLIGATIONS' &&
+      !hasCancelledObligation(ord)
+    ) {
+      continue;
+    }
+    if (q) {
+      const codeMatch = ord.order_code.toLowerCase().includes(q);
+      const custMatch = (ord.customer_name || '').toLowerCase().includes(q);
+      const quoteMatch = (ord.quote_code || '').toLowerCase().includes(q);
+      if (!codeMatch && !custMatch && !quoteMatch) continue;
+    }
+    result.push(ord);
+  }
+
+  return result;
+}
+
+export function resolveOrderPrimaryAction(
+  ord: PrintOrderData,
+  hasLedgerMutation: boolean,
+): OrderPrimaryActionType {
+  const isCancelled = ord.production_status === 'CANCELLED';
+  // Priority 1: Cancellation settlement when allowed
+  if (hasLedgerMutation && isCancelled && ord.total_paid_amount > 0) {
+    return 'SETTLE_CANCEL';
+  }
+  // Priority 2: Actual cost confirmation when unconfirmed
+  if (!ord.actual_cost_confirmed) {
+    return 'CONFIRM_COST';
+  }
+  // Priority 3: Payment / Refund when remaining debt or refundable deposit exists
+  if (
+    (!isCancelled && ord.remaining_debt_amount > 0) ||
+    (isCancelled && ord.total_paid_amount > 0)
+  ) {
+    return 'RECORD_PAYMENT';
+  }
+  return null;
+}
+
 export const OrdersTab: React.FC<OrdersTabProps> = ({
   orders,
   vendors = [],
+  loading = false,
+  error = null,
+  authBlocked = false,
+  onRetry,
+  onEnsureVendors,
+  initialVisibleLimit = INITIAL_VISIBLE_ORDERS_LIMIT,
   onMutateLedger,
   onUpdateOrderField,
   paymentOrderTarget,
@@ -107,379 +251,313 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   paymentNote,
   setPaymentNote,
   onRecordPayment,
+  paymentSubmitting = false,
 }) => {
+  const pageSize = Math.max(1, initialVisibleLimit);
+  const safeOrders = useMemo(
+    () => (authBlocked ? [] : orders),
+    [authBlocked, orders],
+  );
   const [filterMode, setFilterMode] = useState<OrderFilterMode>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [paymentAmountInput, setPaymentAmountInput] = useState<string>(
-    paymentAmount > 0 ? String(paymentAmount) : '',
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const [openOverflowOrderId, setOpenOverflowOrderId] = useState<string | null>(
+    null,
   );
   const [costOrderTarget, setCostOrderTarget] = useState<PrintOrderData | null>(
     null,
   );
-  const [actualVendorCostInput, setActualVendorCostInput] =
-    useState<string>('');
-  const [actualShippingInput, setActualShippingInput] = useState<string>('');
-  const [actualExtraInput, setActualExtraInput] = useState<string>('');
-  const [vendorPaidInput, setVendorPaidInput] = useState<string>('0');
-  const [costNoteInput, setCostNoteInput] = useState<string>('');
-  const [costModalError, setCostModalError] = useState<string>('');
-
-  // Multi-Workshop Job Creation & Cancellation Settlement Modals
   const [jobOrderTarget, setJobOrderTarget] = useState<PrintOrderData | null>(
     null,
   );
-  const [jobVendorId, setJobVendorId] = useState<string>('');
-  const [jobVendorName, setJobVendorName] = useState<string>('');
-  const [jobStageName, setJobStageName] = useState<string>('In cơ bản');
-  const [jobExpectedInput, setJobExpectedInput] = useState<string>('0');
-  const [jobModalError, setJobModalError] = useState<string>('');
-
   const [settleCancelTarget, setSettleCancelTarget] =
     useState<PrintOrderData | null>(null);
-  const [settleRefundInput, setSettleRefundInput] = useState<string>('0');
-  const [settleFeeInput, setSettleFeeInput] = useState<string>('0');
-  const [settleReasonInput, setSettleReasonInput] = useState<string>('');
-  const [settleModalError, setSettleModalError] = useState<string>('');
-  useAutoDismiss(costModalError, () => setCostModalError(''), 5000);
-  useAutoDismiss(jobModalError, () => setJobModalError(''), 5000);
-  useAutoDismiss(settleModalError, () => setSettleModalError(''), 5000);
+
+  const overflowTriggerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const modalTriggerFocusRef = useRef<HTMLElement | null>(null);
+  const prevHadOpenModalRef = useRef<boolean>(false);
+
+  const captureModalTriggerFocus = useCallback(() => {
+    if (
+      typeof document !== 'undefined' &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      modalTriggerFocusRef.current = document.activeElement;
+    }
+  }, []);
 
   useEffect(() => {
-    if (paymentOrderTarget) {
-      setPaymentAmountInput(paymentAmount > 0 ? String(paymentAmount) : '');
-    }
-  }, [paymentOrderTarget, paymentAmount]);
+    setCurrentPage(1);
+  }, [filterMode, searchQuery, pageSize]);
 
-  const openConfirmActualCostModal = (ord: PrintOrderData) => {
-    setCostOrderTarget(ord);
-    // Never pre-fill expected_* into actual cost inputs when unconfirmed!
-    setActualVendorCostInput(
-      ord.entered_vendor_cost !== null && ord.entered_vendor_cost !== undefined
-        ? String(ord.entered_vendor_cost)
-        : ord.actual_cost_confirmed && ord.actual_vendor_cost !== null
-          ? String(ord.actual_vendor_cost)
-          : '',
-    );
-    setActualShippingInput(
-      ord.entered_shipping_fee !== null &&
-        ord.entered_shipping_fee !== undefined
-        ? String(ord.entered_shipping_fee)
-        : ord.actual_cost_confirmed && ord.actual_shipping_fee !== null
-          ? String(ord.actual_shipping_fee)
-          : '',
-    );
-    setActualExtraInput(
-      ord.entered_extra_cost !== null && ord.entered_extra_cost !== undefined
-        ? String(ord.entered_extra_cost)
-        : ord.actual_cost_confirmed && ord.actual_extra_cost !== null
-          ? String(ord.actual_extra_cost)
-          : '',
-    );
-    setVendorPaidInput(String(ord.vendor_paid_amount ?? 0));
-    setCostNoteInput('');
-    setCostModalError('');
-  };
-
-  const parseOptionalIntegerInput = (
-    raw: string,
-    label: string,
-  ): { ok: boolean; value: number | null; error?: string } => {
-    const trimmed = raw.trim();
-    if (trimmed === '') {
-      return { ok: true, value: null };
-    }
-    const parsed = parseNumericDraftValue(trimmed, {
-      allowDecimal: false,
-      min: 0,
-      integerOnly: true,
-    });
-    if (!parsed.isValid || parsed.value === null) {
-      return {
-        ok: false,
-        value: null,
-        error: `${label} phải là số nguyên không âm (VNĐ).`,
-      };
-    }
-    return { ok: true, value: parsed.value };
-  };
-
-  const submitCostUpdate = async (
-    mode: 'SAVE_DRAFT' | 'CONFIRM' | 'UNCONFIRM',
-  ) => {
-    if (!costOrderTarget) return;
-    setCostModalError('');
-
-    const vPaid = parseNumericDraftValue(vendorPaidInput.trim() || '0', {
-      allowDecimal: false,
-      min: 0,
-      integerOnly: true,
-    });
-    if (!vPaid.isValid || vPaid.value === null) {
-      setCostModalError(
-        'Ghi chú tổng tiền đã chi xưởng phải là số nguyên không âm (VNĐ).',
-      );
-      return;
-    }
-
-    if (mode === 'UNCONFIRM') {
-      const res = await onUpdateOrderField(costOrderTarget.id, {
-        actual_cost_confirmed: false,
-        vendor_paid_amount: vPaid.value,
-        cost_note:
-          costNoteInput.trim() || 'Bỏ xác nhận chi phí để kiểm tra lại',
-      });
-      if (res !== false) {
-        setCostOrderTarget(null);
-      }
-      return;
-    }
-
-    const vCost = parseOptionalIntegerInput(
-      actualVendorCostInput,
-      'Chi phí nhà in + gia công thực tế',
-    );
-    if (!vCost.ok) {
-      setCostModalError(vCost.error || 'Dữ liệu không hợp lệ.');
-      return;
-    }
-    const vShip = parseOptionalIntegerInput(
-      actualShippingInput,
-      'Phí giao hàng thực tế',
-    );
-    if (!vShip.ok) {
-      setCostModalError(vShip.error || 'Dữ liệu không hợp lệ.');
-      return;
-    }
-    const vExtra = parseOptionalIntegerInput(
-      actualExtraInput,
-      'Phí phát sinh thực tế',
-    );
-    if (!vExtra.ok) {
-      setCostModalError(vExtra.error || 'Dữ liệu không hợp lệ.');
-      return;
-    }
-
-    if (
-      mode === 'CONFIRM' &&
-      (vCost.value === null || vShip.value === null || vExtra.value === null)
-    ) {
-      setCostModalError(
-        'Cần nhập đủ cả 3 khoản (Chi phí nhà in, Phí giao hàng thực tế và Phí phát sinh; nhập 0 nếu không phát sinh) trước khi xác nhận. Hệ thống không tự lấy chi phí dự kiến cho khoản bỏ trống.',
-      );
-      return;
-    }
-
-    const res = await onUpdateOrderField(costOrderTarget.id, {
-      ...(mode === 'CONFIRM' ? { actual_cost_confirmed: true } : {}),
-      entered_vendor_cost: vCost.value,
-      entered_shipping_fee: vShip.value,
-      entered_extra_cost: vExtra.value,
-      vendor_paid_amount: vPaid.value,
-      cost_note: costNoteInput.trim() || null,
-    });
-    if (res !== false) {
+  useEffect(() => {
+    if (authBlocked) {
+      setDetailOrderId(null);
+      setOpenOverflowOrderId(null);
       setCostOrderTarget(null);
+      setJobOrderTarget(null);
+      setSettleCancelTarget(null);
+      setPaymentOrderTarget(null);
     }
-  };
+  }, [authBlocked, setPaymentOrderTarget]);
 
-  const handleConfirmActualCostSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    void submitCostUpdate('CONFIRM');
-  };
+  const closeOverflowAndRestoreFocus = useCallback(
+    (orderIdToRestore: string) => {
+      setOpenOverflowOrderId(null);
+      const triggerEl = overflowTriggerRefs.current.get(orderIdToRestore);
+      if (triggerEl && typeof triggerEl.focus === 'function') {
+        try {
+          triggerEl.focus();
+        } catch {
+          // Ignore focus errors in headless tests
+        }
+      }
+    },
+    [],
+  );
 
-  const needsReviewCount = useMemo(
+  useEffect(() => {
+    if (!openOverflowOrderId || typeof document === 'undefined') {
+      return undefined;
+    }
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && target.closest('[data-pq-order-overflow-root="true"]')) {
+        return;
+      }
+      setOpenOverflowOrderId(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeOverflowAndRestoreFocus(openOverflowOrderId);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [openOverflowOrderId, closeOverflowAndRestoreFocus]);
+
+  const handleOverflowMenuKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>, orderId: string) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeOverflowAndRestoreFocus(orderId);
+        return;
+      }
+      if (
+        e.key === 'ArrowDown' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'Home' ||
+        e.key === 'End'
+      ) {
+        const items = Array.from(
+          e.currentTarget.querySelectorAll<HTMLButtonElement>(
+            'button:not([disabled])',
+          ),
+        );
+        if (items.length === 0) return;
+        e.preventDefault();
+        const activeIdx = items.indexOf(
+          document.activeElement as HTMLButtonElement,
+        );
+        let nextIdx = 0;
+        if (e.key === 'Home') {
+          nextIdx = 0;
+        } else if (e.key === 'End') {
+          nextIdx = items.length - 1;
+        } else if (e.key === 'ArrowDown') {
+          nextIdx = activeIdx < 0 ? 0 : (activeIdx + 1) % items.length;
+        } else {
+          nextIdx =
+            activeIdx <= 0 ? items.length - 1 : (activeIdx - 1) % items.length;
+        }
+        items[nextIdx]?.focus();
+      }
+    },
+    [closeOverflowAndRestoreFocus],
+  );
+
+  const openConfirmActualCostModal = useCallback(
+    (ord: PrintOrderData) => {
+      if (authBlocked) return;
+      captureModalTriggerFocus();
+      setOpenOverflowOrderId(null);
+      setCostOrderTarget(ord);
+    },
+    [authBlocked, captureModalTriggerFocus],
+  );
+
+  const openPaymentModalForOrder = useCallback(
+    (ord: PrintOrderData) => {
+      if (authBlocked) return;
+      captureModalTriggerFocus();
+      setOpenOverflowOrderId(null);
+      setPaymentOrderTarget(ord);
+      if (ord.production_status === 'CANCELLED') {
+        setPaymentAmount(ord.total_paid_amount || 0);
+        setPaymentType('REFUND');
+      } else {
+        setPaymentAmount(ord.remaining_debt_amount || 0);
+        setPaymentType(ord.total_paid_amount === 0 ? 'DEPOSIT' : 'FINAL');
+      }
+    },
+    [
+      authBlocked,
+      captureModalTriggerFocus,
+      setPaymentAmount,
+      setPaymentOrderTarget,
+      setPaymentType,
+    ],
+  );
+
+  const openWorkshopJobModalForOrder = useCallback(
+    (ord: PrintOrderData) => {
+      if (authBlocked) return;
+      captureModalTriggerFocus();
+      setOpenOverflowOrderId(null);
+      if (onEnsureVendors) {
+        void onEnsureVendors();
+      }
+      setJobOrderTarget(ord);
+    },
+    [authBlocked, captureModalTriggerFocus, onEnsureVendors],
+  );
+
+  const openSettleCancelModalForOrder = useCallback(
+    (ord: PrintOrderData) => {
+      if (authBlocked) return;
+      captureModalTriggerFocus();
+      setOpenOverflowOrderId(null);
+      setSettleCancelTarget(ord);
+    },
+    [authBlocked, captureModalTriggerFocus],
+  );
+
+  const statusCounts = useMemo(
+    () => computeOrderStatusCounts(safeOrders),
+    [safeOrders],
+  );
+
+  const filteredOrders = useMemo(
+    () => filterPrintOrders(safeOrders, filterMode, searchQuery),
+    [safeOrders, filterMode, searchQuery],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
+  const effectivePage = Math.min(currentPage, totalPages);
+  const pageStartIndex = (effectivePage - 1) * pageSize;
+
+  const visibleOrders = useMemo(
+    () => filteredOrders.slice(pageStartIndex, pageStartIndex + pageSize),
+    [filteredOrders, pageStartIndex, pageSize],
+  );
+
+  const detailOrder = useMemo(
     () =>
-      orders.filter(
-        (o) =>
-          !o.actual_cost_confirmed &&
-          (o.cost_reconciliation_status ===
-            OrderCostReconciliationStatus.NEEDS_REVIEW ||
-            o.cost_reconciliation_status ===
-              OrderCostReconciliationStatus.PARTIAL_ENTERED ||
-            o.cost_reconciliation_status ===
-              OrderCostReconciliationStatus.ENTERED_UNCONFIRMED),
-      ).length,
-    [orders],
+      detailOrderId && !authBlocked
+        ? (safeOrders.find((o) => o.id === detailOrderId) ?? null)
+        : null,
+    [safeOrders, detailOrderId, authBlocked],
   );
 
-  const cancelledObligationCount = useMemo(
-    () => orders.filter(hasCancelledObligation).length,
-    [orders],
+  const hasAnyOpenModal = Boolean(
+    detailOrder ||
+      paymentOrderTarget ||
+      costOrderTarget ||
+      jobOrderTarget ||
+      settleCancelTarget,
   );
 
-  const filteredOrders = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return orders.filter((ord) => {
+  useEffect(() => {
+    if (prevHadOpenModalRef.current && !hasAnyOpenModal) {
+      const prev = modalTriggerFocusRef.current;
+      modalTriggerFocusRef.current = null;
       if (
-        filterMode === 'IN_PROD' &&
-        (ord.production_status === 'COMPLETED' ||
-          ord.production_status === 'CANCELLED')
+        prev &&
+        typeof prev.focus === 'function' &&
+        typeof document !== 'undefined' &&
+        document.contains(prev)
       ) {
-        return false;
+        try {
+          prev.focus();
+        } catch {
+          // Ignore focus restoration error
+        }
       }
-      if (
-        filterMode === 'PENDING_DELIVERY' &&
-        (ord.production_status === 'CANCELLED' ||
-          ord.delivery_status === 'DELIVERED' ||
-          ord.delivery_status === 'RETURNED')
-      ) {
-        return false;
-      }
-      if (
-        filterMode === 'HAS_DEBT' &&
-        (ord.production_status === 'CANCELLED' ||
-          ord.remaining_debt_amount <= 0)
-      ) {
-        return false;
-      }
-      if (
-        filterMode === 'NEEDS_COST_REVIEW' &&
-        (ord.actual_cost_confirmed ||
-          (ord.cost_reconciliation_status !==
-            OrderCostReconciliationStatus.NEEDS_REVIEW &&
-            ord.cost_reconciliation_status !==
-              OrderCostReconciliationStatus.PARTIAL_ENTERED &&
-            ord.cost_reconciliation_status !==
-              OrderCostReconciliationStatus.ENTERED_UNCONFIRMED))
-      ) {
-        return false;
-      }
-      if (
-        filterMode === 'CANCELLED_OBLIGATIONS' &&
-        !hasCancelledObligation(ord)
-      ) {
-        return false;
-      }
-      if (!q) return true;
-      return (
-        ord.order_code.toLowerCase().includes(q) ||
-        (ord.customer_name || '').toLowerCase().includes(q) ||
-        (ord.quote_code || '').toLowerCase().includes(q)
-      );
-    });
-  }, [orders, filterMode, searchQuery]);
+    }
+    prevHadOpenModalRef.current = hasAnyOpenModal;
+  }, [hasAnyOpenModal]);
 
-  const filterButtons: Array<{
+  const underlineTabs: Array<{
     id: OrderFilterMode;
     label: string;
     count: number;
   }> = [
-    { id: 'ALL', label: 'Tất cả', count: orders.length },
-    {
-      id: 'IN_PROD',
-      label: 'Đang in',
-      count: orders.filter(
-        (o) =>
-          o.production_status !== 'COMPLETED' &&
-          o.production_status !== 'CANCELLED',
-      ).length,
-    },
+    { id: 'ALL', label: 'Tất cả', count: statusCounts.all },
+    { id: 'IN_PROD', label: 'Đang in', count: statusCounts.inProd },
     {
       id: 'PENDING_DELIVERY',
       label: 'Chờ giao',
-      count: orders.filter(
-        (o) =>
-          o.production_status !== 'CANCELLED' &&
-          o.delivery_status !== 'DELIVERED' &&
-          o.delivery_status !== 'RETURNED',
-      ).length,
+      count: statusCounts.pendingDelivery,
     },
-    {
-      id: 'HAS_DEBT',
-      label: 'Còn nợ',
-      count: orders.filter(
-        (o) =>
-          o.production_status !== 'CANCELLED' && o.remaining_debt_amount > 0,
-      ).length,
-    },
-    ...(needsReviewCount > 0
-      ? [
-          {
-            id: 'NEEDS_COST_REVIEW' as const,
-            label: 'Cần kiểm tra chi phí',
-            count: needsReviewCount,
-          },
-        ]
-      : []),
-    ...(cancelledObligationCount > 0
-      ? [
-          {
-            id: 'CANCELLED_OBLIGATIONS' as const,
-            label: 'Đơn hủy còn nghĩa vụ',
-            count: cancelledObligationCount,
-          },
-        ]
-      : []),
+    { id: 'HAS_DEBT', label: 'Còn nợ', count: statusCounts.hasDebt },
   ];
 
-  const renderUnconfirmedCostText = (ord: PrintOrderData) => {
-    const status = ord.cost_reconciliation_status;
-    if (status === OrderCostReconciliationStatus.PARTIAL_ENTERED) {
-      const parts: string[] = [];
-      if (
-        ord.entered_vendor_cost !== null &&
-        ord.entered_vendor_cost !== undefined
-      ) {
-        parts.push(`Vốn: ${formatVnd(ord.entered_vendor_cost)}`);
-      }
-      if (
-        ord.entered_shipping_fee !== null &&
-        ord.entered_shipping_fee !== undefined
-      ) {
-        parts.push(`Ship: ${formatVnd(ord.entered_shipping_fee)}`);
-      }
-      if (
-        ord.entered_extra_cost !== null &&
-        ord.entered_extra_cost !== undefined
-      ) {
-        parts.push(`Phát sinh: ${formatVnd(ord.entered_extra_cost)}`);
-      }
-      return (
-        <span style={{ color: 'var(--warning-text, var(--muted-color))' }}>
-          Chi phí thực tế:{' '}
-          <strong>
-            Đã nhập một phần ({parts.join(' · ')}) — Chưa xác nhận từ xưởng
-          </strong>
-        </span>
-      );
-    }
-    if (status === OrderCostReconciliationStatus.ENTERED_UNCONFIRMED) {
-      const enteredTotal =
-        (ord.entered_vendor_cost ?? 0) +
-        (ord.entered_shipping_fee ?? 0) +
-        (ord.entered_extra_cost ?? 0);
-      return (
-        <span style={{ color: 'var(--warning-text, var(--muted-color))' }}>
-          Chi phí thực tế:{' '}
-          <strong>
-            Đã nhập nháp {formatVnd(enteredTotal)} — Chưa xác nhận từ xưởng
-          </strong>
-        </span>
-      );
-    }
-    if (status === OrderCostReconciliationStatus.NEEDS_REVIEW) {
-      return (
-        <span style={{ color: 'var(--danger-text)' }}>
-          Chi phí thực tế:{' '}
-          <strong>Cần rà soát lại — Chưa xác nhận từ xưởng</strong>
-        </span>
-      );
-    }
-    return (
-      <span style={{ color: 'var(--muted-color)' }}>
-        Chi phí thực tế: <strong>Chưa xác nhận từ xưởng</strong>
-      </span>
-    );
-  };
+  const todoShortcuts: Array<{
+    id: OrderFilterMode;
+    testId: string;
+    label: string;
+    count: number;
+    tone: 'accent' | 'warning' | 'danger';
+  }> = [
+    {
+      id: 'PENDING_DELIVERY',
+      testId: 'pq-orders-todo-pending-delivery',
+      label: 'Chờ giao',
+      count: statusCounts.pendingDelivery,
+      tone: 'accent',
+    },
+    {
+      id: 'NEEDS_COST_REVIEW',
+      testId: 'pq-orders-todo-needs-cost-review',
+      label: 'Cần kiểm tra chi phí',
+      count: statusCounts.needsCostReview,
+      tone: 'warning',
+    },
+    {
+      id: 'CANCELLED_OBLIGATIONS',
+      testId: 'pq-orders-todo-cancelled-obligations',
+      label: 'Đơn hủy cần quyết toán',
+      count: statusCounts.cancelledObligations,
+      tone: 'danger',
+    },
+  ];
+
+  const guardedUpdateOrderField = useCallback(
+    (orderId: string, patch: Record<string, unknown>) => {
+      if (authBlocked) return Promise.resolve(false);
+      return onUpdateOrderField(orderId, patch);
+    },
+    [authBlocked, onUpdateOrderField],
+  );
 
   return (
     <div
       data-testid="panel-orders"
-      style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
     >
       <div className="pq-page-head">
         <div>
-          <h1 className="pq-page-title">Đơn hàng đặt in ({orders.length})</h1>
+          <h1 className="pq-page-title">
+            Đơn hàng đặt in ({statusCounts.all})
+          </h1>
           <p className="pq-page-subtitle">
             Theo dõi tiến độ xưởng in, giao hàng, thu tiền khách và đối soát chi
             phí thực tế
@@ -487,1133 +565,750 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
         </div>
       </div>
 
-      {/* Unified Search & Filter Bar */}
-      <div className="pq-toolbar-card">
-        <div className="pq-search-wrap">
-          <PqSearchIcon size={15} className="pq-search-icon" />
-          <input
-            type="search"
-            aria-label="Tìm kiếm đơn hàng"
-            style={{ ...inputStyle, paddingLeft: '36px', minHeight: '40px' }}
-            placeholder="Tìm mã đơn, tên khách hoặc mã báo giá…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      {/* Compact "Cần xử lý" Shortcuts (TikTok Seller Center style) */}
+      <section
+        className="pq-orders-todo-strip"
+        aria-label="Việc cần xử lý trên đơn hàng"
+        data-testid="pq-orders-todo-strip"
+      >
+        <div className="pq-orders-todo-header">
+          <span className="pq-orders-todo-title">Cần xử lý</span>
         </div>
-
         <div
-          className="pq-filter-pills"
+          className="pq-orders-todo-grid"
           role="group"
-          aria-label="Lọc trạng thái đơn hàng"
+          aria-label="Lối tắt việc cần xử lý"
         >
-          {filterButtons.map((btn) => {
-            const active = filterMode === btn.id;
+          {todoShortcuts.map((shortcut) => {
+            const isActive = filterMode === shortcut.id;
+            const hasItems = shortcut.count > 0;
             return (
               <button
-                key={btn.id}
+                key={shortcut.id}
                 type="button"
-                aria-pressed={active}
-                className="pq-filter-pill"
-                data-active={active ? 'true' : 'false'}
-                onClick={() => setFilterMode(btn.id)}
+                data-testid={shortcut.testId}
+                aria-pressed={isActive}
+                className={`pq-orders-todo-item tone-${shortcut.tone}${isActive ? ' active' : ''}${hasItems ? ' has-items' : ''}`}
+                onClick={() =>
+                  setFilterMode((prev) =>
+                    prev === shortcut.id ? 'ALL' : shortcut.id,
+                  )
+                }
               >
-                <span>{btn.label}</span>
-                <span className="pq-filter-pill-count">{btn.count}</span>
+                <span className="pq-orders-todo-label">{shortcut.label}</span>
+                <span className="pq-orders-todo-count">{shortcut.count}</span>
               </button>
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {filteredOrders.length === 0 ? (
-        <div
-          style={{
-            ...cardStyle,
-            padding: '40px 24px',
-            textAlign: 'center',
-          }}
-        >
-          {orders.length === 0 ? (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px',
-                maxWidth: '420px',
-                margin: '0 auto',
-              }}
-            >
-              <div className="pq-empty-icon-ring">
-                <PqPackageIcon size={24} />
-              </div>
-              <div style={{ fontWeight: 700, fontSize: '15px' }}>
-                Chưa có đơn hàng đặt in
-              </div>
-              <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
-                Khi khách chốt báo giá, hãy nhấn{' '}
-                <strong>Chuyển thành Đơn đặt in</strong> từ danh sách hoặc chi
-                tiết báo giá.
-              </div>
-            </div>
-          ) : (
-            <div style={{ color: 'var(--muted-color)', fontSize: '13.5px' }}>
-              Không có đơn hàng nào khớp bộ lọc hiện tại.
-            </div>
-          )}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {filteredOrders.map((ord) => {
-            const isCancelled = ord.production_status === 'CANCELLED';
-            const cancelledHasObligation = hasCancelledObligation(ord);
-            return (
-              <article
-                key={ord.id}
-                data-testid={`order-card-${ord.order_code}`}
-                className="pq-quote-card"
-              >
-                <div className="pq-quote-card-top">
-                  <div style={{ minWidth: 0, flex: '1 1 260px' }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <span className="pq-code-pill">{ord.order_code}</span>
-                      <StatusBadge
-                        status={
-                          ord.production_status === 'COMPLETED'
-                            ? 'success'
-                            : ord.production_status === 'CANCELLED'
-                              ? 'error'
-                              : 'neutral'
-                        }
-                        label={`SX: ${PRODUCTION_STATUS_LABELS[ord.production_status]}`}
-                      />
-                      <StatusBadge
-                        status={
-                          ord.delivery_status === 'DELIVERED'
-                            ? 'success'
-                            : 'warning'
-                        }
-                        label={`Giao: ${DELIVERY_STATUS_LABELS[ord.delivery_status]}`}
-                      />
-                      <StatusBadge
-                        status={
-                          ord.payment_status === 'PAID'
-                            ? 'success'
-                            : ord.remaining_debt_amount > 0 && !isCancelled
-                              ? 'error'
-                              : 'muted'
-                        }
-                        label={PAYMENT_STATUS_LABELS[ord.payment_status]}
-                      />
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '13px',
-                        color: 'var(--muted-color)',
-                        marginTop: '6px',
-                      }}
-                    >
-                      Khách hàng:{' '}
-                      <strong style={{ color: 'var(--text-color)' }}>
-                        {ord.customer_name || 'Khách lẻ'}
-                      </strong>{' '}
-                      • Báo giá gốc: {ord.quote_code || '—'} (v
-                      {ord.quote_version})
-                    </div>
-                  </div>
-
-                  <div className="pq-quote-metrics">
-                    <div className="pq-metric-cell">
-                      <span className="pq-metric-label">Tổng tiền đơn</span>
-                      <strong className="pq-metric-val" style={tabularNumStyle}>
-                        {formatVnd(ord.total_quote_amount)}
-                      </strong>
-                    </div>
-                    <div className="pq-metric-cell">
-                      <span className="pq-metric-label">Đã thu</span>
-                      <strong
-                        className="pq-metric-val"
-                        style={{
-                          ...tabularNumStyle,
-                          color: 'var(--success-text)',
-                        }}
-                      >
-                        {formatVnd(ord.total_paid_amount)}
-                      </strong>
-                    </div>
-                    <div className="pq-metric-cell">
-                      <span className="pq-metric-label">
-                        {isCancelled ? 'Trạng thái hủy' : 'Còn nợ'}
-                      </span>
-                      <strong
-                        className="pq-metric-val"
-                        style={{
-                          ...tabularNumStyle,
-                          color: isCancelled
-                            ? 'var(--muted-color)'
-                            : ord.remaining_debt_amount > 0
-                              ? 'var(--danger-text)'
-                              : 'var(--success-text)',
-                        }}
-                      >
-                        {isCancelled
-                          ? 'Đơn đã hủy'
-                          : formatVnd(ord.remaining_debt_amount)}
-                      </strong>
-                    </div>
-                    <div className="pq-metric-cell pq-metric-cell-total">
-                      <span className="pq-metric-label">Lời dự kiến (BG)</span>
-                      <strong
-                        className="pq-metric-total-val"
-                        style={{
-                          ...tabularNumStyle,
-                          color: 'var(--success-text)',
-                        }}
-                      >
-                        {formatVnd(ord.expected_profit)}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-
-                {cancelledHasObligation && (
-                  <div
-                    data-testid={`pq-order-cancelled-obligation-${ord.order_code}`}
-                    style={{
-                      marginTop: '10px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--surface-subtle)',
-                      border: '1px solid var(--danger-text)',
-                      fontSize: '12px',
-                      color: 'var(--danger-text)',
-                      ...tabularNumStyle,
-                    }}
-                  >
-                    <strong>Đơn đã hủy còn nghĩa vụ cần xử lý riêng:</strong>{' '}
-                    Tiền khách đang giữ:{' '}
-                    <strong>{formatVnd(ord.total_paid_amount)}</strong> • Ghi
-                    chú tổng đã chi xưởng:{' '}
-                    <strong>{formatVnd(ord.vendor_paid_amount ?? 0)}</strong>
-                    {ord.actual_cost_confirmed && (
-                      <>
-                        {' '}
-                        • Chi phí phát sinh xác nhận:{' '}
-                        <strong>
-                          {formatVnd(
-                            (ord.actual_vendor_cost ?? 0) +
-                              (ord.actual_shipping_fee ?? 0) +
-                              (ord.actual_extra_cost ?? 0),
-                          )}
-                        </strong>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Financial Separation Strip: Expected vs Entered vs Confirmed Actual vs Order-Level Vendor Paid Note */}
-                <div
-                  data-testid={`pq-order-financial-tiers-${ord.order_code}`}
-                  style={{
-                    marginTop: '10px',
-                    padding: '8px 12px',
-                    borderRadius: '10px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid var(--border-color)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '10px',
-                    fontSize: '12px',
-                    ...tabularNumStyle,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '12px',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span>
-                      Vốn dự kiến:{' '}
-                      <strong>{formatVnd(ord.expected_vendor_cost)}</strong>
-                    </span>
-                    <span>•</span>
-                    {ord.actual_cost_confirmed && ord.actual_profit !== null ? (
-                      <span style={{ color: 'var(--text-color)' }}>
-                        Chi phí thực tế đã xác nhận:{' '}
-                        <strong>
-                          {formatVnd(
-                            (ord.actual_vendor_cost ?? 0) +
-                              (ord.actual_shipping_fee ?? 0) +
-                              (ord.actual_extra_cost ?? 0),
-                          )}
-                        </strong>{' '}
-                        (Lời TT:{' '}
-                        <strong style={{ color: 'var(--success-text)' }}>
-                          {formatVnd(ord.actual_profit)}
-                        </strong>
-                        )
-                      </span>
-                    ) : (
-                      renderUnconfirmedCostText(ord)
-                    )}
-                    <span>•</span>
-                    <span title="Ghi chú tổng tiền đã chi cấp đơn — chưa tách sổ công nợ hoặc phiếu chi theo từng xưởng">
-                      Thực chi xưởng (ghi chú cấp đơn — chưa tách sổ công nợ):{' '}
-                      <strong>{formatVnd(ord.vendor_paid_amount ?? 0)}</strong>
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    data-testid={`pq-order-confirm-cost-${ord.order_code}`}
-                    onClick={() => openConfirmActualCostModal(ord)}
-                    className="pq-btn pq-btn-secondary pq-btn-sm"
-                  >
-                    <span>
-                      {ord.actual_cost_confirmed
-                        ? 'Điều chỉnh / Bỏ xác nhận'
-                        : 'Xác nhận chi phí thực tế'}
-                    </span>
-                  </button>
-                </div>
-
-                {/* Multi-Workshop Jobs & Cancellation Settlement Strip */}
-                {onMutateLedger && (
-                  <div
-                    data-testid={`pq-order-workshop-jobs-${ord.order_code}`}
-                    style={{
-                      marginTop: '8px',
-                      padding: '8px 12px',
-                      borderRadius: '10px',
-                      backgroundColor: 'var(--bg-color)',
-                      border: '1px dashed var(--border-color)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: '8px',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <strong style={{ color: 'var(--text-color)' }}>
-                        Phiếu đặt xưởng ({ord.workshop_jobs?.length ?? 0}):
-                      </strong>
-                      {ord.workshop_jobs && ord.workshop_jobs.length > 0 ? (
-                        ord.workshop_jobs.map((jb) => (
-                          <span
-                            key={jb.id}
-                            style={{
-                              padding: '2px 8px',
-                              borderRadius: '999px',
-                              backgroundColor: 'var(--surface-subtle)',
-                              border: '1px solid var(--border-color)',
-                              ...tabularNumStyle,
-                            }}
-                          >
-                            {jb.job_code} •{' '}
-                            {jb.vendor_name || 'Chưa chọn xưởng'} ({jb.title}) —{' '}
-                            {jb.cost_status === 'CONFIRMED' &&
-                            jb.confirmed_cost !== null
-                              ? `TT ${formatVnd(jb.confirmed_cost)}`
-                              : `DK ${formatVnd(jb.expected_cost)}`}
-                          </span>
-                        ))
-                      ) : (
-                        <span style={{ color: 'var(--muted-color)' }}>
-                          Chưa tách phiếu xưởng riêng
-                        </span>
-                      )}
-                    </div>
-
-                    <div
-                      style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}
-                    >
-                      {!isCancelled && (
-                        <button
-                          type="button"
-                          data-testid={`pq-order-add-job-${ord.order_code}`}
-                          className="pq-btn pq-btn-ghost pq-btn-sm"
-                          onClick={() => {
-                            setJobOrderTarget(ord);
-                            setJobVendorId(ord.vendor_id || '');
-                            setJobVendorName('');
-                            setJobStageName('In / Gia công');
-                            setJobExpectedInput('0');
-                            setJobModalError('');
-                          }}
-                        >
-                          + Đặt xưởng / Tách công đoạn
-                        </button>
-                      )}
-                      {isCancelled && ord.total_paid_amount > 0 && (
-                        <button
-                          type="button"
-                          data-testid={`pq-order-settle-cancel-${ord.order_code}`}
-                          className="pq-btn pq-btn-secondary pq-btn-sm"
-                          onClick={() => {
-                            setSettleCancelTarget(ord);
-                            setSettleRefundInput(String(ord.total_paid_amount));
-                            setSettleFeeInput('0');
-                            setSettleReasonInput('');
-                            setSettleModalError('');
-                          }}
-                        >
-                          Quyết toán hủy đơn
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Independent Production & Delivery Status Controls */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 185px), 1fr))',
-                    gap: '12px',
-                    marginTop: '14px',
-                    paddingTop: '14px',
-                    borderTop: '1px solid var(--border-color)',
-                  }}
-                >
-                  <div>
-                    <label style={labelStyle}>Ngày gửi nhà in</label>
-                    <input
-                      aria-label={`Ngày đặt in ${ord.order_code}`}
-                      type="date"
-                      style={inputStyle}
-                      value={ord.print_ordered_at || ''}
-                      onChange={(e) =>
-                        void onUpdateOrderField(ord.id, {
-                          print_ordered_at: e.target.value || null,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>Tiến độ in ấn</label>
-                    <select
-                      aria-label={`Trạng thái sản xuất ${ord.order_code}`}
-                      style={inputStyle}
-                      value={ord.production_status}
-                      onChange={(e) =>
-                        void onUpdateOrderField(ord.id, {
-                          production_status: e.target
-                            .value as PrintProductionStatusType,
-                        })
-                      }
-                    >
-                      {Object.entries(PrintProductionStatus).map(([, val]) => (
-                        <option key={val} value={val}>
-                          {PRODUCTION_STATUS_LABELS[val]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>Tiến độ giao hàng</label>
-                    <select
-                      aria-label={`Trạng thái giao hàng ${ord.order_code}`}
-                      style={inputStyle}
-                      value={ord.delivery_status}
-                      onChange={(e) =>
-                        void onUpdateOrderField(ord.id, {
-                          delivery_status: e.target
-                            .value as PrintDeliveryStatusType,
-                        })
-                      }
-                    >
-                      {Object.entries(PrintDeliveryStatus).map(([, val]) => (
-                        <option key={val} value={val}>
-                          {DELIVERY_STATUS_LABELS[val]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                    <button
-                      type="button"
-                      data-testid={`pq-order-record-payment-${ord.order_code}`}
-                      onClick={() => {
-                        setPaymentOrderTarget(ord);
-                        if (isCancelled) {
-                          setPaymentAmount(ord.total_paid_amount || 0);
-                          setPaymentType('REFUND');
-                        } else {
-                          setPaymentAmount(ord.remaining_debt_amount || 0);
-                          setPaymentType(
-                            ord.total_paid_amount === 0 ? 'DEPOSIT' : 'FINAL',
-                          );
-                        }
-                      }}
-                      className="pq-btn pq-btn-primary"
-                      style={{ width: '100%' }}
-                    >
-                      <PqWalletIcon size={15} />
-                      <span>
-                        {isCancelled
-                          ? 'Hoàn tiền khách (Đơn hủy)'
-                          : 'Ghi nhận thanh toán'}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Record Payment Modal */}
-      <CatalogModalDialog
-        open={paymentOrderTarget !== null}
-        ariaLabel="Ghi nhận thanh toán đơn hàng"
-        title={
-          paymentOrderTarget
-            ? paymentOrderTarget.production_status === 'CANCELLED'
-              ? `Hoàn tiền khách — Đơn hủy ${paymentOrderTarget.order_code}`
-              : `Thu tiền / Đặt cọc — Đơn ${paymentOrderTarget.order_code}`
-            : 'Ghi nhận thanh toán đơn hàng'
-        }
-        subtitle={
-          paymentOrderTarget?.production_status === 'CANCELLED'
-            ? 'Đơn đã hủy chỉ cho phép ghi nhận Hoàn tiền (REFUND) để tất toán số tiền khách đã đóng.'
-            : 'Ghi nhận tiền đặt cọc hoặc thanh toán từng đợt của khách hàng.'
-        }
-        maxWidth="460px"
-        onClose={() => setPaymentOrderTarget(null)}
-      >
-        <form
-          onSubmit={onRecordPayment}
-          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-        >
-          <div>
-            <label style={labelStyle}>Loại thanh toán</label>
-            <select
-              aria-label="Loại thanh toán"
-              style={inputStyle}
-              value={paymentType}
-              onChange={(e) =>
-                setPaymentType(
-                  e.target.value as
-                    'DEPOSIT' | 'INSTALLMENT' | 'FINAL' | 'REFUND',
-                )
-              }
-            >
-              {paymentOrderTarget?.production_status !== 'CANCELLED' && (
-                <>
-                  <option value="DEPOSIT">Tiền đặt cọc (Deposit)</option>
-                  <option value="INSTALLMENT">Thanh toán đợt</option>
-                  <option value="FINAL">Tất toán công nợ cuối</option>
-                </>
-              )}
-              <option value="REFUND">Hoàn tiền (Refund)</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>
-              {paymentType === 'REFUND'
-                ? 'Số tiền hoàn trả khách (VNĐ) *'
-                : 'Số tiền thu (VNĐ) *'}
-            </label>
-            <NumericDraftInput
-              ariaLabel="Số tiền thanh toán"
-              allowDecimal={false}
-              placeholder="VD: 50000"
-              style={inputStyle}
-              required
-              value={paymentAmountInput}
-              onValueChange={(nextRaw) => {
-                setPaymentAmountInput(nextRaw);
-                const parsed = parseNumericDraftValue(nextRaw, {
-                  allowDecimal: false,
-                  min: 0,
-                  integerOnly: true,
-                });
-                setPaymentAmount(
-                  parsed.isValid && parsed.value !== null ? parsed.value : 0,
-                );
-              }}
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Phương thức</label>
-            <select
-              aria-label="Phương thức thanh toán"
-              style={inputStyle}
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-            >
-              <option value="BANK_TRANSFER">Chuyển khoản Ngân hàng</option>
-              <option value="QR_VIETQR">Quét mã VietQR</option>
-              <option value="CASH">Tiền mặt</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Ghi chú giao dịch</label>
-            <input
-              aria-label="Ghi chú thanh toán"
-              style={inputStyle}
-              value={paymentNote}
-              onChange={(e) => setPaymentNote(e.target.value)}
-              placeholder="VD: Khách CK cọc 50% đơn in…"
-            />
-          </div>
-
+      {/* Main Orders Workspace Card: Underline Filter Buttons + Search + Compact Table */}
+      <div className="pq-orders-workspace-card">
+        <div className="pq-orders-toolbar">
           <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '8px',
-              marginTop: '4px',
-            }}
+            className="pq-orders-tabs"
+            role="group"
+            aria-label="Lọc trạng thái đơn hàng"
           >
+            {underlineTabs.map((tab) => {
+              const active = filterMode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  aria-pressed={active}
+                  data-testid={`pq-orders-tab-${tab.id.toLowerCase()}`}
+                  className={`pq-orders-tab${active ? ' active' : ''}`}
+                  data-active={active ? 'true' : 'false'}
+                  onClick={() => setFilterMode(tab.id)}
+                >
+                  <span>{tab.label}</span>
+                  <span className="pq-orders-tab-badge">{tab.count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="pq-orders-search-bar">
+            <div className="pq-search-wrap">
+              <PqSearchIcon size={15} className="pq-search-icon" />
+              <input
+                type="search"
+                aria-label="Tìm kiếm đơn hàng"
+                className="pq-input pq-search-input"
+                placeholder="Tìm mã đơn, tên khách hoặc mã báo giá…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery.length > 0 && (
+                <button
+                  type="button"
+                  aria-label="Xóa tìm kiếm đơn hàng"
+                  data-testid="pq-orders-search-clear"
+                  className="pq-orders-search-clear"
+                  onClick={() => setSearchQuery('')}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {(filterMode === 'NEEDS_COST_REVIEW' ||
+          filterMode === 'CANCELLED_OBLIGATIONS') && (
+          <div
+            className="pq-orders-active-filter-banner"
+            data-testid="pq-orders-active-shortcut-banner"
+          >
+            <span>
+              Đang lọc nhanh:{' '}
+              <strong style={{ color: 'var(--text-primary)' }}>
+                {filterMode === 'NEEDS_COST_REVIEW'
+                  ? `Cần kiểm tra chi phí (${statusCounts.needsCostReview})`
+                  : `Đơn hủy cần quyết toán (${statusCounts.cancelledObligations})`}
+              </strong>
+            </span>
             <button
               type="button"
-              onClick={() => setPaymentOrderTarget(null)}
-              className="pq-btn pq-btn-secondary"
+              className="pq-btn pq-btn-ghost pq-btn-sm"
+              onClick={() => setFilterMode('ALL')}
             >
-              Hủy
-            </button>
-            <button type="submit" className="pq-btn pq-btn-primary">
-              {paymentOrderTarget?.production_status === 'CANCELLED'
-                ? 'Xác nhận hoàn tiền'
-                : 'Xác nhận thu tiền'}
+              Xem tất cả đơn
             </button>
           </div>
-        </form>
-      </CatalogModalDialog>
+        )}
 
-      {/* Confirm / Save Draft / Unconfirm Actual Cost Modal */}
-      <CatalogModalDialog
-        open={costOrderTarget !== null}
-        ariaLabel="Xác nhận chi phí thực tế xưởng"
-        title={
-          costOrderTarget
-            ? `Đối soát chi phí thực tế — ${costOrderTarget.order_code}`
-            : 'Xác nhận chi phí thực tế'
-        }
-        subtitle="Tách rõ Dự kiến, Đã nhập nháp và Đã xác nhận. Không tự lấy số dự kiến cho khoản chưa kiểm tra."
-        maxWidth="520px"
-        onClose={() => setCostOrderTarget(null)}
-      >
-        <form
-          onSubmit={handleConfirmActualCostSubmit}
-          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-        >
-          {costOrderTarget && (
-            <div
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                backgroundColor: 'var(--surface-subtle)',
-                border: '1px solid var(--border-color)',
-                fontSize: '12px',
-                ...tabularNumStyle,
-              }}
-            >
-              <div>
-                Tham chiếu dự kiến lúc báo giá: Vốn{' '}
-                <strong>
-                  {formatVnd(costOrderTarget.expected_vendor_cost)}
-                </strong>{' '}
-                • Ship{' '}
-                <strong>
-                  {formatVnd(costOrderTarget.expected_shipping_fee)}
-                </strong>{' '}
-                • Phát sinh{' '}
-                <strong>
-                  {formatVnd(costOrderTarget.expected_extra_cost)}
-                </strong>{' '}
-                • Lời dự kiến{' '}
-                <strong style={{ color: 'var(--success-text)' }}>
-                  {formatVnd(costOrderTarget.expected_profit)}
-                </strong>
-              </div>
-              {costOrderTarget.legacy_raw_actual_costs && (
-                <div style={{ marginTop: '4px', color: 'var(--muted-color)' }}>
-                  Số ghi nhận cũ trước nâng cấp (chưa có bằng chứng xác nhận):
-                  Vốn{' '}
-                  {formatVnd(
-                    costOrderTarget.legacy_raw_actual_costs.vendor_cost,
-                  )}{' '}
-                  • Ship{' '}
-                  {formatVnd(
-                    costOrderTarget.legacy_raw_actual_costs.shipping_fee,
-                  )}{' '}
-                  • Phát sinh{' '}
-                  {formatVnd(
-                    costOrderTarget.legacy_raw_actual_costs.extra_cost,
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {costModalError && (
-            <div
-              role="alert"
-              style={{
-                padding: '8px 10px',
-                borderRadius: '8px',
-                backgroundColor: 'var(--surface-subtle)',
-                border: '1px solid var(--danger-text)',
-                color: 'var(--danger-text)',
-                fontSize: '12px',
-              }}
-            >
-              {costModalError}
-            </div>
-          )}
-
-          <div>
-            <label style={labelStyle}>
-              1. Chi phí nhà in + gia công thực tế (VNĐ) *
-            </label>
-            <NumericDraftInput
-              dataTestId="pq-order-actual-vendor-cost-input"
-              ariaLabel="Chi phí nhà in thực tế"
-              allowDecimal={false}
-              placeholder="Nhập từ hóa đơn/phiếu xưởng (nhập 0 nếu không phát sinh)"
-              style={{ ...inputStyle, ...tabularNumStyle }}
-              value={actualVendorCostInput}
-              onValueChange={setActualVendorCostInput}
-            />
-          </div>
-
+        {error && safeOrders.length > 0 && (
           <div
+            role="alert"
+            data-testid="pq-orders-inline-error"
+            className="pq-orders-active-filter-banner"
+            style={{ color: 'var(--danger)' }}
+          >
+            <span>Không thể làm mới danh sách đơn hàng: {error}</span>
+            {onRetry && (
+              <button
+                type="button"
+                data-testid="pq-orders-retry-btn"
+                className="pq-btn pq-btn-secondary pq-btn-sm"
+                onClick={onRetry}
+              >
+                Thử tải lại
+              </button>
+            )}
+          </div>
+        )}
+
+        {loading && safeOrders.length === 0 ? (
+          <div
+            data-testid="pq-orders-loading"
             style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+              padding: '44px 24px',
+              textAlign: 'center',
+              color: 'var(--text-secondary)',
+              fontSize: '13.5px',
+            }}
+          >
+            Đang tải danh sách đơn hàng đặt in…
+          </div>
+        ) : error && safeOrders.length === 0 ? (
+          <div
+            role="alert"
+            data-testid="pq-orders-error"
+            style={{
+              padding: '40px 24px',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
               gap: '10px',
             }}
           >
-            <div>
-              <label style={labelStyle}>2. Phí giao hàng thực tế (VNĐ) *</label>
-              <NumericDraftInput
-                dataTestId="pq-order-actual-shipping-input"
-                ariaLabel="Phí giao hàng thực tế"
-                allowDecimal={false}
-                placeholder="Nhập 0 nếu miễn phí"
-                style={{ ...inputStyle, ...tabularNumStyle }}
-                value={actualShippingInput}
-                onValueChange={setActualShippingInput}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>3. Phí phát sinh thực tế (VNĐ) *</label>
-              <NumericDraftInput
-                dataTestId="pq-order-actual-extra-input"
-                ariaLabel="Phí phát sinh thực tế"
-                allowDecimal={false}
-                placeholder="Nhập 0 nếu không có"
-                style={{ ...inputStyle, ...tabularNumStyle }}
-                value={actualExtraInput}
-                onValueChange={setActualExtraInput}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>
-              Ghi chú tổng tiền đã chi xưởng cấp đơn (VNĐ)
-            </label>
-            <NumericDraftInput
-              dataTestId="pq-order-vendor-paid-input"
-              ariaLabel="Tiền thực chi cho xưởng"
-              allowDecimal={false}
-              style={{ ...inputStyle, ...tabularNumStyle }}
-              value={vendorPaidInput}
-              onValueChange={setVendorPaidInput}
-            />
             <div
               style={{
-                fontSize: '11.5px',
-                color: 'var(--muted-color)',
-                marginTop: '4px',
+                fontWeight: 700,
+                fontSize: '14.5px',
+                color: 'var(--danger)',
               }}
             >
-              Lưu ý phạm vi: Đây là ghi chú tổng tiền đã thanh toán nhà in ở cấp
-              đơn hàng, chưa tách sổ công nợ từng xưởng hoặc phiếu chi/hoàn tiền
-              chi tiết.
+              {authBlocked
+                ? 'Phiên làm việc hoặc quyền truy cập đơn hàng không hợp lệ'
+                : 'Không tải được danh sách đơn hàng'}
             </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+              {error}
+            </div>
+            {onRetry && (
+              <button
+                type="button"
+                data-testid="pq-orders-retry-btn"
+                className="pq-btn pq-btn-primary pq-btn-sm"
+                onClick={onRetry}
+              >
+                Thử tải lại
+              </button>
+            )}
           </div>
-
-          <div>
-            <label style={labelStyle}>
-              Căn cứ / Ghi chú đối soát hoặc lý do điều chỉnh
-            </label>
-            <input
-              data-testid="pq-order-cost-note-input"
-              aria-label="Ghi chú đối soát chi phí"
-              style={inputStyle}
-              value={costNoteInput}
-              onChange={(e) => setCostNoteInput(e.target.value)}
-              placeholder="VD: Đối chiếu phiếu giao hàng xưởng #HD-108…"
-            />
-          </div>
-
-          {costOrderTarget?.cost_history &&
-            costOrderTarget.cost_history.length > 0 && (
+        ) : filteredOrders.length === 0 ? (
+          <div
+            style={{
+              padding: '40px 24px',
+              textAlign: 'center',
+            }}
+          >
+            {safeOrders.length === 0 ? (
               <div
-                data-testid="pq-order-cost-history-list"
+                data-testid="pq-orders-empty"
                 style={{
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-color)',
-                  maxHeight: '132px',
-                  overflowY: 'auto',
-                  fontSize: '11.5px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '12px',
+                  maxWidth: '420px',
+                  margin: '0 auto',
                 }}
               >
-                <div style={{ fontWeight: 700, marginBottom: '4px' }}>
-                  Lịch sử thay đổi & xác nhận (
-                  {costOrderTarget.cost_history.length})
+                <div className="pq-empty-icon-ring">
+                  <PqPackageIcon size={24} />
                 </div>
-                {costOrderTarget.cost_history.slice(0, 5).map((h) => (
-                  <div
-                    key={h.id}
-                    style={{
-                      padding: '3px 0',
-                      borderTop: '1px dashed var(--border-color)',
-                      color: 'var(--muted-color)',
-                    }}
-                  >
-                    <strong style={{ color: 'var(--text-color)' }}>
-                      {HISTORY_ACTION_LABELS[h.action] || h.action}
-                    </strong>{' '}
-                    • {new Date(h.created_at).toLocaleString('vi-VN')}
-                    {h.note ? ` — ${h.note}` : ''}
-                  </div>
-                ))}
+                <div style={{ fontWeight: 700, fontSize: '15px' }}>
+                  Chưa có đơn hàng đặt in
+                </div>
+                <div style={{ color: 'var(--muted-color)', fontSize: '13px' }}>
+                  Khi khách chốt báo giá, hãy nhấn{' '}
+                  <strong>Chuyển thành Đơn đặt in</strong> từ danh sách hoặc chi
+                  tiết báo giá.
+                </div>
+              </div>
+            ) : (
+              <div
+                data-testid="pq-orders-filter-empty"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                <div
+                  style={{ color: 'var(--muted-color)', fontSize: '13.5px' }}
+                >
+                  Không có đơn hàng nào khớp bộ lọc hiện tại.
+                </div>
+                <button
+                  type="button"
+                  data-testid="pq-orders-reset-filter-btn"
+                  className="pq-btn pq-btn-secondary pq-btn-sm"
+                  onClick={() => {
+                    setFilterMode('ALL');
+                    setSearchQuery('');
+                  }}
+                >
+                  Xóa bộ lọc
+                </button>
               </div>
             )}
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '8px',
-              marginTop: '4px',
-            }}
-          >
-            <div>
-              {costOrderTarget?.actual_cost_confirmed && (
-                <button
-                  type="button"
-                  data-testid="pq-order-unconfirm-cost-btn"
-                  onClick={() => void submitCostUpdate('UNCONFIRM')}
-                  className="pq-btn pq-btn-secondary"
-                >
-                  Bỏ xác nhận (kiểm tra lại)
-                </button>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setCostOrderTarget(null)}
-                className="pq-btn pq-btn-secondary"
+          </div>
+        ) : (
+          <>
+            <div className="pq-table-wrap pq-orders-table-wrap">
+              <table
+                data-testid="pq-orders-table"
+                className="pq-table pq-directory-table pq-orders-table rt-cards"
+                aria-label="Danh sách đơn hàng đặt in"
               >
-                Đóng
-              </button>
-              {!costOrderTarget?.actual_cost_confirmed && (
-                <button
-                  type="button"
-                  data-testid="pq-order-save-draft-cost-btn"
-                  onClick={() => void submitCostUpdate('SAVE_DRAFT')}
-                  className="pq-btn pq-btn-secondary"
-                >
-                  Lưu tạm khoản đã nhập
-                </button>
-              )}
-              <button
-                type="submit"
-                data-testid="pq-order-confirm-cost-submit"
-                className="pq-btn pq-btn-primary"
+                <thead>
+                  <tr>
+                    <th scope="col">Đơn hàng</th>
+                    <th scope="col">Khách hàng</th>
+                    <th scope="col">Sản xuất</th>
+                    <th scope="col">Giao hàng</th>
+                    <th scope="col" className="right">
+                      Tổng đơn
+                    </th>
+                    <th scope="col" className="right">
+                      Còn nợ
+                    </th>
+                    <th scope="col" className="right">
+                      Thao tác
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleOrders.map((ord) => {
+                    const isCancelled = ord.production_status === 'CANCELLED';
+                    const cancelledHasObligation = hasCancelledObligation(ord);
+                    const primaryAction = resolveOrderPrimaryAction(
+                      ord,
+                      Boolean(onMutateLedger) && !authBlocked,
+                    );
+                    const isOverflowOpen = openOverflowOrderId === ord.id;
+                    const canSettleCancel =
+                      Boolean(onMutateLedger) &&
+                      !authBlocked &&
+                      isCancelled &&
+                      ord.total_paid_amount > 0;
+                    const canAddWorkshopJob =
+                      Boolean(onMutateLedger) && !authBlocked && !isCancelled;
+                    const menuDomId = `pq-order-overflow-menu-${ord.order_code}`;
+
+                    return (
+                      <tr
+                        key={ord.id}
+                        data-testid={`order-card-${ord.order_code}`}
+                      >
+                        <td data-label="Đơn hàng">
+                          <div>
+                            <button
+                              type="button"
+                              data-testid={`pq-order-open-detail-${ord.order_code}`}
+                              className="pq-order-code-btn"
+                              aria-label={`Xem chi tiết đơn hàng ${ord.order_code}`}
+                              onClick={() => {
+                                captureModalTriggerFocus();
+                                setOpenOverflowOrderId(null);
+                                setDetailOrderId(ord.id);
+                              }}
+                            >
+                              <span className="pq-code-pill">
+                                {ord.order_code}
+                              </span>
+                            </button>
+                            <div className="pq-order-subtext">
+                              BG: {ord.quote_code || '—'} (v{ord.quote_version})
+                              {ord.print_ordered_at
+                                ? ` • Đặt in: ${ord.print_ordered_at}`
+                                : ''}
+                            </div>
+                            {cancelledHasObligation ? (
+                              <div
+                                data-testid={`pq-order-cancelled-obligation-${ord.order_code}`}
+                                className="pq-order-alert-tag danger"
+                              >
+                                Đơn hủy còn nghĩa vụ
+                              </div>
+                            ) : !ord.actual_cost_confirmed ? (
+                              <div className="pq-order-alert-tag warning">
+                                {isNeedsCostReview(ord)
+                                  ? 'Cần kiểm tra chi phí'
+                                  : 'Chưa xác nhận chi phí'}
+                              </div>
+                            ) : (
+                              <div className="pq-order-alert-tag success">
+                                CP thực tế:{' '}
+                                {formatVnd(
+                                  (ord.actual_vendor_cost ?? 0) +
+                                    (ord.actual_shipping_fee ?? 0) +
+                                    (ord.actual_extra_cost ?? 0),
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        <td data-label="Khách hàng">
+                          <div>
+                            <strong style={{ color: 'var(--text-primary)' }}>
+                              {ord.customer_name || 'Khách lẻ'}
+                            </strong>
+                            <div className="pq-order-subtext">
+                              {ord.workshop_jobs && ord.workshop_jobs.length > 0
+                                ? `${ord.workshop_jobs.length} phiếu đặt xưởng`
+                                : `Vốn DK: ${formatVnd(ord.expected_vendor_cost)}`}
+                            </div>
+                          </div>
+                        </td>
+
+                        <td data-label="Sản xuất">
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '5px',
+                              alignItems: 'flex-start',
+                            }}
+                          >
+                            <StatusBadge
+                              status={
+                                ord.production_status === 'COMPLETED'
+                                  ? 'success'
+                                  : ord.production_status === 'CANCELLED'
+                                    ? 'error'
+                                    : 'neutral'
+                              }
+                              label={`SX: ${PRODUCTION_STATUS_LABELS[ord.production_status]}`}
+                            />
+                            <select
+                              aria-label={`Trạng thái sản xuất ${ord.order_code}`}
+                              className="pq-order-inline-select"
+                              disabled={authBlocked}
+                              value={ord.production_status}
+                              onChange={(e) =>
+                                void guardedUpdateOrderField(ord.id, {
+                                  production_status: e.target
+                                    .value as PrintProductionStatusType,
+                                })
+                              }
+                            >
+                              {Object.entries(PrintProductionStatus).map(
+                                ([, val]) => (
+                                  <option key={val} value={val}>
+                                    {PRODUCTION_STATUS_LABELS[val]}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                          </div>
+                        </td>
+
+                        <td data-label="Giao hàng">
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '5px',
+                              alignItems: 'flex-start',
+                            }}
+                          >
+                            <StatusBadge
+                              status={
+                                ord.delivery_status === 'DELIVERED'
+                                  ? 'success'
+                                  : 'warning'
+                              }
+                              label={`Giao: ${DELIVERY_STATUS_LABELS[ord.delivery_status]}`}
+                            />
+                            <select
+                              aria-label={`Trạng thái giao hàng ${ord.order_code}`}
+                              className="pq-order-inline-select"
+                              disabled={authBlocked}
+                              value={ord.delivery_status}
+                              onChange={(e) =>
+                                void guardedUpdateOrderField(ord.id, {
+                                  delivery_status: e.target
+                                    .value as PrintDeliveryStatusType,
+                                })
+                              }
+                            >
+                              {Object.entries(PrintDeliveryStatus).map(
+                                ([, val]) => (
+                                  <option key={val} value={val}>
+                                    {DELIVERY_STATUS_LABELS[val]}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                          </div>
+                        </td>
+
+                        <td
+                          data-label="Tổng đơn"
+                          className="right mono"
+                          style={tabularNumStyle}
+                        >
+                          <div>
+                            <strong style={{ color: 'var(--text-primary)' }}>
+                              {formatVnd(ord.total_quote_amount)}
+                            </strong>
+                            <div className="pq-order-subtext">
+                              Đã thu: {formatVnd(ord.total_paid_amount)}
+                            </div>
+                          </div>
+                        </td>
+
+                        <td
+                          data-label="Còn nợ"
+                          className="right mono"
+                          style={tabularNumStyle}
+                        >
+                          <div>
+                            <strong
+                              style={{
+                                color: isCancelled
+                                  ? 'var(--muted-color)'
+                                  : ord.remaining_debt_amount > 0
+                                    ? 'var(--danger-text)'
+                                    : 'var(--success-text)',
+                              }}
+                            >
+                              {isCancelled
+                                ? 'Đơn đã hủy'
+                                : formatVnd(ord.remaining_debt_amount)}
+                            </strong>
+                            <div style={{ marginTop: '3px' }}>
+                              <StatusBadge
+                                status={
+                                  ord.payment_status === 'PAID'
+                                    ? 'success'
+                                    : ord.remaining_debt_amount > 0 &&
+                                        !isCancelled
+                                      ? 'error'
+                                      : 'muted'
+                                }
+                                label={
+                                  PAYMENT_STATUS_LABELS[ord.payment_status]
+                                }
+                              />
+                            </div>
+                          </div>
+                        </td>
+
+                        <td data-label="Thao tác" className="right">
+                          <div
+                            className="pq-order-actions-wrap"
+                            data-pq-order-overflow-root="true"
+                          >
+                            {primaryAction === 'SETTLE_CANCEL' ? (
+                              <button
+                                type="button"
+                                data-testid={`pq-order-settle-cancel-${ord.order_code}`}
+                                className="pq-btn pq-btn-secondary pq-btn-sm"
+                                onClick={() =>
+                                  openSettleCancelModalForOrder(ord)
+                                }
+                              >
+                                Quyết toán hủy đơn
+                              </button>
+                            ) : primaryAction === 'CONFIRM_COST' ? (
+                              <button
+                                type="button"
+                                data-testid={`pq-order-confirm-cost-${ord.order_code}`}
+                                className="pq-btn pq-btn-secondary pq-btn-sm"
+                                onClick={() => openConfirmActualCostModal(ord)}
+                              >
+                                Xác nhận chi phí thực tế
+                              </button>
+                            ) : primaryAction === 'RECORD_PAYMENT' ? (
+                              <button
+                                type="button"
+                                data-testid={`pq-order-record-payment-${ord.order_code}`}
+                                className="pq-btn pq-btn-primary pq-btn-sm"
+                                onClick={() => openPaymentModalForOrder(ord)}
+                              >
+                                <PqWalletIcon size={14} />
+                                <span>
+                                  {isCancelled
+                                    ? 'Hoàn tiền khách (Đơn hủy)'
+                                    : 'Ghi nhận thanh toán'}
+                                </span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                data-testid={`pq-order-detail-cta-${ord.order_code}`}
+                                className="pq-btn pq-btn-ghost pq-btn-sm"
+                                onClick={() => {
+                                  captureModalTriggerFocus();
+                                  setOpenOverflowOrderId(null);
+                                  setDetailOrderId(ord.id);
+                                }}
+                              >
+                                Chi tiết đơn
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              ref={(el) => {
+                                if (el) {
+                                  overflowTriggerRefs.current.set(ord.id, el);
+                                } else {
+                                  overflowTriggerRefs.current.delete(ord.id);
+                                }
+                              }}
+                              aria-label={`Thao tác khác cho đơn ${ord.order_code}`}
+                              aria-expanded={isOverflowOpen}
+                              aria-controls={
+                                isOverflowOpen ? menuDomId : undefined
+                              }
+                              data-testid={`pq-order-overflow-btn-${ord.order_code}`}
+                              className="pq-order-overflow-btn"
+                              onClick={() =>
+                                setOpenOverflowOrderId((prev) =>
+                                  prev === ord.id ? null : ord.id,
+                                )
+                              }
+                            >
+                              ⋯
+                            </button>
+
+                            {isOverflowOpen && (
+                              <div
+                                id={menuDomId}
+                                role="group"
+                                aria-label={`Các thao tác khác cho đơn ${ord.order_code}`}
+                                data-testid={`pq-order-overflow-menu-${ord.order_code}`}
+                                className="pq-order-overflow-menu"
+                                onKeyDown={(e) =>
+                                  handleOverflowMenuKeyDown(e, ord.id)
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  data-testid={`pq-order-overflow-detail-${ord.order_code}`}
+                                  className="pq-order-overflow-item"
+                                  onClick={() => {
+                                    captureModalTriggerFocus();
+                                    setOpenOverflowOrderId(null);
+                                    setDetailOrderId(ord.id);
+                                  }}
+                                >
+                                  <span>Chi tiết & đối soát đơn</span>
+                                </button>
+
+                                {primaryAction !== 'RECORD_PAYMENT' && (
+                                  <button
+                                    type="button"
+                                    data-testid={`pq-order-record-payment-${ord.order_code}`}
+                                    className="pq-order-overflow-item"
+                                    onClick={() =>
+                                      openPaymentModalForOrder(ord)
+                                    }
+                                  >
+                                    <span>
+                                      {isCancelled
+                                        ? 'Hoàn tiền khách (Đơn hủy)'
+                                        : 'Ghi nhận thanh toán'}
+                                    </span>
+                                  </button>
+                                )}
+
+                                {primaryAction !== 'CONFIRM_COST' && (
+                                  <button
+                                    type="button"
+                                    data-testid={`pq-order-confirm-cost-${ord.order_code}`}
+                                    className="pq-order-overflow-item warning"
+                                    onClick={() =>
+                                      openConfirmActualCostModal(ord)
+                                    }
+                                  >
+                                    <span>
+                                      {ord.actual_cost_confirmed
+                                        ? 'Điều chỉnh / Bỏ xác nhận'
+                                        : 'Xác nhận chi phí thực tế'}
+                                    </span>
+                                  </button>
+                                )}
+
+                                {canAddWorkshopJob && (
+                                  <button
+                                    type="button"
+                                    data-testid={`pq-order-add-job-${ord.order_code}`}
+                                    className="pq-order-overflow-item"
+                                    onClick={() =>
+                                      openWorkshopJobModalForOrder(ord)
+                                    }
+                                  >
+                                    <span>+ Đặt xưởng / Tách công đoạn</span>
+                                  </button>
+                                )}
+
+                                {canSettleCancel &&
+                                  primaryAction !== 'SETTLE_CANCEL' && (
+                                    <button
+                                      type="button"
+                                      data-testid={`pq-order-settle-cancel-${ord.order_code}`}
+                                      className="pq-order-overflow-item danger"
+                                      onClick={() =>
+                                        openSettleCancelModalForOrder(ord)
+                                      }
+                                    >
+                                      <span>Quyết toán hủy đơn</span>
+                                    </button>
+                                  )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredOrders.length > pageSize && (
+              <nav
+                aria-label="Phân trang danh sách đơn hàng"
+                data-testid="pq-orders-pagination-bar"
+                className="pq-orders-pagination-bar"
               >
-                Xác nhận đủ 3 khoản
-              </button>
-            </div>
-          </div>
-        </form>
-      </CatalogModalDialog>
+                <span>
+                  Hiển thị <strong>{pageStartIndex + 1}</strong>–
+                  <strong>
+                    {Math.min(
+                      filteredOrders.length,
+                      pageStartIndex + visibleOrders.length,
+                    )}
+                  </strong>{' '}
+                  / <strong>{filteredOrders.length}</strong> đơn hàng (Trang{' '}
+                  <strong>{effectivePage}</strong>/{totalPages})
+                </span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    data-testid="pq-orders-prev-page-btn"
+                    className="pq-btn pq-btn-secondary pq-btn-sm"
+                    disabled={effectivePage <= 1}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
+                  >
+                    ← Trang trước
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="pq-orders-next-page-btn"
+                    className="pq-btn pq-btn-secondary pq-btn-sm"
+                    disabled={effectivePage >= totalPages}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                    }
+                  >
+                    Trang sau →
+                  </button>
+                </div>
+              </nav>
+            )}
+          </>
+        )}
+      </div>
 
-      {/* Add Workshop Job Modal */}
-      <CatalogModalDialog
-        open={jobOrderTarget !== null}
-        ariaLabel="Tạo phiếu đặt xưởng"
-        title={
-          jobOrderTarget
-            ? `Đặt xưởng / Tách công đoạn — ${jobOrderTarget.order_code}`
-            : 'Tạo phiếu đặt xưởng'
-        }
-        maxWidth="460px"
-        onClose={() => setJobOrderTarget(null)}
-      >
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!jobOrderTarget || !onMutateLedger) return;
-            setJobModalError('');
-            const vend = vendors.find((v) => v.id === jobVendorId);
-            const vName = vend?.name || jobVendorName.trim();
-            if (!vName || !jobStageName.trim()) {
-              setJobModalError('Chọn xưởng và nhập tên công đoạn.');
-              return;
-            }
-            const expParsed = parseNumericDraftValue(
-              jobExpectedInput.trim() || '0',
-              { allowDecimal: false, min: 0, integerOnly: true },
-            );
-            const res = await onMutateLedger(
-              `/api/v1/print-quotes/orders/${encodeURIComponent(jobOrderTarget.id)}/workshop-jobs`,
-              {
-                vendor_id: jobVendorId || null,
-                vendor_name: vName,
-                title: jobStageName.trim(),
-                expected_cost:
-                  expParsed.isValid && expParsed.value !== null
-                    ? expParsed.value
-                    : 0,
-              },
-            );
-            if (!res.ok) {
-              setJobModalError(res.error || 'Không thể tạo phiếu đặt xưởng.');
-              return;
-            }
-            setJobOrderTarget(null);
-          }}
-          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-        >
-          {jobModalError && (
-            <div
-              role="alert"
-              style={{
-                padding: '8px 10px',
-                borderRadius: '8px',
-                border: '1px solid var(--danger-text)',
-                color: 'var(--danger-text)',
-                fontSize: '12px',
-              }}
-            >
-              {jobModalError}
-            </div>
-          )}
-          <div>
-            <label style={labelStyle}>Nhà in / Xưởng gia công *</label>
-            <select
-              aria-label="Chọn nhà in đặt hàng"
-              style={inputStyle}
-              value={jobVendorId}
-              onChange={(e) => setJobVendorId(e.target.value)}
-            >
-              <option value="">-- Nhập tên xưởng ngoài --</option>
-              {vendors.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {!jobVendorId && (
-            <div>
-              <label style={labelStyle}>Tên xưởng ngoài *</label>
-              <input
-                aria-label="Tên xưởng đặt hàng"
-                style={inputStyle}
-                value={jobVendorName}
-                onChange={(e) => setJobVendorName(e.target.value)}
-                placeholder="VD: Xưởng Cán màng Bế hộp…"
-              />
-            </div>
-          )}
-          <div>
-            <label style={labelStyle}>Công đoạn / Hạng mục giao xưởng *</label>
-            <input
-              aria-label="Tên công đoạn giao xưởng"
-              style={inputStyle}
-              value={jobStageName}
-              onChange={(e) => setJobStageName(e.target.value)}
-              placeholder="VD: Cán màng mờ + Ép kim"
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Giá vốn dự kiến (VNĐ)</label>
-            <NumericDraftInput
-              ariaLabel="Giá vốn dự kiến giao xưởng"
-              allowDecimal={false}
-              style={{ ...inputStyle, ...tabularNumStyle }}
-              value={jobExpectedInput}
-              onValueChange={setJobExpectedInput}
-            />
-          </div>
-          <div
-            style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}
-          >
-            <button
-              type="button"
-              className="pq-btn pq-btn-secondary"
-              onClick={() => setJobOrderTarget(null)}
-            >
-              Đóng
-            </button>
-            <button type="submit" className="pq-btn pq-btn-primary">
-              Tạo phiếu xưởng
-            </button>
-          </div>
-        </form>
-      </CatalogModalDialog>
-
-      {/* Settle Cancelled Order Modal */}
-      <CatalogModalDialog
-        open={settleCancelTarget !== null}
-        ariaLabel="Quyết toán đơn đã hủy"
-        title={
-          settleCancelTarget
-            ? `Quyết toán đơn hủy — ${settleCancelTarget.order_code}`
-            : 'Quyết toán đơn hủy'
-        }
-        subtitle="Tổng Hoàn trả khách + Phí hủy giữ lại phải khớp số tiền khách đang đóng trên đơn."
-        maxWidth="460px"
-        onClose={() => setSettleCancelTarget(null)}
-      >
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!settleCancelTarget || !onMutateLedger) return;
-            setSettleModalError('');
-            const rParsed = parseNumericDraftValue(
-              settleRefundInput.trim() || '0',
-              { allowDecimal: false, min: 0, integerOnly: true },
-            );
-            const fParsed = parseNumericDraftValue(
-              settleFeeInput.trim() || '0',
-              { allowDecimal: false, min: 0, integerOnly: true },
-            );
-            const res = await onMutateLedger(
-              `/api/v1/print-quotes/orders/${encodeURIComponent(settleCancelTarget.id)}/cancel-settlement`,
-              {
-                agreed_customer_refund_amount: rParsed.value ?? 0,
-                retained_cancellation_fee: fParsed.value ?? 0,
-                reason: settleReasonInput.trim(),
-              },
-            );
-            if (!res.ok) {
-              setSettleModalError(res.error || 'Không thể lưu quyết toán hủy.');
-              return;
-            }
-            setSettleCancelTarget(null);
-          }}
-          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-        >
-          {settleModalError && (
-            <div
-              role="alert"
-              style={{
-                padding: '8px 10px',
-                borderRadius: '8px',
-                border: '1px solid var(--danger-text)',
-                color: 'var(--danger-text)',
-                fontSize: '12px',
-              }}
-            >
-              {settleModalError}
-            </div>
-          )}
-          <div style={{ fontSize: '12.5px', ...tabularNumStyle }}>
-            Tiền cọc khách đang giữ:{' '}
-            <strong>
-              {formatVnd(settleCancelTarget?.total_paid_amount ?? 0)}
-            </strong>
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-              gap: '10px',
-            }}
-          >
-            <div>
-              <label style={labelStyle}>Thỏa thuận hoàn khách (VNĐ) *</label>
-              <NumericDraftInput
-                ariaLabel="Số tiền thỏa thuận hoàn khách"
-                allowDecimal={false}
-                style={{ ...inputStyle, ...tabularNumStyle }}
-                value={settleRefundInput}
-                onValueChange={setSettleRefundInput}
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Phí hủy giữ lại (VNĐ) *</label>
-              <NumericDraftInput
-                ariaLabel="Phí hủy giữ lại"
-                allowDecimal={false}
-                style={{ ...inputStyle, ...tabularNumStyle }}
-                value={settleFeeInput}
-                onValueChange={setSettleFeeInput}
-              />
-            </div>
-          </div>
-          <div>
-            <label style={labelStyle}>Lý do / Thỏa thuận quyết toán *</label>
-            <input
-              aria-label="Lý do quyết toán hủy đơn"
-              style={inputStyle}
-              required
-              value={settleReasonInput}
-              onChange={(e) => setSettleReasonInput(e.target.value)}
-              placeholder="VD: Khách hủy sau khi bình bài, trừ 500k phí kẽm…"
-            />
-          </div>
-          <div
-            style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}
-          >
-            <button
-              type="button"
-              className="pq-btn pq-btn-secondary"
-              onClick={() => setSettleCancelTarget(null)}
-            >
-              Đóng
-            </button>
-            <button type="submit" className="pq-btn pq-btn-primary">
-              Xác nhận quyết toán
-            </button>
-          </div>
-        </form>
-      </CatalogModalDialog>
+      {hasAnyOpenModal && (
+        <React.Suspense fallback={null}>
+          <LazyOrdersTabModals
+            detailOrder={detailOrder}
+            onCloseDetailOrder={() => setDetailOrderId(null)}
+            paymentOrderTarget={paymentOrderTarget}
+            setPaymentOrderTarget={setPaymentOrderTarget}
+            paymentAmount={paymentAmount}
+            setPaymentAmount={setPaymentAmount}
+            paymentType={paymentType}
+            setPaymentType={setPaymentType}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            paymentNote={paymentNote}
+            setPaymentNote={setPaymentNote}
+            onRecordPayment={onRecordPayment}
+            paymentSubmitting={paymentSubmitting}
+            costOrderTarget={costOrderTarget}
+            setCostOrderTarget={setCostOrderTarget}
+            onOpenConfirmActualCostModal={openConfirmActualCostModal}
+            jobOrderTarget={jobOrderTarget}
+            setJobOrderTarget={setJobOrderTarget}
+            onOpenWorkshopJobModal={openWorkshopJobModalForOrder}
+            settleCancelTarget={settleCancelTarget}
+            setSettleCancelTarget={setSettleCancelTarget}
+            onOpenSettleCancelModal={openSettleCancelModalForOrder}
+            onOpenPaymentModal={openPaymentModalForOrder}
+            vendors={vendors}
+            onMutateLedger={onMutateLedger}
+            onUpdateOrderField={guardedUpdateOrderField}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 };
