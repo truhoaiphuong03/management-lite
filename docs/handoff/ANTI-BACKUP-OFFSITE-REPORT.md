@@ -192,18 +192,42 @@ Register-ScheduledTask `
   -RunLevel Highest `
   -Force
 ```
-*(Lưu ý: Chạy dưới `$env:USERNAME` để tác vụ sử dụng được thông tin đăng nhập GitHub trong Windows Credential Manager của bạn; nếu chạy dưới `SYSTEM`, cần truyền biến môi trường `GH_TOKEN` có quyền `Contents: Read & Write` trên kho `truhoaiphuong03/management-lite-backups`).*
+> **Lưu ý:** Task đăng ký với `-User $env:USERNAME` mặc định **chỉ chạy khi user đang đăng nhập**. Nếu muốn chạy cả khi chưa đăng nhập (ví dụ sau khi máy tự khởi động lại), hãy tạo một Fine-grained Personal Access Token (`GH_TOKEN`) riêng **chỉ cấp quyền trên duy nhất kho `truhoaiphuong03/management-lite-backups`** (`Contents: Read and write`), nạp vào môi trường của script và đăng ký task chạy độc lập phiên đăng nhập.
 
 ### Bước 5: Cách tải về & khôi phục khi mất máy hoặc cần dựng lại từ bản Offsite
-Trên máy mới (đã cài PostgreSQL 18, Node.js, Git đã đăng nhập GitHub và có file `C:\HP-Offsite\passphrase.txt`):
+> **Nguyên tắc an toàn:** Tuyệt đối **KHÔNG** chạy `pg_restore --clean` đè vào database đang chạy. Luôn tạo một database mới tên `management_lite_restore_<ngày>`, khôi phục vào database mới đó (không dùng `--clean`), đếm số dòng các bảng chính để kiểm tra trước; **việc chuyển app sang database mới chỉ do Owner tự thực hiện**.
 
 ```powershell
 # 1. Tải và giải mã bản sao lưu mới nhất từ kho truhoaiphuong03/management-lite-backups về C:\HP-Offsite\restore
 powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Projects\management-lite\scripts\ops\Restore-OffsiteBackup.ps1' -Latest -PassphraseFile 'C:\HP-Offsite\passphrase.txt'
 
-# 2. Tìm file .dump vừa giải mã và nạp vào PostgreSQL bằng pg_restore
+# 2. Tạo database mới tên management_lite_restore_<ngày>
+$pgBin = 'C:\HoaiPhuong-Server\config\postgresql-18\pgsql\bin'
+$psql = Join-Path $pgBin 'psql.exe'
+$pgRestore = Join-Path $pgBin 'pg_restore.exe'
+$restoreDb = "management_lite_restore_$((Get-Date).ToString('yyyyMMdd'))"
+
+$env:PGPASSFILE = 'C:\HoaiPhuong-Server\config\test-secrets\pgpass.conf'
+& $psql --host=127.0.0.1 --port=55432 --username=hp_test_admin --dbname=postgres --no-password -v ON_ERROR_STOP=1 -c "CREATE DATABASE $restoreDb;"
+
+# 3. Khôi phục file .dump vào database mới $restoreDb (KHÔNG dùng --clean)
 $latestDump = Get-ChildItem -Path 'C:\HP-Offsite\restore' -Filter '*.dump' -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-& 'C:\HoaiPhuong-Server\config\postgresql-18\pgsql\bin\pg_restore.exe' `
-  --host=127.0.0.1 --port=55432 --username=hp_test_admin --dbname=management_lite_test `
-  --no-owner --no-privileges --clean --if-exists --exit-on-error $latestDump.FullName
+& $pgRestore `
+  --host=127.0.0.1 --port=55432 --username=hp_test_admin --dbname=$restoreDb `
+  --no-password --no-owner --no-privileges --exit-on-error $latestDump.FullName
+
+# 4. Đếm số dòng các bảng chính trên database mới để kiểm tra toàn vẹn
+& $psql --host=127.0.0.1 --port=55432 --username=hp_test_admin --dbname=$restoreDb --no-password -c @"
+SELECT 'workspaces' AS tbl, COUNT(*)::int AS cnt FROM workspaces
+UNION ALL SELECT 'users', COUNT(*)::int FROM users
+UNION ALL SELECT 'employees', COUNT(*)::int FROM employees
+UNION ALL SELECT 'attendance_shifts', COUNT(*)::int FROM attendance_shifts
+UNION ALL SELECT 'work_items', COUNT(*)::int FROM work_items
+UNION ALL SELECT 'fin_entries', COUNT(*)::int FROM fin_entries
+UNION ALL SELECT 'payroll_periods', COUNT(*)::int FROM payroll_periods
+UNION ALL SELECT 'managed_accounts', COUNT(*)::int FROM managed_accounts;
+"@
+Remove-Item Env:\PGPASSFILE -ErrorAction SilentlyContinue
 ```
+
+> **Ghi chú quan trọng:** Sau khi kiểm tra số dòng và dữ liệu trên database mới `management_lite_restore_<ngày>` đã đầy đủ, **việc chuyển ứng dụng (cấu hình kết nối DB / đổi tên DB) sang database mới chỉ do Owner tự thực hiện**.
