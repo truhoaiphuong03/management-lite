@@ -53,6 +53,8 @@ import type {
   InitiateVideoUploadRequest,
   UploadVideoChunkRequest,
   ReviewStorageFileRequest,
+  ExportExcelToDriveRequest,
+  ExportExcelToDriveResponseData,
 } from '../../../../packages/contracts/src/storage.js';
 import {
   type IStorageProvider,
@@ -61,6 +63,7 @@ import {
   getGoogleOAuthConfig,
   isLiveGoogleDriveEnabled,
 } from './provider.js';
+import { buildWorkspaceFourSheetExcel } from './excel-export.js';
 
 const DEFAULT_DRIVE_KEY_HEX =
   '9f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1a0';
@@ -4320,6 +4323,298 @@ export class StorageService {
         record_status: 'detached',
         detached: true,
         drive_data_preserved: true,
+      };
+    } catch (err) {
+      await c.query('ROLLBACK');
+      throw err;
+    } finally {
+      c.release();
+    }
+  }
+
+  /**
+   * 18. POST /api/v1/storage/drive/export-excel
+   * Generates a 4-sheet Excel (.xlsx) workbook (Nhân viên, Chấm công, Lương, Thu chi)
+   * and uploads it to a strictly private folder on Google Drive using the workspace's
+   * existing Google Drive OAuth connection. Never shares publicly or grants third-party access.
+   */
+  async exportWorkspaceExcelToDrive(
+    auth: AuthenticatedContext,
+    body?: ExportExcelToDriveRequest,
+    requestId: string = crypto.randomUUID(),
+  ): Promise<ExportExcelToDriveResponseData> {
+    requireRole(['owner'], auth);
+
+    const customFolderName = body?.folder_name
+      ? assertText(body.folder_name, 255, false, 'folder_name')
+      : null;
+    const folderName = customFolderName || 'Báo cáo Excel Nội bộ (Riêng tư)';
+
+    const customFileName = body?.file_name
+      ? assertText(body.file_name, 255, false, 'file_name')
+      : null;
+
+    const c = await this.pool.connect();
+    try {
+      await c.query('BEGIN');
+
+      const connRes = await c.query<{
+        id: string;
+        google_email: string | null;
+        root_folder_id: string | null;
+        root_folder_url: string | null;
+        status: string;
+      }>(
+        `SELECT id, google_email, root_folder_id, root_folder_url, status
+         FROM storage_drive_connections
+         WHERE workspace_id = $1 AND status = 'active'
+         LIMIT 1`,
+        [auth.workspace.id],
+      );
+
+      if (connRes.rows.length === 0) {
+        fail(
+          'DRIVE_NOT_CONNECTED',
+          'Chưa kết nối Google Drive. Vui lòng kết nối Google Drive tại mục Quản trị › Tệp & Drive trước khi xuất Excel.',
+          400,
+        );
+      }
+
+      const connRow = connRes.rows[0]!;
+      const decryptedRefreshToken =
+        await this.getDecryptedWorkspaceRefreshToken(c, auth.workspace.id);
+      const driveOwnerEmail = (
+        connRow.google_email ||
+        auth.user.email ||
+        'drive-admin@hoaiphuong.click'
+      ).toLowerCase();
+      const rootFolderId = connRow.root_folder_id || null;
+
+      // Find or create a dedicated private folder under the workspace's Google Drive root folder
+      const existingFolderRes = await c.query<{
+        id: string;
+        name: string;
+        provider_folder_id: string | null;
+        drive_url: string;
+      }>(
+        `SELECT f.id, f.name, f.provider_folder_id, f.drive_url
+         FROM storage_folders f
+         WHERE f.workspace_id = $1
+           AND f.name = $2
+           AND f.status = 'active'
+           AND COALESCE(f.record_status, 'active') = 'active'
+           AND f.assigned_employee_id IS NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM resource_access_grants g
+             WHERE g.workspace_id = f.workspace_id
+               AND g.resource_type = 'storage_folder'
+               AND g.resource_id = f.id
+               AND g.revoked_at IS NULL
+           )
+         ORDER BY f.created_at DESC
+         LIMIT 1`,
+        [auth.workspace.id, folderName],
+      );
+
+      let folderId: string;
+      let providerFolderId: string;
+      let folderDriveUrl: string;
+
+      if (
+        existingFolderRes.rows.length > 0 &&
+        existingFolderRes.rows[0]!.provider_folder_id
+      ) {
+        const row = existingFolderRes.rows[0]!;
+        folderId = row.id;
+        providerFolderId = row.provider_folder_id!;
+        folderDriveUrl = row.drive_url;
+      } else {
+        if (this.provider.createDriveFolder) {
+          const created = await this.provider.createDriveFolder(
+            {
+              name: folderName,
+              parentFolderId: rootFolderId,
+              ownerEmail: driveOwnerEmail,
+              description:
+                'Thư mục lưu trữ báo cáo Excel Nhân viên, Chấm công, Lương, Thu chi (riêng tư, không chia sẻ công khai)',
+            },
+            decryptedRefreshToken,
+          );
+          providerFolderId = created.folderId;
+          folderDriveUrl = created.webViewLink;
+        } else {
+          providerFolderId = `gdrive_fld_${crypto.randomBytes(8).toString('hex')}`;
+          folderDriveUrl = `https://drive.google.com/drive/folders/${providerFolderId}`;
+        }
+
+        const insertFolderRes = await c.query<{ id: string }>(
+          `INSERT INTO storage_folders (
+             workspace_id, name, provider, provider_folder_id, parent_provider_folder_id,
+             drive_url, folder_type, status, record_status,
+             assigned_employee_id, drive_owner_email, drive_created_at, notes
+           ) VALUES (
+             $1, $2, 'google_drive', $3, $4,
+             $5, 'source', 'active', 'active',
+             NULL, $6, clock_timestamp(), $7
+           ) RETURNING id`,
+          [
+            auth.workspace.id,
+            folderName,
+            providerFolderId,
+            rootFolderId,
+            folderDriveUrl,
+            driveOwnerEmail,
+            'Thư mục riêng tư lưu báo cáo Excel nội bộ (Nhân viên, Chấm công, Lương, Thu chi) — Không chia sẻ công khai',
+          ],
+        );
+        folderId = insertFolderRes.rows[0]!.id;
+      }
+
+      const { buffer, sheets } = await buildWorkspaceFourSheetExcel(
+        c,
+        auth.workspace.id,
+      );
+
+      const vnStampRes = await c.query<{ stamp: string }>(
+        "SELECT to_char(clock_timestamp() AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD_HH24-MI-SS') AS stamp",
+      );
+      const vnStamp =
+        vnStampRes.rows[0]?.stamp ||
+        new Date().toISOString().replace(/[:.]/g, '-');
+
+      let fileName =
+        customFileName || `Bao-cao-Noi-bo-4-Sheet_${vnStamp}.xlsx`;
+      if (!fileName.toLowerCase().endsWith('.xlsx')) {
+        fileName = `${fileName}.xlsx`;
+      }
+
+      const mimeType =
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const sizeBytes = buffer.length;
+
+      let providerFileId = `gdrive_xlsx_${crypto.randomBytes(8).toString('hex')}`;
+      let sessionUri = `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=${providerFileId}`;
+      let driveUrl = `https://drive.google.com/file/d/${providerFileId}/view`;
+      let providerRevisionId = 'rev_1';
+
+      if (this.provider.initiateResumableUpload) {
+        const initRes = await this.provider.initiateResumableUpload(
+          {
+            folderId: providerFolderId,
+            fileName,
+            mimeType,
+            sizeBytes,
+          },
+          decryptedRefreshToken,
+        );
+        providerFileId = initRes.providerFileId;
+        sessionUri = initRes.sessionUri;
+        driveUrl = `https://drive.google.com/file/d/${providerFileId}/view`;
+      }
+
+      if (this.provider.uploadResumableChunk) {
+        const chunkRes = await this.provider.uploadResumableChunk(
+          {
+            sessionUri,
+            providerFileId,
+            chunkSizeBytes: sizeBytes,
+            offsetBytes: 0,
+            totalBytes: sizeBytes,
+            chunkDataBase64: buffer.toString('base64'),
+          },
+          decryptedRefreshToken,
+        );
+        if (chunkRes.providerFileId) {
+          providerFileId = chunkRes.providerFileId;
+        }
+        if (chunkRes.webViewLink) {
+          driveUrl = chunkRes.webViewLink;
+        } else {
+          driveUrl = `https://drive.google.com/file/d/${providerFileId}/view`;
+        }
+        if (chunkRes.providerRevisionId) {
+          providerRevisionId = chunkRes.providerRevisionId;
+        }
+      }
+
+      const insertFileRes = await c.query<{ id: string; created_at: Date }>(
+        `INSERT INTO storage_files (
+           workspace_id, folder_id, provider_file_id, provider_revision_id,
+           drive_url, parent_provider_folder_id, drive_owner_email, drive_created_at,
+           name, size_bytes, mime_type, status,
+           upload_status, upload_session_id, uploaded_bytes, upload_progress_pct,
+           upload_retry_count, assigned_employee_id, review_status, reviewed_by, reviewed_at, review_notes
+         ) VALUES (
+           $1, $2, $3, $4,
+           $5, $6, $7, clock_timestamp(),
+           $8, $9, $10, 'active',
+           'completed', $11, $9, 100,
+           0, NULL, 'approved', $12, clock_timestamp(), $13
+         ) RETURNING id, created_at`,
+        [
+          auth.workspace.id,
+          folderId,
+          providerFileId,
+          providerRevisionId,
+          driveUrl,
+          providerFolderId,
+          driveOwnerEmail,
+          fileName,
+          sizeBytes,
+          mimeType,
+          sessionUri,
+          auth.user.id,
+          'Báo cáo Excel 4 sheet (Nhân viên, Chấm công, Lương, Thu chi) — Riêng tư trên Google Drive, không chia sẻ công khai',
+        ],
+      );
+
+      const fileRow = insertFileRes.rows[0]!;
+
+      await c.query(
+        `INSERT INTO storage_operations (
+           workspace_id, folder_id, operation_type, status, requested_by, provider, started_at, completed_at
+         ) VALUES ($1, $2, 'export_excel_drive', 'completed', $3, 'google_drive', clock_timestamp(), clock_timestamp())`,
+        [auth.workspace.id, folderId, auth.user.id],
+      );
+
+      await recordAuditEvent(c, {
+        workspaceId: auth.workspace.id,
+        actorUserId: auth.user.id,
+        action: 'storage.drive_excel_exported',
+        entityType: 'storage_file',
+        entityId: fileRow.id,
+        requestId,
+        metadata: {
+          file_name: fileName,
+          provider_file_id: providerFileId,
+          folder_id: folderId,
+          provider_folder_id: providerFolderId,
+          folder_name: folderName,
+          size_bytes: sizeBytes,
+          private_only: true,
+          public_shared: false,
+          sheets,
+        },
+      });
+
+      await c.query('COMMIT');
+
+      return {
+        file_id: fileRow.id,
+        provider_file_id: providerFileId,
+        file_name: fileName,
+        size_bytes: sizeBytes,
+        mime_type: mimeType,
+        drive_url: driveUrl,
+        folder_id: folderId,
+        provider_folder_id: providerFolderId,
+        folder_name: folderName,
+        folder_drive_url: folderDriveUrl,
+        drive_owner_email: driveOwnerEmail,
+        private_only: true,
+        public_shared: false,
+        sheets,
+        created_at: fileRow.created_at.toISOString(),
       };
     } catch (err) {
       await c.query('ROLLBACK');

@@ -22,6 +22,7 @@ import {
 } from '../../../../packages/ui/src/components/index.js';
 import { TOKENS, THEME_COLORS } from '../../../../packages/ui/src/tokens.js';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
+import { ExportDriveExcelButton } from '../components/ExportDriveExcelButton.js';
 
 export interface EmployeesScreenProps {
   onNavigate: (path: string) => void;
@@ -429,14 +430,21 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
         title="Quản lý nhân sự"
         subtitle="Danh sách nhân viên, tài khoản và trạng thái công tác thật trong cửa hàng"
         actions={
-          <AppButton
-            variant="primary"
-            onClick={() => onNavigate('/employees/new')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <PlusIcon size={16} />
-            <span>Thêm nhân sự</span>
-          </AppButton>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <ExportDriveExcelButton
+              testId="btn-export-excel-drive-employees"
+              size="md"
+              variant="secondary"
+            />
+            <AppButton
+              variant="primary"
+              onClick={() => onNavigate('/employees/new')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <PlusIcon size={16} />
+              <span>Thêm nhân sự</span>
+            </AppButton>
+          </div>
         }
       />
 

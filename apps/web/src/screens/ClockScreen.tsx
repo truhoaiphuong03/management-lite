@@ -33,6 +33,7 @@ import type {
   ShiftData,
   AttendanceMeResponseData,
 } from '../../../../packages/contracts/src/attendance.js';
+import { ExportDriveExcelButton } from '../components/ExportDriveExcelButton.js';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 
 export interface ClockScreenProps {
@@ -1590,6 +1591,15 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   : 'Sẵn sàng vào ca'
             }
           />
+        }
+        actions={
+          role === 'owner' ? (
+            <ExportDriveExcelButton
+              testId="btn-export-excel-drive-attendance"
+              size="sm"
+              variant="secondary"
+            />
+          ) : undefined
         }
       />
 
