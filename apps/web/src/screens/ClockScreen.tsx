@@ -54,6 +54,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
 
   // Auth / CSRF State
   const [csrfToken, setCsrfToken] = useState<string>('');
+  const [myUserName, setMyUserName] = useState<string>('');
 
   // Self Attendance State
   const [currentShift, setCurrentShift] = useState<ShiftData | null>(null);
@@ -256,6 +257,33 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     return [hrs, mins, secs].map((v) => String(v).padStart(2, '0')).join(':');
   };
 
+  const formatCompactHoursMinutes = (totalSecs: number): string => {
+    const safe = Math.max(0, Math.floor(totalSecs));
+    const hrs = Math.floor(safe / 3600);
+    const mins = Math.floor((safe % 3600) / 60);
+    return `${hrs}g${String(mins).padStart(2, '0')}`;
+  };
+
+  const resolvedMyFullName = React.useMemo(() => {
+    const raw =
+      myUserName ||
+      currentShift?.employee_name ||
+      recentShifts[0]?.employee_name ||
+      '';
+    return raw.trim();
+  }, [myUserName, currentShift?.employee_name, recentShifts]);
+
+  const greetingShortName = React.useMemo(() => {
+    if (!resolvedMyFullName) return role === 'owner' ? 'Phương' : 'Vinh';
+    const parts = resolvedMyFullName.split(/\s+/).filter(Boolean);
+    return parts[parts.length - 1] || resolvedMyFullName;
+  }, [resolvedMyFullName, role]);
+
+  const greetingInitial = React.useMemo(() => {
+    const ch = greetingShortName.charAt(0).toUpperCase();
+    return ch || 'V';
+  }, [greetingShortName]);
+
   const myMonthlySummary = React.useMemo(() => {
     let totalWorkedSeconds = 0;
     let approvedCount = 0;
@@ -282,6 +310,40 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       pendingCount,
     };
   }, [filteredRecentShifts]);
+
+  const heroSummaryMonth = React.useMemo(() => {
+    if (mySelectedMonth !== 'all') {
+      const found = myAvailableMonths.find((m) => m.ym === mySelectedMonth);
+      return (
+        found || {
+          ym: mySelectedMonth,
+          count: filteredRecentShifts.length,
+          totalSeconds: myMonthlySummary.totalWorkedSeconds,
+        }
+      );
+    }
+    const curMonthEntry = myAvailableMonths.find(
+      (m) => m.ym === currentVnYearMonth,
+    );
+    if (curMonthEntry && curMonthEntry.count > 0) {
+      return curMonthEntry;
+    }
+    const latestWithData = myAvailableMonths.find((m) => m.count > 0);
+    return (
+      latestWithData ||
+      curMonthEntry || {
+        ym: currentVnYearMonth,
+        count: 0,
+        totalSeconds: 0,
+      }
+    );
+  }, [
+    mySelectedMonth,
+    myAvailableMonths,
+    currentVnYearMonth,
+    filteredRecentShifts.length,
+    myMonthlySummary.totalWorkedSeconds,
+  ]);
 
   const safeMyShiftPage = clampPage(
     myShiftPage,
@@ -384,6 +446,17 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           if (signal?.aborted) return;
           if (authData.data?.csrf_token) {
             setCsrfToken(authData.data.csrf_token);
+          }
+          const nameFromAuth =
+            authData.data?.user?.full_name ||
+            authData.data?.full_name ||
+            authData.data?.user?.display_name ||
+            authData.data?.display_name ||
+            authData.data?.employee?.full_name ||
+            authData.data?.user?.username ||
+            '';
+          if (nameFromAuth) {
+            setMyUserName(String(nameFromAuth));
           }
         }
       })();
@@ -1569,7 +1642,10 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
         : 'Hệ thống chấm công thời gian thực, tạm nghỉ và duyệt công chuẩn xác (Doc 20/36)';
 
   return (
-    <div>
+    <div
+      className={activeTab === 'my_clock' ? 'clock-self-page' : undefined}
+      data-role={role}
+    >
       <PageHeader
         title={headerTitle}
         subtitle={headerSubtitle}
@@ -1639,7 +1715,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           style={{
             marginBottom: '16px',
             padding: '12px 16px',
-            borderRadius: '8px',
+            borderRadius: '16px',
             backgroundColor: 'rgba(16, 185, 129, 0.14)',
             border: '1px solid rgba(16, 185, 129, 0.35)',
             color: 'var(--success-text)',
@@ -1656,113 +1732,238 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       )}
 
       {activeTab === 'my_clock' ? (
-        <div>
-          {/* Main Clock-in/out Card */}
-          {justClockedOut && onNavigate && (
-            <div
-              data-testid="post-clockout-report-prompt"
-              style={{
-                marginBottom: '16px',
-                padding: '14px 16px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(59, 130, 246, 0.12)',
-                border: '1px solid rgba(59, 130, 246, 0.35)',
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    color: 'var(--info-text)',
-                  }}
-                >
-                  Bạn vừa kết thúc ca làm việc — Đừng quên nộp báo cáo ngày!
-                </div>
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--muted-color)',
-                    marginTop: '2px',
-                  }}
-                >
-                  Ghi nhận ngay tiến độ và kết quả công việc trong ca hôm nay để
-                  Owner đối chiếu.
-                </div>
-              </div>
-              <div
-                style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
-              >
-                <AppButton
-                  variant="primary"
-                  data-testid="btn-post-clockout-create-report"
-                  onClick={() => onNavigate('/reports/new')}
-                >
-                  Nộp báo cáo công việc hôm nay →
-                </AppButton>
-                <AppButton
-                  variant="secondary"
-                  onClick={() => setJustClockedOut(false)}
-                >
-                  Để sau
-                </AppButton>
-              </div>
-            </div>
-          )}
-          <AppCard style={{ marginBottom: '24px' }}>
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-                padding: '16px 8px',
-              }}
-            >
-              <div
-                style={{
-                  marginBottom: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  flexWrap: 'wrap',
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+          <div className="clock-self-main-fold">
+            <header className="clock-self-header">
+              <h1 className="clock-self-title">Chào {greetingShortName}</h1>
+              <a
+                href="#ca-nhan"
+                aria-label="Trang cá nhân"
+                className="clock-self-avatar"
+                onClick={(e) => {
+                  if (onNavigate) {
+                    e.preventDefault();
+                    onNavigate('/my-pay');
+                  }
                 }}
               >
-                <StatusBadge
-                  status={
-                    currentShift?.run_state === 'working'
-                      ? 'success'
-                      : currentShift?.run_state === 'paused'
-                        ? 'warning'
-                        : 'neutral'
-                  }
-                  label={
-                    currentShift?.run_state === 'working'
-                      ? 'Đang trong ca làm việc'
-                      : currentShift?.run_state === 'paused'
-                        ? 'Đang tạm nghỉ'
-                        : 'Chưa vào ca làm việc'
-                  }
-                />
+                {greetingInitial}
+              </a>
+            </header>
+
+            {justClockedOut && onNavigate && (
+              <div
+                data-testid="post-clockout-report-prompt"
+                className="clock-self-card"
+                style={{
+                  padding: '14px 16px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: 'var(--text-color)',
+                    }}
+                  >
+                    Bạn vừa kết thúc ca làm việc — Đừng quên nộp báo cáo ngày!
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--muted-color)',
+                      marginTop: '2px',
+                    }}
+                  >
+                    Ghi nhận ngay tiến độ và kết quả công việc trong ca hôm nay
+                    để Owner đối chiếu.
+                  </div>
+                </div>
+                <div
+                  style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
+                >
+                  <AppButton
+                    variant="primary"
+                    data-testid="btn-post-clockout-create-report"
+                    onClick={() => onNavigate('/reports/new')}
+                  >
+                    Nộp báo cáo công việc hôm nay →
+                  </AppButton>
+                  <AppButton
+                    variant="secondary"
+                    className="clock-self-secondary-btn"
+                    onClick={() => setJustClockedOut(false)}
+                  >
+                    Để sau
+                  </AppButton>
+                </div>
+              </div>
+            )}
+
+            <div className="clock-self-hero">
+              <div className="clock-self-timer-group">
+                <span className="clock-self-status">
+                  {currentShift?.run_state === 'working'
+                    ? 'Đang trong ca'
+                    : currentShift?.run_state === 'paused'
+                      ? 'Đang tạm nghỉ'
+                      : 'Chưa vào ca'}
+                </span>
+                <div className="sr-only">
+                  <StatusBadge
+                    status={
+                      currentShift?.run_state === 'working'
+                        ? 'success'
+                        : currentShift?.run_state === 'paused'
+                          ? 'warning'
+                          : 'neutral'
+                    }
+                    label={
+                      currentShift?.run_state === 'working'
+                        ? 'Đang trong ca làm việc'
+                        : currentShift?.run_state === 'paused'
+                          ? 'Đang tạm nghỉ'
+                          : 'Chưa vào ca làm việc'
+                    }
+                  />
+                </div>
+
+                {currentShift ? (
+                  <>
+                    <span
+                      data-testid="live-shift-timer"
+                      className="clock-self-timer clock-self-timer-live"
+                      style={{
+                        color:
+                          currentShift.run_state === 'paused'
+                            ? 'var(--warning-text)'
+                            : undefined,
+                      }}
+                    >
+                      {formatHmsCounter(liveShiftMetrics.liveWorkedSeconds)}
+                    </span>
+                    {currentShift.run_state === 'paused' && (
+                      <div
+                        style={{
+                          fontSize: '12.5px',
+                          color: 'var(--warning-text)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Đang tạm nghỉ:{' '}
+                        {formatHmsCounter(liveShiftMetrics.currentBreakSeconds)}
+                      </div>
+                    )}
+                    <div className="clock-self-shift-meta">
+                      Bắt đầu ca: {formatVnTime(currentShift.clock_in_at)} ngày{' '}
+                      {formatVnDate(currentShift.clock_in_at)}
+                      {currentShift.breaks.length > 0 &&
+                        ` • ${currentShift.breaks.length} lần tạm nghỉ`}
+                    </div>
+                  </>
+                ) : (
+                  <span className="clock-self-timer">0:00</span>
+                )}
+              </div>
+
+              {!currentShift && (
+                <button
+                  type="button"
+                  aria-label="Vào ca"
+                  className="clock-self-circle-btn"
+                  disabled={actionLoading}
+                  onClick={handleClockIn}
+                >
+                  <svg
+                    width="36"
+                    height="36"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M7 4v16l13-8z" />
+                  </svg>
+                  <span className="clock-self-circle-btn-label">Vào ca</span>
+                  <span className="sr-only"> làm việc</span>
+                </button>
+              )}
+
+              {currentShift?.run_state === 'working' && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Kết thúc ca"
+                    className="clock-self-circle-btn"
+                    disabled={actionLoading}
+                    onClick={handleClockOut}
+                  >
+                    <StopIcon size={36} />
+                    <span className="clock-self-circle-btn-label">
+                      Kết thúc ca
+                    </span>
+                  </button>
+                  <div className="clock-self-sub-actions">
+                    <button
+                      type="button"
+                      className="clock-self-secondary-btn"
+                      disabled={actionLoading}
+                      onClick={handleStartBreak}
+                    >
+                      <PauseIcon size={16} /> Tạm nghỉ
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {currentShift?.run_state === 'paused' && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Tiếp tục làm việc"
+                    className="clock-self-circle-btn"
+                    disabled={actionLoading}
+                    onClick={handleResume}
+                  >
+                    <PlayIcon size={36} />
+                    <span className="clock-self-circle-btn-label">
+                      Tiếp tục
+                    </span>
+                    <span className="sr-only"> làm việc</span>
+                  </button>
+                  <div className="clock-self-sub-actions">
+                    <button
+                      type="button"
+                      className="clock-self-secondary-btn clock-self-secondary-btn-danger"
+                      disabled={actionLoading}
+                      onClick={handleClockOut}
+                    >
+                      <StopIcon size={16} /> Kết thúc ca
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <div className="clock-self-aux-row">
                 <span
                   data-testid="today-attendance-summary"
-                  style={{
-                    fontSize: '12.5px',
-                    color: 'var(--muted-color)',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid var(--border-subtle)',
-                    padding: '4px 10px',
-                    borderRadius: '999px',
-                    fontWeight: 500,
-                  }}
+                  className="clock-self-today-pill"
                 >
-                  Hôm nay ({formatIsoToVnLabel(todaySummary.todayVnIso)}):{' '}
+                  Hôm nay
+                  <span className="sr-only">
+                    {' '}
+                    ({formatIsoToVnLabel(todaySummary.todayVnIso)})
+                  </span>
+                  :{' '}
                   <strong style={{ color: 'var(--text-color)' }}>
                     {todaySummary.todayShiftsCount} ca
                   </strong>{' '}
@@ -1771,157 +1972,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     {formatHoursMinutes(todaySummary.todayWorkedSeconds)}
                   </strong>
                 </span>
-              </div>
-
-              {currentShift && (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '20px',
-                  }}
-                >
-                  <div
-                    data-testid="live-shift-timer"
-                    style={{
-                      fontSize: '28px',
-                      fontWeight: 800,
-                      fontVariantNumeric: 'tabular-nums',
-                      color:
-                        currentShift.run_state === 'paused'
-                          ? 'var(--warning-text)'
-                          : 'var(--accent-text)',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    {formatHmsCounter(liveShiftMetrics.liveWorkedSeconds)}
-                  </div>
-                  {currentShift.run_state === 'paused' && (
-                    <div
-                      style={{
-                        fontSize: '12.5px',
-                        color: 'var(--warning-text)',
-                        fontWeight: 600,
-                      }}
-                    >
-                      Đang tạm nghỉ:{' '}
-                      {formatHmsCounter(liveShiftMetrics.currentBreakSeconds)}
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      fontSize: '13px',
-                      color: 'var(--muted-color)',
-                      backgroundColor: 'var(--surface-hover)',
-                      padding: '6px 14px',
-                      borderRadius: '20px',
-                    }}
-                  >
-                    Bắt đầu ca: {formatVnTime(currentShift.clock_in_at)} ngày{' '}
-                    {formatVnDate(currentShift.clock_in_at)}
-                    {currentShift.breaks.length > 0 &&
-                      ` • ${currentShift.breaks.length} lần tạm nghỉ`}
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '12px',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
-                  width: '100%',
-                  maxWidth: '460px',
-                }}
-              >
-                {!currentShift && (
-                  <AppButton
-                    variant="primary"
-                    disabled={actionLoading}
-                    onClick={handleClockIn}
-                    style={{
-                      flex: 1,
-                      minWidth: '180px',
-                      height: '48px',
-                      fontSize: '16px',
-                    }}
-                  >
-                    <PlayIcon size={20} /> Vào ca làm việc
-                  </AppButton>
-                )}
-
-                {currentShift?.run_state === 'working' && (
-                  <>
-                    <AppButton
-                      variant="secondary"
-                      disabled={actionLoading}
-                      onClick={handleStartBreak}
-                      style={{ flex: 1, minWidth: '140px' }}
-                    >
-                      <PauseIcon size={18} /> Tạm nghỉ
-                    </AppButton>
-                    <AppButton
-                      variant="destructive"
-                      disabled={actionLoading}
-                      onClick={handleClockOut}
-                      style={{ flex: 1, minWidth: '140px' }}
-                    >
-                      <StopIcon size={18} /> Kết thúc ca
-                    </AppButton>
-                  </>
-                )}
-
-                {currentShift?.run_state === 'paused' && (
-                  <>
-                    <AppButton
-                      variant="primary"
-                      disabled={actionLoading}
-                      onClick={handleResume}
-                      style={{
-                        flex: 1,
-                        minWidth: '160px',
-                        height: '48px',
-                        fontSize: '15px',
-                      }}
-                    >
-                      <PlayIcon size={18} /> Tiếp tục làm việc
-                    </AppButton>
-                    <AppButton
-                      variant="destructive"
-                      disabled={actionLoading}
-                      onClick={handleClockOut}
-                      style={{
-                        flex: 1,
-                        minWidth: '140px',
-                        height: '48px',
-                        fontSize: '15px',
-                      }}
-                    >
-                      <StopIcon size={18} /> Kết thúc ca
-                    </AppButton>
-                  </>
-                )}
-              </div>
-
-              {/* Forgotten Clock Out / Correction link & Reset Today button */}
-              <div
-                style={{
-                  marginTop: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexWrap: 'wrap',
-                  gap: '12px',
-                }}
-              >
                 {currentShift && (
                   <button
                     type="button"
                     data-testid="clock-correction-btn"
+                    className="clock-self-link-btn"
                     onClick={() => {
                       setTargetShiftForCorrection(currentShift);
                       setClaimedClockOut(
@@ -1931,15 +1986,6 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       );
                       setShowCorrectionModal(true);
                     }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--accent-text)',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                      padding: '4px',
-                    }}
                   >
                     Quên bấm giờ hoặc cần giải trình ca này?
                   </button>
@@ -1947,53 +1993,72 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 <button
                   type="button"
                   data-testid="btn-reset-clock-today"
+                  className="clock-self-reset-pill"
                   disabled={actionLoading}
                   onClick={handleResetClockToday}
-                  style={{
-                    background: 'var(--surface-subtle)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '999px',
-                    color: 'var(--muted-color)',
-                    fontSize: '12.5px',
-                    fontWeight: 600,
-                    cursor: actionLoading ? 'not-allowed' : 'pointer',
-                    padding: '6px 12px',
-                  }}
                 >
-                  🔄 Đặt lại để bắt đầu từ hôm nay
+                  Đặt lại hôm nay
                 </button>
               </div>
             </div>
-          </AppCard>
 
-          {/* Personal History */}
-          <div style={{ marginTop: '32px' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '8px',
-                marginBottom: '16px',
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: '18px',
-                  fontWeight: 700,
-                  color: 'var(--text-color)',
-                  margin: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
+            <div className="clock-self-summary-card">
+              <div className="clock-self-summary-row">
+                <span className="clock-self-summary-label">
+                  Tháng {Number(heroSummaryMonth.ym.split('-')[1]) || 11}
+                </span>
+                <span className="clock-self-summary-value">
+                  {heroSummaryMonth.count} ca ·{' '}
+                  {formatCompactHoursMinutes(heroSummaryMonth.totalSeconds)}
+                </span>
+              </div>
+              <a
+                href="#nop-bao-cao"
+                className="clock-self-report-row"
+                onClick={(e) => {
+                  if (onNavigate) {
+                    e.preventDefault();
+                    onNavigate('/reports/new');
+                  }
                 }}
               >
-                <CalendarIcon size={20} /> Lịch sử chấm công cá nhân
+                <span
+                  className="clock-self-dot"
+                  style={{ backgroundColor: '#d97706' }}
+                />
+                <span className="clock-self-report-label">
+                  Nộp báo cáo hôm nay
+                </span>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </a>
+            </div>
+          </div>
+
+          {/* Personal History */}
+          <div className="clock-self-history-section">
+            <div className="clock-self-history-header">
+              <h3
+                className="clock-self-history-title"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+              >
+                <CalendarIcon size={18} /> Lịch sử chấm công cá nhân
               </h3>
               {filteredRecentShifts.length > 0 && (
                 <AppButton
                   variant="secondary"
+                  className="clock-self-secondary-btn"
                   data-testid="btn-export-attendance-csv"
                   onClick={() => {
                     const escapeCsvCell = (val: unknown) => {
@@ -2049,7 +2114,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     }
                   }}
                 >
-                  <DownloadIcon size={15} /> Xuất Excel/CSV (
+                  <DownloadIcon size={15} /> Xuất CSV (
                   {filteredRecentShifts.length})
                 </AppButton>
               )}
@@ -2058,7 +2123,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             {/* Personal History Month Selector + Filter Bar */}
             <AppCard
               data-testid="my-history-filter-bar"
-              style={{ marginBottom: '14px', padding: '10px 14px' }}
+              className="clock-self-card"
+              style={{ padding: '12px 16px' }}
             >
               <div
                 data-testid="staff-month-selector-bar"
@@ -2088,10 +2154,10 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       setMyShiftPage(0);
                     }}
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--bg-color)',
-                      border: '1px solid var(--border-color)',
+                      padding: '8px 12px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--surface-color)',
+                      border: '1px solid var(--border-subtle)',
                       color: 'var(--text-color)',
                       fontSize: '13px',
                       fontWeight: 600,
@@ -2146,17 +2212,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
 
                 <button
                   type="button"
+                  className="clock-self-secondary-btn"
                   onClick={() => setShowMyAdvancedFilters((v) => !v)}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--surface-subtle)',
-                    color: 'var(--muted-color)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
                 >
                   {showMyAdvancedFilters ? '▴ Ẩn bộ lọc' : '▾ Lọc nâng cao'}
                 </button>
@@ -2165,8 +2222,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
               <div
                 style={{
                   display: showMyAdvancedFilters ? 'block' : 'none',
-                  paddingTop: '10px',
-                  borderTop: '1px solid var(--border-subtle)',
+                  paddingTop: '12px',
+                  marginTop: '12px',
+                  borderTop: '1px solid var(--surface-subtle)',
                 }}
               >
                 <div
@@ -2184,10 +2242,10 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     Chọn nhanh:
                   </span>
                   {[
-                    { id: 'today' as const, label: '📅 Hôm nay' },
-                    { id: 'last7d' as const, label: '📆 7 ngày qua' },
-                    { id: 'month' as const, label: '🗓️ Tháng này' },
-                    { id: 'all' as const, label: '🔄 Toàn thời gian' },
+                    { id: 'today' as const, label: 'Hôm nay' },
+                    { id: 'last7d' as const, label: '7 ngày qua' },
+                    { id: 'month' as const, label: 'Tháng này' },
+                    { id: 'all' as const, label: 'Toàn thời gian' },
                   ].map((p) => (
                     <button
                       key={p.id}
@@ -2199,8 +2257,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       style={{
                         padding: '4px 10px',
                         borderRadius: '999px',
-                        border: '1px solid var(--border-color)',
-                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-subtle)',
+                        backgroundColor: 'var(--surface-color)',
                         color: 'var(--text-secondary)',
                         fontSize: '12px',
                         fontWeight: 600,
@@ -2231,7 +2289,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         marginBottom: '6px',
                       }}
                     >
-                      <span>Từ ngày (Ngày/Tháng/Năm)</span>
+                      <span>Từ ngày</span>
                       <span
                         style={{ color: 'var(--accent-text)', fontWeight: 500 }}
                       >
@@ -2257,8 +2315,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       style={{
                         width: '100%',
                         padding: '8px 12px',
-                        borderRadius: '8px',
-                        backgroundColor: 'var(--bg-color)',
+                        borderRadius: '12px',
+                        backgroundColor: 'var(--surface-color)',
                         border: '1px solid var(--border-color)',
                         color: 'var(--text-color)',
                         fontSize: '14px',
@@ -2280,7 +2338,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         marginBottom: '6px',
                       }}
                     >
-                      <span>Đến ngày (Ngày/Tháng/Năm)</span>
+                      <span>Đến ngày</span>
                       <span
                         style={{ color: 'var(--accent-text)', fontWeight: 500 }}
                       >
@@ -2306,8 +2364,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       style={{
                         width: '100%',
                         padding: '8px 12px',
-                        borderRadius: '8px',
-                        backgroundColor: 'var(--bg-color)',
+                        borderRadius: '12px',
+                        backgroundColor: 'var(--surface-color)',
                         border: '1px solid var(--border-color)',
                         color: 'var(--text-color)',
                         fontSize: '14px',
@@ -2339,8 +2397,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                       style={{
                         width: '100%',
                         padding: '8px 12px',
-                        borderRadius: '8px',
-                        backgroundColor: 'var(--bg-color)',
+                        borderRadius: '12px',
+                        backgroundColor: 'var(--surface-color)',
                         border: '1px solid var(--border-color)',
                         color: 'var(--text-color)',
                         fontSize: '14px',
@@ -2363,6 +2421,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     myReviewStateFilter !== 'all') && (
                     <AppButton
                       variant="secondary"
+                      className="clock-self-secondary-btn"
                       onClick={() => {
                         setMySelectedMonth('all');
                         setMyFromDate('');
@@ -2370,7 +2429,6 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         setMyReviewStateFilter('all');
                         setMyShiftPage(0);
                       }}
-                      style={{ minHeight: '44px' }}
                     >
                       Xóa lọc
                     </AppButton>
@@ -2385,196 +2443,208 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 description="Không có ca làm việc nào phù hợp với tháng hoặc bộ lọc hiện tại."
               />
             ) : (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                }}
-              >
-                {pagedRecentShifts.map((shift) => (
-                  <AppCard key={shift.id} style={{ padding: '14px' }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                        marginBottom: '6px',
-                      }}
-                    >
-                      <div style={{ minWidth: 0, flex: '1 1 200px' }}>
+              <div className="clock-self-history-list">
+                {pagedRecentShifts.map((shift) => {
+                  const dotColor =
+                    shift.review_state === 'approved' || shift.is_self_shift
+                      ? '#10b981'
+                      : shift.review_state === 'rejected'
+                        ? '#ef4444'
+                        : '#d97706';
+                  return (
+                    <div key={shift.id} className="clock-self-history-item">
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '10px',
+                        }}
+                      >
                         <div
                           style={{
-                            fontWeight: 700,
-                            fontSize: '14.5px',
-                            color: 'var(--text-color)',
-                          }}
-                        >
-                          {formatVnDate(shift.clock_in_at, {
-                            weekday: 'short',
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                          })}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '13px',
-                            color: 'var(--muted-color)',
-                            marginTop: '3px',
                             display: 'flex',
                             alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: '6px',
+                            gap: '12px',
+                            minWidth: 0,
+                            flex: '1 1 200px',
                           }}
                         >
-                          <span>
-                            {formatVnTimeShort(shift.clock_in_at)}
-                            {shift.clock_out_at
-                              ? ` – ${formatVnTimeShort(shift.clock_out_at)}`
-                              : ' (Đang mở)'}
-                          </span>
-                          {isOvernightShift(
-                            shift.clock_in_at,
-                            shift.clock_out_at,
-                          ) && (
-                            <span
-                              data-testid="overnight-badge"
+                          <span
+                            className="clock-self-dot"
+                            style={{ backgroundColor: dotColor }}
+                          />
+                          <div style={{ minWidth: 0 }}>
+                            <div
                               style={{
-                                fontSize: '12px',
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                backgroundColor: 'rgba(139, 92, 246, 0.18)',
-                                color: 'var(--purple-text)',
-                                border: '1px solid rgba(139, 92, 246, 0.4)',
-                                fontWeight: 500,
+                                fontWeight: 600,
+                                fontSize: '15px',
+                                color: 'var(--text-color)',
                               }}
                             >
-                              Ca qua đêm (+1 ngày)
-                            </span>
+                              {formatVnDate(shift.clock_in_at, {
+                                weekday: 'short',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                              })}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '12.5px',
+                                color: 'var(--muted-color)',
+                                marginTop: '2px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gap: '6px',
+                              }}
+                            >
+                              <span>
+                                {formatVnTimeShort(shift.clock_in_at)}
+                                {shift.clock_out_at
+                                  ? ` – ${formatVnTimeShort(shift.clock_out_at)}`
+                                  : ' (Đang mở)'}
+                              </span>
+                              {isOvernightShift(
+                                shift.clock_in_at,
+                                shift.clock_out_at,
+                              ) && (
+                                <span
+                                  data-testid="overnight-badge"
+                                  style={{
+                                    fontSize: '12px',
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    backgroundColor:
+                                      'rgba(139, 92, 246, 0.14)',
+                                    color: 'var(--purple-text)',
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  Ca qua đêm (+1 ngày)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: '8px',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <strong
+                            style={{
+                              fontSize: '14px',
+                              color: 'var(--text-color)',
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
+                            {formatHoursMinutes(shift.worked_seconds)}
+                          </strong>
+                          <StatusBadge
+                            status={
+                              shift.review_state === 'approved'
+                                ? 'success'
+                                : shift.review_state === 'rejected'
+                                  ? 'error'
+                                  : shift.review_state === 'needs_review'
+                                    ? 'warning'
+                                    : 'neutral'
+                            }
+                            label={
+                              shift.review_state === 'approved'
+                                ? 'Đã duyệt'
+                                : shift.review_state === 'rejected'
+                                  ? 'Bị từ chối'
+                                  : shift.review_state === 'needs_review'
+                                    ? 'Cần xử lý'
+                                    : 'Chờ duyệt'
+                            }
+                          />
+                          {shift.pending_correction && (
+                            <StatusBadge
+                              status="warning"
+                              label="Đang chờ giải trình"
+                            />
                           )}
                         </div>
                       </div>
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: '6px',
-                          alignItems: 'center',
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <StatusBadge
-                          status={
-                            shift.review_state === 'approved'
-                              ? 'success'
-                              : shift.review_state === 'rejected'
-                                ? 'error'
-                                : shift.review_state === 'needs_review'
-                                  ? 'warning'
-                                  : 'neutral'
-                          }
-                          label={
-                            shift.review_state === 'approved'
-                              ? 'Đã duyệt'
-                              : shift.review_state === 'rejected'
-                                ? 'Bị từ chối'
-                                : shift.review_state === 'needs_review'
-                                  ? 'Cần xử lý'
-                                  : 'Chờ duyệt'
-                          }
-                        />
+                      {shift.review_reason && (
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--text-secondary)',
+                            backgroundColor: 'var(--surface-subtle)',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            marginLeft: '22px',
+                            overflowWrap: 'anywhere',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          Ghi chú duyệt:{' '}
+                          <em>
+                            "{formatReviewNoteLabel(shift.review_reason)}"
+                          </em>
+                          {shift.reviewed_at &&
+                            ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTimeShort(shift.reviewed_at)}`}
+                        </div>
+                      )}
 
-                        {shift.pending_correction && (
-                          <StatusBadge
-                            status="warning"
-                            label="Đang chờ giải trình"
-                          />
-                        )}
-                      </div>
+                      {(shift.breaks.length > 0 ||
+                        (shift.run_state === 'completed' &&
+                          !shift.pending_correction)) && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: '12px',
+                            color: 'var(--muted-color)',
+                            marginLeft: '22px',
+                          }}
+                        >
+                          <span>
+                            {shift.breaks.length > 0
+                              ? `${shift.breaks.length} lần nghỉ`
+                              : ''}
+                          </span>
+                          {shift.run_state === 'completed' &&
+                            !shift.pending_correction && (
+                              <button
+                                type="button"
+                                data-testid="shift-correction-btn"
+                                className="clock-self-link-btn"
+                                onClick={() => {
+                                  setTargetShiftForCorrection(shift);
+                                  setClaimedClockOut(
+                                    toVnDateTimeLocalValue(
+                                      shift.clock_out_at ||
+                                        new Date().toISOString(),
+                                    ),
+                                  );
+                                  setShowCorrectionModal(true);
+                                }}
+                              >
+                                Giải trình / Sửa giờ
+                              </button>
+                            )}
+                        </div>
+                      )}
                     </div>
-
-                    {shift.review_reason && (
-                      <div
-                        style={{
-                          fontSize: '12px',
-                          color: 'var(--text-secondary)',
-                          backgroundColor: 'var(--bg-color)',
-                          padding: '6px 10px',
-                          borderRadius: '6px',
-                          marginTop: '6px',
-                          overflowWrap: 'anywhere',
-                          wordBreak: 'break-word',
-                          borderLeft:
-                            shift.review_state === 'rejected'
-                              ? '3px solid #EF4444'
-                              : '3px solid #10B981',
-                        }}
-                      >
-                        Ghi chú duyệt:{' '}
-                        <em>"{formatReviewNoteLabel(shift.review_reason)}"</em>
-                        {shift.reviewed_at &&
-                          ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTimeShort(shift.reviewed_at)}`}
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: '13px',
-                        color: 'var(--muted-color)',
-                        borderTop: '1px solid var(--border-color)',
-                        paddingTop: '10px',
-                        marginTop: '10px',
-                      }}
-                    >
-                      <div>
-                        Tổng làm việc:{' '}
-                        <strong style={{ color: 'var(--accent-text)' }}>
-                          {formatHoursMinutes(shift.worked_seconds)}
-                        </strong>
-                        {shift.breaks.length > 0 &&
-                          ` (${shift.breaks.length} lần nghỉ)`}
-                      </div>
-
-                      {shift.run_state === 'completed' &&
-                        !shift.pending_correction && (
-                          <button
-                            type="button"
-                            data-testid="shift-correction-btn"
-                            onClick={() => {
-                              setTargetShiftForCorrection(shift);
-                              setClaimedClockOut(
-                                toVnDateTimeLocalValue(
-                                  shift.clock_out_at ||
-                                    new Date().toISOString(),
-                                ),
-                              );
-                              setShowCorrectionModal(true);
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--accent-text)',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              textDecoration: 'underline',
-                            }}
-                          >
-                            Giải trình / Sửa giờ
-                          </button>
-                        )}
-                    </div>
-                  </AppCard>
-                ))}
+                  );
+                })}
               </div>
             )}
             {filteredRecentShifts.length > 0 && (
-              <div style={{ marginTop: '16px' }}>
+              <div style={{ marginTop: '8px' }}>
                 <Pagination
                   testId="my-shifts-pager"
                   total={filteredRecentShifts.length}
