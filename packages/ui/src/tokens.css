@@ -330,6 +330,7 @@ table td,
 table th,
 .kpi-grid-4 > div > div:nth-child(2),
 .work-kpi-strip > div > div:nth-child(2),
+.work-kpi-strip > button > div:nth-child(2),
 .payroll-earnings-grid strong,
 input[type='number'],
 input[inputmode='numeric'],
@@ -758,29 +759,33 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     grid-column: 1 / -1 !important;
   }
   .work-kpi-strip {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 6px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    margin-bottom: 0 !important;
   }
-  .work-kpi-strip > div {
-    padding: 8px 4px !important;
+  .work-kpi-strip > div,
+  .work-kpi-strip > button {
+    padding: 14px 16px !important;
+    border-radius: 16px !important;
   }
-  .work-kpi-strip > div > div:first-child {
-    font-size: 11px !important;
-    justify-content: center !important;
+  .work-kpi-strip > div > div:first-child,
+  .work-kpi-strip > button > div:first-child {
+    font-size: 12px !important;
   }
-  .work-kpi-strip > div > div:nth-child(2) {
-    font-size: 17px !important;
-    margin: 2px 0 0 0 !important;
+  .work-kpi-strip > div > div:nth-child(2),
+  .work-kpi-strip > button > div:nth-child(2) {
+    font-size: 22px !important;
+    margin: 4px 0 0 0 !important;
   }
   .work-filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 6px !important;
+    gap: 8px !important;
   }
   .work-filter-grid > div:first-child {
     grid-column: 1 / -1 !important;
   }
   .work-filter-grid select {
-    padding: 7px 6px !important;
+    padding: 8px 10px !important;
     font-size: 12px !important;
   }
   .payroll-earnings-grid {
@@ -1909,5 +1914,168 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     justify-content: space-between;
     gap: 24px;
     padding-bottom: 8px;
+  }
+}
+
+/* Minimalist Work Screen (docs/design/2026-11-12-toi-gian/CongViec.html & README.md) */
+.work-page {
+  width: 100%;
+  max-width: 960px;
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+  color: var(--text-color, #0f172a);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 8px 0 24px 0;
+}
+
+.work-page .page-header-root {
+  margin-bottom: 0 !important;
+  gap: 16px !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.work-page .page-header-title {
+  font-size: 30px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.15 !important;
+  color: var(--text-color, #0f172a) !important;
+}
+
+.work-page .page-header-subtitle {
+  font-size: 13px !important;
+  color: var(--muted-color, #475569) !important;
+  margin-top: 4px !important;
+}
+
+@media (min-width: 769px) {
+  #main-content:has(.work-page) {
+    padding-left: 48px !important;
+    padding-right: 48px !important;
+    padding-top: 32px !important;
+  }
+}
+
+.work-primary-btn {
+  height: 52px !important;
+  min-height: 52px !important;
+  padding: 0 24px !important;
+  border-radius: 14px !important;
+  background-color: var(--primary-color, #0f766e) !important;
+  color: #ffffff !important;
+  font-family: var(--font-sans) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  border: 0 !important;
+  box-shadow: 0 10px 24px -8px rgba(15, 118, 110, 0.45) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease !important;
+}
+
+.work-primary-btn:hover:not(:disabled) {
+  background-color: var(--primary-hover, #115e59) !important;
+}
+
+.work-primary-btn:disabled {
+  opacity: 0.7 !important;
+  cursor: not-allowed !important;
+}
+
+.work-flat-card {
+  background-color: var(--surface-color, #ffffff) !important;
+  border: 1px solid var(--border-subtle, #e2e8f0) !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.work-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 0 !important;
+}
+
+.work-kpi-card {
+  background-color: var(--surface-color, #ffffff);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 16px !important;
+  padding: 16px 18px !important;
+  box-shadow: none !important;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.work-kpi-card:hover {
+  border-color: var(--border-color, #cbd5e1);
+}
+
+.work-section-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.work-item-card {
+  background-color: var(--surface-color, #ffffff);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 16px;
+  box-shadow: none;
+  min-height: 64px;
+  padding: 16px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.work-item-card:hover {
+  border-color: var(--border-color, #cbd5e1);
+}
+
+@media (max-width: 768px) {
+  #main-content:has(.work-page) {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+    padding-top: 20px !important;
+  }
+  .app-shell-content:has(.work-page) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .work-page {
+    gap: 24px;
+    padding: 0 0 24px 0;
+  }
+  .work-page .page-header-title {
+    font-size: 26px !important;
+  }
+  .work-page .page-header-actions {
+    width: 100% !important;
+  }
+  .work-primary-btn {
+    width: 100% !important;
+    height: 54px !important;
+    min-height: 54px !important;
+    border-radius: 14px !important;
+    font-size: 16px !important;
+  }
+  .work-item-card {
+    min-height: 62px;
+    padding: 14px 16px;
+    border-radius: 16px;
   }
 }
