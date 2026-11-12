@@ -1,19 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   AppButton,
-  BuildingIcon,
   AlertTriangleIcon,
   EyeIcon,
   LockIcon,
   CloseIcon,
   ShieldAlertIcon,
-  ClockIcon,
-  ClipboardListIcon,
-  CheckCircleIcon,
   useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
-import { SYSTEM_VERSION } from '../../../../packages/contracts/src/version.js';
 
 export interface LoginScreenProps {
   onLogin: (role: UserRole) => void;
@@ -21,7 +16,7 @@ export interface LoginScreenProps {
 }
 
 const EyeOffIcon: React.FC<{ size?: number; style?: React.CSSProperties }> = ({
-  size = 18,
+  size = 20,
   style,
 }) => (
   <svg
@@ -30,9 +25,10 @@ const EyeOffIcon: React.FC<{ size?: number; style?: React.CSSProperties }> = ({
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="2"
+    strokeWidth="1.75"
     strokeLinecap="round"
     strokeLinejoin="round"
+    aria-hidden="true"
     style={{
       display: 'inline-block',
       verticalAlign: 'middle',
@@ -237,629 +233,231 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        padding: '24px 16px',
-        backgroundColor: 'var(--bg-color, #0B1220)',
-        boxSizing: 'border-box',
-      }}
-    >
-      {/* Responsive layout container */}
-      <div className="login-card-container">
-        {/* Left Column: Management Lite Branding & Visual Identity (Desktop only) */}
-        <div className="login-brand-panel">
-          <div>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '56px',
-                height: '56px',
-                borderRadius: '14px',
-                backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                border: '1px solid rgba(20, 184, 166, 0.25)',
-                color: 'var(--accent-text)',
-                marginBottom: '18px',
-              }}
+    <div className="login-page">
+      <div className="login-container">
+        <div className="login-brand">
+          <div className="login-logo-box">
+            <svg
+              width="36"
+              height="36"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
             >
-              <BuildingIcon size={30} />
-            </div>
-            <h1
-              style={{
-                fontSize: '24px',
-                fontWeight: 800,
-                color: 'var(--text-color)',
-                margin: '0 0 8px 0',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Management Lite
-            </h1>
-            <p
-              style={{
-                fontSize: '13px',
-                color: 'var(--muted-color)',
-                margin: '0 0 24px 0',
-                lineHeight: 1.5,
-              }}
-            >
-              Hệ thống quản lý vận hành cửa hàng &amp; nhân sự chuyên nghiệp,
-              tối ưu hóa năng suất và kiểm soát phiên an toàn.
-            </p>
-
-            {/* Visual Identity Highlights */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-                marginTop: '16px',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '6px',
-                    backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                    color: 'var(--accent-text)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    marginTop: '2px',
-                  }}
-                >
-                  <ClockIcon size={16} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                      marginBottom: '2px',
-                    }}
-                  >
-                    Ca &amp; Chấm công
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    Theo dõi chấm công, lịch biểu và phê duyệt công minh bạch.
-                  </div>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '6px',
-                    backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                    color: 'var(--accent-text)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    marginTop: '2px',
-                  }}
-                >
-                  <ClipboardListIcon size={16} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                      marginBottom: '2px',
-                    }}
-                  >
-                    Công việc &amp; Báo cáo
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    Điều phối giao việc, tiến độ tác vụ và tổng hợp báo cáo.
-                  </div>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '6px',
-                    backgroundColor: 'rgba(20, 184, 166, 0.15)',
-                    color: 'var(--accent-text)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    marginTop: '2px',
-                  }}
-                >
-                  <CheckCircleIcon size={16} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                      marginBottom: '2px',
-                    }}
-                  >
-                    Bảo mật &amp; Phân quyền
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    Phân định rõ ràng quyền hạn giữa Quản trị viên và Nhân viên.
-                  </div>
-                </div>
-              </div>
-            </div>
+              <path d="M21 8 12 3 3 8v8l9 5 9-5z" />
+              <path d="m3 8 9 5 9-5M12 13v8" />
+            </svg>
           </div>
-
-          {/* Left Footer Note */}
-          <div
-            style={{
-              paddingTop: '20px',
-              borderTop: '1px solid var(--border-subtle)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-            }}
-          >
-            <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-              Hệ thống quản lý nội bộ
-            </span>
-            <span style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-              v{SYSTEM_VERSION}
-            </span>
-          </div>
+          <span className="login-brand-title">Management Lite</span>
         </div>
 
-        {/* Right Column: Clean Login Form */}
-        <div className="login-form-panel">
-          {/* Mobile-only Brand Header */}
-          <div className="mobile-brand-header">
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '54px',
-                height: '54px',
-                borderRadius: '14px',
-                backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                border: '1px solid rgba(20, 184, 166, 0.25)',
-                color: 'var(--accent-text)',
-                marginBottom: '12px',
+        {/* Error Notification */}
+        {errorMessage && (
+          <div
+            id="login-error-alert"
+            role="alert"
+            style={{
+              padding: '12px 14px',
+              borderRadius: '12px',
+              backgroundColor: 'var(--danger-subtle, rgba(239, 68, 68, 0.1))',
+              border: '1px solid var(--danger-color, rgba(239, 68, 68, 0.3))',
+              marginTop: '20px',
+              marginBottom: '-20px',
+              fontSize: '13px',
+              color: 'var(--danger-text)',
+              lineHeight: 1.4,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+            }}
+          >
+            <AlertTriangleIcon
+              size={18}
+              style={{ flexShrink: 0, marginTop: '2px' }}
+            />
+            <span style={{ flex: 1 }}>{errorMessage}</span>
+          </div>
+        )}
+
+        {/* Login Form */}
+        <form
+          className="login-form"
+          onSubmit={handleSubmit}
+          method="post"
+          noValidate
+        >
+          {/* Identifier Input */}
+          <div className="login-field">
+            <label htmlFor="identifier" className="login-label">
+              Tài khoản
+            </label>
+            <input
+              ref={identifierInputRef}
+              id="identifier"
+              name="username"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
+              value={identifier}
+              aria-invalid={
+                invalidField === 'identifier' || invalidField === 'both'
+                  ? 'true'
+                  : undefined
+              }
+              aria-describedby={
+                errorMessage &&
+                (invalidField === 'identifier' || invalidField === 'both')
+                  ? 'login-error-alert'
+                  : undefined
+              }
+              onChange={(e) => {
+                setIdentifier(e.target.value);
+                if (invalidField === 'identifier' || invalidField === 'both') {
+                  setInvalidField(invalidField === 'both' ? 'password' : null);
+                }
               }}
-            >
-              <BuildingIcon size={28} />
-            </div>
-            <h2
-              style={{
-                fontSize: '20px',
-                fontWeight: 700,
-                color: 'var(--text-color)',
-                marginBottom: '4px',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Management Lite
-            </h2>
-            <p
-              style={{
-                fontSize: '12px',
-                color: 'var(--muted-color)',
-                margin: '0 0 10px 0',
-              }}
-            >
-              Hệ thống quản lý vận hành cửa hàng &amp; nhân sự
-            </p>
+              disabled={isLoading}
+              className="login-input"
+              style={
+                invalidField === 'identifier' || invalidField === 'both'
+                  ? { borderColor: 'var(--danger-color, #ef4444)' }
+                  : undefined
+              }
+            />
           </div>
 
-          {/* Form Header */}
-          <div style={{ marginBottom: '22px' }}>
-            <h2
-              style={{
-                fontSize: '22px',
-                fontWeight: 700,
-                color: 'var(--text-color)',
-                marginBottom: '6px',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Đăng nhập hệ thống
-            </h2>
-            <p
-              style={{
-                fontSize: '13px',
-                color: 'var(--muted-color)',
-                margin: 0,
-                lineHeight: 1.4,
-              }}
-            >
-              Nhập thông tin tài khoản để truy cập workspace làm việc
-            </p>
-          </div>
-
-          {/* Error Notification */}
-          {errorMessage && (
+          {/* Password Input with Show/Hide Toggle */}
+          <div className="login-field">
             <div
-              id="login-error-alert"
-              role="alert"
               style={{
-                padding: '12px 14px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                marginBottom: '20px',
-                fontSize: '13px',
-                color: 'var(--danger-text)',
-                lineHeight: 1.4,
                 display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
               }}
             >
-              <AlertTriangleIcon
-                size={18}
-                style={{ flexShrink: 0, marginTop: '2px' }}
-              />
-              <span style={{ flex: 1 }}>{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} method="post" noValidate>
-            {/* Identifier Input */}
-            <div style={{ marginBottom: '18px' }}>
-              <label
-                htmlFor="identifier"
-                style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  marginBottom: '6px',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                Mã nhân viên (NV001, NV002…), Tên đăng nhập hoặc Email:
+              <label htmlFor="password" className="login-label">
+                Mật khẩu
               </label>
+            </div>
+
+            <div style={{ position: 'relative' }}>
               <input
-                ref={identifierInputRef}
-                id="identifier"
-                name="username"
-                type="text"
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck="false"
-                value={identifier}
+                ref={passwordInputRef}
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                value={password}
                 aria-invalid={
-                  invalidField === 'identifier' || invalidField === 'both'
+                  invalidField === 'password' || invalidField === 'both'
                     ? 'true'
                     : undefined
                 }
                 aria-describedby={
                   errorMessage &&
-                  (invalidField === 'identifier' || invalidField === 'both')
+                  (invalidField === 'password' || invalidField === 'both')
                     ? 'login-error-alert'
                     : undefined
                 }
                 onChange={(e) => {
-                  setIdentifier(e.target.value);
-                  if (
-                    invalidField === 'identifier' ||
-                    invalidField === 'both'
-                  ) {
+                  setPassword(e.target.value);
+                  if (invalidField === 'password' || invalidField === 'both') {
                     setInvalidField(
-                      invalidField === 'both' ? 'password' : null,
+                      invalidField === 'both' ? 'identifier' : null,
                     );
                   }
                 }}
-                placeholder="NV001, NV002, tên đăng nhập, SĐT hoặc email…"
                 disabled={isLoading}
-                style={{
-                  width: '100%',
-                  minHeight: '44px',
-                  padding: '0 14px',
-                  borderRadius: '8px',
-                  border: `1px solid ${invalidField === 'identifier' || invalidField === 'both' ? '#EF4444' : 'var(--border-color, #334155)'}`,
-                  backgroundColor: 'var(--bg-color, #F8FAFC)',
-                  color: 'var(--text-color)',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  transition: 'border-color 0.15s ease',
-                }}
-                onFocus={(e) => (e.target.style.borderColor = '#14B8A6')}
-                onBlur={(e) =>
-                  (e.target.style.borderColor =
-                    invalidField === 'identifier' || invalidField === 'both'
-                      ? '#EF4444'
-                      : 'var(--border-color, #334155)')
+                className="login-input login-input-password"
+                style={
+                  invalidField === 'password' || invalidField === 'both'
+                    ? { borderColor: 'var(--danger-color, #ef4444)' }
+                    : undefined
                 }
               />
-            </div>
-
-            {/* Password Input with Show/Hide Toggle */}
-            <div style={{ marginBottom: '16px' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '6px',
-                }}
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                disabled={isLoading}
+                className="login-eye-btn"
               >
-                <label
-                  htmlFor="password"
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  Mật khẩu:
-                </label>
-              </div>
-
-              <div style={{ position: 'relative', width: '100%' }}>
-                <input
-                  ref={passwordInputRef}
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={password}
-                  aria-invalid={
-                    invalidField === 'password' || invalidField === 'both'
-                      ? 'true'
-                      : undefined
-                  }
-                  aria-describedby={
-                    errorMessage &&
-                    (invalidField === 'password' || invalidField === 'both')
-                      ? 'login-error-alert'
-                      : undefined
-                  }
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (
-                      invalidField === 'password' ||
-                      invalidField === 'both'
-                    ) {
-                      setInvalidField(
-                        invalidField === 'both' ? 'identifier' : null,
-                      );
-                    }
-                  }}
-                  placeholder="Nhập mật khẩu…"
-                  disabled={isLoading}
-                  style={{
-                    width: '100%',
-                    minHeight: '44px',
-                    padding: '0 46px 0 14px',
-                    borderRadius: '8px',
-                    border: `1px solid ${invalidField === 'password' || invalidField === 'both' ? '#EF4444' : 'var(--border-color, #334155)'}`,
-                    backgroundColor: 'var(--bg-color, #F8FAFC)',
-                    color: 'var(--text-color)',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    transition: 'border-color 0.15s ease',
-                  }}
-                  onFocus={(e) => (e.target.style.borderColor = '#14B8A6')}
-                  onBlur={(e) =>
-                    (e.target.style.borderColor =
-                      invalidField === 'password' || invalidField === 'both'
-                        ? '#EF4444'
-                        : 'var(--border-color, #334155)')
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                  title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                  disabled={isLoading}
-                  style={{
-                    position: 'absolute',
-                    right: '2px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'transparent',
-                    border: 'none',
-                    color: showPassword
-                      ? 'var(--accent-text)'
-                      : 'var(--muted-color)',
-                    cursor: 'pointer',
-                    minWidth: '40px',
-                    minHeight: '40px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '6px',
-                    transition: 'color 0.15s ease',
-                  }}
-                >
-                  {showPassword ? (
-                    <EyeOffIcon size={18} />
-                  ) : (
-                    <EyeIcon size={18} />
-                  )}
-                </button>
-              </div>
+                {showPassword ? (
+                  <EyeOffIcon size={20} />
+                ) : (
+                  <EyeIcon size={20} />
+                )}
+              </button>
             </div>
-
-            {/* Row: Remember Me & Forgot Password */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '8px',
-                marginBottom: '24px',
-              }}
-            >
-              {/* Remember Me: Persistent 30-day HttpOnly session cookie when checked */}
-              <label
-                htmlFor="remember-me"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '13px',
-                  color: 'var(--text-secondary)',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  userSelect: 'none',
-                }}
-                title="Duy trì phiên làm việc an toàn qua HttpOnly cookie lên đến 30 ngày trên trình duyệt này (hoặc phiên tiêu chuẩn 12 giờ nếu không chọn)."
-              >
-                <input
-                  id="remember-me"
-                  name="remember_me"
-                  type="checkbox"
-                  disabled={isLoading}
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  style={{
-                    accentColor: '#14B8A6',
-                    cursor: isLoading ? 'not-allowed' : 'pointer',
-                    width: '15px',
-                    height: '15px',
-                  }}
-                />
-                <span>Ghi nhớ đăng nhập</span>
-              </label>
-
-              {/* Forgot Password Trigger Link */}
-              <a
-                ref={
-                  forgotTriggerRef as unknown as React.RefObject<HTMLAnchorElement>
-                }
-                href="/forgot-password"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (onNavigate) {
-                    onNavigate('/forgot-password');
-                  } else {
-                    handleOpenForgotModal();
-                  }
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent-text)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: '4px 0',
-                  textDecoration: 'none',
-                  transition: 'opacity 0.15s ease',
-                  display: 'inline-block',
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.textDecoration = 'underline')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.textDecoration = 'none')
-                }
-              >
-                Quên mật khẩu?
-              </a>
-            </div>
-
-            {/* Submit Button */}
-            <AppButton
-              variant="primary"
-              fullWidth
-              type="submit"
-              disabled={isLoading}
-              style={{
-                minHeight: '44px',
-                fontSize: '15px',
-                fontWeight: 600,
-              }}
-            >
-              {isLoading ? 'Đang xác thực…' : 'Đăng nhập'}
-            </AppButton>
-          </form>
-
-          {/* Footer Note */}
-          <div
-            style={{
-              marginTop: '24px',
-              paddingTop: '16px',
-              borderTop: '1px solid var(--border-subtle)',
-              textAlign: 'center',
-              fontSize: '12px',
-              color: 'var(--muted-color)',
-              lineHeight: 1.5,
-            }}
-          >
-            Hệ thống quản lý vận hành nội bộ Management Lite
           </div>
-        </div>
+
+          {/* Row: Remember Me & Forgot Password */}
+          <div className="login-options-row">
+            <label
+              htmlFor="remember-me"
+              className="login-remember-label"
+              title="Duy trì phiên làm việc an toàn qua HttpOnly cookie lên đến 30 ngày trên trình duyệt này (hoặc phiên tiêu chuẩn 12 giờ nếu không chọn)."
+            >
+              <input
+                id="remember-me"
+                name="remember_me"
+                type="checkbox"
+                disabled={isLoading}
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="login-remember-checkbox"
+              />
+              Ghi nhớ trên máy này
+            </label>
+
+            <a
+              ref={
+                forgotTriggerRef as unknown as React.RefObject<HTMLAnchorElement>
+              }
+              href="/forgot-password"
+              onClick={(e) => {
+                e.preventDefault();
+                if (onNavigate) {
+                  onNavigate('/forgot-password');
+                } else {
+                  handleOpenForgotModal();
+                }
+              }}
+              className="login-forgot-link"
+            >
+              Quên mật khẩu?
+            </a>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="login-submit-btn"
+          >
+            {isLoading ? 'Đang xác thực…' : 'Đăng nhập'}
+          </button>
+        </form>
+
+        <p className="login-footer">
+          Liên hệ:{' '}
+          <a
+            href="https://zalo.me/0898843938"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="login-footer-link"
+          >
+            089.884.3938
+          </a>{' '}
+          - Hoài Phương
+        </p>
       </div>
 
       {/* Forgot Password Safe Recovery Guidance Accessible Modal */}
@@ -1047,72 +645,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </div>
         </div>
       )}
-
-      {/* Responsive layout styles */}
-      <style>{`
-        .login-card-container {
-          display: flex;
-          flex-direction: row;
-          width: 100%;
-          max-width: 920px;
-          background-color: var(--surface-color, #151F30);
-          border: 1px solid var(--border-color, #334155);
-          border-radius: 20px;
-          overflow: hidden;
-          box-shadow: var(--shadow-xl);
-          box-sizing: border-box;
-        }
-        .login-brand-panel {
-          width: 44%;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 40px 32px;
-          background: linear-gradient(145deg, #0F172A 0%, #0B1322 100%);
-          border-right: 1px solid var(--border-subtle);
-          box-sizing: border-box;
-        }
-        :root[data-theme="light"] .login-brand-panel,
-        [data-theme="light"] .login-brand-panel {
-          background: linear-gradient(145deg, #F0FDFA 0%, #F1F5F9 100%);
-        }
-        @media (prefers-color-scheme: light) {
-          :root[data-theme="system"] .login-brand-panel,
-          [data-theme="system"] .login-brand-panel {
-            background: linear-gradient(145deg, #F0FDFA 0%, #F1F5F9 100%);
-          }
-        }
-        .login-form-panel {
-          width: 56%;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          padding: 40px 36px;
-          box-sizing: border-box;
-        }
-        .mobile-brand-header {
-          display: none;
-        }
-        @media (max-width: 768px) {
-          .login-card-container {
-            flex-direction: column !important;
-            max-width: 440px !important;
-            border-radius: 16px !important;
-          }
-          .login-brand-panel {
-            display: none !important;
-          }
-          .login-form-panel {
-            width: 100% !important;
-            padding: 32px 24px !important;
-          }
-          .mobile-brand-header {
-            display: block !important;
-            text-align: center;
-            margin-bottom: 24px;
-          }
-        }
-      `}</style>
     </div>
   );
 };

@@ -6,8 +6,21 @@ import type { ReleaseNoteItem } from './version.js';
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.20',
+    version: '0.9.21',
     commit: 'latest',
+    released_at: '2026-11-12',
+    summary:
+      'Thiết kế lại giao diện Màn Đăng nhập (/login) theo bản vẽ tối giản mới: bố cục một cột căn giữa, bỏ khối giới thiệu/tiêu đề thừa, chuẩn hóa khoảng cách-màu-bo góc theo biến theme.',
+    added: [],
+    improved: [
+      'Chuyển Màn Đăng nhập sang bố cục một cột căn giữa dọc, gọn gàng trên cả điện thoại (390px) và máy tính (1280px), bỏ cột giới thiệu/tiêu đề "Đăng nhập hệ thống" và dòng mô tả phụ không cần thiết.',
+      'Chuẩn hóa khối thương hiệu (logo vuông bo góc, tên "Management Lite"), ô nhập Tài khoản/Mật khẩu không còn placeholder, hàng "Ghi nhớ trên máy này" & "Quên mật khẩu?" và chân trang liên hệ Zalo theo đúng biến màu theme (hỗ trợ cả Sáng/Tối).',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.9.20',
+    commit: 'd7a4dbf',
     released_at: '2026-11-11',
     summary:
       'Thiết kế lại toàn diện Phân hệ Quản lý Công việc (/work & /work/:id): tách biệt 3 khu vực Cần xử lý ngay / Đang thực hiện / Đã hoàn thành (thu gọn mặc định), sắp xếp thông minh theo Thời hạn × Độ ưu tiên P1–P4, Checklist các bước thực hiện tương tác 1-chạm đồng bộ 2 chiều với AI Work Atlas, cửa sổ Sửa việc & Gia hạn trực tiếp.',
