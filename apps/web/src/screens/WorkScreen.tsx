@@ -1320,7 +1320,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
     // Legacy [EXECUTOR: compatibility tag retained for existing task badges
     return (
-      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '16px' }}>
+      <div
+        className="work-page"
+        style={{ maxWidth: '720px', margin: '0 auto' }}
+      >
         <PageHeader
           title="Giao việc mới"
           subtitle="Tạo công việc, đặt hạn hoàn thành và phân công cho nhân sự thực hiện"
@@ -1332,10 +1335,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               padding: '12px 16px',
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: '8px',
+              borderRadius: '12px',
               color: 'var(--danger-text)',
               fontSize: '14px',
-              marginBottom: '16px',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
@@ -1352,10 +1354,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               padding: '12px 16px',
               backgroundColor: 'rgba(16, 185, 129, 0.1)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: '8px',
+              borderRadius: '12px',
               color: 'var(--success-text)',
               fontSize: '14px',
-              marginBottom: '16px',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
@@ -1366,7 +1367,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           </div>
         )}
 
-        <AppCard style={{ padding: '20px' }}>
+        <AppCard className="work-flat-card" style={{ padding: '24px' }}>
           <form onSubmit={handleCreateWorkItem}>
             {/* Quick Human Work Templates */}
             <div style={{ marginBottom: '16px' }}>
@@ -1777,12 +1778,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           alignItems: 'center',
                           gap: '8px',
                           padding: '8px 10px',
-                          borderRadius: '6px',
+                          borderRadius: '10px',
                           backgroundColor: isChecked
-                            ? 'rgba(20, 184, 166, 0.15)'
+                            ? 'var(--primary-subtle)'
                             : 'var(--surface-subtle)',
                           border: isChecked
-                            ? '1px solid #14B8A6'
+                            ? '1px solid var(--primary-color, #0f766e)'
                             : '1px solid var(--border-subtle)',
                           cursor: 'pointer',
                           fontSize: '13px',
@@ -1812,7 +1813,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                             fontSize: '12px',
                             padding: '2px 6px',
                             borderRadius: '4px',
-                            backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                            backgroundColor: 'var(--primary-subtle)',
                             color: 'var(--accent-text)',
                           }}
                         >
@@ -1838,7 +1839,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <AppButton type="submit" variant="primary" disabled={submitting}>
+              <AppButton
+                type="submit"
+                variant="primary"
+                className="work-primary-btn"
+                disabled={submitting}
+              >
                 {submitting ? 'Đang tạo…' : 'Tạo & Giao việc'}
               </AppButton>
               <AppButton
@@ -1996,7 +2002,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     };
 
     return (
-      <div style={{ maxWidth: '880px', margin: '0 auto', padding: '0' }}>
+      <div
+        className="work-page"
+        style={{ maxWidth: '880px', margin: '0 auto', padding: '0' }}
+      >
         {/* Top Action & Navigation Bar */}
         <div
           style={{
@@ -2005,7 +2014,6 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             alignItems: 'center',
             gap: '10px',
             flexWrap: 'wrap',
-            marginBottom: '16px',
           }}
         >
           <AppButton variant="secondary" onClick={() => onNavigate?.('/work')}>
@@ -2156,9 +2164,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
         {/* Main Work Summary & Checklist Card */}
         <AppCard
+          className="work-flat-card"
           style={{
-            padding: '22px 24px',
-            marginBottom: '22px',
+            padding: '24px',
             borderLeft: `4px solid ${detailAccentBorder}`,
           }}
         >
@@ -2192,7 +2200,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     fontWeight: 600,
                     padding: '3px 9px',
                     borderRadius: '999px',
-                    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                    backgroundColor: 'var(--primary-subtle)',
                     color: 'var(--accent-text)',
                   }}
                 >
@@ -2459,7 +2467,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         height: '100%',
                         borderRadius: '999px',
                         backgroundColor:
-                          checklistPct === 100 ? '#10B981' : '#14B8A6',
+                          checklistPct === 100
+                            ? '#10B981'
+                            : 'var(--primary-color, #0f766e)',
                         transition: 'width 0.2s ease',
                       }}
                     />
@@ -2677,7 +2687,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         </div>
 
         {(!item.assignments || item.assignments.length === 0) && (
-          <AppCard style={{ padding: '24px', textAlign: 'center' }}>
+          <AppCard
+            className="work-flat-card"
+            style={{ padding: '24px', textAlign: 'center' }}
+          >
             <p
               style={{
                 color: 'var(--muted-color)',
@@ -2718,7 +2731,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               hasScheduleLinks || Boolean(showScheduleLinkerMap[assignment.id]);
 
             return (
-              <AppCard key={assignment.id} style={{ padding: '18px 20px' }}>
+              <AppCard
+                key={assignment.id}
+                className="work-flat-card"
+                style={{ padding: '18px 20px' }}
+              >
                 <div
                   style={{
                     display: 'flex',
@@ -2753,8 +2770,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         width: '38px',
                         height: '38px',
                         borderRadius: '50%',
-                        backgroundColor: 'rgba(20, 184, 166, 0.14)',
-                        border: '1px solid rgba(20, 184, 166, 0.3)',
+                        backgroundColor: 'var(--primary-subtle)',
+                        border: '1px solid var(--border-subtle)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -3982,7 +3999,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
   // RENDER VIEW 3: LIST VIEW (/work)
   // ==========================================
   return (
-    <div style={{ width: '100%' }}>
+    <div className="work-page" style={{ width: '100%' }}>
       {/* Page Header */}
       <PageHeader
         title="Quản lý công việc"
@@ -3995,10 +4012,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           role === 'owner' ? (
             <AppButton
               variant="primary"
+              className="work-primary-btn"
               onClick={() => onNavigate?.('/work/new')}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             >
-              <PlusIcon size={16} />
+              <PlusIcon size={18} />
               <span>Giao việc mới</span>
             </AppButton>
           ) : undefined
@@ -4012,10 +4030,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             padding: '14px 16px',
             backgroundColor: 'rgba(56, 189, 248, 0.1)',
             border: '1px solid rgba(56, 189, 248, 0.3)',
-            borderRadius: '8px',
+            borderRadius: '16px',
             color: 'var(--info-text)',
             fontSize: '13px',
-            marginBottom: '20px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
@@ -4032,7 +4049,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
       {/* Error Notice */}
       {errorMessage && (
-        <div style={{ marginBottom: '20px' }}>
+        <div>
           <ErrorState message={errorMessage} onRetry={fetchData} />
         </div>
       )}
@@ -4044,10 +4061,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             padding: '12px 16px',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             border: '1px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: '8px',
+            borderRadius: '16px',
             color: 'var(--success-text)',
             fontSize: '14px',
-            marginBottom: '16px',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
@@ -4064,9 +4080,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 135px), 1fr))',
-          gap: '10px',
-          marginBottom: '14px',
+            'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
+          gap: '16px',
         }}
       >
         {(
@@ -4083,7 +4098,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               key: 'in_progress',
               label: 'ĐANG LÀM',
               count: kpiStats.inProgress,
-              accent: '#14B8A6',
+              accent: '#0F766E',
               textColor: 'var(--accent-text)',
               labelColor: 'var(--accent-text)',
             },
@@ -4110,6 +4125,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             <button
               key={kpi.key}
               type="button"
+              className="work-kpi-card"
               onClick={() => {
                 setStatusFilter((prev) => (prev === kpi.key ? 'all' : kpi.key));
                 setSmartFocusFilter('all');
@@ -4117,15 +4133,16 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               }}
               style={{
                 textAlign: 'left',
-                padding: '12px 14px',
-                borderRadius: '10px',
+                padding: '16px 18px',
+                borderRadius: '16px',
                 backgroundColor: isSelected
-                  ? `${kpi.accent}18`
-                  : 'var(--surface-subtle)',
+                  ? `${kpi.accent}14`
+                  : 'var(--surface-color)',
                 border: isSelected
                   ? `1.5px solid ${kpi.accent}`
                   : '1px solid var(--border-subtle)',
                 borderLeft: `4px solid ${kpi.accent}`,
+                boxShadow: 'none',
                 cursor: 'pointer',
                 transition:
                   'background-color 0.15s ease, border-color 0.15s ease',
@@ -4143,11 +4160,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               </div>
               <div
                 style={{
-                  fontSize: '22px',
-                  fontWeight: 700,
+                  fontSize: '24px',
+                  fontWeight: 800,
                   color: kpi.textColor,
-                  marginTop: '2px',
+                  marginTop: '4px',
                   lineHeight: 1.2,
+                  fontVariantNumeric: 'tabular-nums',
                 }}
               >
                 {kpi.count}
@@ -4160,11 +4178,13 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       {/* Read-Only Schedule Banner — ONLY shown when shifts exist this week */}
       {scheduleEntries.length > 0 && (
         <AppCard
+          className="work-flat-card"
           style={{
-            padding: '12px 16px',
-            marginBottom: '14px',
-            backgroundColor: 'var(--bg-color)',
+            padding: '14px 18px',
+            backgroundColor: 'var(--surface-color)',
             border: '1px solid var(--border-subtle)',
+            borderRadius: '16px',
+            boxShadow: 'none',
           }}
         >
           <div
@@ -4185,7 +4205,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 fontSize: '13px',
               }}
             >
-              <CalendarIcon size={16} color="#38BDF8" />
+              <CalendarIcon size={16} color="#0284C7" />
               <span style={{ fontWeight: 700, color: 'var(--text-color)' }}>
                 Lịch trực tuần này ({scheduleEntries.length} ca):
               </span>
@@ -4223,7 +4243,16 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       )}
 
       {/* Unified Focus, Search, Filter & Smart Sort Control Card */}
-      <AppCard style={{ padding: '12px 14px', marginBottom: '16px' }}>
+      <AppCard
+        className="work-flat-card"
+        style={{
+          padding: '16px 18px',
+          backgroundColor: 'var(--surface-color)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '16px',
+          boxShadow: 'none',
+        }}
+      >
         {/* Top Row: Quick Focus Chips + Sort Selector */}
         <div
           style={{
@@ -4232,8 +4261,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             alignItems: 'center',
             gap: '10px',
             flexWrap: 'wrap',
-            paddingBottom: '10px',
-            marginBottom: '10px',
+            paddingBottom: '12px',
+            marginBottom: '12px',
             borderBottom: '1px solid var(--border-subtle)',
           }}
         >
@@ -4243,7 +4272,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               display: 'flex',
               flexWrap: 'nowrap',
               overflowX: 'auto',
-              gap: '6px',
+              gap: '8px',
               alignItems: 'center',
               scrollbarWidth: 'none',
               maxWidth: '100%',
@@ -4260,7 +4289,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 {
                   key: 'today',
                   label: `⏰ Hôm nay (${kpiStats.todayCount})`,
-                  activeColor: '#14B8A6',
+                  activeColor: '#0F766E',
                   textColor: 'var(--accent-text)',
                 },
                 {
@@ -4297,20 +4326,21 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     setListPage(0);
                   }}
                   style={{
-                    padding: '5px 11px',
+                    minHeight: '38px',
+                    padding: '6px 14px',
                     borderRadius: '999px',
-                    fontSize: '12px',
+                    fontSize: '13px',
                     fontWeight: 600,
                     whiteSpace: 'nowrap',
                     flexShrink: 0,
                     cursor: 'pointer',
                     backgroundColor: isActive
-                      ? `${chip.activeColor}20`
+                      ? `${chip.activeColor}18`
                       : 'var(--bg-color)',
                     border: isActive
                       ? `1px solid ${chip.activeColor}`
                       : '1px solid var(--border-subtle)',
-                    color: isActive ? chip.textColor : 'var(--muted-color)',
+                    color: isActive ? chip.textColor : 'var(--text-secondary)',
                     transition:
                       'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease',
                   }}
@@ -4331,12 +4361,13 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 setListPage(0);
               }}
               style={{
-                padding: '6px 10px',
+                minHeight: '38px',
+                padding: '6px 12px',
                 backgroundColor: 'var(--bg-color)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '6px',
+                borderRadius: '12px',
                 color: 'var(--text-color)',
-                fontSize: '12.5px',
+                fontSize: '13px',
                 fontWeight: 600,
                 outline: 'none',
               }}
@@ -4358,7 +4389,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             display: 'grid',
             gridTemplateColumns:
               'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
-            gap: '8px',
+            gap: '10px',
             alignItems: 'center',
           }}
         >
@@ -4376,10 +4407,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               placeholder="Tìm tên việc, nội dung…"
               style={{
                 width: '100%',
+                minHeight: '42px',
                 padding: '8px 12px',
                 backgroundColor: 'var(--bg-color)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '6px',
+                borderRadius: '12px',
                 color: 'var(--text-color)',
                 fontSize: '13px',
                 outline: 'none',
@@ -4399,10 +4431,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               }}
               style={{
                 width: '100%',
+                minHeight: '42px',
                 padding: '8px 12px',
                 backgroundColor: 'var(--bg-color)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '6px',
+                borderRadius: '12px',
                 color: 'var(--text-color)',
                 fontSize: '13px',
                 outline: 'none',
@@ -4429,10 +4462,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               }}
               style={{
                 width: '100%',
+                minHeight: '42px',
                 padding: '8px 12px',
                 backgroundColor: 'var(--bg-color)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '6px',
+                borderRadius: '12px',
                 color: 'var(--text-color)',
                 fontSize: '13px',
                 outline: 'none',
@@ -4459,10 +4493,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 }}
                 style={{
                   width: '100%',
+                  minHeight: '42px',
                   padding: '8px 12px',
                   backgroundColor: 'var(--bg-color)',
                   border: '1px solid var(--border-subtle)',
-                  borderRadius: '6px',
+                  borderRadius: '12px',
                   color: 'var(--text-color)',
                   fontSize: '13px',
                   outline: 'none',
@@ -4484,7 +4519,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       {loading ? (
         <LoadingState message="Đang tải danh sách công việc…" />
       ) : workItems.length === 0 ? (
-        <AppCard style={{ padding: '32px' }}>
+        <AppCard className="work-flat-card" style={{ padding: '32px' }}>
           <EmptyState
             title="Chưa có công việc nào"
             description={
@@ -4495,7 +4530,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           />
         </AppCard>
       ) : sortedMatchingItems.length === 0 ? (
-        <AppCard style={{ padding: '32px' }} data-testid="work-empty-search">
+        <AppCard
+          className="work-flat-card"
+          style={{ padding: '32px' }}
+          data-testid="work-empty-search"
+        >
           <EmptyState
             title="Không tìm thấy công việc phù hợp"
             description="Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc trạng thái/ưu tiên."
@@ -4504,6 +4543,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
       ) : filteredItems.length === 0 && hiddenClosedCount > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <AppCard
+            className="work-flat-card"
             style={{
               padding: '28px 20px',
               textAlign: 'center',
@@ -4541,7 +4581,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           </AppCard>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div
+          className="work-section-group"
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+        >
           {pagedItems.map((item, idx) => {
             const section: WorkSectionKey = classifyWorkSection(item);
             const prevSection: WorkSectionKey | null =
@@ -4601,7 +4644,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                       alignItems: 'center',
                       gap: '8px',
                       flexWrap: 'wrap',
-                      marginTop: idx === 0 ? '2px' : '12px',
+                      marginTop: idx === 0 ? '0px' : '16px',
                       padding: '4px 4px 2px 4px',
                     }}
                   >
@@ -4615,9 +4658,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     >
                       <span
                         style={{
-                          width: '9px',
-                          height: '9px',
-                          borderRadius: '50%',
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '5px',
                           backgroundColor: sectionMeta[section].dotColor,
                           display: 'inline-block',
                           flexShrink: 0,
@@ -4625,7 +4668,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                       />
                       <span
                         style={{
-                          fontSize: '13.5px',
+                          fontSize: '15px',
                           fontWeight: 700,
                           color: 'var(--text-color)',
                         }}
@@ -4655,9 +4698,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           style={{
                             fontSize: '12px',
                             fontWeight: 600,
-                            padding: '3px 10px',
+                            padding: '4px 12px',
                             borderRadius: '999px',
-                            backgroundColor: 'var(--surface-subtle)',
+                            backgroundColor: 'var(--surface-color)',
                             border: '1px solid var(--border-subtle)',
                             color: 'var(--muted-color)',
                             cursor: 'pointer',
@@ -4670,13 +4713,16 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 )}
 
                 <div
+                  className="work-item-card"
                   onClick={() => onNavigate?.(`/work/${item.id}`)}
                   style={{
-                    backgroundColor: 'var(--surface-subtle)',
+                    backgroundColor: 'var(--surface-color)',
                     border: '1px solid var(--border-subtle)',
                     borderLeft: `4px solid ${cardBorderColor}`,
-                    borderRadius: '10px',
-                    padding: '14px 16px',
+                    borderRadius: '16px',
+                    boxShadow: 'none',
+                    minHeight: '64px',
+                    padding: '16px',
                     cursor: 'pointer',
                     opacity: isClosed ? 0.76 : 1,
                     transition:
@@ -4696,7 +4742,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                       style={{
                         display: 'flex',
                         alignItems: 'flex-start',
-                        gap: '10px',
+                        gap: '12px',
                         flex: '1 1 0%',
                         minWidth: 0,
                       }}
@@ -4754,8 +4800,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                       <div style={{ flex: '1 1 0%', minWidth: 0 }}>
                         <h4
                           style={{
-                            fontSize: '15.5px',
-                            fontWeight: 700,
+                            fontSize: '15px',
+                            fontWeight: 600,
                             color: isClosed
                               ? 'var(--muted-color)'
                               : 'var(--text-color)',
@@ -4798,6 +4844,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                                 deadline.isOverdue || deadline.isToday
                                   ? 700
                                   : 500,
+                              fontVariantNumeric: 'tabular-nums',
                               padding: '2px 8px',
                               borderRadius: '999px',
                               backgroundColor: deadline.isOverdue
@@ -4831,7 +4878,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                                   parsedDesc.completedCount ===
                                   parsedDesc.totalCount
                                     ? 'rgba(16, 185, 129, 0.14)'
-                                    : 'rgba(20, 184, 166, 0.12)',
+                                    : 'var(--primary-subtle)',
                                 color:
                                   parsedDesc.completedCount ===
                                   parsedDesc.totalCount
@@ -4883,7 +4930,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                                   fontWeight: 700,
                                   padding: '2px 7px',
                                   borderRadius: '6px',
-                                  backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                                  backgroundColor: 'var(--primary-subtle)',
                                   color: 'var(--accent-text)',
                                 }}
                               >
@@ -4903,7 +4950,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                                 fontWeight: 600,
                                 padding: '2px 7px',
                                 borderRadius: '6px',
-                                backgroundColor: 'rgba(13, 148, 136, 0.12)',
+                                backgroundColor: 'var(--primary-subtle)',
                                 color: 'var(--accent-text)',
                               }}
                             >
@@ -4942,7 +4989,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         margin: '8px 0 0 0',
                         paddingLeft:
                           role === 'owner' && item.status !== 'cancelled'
-                            ? '32px'
+                            ? '34px'
                             : '0',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -4975,7 +5022,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                           gap: '8px',
                           flexWrap: 'wrap',
                           marginTop: '10px',
-                          paddingTop: '8px',
+                          paddingTop: '10px',
                           borderTop: '1px solid var(--border-subtle)',
                         }}
                       >
@@ -5004,7 +5051,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                                   gap: '5px',
                                 }}
                               >
-                                <UserIcon size={12} color="#14B8A6" />
+                                <UserIcon size={12} color="var(--accent-text)" />
                                 <span>
                                   {a.full_name || a.employee_code}
                                   {a.full_name && a.employee_code
@@ -5088,9 +5135,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               style={{
                 width: '100%',
                 marginTop: '4px',
-                padding: '11px 16px',
-                borderRadius: '10px',
-                backgroundColor: 'var(--bg-color)',
+                padding: '14px 16px',
+                borderRadius: '16px',
+                backgroundColor: 'var(--surface-color)',
                 border: '1px dashed var(--border-color)',
                 color: 'var(--muted-color)',
                 fontSize: '13px',

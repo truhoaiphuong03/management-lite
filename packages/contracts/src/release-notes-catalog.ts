@@ -6,8 +6,22 @@ import type { ReleaseNoteItem } from './version.js';
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.21',
+    version: '0.9.22',
     commit: 'latest',
+    released_at: '2026-11-13',
+    summary:
+      'Thiết kế lại giao diện Tổng quan, Chấm công (nhân viên) và chuẩn hóa màu sắc/khoảng cách màn Công việc theo bản vẽ tối giản mới, hoàn tất đợt redesign 2026-11-12 cho cả 4 màn hình chính.',
+    added: [],
+    improved: [
+      'Màn Tổng quan (/, Chủ sở hữu & Nhân viên): lề 24-28px, một nút chính có bóng, lưới thẻ KPI 2x2/4 cột bo 16px không bóng, danh sách Việc cần xử lý & Liên thông TikTok V4 dạng một thẻ hàng cao 60-64px. Giữ nguyên 100% Action Center, Liên thông V4, Lối tắt thao tác nhanh.',
+      'Phần tự chấm công của nhân viên trên /clock: header chào + avatar tròn, đồng hồ lớn, nút tròn Vào ca/Kết thúc ca 168px có bóng, thẻ tóm tắt tháng + nhắc nộp báo cáo, lịch sử ca dạng một thẻ. Giữ nguyên 100% giao diện quản lý/duyệt công của Chủ sở hữu.',
+      'Màn Công việc (/work): chuẩn hóa màu sắc/khoảng cách/bo góc/kiểu thẻ-nút theo phong cách mới trong khi giữ nguyên 100% kiến trúc 3 khu vực, KPI, bộ lọc thông minh, thuật toán sắp xếp (v0.9.20) và checklist tương tác.',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.9.21',
+    commit: '18fc733',
     released_at: '2026-11-12',
     summary:
       'Thiết kế lại giao diện Màn Đăng nhập (/login) theo bản vẽ tối giản mới: bố cục một cột căn giữa, bỏ khối giới thiệu/tiêu đề thừa, chuẩn hóa khoảng cách-màu-bo góc theo biến theme.',

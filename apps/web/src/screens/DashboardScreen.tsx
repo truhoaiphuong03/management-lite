@@ -5,10 +5,6 @@ import {
   PageHeader,
   StatusBadge,
   ClockIcon,
-  FileTextIcon,
-  BanknoteIcon,
-  SettingsIcon,
-  NavIcon,
   ErrorState,
   useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
@@ -41,6 +37,38 @@ interface MetricCardState {
   value: string;
   subtext: string;
 }
+
+function getStatusColor(status: BadgeStatus): string {
+  switch (status) {
+    case 'success':
+      return 'var(--success-text, #047857)';
+    case 'warning':
+      return 'var(--warning-text, #92400e)';
+    case 'error':
+      return 'var(--danger-text, #b91c1c)';
+    case 'muted':
+    case 'neutral':
+    default:
+      return 'var(--muted-color, #475569)';
+  }
+}
+
+const ChevronRightSvg: React.FC = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className="dashboard-row-chevron"
+  >
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+);
 
 function getVietnamTodayIso(): string {
   try {
@@ -754,7 +782,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   }, [role, userId, workspaceId]);
 
   return (
-    <div>
+    <div className="dashboard-page">
       <PageHeader
         title="Tổng quan hoạt động"
         subtitle={`Workspace: ${workspaceName || 'THIẾT KẾ IN ẤN TOÀN GIA PHÁT'} | Múi giờ: Asia/Ho_Chi_Minh`}
@@ -767,960 +795,393 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           />
         }
         actions={
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <AppButton
-              variant="primary"
-              onClick={() => onNavigate('/clock')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <ClockIcon size={16} />
-              <span>Vào Chấm công</span>
-            </AppButton>
-          </div>
+          <AppButton
+            variant="primary"
+            className="dashboard-primary-btn"
+            onClick={() => onNavigate('/clock')}
+          >
+            <ClockIcon size={20} />
+            <span>Vào Chấm công</span>
+          </AppButton>
         }
       />
 
       {/* Summary metric cards */}
-      <div
-        className="kpi-grid-4"
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
-          gap: '14px',
-          marginBottom: '20px',
-        }}
-      >
+      <section aria-label="Số liệu hôm nay" className="dashboard-kpi-grid">
         <AppCard
-          padding="16px"
+          padding="20px"
           interactive
-          style={{ cursor: 'pointer' }}
+          className="dashboard-kpi-card"
           onClick={() => onNavigate('/clock')}
         >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              flexWrap: 'wrap',
-              gap: '4px',
-            }}
-          >
-            <span
-              style={{
-                fontSize: '13px',
-                color: 'var(--muted-color)',
-                fontWeight: 500,
-              }}
-            >
-              Trạng thái ca làm
-            </span>
-            <StatusBadge
-              status={shiftMetric.badgeStatus}
-              label={shiftMetric.badgeLabel}
-            />
-          </div>
-          <div
-            style={{
-              fontSize: '22px',
-              fontWeight: 700,
-              fontVariantNumeric: 'tabular-nums',
-              margin: '8px 0 4px 0',
-              color: 'var(--text-color)',
-            }}
-          >
+          <span className="dashboard-kpi-label">Trạng thái ca làm</span>
+          <span className="dashboard-kpi-value tabular-nums">
             {shiftMetric.value}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            {shiftMetric.subtext}
-          </div>
+          </span>
+          <span
+            className="dashboard-kpi-status"
+            style={{ color: getStatusColor(shiftMetric.badgeStatus) }}
+          >
+            {shiftMetric.badgeLabel}
+          </span>
+          <span className="dashboard-kpi-subtext">{shiftMetric.subtext}</span>
         </AppCard>
 
         <AppCard
-          padding="16px"
+          padding="20px"
           interactive
-          style={{ cursor: 'pointer' }}
+          className="dashboard-kpi-card"
           onClick={() => onNavigate('/reports')}
         >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              flexWrap: 'wrap',
-              gap: '4px',
-            }}
-          >
-            <span
-              style={{
-                fontSize: '13px',
-                color: 'var(--muted-color)',
-                fontWeight: 500,
-              }}
-            >
-              Báo cáo hàng ngày
-            </span>
-            <StatusBadge
-              status={reportMetric.badgeStatus}
-              label={reportMetric.badgeLabel}
-            />
-          </div>
-          <div
-            style={{
-              fontSize: '22px',
-              fontWeight: 700,
-              fontVariantNumeric: 'tabular-nums',
-              margin: '8px 0 4px 0',
-              color: 'var(--text-color)',
-            }}
-          >
+          <span className="dashboard-kpi-label">Báo cáo hàng ngày</span>
+          <span className="dashboard-kpi-value tabular-nums">
             {reportMetric.value}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
-            {reportMetric.subtext}
-          </div>
+          </span>
+          <span
+            className="dashboard-kpi-status"
+            style={{ color: getStatusColor(reportMetric.badgeStatus) }}
+          >
+            {reportMetric.badgeLabel}
+          </span>
+          <span className="dashboard-kpi-subtext">{reportMetric.subtext}</span>
         </AppCard>
 
         {role === 'owner' ? (
           <>
             <AppCard
-              padding="16px"
+              padding="20px"
               interactive
-              style={{ cursor: 'pointer' }}
+              className="dashboard-kpi-card"
               onClick={() => onNavigate('/employees')}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  flexWrap: 'wrap',
-                  gap: '4px',
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '13px',
-                    color: 'var(--muted-color)',
-                    fontWeight: 500,
-                  }}
-                >
-                  Nhân sự trực tiếp
-                </span>
-                <StatusBadge
-                  status={employeesMetric.badgeStatus}
-                  label={employeesMetric.badgeLabel}
-                />
-              </div>
-              <div
-                style={{
-                  fontSize: '22px',
-                  fontWeight: 700,
-                  margin: '8px 0 4px 0',
-                  color: 'var(--text-color)',
-                }}
-              >
+              <span className="dashboard-kpi-label">Nhân sự trực tiếp</span>
+              <span className="dashboard-kpi-value tabular-nums">
                 {employeesMetric.value}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+              </span>
+              <span
+                className="dashboard-kpi-status"
+                style={{ color: getStatusColor(employeesMetric.badgeStatus) }}
+              >
+                {employeesMetric.badgeLabel}
+              </span>
+              <span className="dashboard-kpi-subtext">
                 {employeesMetric.subtext}
-              </div>
+              </span>
             </AppCard>
 
             <AppCard
-              padding="16px"
+              padding="20px"
               interactive
-              style={{ cursor: 'pointer' }}
+              className="dashboard-kpi-card"
               onClick={() => onNavigate('/payroll')}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  flexWrap: 'wrap',
-                  gap: '4px',
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '13px',
-                    color: 'var(--muted-color)',
-                    fontWeight: 500,
-                  }}
-                >
-                  Kỳ lương
-                </span>
-                <StatusBadge
-                  status={payrollMetric.badgeStatus}
-                  label={payrollMetric.badgeLabel}
-                />
-              </div>
-              <div
-                style={{
-                  fontSize: '22px',
-                  fontWeight: 700,
-                  margin: '8px 0 4px 0',
-                  color: 'var(--text-color)',
-                }}
-              >
+              <span className="dashboard-kpi-label">Kỳ lương</span>
+              <span className="dashboard-kpi-value tabular-nums">
                 {payrollMetric.value}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+              </span>
+              <span
+                className="dashboard-kpi-status"
+                style={{ color: getStatusColor(payrollMetric.badgeStatus) }}
+              >
+                {payrollMetric.badgeLabel}
+              </span>
+              <span className="dashboard-kpi-subtext">
                 {payrollMetric.subtext}
-              </div>
+              </span>
             </AppCard>
           </>
         ) : (
           <AppCard
-            padding="16px"
+            padding="20px"
             interactive
-            style={{ cursor: 'pointer' }}
+            className="dashboard-kpi-card"
             onClick={() => onNavigate('/attendance')}
           >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '13px',
-                  color: 'var(--muted-color)',
-                  fontWeight: 500,
-                }}
-              >
-                Công tháng hiện tại
-              </span>
-              <StatusBadge
-                status={staffAttendanceMetric.badgeStatus}
-                label={staffAttendanceMetric.badgeLabel}
-              />
-            </div>
-            <div
-              style={{
-                fontSize: '22px',
-                fontWeight: 700,
-                margin: '8px 0 4px 0',
-                color: 'var(--text-color)',
-              }}
-            >
+            <span className="dashboard-kpi-label">Công tháng hiện tại</span>
+            <span className="dashboard-kpi-value tabular-nums">
               {staffAttendanceMetric.value}
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--muted-color)' }}>
+            </span>
+            <span
+              className="dashboard-kpi-status"
+              style={{
+                color: getStatusColor(staffAttendanceMetric.badgeStatus),
+              }}
+            >
+              {staffAttendanceMetric.badgeLabel}
+            </span>
+            <span className="dashboard-kpi-subtext">
               {staffAttendanceMetric.subtext}
-            </div>
+            </span>
           </AppCard>
         )}
-      </div>
+      </section>
 
-      {/* Action Center — Trung tâm Việc cần xử lý */}
-      <div
-        data-testid="dashboard-action-center"
-        style={{
-          marginBottom: '20px',
-          padding: '14px 16px',
-          borderRadius: '12px',
-          backgroundColor: 'var(--surface-subtle)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '10px',
-            flexWrap: 'wrap',
-            gap: '8px',
-          }}
-        >
-          <h3
-            style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              color: 'var(--text-color)',
-              margin: 0,
-            }}
+      <div className="dashboard-columns">
+        {/* Left column: Action Center — Trung tâm Việc cần xử lý */}
+        <div className="dashboard-col-left">
+          <section
+            data-testid="dashboard-action-center"
+            className="dashboard-section"
           >
-            Việc cần xử lý hôm nay
-          </h3>
+            <div className="dashboard-section-header">
+              <h2 className="dashboard-section-title">
+                Việc cần xử lý hôm nay
+              </h2>
+            </div>
+            <div className="dashboard-list-card">
+              {role === 'owner' ? (
+                <>
+                  {systemErrorAlert && (
+                    <button
+                      type="button"
+                      data-testid="action-center-system-errors"
+                      className="dashboard-list-row"
+                      onClick={() => onNavigate('/system-logs')}
+                    >
+                      <span
+                        className="dashboard-dot"
+                        style={{
+                          backgroundColor: 'var(--danger-color, #b91c1c)',
+                        }}
+                        aria-hidden="true"
+                      />
+                      <div className="dashboard-row-body">
+                        <span
+                          className="dashboard-row-title"
+                          style={{ color: 'var(--danger-text, #b91c1c)' }}
+                        >
+                          {systemErrorAlert.errorCount} lỗi ·{' '}
+                          {systemErrorAlert.warnCount} cảnh báo (24h)
+                        </span>
+                        <span className="dashboard-row-meta">
+                          {systemErrorAlert.topRoute ||
+                            systemErrorAlert.topMessage ||
+                            'Bấm để xem & yêu cầu AI sửa'}
+                        </span>
+                      </div>
+                      <span
+                        className="dashboard-row-right"
+                        style={{ color: 'var(--danger-text, #b91c1c)' }}
+                      >
+                        <span>Xử lý</span>
+                        <ChevronRightSvg />
+                      </span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    data-testid="action-center-attendance"
+                    className="dashboard-list-row"
+                    onClick={() => onNavigate('/attendance')}
+                  >
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--success-color, #047857)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <div className="dashboard-row-body">
+                      <span className="dashboard-row-title">
+                        Duyệt ca làm việc
+                      </span>
+                    </div>
+                    <span className="dashboard-row-right">
+                      <span>{shiftMetric.value}</span>
+                      <ChevronRightSvg />
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="action-center-reports"
+                    className="dashboard-list-row"
+                    onClick={() => onNavigate('/reports')}
+                  >
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--info-color, #0369a1)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <div className="dashboard-row-body">
+                      <span className="dashboard-row-title">Báo cáo ngày</span>
+                    </div>
+                    <span className="dashboard-row-right">
+                      <span>{reportMetric.value}</span>
+                      <ChevronRightSvg />
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="action-center-employees"
+                    className="dashboard-list-row"
+                    onClick={() => onNavigate('/employees')}
+                  >
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--primary-color, #0f766e)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <div className="dashboard-row-body">
+                      <span className="dashboard-row-title">
+                        Hồ sơ &amp; Ngân hàng
+                      </span>
+                    </div>
+                    <span className="dashboard-row-right">
+                      <span>{employeesMetric.value}</span>
+                      <ChevronRightSvg />
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="action-center-payroll"
+                    className="dashboard-list-row"
+                    onClick={() => onNavigate('/payroll')}
+                  >
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--warning-hover, #d97706)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <div className="dashboard-row-body">
+                      <span className="dashboard-row-title">
+                        Chi trả lương VietQR
+                      </span>
+                    </div>
+                    <span className="dashboard-row-right">
+                      <span>
+                        {payrollMetric.value} ({payrollMetric.badgeLabel})
+                      </span>
+                      <ChevronRightSvg />
+                    </span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    data-testid="action-center-staff-clock"
+                    className="dashboard-list-row"
+                    onClick={() => onNavigate('/clock')}
+                  >
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--success-color, #047857)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <div className="dashboard-row-body">
+                      <span className="dashboard-row-title">
+                        Trạng thái ca làm
+                      </span>
+                    </div>
+                    <span className="dashboard-row-right">
+                      <span>{shiftMetric.value}</span>
+                      <ChevronRightSvg />
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="action-center-staff-report"
+                    className="dashboard-list-row"
+                    onClick={() => onNavigate('/reports/new')}
+                  >
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--info-color, #0369a1)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <div className="dashboard-row-body">
+                      <span className="dashboard-row-title">
+                        Báo cáo hôm nay
+                      </span>
+                    </div>
+                    <span className="dashboard-row-right">
+                      <span>{reportMetric.value}</span>
+                      <ChevronRightSvg />
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="action-center-staff-work"
+                    className="dashboard-list-row"
+                    onClick={() => onNavigate('/work')}
+                  >
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--primary-color, #0f766e)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <div className="dashboard-row-body">
+                      <span className="dashboard-row-title">
+                        Công việc được giao
+                      </span>
+                    </div>
+                    <span className="dashboard-row-right">
+                      <span>{staffAttendanceMetric.value}</span>
+                      <ChevronRightSvg />
+                    </span>
+                  </button>
+                </>
+              )}
+            </div>
+          </section>
         </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
-            gap: '10px',
-          }}
-        >
-          {role === 'owner' ? (
-            <>
-              {systemErrorAlert && (
+
+        {/* Right column: Cross-System V4 Bridge & Quick Action Navigation */}
+        <div className="dashboard-col-right">
+          {role === 'owner' && (
+            <section className="dashboard-section">
+              <div className="dashboard-section-header">
+                <h2 className="dashboard-section-title">
+                  Liên thông TikTok AI Factory (hoaiphuong.click)
+                </h2>
+                <span
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: bridgeStatus?.connected
+                      ? 'var(--success-text, #047857)'
+                      : 'var(--muted-color, #475569)',
+                  }}
+                >
+                  {bridgeStatus?.connected ? 'Đã kết nối' : 'Chưa kết nối'}
+                </span>
+              </div>
+
+              <div className="dashboard-list-card">
                 <button
                   type="button"
-                  data-testid="action-center-system-errors"
-                  onClick={() => onNavigate('/system-logs')}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    textAlign: 'left',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(239, 68, 68, 0.45)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    color: 'var(--text-color)',
-                    cursor: 'pointer',
-                    gap: '8px',
-                  }}
+                  className="dashboard-list-row"
+                  onClick={() => void handleSyncTikTokV4()}
+                  disabled={bridgeSyncing}
                 >
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        color: 'var(--danger-text)',
-                      }}
-                    >
-                      {systemErrorAlert.errorCount} lỗi ·{' '}
-                      {systemErrorAlert.warnCount} cảnh báo (24h)
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '12px',
-                        color: 'var(--muted-color)',
-                        marginTop: '2px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {systemErrorAlert.topRoute ||
-                        systemErrorAlert.topMessage ||
-                        'Bấm để xem & yêu cầu AI sửa'}
-                    </div>
-                  </div>
                   <span
+                    className="dashboard-dot"
                     style={{
-                      fontSize: '12px',
-                      color: 'var(--danger-text)',
-                      fontWeight: 700,
-                      whiteSpace: 'nowrap',
+                      backgroundColor: bridgeStatus?.connected
+                        ? 'var(--success-color, #047857)'
+                        : 'var(--primary-color, #0f766e)',
                     }}
-                  >
-                    Xử lý →
-                  </span>
-                </button>
-              )}
-              <button
-                type="button"
-                data-testid="action-center-attendance"
-                onClick={() => onNavigate('/attendance')}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  textAlign: 'left',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--surface-hover)',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                    }}
-                  >
-                    Duyệt ca làm việc
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    {shiftMetric.value}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--accent-text)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Mở →
-                </span>
-              </button>
-
-              <button
-                type="button"
-                data-testid="action-center-reports"
-                onClick={() => onNavigate('/reports')}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  textAlign: 'left',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--surface-hover)',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                    }}
-                  >
-                    Báo cáo ngày
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    {reportMetric.value}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--accent-text)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Xem →
-                </span>
-              </button>
-
-              <button
-                type="button"
-                data-testid="action-center-employees"
-                onClick={() => onNavigate('/employees')}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  textAlign: 'left',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--surface-hover)',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                    }}
-                  >
-                    Hồ sơ & Ngân hàng
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    {employeesMetric.value}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--accent-text)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Mở →
-                </span>
-              </button>
-
-              <button
-                type="button"
-                data-testid="action-center-payroll"
-                onClick={() => onNavigate('/payroll')}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  textAlign: 'left',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--surface-hover)',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                    }}
-                  >
-                    Chi trả lương VietQR
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    {payrollMetric.value} ({payrollMetric.badgeLabel})
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--accent-text)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Mở →
-                </span>
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                data-testid="action-center-staff-clock"
-                onClick={() => onNavigate('/clock')}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  textAlign: 'left',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--surface-hover)',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                    }}
-                  >
-                    Trạng thái ca làm
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    {shiftMetric.value}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--accent-text)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Vào/ra ca →
-                </span>
-              </button>
-
-              <button
-                type="button"
-                data-testid="action-center-staff-report"
-                onClick={() => onNavigate('/reports/new')}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  textAlign: 'left',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--surface-hover)',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                    }}
-                  >
-                    Báo cáo hôm nay
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    {reportMetric.value}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--accent-text)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Nộp →
-                </span>
-              </button>
-
-              <button
-                type="button"
-                data-testid="action-center-staff-work"
-                onClick={() => onNavigate('/work')}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  textAlign: 'left',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--surface-hover)',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  gap: '8px',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                    }}
-                  >
-                    Công việc được giao
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    {staffAttendanceMetric.value}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--accent-text)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Xem →
-                </span>
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Quick Action Navigation Grid */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: showQuickActions ? '12px' : '0',
-        }}
-      >
-        <h3
-          style={{
-            fontSize: '13px',
-            fontWeight: 600,
-            margin: 0,
-            color: 'var(--muted-color)',
-          }}
-        >
-          Lối tắt thao tác nhanh
-        </h3>
-        <button
-          type="button"
-          onClick={() => setShowQuickActions((v) => !v)}
-          style={{
-            border: '1px solid var(--border-color)',
-            backgroundColor: 'transparent',
-            color: 'var(--muted-color)',
-            borderRadius: '6px',
-            padding: '4px 10px',
-            fontSize: '12px',
-            fontWeight: 500,
-            cursor: 'pointer',
-          }}
-        >
-          {showQuickActions ? 'Thu gọn lối tắt' : 'Mở tất cả lối tắt'}
-        </button>
-      </div>
-      <div
-        className="quick-actions-grid"
-        style={{
-          display: showQuickActions ? 'grid' : 'none',
-          gridTemplateColumns:
-            'repeat(auto-fill, minmax(min(100%, 240px), 1fr))',
-          gap: '10px',
-        }}
-      >
-        {(
-          [
-            {
-              path: '/clock',
-              icon: <ClockIcon size={20} />,
-              title: 'Chấm công',
-              desc: 'Vào ca, tạm nghỉ, kết thúc ca',
-              show: true,
-            },
-            {
-              path: '/work',
-              icon: <NavIcon id="work" size={20} />,
-              title: 'Công việc',
-              desc: 'Giao việc, tiến độ & nghiệm thu',
-              show: true,
-            },
-            {
-              path: '/reports',
-              icon: <FileTextIcon size={20} />,
-              title: 'Báo cáo',
-              desc: 'Báo cáo công việc hàng ngày',
-              show: true,
-            },
-            {
-              path: '/schedule',
-              icon: <NavIcon id="schedule" size={20} />,
-              title: 'Lịch làm việc',
-              desc: 'Xếp ca và theo dõi lịch tuần',
-              show: true,
-            },
-            {
-              path: '/storage',
-              icon: <NavIcon id="storage" size={20} />,
-              title: 'Lưu trữ & Drive',
-              desc: 'Thư mục nguồn & thành phẩm',
-              show: true,
-            },
-            {
-              path: '/employees',
-              icon: <NavIcon id="employees" size={20} />,
-              title: 'Nhân viên',
-              desc: 'Hồ sơ nhân sự & ngân hàng',
-              show: role === 'owner',
-            },
-            {
-              path: '/payroll',
-              icon: <BanknoteIcon size={20} />,
-              title: 'Bảng lương',
-              desc: 'Kỳ lương & chi trả VietQR',
-              show: role === 'owner',
-            },
-            {
-              path: '/finance',
-              icon: <NavIcon id="finance" size={20} />,
-              title: 'Tài chính',
-              desc: 'Sổ thu chi & kế hoạch',
-              show: role === 'owner',
-            },
-            {
-              path: '/accounts',
-              icon: <NavIcon id="accounts" size={20} />,
-              title: 'Tài khoản dùng chung',
-              desc: 'Quản lý tài khoản dùng chung',
-              show: role === 'owner',
-            },
-            {
-              path: '/issues',
-              icon: <NavIcon id="issues" size={20} />,
-              title: 'Vấn đề & Issues',
-              desc: 'Ghi nhận lỗi & đề xuất cải tiến',
-              show: role === 'owner',
-            },
-            {
-              path: '/my-pay',
-              icon: <BanknoteIcon size={20} />,
-              title: 'Lương cá nhân',
-              desc: 'Xem phiếu lương & chi tiết công',
-              show: role !== 'owner',
-            },
-            {
-              path: '/settings',
-              icon: <SettingsIcon size={20} />,
-              title: 'Cài đặt',
-              desc: 'Hồ sơ cá nhân & giao diện',
-              show: true,
-            },
-          ] as const
-        )
-          .filter((item) => item.show)
-          .map((item) => (
-            <AppCard
-              key={item.path}
-              padding="12px 14px"
-              interactive
-              style={{
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-              }}
-              onClick={() => onNavigate(item.path)}
-            >
-              <div
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '10px',
-                  backgroundColor: 'rgba(20, 184, 166, 0.12)',
-                  border: '1px solid rgba(45, 212, 191, 0.25)',
-                  color: 'var(--accent-text)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                {item.icon}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div
-                  style={{
-                    fontWeight: 600,
-                    fontSize: '14px',
-                    color: 'var(--text-color)',
-                    marginBottom: '2px',
-                  }}
-                >
-                  {item.title}
-                </div>
-                <div
-                  className="quick-action-desc"
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--muted-color)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {item.desc}
-                </div>
-              </div>
-            </AppCard>
-          ))}
-      </div>
-
-      {/* Cross-System Data Bridge: ql.hoaiphuong.click <-> hoaiphuong.click (Owner only) */}
-      {role === 'owner' && (
-        <div style={{ marginTop: '20px' }}>
-          <AppCard padding="16px">
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '12px',
-                marginBottom: showBridgeDetails ? '16px' : '0',
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <h2
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
-                      margin: 0,
-                    }}
-                  >
-                    Liên thông TikTok AI Factory (hoaiphuong.click)
-                  </h2>
-                  <StatusBadge
-                    status={bridgeStatus?.connected ? 'success' : 'neutral'}
-                    label={
-                      bridgeStatus?.connected ? 'Đã kết nối' : 'Chưa kết nối'
-                    }
+                    aria-hidden="true"
                   />
-                </div>
-                {showBridgeDetails && (
-                  <div
-                    style={{
-                      fontSize: '13px',
-                      color: 'var(--muted-color)',
-                      marginTop: '4px',
-                    }}
-                  >
-                    Đồng bộ nhân sự và công việc với hoaiphuong.click. Báo cáo
-                    sản lượng chỉ tự ghi khi có ánh xạ nhân viên và ngày nghiệp
-                    vụ đã xác minh.
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {role === 'owner' && (
-                  <AppButton
-                    variant="primary"
-                    onClick={() => void handleSyncTikTokV4()}
-                    disabled={bridgeSyncing}
-                    style={{ padding: '6px 12px', fontSize: '12.5px' }}
-                  >
+                  <span className="dashboard-row-title" style={{ flexGrow: 1 }}>
                     {bridgeSyncing ? (
                       'Đang đồng bộ…'
                     ) : (
@@ -1728,21 +1189,47 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         Đồng bộ
                         <span className="mobile-hide-label">
                           {' '}
-                          nhân sự & công việc
+                          nhân sự &amp; công việc
                         </span>
                       </span>
                     )}
-                  </AppButton>
-                )}
-                <AppButton
-                  variant="secondary"
+                  </span>
+                  <ChevronRightSvg />
+                </button>
+
+                <button
+                  type="button"
+                  className="dashboard-list-row"
                   onClick={() => setShowBridgeDetails((v) => !v)}
-                  style={{ padding: '6px 12px', fontSize: '12.5px' }}
                 >
-                  {showBridgeDetails ? 'Ẩn chi tiết V4' : 'Chi tiết V4'}
-                </AppButton>
-                <AppButton
-                  variant="secondary"
+                  <span
+                    className="dashboard-dot"
+                    style={{
+                      backgroundColor: 'var(--primary-color, #0f766e)',
+                    }}
+                    aria-hidden="true"
+                  />
+                  <div className="dashboard-row-body">
+                    <span className="dashboard-row-title">
+                      {showBridgeDetails ? 'Ẩn chi tiết V4' : 'Chi tiết V4'}
+                    </span>
+                    {showBridgeDetails && (
+                      <span
+                        className="dashboard-row-meta"
+                        style={{ whiteSpace: 'normal' }}
+                      >
+                        Đồng bộ nhân sự và công việc với hoaiphuong.click. Báo
+                        cáo sản lượng chỉ tự ghi khi có ánh xạ nhân viên và ngày
+                        nghiệp vụ đã xác minh.
+                      </span>
+                    )}
+                  </div>
+                  <ChevronRightSvg />
+                </button>
+
+                <button
+                  type="button"
+                  className="dashboard-list-row"
                   onClick={() => {
                     if (typeof window !== 'undefined') {
                       window.open(
@@ -1752,263 +1239,400 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       );
                     }
                   }}
-                  style={{ padding: '6px 12px', fontSize: '12.5px' }}
-                >
-                  <span>
-                    Mở
-                    <span className="mobile-hide-label"> hoaiphuong.click</span>
-                  </span>
-                </AppButton>
-              </div>
-            </div>
-
-            {bridgeReadError && !bridgeFeedback && (
-              <p
-                role="status"
-                style={{ color: THEME_COLORS.warning, marginBottom: '12px' }}
-              >
-                {bridgeReadError}
-              </p>
-            )}
-            {bridgeFeedback && bridgeFeedbackError && (
-              <ErrorState message={bridgeFeedback} />
-            )}
-            {bridgeFeedback && !bridgeFeedbackError && (
-              <div
-                role="status"
-                aria-live="polite"
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  backgroundColor: THEME_COLORS.warningSubtle,
-                  border: `1px solid ${THEME_COLORS.warning}`,
-                  color: THEME_COLORS.text,
-                  fontSize: '13px',
-                  marginBottom: '16px',
-                }}
-              >
-                {bridgeFeedback}
-              </div>
-            )}
-
-            <div
-              style={{
-                display: showBridgeDetails ? 'block' : 'none',
-                marginTop: '14px',
-              }}
-            >
-              <div
-                className="kpi-grid-4"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-                  gap: '12px',
-                }}
-              >
-                <div
-                  style={{
-                    padding: '12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid rgba(148, 163, 184, 0.15)',
-                  }}
-                >
-                  <div
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                  >
-                    Nhân sự &amp; Member đồng bộ
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '20px',
-                      fontWeight: 700,
-                      color: 'var(--text-color)',
-                      marginTop: '4px',
-                    }}
-                  >
-                    {bridgeStatus?.counts.active_members ?? '--'}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    padding: '12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid rgba(148, 163, 184, 0.15)',
-                  }}
-                >
-                  <div
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                  >
-                    Sản phẩm &amp; Kênh TikTok
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '20px',
-                      fontWeight: 700,
-                      color: 'var(--text-color)',
-                      marginTop: '4px',
-                    }}
-                  >
-                    {bridgeStatus
-                      ? `${bridgeStatus.counts.products} SP / ${bridgeStatus.counts.channels} Kênh`
-                      : '--'}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    padding: '12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid rgba(148, 163, 184, 0.15)',
-                  }}
-                >
-                  <div
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                  >
-                    Kịch bản &amp; Prompt AI
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '20px',
-                      fontWeight: 700,
-                      color: 'var(--text-color)',
-                      marginTop: '4px',
-                    }}
-                  >
-                    {bridgeStatus
-                      ? `${bridgeStatus.counts.scripts} KB / ${bridgeStatus.counts.prompts} Prompt`
-                      : '--'}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    padding: '12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--surface-subtle)',
-                    border: '1px solid rgba(148, 163, 184, 0.15)',
-                  }}
-                >
-                  <div
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                  >
-                    Thành phẩm Video / Audio Drive
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '20px',
-                      fontWeight: 700,
-                      color: 'var(--text-color)',
-                      marginTop: '4px',
-                    }}
-                  >
-                    {bridgeStatus
-                      ? `${bridgeStatus.counts.video_deliverables} MP4 / ${bridgeStatus.counts.audio_deliverables} WAV`
-                      : '--'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Bảng xác nhận ánh xạ nhân sự cố định giữa ql.hoaiphuong.click (NV001..NV00n) & hoaiphuong.click */}
-              <div
-                data-testid="bridge-employee-mapping-table"
-                style={{
-                  marginTop: '16px',
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--surface-subtle)',
-                  border: '1px solid rgba(56, 189, 248, 0.22)',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '8px',
-                    marginBottom: '8px',
-                  }}
                 >
                   <span
+                    className="dashboard-dot"
                     style={{
+                      backgroundColor: 'var(--info-color, #0369a1)',
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span className="dashboard-row-title" style={{ flexGrow: 1 }}>
+                    Mở hoaiphuong.click
+                  </span>
+                  <ChevronRightSvg />
+                </button>
+
+                {bridgeReadError && !bridgeFeedback && (
+                  <div
+                    role="status"
+                    style={{
+                      padding: '12px 16px',
+                      color: THEME_COLORS.warning,
                       fontSize: '13px',
-                      fontWeight: 600,
-                      color: 'var(--text-color)',
+                      borderTop: '1px solid var(--surface-subtle, #f1f5f9)',
                     }}
                   >
-                    🔗 Bảng xác nhận ánh xạ nhân sự cố định (Management Lite ↔
-                    TikTok AI Factory V4)
-                  </span>
-                  <span
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                  >
-                    Khóa định danh: Mã NV cố định + Email tài khoản xác thực
-                  </span>
-                </div>
-                {bridgeStatus?.management_lite?.employee_mappings &&
-                bridgeStatus.management_lite.employee_mappings.length > 0 ? (
-                  <div
-                    style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}
-                  >
-                    {bridgeStatus.management_lite.employee_mappings.map(
-                      (emp) => (
-                        <div
-                          key={emp.employee_code}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px 10px',
-                            borderRadius: '6px',
-                            backgroundColor: 'var(--surface-hover)',
-                            border: `1px solid ${emp.v4_linked ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
-                            fontSize: '12px',
-                          }}
-                        >
-                          <strong style={{ color: 'var(--info-text)' }}>
-                            {emp.employee_code}
-                          </strong>
-                          <span style={{ color: 'var(--text-color)' }}>
-                            {emp.full_name}
-                          </span>
-                          <span style={{ color: 'var(--muted-color)' }}>
-                            ({emp.email || 'Chưa có email'})
-                          </span>
-                          <span
-                            style={{
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              color: emp.v4_linked
-                                ? 'var(--success-text)'
-                                : 'var(--warning-text)',
-                            }}
-                          >
-                            {emp.v4_linked
-                              ? '✓ Đã ánh xạ V4'
-                              : '⚠️ Thiếu email'}
-                          </span>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                ) : (
-                  <div
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                  >
-                    Đang tải danh sách ánh xạ mã nhân viên cố định (NV001,
-                    NV002…) với tài khoản V4…
+                    {bridgeReadError}
                   </div>
                 )}
+                {bridgeFeedback && bridgeFeedbackError && (
+                  <div style={{ padding: '12px 16px' }}>
+                    <ErrorState message={bridgeFeedback} />
+                  </div>
+                )}
+                {bridgeFeedback && !bridgeFeedbackError && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                      padding: '12px 16px',
+                      backgroundColor: THEME_COLORS.warningSubtle,
+                      color: THEME_COLORS.text,
+                      fontSize: '13px',
+                      borderTop: '1px solid var(--surface-subtle, #f1f5f9)',
+                    }}
+                  >
+                    {bridgeFeedback}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    display: showBridgeDetails ? 'flex' : 'none',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <div className="dashboard-list-row dashboard-list-row-static">
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--primary-color, #0f766e)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span
+                      className="dashboard-row-title"
+                      style={{ flexGrow: 1 }}
+                    >
+                      Nhân sự &amp; Member đồng bộ
+                    </span>
+                    <span className="dashboard-row-right tabular-nums">
+                      {bridgeStatus?.counts.active_members ?? '--'}
+                    </span>
+                  </div>
+
+                  <div className="dashboard-list-row dashboard-list-row-static">
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--info-color, #0369a1)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span
+                      className="dashboard-row-title"
+                      style={{ flexGrow: 1 }}
+                    >
+                      Sản phẩm &amp; Kênh TikTok
+                    </span>
+                    <span className="dashboard-row-right tabular-nums">
+                      {bridgeStatus
+                        ? `${bridgeStatus.counts.products} SP / ${bridgeStatus.counts.channels} Kênh`
+                        : '--'}
+                    </span>
+                  </div>
+
+                  <div className="dashboard-list-row dashboard-list-row-static">
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--warning-hover, #d97706)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span
+                      className="dashboard-row-title"
+                      style={{ flexGrow: 1 }}
+                    >
+                      Kịch bản &amp; Prompt AI
+                    </span>
+                    <span className="dashboard-row-right tabular-nums">
+                      {bridgeStatus
+                        ? `${bridgeStatus.counts.scripts} KB / ${bridgeStatus.counts.prompts} Prompt`
+                        : '--'}
+                    </span>
+                  </div>
+
+                  <div className="dashboard-list-row dashboard-list-row-static">
+                    <span
+                      className="dashboard-dot"
+                      style={{
+                        backgroundColor: 'var(--success-color, #047857)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span
+                      className="dashboard-row-title"
+                      style={{ flexGrow: 1 }}
+                    >
+                      Thành phẩm Video / Audio Drive
+                    </span>
+                    <span className="dashboard-row-right tabular-nums">
+                      {bridgeStatus
+                        ? `${bridgeStatus.counts.video_deliverables} MP4 / ${bridgeStatus.counts.audio_deliverables} WAV`
+                        : '--'}
+                    </span>
+                  </div>
+
+                  {/* Bảng xác nhận ánh xạ nhân sự cố định giữa ql.hoaiphuong.click (NV001..NV00n) & hoaiphuong.click */}
+                  <div
+                    data-testid="bridge-employee-mapping-table"
+                    style={{
+                      padding: '14px 16px',
+                      borderTop: '1px solid var(--surface-subtle, #f1f5f9)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: 'var(--text-color)',
+                        }}
+                      >
+                        Bảng xác nhận ánh xạ nhân sự cố định (Management Lite ↔
+                        TikTok AI Factory V4)
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--muted-color)',
+                        }}
+                      >
+                        Khóa định danh: Mã NV cố định + Email tài khoản xác thực
+                      </span>
+                    </div>
+                    {bridgeStatus?.management_lite?.employee_mappings &&
+                    bridgeStatus.management_lite.employee_mappings.length >
+                      0 ? (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                        }}
+                      >
+                        {bridgeStatus.management_lite.employee_mappings.map(
+                          (emp) => (
+                            <div
+                              key={emp.employee_code}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                flexWrap: 'wrap',
+                                fontSize: '13px',
+                              }}
+                            >
+                              <span
+                                className="dashboard-dot"
+                                style={{
+                                  backgroundColor: emp.v4_linked
+                                    ? 'var(--success-color, #047857)'
+                                    : 'var(--warning-hover, #d97706)',
+                                }}
+                                aria-hidden="true"
+                              />
+                              <strong style={{ color: 'var(--info-text)' }}>
+                                {emp.employee_code}
+                              </strong>
+                              <span
+                                style={{
+                                  color: 'var(--text-color)',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {emp.full_name}
+                              </span>
+                              <span style={{ color: 'var(--muted-color)' }}>
+                                ({emp.email || 'Chưa có email'})
+                              </span>
+                              <span
+                                style={{
+                                  marginLeft: 'auto',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  color: emp.v4_linked
+                                    ? 'var(--success-text)'
+                                    : 'var(--warning-text)',
+                                }}
+                              >
+                                {emp.v4_linked
+                                  ? '✓ Đã ánh xạ V4'
+                                  : '⚠️ Thiếu email'}
+                              </span>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--muted-color)',
+                        }}
+                      >
+                        Đang tải danh sách ánh xạ mã nhân viên cố định (NV001,
+                        NV002…) với tài khoản V4…
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
+            </section>
+          )}
+
+          {/* Quick Action Navigation Grid */}
+          <section className="dashboard-section">
+            <div className="dashboard-section-header">
+              <h2 className="dashboard-section-title">
+                Lối tắt thao tác nhanh
+              </h2>
+              <button
+                type="button"
+                className="dashboard-link-btn"
+                onClick={() => setShowQuickActions((v) => !v)}
+              >
+                {showQuickActions ? 'Thu gọn lối tắt' : 'Mở tất cả lối tắt'}
+              </button>
             </div>
-          </AppCard>
+
+            <div
+              className="quick-actions-grid dashboard-quick-grid"
+              style={{
+                display: showQuickActions ? 'grid' : 'none',
+                gridTemplateColumns:
+                  'repeat(auto-fill, minmax(min(100%, 240px), 1fr))',
+                gap: '12px',
+              }}
+            >
+              {(
+                [
+                  {
+                    path: '/clock',
+                    dot: 'var(--success-color, #047857)',
+                    title: 'Chấm công',
+                    desc: 'Vào ca, tạm nghỉ, kết thúc ca',
+                    show: true,
+                  },
+                  {
+                    path: '/work',
+                    dot: 'var(--primary-color, #0f766e)',
+                    title: 'Công việc',
+                    desc: 'Giao việc, tiến độ & nghiệm thu',
+                    show: true,
+                  },
+                  {
+                    path: '/reports',
+                    dot: 'var(--info-color, #0369a1)',
+                    title: 'Báo cáo',
+                    desc: 'Báo cáo công việc hàng ngày',
+                    show: true,
+                  },
+                  {
+                    path: '/schedule',
+                    dot: 'var(--primary-color, #0f766e)',
+                    title: 'Lịch làm việc',
+                    desc: 'Xếp ca và theo dõi lịch tuần',
+                    show: true,
+                  },
+                  {
+                    path: '/storage',
+                    dot: 'var(--info-color, #0369a1)',
+                    title: 'Lưu trữ & Drive',
+                    desc: 'Thư mục nguồn & thành phẩm',
+                    show: true,
+                  },
+                  {
+                    path: '/employees',
+                    dot: 'var(--primary-color, #0f766e)',
+                    title: 'Nhân viên',
+                    desc: 'Hồ sơ nhân sự & ngân hàng',
+                    show: role === 'owner',
+                  },
+                  {
+                    path: '/payroll',
+                    dot: 'var(--warning-hover, #d97706)',
+                    title: 'Bảng lương',
+                    desc: 'Kỳ lương & chi trả VietQR',
+                    show: role === 'owner',
+                  },
+                  {
+                    path: '/finance',
+                    dot: 'var(--success-color, #047857)',
+                    title: 'Tài chính',
+                    desc: 'Sổ thu chi & kế hoạch',
+                    show: role === 'owner',
+                  },
+                  {
+                    path: '/accounts',
+                    dot: 'var(--primary-color, #0f766e)',
+                    title: 'Tài khoản dùng chung',
+                    desc: 'Quản lý tài khoản dùng chung',
+                    show: role === 'owner',
+                  },
+                  {
+                    path: '/issues',
+                    dot: 'var(--danger-color, #b91c1c)',
+                    title: 'Vấn đề & Issues',
+                    desc: 'Ghi nhận lỗi & đề xuất cải tiến',
+                    show: role === 'owner',
+                  },
+                  {
+                    path: '/my-pay',
+                    dot: 'var(--warning-hover, #d97706)',
+                    title: 'Lương cá nhân',
+                    desc: 'Xem phiếu lương & chi tiết công',
+                    show: role !== 'owner',
+                  },
+                  {
+                    path: '/settings',
+                    dot: 'var(--disabled-color, #94a3b8)',
+                    title: 'Cài đặt',
+                    desc: 'Hồ sơ cá nhân & giao diện',
+                    show: true,
+                  },
+                ] as const
+              )
+                .filter((item) => item.show)
+                .map((item) => (
+                  <AppCard
+                    key={item.path}
+                    padding="12px 16px"
+                    interactive
+                    className="dashboard-quick-card"
+                    onClick={() => onNavigate(item.path)}
+                  >
+                    <span
+                      className="dashboard-dot"
+                      style={{ backgroundColor: item.dot }}
+                      aria-hidden="true"
+                    />
+                    <div className="dashboard-row-body">
+                      <div className="dashboard-row-title">{item.title}</div>
+                      <div className="quick-action-desc dashboard-row-meta">
+                        {item.desc}
+                      </div>
+                    </div>
+                    <ChevronRightSvg />
+                  </AppCard>
+                ))}
+            </div>
+          </section>
         </div>
-      )}
+      </div>
     </div>
   );
 };
