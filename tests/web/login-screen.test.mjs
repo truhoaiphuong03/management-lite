@@ -30,7 +30,8 @@ test('MGL-AUTH-LOGIN-UI-18: LoginScreen source code static security and accessib
 
   // 2. Form and autofill attributes for browser password managers
   assert.ok(
-    source.includes('<form onSubmit={handleSubmit} method="post" noValidate>'),
+    /<form\b[^>]*\bmethod="post"[^>]*>/.test(source) &&
+      /<form\b[^>]*\bnoValidate\b[^>]*>/.test(source),
     'Form must use method="post" and noValidate for browser password managers',
   );
   assert.ok(
@@ -92,59 +93,67 @@ test('MGL-AUTH-LOGIN-UI-18: LoginScreen source code static security and accessib
     'Must provide clear Vietnamese network failure error message',
   );
 
-  // 5. Design token adherence
-  assert.ok(source.includes('#0B1220'), 'Must use #0B1220 dark canvas token');
-  assert.ok(source.includes('#151F30'), 'Must use #151F30 card surface token');
-  assert.ok(source.includes('#334155'), 'Must use #334155 border token');
-  assert.ok(source.includes('#14B8A6'), 'Must use #14B8A6 primary teal token');
+  // 5. Design token adherence (2026-11-12 minimalist redesign: layout/colors
+  // moved to shared CSS variables in tokens.css via the .login-* classes,
+  // replacing the old dark two-column theme hardcoded in this file)
+  assert.ok(
+    source.includes('className="login-page"'),
+    'Must use the .login-page design-token-driven class',
+  );
+  const loginAreaSource = source.slice(
+    0,
+    source.indexOf('Forgot Password') === -1
+      ? source.length
+      : source.indexOf('Forgot Password'),
+  );
+  assert.ok(
+    !loginAreaSource.includes('#0B1220') &&
+      !loginAreaSource.includes('#151F30') &&
+      !loginAreaSource.includes('#14B8A6'),
+    'The login form/branding area must not hardcode the old dark two-column theme tokens anymore',
+  );
 });
 
-test('MGL-AUTH-LOGIN-UI-FIX-21: Two-column desktop and single-column mobile responsive layout invariants', () => {
+test('MGL-AUTH-LOGIN-UI-TOIGIAN-01: Minimalist centered single-column layout invariants (2026-11-12 design)', () => {
   const sourcePath = resolve(root, 'apps/web/src/screens/LoginScreen.tsx');
   const source = readFileSync(sourcePath, 'utf8');
 
-  // Two-column desktop wrapper & classes
+  // Single centered column wrapper & classes (docs/design/2026-11-12-toi-gian/Main.html)
   assert.ok(
-    source.includes('login-card-container'),
-    'Must define login-card-container class',
+    source.includes('login-page') && source.includes('login-container'),
+    'Must define login-page/login-container wrapper classes',
   );
   assert.ok(
-    source.includes('login-brand-panel'),
-    'Must define login-brand-panel for desktop branding',
+    source.includes('login-brand') && source.includes('login-logo-box'),
+    'Must define login-brand/login-logo-box for the centered logo',
   );
   assert.ok(
-    source.includes('login-form-panel'),
-    'Must define login-form-panel for form section',
+    source.includes('login-brand-title') && source.includes('Management Lite'),
+    'Must render the Management Lite brand title (styled uppercase via CSS text-transform)',
   );
   assert.ok(
-    source.includes('mobile-brand-header'),
-    'Must define mobile-brand-header for mobile view',
-  );
-
-  // Media query rules for responsive switching
-  assert.ok(
-    source.includes('@media (max-width: 768px)'),
-    'Must include 768px responsive breakpoint',
+    source.includes('login-form') && source.includes('login-field'),
+    'Must define login-form/login-field classes for the form layout',
   );
   assert.ok(
-    source.includes('.login-brand-panel {'),
-    'Must configure desktop brand panel style',
+    source.includes('login-submit-btn'),
+    'Must define login-submit-btn for the primary action button',
+  );
+  assert.ok(
+    source.includes('login-footer') && source.includes('zalo.me/0898843938'),
+    'Must render the login-footer with the Zalo contact link',
   );
 
-  // Left column visual identity content
+  // Old title/description removed per approved design
   assert.ok(
-    source.includes('Ca &amp; Chấm công') || source.includes('Ca & Chấm công'),
-    'Must showcase Ca & Chấm công feature',
+    !source.includes('Đăng nhập hệ thống'),
+    'Must NOT render the old "Đăng nhập hệ thống" title anymore',
   );
+
+  // No placeholder on labeled inputs (Quy tắc chung #6)
   assert.ok(
-    source.includes('Công việc &amp; Báo cáo') ||
-      source.includes('Công việc & Báo cáo'),
-    'Must showcase Công việc & Báo cáo feature',
-  );
-  assert.ok(
-    source.includes('Bảo mật &amp; Phân quyền') ||
-      source.includes('Bảo mật & Phân quyền'),
-    'Must showcase Bảo mật & Phân quyền feature',
+    !source.includes('placeholder='),
+    'Labeled inputs must NOT use placeholder text',
   );
 
   // Strict avoidance of unapproved elements
@@ -224,8 +233,8 @@ test('MGL-AUTH-LOGIN-UI-FIX-21 & AUTH-REMEMBER-01: Remember Me enabled state, re
 
   // Enabled Remember Me checkbox & payload forwarding
   assert.ok(
-    source.includes('Ghi nhớ đăng nhập'),
-    'Remember Me label must be present',
+    source.includes('Ghi nhớ trên máy này'),
+    'Remember Me label must be present (2026-11-12 design wording)',
   );
   assert.ok(
     source.includes('const [rememberMe, setRememberMe] = useState(false);'),
@@ -263,30 +272,29 @@ test('MGL-AUTH-LOGIN-UI-18 & FIX-21: LoginScreen runtime React static markup ren
     }),
   );
 
-  // 1. Responsive two-column structure and branding
+  // 1. Minimalist centered single-column structure and branding
+  assert.ok(markup.includes('login-page'), 'Must render login-page');
+  assert.ok(markup.includes('login-container'), 'Must render login-container');
+  assert.ok(markup.includes('login-brand'), 'Must render login-brand');
   assert.ok(
-    markup.includes('login-card-container'),
-    'Must render login-card-container',
-  );
-  assert.ok(
-    markup.includes('login-brand-panel'),
-    'Must render login-brand-panel',
-  );
-  assert.ok(
-    markup.includes('login-form-panel'),
-    'Must render login-form-panel',
+    markup.includes('Management Lite'),
+    'Must render the Management Lite brand title (styled uppercase via CSS text-transform)',
   );
   assert.ok(
     !markup.includes('Phiên bảo mật C06'),
     'Must NOT render visible C06 security badge (MGL-UI-CLEANUP-VERSION-24)',
   );
   assert.ok(
-    markup.includes('Hệ thống quản lý nội bộ') || markup.includes('0.1.0-dev'),
-    'Must render subtle system branding note with version',
+    markup.includes('zalo.me/0898843938'),
+    'Must render the Zalo contact link in the footer',
   );
   assert.ok(
     !markup.includes('Argon2id • HttpOnly Session Cookie'),
     'Must NOT render developer technical jargon in login footer',
+  );
+  assert.ok(
+    !markup.includes('Đăng nhập hệ thống'),
+    'Must NOT render the old "Đăng nhập hệ thống" title anymore',
   );
 
   // 2. Autofill and inputs
@@ -314,8 +322,8 @@ test('MGL-AUTH-LOGIN-UI-18 & FIX-21: LoginScreen runtime React static markup ren
 
   // 4. Remember Me: interactive checkbox and accurate session text
   assert.ok(
-    markup.includes('Ghi nhớ đăng nhập'),
-    'Must render "Ghi nhớ đăng nhập"',
+    markup.includes('Ghi nhớ trên máy này'),
+    'Must render "Ghi nhớ trên máy này"',
   );
   assert.ok(
     markup.includes('id="remember-me"') &&
