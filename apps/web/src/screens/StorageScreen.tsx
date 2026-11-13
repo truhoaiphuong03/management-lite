@@ -1893,6 +1893,55 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
               Tải video lên Google Drive (Resumable Upload)
             </h3>
 
+            {(!driveConnection?.connected ||
+              isSimulatedDriveResource(driveConnection.root_folder_id)) && (
+              <div
+                data-testid="upload-modal-drive-status-hint"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                  padding: '10px 12px',
+                  marginBottom: '14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--warning-bg)',
+                  border: '1px solid var(--warning-border)',
+                  color: 'var(--warning-text)',
+                  fontSize: '12.5px',
+                  lineHeight: 1.45,
+                }}
+              >
+                <span style={{ flex: '1 1 220px' }}>
+                  Google Drive thật chưa ủy quyền OAuth — tệp sẽ lưu bản ghi nội
+                  bộ để duyệt quy trình.
+                </span>
+                {role === 'owner' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUploadVideoModal(false);
+                      setShowDriveOAuthModal(true);
+                    }}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--warning-border)',
+                      backgroundColor: 'var(--surface-color)',
+                      color: 'var(--text-color)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Kết nối Drive
+                  </button>
+                )}
+              </div>
+            )}
+
             <form onSubmit={handleUploadVideoToDrive}>
               {!folderId && (
                 <div style={{ marginBottom: '14px' }}>

@@ -34,16 +34,6 @@ export type CatalogSubPageId = 'prices' | 'customers' | 'vendors';
 export type FinanceSubPageId =
   'receivables' | 'payables' | 'transactions' | 'import-history';
 
-export type PrintQuoteNavGroupId =
-  | 'quotes_group'
-  | 'orders_group'
-  | 'finance_group'
-  | 'catalog_group'
-  | 'analytics_group';
-
-export type CreateQuoteSectionId =
-  'customer' | 'products' | 'summary' | 'actions';
-
 export type SummaryViewMode = 'customer' | 'internal';
 
 export interface DraftFinishingStageState {
@@ -129,28 +119,6 @@ export const EMPTY_DRAFT_LINE = (index: number): DraftLineState => ({
   profitInput: '',
 });
 
-/**
- * Legacy helper retained for backwards compatibility with any standalone caller.
- */
-export const DEFAULT_DRAFT_LINE = (index: number): DraftLineState => ({
-  id: `ITEM-${index}`,
-  vendorPriceItemId: '',
-  name:
-    index === 1 ? 'Tờ rơi A5 Couche 150gsm (In 2 mặt)' : `Ấn phẩm #${index}`,
-  specification:
-    index === 1 ? 'In Offset 4 màu, cán bóng 2 mặt, cắt thành phẩm' : '',
-  unit: 'tờ',
-  quantity: 100,
-  quantityInput: '100',
-  vendorCostMode: VendorCostMode.PER_UNIT,
-  vendorCostValue: 300,
-  vendorCostInput: '300',
-  profitMode: ProfitMode.FIXED_AMOUNT,
-  profitScope: ProfitScope.PER_UNIT,
-  profitValue: 200,
-  profitInput: '200',
-});
-
 export function isQuoteStatusEditable(status: string): boolean {
   return status === 'DRAFT' || status === 'SENT' || status === 'APPROVED';
 }
@@ -190,20 +158,3 @@ export const cardStyle: React.CSSProperties = {
 export const tabularNumStyle: React.CSSProperties = {
   fontVariantNumeric: 'tabular-nums',
 };
-
-export function resolveNavGroupForTab(
-  tabId: PrintQuoteTabId,
-): PrintQuoteNavGroupId {
-  switch (tabId) {
-    case 'create':
-    case 'quotes':
-      return 'quotes_group';
-    case 'orders':
-      return 'orders_group';
-    case 'vendors':
-    case 'customers':
-      return 'catalog_group';
-    case 'analytics':
-      return 'analytics_group';
-  }
-}
