@@ -6,8 +6,27 @@ import type { ReleaseNoteItem } from './version.js';
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.22',
+    version: '0.9.23',
     commit: 'latest',
+    released_at: '2026-11-14',
+    summary:
+      'Hợp nhất trọn bộ 12 bản vá kiểm thử toàn diện (BUG-QA-01..12), dọn sạch code thừa, chuẩn hóa hạ tầng Staging 1-chạm, bổ sung công cụ dọn thư mục MacBook DEV an toàn và đồng bộ sổ cái quản trị ROADMAP.',
+    added: [
+      'Công cụ dọn thư mục & worktree an toàn cho MacBook DEV (scripts/ops/cleanup-macbook-dev.sh, mặc định --dry-run bảo vệ tuyệt đối nhánh chưa merge và dữ liệu DB).',
+      'Lệnh npm run release:print-owner-gate tự động xuất bộ lệnh kiểm tra Preflight & ký phát hành qua cổng Owner-Locked Release Gate.',
+      'Thông báo gợi ý trạng thái ủy quyền OAuth Google Drive và nút Kết nối Drive nhanh ngay trong cửa sổ Tải video (/storage).',
+    ],
+    improved: [
+      'Đồng bộ /release-version.json tự động trong build:web, hiển thị đúng tên miền thực tế và nhãn phân hệ tiếng Việt trong cửa sổ Báo lỗi hệ thống, hỗ trợ đóng nhanh bằng phím Escape.',
+      'Cân chỉnh lưới 4 thẻ KPI (.kpi-grid-4) hiển thị 4×1 trên màn lớn và 2×2 trên khung nhìn hẹp (860–1119px), tăng khoảng đệm cuộn đáy cho Desktop (84px) & Mobile (96px).',
+    ],
+    fixed: [
+      'Khắc phục lỗi SQLSTATE 40001 trên Bảng lương (/payroll), lỗi gãy dọc từng chữ cái tên khách hàng/xưởng trên Danh mục Báo giá In ấn (/print-quotes/catalog/*), lỗi nút Báo lỗi không nổi trên Desktop, lỗi banner che nút Vào ca ở 1280×800 và lỗi hủy sớm request Đăng xuất.',
+    ],
+  },
+  {
+    version: '0.9.22',
+    commit: '25cbea2',
     released_at: '2026-11-13',
     summary:
       'Thiết kế lại giao diện Tổng quan, Chấm công (nhân viên) và chuẩn hóa màu sắc/khoảng cách màn Công việc theo bản vẽ tối giản mới, hoàn tất đợt redesign 2026-11-12 cho cả 4 màn hình chính.',

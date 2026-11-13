@@ -4,9 +4,9 @@
 
 ---
 
-## 1. Các Phase Đã Hoàn Thành Trên Nhánh `main` (`v0.1.0` → `v0.7.2` — `DONE`)
+## 1. Các Phase Đã Hoàn Thành Trên Nhánh `main` & Nhánh Nâng Cấp (`v0.1.0` → `v0.9.23` — `DONE`)
 
-> Toàn bộ `35` Phase sản phẩm & remediation (`95` Task định danh duy nhất) dưới đây đã hoàn thành trong mã nguồn nhánh `main` (commit `bcdb36c`, tag `v0.7.2`). Chi tiết 13 trường của từng Task xem tại [`docs/PHASE_TASK_HISTORY.md`](./PHASE_TASK_HISTORY.md). **Tuyệt đối không tự ý chạy lại hoặc làm lại (Zero-Recheck Rule).**
+> Toàn bộ các Phase sản phẩm & remediation từ `v0.1.0` → `v0.9.23` dưới đây đã hoàn thành trong mã nguồn. Chi tiết 13 trường của từng Task xem tại [`docs/PHASE_TASK_HISTORY.md`](./PHASE_TASK_HISTORY.md). **Tuyệt đối không tự ý chạy lại hoặc làm lại (Zero-Recheck Rule).**
 
 - **Phase 0 (`v0.1.0` – `v0.1.3` — Foundation `PK-00`, `FT-01`, `PK-01`, `AUTH-01A`, `C06-DB-01`, `CP2.2`):** Nền tảng Monorepo, 59 tài liệu Canonical (`0.1.0-doc.21`), PostgreSQL 18 migrations (`0001`–`0029`), xác thực Argon2id + CSRF + RBAC, cô lập workspace và tích hợp phân tích lỗi AI (`DONE`).
 - **Phase 1 → Phase 4 (`v0.1.4` – `v0.2.0`):** Hồ sơ nhân sự mở rộng & ngân hàng (`migration 0030`), bảng lương `Thưởng/Phụ cấp/Khấu trừ` + `VietQR` + tự động ghi Sổ thu chi, xuất CSV nhân sự, Trung tâm Việc cần xử lý trên Dashboard, bảng ánh xạ nhân sự V4 và chia nhỏ gói JS (`DONE`).
@@ -20,6 +20,8 @@
 - **Phase 28 → Phase 31 (`v0.6.8` – `v0.7.1`):** Xem chấm công gom theo từng nhân viên kèm lọc nhanh 1-chạm, xuất CSV tổng hợp công + duyệt nhanh ca chờ theo nhân viên + đối soát bảng lương, bộ chọn Tháng công riêng trên từng thẻ nhân viên (`employee-month-selector-*`), chuẩn hóa 4 mẫu giao việc Media trên `/work/new`, và đưa phân hệ `Tài khoản` (`/accounts`) lên trực tiếp Thanh menu đứng với thứ tự ưu tiên & nhãn 2 chữ đồng bộ (`DONE`).
 - **Phase REM (`Audit Remediation Waves W1 / W2A / OA-20 / OA-21 / OA-23 / W2B` — `4ab595c` → `0610c4b`):** Ban hành mục `⛔ 0. QUY TẮC BẤT BIẾN VỀ PRODUCTION` (`REMEDIATION_FREEZE`) trong `AGENTS.md`, khóa Fail-Closed (`exit 43`) cơ chế tự deploy của `anty-remote-hub` (`OA-20`), cô lập hoàn toàn cụm PostgreSQL TEST `:55433` với khóa chặn Fail-Closed (`OA-21`) và vượt qua `71/71` file test (`722` tests `PASS`), bổ sung Staging cô lập `:55434` (`STAGING-ISOLATION-RUNBOOK.md`) và xác nhận `0` thay đổi trên Production (`DONE`).
 - **Phase 32 (`v0.7.2` — `d720534`, `f09d04f`, `bcdb36c`):** Mở khóa đổi vai trò nhân sự (`staff ↔ admin ↔ owner`), bổ sung vai trò **Quản lý phụ (`admin`)** + 6 nhóm quyền phụ chi tiết (`attendance:review`, `work:manage`, `employees:manage`, `accounts:manage`, `payroll:manage`, `finance:manage`) (`migration 0032_employee_sub_permissions.sql`), nút **Phân quyền / Sửa** 1-chạm trên `/employees` và bảo vệ chống khóa Owner cuối cùng (`DONE`).
+- **Phase PQ-MAIN & UI-MINIMALIST (`v0.9.0` → `v0.9.22` — `5134bff` → `25cbea2`):** Hợp nhất phân hệ Báo giá In ấn UX V2 + Sổ công nợ AR/AP (`migrations 0033..0036`), tối ưu thác API (`v0.9.7`), chuẩn hóa Nhân sự/Chấm công (`migrations 0040..0043`), sao lưu mã hóa Offsite (`2fa780c`), thiết kế lại giao diện tối giản cho `/login`, `/dashboard`, `/clock`, `/work` (`v0.9.21`–`v0.9.22`) và vá `Payroll 40001` (`4368785`) (`DONE`).
+- **Phase QA-REMEDIATION (`v0.9.23`):** Khắc phục dứt điểm 12 lỗi kiểm thử toàn diện (`BUG-QA-01..12`), dọn sạch code thừa (`0` orphan/unused), chuẩn hóa `Manage-StagingEnv.ps1` + `cleanup-macbook-dev.sh` và công cụ `release:print-owner-gate` (`DONE`).
 
 ---
 
