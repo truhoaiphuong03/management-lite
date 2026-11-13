@@ -706,12 +706,9 @@ export const App: React.FC = () => {
       return;
     }
     clearPendingExpiryTimer();
-    executeLogout(sessionTrackerRef.current);
-    syncTrackerToState();
-    handleNavigate('/login');
+    let token = csrfToken;
 
     try {
-      let token = csrfToken;
       if (!token) {
         try {
           const meRes = await fetch('/api/v1/auth/me', {
@@ -730,14 +727,29 @@ export const App: React.FC = () => {
       };
       if (token) headers['X-CSRF-Token'] = token;
 
-      await fetch('/api/v1/auth/logout', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({}),
-      });
+      const controller =
+        typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = controller
+        ? setTimeout(() => controller.abort(), 2500)
+        : null;
+      try {
+        await fetch('/api/v1/auth/logout', {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          keepalive: true,
+          body: JSON.stringify({}),
+          ...(controller ? { signal: controller.signal } : {}),
+        });
+      } finally {
+        if (timer !== null) clearTimeout(timer);
+      }
     } catch {
       // Ignore logout transport errors, proceed to clear local state
+    } finally {
+      executeLogout(sessionTrackerRef.current);
+      syncTrackerToState();
+      handleNavigate('/login');
     }
   };
 
@@ -1218,8 +1230,16 @@ export const App: React.FC = () => {
               marginBottom: '16px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangleIcon size={16} />
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flex: '1 1 280px',
+                minWidth: 0,
+              }}
+            >
+              <AlertTriangleIcon size={16} style={{ flexShrink: 0 }} />
               <span>
                 Email tài khoản chưa được xác minh. Vui lòng xác minh email để
                 sử dụng tính năng khôi phục mật khẩu.
@@ -1229,7 +1249,15 @@ export const App: React.FC = () => {
                   ' (Không thể gửi thư, vui lòng thử lại)'}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+                marginLeft: 'auto',
+              }}
+            >
               <button
                 type="button"
                 data-testid="resend-verification-email-btn"

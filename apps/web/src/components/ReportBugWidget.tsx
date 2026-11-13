@@ -26,14 +26,18 @@ export function generateReportIdempotencyKey(): string {
 export function getModuleNameFromPath(path: string): string {
   if (path === '/' || path === '') return 'Tổng quan (Dashboard)';
   if (path.startsWith('/clock')) return 'Chấm công (Clock)';
+  if (path.startsWith('/attendance')) return 'Quản lý chấm công (Attendance)';
   if (path.startsWith('/schedule')) return 'Lịch làm việc (Schedule)';
   if (path.startsWith('/reports')) return 'Báo cáo chấm công (Reports)';
   if (path.startsWith('/payroll') || path.startsWith('/my-pay'))
     return 'Bảng lương (Payroll)';
   if (path.startsWith('/employees')) return 'Nhân sự (Employees)';
+  if (path.startsWith('/print-quotes')) return 'Báo giá in ấn (Print Quotes)';
   if (path.startsWith('/work')) return 'Công việc (Work)';
   if (path.startsWith('/accounts')) return 'Tài khoản liên kết (Accounts)';
+  if (path.startsWith('/finance')) return 'Thu chi & Sổ quỹ (Finance)';
   if (path.startsWith('/storage')) return 'Kho lưu trữ (Storage)';
+  if (path.startsWith('/system-logs')) return 'Nhật ký hệ thống (System Logs)';
   if (path.startsWith('/audit')) return 'Nhật ký kiểm toán (Audit)';
   if (path.startsWith('/settings')) return 'Cài đặt hệ thống (Settings)';
   if (path.startsWith('/issues')) return 'Báo lỗi & Góp ý (Issues)';
@@ -655,6 +659,27 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) {
+        e.preventDefault();
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [
+    isOpen,
+    isSubmitting,
+    description,
+    isUnknownOutcome,
+    resolvedWorkspaceId,
+    resolvedUserId,
+  ]);
+
   // FIX-02: Discard is strictly disabled during unknown outcome to prevent losing reconciliation
   const handleDiscardAndNew = () => {
     if (isSubmitting || isUnknownOutcome) return;
@@ -1050,6 +1075,11 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
           aria-modal="true"
           aria-labelledby="report-modal-title"
           data-testid="report-bug-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSubmitting) {
+              handleClose();
+            }
+          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -1162,7 +1192,9 @@ export const ReportBugWidget: React.FC<ReportBugWidgetProps> = ({
                   Hệ thống Web:
                 </strong>{' '}
                 <span style={{ color: 'var(--accent-text)', fontWeight: 600 }}>
-                  ql.hoaiphuong.click
+                  {typeof window !== 'undefined' && window.location?.host
+                    ? window.location.host
+                    : 'ql.hoaiphuong.click'}
                 </span>
               </div>
               <div>
