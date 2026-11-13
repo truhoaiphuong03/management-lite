@@ -53,6 +53,7 @@ import {
 import { sanitizePostLoginRedirect } from './navigation-guard.js';
 import {
   AlertTriangleIcon,
+  CloseIcon,
   LoadingState,
   useAutoDismiss,
 } from '../../../packages/ui/src/components/index.js';
@@ -169,6 +170,18 @@ export const App: React.FC = () => {
   >(undefined);
   const [emailVerified, setEmailVerified] = useState<boolean | undefined>(
     undefined,
+  );
+  const [emailBannerDismissed, setEmailBannerDismissed] = useState<boolean>(
+    () => {
+      try {
+        return (
+          typeof window !== 'undefined' &&
+          window.sessionStorage.getItem('mglite_email_banner_dismissed') === '1'
+        );
+      } catch {
+        return false;
+      }
+    },
   );
   const [resendBannerState, setResendBannerState] = useState<
     'idle' | 'sending' | 'sent' | 'error'
@@ -306,6 +319,14 @@ export const App: React.FC = () => {
     if (!t.isLoggedIn) {
       setProfileFullName(undefined);
       setProfileEmployeeCode(undefined);
+      setEmailBannerDismissed(false);
+      try {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem('mglite_email_banner_dismissed');
+        }
+      } catch {
+        // Ignore storage error
+      }
     }
   };
 
@@ -1177,7 +1198,7 @@ export const App: React.FC = () => {
             </span>
           </div>
         )}
-        {isLoggedIn && emailVerified === false && (
+        {isLoggedIn && emailVerified === false && !emailBannerDismissed && (
           <div
             role="status"
             data-testid="unverified-email-banner"
@@ -1296,6 +1317,39 @@ export const App: React.FC = () => {
                 }}
               >
                 Nhập mã xác minh
+              </button>
+              <button
+                type="button"
+                aria-label="Đóng tạm thông báo xác minh email"
+                title="Ẩn tạm trong phiên này"
+                data-testid="dismiss-unverified-email-banner"
+                onClick={() => {
+                  setEmailBannerDismissed(true);
+                  try {
+                    window.sessionStorage.setItem(
+                      'mglite_email_banner_dismissed',
+                      '1',
+                    );
+                  } catch {
+                    // Ignore storage error
+                  }
+                }}
+                style={{
+                  backgroundColor: 'transparent',
+                  color: 'var(--muted-color)',
+                  border: '1px solid var(--border-hover)',
+                  borderRadius: '6px',
+                  width: '30px',
+                  height: '30px',
+                  padding: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                <CloseIcon size={14} />
               </button>
             </div>
           </div>
