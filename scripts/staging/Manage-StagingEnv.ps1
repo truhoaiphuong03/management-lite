@@ -119,10 +119,28 @@ switch ($Action) {
         if (-not (Test-Path -LiteralPath $ApiMainScript)) { throw "Missing $ApiMainScript (run npm run build first)" }
         if (-not (Test-Path -LiteralPath $WebDistIndex)) { throw "Missing $WebDistIndex (run npm run build:web first)" }
 
-        # Ensure isolated PostgreSQL cluster on $DbPort is running
+        # Ensure isolated PostgreSQL cluster on $DbPort is running (without piping stdout from background postgres.exe)
         if (-not (Test-PortListening $DbPort)) {
-            $TestEnvScript = Join-Path $RepoPath 'scripts\test-env\Manage-TestEnv.ps1'
-            & powershell -NoProfile -ExecutionPolicy Bypass -File $TestEnvScript -Action Start -RepoPath $RepoPath | Out-Null
+            $PgCtlExe = Join-Path $TestRoot 'pgsql\bin\pg_ctl.exe'
+            $PgIsReadyExe = Join-Path $TestRoot 'pgsql\bin\pg_isready.exe'
+            $PgDataDir = Join-Path $TestRoot 'pgdata'
+            $PgLogDir = Join-Path $TestRoot 'log'
+            if (-not (Test-Path -LiteralPath $PgCtlExe)) {
+                throw "Missing isolated PostgreSQL binary at $PgCtlExe (run Manage-TestEnv.ps1 -Action Create first)."
+            }
+            New-Item -ItemType Directory -Force -Path $PgLogDir | Out-Null
+            $null = Start-Process -FilePath $PgCtlExe `
+                -ArgumentList @('start', '-D', "`"$PgDataDir`"", '-l', "`"$PgLogDir\postgres.log`"", '-t', '60') `
+                -RedirectStandardOutput (Join-Path $PgLogDir 'pgctl-staging.out') `
+                -RedirectStandardError (Join-Path $PgLogDir 'pgctl-staging.err') `
+                -WindowStyle Hidden
+            for ($i = 0; $i -lt 60; $i++) {
+                Start-Sleep -Milliseconds 500
+                if (Test-PortListening $DbPort) {
+                    & $PgIsReadyExe -h 127.0.0.1 -p $DbPort -U ml_test_admin -d postgres 2>$null | Out-Null
+                    if ($LASTEXITCODE -eq 0) { break }
+                }
+            }
         }
         if (-not (Test-PortListening $DbPort)) {
             throw "STAGING_START_ABORTED: Isolated PostgreSQL cluster is not listening on 127.0.0.1:$DbPort."
@@ -152,25 +170,20 @@ switch ($Action) {
             $ErrorActionPreference = $prevEap
         }
 
-        # Run migrations against $DbName
-        $MigrateRunner = Join-Path $StagingWorkDir 'migrate-staging.mjs'
+        # Run migrations against $DbName using the repository's canonical migrate.mjs
         $RepoForward = $RepoPath.Replace('\', '/')
-        [IO.File]::WriteAllText($MigrateRunner, @"
-import { runMigrations, loadMigrationFiles } from 'file:///$RepoForward/dist/packages/database/src/migrator.js';
-import pg from 'pg';
-const pool = new pg.Pool({ connectionString: process.env.STAGING_MIG_URL });
-try {
-  await runMigrations(pool, loadMigrationFiles('$RepoForward/packages/database/src/migrations'));
-} finally {
-  await pool.end();
-}
-"@)
-        $env:STAGING_MIG_URL = $DbUrl
+        $MigrateScript = Join-Path $RepoPath 'scripts\migrate.mjs'
+        $env:DATABASE_URL = $DbUrl
         try {
-            & $NodeExe $MigrateRunner
-            if ($LASTEXITCODE -ne 0) { throw "Staging database migration failed ($LASTEXITCODE)" }
+            Push-Location $RepoPath
+            try {
+                & $NodeExe $MigrateScript | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "Staging database migration failed ($LASTEXITCODE)" }
+            } finally {
+                Pop-Location
+            }
         } finally {
-            Remove-Item Env:STAGING_MIG_URL -ErrorAction SilentlyContinue
+            Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
         }
 
         # Ephemeral secrets for this staging session
@@ -236,25 +249,26 @@ import('file:///$RepoForward/dist/apps/api/src/main.js').catch((err) => {
 });
 "@)
 
-        $WebLauncher = Join-Path $StagingWorkDir 'start-staging-web.cjs'
-        [IO.File]::WriteAllText($WebLauncher, @"
-'use strict';
-process.env.WEB_ROOT = '$($RepoPath.Replace('\', '\\'))\\apps\\web\\dist';
-process.env.WEB_HOST = '127.0.0.1';
-process.env.WEB_PORT = '$WebPort';
-process.env.API_HOST = '127.0.0.1';
-process.env.API_PORT = '$ApiPort';
-process.chdir('$($RepoPath.Replace('\', '\\'))');
-require('$($ServeWebScript.Replace('\', '\\'))');
-"@)
-
         $ApiOutLog = Join-Path $StagingWorkDir 'api.out.log'
         $ApiErrLog = Join-Path $StagingWorkDir 'api.err.log'
         $WebOutLog = Join-Path $StagingWorkDir 'web.out.log'
         $WebErrLog = Join-Path $StagingWorkDir 'web.err.log'
 
         $apiProc = Start-Process -FilePath $NodeExe -ArgumentList @($ApiLauncher) -WorkingDirectory $RepoPath -RedirectStandardOutput $ApiOutLog -RedirectStandardError $ApiErrLog -WindowStyle Hidden -PassThru
-        $webProc = Start-Process -FilePath $NodeExe -ArgumentList @($WebLauncher) -WorkingDirectory $RepoPath -RedirectStandardOutput $WebOutLog -RedirectStandardError $WebErrLog -WindowStyle Hidden -PassThru
+
+        # Launch serve-web.cjs directly as an independent entry module so require.main === module holds
+        $env:WEB_ROOT = Join-Path $RepoPath 'apps\web\dist'
+        $env:WEB_HOST = '127.0.0.1'
+        $env:WEB_PORT = "$WebPort"
+        $env:API_HOST = '127.0.0.1'
+        $env:API_PORT = "$ApiPort"
+        try {
+            $webProc = Start-Process -FilePath $NodeExe -ArgumentList @($ServeWebScript) -WorkingDirectory $RepoPath -RedirectStandardOutput $WebOutLog -RedirectStandardError $WebErrLog -WindowStyle Hidden -PassThru
+        } finally {
+            foreach ($wk in @('WEB_ROOT', 'WEB_HOST', 'WEB_PORT', 'API_HOST', 'API_PORT')) {
+                Remove-Item "Env:$wk" -ErrorAction SilentlyContinue
+            }
+        }
 
         $pidData = [ordered]@{
             web_pid    = $webProc.Id
