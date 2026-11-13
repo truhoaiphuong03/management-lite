@@ -558,6 +558,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
 
   // Client-side pagination over the already-loaded list (no API change).
   const [listPage, setListPage] = useState(0);
+  const [showAdvancedWorkFilters, setShowAdvancedWorkFilters] = useState(false);
   const [listPageSize, setListPageSize] = useState(20);
   const safeListPage = clampPage(listPage, filteredItems.length, listPageSize);
   const pagedItems = useMemo(
@@ -1015,7 +1016,16 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
     checklistIndex: number,
     nextChecked: boolean,
   ) => {
-    if (role !== 'owner' || submitting || targetItem.status === 'cancelled') {
+    const isAssignedToMe = Boolean(
+      currentEmployeeId &&
+      targetItem.assignments?.some((a) => a.employee_id === currentEmployeeId),
+    );
+    if (
+      (role !== 'owner' && !isAssignedToMe) ||
+      submitting ||
+      targetItem.status === 'cancelled' ||
+      (role !== 'owner' && targetItem.status === 'completed')
+    ) {
       return;
     }
     const previousDesc = targetItem.description;
@@ -2488,8 +2498,16 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     }}
                   >
                     {parsedDetailDesc.checklistItems.map((step) => {
+                      const isAssignedToMe = Boolean(
+                        currentEmployeeId &&
+                        item.assignments?.some(
+                          (a) => a.employee_id === currentEmployeeId,
+                        ),
+                      );
                       const canToggleStep =
-                        role === 'owner' && item.status !== 'cancelled';
+                        (role === 'owner' ||
+                          (isAssignedToMe && item.status !== 'completed')) &&
+                        item.status !== 'cancelled';
                       return (
                         <button
                           key={`${step.index}-${step.lineIndex}`}
@@ -4253,7 +4271,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           boxShadow: 'none',
         }}
       >
-        {/* Top Row: Quick Focus Chips + Sort Selector */}
+        {/* Top Row: Quick Focus Chips + Filter Toggle */}
         <div
           style={{
             display: 'flex',
@@ -4261,9 +4279,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
             alignItems: 'center',
             gap: '10px',
             flexWrap: 'wrap',
-            paddingBottom: '12px',
-            marginBottom: '12px',
-            borderBottom: '1px solid var(--border-subtle)',
+            paddingBottom: showAdvancedWorkFilters ? '12px' : 0,
+            marginBottom: showAdvancedWorkFilters ? '12px' : 0,
+            borderBottom: showAdvancedWorkFilters
+              ? '1px solid var(--border-subtle)'
+              : 'none',
           }}
         >
           <div
@@ -4352,6 +4372,27 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              data-testid="toggle-work-filters-btn"
+              aria-expanded={showAdvancedWorkFilters}
+              onClick={() => setShowAdvancedWorkFilters((prev) => !prev)}
+              style={{
+                minHeight: '38px',
+                padding: '6px 12px',
+                backgroundColor: showAdvancedWorkFilters
+                  ? 'var(--surface-subtle)'
+                  : 'var(--bg-color)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '12px',
+                color: 'var(--text-color)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {showAdvancedWorkFilters ? '▴ Ẩn bộ lọc' : '▾ Tìm & Lọc'}
+            </button>
             <select
               data-testid="work-sort-select"
               aria-label="Sắp xếp thứ tự công việc"
@@ -4361,6 +4402,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 setListPage(0);
               }}
               style={{
+                display: showAdvancedWorkFilters ? undefined : 'none',
                 minHeight: '38px',
                 padding: '6px 12px',
                 backgroundColor: 'var(--bg-color)',
@@ -4386,7 +4428,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
         <div
           className="work-filter-grid"
           style={{
-            display: 'grid',
+            display: showAdvancedWorkFilters ? 'grid' : 'none',
             gridTemplateColumns:
               'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
             gap: '10px',

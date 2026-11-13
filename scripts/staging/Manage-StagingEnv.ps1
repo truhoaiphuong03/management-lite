@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Manage-StagingEnv.ps1 — Isolated Staging Environment Controller (W2B.7 / F1 / OA-24)
 .DESCRIPTION
@@ -15,7 +15,7 @@ param(
     [ValidateSet('VerifyConfig', 'Start', 'Stop', 'Status', 'SmokeTest')]
     [string]$Action,
     [string]$TestRoot = 'C:\ML-Test',
-    [string]$RepoPath = (Resolve-Path "$PSScriptRoot\..\..").Path,
+    [string]$RepoPath = '',
     [int]$WebPort = 4001,
     [int]$ApiPort = 4002,
     [int]$DbPort = 55433,
@@ -24,6 +24,13 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($RepoPath)) {
+    $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
+    $RepoPath = [System.IO.Path]::GetFullPath((Join-Path $ScriptDir '..\..'))
+} else {
+    $RepoPath = [System.IO.Path]::GetFullPath($RepoPath)
+}
 
 $ForbiddenPorts = @(3000, 3001, 3002, 3004, 3005, 3007, 3008, 3017, 3018, 3027, 3028, 3401, 3462, 55432)
 foreach ($p in @($WebPort, $ApiPort, $DbPort)) {
@@ -80,6 +87,248 @@ switch ($Action) {
             api_port_listening = (Test-PortListening $ApiPort)
             db_port_listening  = (Test-PortListening $DbPort)
             pid_record         = $pids
+        } | ConvertTo-Json -Depth 4
+    }
+
+    'Start' {
+        New-Item -ItemType Directory -Force -Path $StagingWorkDir | Out-Null
+
+        # Stop any stale staging processes tracked in PidFile first
+        if (Test-Path -LiteralPath $PidFile) {
+            $oldPids = Get-Content -LiteralPath $PidFile -Raw | ConvertFrom-Json
+            foreach ($prop in @('web_pid', 'api_pid')) {
+                $targetPid = $oldPids.$prop
+                if ($targetPid) {
+                    $proc = Get-Process -Id $targetPid -ErrorAction SilentlyContinue
+                    if ($proc -and $proc.ProcessName -eq 'node') {
+                        Stop-Process -Id $targetPid -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+            Remove-Item -LiteralPath $PidFile -Force -ErrorAction SilentlyContinue
+        }
+
+        if ((Test-PortListening $WebPort) -or (Test-PortListening $ApiPort)) {
+            throw "STAGING_START_ABORTED: WebPort ($WebPort) or ApiPort ($ApiPort) is already in use by another process."
+        }
+
+        $ServeWebScript = Join-Path $RepoPath 'scripts\runtime\serve-web.cjs'
+        $ApiMainScript = Join-Path $RepoPath 'dist\apps\api\src\main.js'
+        $WebDistIndex = Join-Path $RepoPath 'apps\web\dist\index.html'
+        if (-not (Test-Path -LiteralPath $ServeWebScript)) { throw "Missing $ServeWebScript" }
+        if (-not (Test-Path -LiteralPath $ApiMainScript)) { throw "Missing $ApiMainScript (run npm run build first)" }
+        if (-not (Test-Path -LiteralPath $WebDistIndex)) { throw "Missing $WebDistIndex (run npm run build:web first)" }
+
+        # Ensure isolated PostgreSQL cluster on $DbPort is running
+        if (-not (Test-PortListening $DbPort)) {
+            $TestEnvScript = Join-Path $RepoPath 'scripts\test-env\Manage-TestEnv.ps1'
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $TestEnvScript -Action Start -RepoPath $RepoPath | Out-Null
+        }
+        if (-not (Test-PortListening $DbPort)) {
+            throw "STAGING_START_ABORTED: Isolated PostgreSQL cluster is not listening on 127.0.0.1:$DbPort."
+        }
+
+        $AdminPwPath = Join-Path $TestRoot 'secrets\admin.pw'
+        $PsqlExe = Join-Path $TestRoot 'pgsql\bin\psql.exe'
+        if (-not (Test-Path -LiteralPath $AdminPwPath)) {
+            throw "Missing test admin password at $AdminPwPath"
+        }
+        $RawPw = (Get-Content -LiteralPath $AdminPwPath -Raw).Trim()
+        $EscapedPw = [uri]::EscapeDataString($RawPw)
+        $DbUrl = "postgresql://ml_test_admin:$EscapedPw@127.0.0.1:$DbPort/$DbName"
+
+        # Create staging database if not exists
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $env:PGPASSWORD = $RawPw
+        try {
+            $existsOut = & $PsqlExe -h 127.0.0.1 -p $DbPort -U ml_test_admin -d postgres -X -A -t -c "SELECT 1 FROM pg_database WHERE datname = '$DbName';" 2>&1
+            if (($existsOut -join '').Trim() -ne '1') {
+                & $PsqlExe -h 127.0.0.1 -p $DbPort -U ml_test_admin -d postgres -X -A -t -v ON_ERROR_STOP=1 -c "CREATE DATABASE $DbName;" 2>&1 | Out-Null
+            }
+            $liveSysId = (& $PsqlExe -h 127.0.0.1 -p $DbPort -U ml_test_admin -d postgres -X -A -t -c "SELECT system_identifier::text FROM pg_control_system();" 2>&1 | Select-Object -First 1).Trim()
+        } finally {
+            Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+            $ErrorActionPreference = $prevEap
+        }
+
+        # Run migrations against $DbName
+        $MigrateRunner = Join-Path $StagingWorkDir 'migrate-staging.mjs'
+        $RepoForward = $RepoPath.Replace('\', '/')
+        [IO.File]::WriteAllText($MigrateRunner, @"
+import { runMigrations, loadMigrationFiles } from 'file:///$RepoForward/dist/packages/database/src/migrator.js';
+import pg from 'pg';
+const pool = new pg.Pool({ connectionString: process.env.STAGING_MIG_URL });
+try {
+  await runMigrations(pool, loadMigrationFiles('$RepoForward/packages/database/src/migrations'));
+} finally {
+  await pool.end();
+}
+"@)
+        $env:STAGING_MIG_URL = $DbUrl
+        try {
+            & $NodeExe $MigrateRunner
+            if ($LASTEXITCODE -ne 0) { throw "Staging database migration failed ($LASTEXITCODE)" }
+        } finally {
+            Remove-Item Env:STAGING_MIG_URL -ErrorAction SilentlyContinue
+        }
+
+        # Ephemeral secrets for this staging session
+        $SecretsFile = Join-Path $StagingWorkDir 'staging-secrets.json'
+        $CsrfSecret = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+        $AccountSecretKey = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+        if (Test-Path -LiteralPath $SecretsFile) {
+            try {
+                $savedSecrets = Get-Content -LiteralPath $SecretsFile -Raw | ConvertFrom-Json
+                if ($savedSecrets.csrf_secret) { $CsrfSecret = $savedSecrets.csrf_secret }
+                if ($savedSecrets.account_secret_key) { $AccountSecretKey = $savedSecrets.account_secret_key }
+            } catch {}
+        }
+        [IO.File]::WriteAllText($SecretsFile, ([ordered]@{
+            csrf_secret        = $CsrfSecret
+            account_secret_key = $AccountSecretKey
+        } | ConvertTo-Json))
+
+        # Seed unified QA accounts if .env.qa-credentials.local exists (or create default local QA credentials)
+        $QaCredsFile = Join-Path $RepoPath '.env.qa-credentials.local'
+        if (-not (Test-Path -LiteralPath $QaCredsFile)) {
+            $MainCredsFile = 'C:\Projects\management-lite\.env.qa-credentials.local'
+            if (Test-Path -LiteralPath $MainCredsFile) {
+                Copy-Item -LiteralPath $MainCredsFile -Destination $QaCredsFile -Force
+            }
+        }
+        if (Test-Path -LiteralPath $QaCredsFile) {
+            $env:NODE_ENV = 'test'
+            $env:TEST_DATABASE_URL = $DbUrl
+            $env:CONFIRM_ISOLATED_TEST_DB = 'true'
+            $env:VERIFY_QA_SYSTEM_IDENTIFIER = $liveSysId
+            $env:ACCOUNT_SECRET_KEY = $AccountSecretKey
+            try {
+                Push-Location $RepoPath
+                try {
+                    & $NodeExe (Join-Path $RepoPath 'scripts\seed-unified-qa.mjs') | Out-Null
+                } finally {
+                    Pop-Location
+                }
+            } finally {
+                foreach ($k in @('NODE_ENV', 'TEST_DATABASE_URL', 'CONFIRM_ISOLATED_TEST_DB', 'VERIFY_QA_SYSTEM_IDENTIFIER', 'ACCOUNT_SECRET_KEY')) {
+                    Remove-Item "Env:$k" -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
+        # Create launcher scripts for API and Web with isolated env vars
+        $ApiLauncher = Join-Path $StagingWorkDir 'start-staging-api.cjs'
+        [IO.File]::WriteAllText($ApiLauncher, @"
+'use strict';
+process.env.NODE_ENV = 'development';
+process.env.HOST = '127.0.0.1';
+process.env.PORT = '$ApiPort';
+process.env.DATABASE_URL = '$DbUrl';
+process.env.SESSION_COOKIE_NAME = 'ml_staging_session';
+process.env.ALLOWED_ORIGINS = 'http://127.0.0.1:$WebPort,http://localhost:$WebPort';
+process.env.CSRF_SECRET = '$CsrfSecret';
+process.env.ACCOUNT_SECRET_KEY = '$AccountSecretKey';
+process.chdir('$($RepoPath.Replace('\', '\\'))');
+import('file:///$RepoForward/dist/apps/api/src/main.js').catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+"@)
+
+        $WebLauncher = Join-Path $StagingWorkDir 'start-staging-web.cjs'
+        [IO.File]::WriteAllText($WebLauncher, @"
+'use strict';
+process.env.WEB_ROOT = '$($RepoPath.Replace('\', '\\'))\\apps\\web\\dist';
+process.env.WEB_HOST = '127.0.0.1';
+process.env.WEB_PORT = '$WebPort';
+process.env.API_HOST = '127.0.0.1';
+process.env.API_PORT = '$ApiPort';
+process.chdir('$($RepoPath.Replace('\', '\\'))');
+require('$($ServeWebScript.Replace('\', '\\'))');
+"@)
+
+        $ApiOutLog = Join-Path $StagingWorkDir 'api.out.log'
+        $ApiErrLog = Join-Path $StagingWorkDir 'api.err.log'
+        $WebOutLog = Join-Path $StagingWorkDir 'web.out.log'
+        $WebErrLog = Join-Path $StagingWorkDir 'web.err.log'
+
+        $apiProc = Start-Process -FilePath $NodeExe -ArgumentList @($ApiLauncher) -WorkingDirectory $RepoPath -RedirectStandardOutput $ApiOutLog -RedirectStandardError $ApiErrLog -WindowStyle Hidden -PassThru
+        $webProc = Start-Process -FilePath $NodeExe -ArgumentList @($WebLauncher) -WorkingDirectory $RepoPath -RedirectStandardOutput $WebOutLog -RedirectStandardError $WebErrLog -WindowStyle Hidden -PassThru
+
+        $pidData = [ordered]@{
+            web_pid    = $webProc.Id
+            api_pid    = $apiProc.Id
+            web_port   = $WebPort
+            api_port   = $ApiPort
+            db_port    = $DbPort
+            db_name    = $DbName
+            repo_path  = $RepoPath
+            started_at = (Get-Date).ToString('o')
+        }
+        [IO.File]::WriteAllText($PidFile, ($pidData | ConvertTo-Json -Depth 4))
+
+        $ready = $false
+        for ($i = 0; $i -lt 40; $i++) {
+            Start-Sleep -Milliseconds 500
+            if ((Test-PortListening $ApiPort) -and (Test-PortListening $WebPort)) {
+                $ready = $true
+                break
+            }
+        }
+        if (-not $ready) {
+            throw "STAGING_START_TIMEOUT: API ($ApiPort) or Web ($WebPort) did not start within 20s. Check logs in $StagingWorkDir."
+        }
+
+        [ordered]@{
+            status             = 'STARTED'
+            web_origin         = "http://127.0.0.1:$WebPort"
+            api_origin         = "http://127.0.0.1:$ApiPort"
+            db_host_port       = "127.0.0.1:$DbPort"
+            db_name            = $DbName
+            web_port_listening = (Test-PortListening $WebPort)
+            api_port_listening = (Test-PortListening $ApiPort)
+            db_port_listening  = (Test-PortListening $DbPort)
+            pid_record         = $pidData
+        } | ConvertTo-Json -Depth 4
+    }
+
+    'SmokeTest' {
+        $webListening = Test-PortListening $WebPort
+        $apiListening = Test-PortListening $ApiPort
+        $dbListening = Test-PortListening $DbPort
+        if (-not ($webListening -and $apiListening -and $dbListening)) {
+            throw "STAGING_SMOKE_FAILED: Ports not all listening (web=$webListening, api=$apiListening, db=$dbListening)."
+        }
+
+        $apiHealthRes = Invoke-WebRequest -Uri "http://127.0.0.1:$ApiPort/api/v1/health" -UseBasicParsing -TimeoutSec 10
+        $webLoginRes = Invoke-WebRequest -Uri "http://127.0.0.1:$WebPort/login" -UseBasicParsing -TimeoutSec 10
+        $proxyHealthRes = Invoke-WebRequest -Uri "http://127.0.0.1:$WebPort/api/v1/health" -UseBasicParsing -TimeoutSec 10
+
+        $cspHeader = [string]$webLoginRes.Headers['Content-Security-Policy']
+        $xfoHeader = [string]$webLoginRes.Headers['X-Frame-Options']
+        $nosniffHeader = [string]$webLoginRes.Headers['X-Content-Type-Options']
+
+        $passed = (
+            $apiHealthRes.StatusCode -eq 200 -and
+            $webLoginRes.StatusCode -eq 200 -and
+            $proxyHealthRes.StatusCode -eq 200 -and
+            $cspHeader.Length -gt 0 -and
+            $xfoHeader -eq 'DENY' -and
+            $nosniffHeader -eq 'nosniff'
+        )
+        if (-not $passed) {
+            throw "STAGING_SMOKE_FAILED: Unexpected status or missing security headers."
+        }
+
+        [ordered]@{
+            status               = 'PASS'
+            api_health_status    = $apiHealthRes.StatusCode
+            web_login_status     = $webLoginRes.StatusCode
+            proxy_health_status  = $proxyHealthRes.StatusCode
+            has_csp_header       = ($cspHeader.Length -gt 0)
+            x_frame_options      = $xfoHeader
+            x_content_type_nosniff = $nosniffHeader
         } | ConvertTo-Json -Depth 4
     }
 

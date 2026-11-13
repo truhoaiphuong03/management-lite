@@ -130,6 +130,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       subtext: 'Chưa có dữ liệu ca làm việc',
     });
 
+  const [staffWorkMetric, setStaffWorkMetric] = useState<MetricCardState>({
+    badgeStatus: 'neutral',
+    badgeLabel: 'Cá nhân',
+    value: 'Xem danh sách',
+    subtext: 'Công việc được phân công cho bạn',
+  });
+
   const [bridgeStatus, setBridgeStatus] = useState<{
     connected: boolean;
     last_synced_at: string | null;
@@ -771,7 +778,41 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       }
     };
 
+    const loadStaffWork = async () => {
+      if (role === 'owner') return;
+      try {
+        const res = await fetch('/api/v1/work-items?limit=100', {
+          method: 'GET',
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!active || !res.ok) return;
+        const json = (await res.json().catch(() => null)) as {
+          data?: {
+            items?: Array<{ status?: string }>;
+          };
+        } | null;
+        if (!active || !Array.isArray(json?.data?.items)) return;
+        const items = json.data.items;
+        const openCount = items.filter(
+          (i) => i.status !== 'completed' && i.status !== 'cancelled',
+        ).length;
+        setStaffWorkMetric({
+          badgeStatus: openCount > 0 ? 'warning' : 'success',
+          badgeLabel: openCount > 0 ? 'Cần làm' : 'Hoàn tất',
+          value:
+            openCount > 0
+              ? `${openCount} việc đang mở`
+              : `${items.length} việc`,
+          subtext: `${items.length} công việc được phân công`,
+        });
+      } catch {
+        // Keep safe default fallback
+      }
+    };
+
     void loadSummary();
+    void loadStaffWork();
     void loadBridgeData();
     void loadSystemLogAlert();
 
@@ -795,14 +836,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           />
         }
         actions={
-          <AppButton
-            variant="primary"
-            className="dashboard-primary-btn"
-            onClick={() => onNavigate('/clock')}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+            }}
           >
-            <ClockIcon size={20} />
-            <span>Vào Chấm công</span>
-          </AppButton>
+            {role === 'owner' && (
+              <AppButton
+                variant="secondary"
+                data-testid="dashboard-create-work-btn"
+                onClick={() => onNavigate('/work/new')}
+              >
+                <span>+ Giao việc mới</span>
+              </AppButton>
+            )}
+            <AppButton
+              variant="primary"
+              className="dashboard-primary-btn"
+              onClick={() => onNavigate('/clock')}
+            >
+              <ClockIcon size={20} />
+              <span>Vào Chấm công</span>
+            </AppButton>
+          </div>
         }
       />
 
@@ -819,12 +878,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {shiftMetric.value}
           </span>
           <span
-            className="dashboard-kpi-status"
+            className="dashboard-kpi-status sr-only"
             style={{ color: getStatusColor(shiftMetric.badgeStatus) }}
           >
             {shiftMetric.badgeLabel}
           </span>
-          <span className="dashboard-kpi-subtext">{shiftMetric.subtext}</span>
+          <span className="dashboard-kpi-subtext sr-only">
+            {shiftMetric.subtext}
+          </span>
         </AppCard>
 
         <AppCard
@@ -838,12 +899,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {reportMetric.value}
           </span>
           <span
-            className="dashboard-kpi-status"
+            className="dashboard-kpi-status sr-only"
             style={{ color: getStatusColor(reportMetric.badgeStatus) }}
           >
             {reportMetric.badgeLabel}
           </span>
-          <span className="dashboard-kpi-subtext">{reportMetric.subtext}</span>
+          <span className="dashboard-kpi-subtext sr-only">
+            {reportMetric.subtext}
+          </span>
         </AppCard>
 
         {role === 'owner' ? (
@@ -859,12 +922,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 {employeesMetric.value}
               </span>
               <span
-                className="dashboard-kpi-status"
+                className="dashboard-kpi-status sr-only"
                 style={{ color: getStatusColor(employeesMetric.badgeStatus) }}
               >
                 {employeesMetric.badgeLabel}
               </span>
-              <span className="dashboard-kpi-subtext">
+              <span className="dashboard-kpi-subtext sr-only">
                 {employeesMetric.subtext}
               </span>
             </AppCard>
@@ -880,12 +943,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 {payrollMetric.value}
               </span>
               <span
-                className="dashboard-kpi-status"
+                className="dashboard-kpi-status sr-only"
                 style={{ color: getStatusColor(payrollMetric.badgeStatus) }}
               >
                 {payrollMetric.badgeLabel}
               </span>
-              <span className="dashboard-kpi-subtext">
+              <span className="dashboard-kpi-subtext sr-only">
                 {payrollMetric.subtext}
               </span>
             </AppCard>
@@ -902,14 +965,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               {staffAttendanceMetric.value}
             </span>
             <span
-              className="dashboard-kpi-status"
+              className="dashboard-kpi-status sr-only"
               style={{
                 color: getStatusColor(staffAttendanceMetric.badgeStatus),
               }}
             >
               {staffAttendanceMetric.badgeLabel}
             </span>
-            <span className="dashboard-kpi-subtext">
+            <span className="dashboard-kpi-subtext sr-only">
               {staffAttendanceMetric.subtext}
             </span>
           </AppCard>
@@ -1134,7 +1197,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       </span>
                     </div>
                     <span className="dashboard-row-right">
-                      <span>{staffAttendanceMetric.value}</span>
+                      <span>{staffWorkMetric.value}</span>
                       <ChevronRightSvg />
                     </span>
                   </button>

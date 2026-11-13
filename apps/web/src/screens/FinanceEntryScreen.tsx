@@ -38,7 +38,7 @@ import type { PrefillFields, ReceiptApi } from '../finance/receipt.js';
 export function FinanceEntryScreen({
   identity,
   onNavigate,
-  entryId,
+  entryId: rawEntryId,
   receipt: receiptProp,
   defaultReceipt = false,
   aiEnabled,
@@ -54,6 +54,7 @@ export function FinanceEntryScreen({
    */
   dialog?: { onClose: () => void; onSaved: (entryId: string) => void };
 }) {
+  const entryId = rawEntryId && rawEntryId !== 'new' ? rawEntryId : undefined;
   const receipt =
     receiptProp ?? (defaultReceipt ? createReceiptApi(identity) : undefined);
   const [direction, setDirection] = useState<FinanceDirection>('expense');
@@ -413,7 +414,9 @@ export function FinanceEntryScreen({
                   style={fieldStyle}
                   value={direction}
                   onChange={(e) => {
-                    setDirection(e.target.value as FinanceDirection);
+                    const nextDir = e.target.value as FinanceDirection;
+                    if (nextDir === direction) return;
+                    setDirection(nextDir);
                     setCategory('');
                     setCategories([]);
                     setCatCursor(null);
