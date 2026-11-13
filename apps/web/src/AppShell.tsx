@@ -1246,15 +1246,6 @@ export const AppShell: React.FC<AppShellProps> = ({
 
       {/* Responsive styles */}
       <style>{`
-        .app-shell-report-dock .btn-floating-report-bug {
-          position: relative;
-          bottom: auto !important;
-          right: auto !important;
-          z-index: 900;
-        }
-        .app-shell-report-dock .btn-floating-report-bug[data-dragged="true"] {
-          position: fixed;
-        }
         html[data-mobile-keyboard="open"] .mobile-bottom-nav-wrapper,
         .app-shell-root[data-mobile-keyboard="open"] .mobile-bottom-nav-wrapper,
         html[data-mobile-keyboard="open"] .app-shell-report-dock .btn-floating-report-bug,
@@ -1277,6 +1268,15 @@ export const AppShell: React.FC<AppShellProps> = ({
           }
         }
         @media (max-width: 768px) {
+          .app-shell-report-dock .btn-floating-report-bug {
+            position: relative !important;
+            bottom: auto !important;
+            right: auto !important;
+            z-index: 900;
+          }
+          .app-shell-report-dock .btn-floating-report-bug[data-dragged="true"] {
+            position: fixed !important;
+          }
           .desktop-sidebar-wrapper {
             display: none !important;
           }
