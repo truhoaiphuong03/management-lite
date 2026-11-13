@@ -38,9 +38,10 @@ export async function sha256File(filePath) {
 
 export function isInsideGitWorkTree(targetPath) {
   const resolved = path.resolve(targetPath);
-  let dir = fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()
-    ? resolved
-    : path.dirname(resolved);
+  let dir =
+    fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()
+      ? resolved
+      : path.dirname(resolved);
 
   // Walk upward checking for .git folder or file first (fast & offline-safe)
   let probe = dir;
@@ -127,7 +128,7 @@ export function encryptBuffer(
   metadata = {},
   kdfParams = DEFAULT_KDF,
 ) {
-  if (! passphrase || passphrase.length < 16) {
+  if (!passphrase || passphrase.length < 16) {
     throw new Error('Passphrase must be at least 16 characters.');
   }
   const salt = crypto.randomBytes(16);
@@ -193,7 +194,11 @@ export function decryptBuffer(encryptedBuf, passphrase) {
   const headerLen = encryptedBuf.readUInt32BE(MAGIC_BYTES.length);
   const headerStart = MAGIC_BYTES.length + 4;
   const headerEnd = headerStart + headerLen;
-  if (headerLen <= 0 || headerLen > 1024 * 1024 || headerEnd + 16 > encryptedBuf.length) {
+  if (
+    headerLen <= 0 ||
+    headerLen > 1024 * 1024 ||
+    headerEnd + 16 > encryptedBuf.length
+  ) {
     throw new Error('Corrupted encrypted header length.');
   }
 
@@ -317,7 +322,11 @@ export async function encryptFile({
   };
 
   const manifestPath = `${resolvedOut}.sha256.json`;
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(
+    manifestPath,
+    JSON.stringify(manifest, null, 2) + '\n',
+    'utf8',
+  );
 
   return {
     manifest,
@@ -351,7 +360,11 @@ export async function decryptFile({
 
   if (resolvedManifest && fs.existsSync(resolvedManifest)) {
     const manifest = JSON.parse(fs.readFileSync(resolvedManifest, 'utf8'));
-    if (manifest.chunked && Array.isArray(manifest.parts) && manifest.parts.length > 1) {
+    if (
+      manifest.chunked &&
+      Array.isArray(manifest.parts) &&
+      manifest.parts.length > 1
+    ) {
       const baseDir = path.dirname(resolvedIn);
       const chunks = [];
       for (const part of manifest.parts) {
@@ -384,7 +397,10 @@ export async function decryptFile({
     encryptedBuffer = fs.readFileSync(resolvedIn);
   }
 
-  const { plaintextBuffer, header } = decryptBuffer(encryptedBuffer, passphrase);
+  const { plaintextBuffer, header } = decryptBuffer(
+    encryptedBuffer,
+    passphrase,
+  );
   fs.mkdirSync(path.dirname(resolvedOut), { recursive: true });
   fs.writeFileSync(resolvedOut, plaintextBuffer);
 
@@ -407,7 +423,9 @@ export function computeReleasesToPrune(
   { dailyKeep = 14, tagPrefix = 'backup-' } = {},
 ) {
   const matching = releases
-    .filter((r) => typeof r.tag_name === 'string' && r.tag_name.startsWith(tagPrefix))
+    .filter(
+      (r) => typeof r.tag_name === 'string' && r.tag_name.startsWith(tagPrefix),
+    )
     .map((r) => {
       const tsMatch = /(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/.exec(
         r.tag_name,
@@ -469,9 +487,7 @@ export function resolveGitHubToken() {
       input: 'protocol=https\nhost=github.com\n\n',
       stdio: ['pipe', 'pipe', 'ignore'],
     }).toString('utf8');
-    const line = out
-      .split(/\r?\n/)
-      .find((l) => l.startsWith('password='));
+    const line = out.split(/\r?\n/).find((l) => l.startsWith('password='));
     if (line) {
       const token = line.slice('password='.length).trim();
       if (token) return token;
@@ -484,7 +500,10 @@ export function resolveGitHubToken() {
   );
 }
 
-async function githubApiRequest(url, { method = 'GET', token, body, headers = {} } = {}) {
+async function githubApiRequest(
+  url,
+  { method = 'GET', token, body, headers = {} } = {},
+) {
   const reqHeaders = {
     Authorization: `Bearer ${token}`,
     Accept: 'application/vnd.github+json',

@@ -1203,7 +1203,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   gap: 8px !important;
   cursor: pointer !important;
   text-decoration: none !important;
-  transition: background-color 0.15s ease, opacity 0.15s ease !important;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease !important;
 }
 
 .dashboard-primary-btn:hover:not(:disabled) {
@@ -1227,7 +1229,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   justify-content: center !important;
   gap: 6px !important;
   cursor: pointer !important;
-  transition: background-color 0.15s ease, border-color 0.15s ease !important;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease !important;
 }
 
 .dashboard-secondary-btn:hover:not(:disabled) {
@@ -1470,7 +1474,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   align-items: center;
   gap: 14px;
   cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease !important;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease !important;
 }
 
 .dashboard-quick-card:hover {

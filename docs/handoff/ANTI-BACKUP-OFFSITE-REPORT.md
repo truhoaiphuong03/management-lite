@@ -10,8 +10,9 @@
 ## Phần A — Kết quả Kiểm tra Sao lưu Hiện có trên WIN-1 (Chỉ đọc)
 
 ### Câu 1: Có lịch sao lưu tự động hằng ngày không?
+
 - **Trả lời:** **CÓ.** Trên máy `WIN-1` có đăng ký tác vụ Windows Task Scheduler tên **`\HPManagementLiteBackup`** chạy dưới quyền hệ thống `NT AUTHORITY\SYSTEM` (`S-1-5-18`, `LogonType: ServiceAccount`).
-  - *Lưu ý kỹ thuật:* Vì tác vụ đăng ký dưới `SYSTEM` (`S-1-5-18`), khi chạy `Get-ScheduledTask` ở cửa sổ PowerShell thường (không Elevated/Admin) Windows sẽ ẩn tác vụ này. Thông tin cấu hình và kết quả chạy thực tế được xác minh từ hồ sơ đặc quyền `C:\HoaiPhuong-Server\reports\HPManagementLiteBackup.task.xml`, `C:\HoaiPhuong-Server\reports\scheduled-tasks-elevated.json`, `C:\HoaiPhuong-Server\reports\scheduled-backup-result.txt` và nhật ký `C:\HoaiPhuong-Server\logs\scheduled-backup.log`.
+  - _Lưu ý kỹ thuật:_ Vì tác vụ đăng ký dưới `SYSTEM` (`S-1-5-18`), khi chạy `Get-ScheduledTask` ở cửa sổ PowerShell thường (không Elevated/Admin) Windows sẽ ẩn tác vụ này. Thông tin cấu hình và kết quả chạy thực tế được xác minh từ hồ sơ đặc quyền `C:\HoaiPhuong-Server\reports\HPManagementLiteBackup.task.xml`, `C:\HoaiPhuong-Server\reports\scheduled-tasks-elevated.json`, `C:\HoaiPhuong-Server\reports\scheduled-backup-result.txt` và nhật ký `C:\HoaiPhuong-Server\logs\scheduled-backup.log`.
 - **Chi tiết tác vụ `\HPManagementLiteBackup`:**
   - **Tên Task:** `\HPManagementLiteBackup` (`State: Ready`, `Enabled: true`)
   - **Lệnh thực thi:** `pwsh.exe -NoProfile -File C:\HoaiPhuong-Server\scripts\Scheduled-Backup.ps1`
@@ -29,6 +30,7 @@
 ---
 
 ### Câu 2: Bản sao lưu mới nhất, tổng số file, tổng dung lượng & cơ chế tự xóa bản cũ
+
 - **Trả lời:** Trên `C:\HoaiPhuong-Server\backups\` hiện có **2 thư mục** chứa file `.dump` của PostgreSQL:
   1. **Thư mục `C:\HoaiPhuong-Server\backups\postgres` (tạo bởi `Deploy-SemiAutoWindows.ps1` trước mỗi lần deploy):**
      - **Bản mới nhất:** `postgres-20261111T005151Z-f2fea68815774175b34abfd19233993e.dump`
@@ -54,6 +56,7 @@
 ---
 
 ### Câu 3: Bản sao lưu có gồm file chứng từ/hóa đơn (`FIN_RECEIPT_DIR`) không, hay chỉ có database?
+
 - **Trả lời:** **KHÔNG gồm file chứng từ/hóa đơn (`FIN_RECEIPT_DIR`).**
   - Bản sao lưu hiện tại chỉ gồm:
     1. File `.dump` của PostgreSQL (`pg_dump --format=custom`).
@@ -64,30 +67,32 @@
 ---
 
 ### Câu 4: Thử khôi phục thật (`pg_restore` sang cụm DEV/TEST cô lập `:55433`) & đối chiếu số dòng với Production
+
 - **Thực hiện:**
   1. Sao chép chỉ đọc bản `.dump` mới nhất (`postgres-20261111T005151Z-f2fea68815774175b34abfd19233993e.dump`) ra thư mục tạm ngoài Production: `C:\ML-Test\work\restore-drill-20261111\`.
   2. Kiểm tra mã băm SHA-256 của bản `.dump` khớp 100% với `.sha256.json`: `C84DE1BAD077B5A6046D5400199CAA8F937BF64FC2E5B8E5A82D15E7CCC70EA8` (và bản `03:00 AM` khớp 100%: `CC0F885ABDB4046E5CC520D9329833A4864B0A983B33991C31BD17CB7CDF2EB6`).
   3. Tạo database tạm `mglite_restore_drill_temp_20261111` trên cụm PostgreSQL 18.6 **TEST cô lập cổng `:55433`** (`C:\ML-Test\pgdata`) và chạy `pg_restore --no-owner --no-privileges --exit-on-error` (hoàn tất trong `5.591 ms`, exit code `0`).
   4. Truy vấn đếm số dòng các bảng chính trên DB tạm `:55433` và đối chiếu với truy vấn chỉ đọc (`SET default_transaction_read_only = on`) trên Production `:55432` lúc `21:10 +07:00`:
 
-| Bảng dữ liệu | Bản khôi phục trên `:55433` (từ dump `07:51 AM`) | Production `:55432` (chỉ đọc lúc `21:10 PM`) | Đánh giá đối chiếu |
-| --- | ---: | ---: | --- |
-| `workspaces` | `3` | `3` | Khớp 100% |
-| `users` | `10` | `10` | Khớp 100% |
-| `employees` (Nhân viên) | `3` | `3` | Khớp 100% |
-| `attendance_shifts` (Chấm công) | `61` | `62` | Khớp (1 ca mới chấm trong ngày 11/11 sau `07:51 AM`) |
-| `work_items` (Công việc) | `5` | `11` | Khớp (6 việc mới tạo trong ngày 11/11 sau `07:51 AM`) |
-| `fin_entries` (Thu chi) | `5` | `5` | Khớp 100% |
-| `payroll_periods` (Kỳ lương) | `5` | `5` | Khớp 100% |
-| `managed_accounts` (Tài khoản) | `17` | `17` | Khớp 100% |
-| `print_quotes` (Báo giá in) | `0` | `0` | Khớp 100% |
-| `print_orders` (Đơn hàng in) | `0` | `0` | Khớp 100% |
+| Bảng dữ liệu                    | Bản khôi phục trên `:55433` (từ dump `07:51 AM`) | Production `:55432` (chỉ đọc lúc `21:10 PM`) | Đánh giá đối chiếu                                    |
+| ------------------------------- | -----------------------------------------------: | -------------------------------------------: | ----------------------------------------------------- |
+| `workspaces`                    |                                              `3` |                                          `3` | Khớp 100%                                             |
+| `users`                         |                                             `10` |                                         `10` | Khớp 100%                                             |
+| `employees` (Nhân viên)         |                                              `3` |                                          `3` | Khớp 100%                                             |
+| `attendance_shifts` (Chấm công) |                                             `61` |                                         `62` | Khớp (1 ca mới chấm trong ngày 11/11 sau `07:51 AM`)  |
+| `work_items` (Công việc)        |                                              `5` |                                         `11` | Khớp (6 việc mới tạo trong ngày 11/11 sau `07:51 AM`) |
+| `fin_entries` (Thu chi)         |                                              `5` |                                          `5` | Khớp 100%                                             |
+| `payroll_periods` (Kỳ lương)    |                                              `5` |                                          `5` | Khớp 100%                                             |
+| `managed_accounts` (Tài khoản)  |                                             `17` |                                         `17` | Khớp 100%                                             |
+| `print_quotes` (Báo giá in)     |                                              `0` |                                          `0` | Khớp 100%                                             |
+| `print_orders` (Đơn hàng in)    |                                              `0` |                                          `0` | Khớp 100%                                             |
 
-  5. Đã xóa database tạm `DROP DATABASE mglite_restore_drill_temp_20261111` trên `:55433` và xóa sạch thư mục tạm `C:\ML-Test\work\restore-drill-20261111\`.
+5. Đã xóa database tạm `DROP DATABASE mglite_restore_drill_temp_20261111` trên `:55433` và xóa sạch thư mục tạm `C:\ML-Test\work\restore-drill-20261111\`.
 
 ---
 
 ### Câu 5: Ổ `C:` còn trống bao nhiêu?
+
 - **Trả lời:** Ổ `C:` còn trống **`27,10 GB`** (`29.103.308.800 bytes`) trên tổng dung lượng **`231,35 GB`** (đã dùng `204,25 GB`).
 - **Lệnh đã chạy:**
   ```powershell
@@ -99,6 +104,7 @@
 ## Phần B — Triển khai & Kết quả Chạy thử Bản sao Ngoài Máy chủ (DEV/TEST)
 
 ### 1. Các tệp đã xây dựng
+
 1. [`scripts/ops/offsite-backup-core.mjs`](../../scripts/ops/offsite-backup-core.mjs):
    - Kiểm tra an toàn file passphrase (`readAndValidatePassphraseFile`): từ chối chạy ngay lập tức (`REFUSED_PASSPHRASE_IN_GIT`) nếu file passphrase hoặc file đầu ra nằm trong bất kỳ thư mục Git nào; bắt buộc passphrase tối thiểu `16` ký tự.
    - Mã hóa & giải mã **AES-256-GCM** kết hợp dẫn xuất khóa **scrypt** (`N=131072, r=8, p=1`), xác thực toàn vẹn Header JSON qua GCM AAD và kiểm tra đối chiếu `plaintext_sha256` sau giải mã.
@@ -121,6 +127,7 @@
      5. Thuật toán giữ 14 bản ngày gần nhất + 1 bản mỗi tháng hoạt động chính xác.
 
 ### 2. Kết quả chạy thử toàn trình bằng dữ liệu giả DEV/TEST (không dùng dữ liệu thật)
+
 - Tạo DB giả `mglite_offsite_dev_test_20261111` trên cụm TEST `:55433` (gồm 1 bảng `synthetic_offsite_drill` với 3 dòng dữ liệu giả `DEV_ONLY_ROW_1..3`), xuất `pg_dump` ra `postgres-devtest-20261111.dump` (`SHA256 = 95f3318d7acddca358ecc28a7c2d865c4ce5a5bb1f3d9870ca05bab66ae1f9fe`).
 - Chạy `Push-OffsiteBackup.ps1 -TagPrefix test`:
   - Tạo release `test-20261111T142059Z-95f3318d` trên `truhoaiphuong03/management-lite-backups`.
@@ -136,6 +143,7 @@
 > **Lưu ý:** Owner vui lòng kiểm tra xem đã thực hiện sao lưu 2 khóa `ACCOUNT_SECRET_KEY` và `STORAGE_DRIVE_ENCRYPTION_KEY_HEX` theo [`docs/remediation/OWNER-KEY-BACKUP-GUIDE.md`](../remediation/OWNER-KEY-BACKUP-GUIDE.md) chưa. Nếu chưa, hãy thực hiện song song vì bản `.dump` không chứa 2 khóa nằm trong `api.env`.
 
 ### Bước 1: Tạo thư mục `C:\HP-Offsite` và tệp `passphrase.txt` (chỉ tài khoản của bạn và SYSTEM đọc được)
+
 Mở **PowerShell (Run as Administrator)** của riêng bạn (không dán passphrase vào chat AI):
 
 ```powershell
@@ -157,10 +165,12 @@ icacls $passFile /inheritance:r /grant:r "SYSTEM:(R)" "Administrators:(F)" "$($e
 ```
 
 ### Bước 2: Cất bản sao Passphrase thứ hai ở nơi độc lập ngoài máy chủ
+
 - Lưu passphrase vừa tạo vào **Trình quản lý mật khẩu** của bạn (1Password / Bitwarden / iCloud Keychain) và/hoặc ghi ra giấy/USB bảo mật cất tách biệt với máy `WIN-1`.
 - **Quan trọng:** Nếu mất cả máy `WIN-1` và quên passphrase, các bản `.dump.enc` trên GitHub sẽ không thể giải mã.
 
 ### Bước 3: Chạy tay lần đầu tiên để đẩy bản sao lưu thật lên GitHub và tự kiểm chứng
+
 Sau khi đã merge PR này (hoặc chạy trực tiếp từ thư mục repo), chạy lệnh sau trong PowerShell của bạn:
 
 ```powershell
@@ -168,11 +178,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Projects\management-lite
 ```
 
 Kiểm tra kết quả hiển thị `"status": "SUCCESS"` và xem log tại:
+
 ```powershell
 Get-Content -LiteralPath "C:\HP-Offsite\logs\offsite-backup-$((Get-Date).ToUniversalTime().ToString('yyyyMMdd')).log" -Tail 20
 ```
 
 ### Bước 4: Đăng ký lịch chạy tự động hằng ngày lúc `03:15` sáng (15 phút sau lịch sao lưu PostgreSQL `03:00` sáng)
+
 Chạy trong **PowerShell (Run as Administrator)**:
 
 ```powershell
@@ -192,9 +204,11 @@ Register-ScheduledTask `
   -RunLevel Highest `
   -Force
 ```
+
 > **Lưu ý:** Task đăng ký với `-User $env:USERNAME` mặc định **chỉ chạy khi user đang đăng nhập**. Nếu muốn chạy cả khi chưa đăng nhập (ví dụ sau khi máy tự khởi động lại), hãy tạo một Fine-grained Personal Access Token (`GH_TOKEN`) riêng **chỉ cấp quyền trên duy nhất kho `truhoaiphuong03/management-lite-backups`** (`Contents: Read and write`), nạp vào môi trường của script và đăng ký task chạy độc lập phiên đăng nhập.
 
 ### Bước 5: Cách tải về & khôi phục khi mất máy hoặc cần dựng lại từ bản Offsite
+
 > **Nguyên tắc an toàn:** Tuyệt đối **KHÔNG** chạy `pg_restore --clean` đè vào database đang chạy. Luôn tạo một database mới tên `management_lite_restore_<ngày>`, khôi phục vào database mới đó (không dùng `--clean`), đếm số dòng các bảng chính để kiểm tra trước; **việc chuyển app sang database mới chỉ do Owner tự thực hiện**.
 
 ```powershell

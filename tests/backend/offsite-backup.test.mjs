@@ -34,7 +34,10 @@ test('Offsite Backup 1: encryptFile -> decryptFile round-trip matches fake .dump
     // Create a synthetic PostgreSQL custom dump header + random payload (no real data, no network)
     const fakeDumpPath = path.join(tmpDir, 'postgres-synthetic-test.dump');
     const fakeDumpBytes = Buffer.concat([
-      Buffer.from('PGDMP\x01\x0e\x00\x04\x08\x01SYNTHETIC_DEV_DUMP_PAYLOAD', 'binary'),
+      Buffer.from(
+        'PGDMP\x01\x0e\x00\x04\x08\x01SYNTHETIC_DEV_DUMP_PAYLOAD',
+        'binary',
+      ),
       crypto.randomBytes(64 * 1024),
     ]);
     fs.writeFileSync(fakeDumpPath, fakeDumpBytes);
@@ -74,11 +77,23 @@ test('Offsite Backup 2: wrong passphrase or tampered ciphertext fails decryption
   try {
     const rightPassFile = path.join(tmpDir, 'right-pass.txt');
     const wrongPassFile = path.join(tmpDir, 'wrong-pass.txt');
-    fs.writeFileSync(rightPassFile, 'right-passphrase-at-least-16-chars', 'utf8');
-    fs.writeFileSync(wrongPassFile, 'wrong-passphrase-at-least-16-chars', 'utf8');
+    fs.writeFileSync(
+      rightPassFile,
+      'right-passphrase-at-least-16-chars',
+      'utf8',
+    );
+    fs.writeFileSync(
+      wrongPassFile,
+      'wrong-passphrase-at-least-16-chars',
+      'utf8',
+    );
 
     const fakeDumpPath = path.join(tmpDir, 'fake.dump');
-    fs.writeFileSync(fakeDumpPath, 'PGDMP-SYNTHETIC-CONTENT-1234567890', 'utf8');
+    fs.writeFileSync(
+      fakeDumpPath,
+      'PGDMP-SYNTHETIC-CONTENT-1234567890',
+      'utf8',
+    );
 
     const encPath = path.join(tmpDir, 'fake.dump.enc');
     await encryptFile({

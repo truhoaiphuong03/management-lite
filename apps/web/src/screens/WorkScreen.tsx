@@ -5051,7 +5051,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                                   gap: '5px',
                                 }}
                               >
-                                <UserIcon size={12} color="var(--accent-text)" />
+                                <UserIcon
+                                  size={12}
+                                  color="var(--accent-text)"
+                                />
                                 <span>
                                   {a.full_name || a.employee_code}
                                   {a.full_name && a.employee_code

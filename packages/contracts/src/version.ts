@@ -4,7 +4,7 @@
  */
 export const SYSTEM_NAME = 'Management Lite';
 export const SYSTEM_VERSION = '0.9.22';
-export const SYSTEM_COMMIT = '18fc733';
+export const SYSTEM_COMMIT = '3a3e776';
 export const SYSTEM_ENV = 'staging';
 
 export interface SystemInfo {

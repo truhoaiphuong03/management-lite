@@ -2051,7 +2051,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             <div className="clock-self-history-header">
               <h3
                 className="clock-self-history-title"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
               >
                 <CalendarIcon size={18} /> Lịch sử chấm công cá nhân
               </h3>
@@ -2517,8 +2521,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                                     fontSize: '12px',
                                     padding: '2px 8px',
                                     borderRadius: '6px',
-                                    backgroundColor:
-                                      'rgba(139, 92, 246, 0.14)',
+                                    backgroundColor: 'rgba(139, 92, 246, 0.14)',
                                     color: 'var(--purple-text)',
                                     fontWeight: 500,
                                   }}
