@@ -122,24 +122,42 @@ export class PayrollService {
     if (owner && m.rows[0]?.role !== 'owner')
       fail('FORBIDDEN', 'Owner permission required', 403);
   }
+  /**
+   * Read-only REPEATABLE READ transaction. The session/membership `FOR SHARE` locks can collide
+   * with a concurrent session `idle_expires_at` touch (40001/40P01); reads are idempotent, so the
+   * whole transaction is retried a few times before surfacing a retryable 409.
+   */
   private async read<T>(
     auth: AuthenticatedContext,
     owner: boolean,
     fn: (c: PoolClient) => Promise<T>,
   ): Promise<T> {
     if (owner) requireRole(['owner'], auth);
-    const c = await this.pool.connect();
-    try {
-      await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
-      await this.authorized(c, auth, owner);
-      const out = await fn(c);
-      await c.query('COMMIT');
-      return out;
-    } catch (e) {
-      await c.query('ROLLBACK');
-      throw e;
-    } finally {
-      c.release();
+    for (let attempt = 1; ; attempt++) {
+      const c = await this.pool.connect();
+      let broken = false;
+      try {
+        await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+        await this.authorized(c, auth, owner);
+        const out = await fn(c);
+        await c.query('COMMIT');
+        return out;
+      } catch (e) {
+        try {
+          await c.query('ROLLBACK');
+        } catch {
+          broken = true;
+        }
+        const code = (e as { code?: string }).code;
+        if (code === '40001' || code === '40P01') {
+          if (attempt >= 4) fail('CONFLICT', 'Concurrent change; retry', 409);
+          await new Promise((r) => setTimeout(r, 10 * attempt));
+          continue;
+        }
+        throw e;
+      } finally {
+        c.release(broken || undefined);
+      }
     }
   }
   private async write<T>(
