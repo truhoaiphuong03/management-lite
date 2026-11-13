@@ -1980,6 +1980,8 @@ export function createRequestHandler(
           'username',
           'password',
           'role',
+          'sub_role',
+          'sub_permissions',
           'phone',
           'date_of_birth',
           'gender',

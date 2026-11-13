@@ -484,9 +484,16 @@ export class WorkService {
     key: string | undefined,
     requestId: string,
   ) {
-    const owner = ['edit', 'assign', 'review', 'cancel', 'schedule'].includes(
-      action,
-    );
+    const isStaffChecklistToggle =
+      action === 'edit' &&
+      auth.workspace.role !== 'owner' &&
+      Object.keys(body).length > 0 &&
+      Object.keys(body).every((k) => k === 'description' || k === 'status') &&
+      typeof body.description === 'string' &&
+      (body.status === undefined || body.status === 'in_progress');
+    const owner =
+      ['edit', 'assign', 'review', 'cancel', 'schedule'].includes(action) &&
+      !isStaffChecklistToggle;
     const allowed: Record<string, string[]> = {
       edit: [
         'title',
@@ -594,11 +601,25 @@ export class WorkService {
             typeof attrs.status === 'string' ? attrs.status : undefined;
           delete attrs.status;
 
-          if (targetStatus === 'in_progress') {
-            await c.query(
-              "UPDATE work_assignments SET status='in_progress' WHERE workspace_id=$1 AND work_item_id=$2 AND status='todo'",
-              [auth.workspace.id, id],
+          if (auth.workspace.role !== 'owner' && item.status === 'completed')
+            fail(
+              'INVALID_TRANSITION',
+              'Completed work cannot be modified',
+              409,
             );
+          if (targetStatus === 'in_progress') {
+            if (auth.workspace.role === 'owner') {
+              await c.query(
+                "UPDATE work_assignments SET status='in_progress' WHERE workspace_id=$1 AND work_item_id=$2 AND status='todo'",
+                [auth.workspace.id, id],
+              );
+            } else {
+              const empId = await this.employee(c, auth);
+              await c.query(
+                "UPDATE work_assignments SET status='in_progress' WHERE workspace_id=$1 AND work_item_id=$2 AND employee_id=$3 AND status='todo'",
+                [auth.workspace.id, id, empId],
+              );
+            }
           } else if (
             targetStatus === 'completed' &&
             item.status !== 'completed'

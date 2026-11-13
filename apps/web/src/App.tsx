@@ -376,9 +376,13 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Legacy /finance/new: land on the FIN overview and open the add-entry dialog (no dead URL).
+  // Legacy /finance/new or /finance/entries/new: land on the FIN overview and open the add-entry dialog (no dead URL).
   useEffect(() => {
-    if (currentPath === '/finance/new' && verifiedOwnerSession) {
+    if (
+      (currentPath === '/finance/new' ||
+        currentPath === '/finance/entries/new') &&
+      verifiedOwnerSession
+    ) {
       window.history.replaceState(null, '', '/finance');
       setEntryRequest((n) => n + 1);
       setCurrentPath('/finance');
@@ -858,7 +862,11 @@ export const App: React.FC = () => {
           );
         const identity = { userId, workspaceId };
         const key = `${userId}:${workspaceId}:${currentPath}`;
-        if (routeMeta.path === '/finance' || routeMeta.path === '/finance/new')
+        if (
+          routeMeta.path === '/finance' ||
+          routeMeta.path === '/finance/new' ||
+          (routeMeta.path === '/finance/entries/:id' && params['id'] === 'new')
+        )
           return (
             <FinanceOverviewScreen
               key={`${userId}:${workspaceId}:/finance`}
@@ -913,12 +921,22 @@ export const App: React.FC = () => {
         );
       case '/clock':
         return (
-          <ClockScreen role={role} mode="clock" onNavigate={handleNavigate} />
+          <ClockScreen
+            role={role}
+            mode="clock"
+            userDisplayName={profileFullName}
+            onNavigate={handleNavigate}
+          />
         );
       case '/attendance/corrections':
       case '/attendance':
         return (
-          <ClockScreen role={role} mode="history" onNavigate={handleNavigate} />
+          <ClockScreen
+            role={role}
+            mode="history"
+            userDisplayName={profileFullName}
+            onNavigate={handleNavigate}
+          />
         );
       case '/attendance/review':
         if (role !== 'owner' && subRole !== 'admin') {
@@ -930,6 +948,7 @@ export const App: React.FC = () => {
           <ClockScreen
             role={effectiveOperationalRole}
             mode="review"
+            userDisplayName={profileFullName}
             onNavigate={handleNavigate}
           />
         );

@@ -38,12 +38,14 @@ import type { EmployeeData } from '../../../../packages/contracts/src/employees.
 export interface ClockScreenProps {
   role?: UserRole;
   mode?: 'clock' | 'history' | 'review';
+  userDisplayName?: string | undefined;
   onNavigate?: (path: string) => void;
 }
 
 export const ClockScreen: React.FC<ClockScreenProps> = ({
   role = 'owner',
   mode = 'clock',
+  userDisplayName,
   onNavigate,
 }) => {
   const [activeTab, setActiveTab] = useState<'my_clock' | 'owner_review'>(
@@ -265,24 +267,59 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
   };
 
   const resolvedMyFullName = React.useMemo(() => {
-    const raw =
-      myUserName ||
+    const candidates = [
+      userDisplayName,
+      myUserName,
+      currentShift?.employee_name,
+      recentShifts[0]?.employee_name,
+    ];
+    for (const c of candidates) {
+      const trimmed = (c || '').trim();
+      if (
+        trimmed &&
+        !['staff', 'owner', 'admin'].includes(trimmed.toLowerCase())
+      ) {
+        return trimmed;
+      }
+    }
+    return (
+      userDisplayName ||
       currentShift?.employee_name ||
       recentShifts[0]?.employee_name ||
-      '';
-    return raw.trim();
-  }, [myUserName, currentShift?.employee_name, recentShifts]);
+      myUserName ||
+      ''
+    ).trim();
+  }, [userDisplayName, myUserName, currentShift?.employee_name, recentShifts]);
 
   const greetingShortName = React.useMemo(() => {
-    if (!resolvedMyFullName) return role === 'owner' ? 'Phương' : 'Vinh';
+    if (
+      !resolvedMyFullName ||
+      ['staff', 'owner', 'admin'].includes(resolvedMyFullName.toLowerCase())
+    ) {
+      return role === 'owner' ? 'Phương' : 'Vinh';
+    }
     const parts = resolvedMyFullName.split(/\s+/).filter(Boolean);
     return parts[parts.length - 1] || resolvedMyFullName;
   }, [resolvedMyFullName, role]);
 
   const greetingInitial = React.useMemo(() => {
+    if (
+      resolvedMyFullName &&
+      !['staff', 'owner', 'admin'].includes(resolvedMyFullName.toLowerCase())
+    ) {
+      const words = resolvedMyFullName.split(/\s+/).filter(Boolean);
+      const firstWord = words[0] ?? '';
+      const lastWord = words[words.length - 1] ?? '';
+      if (words.length >= 2 && firstWord.length > 0 && lastWord.length > 0) {
+        return `${firstWord[0]}${lastWord[0]}`.toUpperCase();
+      }
+      if (firstWord.length > 0) {
+        return firstWord.slice(0, 2).toUpperCase();
+      }
+    }
     const ch = greetingShortName.charAt(0).toUpperCase();
     return ch || 'V';
-  }, [greetingShortName]);
+  }, [resolvedMyFullName, greetingShortName]);
 
   const myMonthlySummary = React.useMemo(() => {
     let totalWorkedSeconds = 0;
@@ -453,10 +490,22 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
             authData.data?.user?.display_name ||
             authData.data?.display_name ||
             authData.data?.employee?.full_name ||
-            authData.data?.user?.username ||
             '';
           if (nameFromAuth) {
             setMyUserName(String(nameFromAuth));
+          } else {
+            try {
+              const empRes = await fetch('/api/v1/employees/me', authInit);
+              if (empRes.ok && !signal?.aborted) {
+                const empJson = await empRes.json().catch(() => null);
+                const empName = empJson?.data?.full_name;
+                if (typeof empName === 'string' && empName.trim().length > 0) {
+                  setMyUserName(empName.trim());
+                }
+              }
+            } catch {
+              // ignore optional employee profile lookup failure
+            }
           }
         }
       })();
@@ -898,7 +947,12 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     });
   }, [filteredOwnerShifts]);
 
+  const [showPersonalHistory, setShowPersonalHistory] = useState(
+    mode === 'history',
+  );
+
   useEffect(() => {
+    setShowPersonalHistory(mode === 'history');
     if (mode === 'review') {
       setActiveTab('owner_review');
       setSelectedReviewState('pending_all');
@@ -2054,17 +2108,45 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
           {/* Personal History */}
           <div className="clock-self-history-section">
             <div className="clock-self-history-header">
-              <h3
-                className="clock-self-history-title"
+              <button
+                type="button"
+                data-testid="toggle-personal-history-btn"
+                aria-expanded={showPersonalHistory}
+                onClick={() => setShowPersonalHistory((prev) => !prev)}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '4px 0',
+                  cursor: 'pointer',
+                  color: 'var(--text-color)',
                 }}
               >
-                <CalendarIcon size={18} /> Lịch sử chấm công cá nhân
-              </h3>
-              {filteredRecentShifts.length > 0 && (
+                <h3
+                  className="clock-self-history-title"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    margin: 0,
+                  }}
+                >
+                  <CalendarIcon size={18} /> Lịch sử chấm công cá nhân (
+                  {filteredRecentShifts.length}){' '}
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--muted-color)',
+                    }}
+                  >
+                    {showPersonalHistory ? '▴ Thu gọn' : '▾ Xem chi tiết'}
+                  </span>
+                </h3>
+              </button>
+              {showPersonalHistory && filteredRecentShifts.length > 0 && (
                 <AppButton
                   variant="secondary"
                   className="clock-self-secondary-btn"
@@ -2129,544 +2211,561 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
               )}
             </div>
 
-            {/* Personal History Month Selector + Filter Bar */}
-            <AppCard
-              data-testid="my-history-filter-bar"
-              className="clock-self-card"
-              style={{ padding: '12px 16px' }}
+            <div
+              style={{
+                display: showPersonalHistory ? 'flex' : 'none',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
             >
-              <div
-                data-testid="staff-month-selector-bar"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                }}
+              {/* Personal History Month Selector + Filter Bar */}
+              <AppCard
+                data-testid="my-history-filter-bar"
+                className="clock-self-card"
+                style={{ padding: '12px 16px' }}
               >
                 <div
+                  data-testid="staff-month-selector-bar"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '10px',
+                    justifyContent: 'space-between',
                     flexWrap: 'wrap',
+                    gap: '10px',
                   }}
                 >
-                  <select
-                    aria-label="Chọn tháng chấm công cá nhân"
-                    value={mySelectedMonth}
-                    onChange={(e) => {
-                      setMySelectedMonth(e.target.value);
-                      setMyFromDate('');
-                      setMyToDate('');
-                      setMyShiftPage(0);
-                    }}
+                  <div
                     style={{
-                      padding: '8px 12px',
-                      borderRadius: '12px',
-                      backgroundColor: 'var(--surface-color)',
-                      border: '1px solid var(--border-subtle)',
-                      color: 'var(--text-color)',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <option value="all">
-                      Tất cả các tháng ({recentShifts.length} ca)
-                    </option>
-                    {myAvailableMonths
-                      .filter((m) => m.count > 0 || m.ym === currentVnYearMonth)
-                      .map((mItem) => (
-                        <option key={mItem.ym} value={mItem.ym}>
-                          {formatYearMonthLabel(mItem.ym)} ({mItem.count} ca
-                          {mItem.totalSeconds > 0
-                            ? ` • ${formatHoursMinutes(mItem.totalSeconds)}`
-                            : ''}
-                          )
-                        </option>
-                      ))}
-                  </select>
-
-                  <span
-                    data-testid="staff-monthly-summary-strip"
-                    style={{
-                      fontSize: '13px',
-                      color: 'var(--muted-color)',
-                      display: 'inline-flex',
+                      display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
+                      gap: '10px',
                       flexWrap: 'wrap',
                     }}
                   >
-                    <span>
-                      Tổng giờ:{' '}
-                      <strong style={{ color: 'var(--accent-text)' }}>
-                        {formatHoursMinutes(
-                          myMonthlySummary.totalWorkedSeconds,
-                        )}
-                      </strong>
-                    </span>
-                    <span>•</span>
-                    <span>
-                      Đã duyệt:{' '}
-                      <strong style={{ color: 'var(--success-text)' }}>
-                        {myMonthlySummary.approvedCount}/
-                        {myMonthlySummary.totalShifts} ca
-                      </strong>
-                    </span>
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  className="clock-self-secondary-btn"
-                  onClick={() => setShowMyAdvancedFilters((v) => !v)}
-                >
-                  {showMyAdvancedFilters ? '▴ Ẩn bộ lọc' : '▾ Lọc nâng cao'}
-                </button>
-              </div>
-
-              <div
-                style={{
-                  display: showMyAdvancedFilters ? 'block' : 'none',
-                  paddingTop: '12px',
-                  marginTop: '12px',
-                  borderTop: '1px solid var(--surface-subtle)',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '6px',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    marginBottom: '10px',
-                  }}
-                >
-                  <span
-                    style={{ fontSize: '12px', color: 'var(--muted-color)' }}
-                  >
-                    Chọn nhanh:
-                  </span>
-                  {[
-                    { id: 'today' as const, label: 'Hôm nay' },
-                    { id: 'last7d' as const, label: '7 ngày qua' },
-                    { id: 'month' as const, label: 'Tháng này' },
-                    { id: 'all' as const, label: 'Toàn thời gian' },
-                  ].map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setMySelectedMonth('all');
-                        applyQuickDateRange(p.id, 'my');
-                      }}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '999px',
-                        border: '1px solid var(--border-subtle)',
-                        backgroundColor: 'var(--surface-color)',
-                        color: 'var(--text-secondary)',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '12px',
-                    flexWrap: 'wrap',
-                    alignItems: 'flex-end',
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: '160px' }}>
-                    <label
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: 'var(--muted-color)',
-                        marginBottom: '6px',
-                      }}
-                    >
-                      <span>Từ ngày</span>
-                      <span
-                        style={{ color: 'var(--accent-text)', fontWeight: 500 }}
-                      >
-                        {formatIsoToVnLabel(myFromDate)}
-                      </span>
-                    </label>
-                    <input
-                      data-testid="my-filter-from-date"
-                      type="date"
-                      value={myFromDate}
-                      onClick={(e) =>
-                        (
-                          e.currentTarget as HTMLInputElement & {
-                            showPicker?: () => void;
-                          }
-                        ).showPicker?.()
-                      }
-                      onChange={(e) => {
-                        setMySelectedMonth('all');
-                        setMyFromDate(e.target.value);
-                        setMyShiftPage(0);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '12px',
-                        backgroundColor: 'var(--surface-color)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-color)',
-                        fontSize: '14px',
-                        minHeight: '44px',
-                        boxSizing: 'border-box',
-                        cursor: 'pointer',
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: 1, minWidth: '160px' }}>
-                    <label
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: 'var(--muted-color)',
-                        marginBottom: '6px',
-                      }}
-                    >
-                      <span>Đến ngày</span>
-                      <span
-                        style={{ color: 'var(--accent-text)', fontWeight: 500 }}
-                      >
-                        {formatIsoToVnLabel(myToDate)}
-                      </span>
-                    </label>
-                    <input
-                      data-testid="my-filter-to-date"
-                      type="date"
-                      value={myToDate}
-                      onClick={(e) =>
-                        (
-                          e.currentTarget as HTMLInputElement & {
-                            showPicker?: () => void;
-                          }
-                        ).showPicker?.()
-                      }
-                      onChange={(e) => {
-                        setMySelectedMonth('all');
-                        setMyToDate(e.target.value);
-                        setMyShiftPage(0);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '12px',
-                        backgroundColor: 'var(--surface-color)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-color)',
-                        fontSize: '14px',
-                        minHeight: '44px',
-                        boxSizing: 'border-box',
-                        cursor: 'pointer',
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: 1, minWidth: '170px' }}>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: 'var(--muted-color)',
-                        marginBottom: '6px',
-                      }}
-                    >
-                      Trạng thái duyệt
-                    </label>
                     <select
-                      data-testid="my-filter-review-state"
-                      value={myReviewStateFilter}
+                      aria-label="Chọn tháng chấm công cá nhân"
+                      value={mySelectedMonth}
                       onChange={(e) => {
-                        setMyReviewStateFilter(e.target.value);
-                        setMyShiftPage(0);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '12px',
-                        backgroundColor: 'var(--surface-color)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-color)',
-                        fontSize: '14px',
-                        minHeight: '44px',
-                        boxSizing: 'border-box',
-                      }}
-                    >
-                      <option value="all">Tất cả trạng thái</option>
-                      <option value="unreviewed">Chờ duyệt</option>
-                      <option value="needs_review">
-                        Cần xử lý / Giải trình
-                      </option>
-                      <option value="approved">Đã duyệt</option>
-                      <option value="rejected">Bị từ chối</option>
-                    </select>
-                  </div>
-                  {(mySelectedMonth !== 'all' ||
-                    myFromDate ||
-                    myToDate ||
-                    myReviewStateFilter !== 'all') && (
-                    <AppButton
-                      variant="secondary"
-                      className="clock-self-secondary-btn"
-                      onClick={() => {
-                        setMySelectedMonth('all');
+                        setMySelectedMonth(e.target.value);
                         setMyFromDate('');
                         setMyToDate('');
-                        setMyReviewStateFilter('all');
                         setMyShiftPage(0);
                       }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '12px',
+                        backgroundColor: 'var(--surface-color)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-color)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
                     >
-                      Xóa lọc
-                    </AppButton>
-                  )}
-                </div>
-              </div>
-            </AppCard>
+                      <option value="all">
+                        Tất cả các tháng ({recentShifts.length} ca)
+                      </option>
+                      {myAvailableMonths
+                        .filter(
+                          (m) => m.count > 0 || m.ym === currentVnYearMonth,
+                        )
+                        .map((mItem) => (
+                          <option key={mItem.ym} value={mItem.ym}>
+                            {formatYearMonthLabel(mItem.ym)} ({mItem.count} ca
+                            {mItem.totalSeconds > 0
+                              ? ` • ${formatHoursMinutes(mItem.totalSeconds)}`
+                              : ''}
+                            )
+                          </option>
+                        ))}
+                    </select>
 
-            {filteredRecentShifts.length === 0 ? (
-              <EmptyState
-                title="Chưa có dữ liệu"
-                description="Không có ca làm việc nào phù hợp với tháng hoặc bộ lọc hiện tại."
-              />
-            ) : (
-              <div className="clock-self-history-list">
-                {pagedRecentShifts.map((shift) => {
-                  const dotColor =
-                    shift.review_state === 'approved' || shift.is_self_shift
-                      ? '#10b981'
-                      : shift.review_state === 'rejected'
-                        ? '#ef4444'
-                        : '#d97706';
-                  return (
-                    <div key={shift.id} className="clock-self-history-item">
-                      <div
+                    <span
+                      data-testid="staff-monthly-summary-strip"
+                      style={{
+                        fontSize: '13px',
+                        color: 'var(--muted-color)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span>
+                        Tổng giờ:{' '}
+                        <strong style={{ color: 'var(--accent-text)' }}>
+                          {formatHoursMinutes(
+                            myMonthlySummary.totalWorkedSeconds,
+                          )}
+                        </strong>
+                      </span>
+                      <span>•</span>
+                      <span>
+                        Đã duyệt:{' '}
+                        <strong style={{ color: 'var(--success-text)' }}>
+                          {myMonthlySummary.approvedCount}/
+                          {myMonthlySummary.totalShifts} ca
+                        </strong>
+                      </span>
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="clock-self-secondary-btn"
+                    onClick={() => setShowMyAdvancedFilters((v) => !v)}
+                  >
+                    {showMyAdvancedFilters ? '▴ Ẩn bộ lọc' : '▾ Lọc nâng cao'}
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: showMyAdvancedFilters ? 'block' : 'none',
+                    paddingTop: '12px',
+                    marginTop: '12px',
+                    borderTop: '1px solid var(--surface-subtle)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '6px',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    <span
+                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                    >
+                      Chọn nhanh:
+                    </span>
+                    {[
+                      { id: 'today' as const, label: 'Hôm nay' },
+                      { id: 'last7d' as const, label: '7 ngày qua' },
+                      { id: 'month' as const, label: 'Tháng này' },
+                      { id: 'all' as const, label: 'Toàn thời gian' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setMySelectedMonth('all');
+                          applyQuickDateRange(p.id, 'my');
+                        }}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '999px',
+                          border: '1px solid var(--border-subtle)',
+                          backgroundColor: 'var(--surface-color)',
+                          color: 'var(--text-secondary)',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '12px',
+                      flexWrap: 'wrap',
+                      alignItems: 'flex-end',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: '160px' }}>
+                      <label
                         style={{
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
-                          flexWrap: 'wrap',
-                          gap: '10px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: 'var(--muted-color)',
+                          marginBottom: '6px',
                         }}
                       >
-                        <div
+                        <span>Từ ngày</span>
+                        <span
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            minWidth: 0,
-                            flex: '1 1 200px',
+                            color: 'var(--accent-text)',
+                            fontWeight: 500,
                           }}
                         >
-                          <span
-                            className="clock-self-dot"
-                            style={{ backgroundColor: dotColor }}
-                          />
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontWeight: 600,
-                                fontSize: '15px',
-                                color: 'var(--text-color)',
-                              }}
-                            >
-                              {formatVnDate(shift.clock_in_at, {
-                                weekday: 'short',
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit',
-                              })}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: '12.5px',
-                                color: 'var(--muted-color)',
-                                marginTop: '2px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                flexWrap: 'wrap',
-                                gap: '6px',
-                              }}
-                            >
-                              <span>
-                                {formatVnTimeShort(shift.clock_in_at)}
-                                {shift.clock_out_at
-                                  ? ` – ${formatVnTimeShort(shift.clock_out_at)}`
-                                  : ' (Đang mở)'}
-                              </span>
-                              {isOvernightShift(
-                                shift.clock_in_at,
-                                shift.clock_out_at,
-                              ) && (
-                                <span
-                                  data-testid="overnight-badge"
-                                  style={{
-                                    fontSize: '12px',
-                                    padding: '2px 8px',
-                                    borderRadius: '6px',
-                                    backgroundColor: 'rgba(139, 92, 246, 0.14)',
-                                    color: 'var(--purple-text)',
-                                    fontWeight: 500,
-                                  }}
-                                >
-                                  Ca qua đêm (+1 ngày)
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            display: 'flex',
-                            gap: '8px',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <strong
-                            style={{
-                              fontSize: '14px',
-                              color: 'var(--text-color)',
-                              fontVariantNumeric: 'tabular-nums',
-                            }}
-                          >
-                            {formatHoursMinutes(shift.worked_seconds)}
-                          </strong>
-                          <StatusBadge
-                            status={
-                              shift.review_state === 'approved'
-                                ? 'success'
-                                : shift.review_state === 'rejected'
-                                  ? 'error'
-                                  : shift.review_state === 'needs_review'
-                                    ? 'warning'
-                                    : 'neutral'
+                          {formatIsoToVnLabel(myFromDate)}
+                        </span>
+                      </label>
+                      <input
+                        data-testid="my-filter-from-date"
+                        type="date"
+                        value={myFromDate}
+                        onClick={(e) =>
+                          (
+                            e.currentTarget as HTMLInputElement & {
+                              showPicker?: () => void;
                             }
-                            label={
-                              shift.review_state === 'approved'
-                                ? 'Đã duyệt'
-                                : shift.review_state === 'rejected'
-                                  ? 'Bị từ chối'
-                                  : shift.review_state === 'needs_review'
-                                    ? 'Cần xử lý'
-                                    : 'Chờ duyệt'
-                            }
-                          />
-                          {shift.pending_correction && (
-                            <StatusBadge
-                              status="warning"
-                              label="Đang chờ giải trình"
-                            />
-                          )}
-                        </div>
-                      </div>
-
-                      {shift.review_reason && (
-                        <div
+                          ).showPicker?.()
+                        }
+                        onChange={(e) => {
+                          setMySelectedMonth('all');
+                          setMyFromDate(e.target.value);
+                          setMyShiftPage(0);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--surface-color)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-color)',
+                          fontSize: '14px',
+                          minHeight: '44px',
+                          boxSizing: 'border-box',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: '160px' }}>
+                      <label
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: 'var(--muted-color)',
+                          marginBottom: '6px',
+                        }}
+                      >
+                        <span>Đến ngày</span>
+                        <span
                           style={{
-                            fontSize: '12px',
-                            color: 'var(--text-secondary)',
-                            backgroundColor: 'var(--surface-subtle)',
-                            padding: '6px 10px',
-                            borderRadius: '8px',
-                            marginLeft: '22px',
-                            overflowWrap: 'anywhere',
-                            wordBreak: 'break-word',
+                            color: 'var(--accent-text)',
+                            fontWeight: 500,
                           }}
                         >
-                          Ghi chú duyệt:{' '}
-                          <em>
-                            "{formatReviewNoteLabel(shift.review_reason)}"
-                          </em>
-                          {shift.reviewed_at &&
-                            ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTimeShort(shift.reviewed_at)}`}
-                        </div>
-                      )}
+                          {formatIsoToVnLabel(myToDate)}
+                        </span>
+                      </label>
+                      <input
+                        data-testid="my-filter-to-date"
+                        type="date"
+                        value={myToDate}
+                        onClick={(e) =>
+                          (
+                            e.currentTarget as HTMLInputElement & {
+                              showPicker?: () => void;
+                            }
+                          ).showPicker?.()
+                        }
+                        onChange={(e) => {
+                          setMySelectedMonth('all');
+                          setMyToDate(e.target.value);
+                          setMyShiftPage(0);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--surface-color)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-color)',
+                          fontSize: '14px',
+                          minHeight: '44px',
+                          boxSizing: 'border-box',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: '170px' }}>
+                      <label
+                        style={{
+                          display: 'block',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: 'var(--muted-color)',
+                          marginBottom: '6px',
+                        }}
+                      >
+                        Trạng thái duyệt
+                      </label>
+                      <select
+                        data-testid="my-filter-review-state"
+                        value={myReviewStateFilter}
+                        onChange={(e) => {
+                          setMyReviewStateFilter(e.target.value);
+                          setMyShiftPage(0);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--surface-color)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-color)',
+                          fontSize: '14px',
+                          minHeight: '44px',
+                          boxSizing: 'border-box',
+                        }}
+                      >
+                        <option value="all">Tất cả trạng thái</option>
+                        <option value="unreviewed">Chờ duyệt</option>
+                        <option value="needs_review">
+                          Cần xử lý / Giải trình
+                        </option>
+                        <option value="approved">Đã duyệt</option>
+                        <option value="rejected">Bị từ chối</option>
+                      </select>
+                    </div>
+                    {(mySelectedMonth !== 'all' ||
+                      myFromDate ||
+                      myToDate ||
+                      myReviewStateFilter !== 'all') && (
+                      <AppButton
+                        variant="secondary"
+                        className="clock-self-secondary-btn"
+                        onClick={() => {
+                          setMySelectedMonth('all');
+                          setMyFromDate('');
+                          setMyToDate('');
+                          setMyReviewStateFilter('all');
+                          setMyShiftPage(0);
+                        }}
+                      >
+                        Xóa lọc
+                      </AppButton>
+                    )}
+                  </div>
+                </div>
+              </AppCard>
 
-                      {(shift.breaks.length > 0 ||
-                        (shift.run_state === 'completed' &&
-                          !shift.pending_correction)) && (
+              {filteredRecentShifts.length === 0 ? (
+                <EmptyState
+                  title="Chưa có dữ liệu"
+                  description="Không có ca làm việc nào phù hợp với tháng hoặc bộ lọc hiện tại."
+                />
+              ) : (
+                <div className="clock-self-history-list">
+                  {pagedRecentShifts.map((shift) => {
+                    const dotColor =
+                      shift.review_state === 'approved' || shift.is_self_shift
+                        ? '#10b981'
+                        : shift.review_state === 'rejected'
+                          ? '#ef4444'
+                          : '#d97706';
+                    return (
+                      <div key={shift.id} className="clock-self-history-item">
                         <div
                           style={{
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            fontSize: '12px',
-                            color: 'var(--muted-color)',
-                            marginLeft: '22px',
+                            flexWrap: 'wrap',
+                            gap: '10px',
                           }}
                         >
-                          <span>
-                            {shift.breaks.length > 0
-                              ? `${shift.breaks.length} lần nghỉ`
-                              : ''}
-                          </span>
-                          {shift.run_state === 'completed' &&
-                            !shift.pending_correction && (
-                              <button
-                                type="button"
-                                data-testid="shift-correction-btn"
-                                className="clock-self-link-btn"
-                                onClick={() => {
-                                  setTargetShiftForCorrection(shift);
-                                  setClaimedClockOut(
-                                    toVnDateTimeLocalValue(
-                                      shift.clock_out_at ||
-                                        new Date().toISOString(),
-                                    ),
-                                  );
-                                  setShowCorrectionModal(true);
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              minWidth: 0,
+                              flex: '1 1 200px',
+                            }}
+                          >
+                            <span
+                              className="clock-self-dot"
+                              style={{ backgroundColor: dotColor }}
+                            />
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  fontSize: '15px',
+                                  color: 'var(--text-color)',
                                 }}
                               >
-                                Giải trình / Sửa giờ
-                              </button>
+                                {formatVnDate(shift.clock_in_at, {
+                                  weekday: 'short',
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                })}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: '12.5px',
+                                  color: 'var(--muted-color)',
+                                  marginTop: '2px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  flexWrap: 'wrap',
+                                  gap: '6px',
+                                }}
+                              >
+                                <span>
+                                  {formatVnTimeShort(shift.clock_in_at)}
+                                  {shift.clock_out_at
+                                    ? ` – ${formatVnTimeShort(shift.clock_out_at)}`
+                                    : ' (Đang mở)'}
+                                </span>
+                                {isOvernightShift(
+                                  shift.clock_in_at,
+                                  shift.clock_out_at,
+                                ) && (
+                                  <span
+                                    data-testid="overnight-badge"
+                                    style={{
+                                      fontSize: '12px',
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      backgroundColor:
+                                        'rgba(139, 92, 246, 0.14)',
+                                      color: 'var(--purple-text)',
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    Ca qua đêm (+1 ngày)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: '8px',
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <strong
+                              style={{
+                                fontSize: '14px',
+                                color: 'var(--text-color)',
+                                fontVariantNumeric: 'tabular-nums',
+                              }}
+                            >
+                              {formatHoursMinutes(shift.worked_seconds)}
+                            </strong>
+                            <StatusBadge
+                              status={
+                                shift.review_state === 'approved'
+                                  ? 'success'
+                                  : shift.review_state === 'rejected'
+                                    ? 'error'
+                                    : shift.review_state === 'needs_review'
+                                      ? 'warning'
+                                      : 'neutral'
+                              }
+                              label={
+                                shift.review_state === 'approved'
+                                  ? 'Đã duyệt'
+                                  : shift.review_state === 'rejected'
+                                    ? 'Bị từ chối'
+                                    : shift.review_state === 'needs_review'
+                                      ? 'Cần xử lý'
+                                      : 'Chờ duyệt'
+                              }
+                            />
+                            {shift.pending_correction && (
+                              <StatusBadge
+                                status="warning"
+                                label="Đang chờ giải trình"
+                              />
                             )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {filteredRecentShifts.length > 0 && (
-              <div style={{ marginTop: '8px' }}>
-                <Pagination
-                  testId="my-shifts-pager"
-                  total={filteredRecentShifts.length}
-                  page={safeMyShiftPage}
-                  pageSize={myShiftPageSize}
-                  onPage={setMyShiftPage}
-                  onPageSize={(size) => {
-                    setMyShiftPageSize(size);
-                    setMyShiftPage(0);
-                  }}
-                  pageSizes={PAGINATION_PAGE_SIZES}
-                />
-              </div>
-            )}
+
+                        {shift.review_reason && (
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: 'var(--text-secondary)',
+                              backgroundColor: 'var(--surface-subtle)',
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              marginLeft: '22px',
+                              overflowWrap: 'anywhere',
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            Ghi chú duyệt:{' '}
+                            <em>
+                              "{formatReviewNoteLabel(shift.review_reason)}"
+                            </em>
+                            {shift.reviewed_at &&
+                              ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTimeShort(shift.reviewed_at)}`}
+                          </div>
+                        )}
+
+                        {(shift.breaks.length > 0 ||
+                          (shift.run_state === 'completed' &&
+                            !shift.pending_correction)) && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontSize: '12px',
+                              color: 'var(--muted-color)',
+                              marginLeft: '22px',
+                            }}
+                          >
+                            <span>
+                              {shift.breaks.length > 0
+                                ? `${shift.breaks.length} lần nghỉ`
+                                : ''}
+                            </span>
+                            {shift.run_state === 'completed' &&
+                              !shift.pending_correction && (
+                                <button
+                                  type="button"
+                                  data-testid="shift-correction-btn"
+                                  className="clock-self-link-btn"
+                                  onClick={() => {
+                                    setTargetShiftForCorrection(shift);
+                                    setClaimedClockOut(
+                                      toVnDateTimeLocalValue(
+                                        shift.clock_out_at ||
+                                          new Date().toISOString(),
+                                      ),
+                                    );
+                                    setShowCorrectionModal(true);
+                                  }}
+                                >
+                                  Giải trình / Sửa giờ
+                                </button>
+                              )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {filteredRecentShifts.length > 0 && (
+                <div style={{ marginTop: '8px' }}>
+                  <Pagination
+                    testId="my-shifts-pager"
+                    total={filteredRecentShifts.length}
+                    page={safeMyShiftPage}
+                    pageSize={myShiftPageSize}
+                    onPage={setMyShiftPage}
+                    onPageSize={(size) => {
+                      setMyShiftPageSize(size);
+                      setMyShiftPage(0);
+                    }}
+                    pageSizes={PAGINATION_PAGE_SIZES}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : (
