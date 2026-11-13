@@ -679,6 +679,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     text-overflow: clip !important;
     overflow-wrap: break-word !important;
   }
+  .clock-self-title {
+    font-size: 17.5px !important;
+  }
   .page-header-subtitle {
     display: none !important;
   }
@@ -1543,7 +1546,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 .clock-self-page {
   width: 100%;
   max-width: 560px;
-  margin: 0 auto;
+  margin: 0;
   box-sizing: border-box;
   font-family: var(--font-sans);
   color: var(--text-color, #0f172a);
@@ -1551,10 +1554,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   flex-direction: column;
   gap: 28px;
   padding: 8px 0 24px 0;
-}
-
-.clock-self-page > .page-header-root {
-  display: none !important;
 }
 
 .clock-self-main-fold {
@@ -1574,10 +1573,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 
 .clock-self-title {
   margin: 0;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  font-size: var(--heading-page-size, 22px);
+  font-weight: 700;
+  letter-spacing: var(--heading-tracking, -0.015em);
+  line-height: var(--heading-page-lh, 1.3);
   color: var(--text-color, #0f172a);
 }
 
@@ -1899,15 +1898,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 @media (max-width: 768px) {
-  #main-content:has(.clock-self-page) {
-    padding-left: 24px !important;
-    padding-right: 24px !important;
-    padding-top: 20px !important;
-  }
-  .app-shell-content:has(.clock-self-page) {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
   #main-content:has(.clock-self-page[data-role='staff']) .app-subnav-bar {
     display: none !important;
   }
@@ -1941,14 +1931,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   gap: 16px !important;
   align-items: center !important;
   justify-content: space-between !important;
-}
-
-@media (min-width: 769px) {
-  #main-content:has(.work-page) {
-    padding-left: 48px !important;
-    padding-right: 48px !important;
-    padding-top: 32px !important;
-  }
 }
 
 .work-primary-btn {
@@ -2039,15 +2021,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 @media (max-width: 768px) {
-  #main-content:has(.work-page) {
-    padding-left: 24px !important;
-    padding-right: 24px !important;
-    padding-top: 20px !important;
-  }
-  .app-shell-content:has(.work-page) {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
   .work-page {
     gap: 24px;
     padding: 0 0 24px 0;

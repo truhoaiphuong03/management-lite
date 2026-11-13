@@ -1646,28 +1646,30 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       className={activeTab === 'my_clock' ? 'clock-self-page' : undefined}
       data-role={role}
     >
-      <PageHeader
-        title={headerTitle}
-        subtitle={headerSubtitle}
-        badge={
-          <StatusBadge
-            status={
-              currentShift?.run_state === 'working'
-                ? 'success'
-                : currentShift?.run_state === 'paused'
-                  ? 'warning'
-                  : 'neutral'
-            }
-            label={
-              currentShift?.run_state === 'working'
-                ? 'Đang trong ca làm'
-                : currentShift?.run_state === 'paused'
-                  ? 'Đang tạm nghỉ'
-                  : 'Sẵn sàng vào ca'
-            }
-          />
-        }
-      />
+      {activeTab !== 'my_clock' && (
+        <PageHeader
+          title={headerTitle}
+          subtitle={headerSubtitle}
+          badge={
+            <StatusBadge
+              status={
+                currentShift?.run_state === 'working'
+                  ? 'success'
+                  : currentShift?.run_state === 'paused'
+                    ? 'warning'
+                    : 'neutral'
+              }
+              label={
+                currentShift?.run_state === 'working'
+                  ? 'Đang trong ca làm'
+                  : currentShift?.run_state === 'paused'
+                    ? 'Đang tạm nghỉ'
+                    : 'Sẵn sàng vào ca'
+              }
+            />
+          }
+        />
+      )}
 
       {/* Tab Switcher for Owner (hidden when AppShell subnav is active via onNavigate) */}
       {role === 'owner' && (
@@ -1750,6 +1752,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                 {greetingInitial}
               </a>
             </header>
+            <p className="page-header-subtitle" style={{ margin: 0 }}>
+              {headerSubtitle}
+            </p>
 
             {justClockedOut && onNavigate && (
               <div
