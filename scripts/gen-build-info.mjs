@@ -69,6 +69,14 @@ if (
       `export const SYSTEM_COMMIT = '${git.shortSha}';`,
     );
   }
+  if (process.env.NODE_ENV) {
+    const syncEnv =
+      process.env.NODE_ENV === 'production' ? 'production' : 'staging';
+    content = content.replace(
+      /export const SYSTEM_ENV = '[^']+';/,
+      `export const SYSTEM_ENV = '${syncEnv}';`,
+    );
+  }
   fs.writeFileSync(contractsVersionPath, content, 'utf8');
 }
 
