@@ -607,6 +607,15 @@ export class WorkService {
               'Completed work cannot be modified',
               409,
             );
+          if (auth.workspace.role !== 'owner') {
+            const empId = await this.employee(c, auth);
+            const assigned = await c.query(
+              'SELECT 1 FROM work_assignments WHERE workspace_id=$1 AND work_item_id=$2 AND employee_id=$3',
+              [auth.workspace.id, id, empId],
+            );
+            if (!assigned.rowCount)
+              fail('FORBIDDEN', 'Not assigned to this work item', 403);
+          }
           if (targetStatus === 'in_progress') {
             if (auth.workspace.role === 'owner') {
               await c.query(
