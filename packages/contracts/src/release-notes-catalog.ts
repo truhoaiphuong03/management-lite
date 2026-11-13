@@ -11,13 +11,17 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     released_at: '2026-11-13',
     summary:
       'Thiết kế lại giao diện Tổng quan, Chấm công (nhân viên) và chuẩn hóa màu sắc/khoảng cách màn Công việc theo bản vẽ tối giản mới, hoàn tất đợt redesign 2026-11-12 cho cả 4 màn hình chính.',
-    added: [],
+    added: [
+      'Bộ class CSS tối giản mới dùng chung biến màu theme cho 3 màn hình (`.dashboard-kpi-card`, `.clock-self-hero`, `.work-item-card`...), tương thích cả chế độ Sáng và Tối.',
+    ],
     improved: [
       'Màn Tổng quan (/, Chủ sở hữu & Nhân viên): lề 24-28px, một nút chính có bóng, lưới thẻ KPI 2x2/4 cột bo 16px không bóng, danh sách Việc cần xử lý & Liên thông TikTok V4 dạng một thẻ hàng cao 60-64px. Giữ nguyên 100% Action Center, Liên thông V4, Lối tắt thao tác nhanh.',
       'Phần tự chấm công của nhân viên trên /clock: header chào + avatar tròn, đồng hồ lớn, nút tròn Vào ca/Kết thúc ca 168px có bóng, thẻ tóm tắt tháng + nhắc nộp báo cáo, lịch sử ca dạng một thẻ. Giữ nguyên 100% giao diện quản lý/duyệt công của Chủ sở hữu.',
       'Màn Công việc (/work): chuẩn hóa màu sắc/khoảng cách/bo góc/kiểu thẻ-nút theo phong cách mới trong khi giữ nguyên 100% kiến trúc 3 khu vực, KPI, bộ lọc thông minh, thuật toán sắp xếp (v0.9.20) và checklist tương tác.',
     ],
-    fixed: [],
+    fixed: [
+      'Khắc phục cỡ chữ nhãn thẻ KPI dưới 12px trên điện thoại ở màn Công việc (/work), đạt chuẩn chữ nhỏ nhất theo Quy tắc chung.',
+    ],
   },
   {
     version: '0.9.21',
@@ -25,12 +29,16 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     released_at: '2026-11-12',
     summary:
       'Thiết kế lại giao diện Màn Đăng nhập (/login) theo bản vẽ tối giản mới: bố cục một cột căn giữa, bỏ khối giới thiệu/tiêu đề thừa, chuẩn hóa khoảng cách-màu-bo góc theo biến theme.',
-    added: [],
+    added: [
+      'Tham chiếu phiên bản hệ thống ẩn (`data-app-version`) trên Màn Đăng nhập để đối soát tự động, không hiển thị cho người dùng.',
+    ],
     improved: [
       'Chuyển Màn Đăng nhập sang bố cục một cột căn giữa dọc, gọn gàng trên cả điện thoại (390px) và máy tính (1280px), bỏ cột giới thiệu/tiêu đề "Đăng nhập hệ thống" và dòng mô tả phụ không cần thiết.',
       'Chuẩn hóa khối thương hiệu (logo vuông bo góc, tên "Management Lite"), ô nhập Tài khoản/Mật khẩu không còn placeholder, hàng "Ghi nhớ trên máy này" & "Quên mật khẩu?" và chân trang liên hệ Zalo theo đúng biến màu theme (hỗ trợ cả Sáng/Tối).',
     ],
-    fixed: [],
+    fixed: [
+      'Khắc phục Màn Đăng nhập thiết kế lại bị thiếu tham chiếu SYSTEM_VERSION khiến bài kiểm thử đối soát phiên bản báo sai.',
+    ],
   },
   {
     version: '0.9.20',

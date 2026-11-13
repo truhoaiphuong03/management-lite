@@ -9,6 +9,7 @@ import {
   useAutoDismiss,
 } from '../../../../packages/ui/src/components/index.js';
 import type { UserRole } from '../types.js';
+import { SYSTEM_VERSION } from '../../../../packages/contracts/src/version.js';
 
 export interface LoginScreenProps {
   onLogin: (role: UserRole) => void;
@@ -233,7 +234,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   return (
-    <div className="login-page">
+    <div className="login-page" data-app-version={SYSTEM_VERSION}>
       <div className="login-container">
         <div className="login-brand">
           <div className="login-logo-box">

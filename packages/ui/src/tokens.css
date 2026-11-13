@@ -1943,20 +1943,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   justify-content: space-between !important;
 }
 
-.work-page .page-header-title {
-  font-size: 30px !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.02em !important;
-  line-height: 1.15 !important;
-  color: var(--text-color, #0f172a) !important;
-}
-
-.work-page .page-header-subtitle {
-  font-size: 13px !important;
-  color: var(--muted-color, #475569) !important;
-  margin-top: 4px !important;
-}
-
 @media (min-width: 769px) {
   #main-content:has(.work-page) {
     padding-left: 48px !important;
@@ -2065,9 +2051,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   .work-page {
     gap: 24px;
     padding: 0 0 24px 0;
-  }
-  .work-page .page-header-title {
-    font-size: 26px !important;
   }
   .work-page .page-header-actions {
     width: 100% !important;

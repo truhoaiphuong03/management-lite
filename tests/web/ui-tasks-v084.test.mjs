@@ -692,7 +692,7 @@ test('E2E Browser (Playwright): Tasks 1-3 desktop/mobile, light/dark, keyboard, 
     });
     const loginCardBg = await page.evaluate(
       () =>
-        window.getComputedStyle(document.querySelector('.login-card-container'))
+        window.getComputedStyle(document.querySelector('#identifier'))
           .backgroundColor,
     );
     assert.equal(
