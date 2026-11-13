@@ -23,3 +23,6 @@ scripts/ui-audit/out*/
 # Local scratch for remediation work (sandbox clones, isolated test clusters, input dumps). Never commit.
 .local/
 .planning/
+
+# Design mockups (reference only — "chỉ để đọc kích thước, màu, chữ, bố cục. Không chép file này vào app")
+docs/design/
