@@ -2791,10 +2791,60 @@ export class PrintQuoteService {
   async listQuotes(ctx: AuthenticatedContext): Promise<PrintQuoteData[]> {
     this.assertOwnerAccess(ctx);
     const res = await this.pool.query(
-      `SELECT * FROM print_quotes WHERE workspace_id = $1 ORDER BY created_at DESC`,
+      `SELECT * FROM print_quotes WHERE workspace_id = $1 ORDER BY created_at DESC, id DESC`,
       [ctx.workspace.id],
     );
     return res.rows.map((r) => this.mapQuoteRow(r));
+  }
+
+  async listQuotesPaginated(
+    ctx: AuthenticatedContext,
+    opts: { limit?: number | undefined; offset?: number | undefined },
+  ): Promise<{
+    items: PrintQuoteData[];
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    this.assertOwnerAccess(ctx);
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Tham số limit phải là số nguyên từ 1 đến 100.',
+        400,
+      );
+    }
+    if (!Number.isInteger(offset) || offset < 0) {
+      throw new AuthError(
+        'VALIDATION_ERROR',
+        'Tham số offset phải là số nguyên không âm.',
+        400,
+      );
+    }
+
+    const [countRes, rowsRes] = await Promise.all([
+      this.pool.query<{ total: number }>(
+        `SELECT COUNT(*)::int AS total FROM print_quotes WHERE workspace_id = $1`,
+        [ctx.workspace.id],
+      ),
+      this.pool.query(
+        `SELECT * FROM print_quotes
+         WHERE workspace_id = $1
+         ORDER BY created_at DESC, id DESC
+         LIMIT $2 OFFSET $3`,
+        [ctx.workspace.id, limit, offset],
+      ),
+    ]);
+
+    const total = Number(countRes.rows[0]?.total ?? 0);
+    return {
+      items: rowsRes.rows.map((r) => this.mapQuoteRow(r)),
+      total,
+      limit,
+      offset,
+    };
   }
 
   async getQuote(

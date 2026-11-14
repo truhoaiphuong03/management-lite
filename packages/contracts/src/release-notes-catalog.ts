@@ -6,8 +6,23 @@ import type { ReleaseNoteItem } from './version.js';
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.10.0',
+    version: '0.10.1',
     commit: 'latest',
+    released_at: '2026-11-14',
+    summary:
+      'Tối ưu tốc độ tải trang trên mạng di động 4G (chia nhỏ gói JS Báo giá In ấn xuống < 195 kB/chunk, tải trễ cửa sổ Google Drive OAuth) và mở rộng phân trang API tương thích ngược.',
+    added: [
+      'Hỗ trợ tham số phân trang tùy chọn ?limit=<1..100>&offset=<>=0> tương thích ngược 100% trên GET /api/v1/work-items và GET /api/v1/print-quotes/quotes.',
+      'Chỉ mục kết hợp (composite indexes) idx_print_quotes_ws_created_id và idx_work_items_ws_status_due_created trong scripts/perf/ensure-hot-indexes.sql.',
+    ],
+    improved: [
+      'Chia nhỏ phân hệ Báo giá In ấn thành các gói JS độc lập (printquote-editor, printquote-orders, printquote-catalogs, printquote-views < 195 kB/chunk) và tải trễ cửa sổ xem trước PDF / cấu hình Google Drive OAuth bằng React.lazy.',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.10.0',
+    commit: '508759d',
     released_at: '2026-11-14',
     summary:
       'Tích hợp mã VietQR thanh toán trên Báo giá PDF A4 & Sổ công nợ khách hàng, tự động đồng bộ phiếu thu/chi in ấn (PT/PC) sang Sổ thu chi tổng (/finance) và mở nút Nhân bản báo giá 1-chạm kèm làm mới giá xưởng.',

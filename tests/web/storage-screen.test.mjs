@@ -508,10 +508,16 @@ test('FILE-004: StorageScreen two-step trash workflow enforces double-click lock
 });
 
 test('FILE-01 Google Drive V2 UI: OAuth connect button, direct folder creation, resumable video upload, staff permissions, and double + icon fix', () => {
-  const screenContent = readFileSync(
-    resolve(root, 'apps/web/src/screens/StorageScreen.tsx'),
-    'utf8',
-  );
+  const screenContent =
+    readFileSync(
+      resolve(root, 'apps/web/src/screens/StorageScreen.tsx'),
+      'utf8',
+    ) +
+    '\n' +
+    readFileSync(
+      resolve(root, 'apps/web/src/screens/storage/StorageDriveOAuthModal.tsx'),
+      'utf8',
+    );
 
   // 1. Nút Kết nối Google Drive & OAuth modal
   assert.ok(
@@ -590,10 +596,16 @@ test('FILE-01 Google Drive V2 UI: OAuth connect button, direct folder creation, 
 });
 
 test('FILE-01 OAuth redirect_uri_mismatch guard: Redirect URI copy helper, callback URL parser, and provider redirectUri propagation', async () => {
-  const screenContent = readFileSync(
-    resolve(root, 'apps/web/src/screens/StorageScreen.tsx'),
-    'utf8',
-  );
+  const screenContent =
+    readFileSync(
+      resolve(root, 'apps/web/src/screens/StorageScreen.tsx'),
+      'utf8',
+    ) +
+    '\n' +
+    readFileSync(
+      resolve(root, 'apps/web/src/screens/storage/StorageDriveOAuthModal.tsx'),
+      'utf8',
+    );
   const providerContent = readFileSync(
     resolve(root, 'apps/api/src/storage/provider.ts'),
     'utf8',

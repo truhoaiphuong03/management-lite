@@ -28,3 +28,11 @@ CREATE INDEX IF NOT EXISTS idx_fin_entries_ws_date_created
 -- 5. Storage folder file listings
 CREATE INDEX IF NOT EXISTS idx_storage_files_ws_folder_created
   ON storage_files (workspace_id, folder_id, created_at DESC);
+
+-- 6. Deterministic PrintQuote pagination (v0.10.1)
+CREATE INDEX IF NOT EXISTS idx_print_quotes_ws_created_id
+  ON print_quotes (workspace_id, created_at DESC, id DESC);
+
+-- 7. Work items status + due_at + created_at composite sort (v0.10.1)
+CREATE INDEX IF NOT EXISTS idx_work_items_ws_status_due_created
+  ON work_items (workspace_id, status, due_at ASC NULLS LAST, created_at DESC, id);

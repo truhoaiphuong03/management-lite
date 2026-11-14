@@ -353,6 +353,33 @@ export async function handlePrintQuoteRoutes(
 
   // 6. Quotes: /quotes, /quotes/:id, /quotes/:id/finalize, /quotes/:id/pdf
   if (subPath === '/quotes' && method === 'GET') {
+    const parsedUrl = new URL(req.url || '/', 'http://localhost');
+    const hasLimit = parsedUrl.searchParams.has('limit');
+    const hasOffset = parsedUrl.searchParams.has('offset');
+    if (hasLimit || hasOffset) {
+      const rawLimit = parsedUrl.searchParams.get('limit') ?? '20';
+      const rawOffset = parsedUrl.searchParams.get('offset') ?? '0';
+      if (!/^[1-9][0-9]*$/.test(rawLimit)) {
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          'Tham số limit phải là số nguyên từ 1 đến 100.',
+          400,
+        );
+      }
+      if (!/^(0|[1-9][0-9]*)$/.test(rawOffset)) {
+        throw new AuthError(
+          'VALIDATION_ERROR',
+          'Tham số offset phải là số nguyên không âm.',
+          400,
+        );
+      }
+      const page = await printQuoteService.listQuotesPaginated(sessionContext, {
+        limit: Number(rawLimit),
+        offset: Number(rawOffset),
+      });
+      sendJson(res, 200, createSuccessEnvelope(page, requestId));
+      return true;
+    }
     const items = await printQuoteService.listQuotes(sessionContext);
     sendJson(res, 200, createSuccessEnvelope({ items }, requestId));
     return true;

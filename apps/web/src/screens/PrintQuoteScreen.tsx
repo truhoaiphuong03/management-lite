@@ -77,7 +77,6 @@ import { OrdersTab } from './printquote/OrdersTab.js';
 import { AnalyticsTab } from './printquote/AnalyticsTab.js';
 import type { ReceivablesLedgerPayload } from './printquote/ReceivablesTab.js';
 import type { PayablesLedgerPayload } from './printquote/PayablesTab.js';
-import { PdfPreviewModal } from './printquote/PdfPreviewModal.js';
 import { CatalogModalDialog } from './printquote/CatalogModalDialog.js';
 import { PqFileTextIcon } from './printquote/PrintQuoteIcons.js';
 import { PRINTQUOTE_STYLES } from './printquote/printquote-styles.js';
@@ -110,6 +109,11 @@ const LazyHistoricalImportTab = React.lazy(() =>
 const LazyConvertOrderCustomerModal = React.lazy(() =>
   import('./printquote/ConvertOrderCustomerModal.js').then((m) => ({
     default: m.ConvertOrderCustomerModal,
+  })),
+);
+const LazyPdfPreviewModal = React.lazy(() =>
+  import('./printquote/PdfPreviewModal.js').then((m) => ({
+    default: m.PdfPreviewModal,
   })),
 );
 
@@ -3076,13 +3080,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
       {/* A4 PDF Preview & Print Modal */}
       {pdfPreviewState && (
-        <PdfPreviewModal
-          previewState={pdfPreviewState}
-          onClose={() => setPdfPreviewState(null)}
-          onDownloadSavedPdf={handleDownloadSavedQuotePdfFile}
-          onDownloadLivePdf={handleDownloadLivePdfFile}
-          onPrintWindow={handlePrintA4Window}
-        />
+        <React.Suspense fallback={null}>
+          <LazyPdfPreviewModal
+            previewState={pdfPreviewState}
+            onClose={() => setPdfPreviewState(null)}
+            onDownloadSavedPdf={handleDownloadSavedQuotePdfFile}
+            onDownloadLivePdf={handleDownloadLivePdfFile}
+            onPrintWindow={handlePrintA4Window}
+          />
+        </React.Suspense>
       )}
 
       {/* 2-Button Leave PrintQuote Module Confirmation Dialog */}
