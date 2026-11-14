@@ -34,26 +34,21 @@ describe('Phase 4 (v1.0.0) — Proactive Dashboard Action Center & v1.0.0 Milest
       pay_employee_count: 4,
     };
 
+    let ownerQueryCalls = 0;
     const ownerPool = {
-      async query(sql) {
-        const s = String(sql);
-        if (s.includes('FROM print_orders')) {
-          return {
-            rows: [
-              {
-                active_orders_count: 3,
-                receivable_orders_count: 2,
-                total_receivable_vnd: '4500000',
-              },
-            ],
-          };
-        }
-        if (s.includes('FROM managed_accounts')) {
-          return {
-            rows: [{ attention_count: 4 }],
-          };
-        }
-        return { rows: [baseSummaryRow] };
+      async query() {
+        ownerQueryCalls += 1;
+        return {
+          rows: [
+            {
+              ...baseSummaryRow,
+              pq_active_orders_count: 3,
+              pq_receivable_orders_count: 2,
+              pq_total_receivable_vnd: '4500000',
+              acc_attention_count: 4,
+            },
+          ],
+        };
       },
     };
 
@@ -66,6 +61,11 @@ describe('Phase 4 (v1.0.0) — Proactive Dashboard Action Center & v1.0.0 Milest
       date: '2026-11-14',
       month: '2026-11',
     });
+    assert.equal(
+      ownerQueryCalls,
+      1,
+      'DashboardService.getSummary must execute a single CTE query',
+    );
     assert.deepEqual(ownerSummary.print_quotes, {
       active_orders_count: 3,
       receivable_orders_count: 2,
