@@ -55,7 +55,7 @@ export class DashboardService {
 
     const isOwner = context.workspace.role === 'owner';
 
-    const query = `
+    const buildSummaryQuery = (includeExtendedOwnerAlerts: boolean): string => `
       WITH target_emp AS (
         SELECT id
         FROM employees
@@ -168,7 +168,39 @@ export class DashboardService {
                 )
             )
           END AS employee_count
-      )
+      )${
+        includeExtendedOwnerAlerts
+          ? `,
+      pq_stats AS (
+        SELECT
+          COUNT(*) FILTER (
+            WHERE production_status NOT IN ('COMPLETED', 'CANCELLED')
+              AND COALESCE(delivery_status, 'NOT_SHIPPED') <> 'DELIVERED'
+          )::int AS active_orders_count,
+          COUNT(*) FILTER (
+            WHERE production_status <> 'CANCELLED'
+              AND COALESCE(remaining_debt_amount, 0) > 0
+          )::int AS receivable_orders_count,
+          COALESCE(
+            SUM(remaining_debt_amount) FILTER (
+              WHERE production_status <> 'CANCELLED'
+                AND COALESCE(remaining_debt_amount, 0) > 0
+            ),
+            0
+          )::bigint AS total_receivable_vnd
+        FROM print_orders
+        WHERE workspace_id = $1 AND $5::boolean = true
+      ),
+      acc_stats AS (
+        SELECT COUNT(*)::int AS attention_count
+        FROM managed_accounts
+        WHERE workspace_id = $1
+          AND status = 'active'
+          AND health_status IN ('verify_required', 'locked')
+          AND $5::boolean = true
+      )`
+          : ''
+      }
       SELECT
         os.id AS current_shift_id,
         os.run_state AS current_shift_run_state,
@@ -187,16 +219,30 @@ export class DashboardService {
         ec.invited_count AS emp_invited_count,
         pp.id AS pay_period_id,
         pp.status AS pay_period_status,
-        pec.employee_count AS pay_employee_count
+        pec.employee_count AS pay_employee_count${
+          includeExtendedOwnerAlerts
+            ? `,
+        pqs.active_orders_count AS pq_active_orders_count,
+        pqs.receivable_orders_count AS pq_receivable_orders_count,
+        pqs.total_receivable_vnd AS pq_total_receivable_vnd,
+        acs.attention_count AS acc_attention_count`
+            : ''
+        }
       FROM shift_stats ss
       CROSS JOIN emp_counts ec
-      CROSS JOIN pay_emp_count pec
+      CROSS JOIN pay_emp_count pec${
+        includeExtendedOwnerAlerts
+          ? `
+      CROSS JOIN pq_stats pqs
+      CROSS JOIN acc_stats acs`
+          : ''
+      }
       LEFT JOIN open_shift os ON true
       LEFT JOIN today_rep tr ON true
       LEFT JOIN pay_period pp ON true;
     `;
 
-    const res = await this.pool.query<{
+    type SummaryQueryRow = {
       current_shift_id: string | null;
       current_shift_run_state: 'working' | 'paused' | 'completed' | null;
       current_shift_clock_in_at: Date | null;
@@ -215,72 +261,55 @@ export class DashboardService {
       pay_period_id: string | null;
       pay_period_status: 'draft' | 'finalized' | null;
       pay_employee_count: number;
-    }>(query, [
+      pq_active_orders_count?: number | null;
+      pq_receivable_orders_count?: number | null;
+      pq_total_receivable_vnd?: string | number | null;
+      acc_attention_count?: number | null;
+    };
+
+    const queryParams = [
       context.workspace.id,
       context.user.id,
       todayIso,
       currentMonth,
       isOwner,
-    ]);
+    ];
+
+    let res: { rows: SummaryQueryRow[] };
+    let extendedAlertsLoaded = isOwner;
+    try {
+      res = await this.pool.query<SummaryQueryRow>(
+        buildSummaryQuery(isOwner),
+        queryParams,
+      );
+    } catch (err: unknown) {
+      if (!isOwner) throw err;
+      extendedAlertsLoaded = false;
+      res = await this.pool.query<SummaryQueryRow>(
+        buildSummaryQuery(false),
+        queryParams,
+      );
+    }
 
     const row = res.rows[0];
 
-    let printQuotesSummary: DashboardPrintQuoteAlertSummary | null = null;
-    let accountsHealthSummary: DashboardAccountsHealthSummary | null = null;
+    const printQuotesSummary: DashboardPrintQuoteAlertSummary | null =
+      isOwner && extendedAlertsLoaded
+        ? {
+            active_orders_count: Number(row?.pq_active_orders_count ?? 0),
+            receivable_orders_count: Number(
+              row?.pq_receivable_orders_count ?? 0,
+            ),
+            total_receivable_vnd: Number(row?.pq_total_receivable_vnd ?? 0),
+          }
+        : null;
 
-    if (isOwner) {
-      try {
-        const pqRes = await this.pool.query<{
-          active_orders_count: number;
-          receivable_orders_count: number;
-          total_receivable_vnd: string | number;
-        }>(
-          `SELECT
-             COUNT(*) FILTER (
-               WHERE production_status NOT IN ('COMPLETED', 'CANCELLED')
-                 AND COALESCE(delivery_status, 'NOT_SHIPPED') <> 'DELIVERED'
-             )::int AS active_orders_count,
-             COUNT(*) FILTER (
-               WHERE production_status <> 'CANCELLED'
-                 AND COALESCE(remaining_debt_amount, 0) > 0
-             )::int AS receivable_orders_count,
-             COALESCE(
-               SUM(remaining_debt_amount) FILTER (
-                 WHERE production_status <> 'CANCELLED'
-                   AND COALESCE(remaining_debt_amount, 0) > 0
-               ),
-               0
-             )::bigint AS total_receivable_vnd
-           FROM print_orders
-           WHERE workspace_id = $1`,
-          [context.workspace.id],
-        );
-        const pqRow = pqRes.rows[0];
-        printQuotesSummary = {
-          active_orders_count: Number(pqRow?.active_orders_count ?? 0),
-          receivable_orders_count: Number(pqRow?.receivable_orders_count ?? 0),
-          total_receivable_vnd: Number(pqRow?.total_receivable_vnd ?? 0),
-        };
-      } catch {
-        printQuotesSummary = null;
-      }
-
-      try {
-        const accRes = await this.pool.query<{ attention_count: number }>(
-          `SELECT COUNT(*)::int AS attention_count
-           FROM managed_accounts
-           WHERE workspace_id = $1
-             AND status = 'active'
-             AND health_status IN ('verify_required', 'locked')`,
-          [context.workspace.id],
-        );
-        accountsHealthSummary = {
-          attention_count: Number(accRes.rows[0]?.attention_count ?? 0),
-        };
-      } catch {
-        accountsHealthSummary = null;
-      }
-    }
+    const accountsHealthSummary: DashboardAccountsHealthSummary | null =
+      isOwner && extendedAlertsLoaded
+        ? {
+            attention_count: Number(row?.acc_attention_count ?? 0),
+          }
+        : null;
 
     return {
       shift: {

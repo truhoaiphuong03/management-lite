@@ -5457,7 +5457,7 @@ export class PrintQuoteService {
                 e.full_name
          FROM employees e
          WHERE e.workspace_id = $1
-           AND e.deleted_at IS NULL
+           AND COALESCE(e.employment_status, 'active') <> 'inactive'
            AND NULLIF(btrim(to_jsonb(e) ->> 'bank_name'), '') IS NOT NULL
            AND NULLIF(btrim(to_jsonb(e) ->> 'bank_account_number'), '') IS NOT NULL
          ORDER BY (e.user_id = $2) DESC, (e.employee_code = 'ADM01') DESC, e.created_at ASC

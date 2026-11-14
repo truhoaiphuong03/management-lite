@@ -105,19 +105,41 @@ export async function syncPrintLedgerToFinanceTx(
     );
     const ownerUserId = ownerRes.rows[0]?.user_id || input.fallbackOwnerUserId;
 
-    const catRes = await client.query<{ id: string; name: string }>(
-      `INSERT INTO fin_categories (workspace_id, owner_user_id, direction, name)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (workspace_id, owner_user_id, direction, normalized_name) WHERE is_active
-       DO UPDATE SET updated_at = clock_timestamp()
-       RETURNING id, name`,
-      [
-        input.workspaceId,
-        ownerUserId,
-        input.direction,
-        input.categoryName.slice(0, 100),
-      ],
+    const cleanCategoryName = input.categoryName.trim().slice(0, 100);
+    let catRes = await client.query<{ id: string; name: string }>(
+      `SELECT id, name
+       FROM fin_categories
+       WHERE workspace_id = $1
+         AND owner_user_id = $2
+         AND direction = $3
+         AND normalized_name = lower(btrim($4))
+         AND is_active = true
+       LIMIT 1`,
+      [input.workspaceId, ownerUserId, input.direction, cleanCategoryName],
     );
+    if (!catRes.rows[0]) {
+      catRes = await client.query<{ id: string; name: string }>(
+        `INSERT INTO fin_categories (workspace_id, owner_user_id, direction, name)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (workspace_id, owner_user_id, direction, normalized_name) WHERE is_active
+         DO NOTHING
+         RETURNING id, name`,
+        [input.workspaceId, ownerUserId, input.direction, cleanCategoryName],
+      );
+      if (!catRes.rows[0]) {
+        catRes = await client.query<{ id: string; name: string }>(
+          `SELECT id, name
+           FROM fin_categories
+           WHERE workspace_id = $1
+             AND owner_user_id = $2
+             AND direction = $3
+             AND normalized_name = lower(btrim($4))
+             AND is_active = true
+           LIMIT 1`,
+          [input.workspaceId, ownerUserId, input.direction, cleanCategoryName],
+        );
+      }
+    }
     const cat = catRes.rows[0];
     if (cat) {
       const d =
