@@ -14,7 +14,10 @@ import type { AttendanceMeResponseData } from '../../../../packages/contracts/sr
 import type { DailyReportListItem } from '../../../../packages/contracts/src/reports.js';
 import type { EmployeeData } from '../../../../packages/contracts/src/employees.js';
 import type { PayrollMonthOverviewData } from '../../../../packages/contracts/src/payroll.js';
-import type { DashboardSummaryResponseData } from '../../../../packages/contracts/src/dashboard.js';
+import type {
+  DashboardPrintQuoteAlertSummary,
+  DashboardSummaryResponseData,
+} from '../../../../packages/contracts/src/dashboard.js';
 import {
   fetchWithFrontendCache,
   getFrontendCachedData,
@@ -27,6 +30,8 @@ export interface DashboardScreenProps {
   userId?: string | undefined;
   workspaceId?: string | undefined;
   onNavigate: (path: string) => void;
+  initialPrintQuoteAlert?: DashboardPrintQuoteAlertSummary | null | undefined;
+  initialAccountsHealthCount?: number | null | undefined;
 }
 
 type BadgeStatus = 'success' | 'warning' | 'error' | 'muted' | 'neutral';
@@ -93,6 +98,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   userId,
   workspaceId,
   onNavigate,
+  initialPrintQuoteAlert,
+  initialAccountsHealthCount,
 }) => {
   const [shiftMetric, setShiftMetric] = useState<MetricCardState>({
     badgeStatus: 'neutral',
@@ -185,6 +192,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     topRoute: string | null;
     topFingerprint: string | null;
   } | null>(null);
+  const [printQuoteAlert, setPrintQuoteAlert] =
+    useState<DashboardPrintQuoteAlertSummary | null>(
+      role === 'owner' ? (initialPrintQuoteAlert ?? null) : null,
+    );
+  const [accountsHealthCount, setAccountsHealthCount] = useState<number>(
+    role === 'owner' ? Math.max(0, initialAccountsHealthCount ?? 0) : 0,
+  );
 
   const handleSyncTikTokV4 = async () => {
     if (typeof fetch !== 'function' || bridgeSyncing) return;
@@ -429,6 +443,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             value: `Kỳ ${summary.payroll.period_month}`,
             subtext: `${summary.payroll.employee_count} nhân sự trong kỳ lương`,
           });
+        }
+        if (summary.print_quotes !== undefined) {
+          setPrintQuoteAlert(summary.print_quotes ?? null);
+        }
+        if (summary.accounts_health !== undefined) {
+          setAccountsHealthCount(
+            Math.max(0, summary.accounts_health?.attention_count ?? 0),
+          );
         }
       }
     };
@@ -1027,6 +1049,101 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         style={{ color: 'var(--danger-text, #b91c1c)' }}
                       >
                         <span>Xử lý</span>
+                        <ChevronRightSvg />
+                      </span>
+                    </button>
+                  )}
+
+                  {printQuoteAlert &&
+                    (printQuoteAlert.active_orders_count > 0 ||
+                      printQuoteAlert.total_receivable_vnd > 0) && (
+                      <button
+                        type="button"
+                        data-testid="action-center-printquote-alerts"
+                        className="dashboard-list-row"
+                        onClick={() =>
+                          onNavigate(
+                            printQuoteAlert.total_receivable_vnd > 0
+                              ? '/print-quotes/receivables'
+                              : '/print-quotes/orders',
+                          )
+                        }
+                      >
+                        <span
+                          className="dashboard-dot"
+                          style={{
+                            backgroundColor:
+                              printQuoteAlert.total_receivable_vnd > 0
+                                ? 'var(--warning-color, #d97706)'
+                                : 'var(--accent-color, #0d9488)',
+                          }}
+                          aria-hidden="true"
+                        />
+                        <div className="dashboard-row-body">
+                          <span className="dashboard-row-title tabular-nums">
+                            {printQuoteAlert.total_receivable_vnd > 0
+                              ? `${printQuoteAlert.receivable_orders_count} đơn in còn công nợ · ${printQuoteAlert.total_receivable_vnd.toLocaleString('vi-VN')} ₫`
+                              : `${printQuoteAlert.active_orders_count} đơn in đang sản xuất / chờ giao`}
+                          </span>
+                          <span className="dashboard-row-meta">
+                            {printQuoteAlert.total_receivable_vnd > 0 &&
+                            printQuoteAlert.active_orders_count > 0
+                              ? `${printQuoteAlert.active_orders_count} đơn đang xử lý · Bấm để thu tiền / đối soát`
+                              : printQuoteAlert.total_receivable_vnd > 0
+                                ? 'Bấm để mở Công nợ Phải thu & tạo phiếu thu VietQR'
+                                : 'Bấm để theo dõi tiến độ đơn hàng in ấn'}
+                          </span>
+                        </div>
+                        <span
+                          className="dashboard-row-right"
+                          style={{
+                            color:
+                              printQuoteAlert.total_receivable_vnd > 0
+                                ? 'var(--warning-text, #92400e)'
+                                : 'var(--accent-text, #0f766e)',
+                          }}
+                        >
+                          <span>
+                            {printQuoteAlert.total_receivable_vnd > 0
+                              ? 'Thu nợ'
+                              : 'Xem đơn'}
+                          </span>
+                          <ChevronRightSvg />
+                        </span>
+                      </button>
+                    )}
+
+                  {accountsHealthCount > 0 && (
+                    <button
+                      type="button"
+                      data-testid="action-center-accounts-health"
+                      className="dashboard-list-row"
+                      onClick={() => onNavigate('/accounts')}
+                    >
+                      <span
+                        className="dashboard-dot"
+                        style={{
+                          backgroundColor: 'var(--warning-color, #d97706)',
+                        }}
+                        aria-hidden="true"
+                      />
+                      <div className="dashboard-row-body">
+                        <span
+                          className="dashboard-row-title"
+                          style={{ color: 'var(--warning-text, #92400e)' }}
+                        >
+                          {accountsHealthCount} tài khoản cần kiểm tra trạng
+                          thái
+                        </span>
+                        <span className="dashboard-row-meta">
+                          Cần xác minh hoặc đang bị khóa — bấm để kiểm tra ngay
+                        </span>
+                      </div>
+                      <span
+                        className="dashboard-row-right"
+                        style={{ color: 'var(--warning-text, #92400e)' }}
+                      >
+                        <span>Kiểm tra</span>
                         <ChevronRightSvg />
                       </span>
                     </button>

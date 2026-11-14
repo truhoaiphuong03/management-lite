@@ -6,8 +6,25 @@ import type { ReleaseNoteItem } from './version.js';
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.10.1',
+    version: '1.0.0',
     commit: 'latest',
+    released_at: '2026-11-14',
+    summary:
+      'Cột mốc phát hành chính thức Management Lite v1.0.0: Trung tâm Việc cần xử lý chủ động 0-request-phụ trên Tổng quan (/dashboard) cảnh báo công nợ/đơn in ấn và sức khỏe kho tài khoản cho Chủ sở hữu, hoàn thiện hệ sinh thái Vận hành – Báo giá In ấn – Tài chính – Nhân sự.',
+    added: [
+      'Cảnh báo chủ động công nợ phải thu & đơn in đang sản xuất ngay tại Việc cần xử lý hôm nay trên /dashboard (điều hướng 1-chạm tới /print-quotes/receivables hoặc /print-quotes/orders, tự ẩn gọn khi không có tồn đọng).',
+      'Cảnh báo chủ động số lượng tài khoản dùng chung cần xác minh hoặc đang bị khóa ngay trên /dashboard cho Chủ sở hữu (điều hướng 1-chạm tới /accounts).',
+    ],
+    improved: [
+      'Mở rộng GET /api/v1/dashboard/summary trả thêm print_quotes và accounts_health cho Owner trong cùng một lượt truy vấn có bảo vệ lỗi độc lập (fail-safe), không phát sinh thêm request phụ từ trình duyệt và bảo toàn 100% phân quyền Staff.',
+    ],
+    fixed: [
+      'Khắc phục điểm mù vận hành trên /dashboard khi Chủ sở hữu phải tự mở từng phân hệ mới phát hiện công nợ đơn in tồn đọng hoặc tài khoản dùng chung bị khóa/cần xác minh.',
+    ],
+  },
+  {
+    version: '0.10.1',
+    commit: 'efcb7a8',
     released_at: '2026-11-14',
     summary:
       'Tối ưu tốc độ tải trang trên mạng di động 4G (chia nhỏ gói JS Báo giá In ấn xuống < 195 kB/chunk, tải trễ cửa sổ Google Drive OAuth) và mở rộng phân trang API tương thích ngược.',
@@ -18,7 +35,9 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     improved: [
       'Chia nhỏ phân hệ Báo giá In ấn thành các gói JS độc lập (printquote-editor, printquote-orders, printquote-catalogs, printquote-views < 195 kB/chunk) và tải trễ cửa sổ xem trước PDF / cấu hình Google Drive OAuth bằng React.lazy.',
     ],
-    fixed: [],
+    fixed: [
+      'Khắc phục hiện tượng Rollup nạp sớm module Báo giá In ấn vào index.html (tách gói ui-shared độc lập, giảm gói JS tải lần đầu xuống 375.3 KB raw / 108.5 KB gzip) và cố định thứ tự sắp xếp created_at DESC, id DESC khi phân trang báo giá.',
+    ],
   },
   {
     version: '0.10.0',
@@ -34,7 +53,9 @@ export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
     improved: [
       'Trình kết xuất PDF A4 trên máy chủ tải sẵn ảnh VietQR dạng Data URI có giới hạn thời gian 2.5s và tự động lui về khung thông tin chuyển khoản văn bản sắc nét khi ngoại tuyến, bảo toàn 100% nguyên tắc không lộ giá vốn/lợi nhuận.',
     ],
-    fixed: [],
+    fixed: [
+      'Khắc phục tình trạng thiếu mã QR thanh toán trực tiếp trên bản in PDF A4 gửi khách và khử độ lệch số liệu giữa Sổ công nợ ngành in với Sổ thu chi tổng (/finance) khi lập hoặc hủy phiếu PT/PC.',
+    ],
   },
   {
     version: '0.9.23',

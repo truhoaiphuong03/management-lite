@@ -43,10 +43,10 @@
 
 - Produces: `SYSTEM_VERSION = '0.9.23'`, đồng bộ sổ cái `ROADMAP.md` từ `v0.7.2` → `v0.9.23` (ghi nhận đầy đủ `v0.9.0..v0.9.22` + `BUG-QA-01..12`), công cụ in sẵn bộ lệnh kiểm tra & phát hành an toàn qua cổng Owner (`npm run release:print-owner-gate`).
 
-- [ ] **Step 1: Đồng bộ `docs/ROADMAP.md`, `PROJECT_STATUS.md` và tạo `scripts/ops/prepare-owner-release-commands.mjs`**
-- [ ] **Step 2: Nâng version `0.9.23` trong `package.json`, `version.ts`, `release-notes-catalog.ts` & chạy `node scripts/gen-build-info.mjs`**
-- [ ] **Step 3: Chạy kiểm tra `npm run typecheck && node --test tests/web/phase16-release-integrity.test.mjs`**
-- [ ] **Step 4: Commit mốc `v0.9.23` lên nhánh `feat/roadmap-v1-upgrade-20261114`**
+- [x] **Step 1: Đồng bộ `docs/ROADMAP.md`, `PROJECT_STATUS.md` và tạo `scripts/ops/prepare-owner-release-commands.mjs`**
+- [x] **Step 2: Nâng version `0.9.23` trong `package.json`, `version.ts`, `release-notes-catalog.ts` & chạy `node scripts/gen-build-info.mjs`**
+- [x] **Step 3: Chạy kiểm tra `npm run typecheck && node --test tests/web/phase16-release-integrity.test.mjs`**
+- [x] **Step 4: Commit mốc `v0.9.23` lên nhánh `feat/roadmap-v1-upgrade-20261114`**
 
 ---
 
@@ -75,11 +75,11 @@
   - Nút `⧉ Nhân bản` hiển thị trên **mọi** dòng báo giá trong `QuotesListTab` (cả Nháp lẫn Đã chốt) và tự động làm mới đơn giá `vendorPriceItems` mới nhất khi nhân bản.
   - Khung **Mã VietQR thu tiền khách** trực tiếp trong Modal lập phiếu thu & xem nhanh công nợ trên `ReceivablesTab.tsx`.
 
-- [ ] **Step 1: Viết bài test `tests/web/printquote-v0100-upgrade.test.mjs` kiểm tra VietQR URL/PDF an toàn khách hàng, Nhân bản làm mới giá danh mục và cấu trúc SQL đồng bộ `fin_entries`**
-- [ ] **Step 2: Tạo `packages/contracts/src/vietqr.ts` và tích hợp vào `printquote-helpers.ts`, `pdf-renderer.ts`, `PrintQuoteService`, `ReceivablesTab.tsx`**
-- [ ] **Step 3: Triển khai `syncPrintLedgerToFinanceTx` trong `ledger-ar-ap-ops.ts` (có `SAVEPOINT` + `ON CONFLICT (workspace_id, owner_user_id, operation_key) DO NOTHING`)**
-- [ ] **Step 4: Nâng cấp `handleCloneQuoteAsNew` trong `PrintQuoteScreen.tsx` & mở nút `⧉ Nhân bản` cho mọi trạng thái trên `QuotesListTab.tsx`**
-- [ ] **Step 5: Nâng version `0.10.0`, chạy test + build + kiểm thử thực tế trên Staging, rồi commit**
+- [x] **Step 1: Viết bài test `tests/web/printquote-v0100-upgrade.test.mjs` kiểm tra VietQR URL/PDF an toàn khách hàng, Nhân bản làm mới giá danh mục và cấu trúc SQL đồng bộ `fin_entries`**
+- [x] **Step 2: Tạo `packages/contracts/src/vietqr.ts` và tích hợp vào `printquote-helpers.ts`, `pdf-renderer.ts`, `PrintQuoteService`, `ReceivablesTab.tsx`**
+- [x] **Step 3: Triển khai `syncPrintLedgerToFinanceTx` trong `ledger-ar-ap-ops.ts` (có `SAVEPOINT` + `ON CONFLICT (workspace_id, owner_user_id, operation_key) DO NOTHING`)**
+- [x] **Step 4: Nâng cấp `handleCloneQuoteAsNew` trong `PrintQuoteScreen.tsx` & mở nút `⧉ Nhân bản` cho mọi trạng thái trên `QuotesListTab.tsx`**
+- [x] **Step 5: Nâng version `0.10.0`, chạy test + build + kiểm thử thực tế trên Staging, rồi commit**
 
 ---
 
@@ -103,10 +103,10 @@
   - Tách `StorageDriveOAuthModal` (`React.lazy`) khỏi `StorageScreen.tsx`.
   - Hỗ trợ tham số tùy chọn `?limit=<1..100>&offset=<>=0>` tương thích ngược tuyệt đối trên `GET /api/v1/work-items` và `GET /api/v1/print-quotes/quotes` (trả nguyên mảng cũ khi không truyền `offset`, trả `{ items, total, limit, offset }` hoặc giữ mảng `data` kèm `meta: { total, limit, offset }` chuẩn envelope hệ thống!).
 
-- [ ] **Step 1: Viết test `tests/web/phase3-perf-pagination-v0101.test.mjs` kiểm tra giới hạn kích thước chunk `< 195 kB` và hợp đồng phân trang tương thích ngược**
-- [ ] **Step 2: Cấu hình tách chunk `PrintQuote` trong `vite.config.ts` + `React.lazy` cho `PdfPreviewModal`/`CatalogModalDialog` và tách `StorageDriveOAuthModal.tsx`**
-- [ ] **Step 3: Mở rộng `offset` + `meta.pagination` tương thích ngược trên `GET /api/v1/work-items` & `GET /api/v1/print-quotes/quotes` + bổ sung chỉ mục nóng trong `ensure-hot-indexes.sql`**
-- [ ] **Step 4: Nâng version `0.10.1`, chạy `build:web`, `check:bundle`, bộ test phân trang/SSR và commit**
+- [x] **Step 1: Viết test `tests/web/phase3-perf-pagination-v0101.test.mjs` kiểm tra giới hạn kích thước chunk `< 195 kB` và hợp đồng phân trang tương thích ngược**
+- [x] **Step 2: Cấu hình tách chunk `PrintQuote` trong `vite.config.ts` + `React.lazy` cho `PdfPreviewModal`/`CatalogModalDialog` và tách `StorageDriveOAuthModal.tsx`**
+- [x] **Step 3: Mở rộng `offset` + `meta.pagination` tương thích ngược trên `GET /api/v1/work-items` & `GET /api/v1/print-quotes/quotes` + bổ sung chỉ mục nóng trong `ensure-hot-indexes.sql`**
+- [x] **Step 4: Nâng version `0.10.1`, chạy `build:web`, `check:bundle`, bộ test phân trang/SSR và commit**
 
 ---
 
@@ -127,7 +127,7 @@
     2. `action-center-accounts-health`: Tài khoản dùng chung có trạng thái cần kiểm tra (`checkpoint` / `die` / `warning`) dẫn thẳng tới `/accounts`.
   - Chốt phiên bản `v1.0.0` đồng bộ toàn hệ thống, vượt qua toàn bộ cổng kiểm thử (`format:check`, `typecheck`, `lint`, `build`, `build:web`, `check:bundle`, `test:security`, E2E trình duyệt trên Staging) và đẩy nhánh `feat/roadmap-v1-upgrade-20261114` lên GitHub.
 
-- [ ] **Step 1: Viết test `tests/web/dashboard-v100-action-center.test.mjs` cho 2 thẻ nhắc việc mới trên `DashboardScreen`**
-- [ ] **Step 2: Triển khai nhắc việc Đơn in / Công nợ phải thu & Sức khỏe tài khoản trên `DashboardScreen.tsx` (Owner-only, fail-safe không chặn tải trang)**
-- [ ] **Step 3: Nâng version `1.0.0`, cập nhật `RELEASE_NOTES_CATALOG`, `AGENTS.md`, `PROJECT_STATUS.md`, `docs/ROADMAP.md`**
-- [ ] **Step 4: Chạy toàn bộ cổng kiểm chứng (`verification-before-completion`), kiểm thử E2E trực tiếp trên Staging `:4001`, commit & push lên `origin/feat/roadmap-v1-upgrade-20261114`**
+- [x] **Step 1: Viết test `tests/web/dashboard-v100-action-center.test.mjs` cho 2 thẻ nhắc việc mới trên `DashboardScreen`**
+- [x] **Step 2: Triển khai nhắc việc Đơn in / Công nợ phải thu & Sức khỏe tài khoản trên `DashboardScreen.tsx` (Owner-only, fail-safe không chặn tải trang)**
+- [x] **Step 3: Nâng version `1.0.0`, cập nhật `RELEASE_NOTES_CATALOG`, `AGENTS.md`, `PROJECT_STATUS.md`, `docs/ROADMAP.md`**
+- [x] **Step 4: Chạy toàn bộ cổng kiểm chứng (`verification-before-completion`), kiểm thử E2E trực tiếp trên Staging `:4001`, commit & push lên `origin/feat/roadmap-v1-upgrade-20261114`**

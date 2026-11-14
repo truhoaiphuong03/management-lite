@@ -3,7 +3,7 @@
  * Management Lite Single Source of Truth
  */
 export const SYSTEM_NAME = 'Management Lite';
-export const SYSTEM_VERSION = '0.10.1';
+export const SYSTEM_VERSION = '1.0.0';
 export const SYSTEM_COMMIT = '3a3e776';
 export const SYSTEM_ENV = 'staging';
 
