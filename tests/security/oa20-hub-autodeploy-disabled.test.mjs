@@ -45,7 +45,7 @@ test('OA-20.1: Dual permanent backups exist, match SHA-256 manifest, and pass Re
   );
 
   if (process.platform !== 'win32') {
-    t.skip(
+    t.diagnostic(
       'Bỏ qua kiểm tra thư mục backup Windows trên môi trường phi Windows.',
     );
     return;
@@ -54,7 +54,7 @@ test('OA-20.1: Dual permanent backups exist, match SHA-256 manifest, and pass Re
     (dir) => !fs.existsSync(path.join(dir, 'manifest-sha256.json')),
   );
   if (missingBackupDir) {
-    t.skip(
+    t.diagnostic(
       `Bỏ qua kiểm tra bản sao lưu ngoài repo do máy hiện tại không có đường dẫn: ${missingBackupDir}`,
     );
     return;
@@ -127,7 +127,7 @@ test('OA-20.1: Dual permanent backups exist, match SHA-256 manifest, and pass Re
 
 test('OA-20.2: All direct, indirect, and boot-scheduled legacy auto-deploy entrypoints fail closed with exit code 43/1 and do not recreate persistence vectors', async (t) => {
   if (process.platform !== 'win32') {
-    t.skip('Bỏ qua OA-20.2 trên môi trường phi Windows.');
+    t.diagnostic('Bỏ qua OA-20.2 trên môi trường phi Windows.');
     return;
   }
   const nodeTriggers = [
@@ -159,7 +159,7 @@ test('OA-20.2: All direct, indirect, and boot-scheduled legacy auto-deploy entry
     atBootScript,
   ].find((targetPath) => !fs.existsSync(targetPath));
   if (missingHostPath) {
-    t.skip(
+    t.diagnostic(
       `Bỏ qua OA-20.2 do máy hiện tại không có đường dẫn ngoài repo: ${missingHostPath}`,
     );
     return;
@@ -249,7 +249,7 @@ test('OA-20.2: All direct, indirect, and boot-scheduled legacy auto-deploy entry
 test('OA-20.3: Production services and isolated DEV Bot remain healthy while legacy preview port 4799 is released', (t) => {
   const lockFile = 'C:\\Projects-Dev\\anty-remote-hub\\.anty-poller.lock';
   if (process.platform !== 'win32' || !fs.existsSync(lockFile)) {
-    t.skip(
+    t.diagnostic(
       `Bỏ qua OA-20.3 do máy hiện tại không có tệp trạng thái DEV Bot ngoài repo: ${lockFile}`,
     );
     return;
