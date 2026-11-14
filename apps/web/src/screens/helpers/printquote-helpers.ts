@@ -7,6 +7,7 @@ import {
   formatCustomerLinePricePresentation,
   formatPrintQuoteAreaSqmVn,
   formatPrintQuoteIntegerVn,
+  LineCostSource,
   MAX_PRINTQUOTE_PERCENT,
   MAX_PRINTQUOTE_QUANTITY,
   MAX_PRINTQUOTE_RATE_VND,
@@ -31,6 +32,10 @@ import {
   type PrintDeliveryStatusType,
   type PrintPaymentStatusType,
 } from '../../../../../packages/contracts/src/printquote.js';
+import {
+  buildVietQrImageUrl,
+  normalizeVietQrAccountDigits,
+} from '../../../../../packages/contracts/src/vietqr.js';
 
 /**
  * Sanitizes raw text entered/pasted into a numeric draft input WITHOUT forcing
@@ -1008,6 +1013,15 @@ export interface PrintQuoteA4Metadata {
     string,
     { specification?: string | undefined; unit?: string | undefined }
   >;
+  paymentBank?:
+    | {
+        bankName?: string | null | undefined;
+        bankAccountNumber?: string | null | undefined;
+        bankAccountHolder?: string | null | undefined;
+        suggestedDepositPercent?: number | null | undefined;
+      }
+    | null
+    | undefined;
 }
 
 function escapeHtml(raw: string | null | undefined): string {
@@ -1369,6 +1383,46 @@ export function buildPrintQuoteA4Html(
       <strong>Số tiền bằng chữ:</strong> ${amountInWords}.
     </div>
 
+    ${(() => {
+      const bank = meta.paymentBank;
+      const accNo = normalizeVietQrAccountDigits(bank?.bankAccountNumber);
+      if (
+        !bank?.bankName?.trim() ||
+        !accNo ||
+        pdfPayload.grandTotalPayable <= 0
+      ) {
+        return '';
+      }
+      const depPct = Math.min(
+        100,
+        Math.max(10, Math.round(bank.suggestedDepositPercent ?? 50)),
+      );
+      const depAmount = Math.round(
+        (pdfPayload.grandTotalPayable * depPct) / 100,
+      );
+      const rawCode = meta.quoteCode || pdfPayload.quoteCode || 'BG-DRAFT';
+      const transferInfo = `COC ${rawCode}`;
+      const qrUrl = buildVietQrImageUrl({
+        bankName: bank.bankName,
+        bankAccountNumber: accNo,
+        bankAccountHolder: bank.bankAccountHolder,
+        amountVnd: depAmount,
+        addInfo: transferInfo,
+      });
+      const qrImgHtml = qrUrl
+        ? `<div style="flex: 0 0 auto; text-align: center;"><img src="${escapeHtml(qrUrl)}" alt="VietQR thanh toán" onerror="this.style.display='none'" style="width: 112px; height: auto; border: 1px solid #CBD5E1; border-radius: 6px; padding: 4px; background: #FFFFFF;" /></div>`
+        : '';
+      return `
+    <div class="payment-qr-box" style="display: flex; justify-content: space-between; align-items: center; gap: 14px; border: 1px solid #99F6E4; background: #F0FDFA; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px;">
+      <div style="flex: 1 1 auto;">
+        <div style="font-weight: 700; color: #0F766E; margin-bottom: 4px; text-transform: uppercase;">Thông tin chuyển khoản thanh toán / đặt cọc</div>
+        <div>Ngân hàng: <strong>${escapeHtml(bank.bankName)}</strong> • Số TK: <strong>${escapeHtml(accNo)}</strong>${bank.bankAccountHolder ? ` • Chủ TK: <strong>${escapeHtml(bank.bankAccountHolder)}</strong>` : ''}</div>
+        <div style="margin-top: 3px;">Đặt cọc đề xuất (${depPct}%): <strong>${formatVnd(depAmount)}</strong> • Nội dung CK: <strong>${escapeHtml(transferInfo)}</strong></div>
+      </div>
+      ${qrImgHtml}
+    </div>`;
+    })()}
+
     <div class="notes-box"><strong>Ghi chú &amp; Điều khoản báo giá:</strong>
 ${customerNotes}</div>
 
@@ -1385,6 +1439,129 @@ ${customerNotes}</div>
   </div>
 </body>
 </html>`;
+}
+
+export interface CloneRefreshableStage {
+  priceItemId: string;
+  priceItemVersion?: number | null | undefined;
+  pricingMode: VendorCostModeType;
+  rateValue: number;
+  rateInput: string;
+  costSource: LineCostSourceType;
+  catalogOriginalRate?: number | null | undefined;
+}
+
+export interface CloneRefreshableLine<
+  TStage extends CloneRefreshableStage = CloneRefreshableStage,
+> {
+  vendorPriceItemId: string;
+  vendorPriceItemVersion?: number | null | undefined;
+  vendorCostMode: VendorCostModeType;
+  vendorCostValue: number;
+  vendorCostInput?: string | undefined;
+  baseCostSource?: LineCostSourceType | undefined;
+  baseCatalogOriginalRate?: number | null | undefined;
+  finishingStages?: TStage[] | undefined;
+}
+
+/**
+ * Refreshes catalog-backed base print lines and finishing stages with the latest
+ * active supplier rate when cloning an older quote into a brand-new draft.
+ * Preserves intentional manual overrides (`MANUAL_OVERRIDE` / `MANUAL`).
+ */
+export function refreshClonedLinesFromCatalog<
+  TStage extends CloneRefreshableStage,
+  TLine extends CloneRefreshableLine<TStage>,
+>(
+  lines: TLine[],
+  catalogItems: PrintVendorPriceItemData[],
+): { lines: TLine[]; updatedCount: number } {
+  if (!catalogItems || catalogItems.length === 0) {
+    return { lines, updatedCount: 0 };
+  }
+  const activeById = new Map<string, PrintVendorPriceItemData>();
+  for (const item of catalogItems) {
+    if (item.is_active) {
+      activeById.set(item.id, item);
+    }
+  }
+  let updatedCount = 0;
+
+  const refreshed = lines.map((line) => {
+    let nextLine: TLine = { ...line };
+    if (
+      line.vendorPriceItemId &&
+      line.baseCostSource !== LineCostSource.CATALOG_OVERRIDDEN &&
+      line.baseCostSource !== LineCostSource.MANUAL
+    ) {
+      const cat = activeById.get(line.vendorPriceItemId);
+      if (cat) {
+        const latestRate =
+          cat.pricing_mode === VendorCostMode.TOTAL_BATCH
+            ? cat.batch_total_cost
+            : cat.unit_cost;
+        if (
+          latestRate !== line.vendorCostValue ||
+          cat.pricing_mode !== line.vendorCostMode ||
+          cat.version !== line.vendorPriceItemVersion
+        ) {
+          if (latestRate !== line.vendorCostValue) {
+            updatedCount += 1;
+          }
+          nextLine = {
+            ...nextLine,
+            vendorCostMode: cat.pricing_mode,
+            vendorCostValue: latestRate,
+            vendorCostInput: String(latestRate),
+            vendorPriceItemVersion: cat.version,
+            baseCostSource: LineCostSource.CATALOG,
+            baseCatalogOriginalRate: latestRate,
+          };
+        }
+      }
+    }
+
+    if (line.finishingStages && line.finishingStages.length > 0) {
+      const nextStages = line.finishingStages.map((stg) => {
+        if (
+          stg.priceItemId &&
+          stg.costSource !== LineCostSource.CATALOG_OVERRIDDEN &&
+          stg.costSource !== LineCostSource.MANUAL
+        ) {
+          const catStg = activeById.get(stg.priceItemId);
+          if (catStg) {
+            const latestStageRate =
+              catStg.pricing_mode === VendorCostMode.TOTAL_BATCH
+                ? catStg.batch_total_cost
+                : catStg.unit_cost;
+            if (
+              latestStageRate !== stg.rateValue ||
+              catStg.version !== stg.priceItemVersion
+            ) {
+              if (latestStageRate !== stg.rateValue) {
+                updatedCount += 1;
+              }
+              return {
+                ...stg,
+                pricingMode: catStg.pricing_mode,
+                rateValue: latestStageRate,
+                rateInput: String(latestStageRate),
+                priceItemVersion: catStg.version,
+                costSource: LineCostSource.CATALOG,
+                catalogOriginalRate: latestStageRate,
+              };
+            }
+          }
+        }
+        return stg;
+      });
+      nextLine = { ...nextLine, finishingStages: nextStages };
+    }
+
+    return nextLine;
+  });
+
+  return { lines: refreshed, updatedCount };
 }
 
 /**

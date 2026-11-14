@@ -430,7 +430,7 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                       <span>Xem A4</span>
                     </button>
 
-                    {editable ? (
+                    {editable && (
                       <button
                         type="button"
                         data-testid={`pq-quote-edit-${q.quote_code}`}
@@ -448,17 +448,18 @@ export const QuotesListTab: React.FC<QuotesListTabProps> = ({
                             : `Sửa / Tạo phiên bản (v${curVersion + 1})`}
                         </span>
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        data-testid={`pq-quote-clone-${q.quote_code}`}
-                        onClick={() => onCloneQuoteAsNew(q)}
-                        className="pq-btn pq-btn-secondary"
-                      >
-                        <PqCopyIcon size={14} />
-                        <span>Tạo bản mới</span>
-                      </button>
                     )}
+
+                    <button
+                      type="button"
+                      data-testid={`pq-quote-clone-${q.quote_code}`}
+                      onClick={() => onCloneQuoteAsNew(q)}
+                      className="pq-btn pq-btn-secondary"
+                      title="Nhân bản nhanh sang báo giá mới (tự áp bảng giá xưởng mới nhất)"
+                    >
+                      <PqCopyIcon size={14} />
+                      <span>{editable ? 'Nhân bản' : 'Tạo bản mới'}</span>
+                    </button>
 
                     {q.status === 'DRAFT' && !pendingCost && (
                       <button

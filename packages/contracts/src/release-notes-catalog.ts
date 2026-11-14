@@ -6,8 +6,24 @@ import type { ReleaseNoteItem } from './version.js';
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.23',
+    version: '0.10.0',
     commit: 'latest',
+    released_at: '2026-11-14',
+    summary:
+      'Tích hợp mã VietQR thanh toán trên Báo giá PDF A4 & Sổ công nợ khách hàng, tự động đồng bộ phiếu thu/chi in ấn (PT/PC) sang Sổ thu chi tổng (/finance) và mở nút Nhân bản báo giá 1-chạm kèm làm mới giá xưởng.',
+    added: [
+      'Module VietQR dùng chung (@management-lite/contracts/vietqr) tự động sinh mã QR chuyển khoản cọc 50% / tất toán 100% trên Báo giá PDF A4 và trong cửa sổ Lập phiếu thu công nợ khách (/print-quotes/receivables) từ thông tin ngân hàng của Chủ sở hữu.',
+      'Cơ chế đồng bộ tự động 2 chiều an toàn (SAVEPOINT + operation_key chống trùng) ghi nhận Phiếu thu khách (PT-...) và Phiếu chi xưởng (PC-...) cùng bút toán đảo khi Hủy phiếu (VOID) trực tiếp sang Sổ thu chi tổng (/finance).',
+      'Nút Nhân bản 1-chạm trên mọi trạng thái báo giá (cả Nháp và Đã chốt) tự động kiểm tra và cập nhật đơn giá mới nhất từ Bảng giá xưởng.',
+    ],
+    improved: [
+      'Trình kết xuất PDF A4 trên máy chủ tải sẵn ảnh VietQR dạng Data URI có giới hạn thời gian 2.5s và tự động lui về khung thông tin chuyển khoản văn bản sắc nét khi ngoại tuyến, bảo toàn 100% nguyên tắc không lộ giá vốn/lợi nhuận.',
+    ],
+    fixed: [],
+  },
+  {
+    version: '0.9.23',
+    commit: '9acae08',
     released_at: '2026-11-14',
     summary:
       'Hợp nhất trọn bộ 12 bản vá kiểm thử toàn diện (BUG-QA-01..12), dọn sạch code thừa, chuẩn hóa hạ tầng Staging 1-chạm, bổ sung công cụ dọn thư mục MacBook DEV an toàn và đồng bộ sổ cái quản trị ROADMAP.',

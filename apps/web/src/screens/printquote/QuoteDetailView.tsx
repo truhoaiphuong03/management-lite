@@ -31,11 +31,14 @@ import {
   PqTrashIcon,
 } from './PrintQuoteIcons.js';
 
+import type { OwnerPaymentBankInfo } from '../../../../../packages/contracts/src/vietqr.js';
+
 export interface QuoteDetailViewProps {
   quote: PrintQuoteData | null;
   loading: boolean;
   workspaceName: string;
   customers: PrintCustomerData[];
+  ownerBank?: OwnerPaymentBankInfo | null | undefined;
   onBackToList: () => void;
   onDownloadSavedPdf: (quoteId: string, quoteCode: string) => void;
   onOpenFullPreview: (quote: PrintQuoteData) => void;
@@ -53,6 +56,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
   loading,
   workspaceName,
   customers,
+  ownerBank,
   onBackToList,
   onDownloadSavedPdf,
   onOpenFullPreview,
@@ -96,8 +100,9 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
       customerEmail: customer?.email || null,
       customerAddress: quote.customer_address || customer?.address || null,
       customerNotes: quote.notes,
+      paymentBank: ownerBank ?? null,
     });
-  }, [quote, customer, workspaceName, isPendingCost]);
+  }, [quote, customer, workspaceName, isPendingCost, ownerBank]);
 
   if (loading && !quote) {
     return (
@@ -303,7 +308,7 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
               <span>Xem rộng A4</span>
             </button>
 
-            {canEditInPlace ? (
+            {canEditInPlace && (
               <button
                 type="button"
                 data-testid="pq-detail-edit-btn"
@@ -321,17 +326,22 @@ export const QuoteDetailView: React.FC<QuoteDetailViewProps> = ({
                     : `Sửa báo giá (v${quote.current_version + 1})`}
                 </span>
               </button>
-            ) : (
-              <button
-                type="button"
-                data-testid="pq-detail-clone-btn"
-                onClick={() => onCloneQuoteAsNew(quote)}
-                className="pq-btn pq-btn-secondary"
-              >
-                <PqCopyIcon size={15} />
-                <span>Tạo báo giá mới từ bản này</span>
-              </button>
             )}
+
+            <button
+              type="button"
+              data-testid="pq-detail-clone-btn"
+              onClick={() => onCloneQuoteAsNew(quote)}
+              className="pq-btn pq-btn-secondary"
+              title="Nhân bản nhanh sang báo giá mới (tự áp bảng giá xưởng mới nhất)"
+            >
+              <PqCopyIcon size={15} />
+              <span>
+                {canEditInPlace
+                  ? 'Nhân bản báo giá'
+                  : 'Tạo báo giá mới từ bản này'}
+              </span>
+            </button>
 
             {quote.status === 'DRAFT' && !isPendingCost && (
               <button

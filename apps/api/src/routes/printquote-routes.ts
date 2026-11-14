@@ -14,6 +14,7 @@ import {
 } from '../../../../packages/contracts/src/printquote.js';
 import {
   PdfRendererUnavailableError,
+  fetchVietQrDataUriSafe,
   renderCustomerSafeA4PdfBuffer,
   sanitizePdfFilename,
   type ServerA4PdfMeta,
@@ -140,6 +141,23 @@ export async function handlePrintQuoteRoutes(
     assertCustomerSafePdfPayload(body.customer_pdf);
     const quoteCode =
       body.meta?.quoteCode || body.customer_pdf.quoteCode || 'BG-DRAFT';
+    const ownerBank =
+      body.meta?.paymentBank !== undefined
+        ? body.meta.paymentBank
+        : await printQuoteService.getOwnerPaymentBank(sessionContext);
+    const depAmount = Math.round(
+      (body.customer_pdf.grandTotalPayable * 50) / 100,
+    );
+    const qrDataUri =
+      ownerBank?.bankName && ownerBank.bankAccountNumber && depAmount > 0
+        ? await fetchVietQrDataUriSafe({
+            bankName: ownerBank.bankName,
+            bankAccountNumber: ownerBank.bankAccountNumber,
+            bankAccountHolder: ownerBank.bankAccountHolder,
+            amountVnd: depAmount,
+            addInfo: `COC ${quoteCode}`,
+          })
+        : null;
     let pdfBuf: Buffer;
     try {
       pdfBuf = await renderCustomerSafeA4PdfBuffer(body.customer_pdf, {
@@ -147,6 +165,15 @@ export async function handlePrintQuoteRoutes(
         workspaceName:
           body.meta?.workspaceName || sessionContext.workspace.name,
         quoteCode,
+        paymentBank: ownerBank
+          ? {
+              ...ownerBank,
+              qrDataUri:
+                'qrDataUri' in ownerBank && ownerBank.qrDataUri !== undefined
+                  ? ownerBank.qrDataUri
+                  : qrDataUri,
+            }
+          : null,
       });
     } catch (err) {
       if (err instanceof PdfRendererUnavailableError) {
@@ -418,6 +445,19 @@ export async function handlePrintQuoteRoutes(
       }
       const safePdf = quote.customer_pdf_json;
       assertCustomerSafePdfPayload(safePdf);
+      const ownerBank =
+        await printQuoteService.getOwnerPaymentBank(sessionContext);
+      const depAmount = Math.round((safePdf.grandTotalPayable * 50) / 100);
+      const qrDataUri =
+        ownerBank && depAmount > 0
+          ? await fetchVietQrDataUriSafe({
+              bankName: ownerBank.bankName,
+              bankAccountNumber: ownerBank.bankAccountNumber,
+              bankAccountHolder: ownerBank.bankAccountHolder,
+              amountVnd: depAmount,
+              addInfo: `COC ${quote.quote_code}`,
+            })
+          : null;
       let pdfBuf: Buffer;
       try {
         pdfBuf = await renderCustomerSafeA4PdfBuffer(safePdf, {
@@ -431,6 +471,7 @@ export async function handlePrintQuoteRoutes(
           customerPhone: quote.customer_phone,
           customerAddress: quote.customer_address,
           customerNotes: quote.notes,
+          paymentBank: ownerBank ? { ...ownerBank, qrDataUri } : null,
         });
       } catch (err) {
         if (err instanceof PdfRendererUnavailableError) {

@@ -16,6 +16,10 @@ import type {
   PrintOpeningBalanceData,
 } from '../../../../../packages/contracts/src/printquote-finance.js';
 import {
+  buildVietQrImageUrl,
+  type OwnerPaymentBankInfo,
+} from '../../../../../packages/contracts/src/vietqr.js';
+import {
   formatVnd,
   parseNumericDraftValue,
 } from '../helpers/printquote-helpers.js';
@@ -36,6 +40,7 @@ export interface ReceivablesTabProps {
   data: ReceivablesLedgerPayload | null;
   customers: PrintCustomerData[];
   orders: PrintOrderData[];
+  ownerBank?: OwnerPaymentBankInfo | null | undefined;
   onMutateLedger: (
     endpoint: string,
     body: Record<string, unknown>,
@@ -89,6 +94,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   data,
   customers,
   orders,
+  ownerBank,
   onMutateLedger,
 }) => {
   const [scopeFilter, setScopeFilter] = useState<'ALL' | LedgerScopeType>(
@@ -1824,6 +1830,183 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               )}
             </div>
           )}
+
+          {modalMode === 'RECEIPT' &&
+            (() => {
+              const debtOrders = openOrders.filter(
+                (o: PrintOrderData) => o.remaining_debt_amount > 0,
+              );
+              const totalOpenDebt = debtOrders.reduce(
+                (sum, o) => sum + o.remaining_debt_amount,
+                0,
+              );
+              const parsedAmount = Math.max(
+                0,
+                Math.round(Number(formAmountInput) || 0),
+              );
+              const qrAmount = parsedAmount > 0 ? parsedAmount : totalOpenDebt;
+              const selectedCustomerObj = customers.find(
+                (c) => c.id === formCustomerId,
+              );
+              const firstOrderCode = debtOrders[0]?.order_code || '';
+              const transferMemo = firstOrderCode
+                ? `THU ${firstOrderCode}`
+                : selectedCustomerObj?.code
+                  ? `THU ${selectedCustomerObj.code}`
+                  : 'THU DON IN AN';
+              const qrUrl = ownerBank
+                ? buildVietQrImageUrl({
+                    bankName: ownerBank.bankName,
+                    bankAccountNumber: ownerBank.bankAccountNumber,
+                    bankAccountHolder: ownerBank.bankAccountHolder,
+                    amountVnd: qrAmount > 0 ? qrAmount : undefined,
+                    addInfo: transferMemo,
+                  })
+                : null;
+
+              const applyQuickRatio = (ratio: 0.5 | 1) => {
+                if (debtOrders.length === 0) return;
+                const nextAlloc: Record<string, string> = {};
+                let sumAlloc = 0;
+                for (const ord of debtOrders.slice(0, 8)) {
+                  const part =
+                    ratio === 1
+                      ? ord.remaining_debt_amount
+                      : Math.round(ord.remaining_debt_amount * 0.5);
+                  if (part > 0) {
+                    nextAlloc[ord.id] = String(part);
+                    sumAlloc += part;
+                  }
+                }
+                setAllocMap(nextAlloc);
+                setFormAmountInput(String(sumAlloc));
+              };
+
+              return (
+                <div
+                  data-testid="pq-ar-vietqr-box"
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-color)',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div style={{ flex: '1 1 210px', minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        color: 'var(--text-color)',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Mã VietQR thu tiền khách & điền nhanh
+                    </div>
+                    {debtOrders.length > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '6px',
+                          marginBottom: '6px',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          data-testid="pq-ar-quick-50"
+                          onClick={() => applyQuickRatio(0.5)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--surface-color)',
+                            color: 'var(--text-color)',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Điền nhanh 50% (
+                          {formatVnd(Math.round(totalOpenDebt * 0.5))})
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="pq-ar-quick-100"
+                          onClick={() => applyQuickRatio(1)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--accent-color)',
+                            backgroundColor: 'var(--surface-color)',
+                            color: 'var(--accent-text)',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Tất toán 100% ({formatVnd(totalOpenDebt)})
+                        </button>
+                      </div>
+                    )}
+                    {qrUrl && ownerBank ? (
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--muted-color)',
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        <div>
+                          NH: <strong>{ownerBank.bankName}</strong> • STK:{' '}
+                          <strong>{ownerBank.bankAccountNumber}</strong>
+                        </div>
+                        {ownerBank.bankAccountHolder && (
+                          <div>
+                            Chủ TK:{' '}
+                            <strong>{ownerBank.bankAccountHolder}</strong>
+                          </div>
+                        )}
+                        <div>
+                          Nội dung gợi ý: <code>{transferMemo}</code>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--muted-color)',
+                        }}
+                      >
+                        Cập nhật Ngân hàng & Số tài khoản trong mục{' '}
+                        <strong>Hồ sơ / Cài đặt</strong> để hiện mã VietQR thu
+                        khách tự động.
+                      </div>
+                    )}
+                  </div>
+                  {qrUrl && (
+                    <img
+                      src={qrUrl}
+                      alt="Mã VietQR thu tiền khách"
+                      style={{
+                        width: '108px',
+                        height: '108px',
+                        objectFit: 'contain',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: '#FFFFFF',
+                        padding: '4px',
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })()}
 
           {(modalMode === 'RECEIPT' || modalMode === 'ALLOCATE') &&
             openOrders.length > 0 && (

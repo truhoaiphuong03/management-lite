@@ -5387,4 +5387,43 @@ export class PrintQuoteService {
       orders_by_payment_status: ordersByPay,
     };
   }
+
+  async getOwnerPaymentBank(ctx: AuthenticatedContext): Promise<{
+    bankName: string;
+    bankAccountNumber: string;
+    bankAccountHolder: string | null;
+  } | null> {
+    this.assertOwnerAccess(ctx);
+    try {
+      const res = await this.pool.query<{
+        bank_name: string | null;
+        bank_account_number: string | null;
+        bank_account_holder: string | null;
+        full_name: string | null;
+      }>(
+        `SELECT to_jsonb(e) ->> 'bank_name' AS bank_name,
+                to_jsonb(e) ->> 'bank_account_number' AS bank_account_number,
+                to_jsonb(e) ->> 'bank_account_holder' AS bank_account_holder,
+                e.full_name
+         FROM employees e
+         WHERE e.workspace_id = $1
+           AND e.deleted_at IS NULL
+           AND NULLIF(btrim(to_jsonb(e) ->> 'bank_name'), '') IS NOT NULL
+           AND NULLIF(btrim(to_jsonb(e) ->> 'bank_account_number'), '') IS NOT NULL
+         ORDER BY (e.user_id = $2) DESC, (e.employee_code = 'ADM01') DESC, e.created_at ASC
+         LIMIT 1`,
+        [ctx.workspace.id, ctx.user.id],
+      );
+      const row = res.rows[0];
+      if (!row?.bank_name || !row.bank_account_number) return null;
+      return {
+        bankName: row.bank_name.trim(),
+        bankAccountNumber: row.bank_account_number.trim(),
+        bankAccountHolder:
+          row.bank_account_holder?.trim() || row.full_name?.trim() || null,
+      };
+    } catch {
+      return null;
+    }
+  }
 }
