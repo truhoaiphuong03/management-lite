@@ -1,6 +1,10 @@
 import type { DatabasePool } from '../../../../packages/database/src/pool.js';
 import { AuthError, type AuthenticatedContext } from '../auth/service.js';
-import type { DashboardSummaryResponseData } from '../../../../packages/contracts/src/dashboard.js';
+import type {
+  DashboardAccountsHealthSummary,
+  DashboardPrintQuoteAlertSummary,
+  DashboardSummaryResponseData,
+} from '../../../../packages/contracts/src/dashboard.js';
 
 function getVietnamTodayIso(): string {
   try {
@@ -221,6 +225,63 @@ export class DashboardService {
 
     const row = res.rows[0];
 
+    let printQuotesSummary: DashboardPrintQuoteAlertSummary | null = null;
+    let accountsHealthSummary: DashboardAccountsHealthSummary | null = null;
+
+    if (isOwner) {
+      try {
+        const pqRes = await this.pool.query<{
+          active_orders_count: number;
+          receivable_orders_count: number;
+          total_receivable_vnd: string | number;
+        }>(
+          `SELECT
+             COUNT(*) FILTER (
+               WHERE production_status NOT IN ('COMPLETED', 'CANCELLED')
+                 AND COALESCE(delivery_status, 'NOT_SHIPPED') <> 'DELIVERED'
+             )::int AS active_orders_count,
+             COUNT(*) FILTER (
+               WHERE production_status <> 'CANCELLED'
+                 AND COALESCE(remaining_debt_amount, 0) > 0
+             )::int AS receivable_orders_count,
+             COALESCE(
+               SUM(remaining_debt_amount) FILTER (
+                 WHERE production_status <> 'CANCELLED'
+                   AND COALESCE(remaining_debt_amount, 0) > 0
+               ),
+               0
+             )::bigint AS total_receivable_vnd
+           FROM print_orders
+           WHERE workspace_id = $1`,
+          [context.workspace.id],
+        );
+        const pqRow = pqRes.rows[0];
+        printQuotesSummary = {
+          active_orders_count: Number(pqRow?.active_orders_count ?? 0),
+          receivable_orders_count: Number(pqRow?.receivable_orders_count ?? 0),
+          total_receivable_vnd: Number(pqRow?.total_receivable_vnd ?? 0),
+        };
+      } catch {
+        printQuotesSummary = null;
+      }
+
+      try {
+        const accRes = await this.pool.query<{ attention_count: number }>(
+          `SELECT COUNT(*)::int AS attention_count
+           FROM managed_accounts
+           WHERE workspace_id = $1
+             AND status = 'active'
+             AND health_status IN ('verify_required', 'locked')`,
+          [context.workspace.id],
+        );
+        accountsHealthSummary = {
+          attention_count: Number(accRes.rows[0]?.attention_count ?? 0),
+        };
+      } catch {
+        accountsHealthSummary = null;
+      }
+    }
+
     return {
       shift: {
         current_shift:
@@ -269,6 +330,8 @@ export class DashboardService {
             has_period_record: Boolean(row?.pay_period_id),
           }
         : null,
+      print_quotes: printQuotesSummary,
+      accounts_health: accountsHealthSummary,
     };
   }
 }

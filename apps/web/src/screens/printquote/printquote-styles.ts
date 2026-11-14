@@ -968,7 +968,18 @@ export const PRINTQUOTE_STYLES = `
           font-weight: 700;
           font-size: 14px;
           color: var(--text-color);
-          overflow-wrap: anywhere;
+          overflow-wrap: break-word;
+          word-break: normal;
+        }
+        @media (min-width: 769px) {
+          .pq-directory-table th:first-child,
+          .pq-directory-table td:first-child {
+            min-width: 220px;
+          }
+          .pq-directory-table th:nth-child(2),
+          .pq-directory-table td:nth-child(2) {
+            min-width: 150px;
+          }
         }
         .pq-directory-muted {
           color: var(--muted-color);

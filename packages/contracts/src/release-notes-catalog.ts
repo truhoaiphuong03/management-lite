@@ -6,8 +6,79 @@ import type { ReleaseNoteItem } from './version.js';
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '0.9.22',
+    version: '1.0.0',
     commit: 'latest',
+    released_at: '2026-11-14',
+    summary:
+      'Cột mốc phát hành chính thức Management Lite v1.0.0: Trung tâm Việc cần xử lý chủ động 0-request-phụ trên Tổng quan (/dashboard) cảnh báo công nợ/đơn in ấn và sức khỏe kho tài khoản cho Chủ sở hữu, hoàn thiện hệ sinh thái Vận hành – Báo giá In ấn – Tài chính – Nhân sự.',
+    added: [
+      'Cảnh báo chủ động công nợ phải thu & đơn in đang sản xuất ngay tại Việc cần xử lý hôm nay trên /dashboard (điều hướng 1-chạm tới /print-quotes/receivables hoặc /print-quotes/orders, tự ẩn gọn khi không có tồn đọng).',
+      'Cảnh báo chủ động số lượng tài khoản dùng chung cần xác minh hoặc đang bị khóa ngay trên /dashboard cho Chủ sở hữu (điều hướng 1-chạm tới /accounts).',
+    ],
+    improved: [
+      'Mở rộng GET /api/v1/dashboard/summary trả thêm print_quotes và accounts_health cho Owner trong cùng một lượt truy vấn có bảo vệ lỗi độc lập (fail-safe), không phát sinh thêm request phụ từ trình duyệt và bảo toàn 100% phân quyền Staff.',
+    ],
+    fixed: [
+      'Khắc phục điểm mù vận hành trên /dashboard khi Chủ sở hữu phải tự mở từng phân hệ mới phát hiện công nợ đơn in tồn đọng hoặc tài khoản dùng chung bị khóa/cần xác minh.',
+    ],
+  },
+  {
+    version: '0.10.1',
+    commit: 'efcb7a8',
+    released_at: '2026-11-14',
+    summary:
+      'Tối ưu tốc độ tải trang trên mạng di động 4G (chia nhỏ gói JS Báo giá In ấn xuống < 195 kB/chunk, tải trễ cửa sổ Google Drive OAuth) và mở rộng phân trang API tương thích ngược.',
+    added: [
+      'Hỗ trợ tham số phân trang tùy chọn ?limit=<1..100>&offset=<>=0> tương thích ngược 100% trên GET /api/v1/work-items và GET /api/v1/print-quotes/quotes.',
+      'Chỉ mục kết hợp (composite indexes) idx_print_quotes_ws_created_id và idx_work_items_ws_status_due_created trong scripts/perf/ensure-hot-indexes.sql.',
+    ],
+    improved: [
+      'Chia nhỏ phân hệ Báo giá In ấn thành các gói JS độc lập (printquote-editor, printquote-orders, printquote-catalogs, printquote-views < 195 kB/chunk) và tải trễ cửa sổ xem trước PDF / cấu hình Google Drive OAuth bằng React.lazy.',
+    ],
+    fixed: [
+      'Khắc phục hiện tượng Rollup nạp sớm module Báo giá In ấn vào index.html (tách gói ui-shared độc lập, giảm gói JS tải lần đầu xuống 375.3 KB raw / 108.5 KB gzip) và cố định thứ tự sắp xếp created_at DESC, id DESC khi phân trang báo giá.',
+    ],
+  },
+  {
+    version: '0.10.0',
+    commit: '508759d',
+    released_at: '2026-11-14',
+    summary:
+      'Tích hợp mã VietQR thanh toán trên Báo giá PDF A4 & Sổ công nợ khách hàng, tự động đồng bộ phiếu thu/chi in ấn (PT/PC) sang Sổ thu chi tổng (/finance) và mở nút Nhân bản báo giá 1-chạm kèm làm mới giá xưởng.',
+    added: [
+      'Module VietQR dùng chung (@management-lite/contracts/vietqr) tự động sinh mã QR chuyển khoản cọc 50% / tất toán 100% trên Báo giá PDF A4 và trong cửa sổ Lập phiếu thu công nợ khách (/print-quotes/receivables) từ thông tin ngân hàng của Chủ sở hữu.',
+      'Cơ chế đồng bộ tự động 2 chiều an toàn (SAVEPOINT + operation_key chống trùng) ghi nhận Phiếu thu khách (PT-...) và Phiếu chi xưởng (PC-...) cùng bút toán đảo khi Hủy phiếu (VOID) trực tiếp sang Sổ thu chi tổng (/finance).',
+      'Nút Nhân bản 1-chạm trên mọi trạng thái báo giá (cả Nháp và Đã chốt) tự động kiểm tra và cập nhật đơn giá mới nhất từ Bảng giá xưởng.',
+    ],
+    improved: [
+      'Trình kết xuất PDF A4 trên máy chủ tải sẵn ảnh VietQR dạng Data URI có giới hạn thời gian 2.5s và tự động lui về khung thông tin chuyển khoản văn bản sắc nét khi ngoại tuyến, bảo toàn 100% nguyên tắc không lộ giá vốn/lợi nhuận.',
+    ],
+    fixed: [
+      'Khắc phục tình trạng thiếu mã QR thanh toán trực tiếp trên bản in PDF A4 gửi khách và khử độ lệch số liệu giữa Sổ công nợ ngành in với Sổ thu chi tổng (/finance) khi lập hoặc hủy phiếu PT/PC.',
+    ],
+  },
+  {
+    version: '0.9.23',
+    commit: '9acae08',
+    released_at: '2026-11-14',
+    summary:
+      'Hợp nhất trọn bộ 12 bản vá kiểm thử toàn diện (BUG-QA-01..12), dọn sạch code thừa, chuẩn hóa hạ tầng Staging 1-chạm, bổ sung công cụ dọn thư mục MacBook DEV an toàn và đồng bộ sổ cái quản trị ROADMAP.',
+    added: [
+      'Công cụ dọn thư mục & worktree an toàn cho MacBook DEV (scripts/ops/cleanup-macbook-dev.sh, mặc định --dry-run bảo vệ tuyệt đối nhánh chưa merge và dữ liệu DB).',
+      'Lệnh npm run release:print-owner-gate tự động xuất bộ lệnh kiểm tra Preflight & ký phát hành qua cổng Owner-Locked Release Gate.',
+      'Thông báo gợi ý trạng thái ủy quyền OAuth Google Drive và nút Kết nối Drive nhanh ngay trong cửa sổ Tải video (/storage).',
+    ],
+    improved: [
+      'Đồng bộ /release-version.json tự động trong build:web, hiển thị đúng tên miền thực tế và nhãn phân hệ tiếng Việt trong cửa sổ Báo lỗi hệ thống, hỗ trợ đóng nhanh bằng phím Escape.',
+      'Cân chỉnh lưới 4 thẻ KPI (.kpi-grid-4) hiển thị 4×1 trên màn lớn và 2×2 trên khung nhìn hẹp (860–1119px), tăng khoảng đệm cuộn đáy cho Desktop (84px) & Mobile (96px).',
+    ],
+    fixed: [
+      'Khắc phục lỗi SQLSTATE 40001 trên Bảng lương (/payroll), lỗi gãy dọc từng chữ cái tên khách hàng/xưởng trên Danh mục Báo giá In ấn (/print-quotes/catalog/*), lỗi nút Báo lỗi không nổi trên Desktop, lỗi banner che nút Vào ca ở 1280×800 và lỗi hủy sớm request Đăng xuất.',
+    ],
+  },
+  {
+    version: '0.9.22',
+    commit: '25cbea2',
     released_at: '2026-11-13',
     summary:
       'Thiết kế lại giao diện Tổng quan, Chấm công (nhân viên) và chuẩn hóa màu sắc/khoảng cách màn Công việc theo bản vẽ tối giản mới, hoàn tất đợt redesign 2026-11-12 cho cả 4 màn hình chính.',

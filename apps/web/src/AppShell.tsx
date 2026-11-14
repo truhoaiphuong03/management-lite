@@ -1246,15 +1246,6 @@ export const AppShell: React.FC<AppShellProps> = ({
 
       {/* Responsive styles */}
       <style>{`
-        .app-shell-report-dock .btn-floating-report-bug {
-          position: relative;
-          bottom: auto !important;
-          right: auto !important;
-          z-index: 900;
-        }
-        .app-shell-report-dock .btn-floating-report-bug[data-dragged="true"] {
-          position: fixed;
-        }
         html[data-mobile-keyboard="open"] .mobile-bottom-nav-wrapper,
         .app-shell-root[data-mobile-keyboard="open"] .mobile-bottom-nav-wrapper,
         html[data-mobile-keyboard="open"] .app-shell-report-dock .btn-floating-report-bug,
@@ -1266,6 +1257,16 @@ export const AppShell: React.FC<AppShellProps> = ({
           pointer-events: none !important;
           transition: none !important;
         }
+        @media (min-width: 1120px) {
+          .kpi-grid-4 {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+          }
+        }
+        @media (min-width: 300px) and (max-width: 1119px) {
+          .kpi-grid-4 {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+        }
         @media (min-width: 769px) {
           .mobile-bottom-nav-wrapper {
             display: none !important;
@@ -1273,10 +1274,19 @@ export const AppShell: React.FC<AppShellProps> = ({
           main {
             outline: none;
             margin-bottom: 24px !important;
-            padding: 32px !important;
+            padding: 32px 32px 84px 32px !important;
           }
         }
         @media (max-width: 768px) {
+          .app-shell-report-dock .btn-floating-report-bug {
+            position: relative !important;
+            bottom: auto !important;
+            right: auto !important;
+            z-index: 900;
+          }
+          .app-shell-report-dock .btn-floating-report-bug[data-dragged="true"] {
+            position: fixed !important;
+          }
           .desktop-sidebar-wrapper {
             display: none !important;
           }
@@ -1289,7 +1299,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             pointer-events: none !important;
           }
           main {
-            padding: 12px 12px calc(88px + env(safe-area-inset-bottom, 0px)) 12px !important;
+            padding: 12px 12px calc(96px + env(safe-area-inset-bottom, 0px)) 12px !important;
           }
           .app-shell-root[data-pq-editor="true"] main {
             padding: 12px 12px calc(32px + env(safe-area-inset-bottom, 0px)) 12px !important;

@@ -29,6 +29,12 @@ export default defineConfig(() => {
               return 'vendor-react';
             }
             if (
+              id.includes('packages/ui/src/') ||
+              id.includes('packages\\ui\\src\\')
+            ) {
+              return 'ui-shared';
+            }
+            if (
               id.includes('packages/contracts/src/printquote') ||
               id.includes('packages\\contracts\\src\\printquote')
             ) {
@@ -39,6 +45,36 @@ export default defineConfig(() => {
               id.includes('screens\\helpers\\printquote-helpers')
             ) {
               return 'printquote-helpers';
+            }
+            if (
+              id.includes('screens/printquote/CreateQuoteTab') ||
+              id.includes('screens\\printquote\\CreateQuoteTab')
+            ) {
+              return 'printquote-editor';
+            }
+            if (
+              id.includes('screens/printquote/OrdersTab') ||
+              id.includes('screens\\printquote\\OrdersTab')
+            ) {
+              return 'printquote-orders';
+            }
+            if (
+              id.includes('screens/printquote/VendorsCatalogTab') ||
+              id.includes('screens\\printquote\\VendorsCatalogTab') ||
+              id.includes('screens/printquote/CustomersTab') ||
+              id.includes('screens\\printquote\\CustomersTab')
+            ) {
+              return 'printquote-catalogs';
+            }
+            if (
+              id.includes('screens/printquote/QuotesListTab') ||
+              id.includes('screens\\printquote\\QuotesListTab') ||
+              id.includes('screens/printquote/QuoteDetailView') ||
+              id.includes('screens\\printquote\\QuoteDetailView') ||
+              id.includes('screens/printquote/AnalyticsTab') ||
+              id.includes('screens\\printquote\\AnalyticsTab')
+            ) {
+              return 'printquote-views';
             }
             if (
               id.includes('packages/contracts/src/release-notes-catalog') ||

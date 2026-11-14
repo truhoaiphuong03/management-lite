@@ -32,11 +32,6 @@ export interface StorageProviderResult {
   error?: string | undefined;
 }
 
-export interface StorageProviderTrashResult extends StorageProviderResult {
-  trashed: boolean;
-  providerFolderId: string;
-}
-
 export interface DriveOAuthExchangeInput {
   code?: string | undefined;
   redirectUri?: string | undefined;

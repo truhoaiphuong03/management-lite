@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type pg from 'pg';
 import { recordAuditEvent } from '../../../../packages/database/src/audit.js';
 import {
@@ -66,6 +67,104 @@ function normalizePaymentMethod(
 ): 'BANK_TRANSFER' | 'CASH' | 'QR_VIETQR' | 'OTHER' {
   if (raw === 'CASH' || raw === 'QR_VIETQR' || raw === 'OTHER') return raw;
   return 'BANK_TRANSFER';
+}
+
+export interface SyncPrintLedgerToFinanceInput {
+  workspaceId: string;
+  fallbackOwnerUserId: string;
+  direction: 'income' | 'expense';
+  categoryName: string;
+  amountVnd: number;
+  occurredAt?: Date | string | null | undefined;
+  operationKey: string;
+  note: string;
+}
+
+/**
+ * Automatically mirrors PrintQuote AR/AP cash receipts, workshop payouts, and void
+ * reversals into the master `/finance` ledger (`fin_entries`) using `SAVEPOINT` +
+ * idempotent `operation_key` (`ON CONFLICT DO NOTHING`) so cashflow is unified
+ * without risking duplicate rows or breaking PrintQuote ledger transactions.
+ */
+export async function syncPrintLedgerToFinanceTx(
+  client: Pick<pg.PoolClient, 'query'>,
+  input: SyncPrintLedgerToFinanceInput,
+): Promise<void> {
+  const amount = Math.round(Number(input.amountVnd) || 0);
+  if (amount <= 0) return;
+
+  await client.query('SAVEPOINT sp_pq_fin_sync');
+  try {
+    const ownerRes = await client.query<{ user_id: string }>(
+      `SELECT user_id
+       FROM workspace_memberships
+       WHERE workspace_id = $1 AND role = 'owner' AND status = 'active'
+       ORDER BY created_at ASC
+       LIMIT 1`,
+      [input.workspaceId],
+    );
+    const ownerUserId = ownerRes.rows[0]?.user_id || input.fallbackOwnerUserId;
+
+    const catRes = await client.query<{ id: string; name: string }>(
+      `INSERT INTO fin_categories (workspace_id, owner_user_id, direction, name)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (workspace_id, owner_user_id, direction, normalized_name) WHERE is_active
+       DO UPDATE SET updated_at = clock_timestamp()
+       RETURNING id, name`,
+      [
+        input.workspaceId,
+        ownerUserId,
+        input.direction,
+        input.categoryName.slice(0, 100),
+      ],
+    );
+    const cat = catRes.rows[0];
+    if (cat) {
+      const d =
+        input.occurredAt instanceof Date
+          ? input.occurredAt
+          : input.occurredAt
+            ? new Date(input.occurredAt)
+            : new Date();
+      const safeDate = Number.isNaN(d.getTime()) ? new Date() : d;
+      const vnOffsetMs = 7 * 60 * 60 * 1000;
+      const dayStr = new Date(safeDate.getTime() + vnOffsetMs)
+        .toISOString()
+        .slice(0, 10);
+      const entryId = crypto.randomUUID();
+      const fp = crypto
+        .createHash('sha256')
+        .update(`${input.operationKey}:${amount}:${dayStr}`)
+        .digest('hex');
+
+      await client.query(
+        `INSERT INTO fin_entries (
+          id, root_entry_id, workspace_id, owner_user_id, revision_number,
+          direction, category_id, category_name_snapshot, amount_vnd,
+          occurred_on, note, operation_key, request_fingerprint
+        ) VALUES ($1, $1, $2, $3, 1, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT (workspace_id, owner_user_id, operation_key) DO NOTHING`,
+        [
+          entryId,
+          input.workspaceId,
+          ownerUserId,
+          input.direction,
+          cat.id,
+          cat.name,
+          amount,
+          dayStr,
+          input.note.slice(0, 2000),
+          input.operationKey,
+          fp,
+        ],
+      );
+    }
+    await client.query('RELEASE SAVEPOINT sp_pq_fin_sync');
+  } catch {
+    await client
+      .query('ROLLBACK TO SAVEPOINT sp_pq_fin_sync')
+      .catch(() => undefined);
+  }
 }
 
 function requireNonEmptyReason(raw: unknown, fieldLabel = 'Lý do'): string {
@@ -1381,6 +1480,21 @@ export async function createCustomerReceiptTx(
     },
   });
 
+  const orderCodesLabel = tx.allocations
+    ?.map((a) => a.order_code)
+    .filter(Boolean)
+    .join(', ');
+  await syncPrintLedgerToFinanceTx(client, {
+    workspaceId: ctx.workspace.id,
+    fallbackOwnerUserId: ctx.user.id,
+    direction: 'income',
+    categoryName: 'Thu tiền đơn in ấn',
+    amountVnd: tx.amount,
+    occurredAt: tx.occurred_at,
+    operationKey: `pq_ar_receipt:${tx.id}`,
+    note: `Phiếu thu in ấn ${tx.tx_code} — KH: ${tx.customer_name}${orderCodesLabel ? ` (${orderCodesLabel})` : ''}${tx.note ? ` — ${tx.note}` : ''}`,
+  });
+
   return tx;
 }
 
@@ -2066,6 +2180,17 @@ export async function voidArTransactionTx(
     metadata: { reversal_tx_code: revTx.tx_code, reason },
   });
 
+  await syncPrintLedgerToFinanceTx(client, {
+    workspaceId: ctx.workspace.id,
+    fallbackOwnerUserId: ctx.user.id,
+    direction: 'expense',
+    categoryName: 'Hoàn / Đảo phiếu thu in ấn',
+    amountVnd: toInt(orig['amount'], 0),
+    occurredAt: revTx.occurred_at,
+    operationKey: `pq_ar_void:${arTxId}`,
+    note: `Đảo phiếu thu in ấn ${String(orig['tx_code'])} (${revTx.tx_code}) — Lý do: ${reason}`,
+  });
+
   return revTx;
 }
 
@@ -2444,6 +2569,21 @@ export async function createVendorPayoutTx(
       allocated_amount: tx.allocated_amount,
       unallocated_amount: tx.unallocated_amount,
     },
+  });
+
+  const jobCodesLabel = tx.allocations
+    ?.map((a) => a.job_code || a.order_code)
+    .filter(Boolean)
+    .join(', ');
+  await syncPrintLedgerToFinanceTx(client, {
+    workspaceId: ctx.workspace.id,
+    fallbackOwnerUserId: ctx.user.id,
+    direction: 'expense',
+    categoryName: 'Chi trả xưởng gia công in',
+    amountVnd: tx.amount,
+    occurredAt: tx.occurred_at,
+    operationKey: `pq_ap_payout:${tx.id}`,
+    note: `Phiếu chi xưởng in ${tx.tx_code} — ${tx.vendor_name}${jobCodesLabel ? ` (${jobCodesLabel})` : ''}${tx.note ? ` — ${tx.note}` : ''}`,
   });
 
   return tx;
@@ -3082,6 +3222,17 @@ export async function voidApTransactionTx(
     entityId: apTxId,
     requestId,
     metadata: { reversal_tx_code: revTx.tx_code, reason },
+  });
+
+  await syncPrintLedgerToFinanceTx(client, {
+    workspaceId: ctx.workspace.id,
+    fallbackOwnerUserId: ctx.user.id,
+    direction: 'income',
+    categoryName: 'Hoàn / Đảo phiếu chi xưởng in',
+    amountVnd: toInt(orig['amount'], 0),
+    occurredAt: revTx.occurred_at,
+    operationKey: `pq_ap_void:${apTxId}`,
+    note: `Đảo phiếu chi xưởng in ${String(orig['tx_code'])} (${revTx.tx_code}) — Lý do: ${reason}`,
   });
 
   return revTx;

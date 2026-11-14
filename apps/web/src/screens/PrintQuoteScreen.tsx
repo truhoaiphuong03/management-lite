@@ -38,10 +38,12 @@ import {
 import {
   buildPrintQuoteA4Html,
   QUOTE_STATUS_LABELS,
+  refreshClonedLinesFromCatalog,
   resolveSavedQuoteLineCostState,
   validateQuoteDraftInputs,
   type DraftLineValidationError,
 } from './helpers/printquote-helpers.js';
+import type { OwnerPaymentBankInfo } from '../../../../packages/contracts/src/vietqr.js';
 import type { UserRole } from '../types.js';
 import {
   clearPrintQuoteRamDraft,
@@ -75,7 +77,6 @@ import { OrdersTab } from './printquote/OrdersTab.js';
 import { AnalyticsTab } from './printquote/AnalyticsTab.js';
 import type { ReceivablesLedgerPayload } from './printquote/ReceivablesTab.js';
 import type { PayablesLedgerPayload } from './printquote/PayablesTab.js';
-import { PdfPreviewModal } from './printquote/PdfPreviewModal.js';
 import { CatalogModalDialog } from './printquote/CatalogModalDialog.js';
 import { PqFileTextIcon } from './printquote/PrintQuoteIcons.js';
 import { PRINTQUOTE_STYLES } from './printquote/printquote-styles.js';
@@ -108,6 +109,11 @@ const LazyHistoricalImportTab = React.lazy(() =>
 const LazyConvertOrderCustomerModal = React.lazy(() =>
   import('./printquote/ConvertOrderCustomerModal.js').then((m) => ({
     default: m.ConvertOrderCustomerModal,
+  })),
+);
+const LazyPdfPreviewModal = React.lazy(() =>
+  import('./printquote/PdfPreviewModal.js').then((m) => ({
+    default: m.PdfPreviewModal,
   })),
 );
 
@@ -324,6 +330,7 @@ interface PrintQuoteClientCacheEntry {
   quotes: PrintQuoteData[];
   orders: PrintOrderData[];
   stats: PrintQuoteDashboardStats | null;
+  ownerBank: OwnerPaymentBankInfo | null;
   receivablesFetchedAt: number;
   receivablesSummary: ReceivablesLedgerPayload | null;
   payablesFetchedAt: number;
@@ -440,6 +447,9 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
   const [stats, setStats] = useState<PrintQuoteDashboardStats | null>(
     initialStats,
   );
+  const [ownerBank, setOwnerBank] = useState<OwnerPaymentBankInfo | null>(null);
+  const priceItemsRef = useRef<PrintVendorPriceItemData[]>(priceItems);
+  priceItemsRef.current = priceItems;
   const [receivablesSummary, setReceivablesSummary] =
     useState<ReceivablesLedgerPayload | null>(null);
   const [payablesSummary, setPayablesSummary] =
@@ -735,6 +745,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           setQuotes(entry.quotes);
           setOrders(entry.orders);
           setStats(entry.stats);
+          setOwnerBank(entry.ownerBank);
         }
         if (entry.receivablesFetchedAt > 0) {
           setReceivablesSummary(entry.receivablesSummary);
@@ -775,6 +786,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           quotes: [],
           orders: [],
           stats: null,
+          ownerBank: null,
           receivablesFetchedAt: 0,
           receivablesSummary: null,
           payablesFetchedAt: 0,
@@ -792,26 +804,30 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
         if (needCore) {
           tasks.push(
             (async () => {
-              const [vRes, pRes, cRes, qRes, oRes, sRes] = await Promise.all([
-                currentFetch('/api/v1/print-quotes/vendors', {
-                  credentials: 'include',
-                }),
-                currentFetch('/api/v1/print-quotes/price-items', {
-                  credentials: 'include',
-                }),
-                currentFetch('/api/v1/print-quotes/customers', {
-                  credentials: 'include',
-                }),
-                currentFetch('/api/v1/print-quotes/quotes', {
-                  credentials: 'include',
-                }),
-                currentFetch('/api/v1/print-quotes/orders', {
-                  credentials: 'include',
-                }),
-                currentFetch('/api/v1/print-quotes/stats', {
-                  credentials: 'include',
-                }),
-              ]);
+              const [vRes, pRes, cRes, qRes, oRes, sRes, meRes] =
+                await Promise.all([
+                  currentFetch('/api/v1/print-quotes/vendors', {
+                    credentials: 'include',
+                  }),
+                  currentFetch('/api/v1/print-quotes/price-items', {
+                    credentials: 'include',
+                  }),
+                  currentFetch('/api/v1/print-quotes/customers', {
+                    credentials: 'include',
+                  }),
+                  currentFetch('/api/v1/print-quotes/quotes', {
+                    credentials: 'include',
+                  }),
+                  currentFetch('/api/v1/print-quotes/orders', {
+                    credentials: 'include',
+                  }),
+                  currentFetch('/api/v1/print-quotes/stats', {
+                    credentials: 'include',
+                  }),
+                  currentFetch('/api/v1/employees/me', {
+                    credentials: 'include',
+                  }).catch(() => null),
+                ]);
 
               if (vRes.ok) {
                 const j = await vRes.json();
@@ -848,6 +864,35 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
                 const data = j?.data || null;
                 nextEntry.stats = data;
                 setStats(data);
+              }
+              if (meRes && meRes.ok) {
+                const j = await meRes.json().catch(() => null);
+                const emp = j?.data;
+                const bName =
+                  typeof emp?.bank_name === 'string'
+                    ? emp.bank_name.trim()
+                    : '';
+                const bAcc =
+                  typeof emp?.bank_account_number === 'string'
+                    ? emp.bank_account_number.trim()
+                    : '';
+                const bHolder =
+                  typeof emp?.bank_account_holder === 'string' &&
+                  emp.bank_account_holder.trim()
+                    ? emp.bank_account_holder.trim()
+                    : typeof emp?.full_name === 'string'
+                      ? emp.full_name.trim()
+                      : null;
+                const resolvedBank =
+                  bName && bAcc
+                    ? {
+                        bankName: bName,
+                        bankAccountNumber: bAcc,
+                        bankAccountHolder: bHolder,
+                      }
+                    : null;
+                nextEntry.ownerBank = resolvedBank;
+                setOwnerBank(resolvedBank);
               }
               nextEntry.coreFetchedAt = Date.now();
             })(),
@@ -1095,7 +1140,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       setCustomerNotes(quote.notes || DEFAULT_CUSTOMER_NOTES);
       setInternalNotes('');
       setVersionChangeNote('');
-      setDraftLines(mapQuoteLinesToDraftLines(quote));
+      const mappedLines = mapQuoteLinesToDraftLines(quote);
+      if (asClone) {
+        const { lines: refreshedLines, updatedCount } =
+          refreshClonedLinesFromCatalog(mappedLines, priceItemsRef.current);
+        setDraftLines(refreshedLines);
+        return updatedCount;
+      }
+      setDraftLines(mappedLines);
+      return 0;
     },
     [],
   );
@@ -1443,6 +1496,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       customerAddress: selectedCustomer?.address || null,
       customerNotes,
       itemSpecifications: itemSpecs,
+      paymentBank: ownerBank,
     });
 
     setPdfPreviewState({
@@ -1481,6 +1535,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
       customerEmail: cust?.email || null,
       customerAddress: quote.customer_address || cust?.address || null,
       customerNotes: quote.notes,
+      paymentBank: ownerBank,
     });
 
     setPdfPreviewState({
@@ -1885,10 +1940,13 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
   const handleCloneQuoteAsNew = (quote: PrintQuoteData) => {
     runWithDraftReplaceGuard(true, () => {
-      applyQuoteIntoEditor(quote, true);
+      const updatedCount = applyQuoteIntoEditor(quote, true);
       setBannerMessage({
         type: 'success',
-        text: `Đã sao chép dữ liệu từ ${quote.quote_code} sang bản báo giá mới.`,
+        text:
+          updatedCount > 0
+            ? `Đã nhân bản từ ${quote.quote_code} và làm mới ${updatedCount} mức giá xưởng theo bảng giá mới nhất.`
+            : `Đã sao chép dữ liệu từ ${quote.quote_code} sang bản báo giá mới.`,
       });
       navigateInternal('/print-quotes/new');
     });
@@ -2761,6 +2819,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
           loading={loading || singleQuoteLoading}
           workspaceName={workspaceName}
           customers={customers}
+          ownerBank={ownerBank}
           onBackToList={() => navigateInternal('/print-quotes')}
           onDownloadSavedPdf={handleDownloadSavedQuotePdfFile}
           onOpenFullPreview={handleOpenSavedQuotePdf}
@@ -2953,6 +3012,7 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
             data={receivablesSummary}
             customers={customers}
             orders={orders}
+            ownerBank={ownerBank}
             onMutateLedger={handleMutateLedger}
             onRefresh={() => void loadAllData()}
           />
@@ -3020,13 +3080,15 @@ export const PrintQuoteScreen: React.FC<PrintQuoteScreenProps> = ({
 
       {/* A4 PDF Preview & Print Modal */}
       {pdfPreviewState && (
-        <PdfPreviewModal
-          previewState={pdfPreviewState}
-          onClose={() => setPdfPreviewState(null)}
-          onDownloadSavedPdf={handleDownloadSavedQuotePdfFile}
-          onDownloadLivePdf={handleDownloadLivePdfFile}
-          onPrintWindow={handlePrintA4Window}
-        />
+        <React.Suspense fallback={null}>
+          <LazyPdfPreviewModal
+            previewState={pdfPreviewState}
+            onClose={() => setPdfPreviewState(null)}
+            onDownloadSavedPdf={handleDownloadSavedQuotePdfFile}
+            onDownloadLivePdf={handleDownloadLivePdfFile}
+            onPrintWindow={handlePrintA4Window}
+          />
+        </React.Suspense>
       )}
 
       {/* 2-Button Leave PrintQuote Module Confirmation Dialog */}

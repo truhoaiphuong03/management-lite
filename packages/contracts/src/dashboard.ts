@@ -33,9 +33,21 @@ export interface DashboardPayrollSummary {
   has_period_record: boolean;
 }
 
+export interface DashboardPrintQuoteAlertSummary {
+  active_orders_count: number;
+  receivable_orders_count: number;
+  total_receivable_vnd: number;
+}
+
+export interface DashboardAccountsHealthSummary {
+  attention_count: number;
+}
+
 export interface DashboardSummaryResponseData {
   shift: DashboardShiftSummary;
   report: DashboardReportSummary;
   employees: DashboardEmployeesSummary | null;
   payroll: DashboardPayrollSummary | null;
+  print_quotes?: DashboardPrintQuoteAlertSummary | null | undefined;
+  accounts_health?: DashboardAccountsHealthSummary | null | undefined;
 }

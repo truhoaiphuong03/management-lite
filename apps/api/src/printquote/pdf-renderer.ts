@@ -13,8 +13,20 @@ import {
   formatPrintQuoteIntegerVn,
   type CustomerSafePdfPayload,
 } from '../../../../packages/contracts/src/printquote.js';
+import {
+  buildVietQrImageUrl,
+  normalizeVietQrAccountDigits,
+} from '../../../../packages/contracts/src/vietqr.js';
 
 const execFileAsync = promisify(execFile);
+
+export interface ServerA4PaymentBankMeta {
+  bankName?: string | null | undefined;
+  bankAccountNumber?: string | null | undefined;
+  bankAccountHolder?: string | null | undefined;
+  suggestedDepositPercent?: number | null | undefined;
+  qrDataUri?: string | null | undefined;
+}
 
 export interface ServerA4PdfMeta {
   quoteCode: string;
@@ -29,6 +41,38 @@ export interface ServerA4PdfMeta {
   customerEmail?: string | null;
   customerAddress?: string | null;
   customerNotes?: string | null;
+  paymentBank?: ServerA4PaymentBankMeta | null | undefined;
+}
+
+export async function fetchVietQrDataUriSafe(
+  bank:
+    | {
+        bankName: string;
+        bankAccountNumber: string;
+        bankAccountHolder?: string | null | undefined;
+        amountVnd?: number | null | undefined;
+        addInfo?: string | null | undefined;
+      }
+    | null
+    | undefined,
+  timeoutMs = 2500,
+): Promise<string | null> {
+  if (!bank) return null;
+  const qrUrl = buildVietQrImageUrl(bank);
+  if (!qrUrl) return null;
+  try {
+    const res = await fetch(qrUrl, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return null;
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (!ct.startsWith('image/')) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 128 || buf.length > 512_000) return null;
+    return `data:${ct.split(';')[0]};base64,${buf.toString('base64')}`;
+  } catch {
+    return null;
+  }
 }
 
 export function sanitizePdfFilename(
@@ -553,6 +597,39 @@ export function buildServerA4Html(
     <div class="words-box">
       <strong>Số tiền viết bằng chữ:</strong> ${amountInWords}.
     </div>
+
+    ${(() => {
+      const bank = meta.paymentBank;
+      const accNo = normalizeVietQrAccountDigits(bank?.bankAccountNumber);
+      if (
+        !bank?.bankName?.trim() ||
+        !accNo ||
+        pdfPayload.grandTotalPayable <= 0
+      ) {
+        return '';
+      }
+      const depPct = Math.min(
+        100,
+        Math.max(10, Math.round(bank.suggestedDepositPercent ?? 50)),
+      );
+      const depAmount = Math.round(
+        (pdfPayload.grandTotalPayable * depPct) / 100,
+      );
+      const transferInfo = `COC ${meta.quoteCode || pdfPayload.quoteCode || 'BG-DRAFT'}`;
+      const qrImgHtml =
+        bank.qrDataUri && bank.qrDataUri.startsWith('data:image/')
+          ? `<div style="flex: 0 0 auto; text-align: center;"><img src="${escapeHtml(bank.qrDataUri)}" alt="VietQR" style="width: 112px; height: auto; border: 1px solid #CBD5E1; border-radius: 6px; padding: 4px; background: #FFFFFF;" /></div>`
+          : '';
+      return `
+    <div class="payment-qr-box" style="display: flex; justify-content: space-between; align-items: center; gap: 14px; border: 1px solid #99F6E4; background: #F0FDFA; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px;">
+      <div style="flex: 1 1 auto;">
+        <div style="font-weight: 700; color: #0F766E; margin-bottom: 4px; text-transform: uppercase;">Thông tin chuyển khoản thanh toán / đặt cọc</div>
+        <div>Ngân hàng: <strong>${escapeHtml(bank.bankName)}</strong> • Số TK: <strong>${escapeHtml(accNo)}</strong>${bank.bankAccountHolder ? ` • Chủ TK: <strong>${escapeHtml(bank.bankAccountHolder)}</strong>` : ''}</div>
+        <div style="margin-top: 3px;">Đặt cọc đề xuất (${depPct}%): <strong>${formatVnd(depAmount)}</strong> • Nội dung CK: <strong>${escapeHtml(transferInfo)}</strong></div>
+      </div>
+      ${qrImgHtml}
+    </div>`;
+    })()}
 
     <div class="notes-box">
       <div class="notes-title">Ghi chú &amp; Điều khoản đặt in:</div>

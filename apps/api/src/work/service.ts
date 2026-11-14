@@ -333,15 +333,23 @@ export class WorkService {
           'schedule_id',
           'work_date',
           'limit',
+          'offset',
         ].includes(k)
       )
         fail('VALIDATION_ERROR', 'Invalid filter', 400);
     let parsedLimit: number | null = null;
     if (q.has('limit')) {
       const rawLimit = q.get('limit') ?? '';
-      if (!/^[1-9][0-9]*$/.test(rawLimit))
+      if (!/^[1-9][0-9]*$/.test(rawLimit) || Number(rawLimit) > 100)
         fail('VALIDATION_ERROR', 'Invalid filter', 400);
-      parsedLimit = Math.min(Number(rawLimit), 200);
+      parsedLimit = Number(rawLimit);
+    }
+    let parsedOffset: number | null = null;
+    if (q.has('offset')) {
+      const rawOffset = q.get('offset') ?? '';
+      if (!/^(0|[1-9][0-9]*)$/.test(rawOffset))
+        fail('VALIDATION_ERROR', 'Invalid filter', 400);
+      parsedOffset = Number(rawOffset);
     }
     const status = q.get('status') ?? 'all',
       priority = q.get('priority'),
@@ -385,11 +393,21 @@ export class WorkService {
           ],
         )
       ).rows;
+      const start = parsedOffset ?? 0;
       const targetRows =
-        parsedLimit !== null ? rows.slice(0, parsedLimit) : rows;
+        parsedLimit !== null
+          ? rows.slice(start, start + parsedLimit)
+          : start > 0
+            ? rows.slice(start)
+            : rows;
       const items = [];
       for (const r of targetRows) items.push(await this.detail(c, auth, r.id));
-      return { items, total: rows.length };
+      return {
+        items,
+        total: rows.length,
+        ...(parsedLimit !== null ? { limit: parsedLimit } : {}),
+        ...(parsedOffset !== null ? { offset: parsedOffset } : {}),
+      };
     });
   }
   private async assign(

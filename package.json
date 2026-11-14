@@ -1,6 +1,6 @@
 {
   "name": "management-lite",
-  "version": "0.9.22",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "packageManager": "npm@10.9.2",
@@ -18,10 +18,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc -p tsconfig.typecheck.json",
-    "build": "tsc",
+    "build": "tsc && node scripts/gen-build-info.mjs",
     "dev:web": "npm run --workspace=@management-lite/web dev",
     "dev:web:lan": "npm run --workspace=@management-lite/web dev:lan",
-    "build:web": "npm run --workspace=@management-lite/web build",
+    "build:web": "npm run --workspace=@management-lite/web build && node scripts/gen-build-info.mjs",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
     "dev:api": "npm run build && node dist/apps/api/src/main.js",
     "migrate": "npm run build && node scripts/migrate.mjs",
@@ -34,7 +34,8 @@
     "test:security": "node --test tests/security/*.test.mjs",
     "test": "npm run build && node --test tests/foundation/*.test.mjs && node --test tests/security/*.test.mjs && node --test tests/database/*.test.mjs && node --test tests/backend/*.test.mjs",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm test",
-    "canonical:verify": "node scripts/verify-canonical.mjs"
+    "canonical:verify": "node scripts/verify-canonical.mjs",
+    "release:print-owner-gate": "node scripts/ops/prepare-owner-release-commands.mjs"
   },
   "devDependencies": {
     "axe-core": "4.14.0",
