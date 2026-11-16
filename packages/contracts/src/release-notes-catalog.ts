@@ -6,8 +6,25 @@ import type { ReleaseNoteItem } from './version.js';
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '1.0.0',
+    version: '1.0.1',
     commit: 'latest',
+    released_at: '2026-11-16',
+    summary:
+      'Thiết kế lại giao diện Chấm công cá nhân (/clock) chuẩn Dual-UI V3: bố cục Máy tính 2 cột cân đối (Card Bấm giờ chuyên biệt + Thống kê tháng & Lịch sử ca mở sẵn), Điện thoại 1 cột gọn gàng và làm sạch câu chữ hiển thị.',
+    added: [
+      'Bố cục Dual-UI 2 cột cân đối trên Máy tính cho /clock: cột trái là Card Bấm giờ nổi bật (trạng thái ca, đồng hồ 00:00, nút Vào ca/Kết thúc ca, tổng công hôm nay), cột phải hiển thị 3 chỉ số Tháng (Số ca, Tổng giờ công, Ca đã xác nhận), lối tắt Nộp báo cáo hôm nay và Lịch sử chấm công cá nhân mở sẵn.',
+      'Nút chip Phiếu lương cá nhân đồng bộ trên thanh tiêu đề trang /clock (tự thu gọn thành avatar gọn gàng trên điện thoại).',
+    ],
+    improved: [
+      'Mở rộng khung trang /clock lên 1120px đồng bộ với các phân hệ khác nhưng giữ nguyên căn lề trái tiêu đề chuẩn hệ thống; tự động chuyển về 1 cột dọc thu gọn lịch sử trên màn hình điện thoại (<= 768px) để bấm giờ 1-chạm nhanh.',
+    ],
+    fixed: [
+      'Khắc phục lỗi bố cục /clock bị bó hẹp 560px lệch trái bỏ trống nửa màn hình bên phải trên máy tính, loại bỏ mã tài liệu nội bộ "(Doc 20/36)" trên mô tả trang và đổi hiển thị "0 giây" thành "0 phút" khi chưa phát sinh giờ công.',
+    ],
+  },
+  {
+    version: '1.0.0',
+    commit: 'ff8ce8f',
     released_at: '2026-11-14',
     summary:
       'Cột mốc phát hành chính thức Management Lite v1.0.0: Trung tâm Việc cần xử lý chủ động 0-request-phụ trên Tổng quan (/dashboard) cảnh báo công nợ/đơn in ấn và sức khỏe kho tài khoản cho Chủ sở hữu, hoàn thiện hệ sinh thái Vận hành – Báo giá In ấn – Tài chính – Nhân sự.',

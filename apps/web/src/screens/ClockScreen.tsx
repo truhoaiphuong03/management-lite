@@ -947,12 +947,17 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
     });
   }, [filteredOwnerShifts]);
 
-  const [showPersonalHistory, setShowPersonalHistory] = useState(
-    mode === 'history',
+  const isDesktopViewport = () =>
+    typeof window !== 'undefined' &&
+    typeof window.innerWidth === 'number' &&
+    window.innerWidth > 768;
+
+  const [showPersonalHistory, setShowPersonalHistory] = useState<boolean>(
+    () => mode === 'history' || isDesktopViewport(),
   );
 
   useEffect(() => {
-    setShowPersonalHistory(mode === 'history');
+    setShowPersonalHistory(mode === 'history' || isDesktopViewport());
     if (mode === 'review') {
       setActiveTab('owner_review');
       setSelectedReviewState('pending_all');
@@ -990,9 +995,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
   ]);
 
   const formatHoursMinutes = (totalSecs: number) => {
-    const hrs = Math.floor(totalSecs / 3600);
-    const mins = Math.floor((totalSecs % 3600) / 60);
-    if (hrs === 0 && mins === 0) return `${totalSecs} giây`;
+    const safe = Math.max(0, Math.floor(totalSecs || 0));
+    if (safe === 0) return '0 phút';
+    const hrs = Math.floor(safe / 3600);
+    const mins = Math.floor((safe % 3600) / 60);
+    if (hrs === 0 && mins === 0) return `${safe} giây`;
     if (hrs === 0) return `${mins} phút`;
     return `${hrs}h ${mins}m`;
   };
@@ -1690,10 +1697,10 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
 
   const headerSubtitle =
     mode === 'review'
-      ? 'Kiểm duyệt danh sách ca làm chờ xử lý, phê duyệt hoặc từ chối có lý do và đối chiếu giải trình (Doc 20/36)'
+      ? 'Kiểm duyệt danh sách ca làm chờ xử lý, phê duyệt hoặc từ chối có lý do và đối chiếu giải trình'
       : mode === 'history'
         ? 'Tra cứu lịch sử chấm công theo nhân viên, khoảng thời gian, giờ vào/ra, tổng giờ công và trạng thái duyệt'
-        : 'Hệ thống chấm công thời gian thực, tạm nghỉ và duyệt công chuẩn xác (Doc 20/36)';
+        : 'Theo dõi ca làm việc thời gian thực, tạm nghỉ giữa ca và nhật ký chấm công cá nhân';
 
   return (
     <div
@@ -1788,14 +1795,15 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
       )}
 
       {activeTab === 'my_clock' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-          <div className="clock-self-main-fold">
-            <header className="clock-self-header">
-              <h1 className="clock-self-title">Chào {greetingShortName}</h1>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <PageHeader
+            title={`Chào ${greetingShortName}`}
+            subtitle={headerSubtitle}
+            actions={
               <a
                 href="#ca-nhan"
-                aria-label="Trang cá nhân"
-                className="clock-self-avatar"
+                aria-label="Trang cá nhân và phiếu lương"
+                className="clock-self-profile-chip"
                 onClick={(e) => {
                   if (onNavigate) {
                     e.preventDefault();
@@ -1803,968 +1811,1028 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   }
                 }}
               >
-                {greetingInitial}
+                <span className="clock-self-avatar">{greetingInitial}</span>
+                <span className="clock-self-profile-chip-text">
+                  Phiếu lương cá nhân
+                </span>
               </a>
-            </header>
-            <p className="page-header-subtitle" style={{ margin: 0 }}>
-              {headerSubtitle}
-            </p>
+            }
+          />
 
-            {justClockedOut && onNavigate && (
-              <div
-                data-testid="post-clockout-report-prompt"
-                className="clock-self-card"
-                style={{
-                  padding: '14px 16px',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      color: 'var(--text-color)',
-                    }}
-                  >
-                    Bạn vừa kết thúc ca làm việc — Đừng quên nộp báo cáo ngày!
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--muted-color)',
-                      marginTop: '2px',
-                    }}
-                  >
-                    Ghi nhận ngay tiến độ và kết quả công việc trong ca hôm nay
-                    để Owner đối chiếu.
-                  </div>
-                </div>
-                <div
-                  style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
-                >
-                  <AppButton
-                    variant="primary"
-                    data-testid="btn-post-clockout-create-report"
-                    onClick={() => onNavigate('/reports/new')}
-                  >
-                    Nộp báo cáo công việc hôm nay →
-                  </AppButton>
-                  <AppButton
-                    variant="secondary"
-                    className="clock-self-secondary-btn"
-                    onClick={() => setJustClockedOut(false)}
-                  >
-                    Để sau
-                  </AppButton>
-                </div>
-              </div>
-            )}
-
-            <div className="clock-self-hero">
-              <div className="clock-self-timer-group">
-                <span className="clock-self-status">
-                  {currentShift?.run_state === 'working'
-                    ? 'Đang trong ca'
-                    : currentShift?.run_state === 'paused'
-                      ? 'Đang tạm nghỉ'
-                      : 'Chưa vào ca'}
-                </span>
-                <div className="sr-only">
-                  <StatusBadge
-                    status={
-                      currentShift?.run_state === 'working'
-                        ? 'success'
-                        : currentShift?.run_state === 'paused'
-                          ? 'warning'
-                          : 'neutral'
-                    }
-                    label={
-                      currentShift?.run_state === 'working'
-                        ? 'Đang trong ca làm việc'
-                        : currentShift?.run_state === 'paused'
-                          ? 'Đang tạm nghỉ'
-                          : 'Chưa vào ca làm việc'
-                    }
-                  />
-                </div>
-
-                {currentShift ? (
-                  <>
-                    <span
-                      data-testid="live-shift-timer"
-                      className="clock-self-timer clock-self-timer-live"
-                      style={{
-                        color:
-                          currentShift.run_state === 'paused'
-                            ? 'var(--warning-text)'
-                            : undefined,
-                      }}
-                    >
-                      {formatHmsCounter(liveShiftMetrics.liveWorkedSeconds)}
-                    </span>
-                    {currentShift.run_state === 'paused' && (
-                      <div
-                        style={{
-                          fontSize: '12.5px',
-                          color: 'var(--warning-text)',
-                          fontWeight: 600,
-                        }}
-                      >
-                        Đang tạm nghỉ:{' '}
-                        {formatHmsCounter(liveShiftMetrics.currentBreakSeconds)}
-                      </div>
-                    )}
-                    <div className="clock-self-shift-meta">
-                      Bắt đầu ca: {formatVnTime(currentShift.clock_in_at)} ngày{' '}
-                      {formatVnDate(currentShift.clock_in_at)}
-                      {currentShift.breaks.length > 0 &&
-                        ` • ${currentShift.breaks.length} lần tạm nghỉ`}
-                    </div>
-                  </>
-                ) : (
-                  <span className="clock-self-timer">0:00</span>
-                )}
-              </div>
-
-              {!currentShift && (
-                <button
-                  type="button"
-                  aria-label="Vào ca"
-                  className="clock-self-circle-btn"
-                  disabled={actionLoading}
-                  onClick={handleClockIn}
-                >
-                  <svg
-                    width="36"
-                    height="36"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M7 4v16l13-8z" />
-                  </svg>
-                  <span className="clock-self-circle-btn-label">Vào ca</span>
-                  <span className="sr-only"> làm việc</span>
-                </button>
-              )}
-
-              {currentShift?.run_state === 'working' && (
-                <>
-                  <button
-                    type="button"
-                    aria-label="Kết thúc ca"
-                    className="clock-self-circle-btn"
-                    disabled={actionLoading}
-                    onClick={handleClockOut}
-                  >
-                    <StopIcon size={36} />
-                    <span className="clock-self-circle-btn-label">
-                      Kết thúc ca
-                    </span>
-                  </button>
-                  <div className="clock-self-sub-actions">
-                    <button
-                      type="button"
-                      className="clock-self-secondary-btn"
-                      disabled={actionLoading}
-                      onClick={handleStartBreak}
-                    >
-                      <PauseIcon size={16} /> Tạm nghỉ
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {currentShift?.run_state === 'paused' && (
-                <>
-                  <button
-                    type="button"
-                    aria-label="Tiếp tục làm việc"
-                    className="clock-self-circle-btn"
-                    disabled={actionLoading}
-                    onClick={handleResume}
-                  >
-                    <PlayIcon size={36} />
-                    <span className="clock-self-circle-btn-label">
-                      Tiếp tục
-                    </span>
-                    <span className="sr-only"> làm việc</span>
-                  </button>
-                  <div className="clock-self-sub-actions">
-                    <button
-                      type="button"
-                      className="clock-self-secondary-btn clock-self-secondary-btn-danger"
-                      disabled={actionLoading}
-                      onClick={handleClockOut}
-                    >
-                      <StopIcon size={16} /> Kết thúc ca
-                    </button>
-                  </div>
-                </>
-              )}
-
-              <div className="clock-self-aux-row">
-                <span
-                  data-testid="today-attendance-summary"
-                  className="clock-self-today-pill"
-                >
-                  Hôm nay
-                  <span className="sr-only">
-                    {' '}
-                    ({formatIsoToVnLabel(todaySummary.todayVnIso)})
-                  </span>
-                  :{' '}
-                  <strong style={{ color: 'var(--text-color)' }}>
-                    {todaySummary.todayShiftsCount} ca
-                  </strong>{' '}
-                  •{' '}
-                  <strong style={{ color: 'var(--accent-text)' }}>
-                    {formatHoursMinutes(todaySummary.todayWorkedSeconds)}
-                  </strong>
-                </span>
-                {currentShift && (
-                  <button
-                    type="button"
-                    data-testid="clock-correction-btn"
-                    className="clock-self-link-btn"
-                    onClick={() => {
-                      setTargetShiftForCorrection(currentShift);
-                      setClaimedClockOut(
-                        toVnDateTimeLocalValue(
-                          currentShift.clock_out_at || new Date().toISOString(),
-                        ),
-                      );
-                      setShowCorrectionModal(true);
-                    }}
-                  >
-                    Quên bấm giờ hoặc cần giải trình ca này?
-                  </button>
-                )}
-                <button
-                  type="button"
-                  data-testid="btn-reset-clock-today"
-                  className="clock-self-reset-pill"
-                  disabled={actionLoading}
-                  onClick={handleResetClockToday}
-                >
-                  Đặt lại hôm nay
-                </button>
-              </div>
-            </div>
-
-            <div className="clock-self-summary-card">
-              <div className="clock-self-summary-row">
-                <span className="clock-self-summary-label">
-                  Tháng {Number(heroSummaryMonth.ym.split('-')[1]) || 11}
-                </span>
-                <span className="clock-self-summary-value">
-                  {heroSummaryMonth.count} ca ·{' '}
-                  {formatCompactHoursMinutes(heroSummaryMonth.totalSeconds)}
-                </span>
-              </div>
-              <a
-                href="#nop-bao-cao"
-                className="clock-self-report-row"
-                onClick={(e) => {
-                  if (onNavigate) {
-                    e.preventDefault();
-                    onNavigate('/reports/new');
-                  }
-                }}
-              >
-                <span
-                  className="clock-self-dot"
-                  style={{ backgroundColor: '#d97706' }}
-                />
-                <span className="clock-self-report-label">
-                  Nộp báo cáo hôm nay
-                </span>
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#94a3b8"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m9 6 6 6-6 6" />
-                </svg>
-              </a>
-            </div>
-          </div>
-
-          {/* Personal History */}
-          <div className="clock-self-history-section">
-            <div className="clock-self-history-header">
-              <button
-                type="button"
-                data-testid="toggle-personal-history-btn"
-                aria-expanded={showPersonalHistory}
-                onClick={() => setShowPersonalHistory((prev) => !prev)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: 'transparent',
-                  border: 'none',
-                  padding: '4px 0',
-                  cursor: 'pointer',
-                  color: 'var(--text-color)',
-                }}
-              >
-                <h3
-                  className="clock-self-history-title"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    margin: 0,
-                  }}
-                >
-                  <CalendarIcon size={18} /> Lịch sử chấm công cá nhân (
-                  {filteredRecentShifts.length}){' '}
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--muted-color)',
-                    }}
-                  >
-                    {showPersonalHistory ? '▴ Thu gọn' : '▾ Xem chi tiết'}
-                  </span>
-                </h3>
-              </button>
-              {showPersonalHistory && filteredRecentShifts.length > 0 && (
-                <AppButton
-                  variant="secondary"
-                  className="clock-self-secondary-btn"
-                  data-testid="btn-export-attendance-csv"
-                  onClick={() => {
-                    const escapeCsvCell = (val: unknown) => {
-                      const raw = String(val ?? '');
-                      const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
-                      return `"${safe.replace(/"/g, '""')}"`;
-                    };
-                    const headers = [
-                      'Ngày làm việc',
-                      'Giờ vào ca',
-                      'Giờ ra ca',
-                      'Thời lượng làm việc',
-                      'Tổng phút',
-                      'Trạng thái duyệt',
-                      'Ghi chú duyệt',
-                    ];
-                    const rows = filteredRecentShifts.map((s) => [
-                      formatVnDate(s.clock_in_at),
-                      formatVnTimeShort(s.clock_in_at),
-                      s.clock_out_at
-                        ? formatVnTimeShort(s.clock_out_at)
-                        : 'Đang mở',
-                      formatHoursMinutes(s.worked_seconds ?? 0),
-                      String(Math.round((s.worked_seconds ?? 0) / 60)),
-                      s.review_state === 'approved' || s.is_self_shift
-                        ? 'Đã duyệt'
-                        : s.review_state === 'rejected'
-                          ? 'Bị từ chối'
-                          : s.review_state === 'needs_review'
-                            ? 'Cần giải trình'
-                            : 'Chờ duyệt',
-                      formatReviewNoteLabel(s.review_reason || ''),
-                    ]);
-                    const csv =
-                      '\uFEFF' +
-                      [headers, ...rows]
-                        .map((r) => r.map(escapeCsvCell).join(','))
-                        .join('\r\n');
-                    if (
-                      typeof Blob !== 'undefined' &&
-                      typeof URL !== 'undefined' &&
-                      typeof URL.createObjectURL === 'function'
-                    ) {
-                      const blob = new Blob([csv], {
-                        type: 'text/csv;charset=utf-8;',
-                      });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `lich-su-cham-cong-${todaySummary.todayVnIso}.csv`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    }
-                  }}
-                >
-                  <DownloadIcon size={15} /> Xuất CSV (
-                  {filteredRecentShifts.length})
-                </AppButton>
-              )}
-            </div>
-
+          {justClockedOut && onNavigate && (
             <div
+              data-testid="post-clockout-report-prompt"
+              className="clock-self-card"
               style={{
-                display: showPersonalHistory ? 'flex' : 'none',
-                flexDirection: 'column',
+                padding: '14px 16px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: '12px',
               }}
             >
-              {/* Personal History Month Selector + Filter Bar */}
-              <AppCard
-                data-testid="my-history-filter-bar"
-                className="clock-self-card"
-                style={{ padding: '12px 16px' }}
-              >
+              <div>
                 <div
-                  data-testid="staff-month-selector-bar"
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '10px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'var(--text-color)',
                   }}
                 >
-                  <div
+                  Bạn vừa kết thúc ca làm việc — Đừng quên nộp báo cáo ngày!
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--muted-color)',
+                    marginTop: '2px',
+                  }}
+                >
+                  Ghi nhận ngay tiến độ và kết quả công việc trong ca hôm nay để
+                  Owner đối chiếu.
+                </div>
+              </div>
+              <div
+                style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
+              >
+                <AppButton
+                  variant="primary"
+                  data-testid="btn-post-clockout-create-report"
+                  onClick={() => onNavigate('/reports/new')}
+                >
+                  Nộp báo cáo công việc hôm nay →
+                </AppButton>
+                <AppButton
+                  variant="secondary"
+                  className="clock-self-secondary-btn"
+                  onClick={() => setJustClockedOut(false)}
+                >
+                  Để sau
+                </AppButton>
+              </div>
+            </div>
+          )}
+
+          <div
+            className="clock-self-desktop-grid"
+            data-testid="clock-dual-ui-grid"
+          >
+            <div
+              className="clock-self-primary-col"
+              data-testid="clock-primary-card"
+            >
+              <div className="clock-self-hero-card">
+                <div className="clock-self-hero">
+                  <div className="clock-self-timer-group">
+                    <span
+                      className="clock-self-status"
+                      data-state={currentShift?.run_state || 'idle'}
+                    >
+                      <span
+                        className="clock-self-status-dot"
+                        aria-hidden="true"
+                      />
+                      {currentShift?.run_state === 'working'
+                        ? 'Đang trong ca'
+                        : currentShift?.run_state === 'paused'
+                          ? 'Đang tạm nghỉ'
+                          : 'Chưa vào ca'}
+                    </span>
+                    <div className="sr-only">
+                      <StatusBadge
+                        status={
+                          currentShift?.run_state === 'working'
+                            ? 'success'
+                            : currentShift?.run_state === 'paused'
+                              ? 'warning'
+                              : 'neutral'
+                        }
+                        label={
+                          currentShift?.run_state === 'working'
+                            ? 'Đang trong ca làm việc'
+                            : currentShift?.run_state === 'paused'
+                              ? 'Đang tạm nghỉ'
+                              : 'Chưa vào ca làm việc'
+                        }
+                      />
+                    </div>
+
+                    {currentShift ? (
+                      <>
+                        <span
+                          data-testid="live-shift-timer"
+                          className="clock-self-timer clock-self-timer-live"
+                          style={{
+                            color:
+                              currentShift.run_state === 'paused'
+                                ? 'var(--warning-text)'
+                                : undefined,
+                          }}
+                        >
+                          {formatHmsCounter(liveShiftMetrics.liveWorkedSeconds)}
+                        </span>
+                        {currentShift.run_state === 'paused' && (
+                          <div
+                            style={{
+                              fontSize: '12.5px',
+                              color: 'var(--warning-text)',
+                              fontWeight: 600,
+                            }}
+                          >
+                            Đang tạm nghỉ:{' '}
+                            {formatHmsCounter(
+                              liveShiftMetrics.currentBreakSeconds,
+                            )}
+                          </div>
+                        )}
+                        <div className="clock-self-shift-meta">
+                          Bắt đầu ca: {formatVnTime(currentShift.clock_in_at)}{' '}
+                          ngày {formatVnDate(currentShift.clock_in_at)}
+                          {currentShift.breaks.length > 0 &&
+                            ` • ${currentShift.breaks.length} lần tạm nghỉ`}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="clock-self-timer">00:00</span>
+                    )}
+                  </div>
+
+                  {!currentShift && (
+                    <button
+                      type="button"
+                      aria-label="Vào ca"
+                      className="clock-self-circle-btn"
+                      disabled={actionLoading}
+                      onClick={handleClockIn}
+                    >
+                      <svg
+                        width="34"
+                        height="34"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M7 4v16l13-8z" />
+                      </svg>
+                      <span className="clock-self-circle-btn-label">
+                        Vào ca
+                      </span>
+                      <span className="sr-only"> làm việc</span>
+                    </button>
+                  )}
+
+                  {currentShift?.run_state === 'working' && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Kết thúc ca"
+                        className="clock-self-circle-btn"
+                        disabled={actionLoading}
+                        onClick={handleClockOut}
+                      >
+                        <StopIcon size={34} />
+                        <span className="clock-self-circle-btn-label">
+                          Kết thúc ca
+                        </span>
+                      </button>
+                      <div className="clock-self-sub-actions">
+                        <button
+                          type="button"
+                          className="clock-self-secondary-btn"
+                          disabled={actionLoading}
+                          onClick={handleStartBreak}
+                        >
+                          <PauseIcon size={16} /> Tạm nghỉ
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {currentShift?.run_state === 'paused' && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Tiếp tục làm việc"
+                        className="clock-self-circle-btn"
+                        disabled={actionLoading}
+                        onClick={handleResume}
+                      >
+                        <PlayIcon size={34} />
+                        <span className="clock-self-circle-btn-label">
+                          Tiếp tục
+                        </span>
+                        <span className="sr-only"> làm việc</span>
+                      </button>
+                      <div className="clock-self-sub-actions">
+                        <button
+                          type="button"
+                          className="clock-self-secondary-btn clock-self-secondary-btn-danger"
+                          disabled={actionLoading}
+                          onClick={handleClockOut}
+                        >
+                          <StopIcon size={16} /> Kết thúc ca
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="clock-self-aux-row">
+                    <span
+                      data-testid="today-attendance-summary"
+                      className="clock-self-today-pill"
+                    >
+                      Hôm nay
+                      <span className="sr-only">
+                        {' '}
+                        ({formatIsoToVnLabel(todaySummary.todayVnIso)})
+                      </span>
+                      :{' '}
+                      <strong style={{ color: 'var(--text-color)' }}>
+                        {todaySummary.todayShiftsCount} ca
+                      </strong>{' '}
+                      •{' '}
+                      <strong style={{ color: 'var(--accent-text)' }}>
+                        {formatHoursMinutes(todaySummary.todayWorkedSeconds)}
+                      </strong>
+                    </span>
+                    {currentShift && (
+                      <button
+                        type="button"
+                        data-testid="clock-correction-btn"
+                        className="clock-self-link-btn"
+                        onClick={() => {
+                          setTargetShiftForCorrection(currentShift);
+                          setClaimedClockOut(
+                            toVnDateTimeLocalValue(
+                              currentShift.clock_out_at ||
+                                new Date().toISOString(),
+                            ),
+                          );
+                          setShowCorrectionModal(true);
+                        }}
+                      >
+                        Quên bấm giờ hoặc cần giải trình ca này?
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      data-testid="btn-reset-clock-today"
+                      className="clock-self-reset-pill"
+                      disabled={actionLoading}
+                      onClick={handleResetClockToday}
+                    >
+                      Đặt lại hôm nay
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="clock-self-secondary-col"
+              data-testid="clock-secondary-column"
+            >
+              <div className="clock-self-summary-card">
+                <div className="clock-self-kpi-strip">
+                  <div className="clock-self-kpi-cell">
+                    <span className="clock-self-kpi-label">
+                      Tháng {Number(heroSummaryMonth.ym.split('-')[1]) || 11}
+                    </span>
+                    <span className="clock-self-kpi-value">
+                      {heroSummaryMonth.count} ca
+                    </span>
+                  </div>
+                  <div className="clock-self-kpi-cell">
+                    <span className="clock-self-kpi-label">Tổng giờ công</span>
+                    <span className="clock-self-kpi-value">
+                      {formatCompactHoursMinutes(heroSummaryMonth.totalSeconds)}
+                    </span>
+                  </div>
+                  <div className="clock-self-kpi-cell">
+                    <span className="clock-self-kpi-label">Đã xác nhận</span>
+                    <span className="clock-self-kpi-value">
+                      {myMonthlySummary.approvedCount}/
+                      {myMonthlySummary.totalShifts} ca
+                    </span>
+                  </div>
+                </div>
+                <a
+                  href="#nop-bao-cao"
+                  className="clock-self-report-row"
+                  onClick={(e) => {
+                    if (onNavigate) {
+                      e.preventDefault();
+                      onNavigate('/reports/new');
+                    }
+                  }}
+                >
+                  <span className="clock-self-report-icon" aria-hidden="true">
+                    <FileTextIcon size={17} />
+                  </span>
+                  <span className="clock-self-report-copy">
+                    <span className="clock-self-report-label">
+                      Nộp báo cáo hôm nay
+                    </span>
+                    <span className="clock-self-report-sub">
+                      Ghi nhận tiến độ & kết quả công việc trong ca
+                    </span>
+                  </span>
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ color: 'var(--muted-color)', flexShrink: 0 }}
+                    aria-hidden="true"
+                  >
+                    <path d="m9 6 6 6-6 6" />
+                  </svg>
+                </a>
+              </div>
+
+              {/* Personal History */}
+              <div className="clock-self-history-section">
+                <div className="clock-self-history-header">
+                  <button
+                    type="button"
+                    data-testid="toggle-personal-history-btn"
+                    aria-expanded={showPersonalHistory}
+                    onClick={() => setShowPersonalHistory((prev) => !prev)}
                     style={{
-                      display: 'flex',
+                      display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      flexWrap: 'wrap',
+                      gap: '8px',
+                      background: 'transparent',
+                      border: 'none',
+                      padding: '4px 0',
+                      cursor: 'pointer',
+                      color: 'var(--text-color)',
                     }}
                   >
-                    <select
-                      aria-label="Chọn tháng chấm công cá nhân"
-                      value={mySelectedMonth}
-                      onChange={(e) => {
-                        setMySelectedMonth(e.target.value);
-                        setMyFromDate('');
-                        setMyToDate('');
-                        setMyShiftPage(0);
-                      }}
+                    <h3
+                      className="clock-self-history-title"
                       style={{
-                        padding: '8px 12px',
-                        borderRadius: '12px',
-                        backgroundColor: 'var(--surface-color)',
-                        border: '1px solid var(--border-subtle)',
-                        color: 'var(--text-color)',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <option value="all">
-                        Tất cả các tháng ({recentShifts.length} ca)
-                      </option>
-                      {myAvailableMonths
-                        .filter(
-                          (m) => m.count > 0 || m.ym === currentVnYearMonth,
-                        )
-                        .map((mItem) => (
-                          <option key={mItem.ym} value={mItem.ym}>
-                            {formatYearMonthLabel(mItem.ym)} ({mItem.count} ca
-                            {mItem.totalSeconds > 0
-                              ? ` • ${formatHoursMinutes(mItem.totalSeconds)}`
-                              : ''}
-                            )
-                          </option>
-                        ))}
-                    </select>
-
-                    <span
-                      data-testid="staff-monthly-summary-strip"
-                      style={{
-                        fontSize: '13px',
-                        color: 'var(--muted-color)',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '8px',
-                        flexWrap: 'wrap',
+                        margin: 0,
                       }}
                     >
-                      <span>
-                        Tổng giờ:{' '}
-                        <strong style={{ color: 'var(--accent-text)' }}>
-                          {formatHoursMinutes(
-                            myMonthlySummary.totalWorkedSeconds,
-                          )}
-                        </strong>
+                      <CalendarIcon size={18} /> Lịch sử chấm công cá nhân (
+                      {filteredRecentShifts.length}){' '}
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: 'var(--muted-color)',
+                        }}
+                      >
+                        {showPersonalHistory ? '▴ Thu gọn' : '▾ Xem chi tiết'}
                       </span>
-                      <span>•</span>
-                      <span>
-                        Đã duyệt:{' '}
-                        <strong style={{ color: 'var(--success-text)' }}>
-                          {myMonthlySummary.approvedCount}/
-                          {myMonthlySummary.totalShifts} ca
-                        </strong>
-                      </span>
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="clock-self-secondary-btn"
-                    onClick={() => setShowMyAdvancedFilters((v) => !v)}
-                  >
-                    {showMyAdvancedFilters ? '▴ Ẩn bộ lọc' : '▾ Lọc nâng cao'}
+                    </h3>
                   </button>
+                  {showPersonalHistory && filteredRecentShifts.length > 0 && (
+                    <AppButton
+                      variant="secondary"
+                      className="clock-self-secondary-btn"
+                      data-testid="btn-export-attendance-csv"
+                      onClick={() => {
+                        const escapeCsvCell = (val: unknown) => {
+                          const raw = String(val ?? '');
+                          const safe = /^[=+\-@\t\r]/.test(raw)
+                            ? `'${raw}`
+                            : raw;
+                          return `"${safe.replace(/"/g, '""')}"`;
+                        };
+                        const headers = [
+                          'Ngày làm việc',
+                          'Giờ vào ca',
+                          'Giờ ra ca',
+                          'Thời lượng làm việc',
+                          'Tổng phút',
+                          'Trạng thái duyệt',
+                          'Ghi chú duyệt',
+                        ];
+                        const rows = filteredRecentShifts.map((s) => [
+                          formatVnDate(s.clock_in_at),
+                          formatVnTimeShort(s.clock_in_at),
+                          s.clock_out_at
+                            ? formatVnTimeShort(s.clock_out_at)
+                            : 'Đang mở',
+                          formatHoursMinutes(s.worked_seconds ?? 0),
+                          String(Math.round((s.worked_seconds ?? 0) / 60)),
+                          s.review_state === 'approved' || s.is_self_shift
+                            ? 'Đã duyệt'
+                            : s.review_state === 'rejected'
+                              ? 'Bị từ chối'
+                              : s.review_state === 'needs_review'
+                                ? 'Cần giải trình'
+                                : 'Chờ duyệt',
+                          formatReviewNoteLabel(s.review_reason || ''),
+                        ]);
+                        const csv =
+                          '\uFEFF' +
+                          [headers, ...rows]
+                            .map((r) => r.map(escapeCsvCell).join(','))
+                            .join('\r\n');
+                        if (
+                          typeof Blob !== 'undefined' &&
+                          typeof URL !== 'undefined' &&
+                          typeof URL.createObjectURL === 'function'
+                        ) {
+                          const blob = new Blob([csv], {
+                            type: 'text/csv;charset=utf-8;',
+                          });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `lich-su-cham-cong-${todaySummary.todayVnIso}.csv`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      }}
+                    >
+                      <DownloadIcon size={15} /> Xuất CSV (
+                      {filteredRecentShifts.length})
+                    </AppButton>
+                  )}
                 </div>
 
                 <div
                   style={{
-                    display: showMyAdvancedFilters ? 'block' : 'none',
-                    paddingTop: '12px',
-                    marginTop: '12px',
-                    borderTop: '1px solid var(--surface-subtle)',
+                    display: showPersonalHistory ? 'flex' : 'none',
+                    flexDirection: 'column',
+                    gap: '12px',
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: '6px',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      marginBottom: '10px',
-                    }}
+                  {/* Personal History Month Selector + Filter Bar */}
+                  <AppCard
+                    data-testid="my-history-filter-bar"
+                    className="clock-self-card"
+                    style={{ padding: '12px 16px' }}
                   >
-                    <span
-                      style={{ fontSize: '12px', color: 'var(--muted-color)' }}
+                    <div
+                      data-testid="staff-month-selector-bar"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '10px',
+                      }}
                     >
-                      Chọn nhanh:
-                    </span>
-                    {[
-                      { id: 'today' as const, label: 'Hôm nay' },
-                      { id: 'last7d' as const, label: '7 ngày qua' },
-                      { id: 'month' as const, label: 'Tháng này' },
-                      { id: 'all' as const, label: 'Toàn thời gian' },
-                    ].map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          setMySelectedMonth('all');
-                          applyQuickDateRange(p.id, 'my');
-                        }}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '999px',
-                          border: '1px solid var(--border-subtle)',
-                          backgroundColor: 'var(--surface-color)',
-                          color: 'var(--text-secondary)',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: '12px',
-                      flexWrap: 'wrap',
-                      alignItems: 'flex-end',
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: '160px' }}>
-                      <label
+                      <div
                         style={{
                           display: 'flex',
-                          justifyContent: 'space-between',
                           alignItems: 'center',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: 'var(--muted-color)',
-                          marginBottom: '6px',
+                          gap: '10px',
+                          flexWrap: 'wrap',
                         }}
                       >
-                        <span>Từ ngày</span>
-                        <span
+                        <select
+                          aria-label="Chọn tháng chấm công cá nhân"
+                          value={mySelectedMonth}
+                          onChange={(e) => {
+                            setMySelectedMonth(e.target.value);
+                            setMyFromDate('');
+                            setMyToDate('');
+                            setMyShiftPage(0);
+                          }}
                           style={{
-                            color: 'var(--accent-text)',
-                            fontWeight: 500,
+                            padding: '8px 12px',
+                            borderRadius: '12px',
+                            backgroundColor: 'var(--surface-color)',
+                            border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-color)',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
                           }}
                         >
-                          {formatIsoToVnLabel(myFromDate)}
-                        </span>
-                      </label>
-                      <input
-                        data-testid="my-filter-from-date"
-                        type="date"
-                        value={myFromDate}
-                        onClick={(e) =>
-                          (
-                            e.currentTarget as HTMLInputElement & {
-                              showPicker?: () => void;
-                            }
-                          ).showPicker?.()
-                        }
-                        onChange={(e) => {
-                          setMySelectedMonth('all');
-                          setMyFromDate(e.target.value);
-                          setMyShiftPage(0);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          borderRadius: '12px',
-                          backgroundColor: 'var(--surface-color)',
-                          border: '1px solid var(--border-color)',
-                          color: 'var(--text-color)',
-                          fontSize: '14px',
-                          minHeight: '44px',
-                          boxSizing: 'border-box',
-                          cursor: 'pointer',
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1, minWidth: '160px' }}>
-                      <label
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: 'var(--muted-color)',
-                          marginBottom: '6px',
-                        }}
-                      >
-                        <span>Đến ngày</span>
-                        <span
-                          style={{
-                            color: 'var(--accent-text)',
-                            fontWeight: 500,
-                          }}
-                        >
-                          {formatIsoToVnLabel(myToDate)}
-                        </span>
-                      </label>
-                      <input
-                        data-testid="my-filter-to-date"
-                        type="date"
-                        value={myToDate}
-                        onClick={(e) =>
-                          (
-                            e.currentTarget as HTMLInputElement & {
-                              showPicker?: () => void;
-                            }
-                          ).showPicker?.()
-                        }
-                        onChange={(e) => {
-                          setMySelectedMonth('all');
-                          setMyToDate(e.target.value);
-                          setMyShiftPage(0);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          borderRadius: '12px',
-                          backgroundColor: 'var(--surface-color)',
-                          border: '1px solid var(--border-color)',
-                          color: 'var(--text-color)',
-                          fontSize: '14px',
-                          minHeight: '44px',
-                          boxSizing: 'border-box',
-                          cursor: 'pointer',
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1, minWidth: '170px' }}>
-                      <label
-                        style={{
-                          display: 'block',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: 'var(--muted-color)',
-                          marginBottom: '6px',
-                        }}
-                      >
-                        Trạng thái duyệt
-                      </label>
-                      <select
-                        data-testid="my-filter-review-state"
-                        value={myReviewStateFilter}
-                        onChange={(e) => {
-                          setMyReviewStateFilter(e.target.value);
-                          setMyShiftPage(0);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          borderRadius: '12px',
-                          backgroundColor: 'var(--surface-color)',
-                          border: '1px solid var(--border-color)',
-                          color: 'var(--text-color)',
-                          fontSize: '14px',
-                          minHeight: '44px',
-                          boxSizing: 'border-box',
-                        }}
-                      >
-                        <option value="all">Tất cả trạng thái</option>
-                        <option value="unreviewed">Chờ duyệt</option>
-                        <option value="needs_review">
-                          Cần xử lý / Giải trình
-                        </option>
-                        <option value="approved">Đã duyệt</option>
-                        <option value="rejected">Bị từ chối</option>
-                      </select>
-                    </div>
-                    {(mySelectedMonth !== 'all' ||
-                      myFromDate ||
-                      myToDate ||
-                      myReviewStateFilter !== 'all') && (
-                      <AppButton
-                        variant="secondary"
-                        className="clock-self-secondary-btn"
-                        onClick={() => {
-                          setMySelectedMonth('all');
-                          setMyFromDate('');
-                          setMyToDate('');
-                          setMyReviewStateFilter('all');
-                          setMyShiftPage(0);
-                        }}
-                      >
-                        Xóa lọc
-                      </AppButton>
-                    )}
-                  </div>
-                </div>
-              </AppCard>
+                          <option value="all">
+                            Tất cả các tháng ({recentShifts.length} ca)
+                          </option>
+                          {myAvailableMonths
+                            .filter(
+                              (m) => m.count > 0 || m.ym === currentVnYearMonth,
+                            )
+                            .map((mItem) => (
+                              <option key={mItem.ym} value={mItem.ym}>
+                                {formatYearMonthLabel(mItem.ym)} ({mItem.count}{' '}
+                                ca
+                                {mItem.totalSeconds > 0
+                                  ? ` • ${formatHoursMinutes(mItem.totalSeconds)}`
+                                  : ''}
+                                )
+                              </option>
+                            ))}
+                        </select>
 
-              {filteredRecentShifts.length === 0 ? (
-                <EmptyState
-                  title="Chưa có dữ liệu"
-                  description="Không có ca làm việc nào phù hợp với tháng hoặc bộ lọc hiện tại."
-                />
-              ) : (
-                <div className="clock-self-history-list">
-                  {pagedRecentShifts.map((shift) => {
-                    const dotColor =
-                      shift.review_state === 'approved' || shift.is_self_shift
-                        ? '#10b981'
-                        : shift.review_state === 'rejected'
-                          ? '#ef4444'
-                          : '#d97706';
-                    return (
-                      <div key={shift.id} className="clock-self-history-item">
-                        <div
+                        <span
+                          data-testid="staff-monthly-summary-strip"
                           style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
+                            fontSize: '13px',
+                            color: 'var(--muted-color)',
+                            display: 'inline-flex',
                             alignItems: 'center',
+                            gap: '8px',
                             flexWrap: 'wrap',
-                            gap: '10px',
                           }}
                         >
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '12px',
-                              minWidth: 0,
-                              flex: '1 1 200px',
-                            }}
-                          >
-                            <span
-                              className="clock-self-dot"
-                              style={{ backgroundColor: dotColor }}
-                            />
-                            <div style={{ minWidth: 0 }}>
-                              <div
-                                style={{
-                                  fontWeight: 600,
-                                  fontSize: '15px',
-                                  color: 'var(--text-color)',
-                                }}
-                              >
-                                {formatVnDate(shift.clock_in_at, {
-                                  weekday: 'short',
-                                  year: 'numeric',
-                                  month: '2-digit',
-                                  day: '2-digit',
-                                })}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: '12.5px',
-                                  color: 'var(--muted-color)',
-                                  marginTop: '2px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  flexWrap: 'wrap',
-                                  gap: '6px',
-                                }}
-                              >
-                                <span>
-                                  {formatVnTimeShort(shift.clock_in_at)}
-                                  {shift.clock_out_at
-                                    ? ` – ${formatVnTimeShort(shift.clock_out_at)}`
-                                    : ' (Đang mở)'}
-                                </span>
-                                {isOvernightShift(
-                                  shift.clock_in_at,
-                                  shift.clock_out_at,
-                                ) && (
-                                  <span
-                                    data-testid="overnight-badge"
-                                    style={{
-                                      fontSize: '12px',
-                                      padding: '2px 8px',
-                                      borderRadius: '6px',
-                                      backgroundColor:
-                                        'rgba(139, 92, 246, 0.14)',
-                                      color: 'var(--purple-text)',
-                                      fontWeight: 500,
-                                    }}
-                                  >
-                                    Ca qua đêm (+1 ngày)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              display: 'flex',
-                              gap: '8px',
-                              alignItems: 'center',
-                              flexWrap: 'wrap',
-                            }}
-                          >
-                            <strong
-                              style={{
-                                fontSize: '14px',
-                                color: 'var(--text-color)',
-                                fontVariantNumeric: 'tabular-nums',
-                              }}
-                            >
-                              {formatHoursMinutes(shift.worked_seconds)}
+                          <span>
+                            Tổng giờ:{' '}
+                            <strong style={{ color: 'var(--accent-text)' }}>
+                              {formatHoursMinutes(
+                                myMonthlySummary.totalWorkedSeconds,
+                              )}
                             </strong>
-                            <StatusBadge
-                              status={
-                                shift.review_state === 'approved'
-                                  ? 'success'
-                                  : shift.review_state === 'rejected'
-                                    ? 'error'
-                                    : shift.review_state === 'needs_review'
-                                      ? 'warning'
-                                      : 'neutral'
-                              }
-                              label={
-                                shift.review_state === 'approved'
-                                  ? 'Đã duyệt'
-                                  : shift.review_state === 'rejected'
-                                    ? 'Bị từ chối'
-                                    : shift.review_state === 'needs_review'
-                                      ? 'Cần xử lý'
-                                      : 'Chờ duyệt'
-                              }
-                            />
-                            {shift.pending_correction && (
-                              <StatusBadge
-                                status="warning"
-                                label="Đang chờ giải trình"
-                              />
-                            )}
-                          </div>
-                        </div>
+                          </span>
+                          <span>•</span>
+                          <span>
+                            Đã duyệt:{' '}
+                            <strong style={{ color: 'var(--success-text)' }}>
+                              {myMonthlySummary.approvedCount}/
+                              {myMonthlySummary.totalShifts} ca
+                            </strong>
+                          </span>
+                        </span>
+                      </div>
 
-                        {shift.review_reason && (
-                          <div
+                      <button
+                        type="button"
+                        className="clock-self-secondary-btn"
+                        onClick={() => setShowMyAdvancedFilters((v) => !v)}
+                      >
+                        {showMyAdvancedFilters
+                          ? '▴ Ẩn bộ lọc'
+                          : '▾ Lọc nâng cao'}
+                      </button>
+                    </div>
+
+                    <div
+                      style={{
+                        display: showMyAdvancedFilters ? 'block' : 'none',
+                        paddingTop: '12px',
+                        marginTop: '12px',
+                        borderTop: '1px solid var(--surface-subtle)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '6px',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          marginBottom: '10px',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--muted-color)',
+                          }}
+                        >
+                          Chọn nhanh:
+                        </span>
+                        {[
+                          { id: 'today' as const, label: 'Hôm nay' },
+                          { id: 'last7d' as const, label: '7 ngày qua' },
+                          { id: 'month' as const, label: 'Tháng này' },
+                          { id: 'all' as const, label: 'Toàn thời gian' },
+                        ].map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setMySelectedMonth('all');
+                              applyQuickDateRange(p.id, 'my');
+                            }}
                             style={{
-                              fontSize: '12px',
+                              padding: '4px 10px',
+                              borderRadius: '999px',
+                              border: '1px solid var(--border-subtle)',
+                              backgroundColor: 'var(--surface-color)',
                               color: 'var(--text-secondary)',
-                              backgroundColor: 'var(--surface-subtle)',
-                              padding: '6px 10px',
-                              borderRadius: '8px',
-                              marginLeft: '22px',
-                              overflowWrap: 'anywhere',
-                              wordBreak: 'break-word',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
                             }}
                           >
-                            Ghi chú duyệt:{' '}
-                            <em>
-                              "{formatReviewNoteLabel(shift.review_reason)}"
-                            </em>
-                            {shift.reviewed_at &&
-                              ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTimeShort(shift.reviewed_at)}`}
-                          </div>
-                        )}
-
-                        {(shift.breaks.length > 0 ||
-                          (shift.run_state === 'completed' &&
-                            !shift.pending_correction)) && (
-                          <div
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '12px',
+                          flexWrap: 'wrap',
+                          alignItems: 'flex-end',
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: '160px' }}>
+                          <label
                             style={{
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
                               fontSize: '12px',
+                              fontWeight: 600,
                               color: 'var(--muted-color)',
-                              marginLeft: '22px',
+                              marginBottom: '6px',
                             }}
                           >
-                            <span>
-                              {shift.breaks.length > 0
-                                ? `${shift.breaks.length} lần nghỉ`
-                                : ''}
+                            <span>Từ ngày</span>
+                            <span
+                              style={{
+                                color: 'var(--accent-text)',
+                                fontWeight: 500,
+                              }}
+                            >
+                              {formatIsoToVnLabel(myFromDate)}
                             </span>
-                            {shift.run_state === 'completed' &&
-                              !shift.pending_correction && (
-                                <button
-                                  type="button"
-                                  data-testid="shift-correction-btn"
-                                  className="clock-self-link-btn"
-                                  onClick={() => {
-                                    setTargetShiftForCorrection(shift);
-                                    setClaimedClockOut(
-                                      toVnDateTimeLocalValue(
-                                        shift.clock_out_at ||
-                                          new Date().toISOString(),
-                                      ),
-                                    );
-                                    setShowCorrectionModal(true);
-                                  }}
-                                >
-                                  Giải trình / Sửa giờ
-                                </button>
-                              )}
-                          </div>
+                          </label>
+                          <input
+                            data-testid="my-filter-from-date"
+                            type="date"
+                            value={myFromDate}
+                            onClick={(e) =>
+                              (
+                                e.currentTarget as HTMLInputElement & {
+                                  showPicker?: () => void;
+                                }
+                              ).showPicker?.()
+                            }
+                            onChange={(e) => {
+                              setMySelectedMonth('all');
+                              setMyFromDate(e.target.value);
+                              setMyShiftPage(0);
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '12px',
+                              backgroundColor: 'var(--surface-color)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-color)',
+                              fontSize: '14px',
+                              minHeight: '44px',
+                              boxSizing: 'border-box',
+                              cursor: 'pointer',
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1, minWidth: '160px' }}>
+                          <label
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              color: 'var(--muted-color)',
+                              marginBottom: '6px',
+                            }}
+                          >
+                            <span>Đến ngày</span>
+                            <span
+                              style={{
+                                color: 'var(--accent-text)',
+                                fontWeight: 500,
+                              }}
+                            >
+                              {formatIsoToVnLabel(myToDate)}
+                            </span>
+                          </label>
+                          <input
+                            data-testid="my-filter-to-date"
+                            type="date"
+                            value={myToDate}
+                            onClick={(e) =>
+                              (
+                                e.currentTarget as HTMLInputElement & {
+                                  showPicker?: () => void;
+                                }
+                              ).showPicker?.()
+                            }
+                            onChange={(e) => {
+                              setMySelectedMonth('all');
+                              setMyToDate(e.target.value);
+                              setMyShiftPage(0);
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '12px',
+                              backgroundColor: 'var(--surface-color)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-color)',
+                              fontSize: '14px',
+                              minHeight: '44px',
+                              boxSizing: 'border-box',
+                              cursor: 'pointer',
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1, minWidth: '170px' }}>
+                          <label
+                            style={{
+                              display: 'block',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              color: 'var(--muted-color)',
+                              marginBottom: '6px',
+                            }}
+                          >
+                            Trạng thái duyệt
+                          </label>
+                          <select
+                            data-testid="my-filter-review-state"
+                            value={myReviewStateFilter}
+                            onChange={(e) => {
+                              setMyReviewStateFilter(e.target.value);
+                              setMyShiftPage(0);
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '12px',
+                              backgroundColor: 'var(--surface-color)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-color)',
+                              fontSize: '14px',
+                              minHeight: '44px',
+                              boxSizing: 'border-box',
+                            }}
+                          >
+                            <option value="all">Tất cả trạng thái</option>
+                            <option value="unreviewed">Chờ duyệt</option>
+                            <option value="needs_review">
+                              Cần xử lý / Giải trình
+                            </option>
+                            <option value="approved">Đã duyệt</option>
+                            <option value="rejected">Bị từ chối</option>
+                          </select>
+                        </div>
+                        {(mySelectedMonth !== 'all' ||
+                          myFromDate ||
+                          myToDate ||
+                          myReviewStateFilter !== 'all') && (
+                          <AppButton
+                            variant="secondary"
+                            className="clock-self-secondary-btn"
+                            onClick={() => {
+                              setMySelectedMonth('all');
+                              setMyFromDate('');
+                              setMyToDate('');
+                              setMyReviewStateFilter('all');
+                              setMyShiftPage(0);
+                            }}
+                          >
+                            Xóa lọc
+                          </AppButton>
                         )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  </AppCard>
+
+                  {filteredRecentShifts.length === 0 ? (
+                    <EmptyState
+                      title="Chưa có dữ liệu"
+                      description="Không có ca làm việc nào phù hợp với tháng hoặc bộ lọc hiện tại."
+                    />
+                  ) : (
+                    <div className="clock-self-history-list">
+                      {pagedRecentShifts.map((shift) => {
+                        const dotColor =
+                          shift.review_state === 'approved' ||
+                          shift.is_self_shift
+                            ? 'var(--success-text)'
+                            : shift.review_state === 'rejected'
+                              ? 'var(--danger-text)'
+                              : 'var(--warning-text)';
+                        return (
+                          <div
+                            key={shift.id}
+                            className="clock-self-history-item"
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gap: '10px',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '12px',
+                                  minWidth: 0,
+                                  flex: '1 1 200px',
+                                }}
+                              >
+                                <span
+                                  className="clock-self-dot"
+                                  style={{ backgroundColor: dotColor }}
+                                />
+                                <div style={{ minWidth: 0 }}>
+                                  <div
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: '15px',
+                                      color: 'var(--text-color)',
+                                    }}
+                                  >
+                                    {formatVnDate(shift.clock_in_at, {
+                                      weekday: 'short',
+                                      year: 'numeric',
+                                      month: '2-digit',
+                                      day: '2-digit',
+                                    })}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: '12.5px',
+                                      color: 'var(--muted-color)',
+                                      marginTop: '2px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      flexWrap: 'wrap',
+                                      gap: '6px',
+                                    }}
+                                  >
+                                    <span>
+                                      {formatVnTimeShort(shift.clock_in_at)}
+                                      {shift.clock_out_at
+                                        ? ` – ${formatVnTimeShort(shift.clock_out_at)}`
+                                        : ' (Đang mở)'}
+                                    </span>
+                                    {isOvernightShift(
+                                      shift.clock_in_at,
+                                      shift.clock_out_at,
+                                    ) && (
+                                      <span
+                                        data-testid="overnight-badge"
+                                        style={{
+                                          fontSize: '12px',
+                                          padding: '2px 8px',
+                                          borderRadius: '6px',
+                                          backgroundColor:
+                                            'rgba(139, 92, 246, 0.14)',
+                                          color: 'var(--purple-text)',
+                                          fontWeight: 500,
+                                        }}
+                                      >
+                                        Ca qua đêm (+1 ngày)
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  gap: '8px',
+                                  alignItems: 'center',
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <strong
+                                  style={{
+                                    fontSize: '14px',
+                                    color: 'var(--text-color)',
+                                    fontVariantNumeric: 'tabular-nums',
+                                  }}
+                                >
+                                  {formatHoursMinutes(shift.worked_seconds)}
+                                </strong>
+                                <StatusBadge
+                                  status={
+                                    shift.review_state === 'approved'
+                                      ? 'success'
+                                      : shift.review_state === 'rejected'
+                                        ? 'error'
+                                        : shift.review_state === 'needs_review'
+                                          ? 'warning'
+                                          : 'neutral'
+                                  }
+                                  label={
+                                    shift.review_state === 'approved'
+                                      ? 'Đã duyệt'
+                                      : shift.review_state === 'rejected'
+                                        ? 'Bị từ chối'
+                                        : shift.review_state === 'needs_review'
+                                          ? 'Cần xử lý'
+                                          : 'Chờ duyệt'
+                                  }
+                                />
+                                {shift.pending_correction && (
+                                  <StatusBadge
+                                    status="warning"
+                                    label="Đang chờ giải trình"
+                                  />
+                                )}
+                              </div>
+                            </div>
+
+                            {shift.review_reason && (
+                              <div
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--text-secondary)',
+                                  backgroundColor: 'var(--surface-subtle)',
+                                  padding: '6px 10px',
+                                  borderRadius: '8px',
+                                  marginLeft: '22px',
+                                  overflowWrap: 'anywhere',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                Ghi chú duyệt:{' '}
+                                <em>
+                                  "{formatReviewNoteLabel(shift.review_reason)}"
+                                </em>
+                                {shift.reviewed_at &&
+                                  ` • ${formatVnDate(shift.reviewed_at)} ${formatVnTimeShort(shift.reviewed_at)}`}
+                              </div>
+                            )}
+
+                            {(shift.breaks.length > 0 ||
+                              (shift.run_state === 'completed' &&
+                                !shift.pending_correction)) && (
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  fontSize: '12px',
+                                  color: 'var(--muted-color)',
+                                  marginLeft: '22px',
+                                }}
+                              >
+                                <span>
+                                  {shift.breaks.length > 0
+                                    ? `${shift.breaks.length} lần nghỉ`
+                                    : ''}
+                                </span>
+                                {shift.run_state === 'completed' &&
+                                  !shift.pending_correction && (
+                                    <button
+                                      type="button"
+                                      data-testid="shift-correction-btn"
+                                      className="clock-self-link-btn"
+                                      onClick={() => {
+                                        setTargetShiftForCorrection(shift);
+                                        setClaimedClockOut(
+                                          toVnDateTimeLocalValue(
+                                            shift.clock_out_at ||
+                                              new Date().toISOString(),
+                                          ),
+                                        );
+                                        setShowCorrectionModal(true);
+                                      }}
+                                    >
+                                      Giải trình / Sửa giờ
+                                    </button>
+                                  )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {filteredRecentShifts.length > 0 && (
+                    <div style={{ marginTop: '8px' }}>
+                      <Pagination
+                        testId="my-shifts-pager"
+                        total={filteredRecentShifts.length}
+                        page={safeMyShiftPage}
+                        pageSize={myShiftPageSize}
+                        onPage={setMyShiftPage}
+                        onPageSize={(size) => {
+                          setMyShiftPageSize(size);
+                          setMyShiftPage(0);
+                        }}
+                        pageSizes={PAGINATION_PAGE_SIZES}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-              {filteredRecentShifts.length > 0 && (
-                <div style={{ marginTop: '8px' }}>
-                  <Pagination
-                    testId="my-shifts-pager"
-                    total={filteredRecentShifts.length}
-                    page={safeMyShiftPage}
-                    pageSize={myShiftPageSize}
-                    onPage={setMyShiftPage}
-                    onPageSize={(size) => {
-                      setMyShiftPageSize(size);
-                      setMyShiftPage(0);
-                    }}
-                    pageSizes={PAGINATION_PAGE_SIZES}
-                  />
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -4051,8 +4119,9 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                                       padding: '10px 12px',
                                       backgroundColor:
                                         'rgba(245, 158, 11, 0.1)',
-                                      borderLeft: '3px solid #F59E0B',
-                                      borderRadius: '6px',
+                                      border:
+                                        '1px solid rgba(245, 158, 11, 0.35)',
+                                      borderRadius: '10px',
                                       fontSize: '12.5px',
                                     }}
                                   >
@@ -4398,8 +4467,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         style={{
                           padding: '12px',
                           backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                          borderLeft: '4px solid #F59E0B',
-                          borderRadius: '6px',
+                          border: '1px solid rgba(245, 158, 11, 0.35)',
+                          borderRadius: '10px',
                           marginBottom: '14px',
                           fontSize: '13px',
                         }}
