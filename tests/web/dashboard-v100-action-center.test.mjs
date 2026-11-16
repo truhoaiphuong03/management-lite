@@ -188,13 +188,17 @@ describe('Phase 4 (v1.0.0) — Proactive Dashboard Action Center & v1.0.0 Milest
     );
   });
 
-  it('3. Version milestone v1.0.0 is synchronized across package.json, version.ts, and RELEASE_NOTES_CATALOG', () => {
+  it('3. Version milestone >= v1.0.0 is synchronized across package.json, version.ts, and RELEASE_NOTES_CATALOG', () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'),
     );
-    assert.equal(pkg.version, '1.0.0');
-    assert.equal(SYSTEM_VERSION, '1.0.0');
-    assert.equal(RELEASE_NOTES_CATALOG[0]?.version, '1.0.0');
+    assert.match(pkg.version, /^[1-9]\d*\.\d+\.\d+$/);
+    assert.equal(SYSTEM_VERSION, pkg.version);
+    assert.equal(RELEASE_NOTES_CATALOG[0]?.version, pkg.version);
     assert.equal(RELEASE_NOTES_CATALOG[0]?.commit, 'latest');
+    assert.ok(
+      RELEASE_NOTES_CATALOG.some((item) => item.version === '1.0.0'),
+      'RELEASE_NOTES_CATALOG must retain the v1.0.0 milestone entry',
+    );
   });
 });
