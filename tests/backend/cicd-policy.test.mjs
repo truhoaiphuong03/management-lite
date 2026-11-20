@@ -138,6 +138,19 @@ test('Option 1 CI/CD architecture: automatic CI on push/PR without deploy, manda
           true,
           'foundation.yml must automatically run CI on both push and pull_request',
         );
+        const pushBlockMatch = content.match(
+          /^on:\n[\s\S]*?^([ \t]+)push:[ \t]*\n((?:\1[ \t]+[^\n]*\n?)*)/m,
+        );
+        assert.ok(
+          pushBlockMatch,
+          'foundation.yml must define an explicit push trigger block under on:',
+        );
+        const pushBlock = pushBlockMatch[2] ?? '';
+        assert.equal(
+          /^\s*paths(?:-ignore)?\s*:/m.test(pushBlock),
+          false,
+          'foundation.yml push block must NOT use paths or paths-ignore so Owner-Locked Release Gate always receives a push CI run for every main SHA (including docs-only commits)',
+        );
         assert.equal(
           content.includes('Deploy-SemiAutoWindows.ps1'),
           false,

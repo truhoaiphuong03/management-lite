@@ -1,7 +1,9 @@
 name: Management Lite CI
 on:
   push:
+    branches: [main]
   pull_request:
+    paths-ignore: ['docs/**', '**/*.md']
 permissions:
   contents: read
 concurrency:
