@@ -15,6 +15,16 @@ export interface ApiConfig {
   sessionCookieName?: string | undefined;
   /** Absolute private directory for FIN receipt images; absent means receipts are disabled. */
   finReceiptDirectory?: string | undefined;
+  /** Isolated web customer Google OAuth Client ID (GCN-CUST-02A). */
+  googleClientId?: string | undefined;
+  /** Target workspace UUID for public web customers (required in production for /api/v1/public/*). */
+  publicCustomerWorkspaceId?: string | undefined;
+  /** Shared proxy secret to authenticate X-GCN-Client-IP from hoaiphuong.click proxy. */
+  gcnProxySecret?: string | undefined;
+  /** Active privacy policy version recorded on new customer consent. */
+  privacyPolicyVersion?: string | undefined;
+  /** Canonical public site origin (e.g. https://hoaiphuong.click). */
+  publicSiteOrigin?: string | undefined;
 }
 
 export const DEV_DEFAULT_CSRF_SECRET =
@@ -118,5 +128,11 @@ export function loadApiConfig(
     accountSecretKey,
     sessionCookieName: env['SESSION_COOKIE_NAME']?.trim() || undefined,
     finReceiptDirectory: env['FIN_RECEIPT_DIR']?.trim() || undefined,
+    googleClientId: env['GOOGLE_CLIENT_ID']?.trim() || undefined,
+    publicCustomerWorkspaceId:
+      env['PUBLIC_CUSTOMER_WORKSPACE_ID']?.trim() || undefined,
+    gcnProxySecret: env['GCN_PROXY_SECRET']?.trim() || undefined,
+    privacyPolicyVersion: env['PRIVACY_POLICY_VERSION']?.trim() || undefined,
+    publicSiteOrigin: env['PUBLIC_SITE_ORIGIN']?.trim() || undefined,
   };
 }

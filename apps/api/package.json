@@ -12,12 +12,15 @@
     "./cookie": "./src/cookie.ts",
     "./rate-limiter": "./src/rate-limiter.ts",
     "./auth/service": "./src/auth/service.ts",
-    "./auth/guard": "./src/auth/guard.ts"
+    "./auth/guard": "./src/auth/guard.ts",
+    "./web-customers/service": "./src/web-customers/service.ts",
+    "./web-customers/guard": "./src/web-customers/guard.ts"
   },
   "dependencies": {
     "@management-lite/contracts": "*",
     "@management-lite/database": "*",
     "@management-lite/security": "*",
+    "google-auth-library": "11.3.4",
     "sharp": "0.35.5"
   }
 }

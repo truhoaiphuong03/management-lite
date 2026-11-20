@@ -70,6 +70,8 @@ import { handleStorageRoutes } from './routes/storage-routes.js';
 import { handleAuditAndIssuesRoutes } from './routes/issues-routes.js';
 import { handlePrintQuoteRoutes } from './routes/printquote-routes.js';
 import { PrintQuoteService } from './printquote/service.js';
+import { handleWebCustomerPublicRoutes } from './routes/web-customer-public-routes.js';
+import { WebCustomerService } from './web-customers/service.js';
 
 export interface AppDependencies {
   pool?: DatabasePool | null | undefined;
@@ -90,6 +92,7 @@ export interface AppDependencies {
   dashboardService?: DashboardService;
   bridgeService?: BridgeService;
   printQuoteService?: PrintQuoteService;
+  webCustomerService?: WebCustomerService;
   apiCache?: ScopedApiCache;
   accountSecretKey?: Buffer | undefined;
   csrfSecret?: string;
@@ -97,6 +100,10 @@ export interface AppDependencies {
   trustedProxies?: string[];
   isProduction?: boolean;
   sessionCookieName?: string | undefined;
+  googleClientId?: string | undefined;
+  publicCustomerWorkspaceId?: string | undefined;
+  gcnProxySecret?: string | undefined;
+  privacyPolicyVersion?: string | undefined;
 }
 
 /**
@@ -474,6 +481,19 @@ export function createRequestHandler(
   const printQuoteService =
     deps.printQuoteService ??
     (deps.pool ? new PrintQuoteService(deps.pool) : null);
+  const gcnProxySecret =
+    deps.gcnProxySecret ??
+    (process.env['GCN_PROXY_SECRET']?.trim() || undefined);
+  const webCustomerService =
+    deps.webCustomerService ??
+    (deps.pool
+      ? new WebCustomerService(deps.pool, csrfSecret, {
+          googleClientId: deps.googleClientId,
+          publicCustomerWorkspaceId: deps.publicCustomerWorkspaceId,
+          privacyPolicyVersion: deps.privacyPolicyVersion,
+          isProduction,
+        })
+      : null);
   const apiCache = deps.apiCache ?? new ScopedApiCache();
 
   const routeTable = new RouteTable()
@@ -508,7 +528,8 @@ export function createRequestHandler(
     .registerExact('GET', '/api/v1/issues', handleAuditAndIssuesRoutes)
     .registerExact('POST', '/api/v1/issues', handleAuditAndIssuesRoutes)
     .registerPrefix('/api/v1/issues', handleAuditAndIssuesRoutes)
-    .registerPrefix('/api/v1/print-quotes', handlePrintQuoteRoutes);
+    .registerPrefix('/api/v1/print-quotes', handlePrintQuoteRoutes)
+    .registerPrefix('/api/v1/public', handleWebCustomerPublicRoutes);
 
   // Resolve release info once at boot so the one-time git fallback never runs while a
   // (public) health request is waiting on it.
@@ -528,8 +549,10 @@ export function createRequestHandler(
         ? headerRequestId
         : crypto.randomUUID();
 
+    let requestPathname = '';
     try {
       const pathname = parseRequestPath(req);
+      requestPathname = pathname;
       const method = req.method?.toUpperCase() || 'GET';
 
       let authenticatedWorkspaceId: string | null = null;
@@ -2707,6 +2730,10 @@ export function createRequestHandler(
         csrfSecret,
         allowedOrigins,
         requireAuth,
+        requireLoginOrigin,
+        requireLoginJson,
+        getClientIp: (r: http.IncomingMessage) =>
+          getClientIp(r, trustedProxies),
         parseJsonBody,
         assertAllowedFields,
         authService: authService ?? undefined,
@@ -2716,6 +2743,8 @@ export function createRequestHandler(
         auditService: auditService ?? undefined,
         issuesService: issuesService ?? undefined,
         printQuoteService: printQuoteService ?? undefined,
+        webCustomerService: webCustomerService ?? undefined,
+        gcnProxySecret,
       };
       if (await routeTable.dispatch(routeCtx)) {
         return;
@@ -3046,7 +3075,19 @@ export function createRequestHandler(
           requestId,
           err.details,
         );
-        return sendJson(res, err.statusCode, errorBody);
+        const errorHeaders: Record<string, string | string[]> = {};
+        if (requestPathname.startsWith('/api/v1/public/')) {
+          errorHeaders['Cache-Control'] = 'private, no-store';
+          const rawOrigin = req.headers.origin;
+          const origin = Array.isArray(rawOrigin) ? rawOrigin[0] : rawOrigin;
+          if (typeof origin === 'string' && allowedOrigins.includes(origin)) {
+            errorHeaders['Access-Control-Allow-Origin'] = origin;
+            errorHeaders['Access-Control-Allow-Credentials'] = 'true';
+            errorHeaders['Vary'] = 'Origin';
+            errorHeaders['Cross-Origin-Resource-Policy'] = 'cross-origin';
+          }
+        }
+        return sendJson(res, err.statusCode, errorBody, errorHeaders);
       }
 
       if (err instanceof AuditServiceError) {

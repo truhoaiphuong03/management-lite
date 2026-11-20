@@ -81,6 +81,10 @@ export async function startServer(
     isProduction: config.isProduction,
     accountSecretKey: config.accountSecretKey,
     sessionCookieName: config.sessionCookieName,
+    googleClientId: config.googleClientId,
+    publicCustomerWorkspaceId: config.publicCustomerWorkspaceId,
+    gcnProxySecret: config.gcnProxySecret,
+    privacyPolicyVersion: config.privacyPolicyVersion,
   });
   const server = http.createServer(handler);
   // Bound slow/idle connections (slowloris) while leaving room for 16 MB uploads and

@@ -6,6 +6,7 @@ import type { StorageService } from '../storage/service.js';
 import type { AuditService } from '../audit/service.js';
 import type { IssuesService } from '../issues/service.js';
 import type { PrintQuoteService } from '../printquote/service.js';
+import type { WebCustomerService } from '../web-customers/service.js';
 
 export interface RouteRequestContext {
   req: http.IncomingMessage;
@@ -22,6 +23,13 @@ export interface RouteRequestContext {
     isProduction: boolean,
     customCookieName?: string | undefined,
   ) => Promise<AuthenticatedContext>;
+  requireLoginOrigin: (
+    req: http.IncomingMessage,
+    allowedOrigins: string[],
+    isProduction: boolean,
+  ) => void;
+  requireLoginJson: (req: http.IncomingMessage) => void;
+  getClientIp: (req: http.IncomingMessage) => string;
   parseJsonBody: <T = unknown>(
     req: http.IncomingMessage,
     maxBytes?: number,
@@ -34,6 +42,8 @@ export interface RouteRequestContext {
   auditService?: AuditService | undefined;
   issuesService?: IssuesService | undefined;
   printQuoteService?: PrintQuoteService | undefined;
+  webCustomerService?: WebCustomerService | undefined;
+  gcnProxySecret?: string | undefined;
 }
 
 export type RouteHandler = (

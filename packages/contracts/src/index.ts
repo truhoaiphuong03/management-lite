@@ -14,3 +14,4 @@ export * from './finance.js';
 export * from './dashboard.js';
 export * from './printquote.js';
 export * from './vietqr.js';
+export * from './web-customers.js';
