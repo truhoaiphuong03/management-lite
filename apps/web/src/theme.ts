@@ -58,7 +58,7 @@ function syncThemeColorMeta(effectiveTheme: 'dark' | 'light'): void {
     if (meta && typeof meta.setAttribute === 'function') {
       meta.setAttribute(
         'content',
-        effectiveTheme === 'light' ? '#F8FAFC' : '#0B1220',
+        effectiveTheme === 'light' ? '#FFFFFF' : '#0D0A09',
       );
     }
   }
@@ -128,8 +128,8 @@ export function applyTheme(selectedTheme: string): void {
   } else if (selectedTheme === 'dark') {
     root.style.colorScheme = 'dark';
     if (document.body) {
-      document.body.style.backgroundColor = '#0B1220';
-      document.body.style.color = '#F8FAFC';
+      document.body.style.backgroundColor = '#0D0A09';
+      document.body.style.color = '#FFF1DC';
     }
   } else {
     root.style.colorScheme = 'light dark';
@@ -137,9 +137,9 @@ export function applyTheme(selectedTheme: string): void {
     const updateSystemVisuals = (matchesDark: boolean) => {
       if (document.body) {
         document.body.style.backgroundColor = matchesDark
-          ? '#0B1220'
+          ? '#0D0A09'
           : '#F8FAFC';
-        document.body.style.color = matchesDark ? '#F8FAFC' : '#0F172A';
+        document.body.style.color = matchesDark ? '#FFF1DC' : '#0F172A';
       }
     };
 

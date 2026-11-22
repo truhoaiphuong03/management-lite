@@ -23,11 +23,13 @@ test('UI-AUDIT-P1: tokens.css defines every custom property it consumes via alia
 });
 
 test('UI-AUDIT-P1: light theme overrides accent text colors for AA contrast', () => {
+  const brandCss = read('packages/ui/src/brand/gcn-brand.css');
   const light = css.slice(
     css.indexOf(":root[data-theme='light']"),
     css.indexOf(":root[data-theme='dark']"),
   );
-  assert.match(light, /--accent-text:\s*#(0f766e|0d6760)/);
+  assert.match(light, /--accent-text:\s*var\(--gcn-fire-text-light\)/);
+  assert.match(brandCss, /--gcn-fire-text-light:\s*#b53d00/i);
   assert.match(light, /--danger-text:\s*#b91c1c/);
 });
 

@@ -238,22 +238,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       <div className="login-container">
         <div className="login-brand">
           <div className="login-logo-box">
-            <svg
-              width="36"
-              height="36"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M21 8 12 3 3 8v8l9 5 9-5z" />
-              <path d="m3 8 9 5 9-5M12 13v8" />
-            </svg>
+            <img
+              src="/brand/logo-ngang.svg"
+              alt="Gà Công Nghệ"
+              className="login-brand-logo-desktop"
+            />
+            <img
+              src="/brand/linh-vat.png"
+              alt="Gà Công Nghệ"
+              className="login-brand-logo-mobile"
+            />
           </div>
-          <span className="login-brand-title">Management Lite</span>
+          <span className="login-brand-title">Gà Công Nghệ</span>
         </div>
 
         {/* Error Notification */}
@@ -517,7 +513,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
-                    backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                    backgroundColor: 'var(--primary-subtle)',
                     color: 'var(--accent-text)',
                   }}
                 >
@@ -568,8 +564,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             >
               <p style={{ marginTop: 0, marginBottom: '14px' }}>
                 Vì lý do an toàn dữ liệu và tuân thủ chính sách bảo mật nội bộ,
-                Management Lite không hỗ trợ tính năng đặt lại mật khẩu tự động
-                qua email công khai nhằm tránh rủi ro dò quét tài khoản.
+                Gà Công Nghệ không hỗ trợ tính năng đặt lại mật khẩu tự động qua
+                email công khai nhằm tránh rủi ro dò quét tài khoản.
               </p>
 
               <div

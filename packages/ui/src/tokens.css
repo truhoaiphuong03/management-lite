@@ -1,35 +1,39 @@
-:root {
-  /* Canvas and surfaces */
-  --bg-color: #0b1220;
-  --surface-color: #151f30;
-  --surface-subtle: #0f172a;
-  --surface-hover: #1e293b;
-  --surface-active: #24334c;
-  --overlay-bg: rgba(11, 18, 32, 0.85);
+@import './brand/gcn-brand.css';
 
-  /* Primary brand (Teal) */
-  --primary-color: #14b8a6;
-  --primary-hover: #0d9488;
-  --primary-active: #0f766e;
-  --primary-subtle: rgba(20, 184, 166, 0.15);
+:root {
+  /* Canvas and surfaces (Gà Công Nghệ warm dark scale from --gcn-ink) */
+  --bg-color: var(--gcn-ink);
+  --surface-color: var(--gcn-surface);
+  --surface-subtle: var(--gcn-surface-subtle);
+  --surface-hover: var(--gcn-surface-hover);
+  --surface-active: var(--gcn-surface-active);
+  --overlay-bg: var(--gcn-overlay);
+
+  /* Primary brand (Gà Công Nghệ Fire) */
+  --primary-color: var(--gcn-fire);
+  --primary-hover: var(--gcn-fire-hover);
+  --primary-active: var(--gcn-fire-active);
+  --primary-subtle: var(--gcn-fire-subtle);
+  --primary-border: var(--gcn-fire-border);
+  --primary-shadow: var(--gcn-fire-shadow);
 
   /* Secondary */
-  --secondary-color: #151f30;
-  --secondary-hover: #1e293b;
-  --secondary-active: #24334c;
+  --secondary-color: var(--gcn-surface);
+  --secondary-hover: var(--gcn-surface-hover);
+  --secondary-active: var(--gcn-surface-active);
 
   /* Typography colors */
-  --text-color: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --muted-color: #94a3b8;
-  --disabled-color: #64748b;
-  --inverse-text: #0b1220;
+  --text-color: var(--gcn-cream);
+  --text-secondary: var(--gcn-cream-secondary);
+  --muted-color: var(--gcn-cream-muted);
+  --disabled-color: var(--gcn-cream-disabled);
+  --inverse-text: var(--gcn-ink);
 
   /* Borders and focus rings */
-  --border-color: #334155;
-  --border-subtle: #1e293b;
-  --border-hover: #475569;
-  --focus-ring: #14b8a6;
+  --border-color: var(--gcn-border);
+  --border-subtle: var(--gcn-border-subtle);
+  --border-hover: var(--gcn-border-hover);
+  --focus-ring: var(--gcn-fire);
 
   /* Semantic status colors */
   --error-color: #f87171;
@@ -81,7 +85,7 @@
   --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
 
   /* Theme-aware text accents (AA contrast on surfaces in each theme) */
-  --accent-text: #14b8a6;
+  --accent-text: var(--gcn-fire-text-dark);
   --info-text: #38bdf8;
   --danger-text: #f87171;
   --success-text: #10b981;
@@ -89,12 +93,10 @@
   --purple-text: #a78bfa;
 
   /* Aliases used by shared CSS */
-  --brand-color: var(--accent-text);
+  --brand-color: var(--gcn-fire-text-dark);
   --accent-soft: var(--primary-subtle);
   --surface-subtle-color: var(--surface-subtle);
-  --font-sans:
-    'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Helvetica, Arial, sans-serif;
+  --font-sans: var(--gcn-font-sans);
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
@@ -149,7 +151,7 @@
     0 4px 6px -4px rgba(15, 23, 42, 0.06);
   --shadow-xl: 0 25px 50px -12px rgba(15, 23, 42, 0.18);
 
-  --accent-text: #0d6760;
+  --accent-text: var(--gcn-fire-text-light);
   --info-text: #0369a1;
   --danger-text: #b91c1c;
   --success-text: #047857;
@@ -157,10 +159,13 @@
   --purple-text: #6d28d9;
 
   /* Light theme: darker brand/status colors so white-on-color buttons and tinted badges meet AA */
-  --primary-color: #0f766e;
-  --primary-hover: #115e59;
-  --primary-active: #134e4a;
-  --focus-ring: #0f766e;
+  --primary-color: var(--gcn-fire-text-light);
+  --primary-hover: var(--gcn-fire-light-hover);
+  --primary-active: var(--gcn-fire-light-active);
+  --primary-subtle: var(--gcn-fire-subtle-light);
+  --primary-border: var(--gcn-fire-border);
+  --focus-ring: var(--gcn-fire-text-light);
+  --brand-color: var(--gcn-fire-text-light);
   --success-color: #047857;
   --success-hover: #065f46;
   --warning-color: #92400e;
@@ -175,22 +180,35 @@
 :root[data-theme='dark'],
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg-color: #0b1220;
-  --surface-color: #151f30;
-  --surface-subtle: #0f172a;
-  --surface-hover: #1e293b;
-  --surface-active: #24334c;
-  --overlay-bg: rgba(11, 18, 32, 0.85);
+  --bg-color: var(--gcn-ink);
+  --surface-color: var(--gcn-surface);
+  --surface-subtle: var(--gcn-surface-subtle);
+  --surface-hover: var(--gcn-surface-hover);
+  --surface-active: var(--gcn-surface-active);
+  --overlay-bg: var(--gcn-overlay);
 
-  --text-color: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --muted-color: #94a3b8;
-  --disabled-color: #64748b;
-  --inverse-text: #0b1220;
+  --primary-color: var(--gcn-fire);
+  --primary-hover: var(--gcn-fire-hover);
+  --primary-active: var(--gcn-fire-active);
+  --primary-subtle: var(--gcn-fire-subtle);
+  --primary-border: var(--gcn-fire-border);
+  --focus-ring: var(--gcn-fire);
+  --accent-text: var(--gcn-fire-text-dark);
+  --brand-color: var(--gcn-fire-text-dark);
 
-  --border-color: #334155;
-  --border-subtle: #1e293b;
-  --border-hover: #475569;
+  --secondary-color: var(--gcn-surface);
+  --secondary-hover: var(--gcn-surface-hover);
+  --secondary-active: var(--gcn-surface-active);
+
+  --text-color: var(--gcn-cream);
+  --text-secondary: var(--gcn-cream-secondary);
+  --muted-color: var(--gcn-cream-muted);
+  --disabled-color: var(--gcn-cream-disabled);
+  --inverse-text: var(--gcn-ink);
+
+  --border-color: var(--gcn-border);
+  --border-subtle: var(--gcn-border-subtle);
+  --border-hover: var(--gcn-border-hover);
 }
 
 @media (prefers-color-scheme: light) {
@@ -227,7 +245,7 @@
       0 4px 6px -4px rgba(15, 23, 42, 0.06);
     --shadow-xl: 0 25px 50px -12px rgba(15, 23, 42, 0.18);
 
-    --accent-text: #0d6760;
+    --accent-text: var(--gcn-fire-text-light);
     --info-text: #0369a1;
     --danger-text: #b91c1c;
     --success-text: #047857;
@@ -235,10 +253,13 @@
     --purple-text: #6d28d9;
 
     /* Light theme: darker brand/status colors so white-on-color buttons and tinted badges meet AA */
-    --primary-color: #0f766e;
-    --primary-hover: #115e59;
-    --primary-active: #134e4a;
-    --focus-ring: #0f766e;
+    --primary-color: var(--gcn-fire-text-light);
+    --primary-hover: var(--gcn-fire-light-hover);
+    --primary-active: var(--gcn-fire-light-active);
+    --primary-subtle: var(--gcn-fire-subtle-light);
+    --primary-border: var(--gcn-fire-border);
+    --focus-ring: var(--gcn-fire-text-light);
+    --brand-color: var(--gcn-fire-text-light);
     --success-color: #047857;
     --success-hover: #065f46;
     --warning-color: #92400e;
@@ -255,22 +276,35 @@
   :root[data-theme='system'],
   [data-theme='system'] {
     color-scheme: dark;
-    --bg-color: #0b1220;
-    --surface-color: #151f30;
-    --surface-subtle: #0f172a;
-    --surface-hover: #1e293b;
-    --surface-active: #24334c;
-    --overlay-bg: rgba(11, 18, 32, 0.85);
+    --bg-color: var(--gcn-ink);
+    --surface-color: var(--gcn-surface);
+    --surface-subtle: var(--gcn-surface-subtle);
+    --surface-hover: var(--gcn-surface-hover);
+    --surface-active: var(--gcn-surface-active);
+    --overlay-bg: var(--gcn-overlay);
 
-    --text-color: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --muted-color: #94a3b8;
-    --disabled-color: #64748b;
-    --inverse-text: #0b1220;
+    --primary-color: var(--gcn-fire);
+    --primary-hover: var(--gcn-fire-hover);
+    --primary-active: var(--gcn-fire-active);
+    --primary-subtle: var(--gcn-fire-subtle);
+    --primary-border: var(--gcn-fire-border);
+    --focus-ring: var(--gcn-fire);
+    --accent-text: var(--gcn-fire-text-dark);
+    --brand-color: var(--gcn-fire-text-dark);
 
-    --border-color: #334155;
-    --border-subtle: #1e293b;
-    --border-hover: #475569;
+    --secondary-color: var(--gcn-surface);
+    --secondary-hover: var(--gcn-surface-hover);
+    --secondary-active: var(--gcn-surface-active);
+
+    --text-color: var(--gcn-cream);
+    --text-secondary: var(--gcn-cream-secondary);
+    --muted-color: var(--gcn-cream-muted);
+    --disabled-color: var(--gcn-cream-disabled);
+    --inverse-text: var(--gcn-ink);
+
+    --border-color: var(--gcn-border);
+    --border-subtle: var(--gcn-border-subtle);
+    --border-hover: var(--gcn-border-hover);
   }
 }
 
@@ -604,7 +638,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .app-subnav-item:focus-visible {
-  outline: 2px solid var(--focus-ring, #14b8a6);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -627,9 +661,67 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 
 .app-subnav-item[data-active='true'] .app-subnav-badge,
 .app-subnav-badge[data-active='true'] {
-  background: rgba(20, 184, 166, 0.18);
+  background: var(--gcn-fire-subtle-strong);
   color: var(--accent-text);
   border-color: transparent;
+}
+
+/* Gà Công Nghệ brand logo responsiveness & light/dark framing */
+.gcn-brand-logo-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.gcn-brand-logo-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 9px;
+  border-radius: 8px;
+  background-color: var(--gcn-ink);
+  border: 1px solid var(--gcn-border-subtle);
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+:root[data-theme='dark'] .gcn-brand-logo-pill,
+[data-theme='dark'] .gcn-brand-logo-pill {
+  background-color: transparent;
+  border-color: transparent;
+  padding: 2px 0;
+}
+
+.app-shell-brand-logo-desktop {
+  height: 24px;
+  width: auto;
+  display: block;
+}
+
+.app-shell-brand-logo-mobile {
+  display: none;
+  height: 26px;
+  width: 26px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.app-shell-brand-title-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .gcn-brand-logo-pill {
+    display: none;
+  }
+  .app-shell-brand-logo-mobile {
+    display: block;
+  }
+  .app-shell-brand-title-mobile {
+    display: inline;
+  }
 }
 
 /* Responsive mobile optimizations */
@@ -966,20 +1058,50 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .login-logo-box {
-  width: 80px;
-  height: 80px;
-  border-radius: 22px;
-  background-color: var(--primary-color, #0f766e);
+  min-width: 80px;
+  min-height: 64px;
+  padding: 12px 20px;
+  border-radius: 18px;
+  background-color: var(--gcn-ink);
+  border: 1px solid var(--gcn-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 24px -8px rgba(15, 118, 110, 0.45);
+  box-shadow: 0 12px 28px -10px var(--gcn-fire-shadow);
+}
+
+.login-brand-logo-desktop {
+  height: 40px;
+  width: auto;
+  display: block;
+}
+
+.login-brand-logo-mobile {
+  display: none;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+@media (max-width: 640px) {
+  .login-logo-box {
+    width: 80px;
+    height: 80px;
+    padding: 12px;
+    border-radius: 22px;
+  }
+  .login-brand-logo-desktop {
+    display: none;
+  }
+  .login-brand-logo-mobile {
+    display: block;
+  }
 }
 
 .login-brand-title {
   font-size: 20px;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-color, #0f172a);
 }
@@ -1024,7 +1146,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .login-input:focus {
-  border-color: var(--primary-color, #0f766e);
+  border-color: var(--primary-color);
 }
 
 .login-eye-btn {
@@ -1067,7 +1189,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 .login-remember-checkbox {
   width: 20px;
   height: 20px;
-  accent-color: var(--primary-color, #0f766e);
+  accent-color: var(--primary-color);
   margin: 0;
   cursor: pointer;
 }
@@ -1077,7 +1199,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   font-weight: 600;
   text-decoration: none;
   align-self: auto;
-  color: var(--primary-color, #0f766e);
+  color: var(--accent-text);
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -1085,15 +1207,15 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .login-forgot-link:hover {
-  color: var(--primary-hover, #115e59);
+  color: var(--primary-hover);
 }
 
 .login-submit-btn {
   height: 52px;
   border: 0;
   border-radius: 12px;
-  background-color: var(--primary-color, #0f766e);
-  color: #ffffff;
+  background-color: var(--primary-color);
+  color: var(--inverse-text);
   font-family: inherit;
   font-size: 16px;
   font-weight: 700;
@@ -1101,14 +1223,14 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   align-self: stretch;
   width: 100%;
   margin-top: 6px;
-  box-shadow: 0 10px 24px -8px rgba(15, 118, 110, 0.45);
+  box-shadow: 0 10px 24px -8px var(--gcn-fire-shadow);
   transition:
     background-color 0.15s ease,
     opacity 0.15s ease;
 }
 
 .login-submit-btn:hover:not(:disabled) {
-  background-color: var(--primary-hover, #115e59);
+  background-color: var(--primary-hover);
 }
 
 .login-submit-btn:disabled {
@@ -1126,13 +1248,13 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .login-footer-link {
-  color: var(--primary-color, #0f766e);
+  color: var(--accent-text);
   font-weight: 600;
   text-decoration: none;
 }
 
 .login-footer-link:hover {
-  color: var(--primary-hover, #115e59);
+  color: var(--primary-hover);
 }
 
 /* Minimalist Dashboard Screen (docs/design/2026-11-12-toi-gian/TongQuan.html & TongQuanMayTinh.html) */
@@ -1170,8 +1292,8 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .dashboard-page .page-header-badge > * {
-  background-color: var(--primary-subtle, #e6f4f2) !important;
-  color: var(--accent-text, #0d6760) !important;
+  background-color: var(--primary-subtle) !important;
+  color: var(--accent-text) !important;
   border: 0 !important;
   border-radius: 999px !important;
   padding: 4px 12px !important;
@@ -1193,13 +1315,13 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   min-height: 52px !important;
   padding: 0 24px !important;
   border-radius: 14px !important;
-  background-color: var(--primary-color, #0f766e) !important;
-  color: #ffffff !important;
+  background-color: var(--primary-color) !important;
+  color: var(--inverse-text) !important;
   font-family: var(--font-sans) !important;
   font-size: 16px !important;
   font-weight: 700 !important;
   border: 0 !important;
-  box-shadow: 0 10px 24px -8px rgba(15, 118, 110, 0.45) !important;
+  box-shadow: 0 10px 24px -8px var(--gcn-fire-shadow) !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -1212,7 +1334,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .dashboard-primary-btn:hover:not(:disabled) {
-  background-color: var(--primary-hover, #115e59) !important;
+  background-color: var(--primary-hover) !important;
 }
 
 .dashboard-secondary-btn {
@@ -1250,7 +1372,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 .dashboard-link-btn {
   border: 0;
   background: transparent;
-  color: var(--accent-text, #0d6760);
+  color: var(--accent-text);
   font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
@@ -1260,7 +1382,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .dashboard-link-btn:hover {
-  color: var(--primary-hover, #115e59);
+  color: var(--primary-hover);
 }
 
 .dashboard-kpi-grid {
@@ -1586,8 +1708,8 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   width: 34px;
   height: 34px;
   border-radius: 17px;
-  background-color: var(--primary-subtle, #e6f4f2);
-  color: var(--accent-text, #0d6760);
+  background-color: var(--primary-subtle);
+  color: var(--accent-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1659,9 +1781,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .clock-self-status[data-state='working'] {
-  background-color: var(--primary-subtle, #e6f4f2);
+  background-color: var(--primary-subtle);
   border-color: transparent;
-  color: var(--accent-text, #0d6760);
+  color: var(--accent-text);
 }
 
 .clock-self-status[data-state='paused'] {
@@ -1704,8 +1826,8 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   height: 156px;
   border-radius: 78px;
   border: 0;
-  background-color: var(--primary-color, #0f766e);
-  color: #ffffff;
+  background-color: var(--primary-color);
+  color: var(--inverse-text);
   font-family: inherit;
   display: flex;
   flex-direction: column;
@@ -1713,7 +1835,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  box-shadow: 0 16px 32px -12px rgba(15, 118, 110, 0.5);
+  box-shadow: 0 16px 32px -12px var(--gcn-fire-shadow);
   transition:
     background-color 0.15s ease,
     transform 0.12s ease,
@@ -1721,7 +1843,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .clock-self-circle-btn:hover:not(:disabled) {
-  background-color: var(--primary-hover, #115e59);
+  background-color: var(--primary-hover);
 }
 
 .clock-self-circle-btn:active:not(:disabled) {
@@ -1824,7 +1946,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 .clock-self-link-btn {
   background: none;
   border: none;
-  color: var(--accent-text, #0d6760);
+  color: var(--accent-text);
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
@@ -1899,8 +2021,8 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background-color: var(--primary-subtle, #e6f4f2);
-  color: var(--accent-text, #0d6760);
+  background-color: var(--primary-subtle);
+  color: var(--accent-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2063,13 +2185,13 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   min-height: 52px !important;
   padding: 0 24px !important;
   border-radius: 14px !important;
-  background-color: var(--primary-color, #0f766e) !important;
-  color: #ffffff !important;
+  background-color: var(--primary-color) !important;
+  color: var(--inverse-text) !important;
   font-family: var(--font-sans) !important;
   font-size: 16px !important;
   font-weight: 700 !important;
   border: 0 !important;
-  box-shadow: 0 10px 24px -8px rgba(15, 118, 110, 0.45) !important;
+  box-shadow: 0 10px 24px -8px var(--gcn-fire-shadow) !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -2082,7 +2204,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 
 .work-primary-btn:hover:not(:disabled) {
-  background-color: var(--primary-hover, #115e59) !important;
+  background-color: var(--primary-hover) !important;
 }
 
 .work-primary-btn:disabled {

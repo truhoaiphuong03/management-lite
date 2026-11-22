@@ -1651,7 +1651,7 @@ export const App: React.FC = () => {
                 overflowY: 'auto',
                 margin: 'auto',
                 backgroundColor: 'var(--surface-subtle)',
-                border: '1px solid #14B8A6',
+                border: '1px solid var(--primary-color)',
                 borderRadius: '14px',
                 padding: '18px',
                 color: 'var(--text-color)',
@@ -1780,7 +1780,7 @@ export const App: React.FC = () => {
                       padding: '0 12px',
                       fontSize: '14px',
                       borderRadius: '8px',
-                      border: '1px solid #14B8A6',
+                      border: '1px solid var(--primary-color)',
                       backgroundColor: 'var(--surface-hover)',
                       color: 'var(--text-color)',
                     }}

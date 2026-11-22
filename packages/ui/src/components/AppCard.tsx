@@ -69,7 +69,7 @@ export const AppCard: React.FC<AppCardProps> = ({
         boxSizing: 'border-box',
         backgroundColor: vStyles.bg,
         border: `1px solid ${
-          interactive && isHovered ? 'rgba(20, 184, 166, 0.4)' : vStyles.border
+          interactive && isHovered ? 'var(--primary-border)' : vStyles.border
         }`,
         borderRadius: TOKENS.radii.md, // 12px
         padding: resolvedPadding,

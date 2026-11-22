@@ -360,7 +360,7 @@ export const EmployeeNewScreen: React.FC<EmployeeNewScreenProps> = ({
                     fontSize: '12px',
                     padding: '2px 8px',
                     borderRadius: '999px',
-                    backgroundColor: 'rgba(20, 184, 166, 0.15)',
+                    backgroundColor: 'var(--primary-subtle)',
                     color: 'var(--accent-text)',
                     fontWeight: 600,
                   }}

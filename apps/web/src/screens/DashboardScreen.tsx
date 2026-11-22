@@ -1075,7 +1075,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             backgroundColor:
                               printQuoteAlert.total_receivable_vnd > 0
                                 ? 'var(--warning-color, #d97706)'
-                                : 'var(--accent-color, #0d9488)',
+                                : 'var(--accent-text)',
                           }}
                           aria-hidden="true"
                         />
@@ -1100,7 +1100,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             color:
                               printQuoteAlert.total_receivable_vnd > 0
                                 ? 'var(--warning-text, #92400e)'
-                                : 'var(--accent-text, #0f766e)',
+                                : 'var(--accent-text)',
                           }}
                         >
                           <span>
@@ -1204,7 +1204,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <span
                       className="dashboard-dot"
                       style={{
-                        backgroundColor: 'var(--primary-color, #0f766e)',
+                        backgroundColor: 'var(--primary-color)',
                       }}
                       aria-hidden="true"
                     />
@@ -1304,7 +1304,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <span
                       className="dashboard-dot"
                       style={{
-                        backgroundColor: 'var(--primary-color, #0f766e)',
+                        backgroundColor: 'var(--primary-color)',
                       }}
                       aria-hidden="true"
                     />
@@ -1357,7 +1357,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     style={{
                       backgroundColor: bridgeStatus?.connected
                         ? 'var(--success-color, #047857)'
-                        : 'var(--primary-color, #0f766e)',
+                        : 'var(--primary-color)',
                     }}
                     aria-hidden="true"
                   />
@@ -1385,7 +1385,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <span
                     className="dashboard-dot"
                     style={{
-                      backgroundColor: 'var(--primary-color, #0f766e)',
+                      backgroundColor: 'var(--primary-color)',
                     }}
                     aria-hidden="true"
                   />
@@ -1477,7 +1477,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <span
                       className="dashboard-dot"
                       style={{
-                        backgroundColor: 'var(--primary-color, #0f766e)',
+                        backgroundColor: 'var(--primary-color)',
                       }}
                       aria-hidden="true"
                     />
@@ -1582,7 +1582,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           color: 'var(--text-color)',
                         }}
                       >
-                        Bảng xác nhận ánh xạ nhân sự cố định (Management Lite ↔
+                        Bảng xác nhận ánh xạ nhân sự cố định (Gà Công Nghệ ↔
                         TikTok AI Factory V4)
                       </span>
                       <span
@@ -1709,7 +1709,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   },
                   {
                     path: '/work',
-                    dot: 'var(--primary-color, #0f766e)',
+                    dot: 'var(--primary-color)',
                     title: 'Công việc',
                     desc: 'Giao việc, tiến độ & nghiệm thu',
                     show: true,
@@ -1723,7 +1723,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   },
                   {
                     path: '/schedule',
-                    dot: 'var(--primary-color, #0f766e)',
+                    dot: 'var(--primary-color)',
                     title: 'Lịch làm việc',
                     desc: 'Xếp ca và theo dõi lịch tuần',
                     show: true,
@@ -1737,7 +1737,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   },
                   {
                     path: '/employees',
-                    dot: 'var(--primary-color, #0f766e)',
+                    dot: 'var(--primary-color)',
                     title: 'Nhân viên',
                     desc: 'Hồ sơ nhân sự & ngân hàng',
                     show: role === 'owner',
@@ -1758,7 +1758,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   },
                   {
                     path: '/accounts',
-                    dot: 'var(--primary-color, #0f766e)',
+                    dot: 'var(--primary-color)',
                     title: 'Tài khoản dùng chung',
                     desc: 'Quản lý tài khoản dùng chung',
                     show: role === 'owner',

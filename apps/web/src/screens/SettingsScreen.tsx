@@ -1924,8 +1924,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               marginBottom: '16px',
             }}
           >
-            Thông tin phát hành và môi trường hoạt động thực tế của hệ thống
-            Management Lite (tự động cập nhật từ bản dựng đang chạy).
+            Thông tin phát hành và môi trường hoạt động thực tế của hệ thống Gà
+            Công Nghệ (tự động cập nhật từ bản dựng đang chạy).
           </p>
           <div
             style={{
@@ -2080,7 +2080,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         fontWeight: 700,
                         backgroundColor: 'var(--surface-subtle)',
                         color: 'var(--accent-text)',
-                        border: '1px solid rgba(20, 184, 166, 0.45)',
+                        border: '1px solid var(--primary-border)',
                         minHeight: '34px',
                         cursor: 'pointer',
                       }}
@@ -2108,7 +2108,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       fontSize: '12px',
                       fontWeight: 600,
                       backgroundColor: showReleaseDetails
-                        ? 'rgba(20, 184, 166, 0.14)'
+                        ? 'var(--primary-subtle)'
                         : 'var(--surface-subtle)',
                       color: showReleaseDetails
                         ? 'var(--accent-text)'
@@ -2164,7 +2164,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         style={{
                           backgroundColor: 'var(--bg-color)',
                           border: item.is_current
-                            ? '1px solid rgba(20, 184, 166, 0.55)'
+                            ? '1px solid var(--primary-border)'
                             : '1px solid var(--border-color)',
                           borderRadius: '8px',
                           padding: '12px 14px',

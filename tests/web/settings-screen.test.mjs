@@ -308,8 +308,8 @@ test('SET-002: applyTheme applies visual theme (data-theme, colorScheme, root ba
     applyTheme('dark');
     assert.equal(rootElement.getAttribute('data-theme'), 'dark');
     assert.equal(rootElement.style.colorScheme, 'dark');
-    assert.equal(bodyElement.style.backgroundColor, '#0B1220');
-    assert.equal(bodyElement.style.color, '#F8FAFC');
+    assert.equal(bodyElement.style.backgroundColor, '#0D0A09');
+    assert.equal(bodyElement.style.color, '#FFF1DC');
   } finally {
     removeThemeListener();
     if (prevDocDesc) {
@@ -443,8 +443,8 @@ test('SET-002: System theme reacts dynamically to prefers-color-scheme OS change
     assert.equal(queriedMedia, '(prefers-color-scheme: dark)');
     assert.equal(fakeRoot.getAttribute('data-theme'), 'system');
     assert.equal(fakeRoot.style.colorScheme, 'light dark');
-    assert.equal(fakeBody.style.backgroundColor, '#0B1220');
-    assert.equal(fakeBody.style.color, '#F8FAFC');
+    assert.equal(fakeBody.style.backgroundColor, '#0D0A09');
+    assert.equal(fakeBody.style.color, '#FFF1DC');
     assert.ok(
       attachedListener !== null,
       'Listener must be attached to mediaQuery',
@@ -469,12 +469,12 @@ test('SET-002: System theme reacts dynamically to prefers-color-scheme OS change
     attachedListener({ matches: true });
     assert.equal(
       fakeBody.style.backgroundColor,
-      '#0B1220',
+      '#0D0A09',
       'Body background must switch to dark immediately',
     );
     assert.equal(
       fakeBody.style.color,
-      '#F8FAFC',
+      '#FFF1DC',
       'Body text must switch to light immediately',
     );
 

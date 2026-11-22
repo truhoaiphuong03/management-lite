@@ -14,21 +14,21 @@ test('MGL-UI-DESIGN-SYSTEM-31: Canonical Dark Premium design tokens completeness
     `file://${resolve(root, 'dist/packages/ui/src/tokens.js')}`
   );
 
-  // 1. Surface and canvas tokens
-  assert.equal(TOKENS.colors.background, '#0B1220');
-  assert.equal(TOKENS.colors.surface, '#151F30');
-  assert.equal(TOKENS.colors.surfaceSubtle, '#0F172A');
-  assert.equal(TOKENS.colors.surfaceHover, '#1E293B');
-  assert.equal(TOKENS.colors.overlay, 'rgba(11, 18, 32, 0.85)');
+  // 1. Surface and canvas tokens (Gà Công Nghệ warm dark scale)
+  assert.equal(TOKENS.colors.background, '#0D0A09');
+  assert.equal(TOKENS.colors.surface, '#171210');
+  assert.equal(TOKENS.colors.surfaceSubtle, '#110D0B');
+  assert.equal(TOKENS.colors.surfaceHover, '#221913');
+  assert.equal(TOKENS.colors.overlay, 'rgba(13, 10, 9, 0.85)');
 
   // 2. Primary brand and semantic tokens
-  assert.equal(TOKENS.colors.primary, '#14B8A6');
-  assert.equal(TOKENS.colors.primaryHover, '#0D9488');
-  assert.equal(TOKENS.colors.primaryActive, '#0F766E');
-  assert.equal(TOKENS.colors.text, '#F8FAFC');
-  assert.equal(TOKENS.colors.textSecondary, '#CBD5E1');
-  assert.equal(TOKENS.colors.muted, '#94A3B8');
-  assert.equal(TOKENS.colors.border, '#334155');
+  assert.equal(TOKENS.colors.primary, '#FF6A1A');
+  assert.equal(TOKENS.colors.primaryHover, '#EB6218');
+  assert.equal(TOKENS.colors.primaryActive, '#D65916');
+  assert.equal(TOKENS.colors.text, '#FFF1DC');
+  assert.equal(TOKENS.colors.textSecondary, '#C9B8A3');
+  assert.equal(TOKENS.colors.muted, '#B8A590');
+  assert.equal(TOKENS.colors.border, '#33281F');
   assert.equal(TOKENS.colors.error, '#EF4444');
   assert.equal(TOKENS.colors.danger, '#EF4444');
   assert.equal(TOKENS.colors.warning, '#F59E0B');
@@ -72,8 +72,8 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppButton variants, sizes, icon-only and zero-jit
     React.createElement(AppButton, { variant: 'primary' }, 'Xác nhận'),
   );
   assert.ok(
-    primaryMarkup.includes('background-color:#14B8A6') ||
-      primaryMarkup.includes('#14B8A6'),
+    primaryMarkup.includes('background-color:#FF6A1A') ||
+      primaryMarkup.includes('#FF6A1A'),
   );
   assert.ok(primaryMarkup.includes('min-height:44px'));
   assert.ok(primaryMarkup.includes('Xác nhận'));
@@ -155,7 +155,7 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppCard variants, slots, and interactive states',
     ),
   );
 
-  assert.ok(markup.includes('background-color:var(--surface-color, #151F30)'));
+  assert.ok(markup.includes('background-color:var(--surface-color, #171210)'));
   assert.ok(markup.includes('border-radius:12px'));
   assert.ok(markup.includes('Tiêu đề thẻ'));
   assert.ok(markup.includes('Nội dung thẻ'));
@@ -174,7 +174,7 @@ test('MGL-UI-DESIGN-SYSTEM-31: AppBadge and StatusBadge semantic consistency', a
       label: 'Primary Badge',
     }),
   );
-  assert.ok(primaryBadge.includes('#14B8A6'));
+  assert.ok(primaryBadge.includes('#FF6A1A'));
   assert.ok(primaryBadge.includes('border-radius:9999px'));
 
   const successBadge = renderToStaticMarkup(

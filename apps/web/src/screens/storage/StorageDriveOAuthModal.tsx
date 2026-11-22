@@ -89,7 +89,7 @@ export const StorageDriveOAuthModal: React.FC<StorageDriveOAuthModalProps> = ({
         >
           Sử dụng phạm vi quyền tối thiểu{' '}
           <code>https://www.googleapis.com/auth/drive.file</code> (chỉ quản lý
-          thư mục và tệp do Management Lite khởi tạo). Refresh token được mã hóa
+          thư mục và tệp do Gà Công Nghệ khởi tạo). Refresh token được mã hóa
           AES-256-GCM trên máy chủ.
         </p>
 

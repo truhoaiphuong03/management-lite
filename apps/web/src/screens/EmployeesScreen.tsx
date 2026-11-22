@@ -486,7 +486,10 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       {activeInviteUrl && (
         <AppCard
           padding="16px"
-          style={{ marginBottom: '20px', border: '1px solid #14B8A6' }}
+          style={{
+            marginBottom: '20px',
+            border: '1px solid var(--primary-color)',
+          }}
         >
           <div
             style={{
@@ -596,7 +599,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                 borderRadius: '999px',
                 border: '1px solid',
                 borderColor:
-                  statusFilter === tab.key ? '#14B8A6' : 'var(--border-subtle)',
+                  statusFilter === tab.key
+                    ? 'var(--primary-color)'
+                    : 'var(--border-subtle)',
                 backgroundColor:
                   statusFilter === tab.key
                     ? 'var(--primary-subtle)'
@@ -864,7 +869,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                         borderRadius: '999px',
                         backgroundColor:
                           resolveEmployeeRole(emp) === 'owner'
-                            ? 'rgba(20, 184, 166, 0.15)'
+                            ? 'var(--primary-subtle)'
                             : resolveEmployeeRole(emp) === 'admin'
                               ? 'var(--info-subtle)'
                               : 'var(--surface-hover)',

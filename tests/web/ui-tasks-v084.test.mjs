@@ -63,7 +63,7 @@ test('TASK 1: Theme helpers handle dark/light/system resolution, persistence, an
     };
 
     const attrs = new Map();
-    let metaContent = '#0B1220';
+    let metaContent = '#0D0A09';
     globalThis.document = {
       documentElement: {
         style: {},
@@ -106,13 +106,13 @@ test('TASK 1: Theme helpers handle dark/light/system resolution, persistence, an
     assert.equal(getStoredTheme(), 'dark');
     assert.equal(attrs.get('data-theme'), 'dark');
     assert.equal(resolveEffectiveTheme(), 'dark');
-    assert.equal(metaContent, '#0B1220');
+    assert.equal(metaContent, '#0D0A09');
 
     setThemePreference('light');
     assert.equal(getStoredTheme(), 'light');
     assert.equal(attrs.get('data-theme'), 'light');
     assert.equal(resolveEffectiveTheme(), 'light');
-    assert.equal(metaContent, '#F8FAFC');
+    assert.equal(metaContent, '#FFFFFF');
     assert.equal(dispatchedEvents.at(-1)?.detail?.theme, 'light');
     assert.equal(dispatchedEvents.at(-1)?.detail?.effectiveTheme, 'light');
 
@@ -128,7 +128,7 @@ test('TASK 1: Theme helpers handle dark/light/system resolution, persistence, an
     assert.ok(typeof mediaChangeCb === 'function');
     mediaChangeCb({ matches: true });
     assert.equal(resolveEffectiveTheme(), 'dark');
-    assert.equal(metaContent, '#0B1220');
+    assert.equal(metaContent, '#0D0A09');
     assert.equal(dispatchedEvents.at(-1)?.detail?.effectiveTheme, 'dark');
 
     // 4. Quick toggle from effective dark -> explicit 'light'

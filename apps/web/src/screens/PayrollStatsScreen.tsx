@@ -745,7 +745,7 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
         data-testid="google-sheet-sync-card"
         style={{
           ...card,
-          border: '1px solid rgba(20, 184, 166, 0.35)',
+          border: '1px solid var(--primary-border)',
         }}
       >
         <div
@@ -768,7 +768,7 @@ export const PayrollStatsScreen: React.FC<PayrollStatsScreenProps> = ({
             style={{
               fontSize: 13,
               fontWeight: 600,
-              color: 'var(--accent-text, #0d9488)',
+              color: 'var(--accent-text)',
               textDecoration: 'none',
             }}
           >

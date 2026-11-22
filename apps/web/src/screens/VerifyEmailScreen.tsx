@@ -242,7 +242,7 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
                 width: '48px',
                 height: '48px',
                 borderRadius: '12px',
-                backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                backgroundColor: 'var(--primary-subtle)',
                 color: 'var(--accent-text)',
                 marginBottom: '14px',
               }}
@@ -308,8 +308,8 @@ export const VerifyEmailScreen: React.FC<VerifyEmailScreenProps> = ({
               style={{
                 marginBottom: '16px',
                 padding: '12px 14px',
-                backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                border: '1px solid #14B8A6',
+                backgroundColor: 'var(--primary-subtle)',
+                border: '1px solid var(--primary-color)',
                 borderRadius: '8px',
                 color: 'var(--accent-text)',
                 fontSize: '13px',

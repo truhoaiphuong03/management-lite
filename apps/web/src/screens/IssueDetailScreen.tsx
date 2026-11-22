@@ -765,9 +765,9 @@ export const IssueDetailScreen: React.FC<IssueDetailScreenProps> = ({
                 style={{
                   padding: '4px 10px',
                   borderRadius: '4px',
-                  backgroundColor: 'rgba(20, 184, 166, 0.15)',
+                  backgroundColor: 'var(--primary-subtle)',
                   color: 'var(--accent-text)',
-                  border: '1px solid rgba(20, 184, 166, 0.4)',
+                  border: '1px solid var(--primary-border)',
                   fontFamily: 'var(--font-sans)',
                   fontVariantNumeric: 'tabular-nums',
                   fontSize: '13px',

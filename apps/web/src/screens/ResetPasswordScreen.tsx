@@ -169,7 +169,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                 width: '48px',
                 height: '48px',
                 borderRadius: '12px',
-                backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                backgroundColor: 'var(--primary-subtle)',
                 color: 'var(--accent-text)',
                 marginBottom: '16px',
               }}
@@ -415,7 +415,9 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                     outline: 'none',
                     transition: 'border-color 0.15s ease',
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = '#14B8A6')}
+                  onFocus={(e) =>
+                    (e.target.style.borderColor = 'var(--primary-color)')
+                  }
                   onBlur={(e) => (e.target.style.borderColor = '#334155')}
                 />
               </div>

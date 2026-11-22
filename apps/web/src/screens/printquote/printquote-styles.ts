@@ -5,18 +5,18 @@
  */
 export const PRINTQUOTE_STYLES = `
         [data-testid="printquote-screen"] {
-          --accent-soft: rgba(20, 184, 166, 0.1);
-          --pq-hero-bg: linear-gradient(135deg, rgba(20, 184, 166, 0.14) 0%, rgba(15, 23, 42, 0.88) 100%);
-          --pq-hero-border: rgba(20, 184, 166, 0.36);
+          --accent-soft: var(--primary-subtle);
+          --pq-hero-bg: linear-gradient(135deg, var(--primary-subtle) 0%, var(--surface-color) 100%);
+          --pq-hero-border: var(--primary-border);
           --pq-profit-panel-bg: rgba(16, 185, 129, 0.07);
           --pq-profit-panel-border: rgba(16, 185, 129, 0.28);
         }
 
         :root[data-theme="light"] [data-testid="printquote-screen"],
         [data-theme="light"] [data-testid="printquote-screen"] {
-          --accent-soft: rgba(15, 118, 110, 0.08);
-          --pq-hero-bg: linear-gradient(135deg, rgba(15, 118, 110, 0.09) 0%, rgba(241, 245, 249, 0.96) 100%);
-          --pq-hero-border: rgba(15, 118, 110, 0.28);
+          --accent-soft: var(--primary-subtle);
+          --pq-hero-bg: linear-gradient(135deg, var(--primary-subtle) 0%, rgba(241, 245, 249, 0.96) 100%);
+          --pq-hero-border: var(--primary-border);
           --pq-profit-panel-bg: rgba(4, 120, 87, 0.05);
           --pq-profit-panel-border: rgba(4, 120, 87, 0.24);
         }
@@ -24,9 +24,9 @@ export const PRINTQUOTE_STYLES = `
         @media (prefers-color-scheme: light) {
           :root[data-theme="system"] [data-testid="printquote-screen"],
           [data-theme="system"] [data-testid="printquote-screen"] {
-            --accent-soft: rgba(15, 118, 110, 0.08);
-            --pq-hero-bg: linear-gradient(135deg, rgba(15, 118, 110, 0.09) 0%, rgba(241, 245, 249, 0.96) 100%);
-            --pq-hero-border: rgba(15, 118, 110, 0.28);
+            --accent-soft: var(--primary-subtle);
+            --pq-hero-bg: linear-gradient(135deg, var(--primary-subtle) 0%, rgba(241, 245, 249, 0.96) 100%);
+            --pq-hero-border: var(--primary-border);
             --pq-profit-panel-bg: rgba(4, 120, 87, 0.05);
             --pq-profit-panel-border: rgba(4, 120, 87, 0.24);
           }
@@ -96,7 +96,7 @@ export const PRINTQUOTE_STYLES = `
           border: 1px solid var(--border-subtle);
         }
         .pq-nav-count-pill[data-active="true"] {
-          background: rgba(20, 184, 166, 0.18);
+          background: var(--primary-subtle);
           color: var(--accent-text);
           border-color: transparent;
         }
@@ -138,7 +138,7 @@ export const PRINTQUOTE_STYLES = `
         .pq-catalog-subnav-item[data-active="true"] {
           background: var(--primary-subtle);
           color: var(--accent-text);
-          border-color: #14B8A6;
+          border-color: var(--primary-color);
           font-weight: 600;
         }
 

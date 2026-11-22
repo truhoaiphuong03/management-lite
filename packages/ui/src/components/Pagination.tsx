@@ -2,7 +2,7 @@ import React from 'react';
 import { TOKENS, THEME_COLORS } from '../tokens.js';
 import { AppButton } from './AppButton.js';
 
-/** Management Lite pagination standard: default 20 rows/page, choices 10/20/50/100. */
+/** Gà Công Nghệ pagination standard: default 20 rows/page, choices 10/20/50/100. */
 export const PAGINATION_PAGE_SIZES = [10, 20, 50, 100] as const;
 export const DEFAULT_PAGE_SIZE = 20;
 

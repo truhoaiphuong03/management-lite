@@ -3005,7 +3005,12 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
               </div>
             </AppCard>
 
-            <AppCard style={{ padding: '16px', border: '1px solid #14B8A6' }}>
+            <AppCard
+              style={{
+                padding: '16px',
+                border: '1px solid var(--primary-color)',
+              }}
+            >
               <div
                 style={{
                   fontSize: '12px',
@@ -5150,10 +5155,10 @@ export const PayrollScreen: React.FC<PayrollScreenProps> = ({
                           cursor: 'pointer',
                           textAlign: 'left',
                           border: isActive
-                            ? '1px solid #14B8A6'
+                            ? '1px solid var(--primary-color)'
                             : '1px solid var(--border-color)',
                           backgroundColor: isActive
-                            ? 'rgba(20, 184, 166, 0.15)'
+                            ? 'var(--primary-subtle)'
                             : 'var(--surface-subtle)',
                           color: isActive
                             ? 'var(--accent-text)'

@@ -350,7 +350,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
 
     const lines: string[] = [];
     lines.push(
-      `# DANH SÁCH BÁO CÁO LỖI HỆ THỐNG MANAGEMENT LITE (${itemsWithActivities.length} vấn đề)`,
+      `# DANH SÁCH BÁO CÁO LỖI HỆ THỐNG GÀ CÔNG NGHỆ (${itemsWithActivities.length} vấn đề)`,
     );
     const resolvedLabel = currentWorkspaceName
       ? currentWorkspaceName
@@ -786,7 +786,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                 padding: '6px 12px',
                 borderRadius: '999px',
                 border: isActive
-                  ? '1px solid #14B8A6'
+                  ? '1px solid var(--primary-color)'
                   : '1px solid var(--border-subtle)',
                 backgroundColor: isActive
                   ? 'var(--primary-subtle)'
@@ -809,7 +809,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                     padding: '1px 7px',
                     borderRadius: '999px',
                     backgroundColor: isActive
-                      ? 'rgba(20, 184, 166, 0.18)'
+                      ? 'var(--primary-subtle)'
                       : 'var(--surface-hover)',
                     color: isActive
                       ? 'var(--accent-text)'
@@ -997,11 +997,11 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
           padding: '12px 16px',
           backgroundColor:
             selectedIssuesMap.size > 0
-              ? 'rgba(20, 184, 166, 0.08)'
+              ? 'var(--primary-subtle)'
               : 'var(--surface-subtle)',
           border:
             selectedIssuesMap.size > 0
-              ? '1px solid rgba(20, 184, 166, 0.3)'
+              ? '1px solid var(--primary-border)'
               : '1px solid var(--border-subtle)',
           borderRadius: '8px',
           marginBottom: '16px',
@@ -1037,7 +1037,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                 width: '18px',
                 height: '18px',
                 cursor: filteredIssues.length === 0 ? 'not-allowed' : 'pointer',
-                accentColor: '#14B8A6',
+                accentColor: 'var(--primary-color)',
               }}
             />
             <span>Chọn tất cả ({filteredIssues.length} mục trang này)</span>
@@ -1199,10 +1199,10 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                   transition:
                     'border-color 0.15s ease, background-color 0.15s ease',
                   border: isSelected
-                    ? '1px solid #14B8A6'
+                    ? '1px solid var(--primary-color)'
                     : '1px solid var(--border-color)',
                   backgroundColor: isSelected
-                    ? 'rgba(20, 184, 166, 0.04)'
+                    ? 'var(--primary-subtle)'
                     : undefined,
                   cursor: 'pointer',
                 }}
@@ -1243,7 +1243,7 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                           width: '18px',
                           height: '18px',
                           cursor: 'pointer',
-                          accentColor: '#14B8A6',
+                          accentColor: 'var(--primary-color)',
                         }}
                       />
                     </div>
@@ -1255,9 +1255,9 @@ export const IssuesScreen: React.FC<IssuesScreenProps> = ({
                         style={{
                           padding: '2px 8px',
                           borderRadius: '4px',
-                          backgroundColor: 'rgba(20, 184, 166, 0.15)',
+                          backgroundColor: 'var(--primary-subtle)',
                           color: 'var(--accent-text)',
-                          border: '1px solid rgba(20, 184, 166, 0.4)',
+                          border: '1px solid var(--primary-border)',
                           fontFamily: 'var(--font-sans)',
                           fontVariantNumeric: 'tabular-nums',
                           fontSize: '12px',
