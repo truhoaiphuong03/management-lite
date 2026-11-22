@@ -1215,8 +1215,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
           style={{
             padding: '10px 14px',
             borderRadius: '8px',
-            backgroundColor: 'rgba(20, 184, 166, 0.08)',
-            border: '1px solid rgba(20, 184, 166, 0.25)',
+            backgroundColor: 'var(--primary-subtle)',
+            border: '1px solid var(--primary-border)',
             marginBottom: '16px',
             fontSize: '12px',
             color: 'var(--text-color)',
@@ -1314,7 +1314,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   cursor: 'pointer',
                   backgroundColor:
                     ownerReportViewMode === 'by_employee'
-                      ? 'rgba(20, 184, 166, 0.16)'
+                      ? 'var(--primary-subtle)'
                       : 'transparent',
                   color:
                     ownerReportViewMode === 'by_employee'
@@ -1337,7 +1337,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   cursor: 'pointer',
                   backgroundColor:
                     ownerReportViewMode === 'by_report'
-                      ? 'rgba(20, 184, 166, 0.16)'
+                      ? 'var(--primary-subtle)'
                       : 'transparent',
                   color:
                     ownerReportViewMode === 'by_report'
@@ -1405,7 +1405,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   fontSize: '12px',
                   fontWeight: 600,
                   backgroundColor: showAdvancedFilters
-                    ? 'rgba(20, 184, 166, 0.14)'
+                    ? 'var(--primary-subtle)'
                     : 'var(--bg-color)',
                   color: showAdvancedFilters
                     ? 'var(--accent-text)'
@@ -1755,8 +1755,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         height: '38px',
                         padding: '0 10px',
                         borderRadius: '10px',
-                        backgroundColor: 'rgba(20, 184, 166, 0.14)',
-                        border: '1px solid rgba(20, 184, 166, 0.35)',
+                        backgroundColor: 'var(--primary-subtle)',
+                        border: '1px solid var(--primary-border)',
                         color: 'var(--accent-text)',
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -1833,7 +1833,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                           fontWeight: 700,
                           backgroundColor: 'var(--surface-subtle)',
                           color: 'var(--accent-text)',
-                          border: '1px solid rgba(20, 184, 166, 0.45)',
+                          border: '1px solid var(--primary-border)',
                           minHeight: '34px',
                           cursor: 'pointer',
                         }}
@@ -1860,9 +1860,9 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                         borderRadius: '8px',
                         fontSize: '12px',
                         fontWeight: 700,
-                        backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                        backgroundColor: 'var(--primary-subtle)',
                         color: 'var(--accent-text)',
-                        border: '1px solid rgba(20, 184, 166, 0.45)',
+                        border: '1px solid var(--primary-border)',
                         minHeight: '34px',
                         cursor: 'pointer',
                         display: 'inline-flex',
@@ -1947,7 +1947,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                                 fontWeight: 700,
                                 padding: '2px 8px',
                                 borderRadius: '6px',
-                                backgroundColor: 'rgba(20, 184, 166, 0.14)',
+                                backgroundColor: 'var(--primary-subtle)',
                                 color: 'var(--accent-text)',
                               }}
                             >
@@ -2034,7 +2034,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                               backgroundColor: 'var(--surface-subtle)',
                               padding: '7px 12px',
                               borderRadius: '6px',
-                              borderLeft: '3px solid #14B8A6',
+                              borderLeft: '3px solid var(--primary-color)',
                               overflowWrap: 'anywhere',
                             }}
                           >
@@ -2274,7 +2274,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                       backgroundColor: 'var(--surface-subtle)',
                       padding: '8px 12px',
                       borderRadius: '6px',
-                      borderLeft: '3px solid #14B8A6',
+                      borderLeft: '3px solid var(--primary-color)',
                       overflowWrap: 'anywhere',
                     }}
                   >
@@ -2527,8 +2527,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 style={{
                   padding: '10px 14px',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                  border: '1px solid rgba(20, 184, 166, 0.35)',
+                  backgroundColor: 'var(--primary-subtle)',
+                  border: '1px solid var(--primary-border)',
                   color: 'var(--text-color)',
                   fontSize: '12px',
                   lineHeight: 1.5,

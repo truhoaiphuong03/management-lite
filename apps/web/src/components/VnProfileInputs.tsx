@@ -368,7 +368,7 @@ export const VnBankAutocompleteInput: React.FC<
             maxHeight: '210px',
             overflowY: 'auto',
             backgroundColor: 'var(--surface-subtle)',
-            border: '1px solid #14B8A6',
+            border: '1px solid var(--primary-color)',
             borderRadius: '8px',
             boxShadow: '0 12px 28px rgba(0, 0, 0, 0.65)',
             zIndex: 1200,
@@ -391,7 +391,7 @@ export const VnBankAutocompleteInput: React.FC<
                 borderBottom: '1px solid var(--border-subtle)',
                 backgroundColor:
                   value === bank.shortName
-                    ? 'rgba(20, 184, 166, 0.18)'
+                    ? 'var(--primary-subtle)'
                     : 'transparent',
                 color: 'var(--text-color)',
                 cursor: 'pointer',

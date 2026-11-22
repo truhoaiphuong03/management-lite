@@ -1927,7 +1927,12 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           </AppCard>
 
           {/* Secret & Credentials Management (SEC-02 / C05) */}
-          <AppCard style={{ padding: '24px', border: '1px solid #14B8A6' }}>
+          <AppCard
+            style={{
+              padding: '24px',
+              border: '1px solid var(--primary-color)',
+            }}
+          >
             <div
               style={{
                 display: 'flex',
@@ -2295,8 +2300,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         }
                         style={{
                           padding: '4px 10px',
-                          backgroundColor: 'rgba(20, 184, 166, 0.12)',
-                          border: '1px solid rgba(20, 184, 166, 0.35)',
+                          backgroundColor: 'var(--primary-subtle)',
+                          border: '1px solid var(--primary-border)',
                           borderRadius: '6px',
                           color: 'var(--accent-text)',
                           fontWeight: 600,
@@ -2649,7 +2654,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     padding: '0 30px 0 34px',
                     backgroundColor: 'var(--surface-subtle)',
                     border: searchQuery.trim()
-                      ? '1px solid #14B8A6'
+                      ? '1px solid var(--primary-color)'
                       : '1px solid var(--border-color)',
                     borderRadius: '6px',
                     color: 'var(--text-color)',
@@ -2735,7 +2740,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     groupFilter !== 'all' ||
                     assigneeFilter !== 'all' ||
                     statusFilter !== 'all'
-                      ? '1px solid rgba(20, 184, 166, 0.45)'
+                      ? '1px solid var(--primary-border)'
                       : '1px solid var(--border-color)',
                   backgroundColor:
                     showAdvancedFilters ||
@@ -2743,7 +2748,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     groupFilter !== 'all' ||
                     assigneeFilter !== 'all' ||
                     statusFilter !== 'all'
-                      ? 'rgba(20, 184, 166, 0.12)'
+                      ? 'var(--primary-subtle)'
                       : 'var(--surface-subtle)',
                   color:
                     showAdvancedFilters ||
@@ -2922,11 +2927,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     borderRadius: '999px',
                     border:
                       phoneFilter === 'all'
-                        ? '1px solid #14B8A6'
+                        ? '1px solid var(--primary-color)'
                         : '1px solid var(--border-color)',
                     backgroundColor:
                       phoneFilter === 'all'
-                        ? 'rgba(20, 184, 166, 0.14)'
+                        ? 'var(--primary-subtle)'
                         : 'var(--surface-subtle)',
                     color:
                       phoneFilter === 'all'
@@ -2951,10 +2956,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         padding: '3px 9px',
                         borderRadius: '999px',
                         border: isSelected
-                          ? '1px solid #14B8A6'
+                          ? '1px solid var(--primary-color)'
                           : '1px solid var(--border-color)',
                         backgroundColor: isSelected
-                          ? 'rgba(20, 184, 166, 0.14)'
+                          ? 'var(--primary-subtle)'
                           : 'var(--surface-subtle)',
                         color: isSelected
                           ? 'var(--accent-text)'
@@ -2989,8 +2994,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   marginTop: '10px',
                   padding: '8px 12px',
                   borderRadius: '6px',
-                  backgroundColor: 'rgba(20, 184, 166, 0.08)',
-                  border: '1px solid rgba(20, 184, 166, 0.3)',
+                  backgroundColor: 'var(--primary-subtle)',
+                  border: '1px solid var(--primary-border)',
                   fontSize: '12px',
                   color: 'var(--text-color)',
                   display: 'flex',
@@ -3182,8 +3187,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           style={{
                             padding: '5px 10px',
                             borderRadius: '6px',
-                            border: '1px solid rgba(20, 184, 166, 0.35)',
-                            backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                            border: '1px solid var(--primary-border)',
+                            backgroundColor: 'var(--primary-subtle)',
                             color: 'var(--accent-text)',
                             fontSize: '12px',
                             fontWeight: 600,
@@ -3335,10 +3340,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                     style={{
                                       padding: '4px 7px',
                                       borderRadius: '4px',
-                                      border:
-                                        '1px solid rgba(20, 184, 166, 0.3)',
-                                      backgroundColor:
-                                        'rgba(20, 184, 166, 0.1)',
+                                      border: '1px solid var(--primary-border)',
+                                      backgroundColor: 'var(--primary-subtle)',
                                       color: 'var(--accent-text)',
                                       fontSize: '12px',
                                       cursor: 'pointer',
@@ -3905,7 +3908,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                         style={{
                           borderBottom: '1px solid var(--border-subtle)',
                           backgroundColor: isDirectMatch
-                            ? 'rgba(20, 184, 166, 0.08)'
+                            ? 'var(--primary-subtle)'
                             : undefined,
                           transition: 'background-color 0.15s ease',
                         }}
@@ -4101,7 +4104,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                                 borderRadius: '4px',
                                 fontSize: '12px',
                                 fontWeight: 600,
-                                backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                                backgroundColor: 'var(--primary-subtle)',
                                 color: 'var(--accent-text)',
                                 marginBottom: '2px',
                                 whiteSpace: 'nowrap',
@@ -4217,8 +4220,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                               style={{
                                 padding: '4px 8px',
                                 minHeight: '32px',
-                                backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                                border: '1px solid rgba(20, 184, 166, 0.3)',
+                                backgroundColor: 'var(--primary-subtle)',
+                                border: '1px solid var(--primary-border)',
                                 borderRadius: '6px',
                                 color: 'var(--accent-text)',
                                 fontSize: '12px',
@@ -4350,7 +4353,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   border: 'none',
                   backgroundColor:
                     createMode === 'single'
-                      ? 'rgba(20, 184, 166, 0.18)'
+                      ? 'var(--primary-subtle)'
                       : 'transparent',
                   color:
                     createMode === 'single'
@@ -4373,7 +4376,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                   border: 'none',
                   backgroundColor:
                     createMode === 'bulk'
-                      ? 'rgba(20, 184, 166, 0.18)'
+                      ? 'var(--primary-subtle)'
                       : 'transparent',
                   color:
                     createMode === 'bulk'
@@ -6042,7 +6045,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           <div
             style={{
               backgroundColor: 'var(--surface-color)',
-              border: '1px solid #14B8A6',
+              border: '1px solid var(--primary-color)',
               borderRadius: '8px',
               width: '100%',
               maxWidth: '480px',

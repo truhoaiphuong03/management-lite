@@ -128,8 +128,8 @@ test('MGL-AUTH-LOGIN-UI-TOIGIAN-01: Minimalist centered single-column layout inv
     'Must define login-brand/login-logo-box for the centered logo',
   );
   assert.ok(
-    source.includes('login-brand-title') && source.includes('Management Lite'),
-    'Must render the Management Lite brand title (styled uppercase via CSS text-transform)',
+    source.includes('login-brand-title') && source.includes('Gà Công Nghệ'),
+    'Must render the Gà Công Nghệ brand title (styled uppercase via CSS text-transform)',
   );
   assert.ok(
     source.includes('login-form') && source.includes('login-field'),
@@ -277,8 +277,8 @@ test('MGL-AUTH-LOGIN-UI-18 & FIX-21: LoginScreen runtime React static markup ren
   assert.ok(markup.includes('login-container'), 'Must render login-container');
   assert.ok(markup.includes('login-brand'), 'Must render login-brand');
   assert.ok(
-    markup.includes('Management Lite'),
-    'Must render the Management Lite brand title (styled uppercase via CSS text-transform)',
+    markup.includes('Gà Công Nghệ'),
+    'Must render the Gà Công Nghệ brand title (styled uppercase via CSS text-transform)',
   );
   assert.ok(
     !markup.includes('Phiên bảo mật C06'),

@@ -442,13 +442,13 @@ test('V0.2 ISSUES-06: design tokens, touch targets, and mobile responsiveness', 
     `file://${resolve(root, 'dist/packages/ui/src/tokens.js')}`
   );
 
-  // Verify design tokens adhere to canonical 44
-  assert.equal(TOKENS.colors.background, '#0B1220');
-  assert.equal(TOKENS.colors.surface, '#151F30');
-  assert.equal(TOKENS.colors.primary, '#14B8A6');
-  assert.equal(TOKENS.colors.text, '#F8FAFC');
-  assert.equal(TOKENS.colors.muted, '#94A3B8');
-  assert.equal(TOKENS.colors.border, '#334155');
+  // Verify design tokens adhere to canonical 44 (Gà Công Nghệ palette)
+  assert.equal(TOKENS.colors.background, '#0D0A09');
+  assert.equal(TOKENS.colors.surface, '#171210');
+  assert.equal(TOKENS.colors.primary, '#FF6A1A');
+  assert.equal(TOKENS.colors.text, '#FFF1DC');
+  assert.equal(TOKENS.colors.muted, '#B8A590');
+  assert.equal(TOKENS.colors.border, '#33281F');
   assert.equal(TOKENS.touchTarget.minHeight, '44px');
   assert.equal(TOKENS.touchTarget.minWidth, '44px');
 

@@ -54,7 +54,7 @@ export const AppBadge: React.FC<AppBadgeProps> = ({
         return {
           bg: THEME_COLORS.primarySubtle,
           text: THEME_COLORS.primary,
-          border: 'rgba(20, 184, 166, 0.35)',
+          border: 'var(--primary-border)',
         };
       case 'info':
         return {
@@ -79,7 +79,7 @@ export const AppBadge: React.FC<AppBadgeProps> = ({
         return {
           bg: THEME_COLORS.primarySubtle,
           text: THEME_COLORS.primary,
-          border: 'rgba(20, 184, 166, 0.3)',
+          border: 'var(--primary-border)',
         };
     }
   };

@@ -279,18 +279,17 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                 outline: 'none',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.4)';
-                e.currentTarget.style.backgroundColor =
-                  'rgba(20, 184, 166, 0.05)';
+                e.currentTarget.style.borderColor = 'var(--primary-border)';
+                e.currentTarget.style.backgroundColor = 'var(--primary-subtle)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = 'var(--border-color)';
                 e.currentTarget.style.backgroundColor = 'var(--surface-color)';
               }}
               onFocus={(e) => {
-                e.currentTarget.style.borderColor = '#14B8A6';
+                e.currentTarget.style.borderColor = 'var(--primary-color)';
                 e.currentTarget.style.boxShadow =
-                  '0 0 0 2px rgba(20, 184, 166, 0.25)';
+                  '0 0 0 2px var(--primary-border)';
               }}
               onBlur={(e) => {
                 e.currentTarget.style.borderColor = 'var(--border-color)';
@@ -302,7 +301,7 @@ export const GroupOverviewScreen: React.FC<GroupOverviewScreenProps> = ({
                   width: '38px',
                   height: '38px',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                  backgroundColor: 'var(--primary-subtle)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

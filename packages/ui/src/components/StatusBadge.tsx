@@ -35,9 +35,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label }) => {
       case 'neutral':
       default:
         return {
-          bg: 'rgba(20, 184, 166, 0.15)',
-          text: 'var(--accent-text, #14B8A6)',
-          border: 'rgba(20, 184, 166, 0.3)',
+          bg: 'var(--primary-subtle)',
+          text: 'var(--accent-text)',
+          border: 'var(--primary-border)',
         };
     }
   };

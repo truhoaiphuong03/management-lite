@@ -1793,7 +1793,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                             ? 'var(--primary-subtle)'
                             : 'var(--surface-subtle)',
                           border: isChecked
-                            ? '1px solid var(--primary-color, #0f766e)'
+                            ? '1px solid var(--primary-color)'
                             : '1px solid var(--border-subtle)',
                           cursor: 'pointer',
                           fontSize: '13px',
@@ -2479,7 +2479,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                         backgroundColor:
                           checklistPct === 100
                             ? '#10B981'
-                            : 'var(--primary-color, #0f766e)',
+                            : 'var(--primary-color)',
                         transition: 'width 0.2s ease',
                       }}
                     />
@@ -3549,10 +3549,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                               padding: '6px 10px',
                               borderRadius: '6px',
                               backgroundColor: checked
-                                ? 'rgba(20, 184, 166, 0.14)'
+                                ? 'var(--primary-subtle)'
                                 : 'var(--surface-subtle)',
                               border: checked
-                                ? '1px solid #14B8A6'
+                                ? '1px solid var(--primary-color)'
                                 : '1px solid var(--border-subtle)',
                               fontSize: '13px',
                               cursor: 'pointer',
@@ -4116,7 +4116,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
               key: 'in_progress',
               label: 'ĐANG LÀM',
               count: kpiStats.inProgress,
-              accent: '#0F766E',
+              accent: 'var(--primary-color)',
               textColor: 'var(--accent-text)',
               labelColor: 'var(--accent-text)',
             },
@@ -4154,7 +4154,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 padding: '16px 18px',
                 borderRadius: '16px',
                 backgroundColor: isSelected
-                  ? `${kpi.accent}14`
+                  ? kpi.accent.startsWith('var(')
+                    ? 'var(--primary-subtle)'
+                    : `${kpi.accent}14`
                   : 'var(--surface-color)',
                 border: isSelected
                   ? `1.5px solid ${kpi.accent}`
@@ -4309,7 +4311,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                 {
                   key: 'today',
                   label: `⏰ Hôm nay (${kpiStats.todayCount})`,
-                  activeColor: '#0F766E',
+                  activeColor: 'var(--primary-color)',
                   textColor: 'var(--accent-text)',
                 },
                 {
@@ -4355,7 +4357,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({
                     flexShrink: 0,
                     cursor: 'pointer',
                     backgroundColor: isActive
-                      ? `${chip.activeColor}18`
+                      ? chip.activeColor.startsWith('var(')
+                        ? 'var(--primary-subtle)'
+                        : `${chip.activeColor}18`
                       : 'var(--bg-color)',
                     border: isActive
                       ? `1px solid ${chip.activeColor}`

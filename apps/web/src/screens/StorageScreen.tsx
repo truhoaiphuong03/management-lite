@@ -94,7 +94,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
     '4/0AVGzR1-google-oauth-code',
   );
   const [oauthRootFolderName, setOauthRootFolderName] = useState<string>(
-    'Management Lite - Google Drive Root',
+    'Gà Công Nghệ - Google Drive Root',
   );
 
   // Modal 1: Create Source Folder on Google Drive (Owner Only)
@@ -1320,7 +1320,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       const body = await res.json();
       if (res.ok && body.success) {
         setSuccessMessage(
-          `Đã gỡ bản ghi "${file.name}" khỏi Management Lite (Dữ liệu trên Google Drive vẫn được giữ nguyên an toàn).`,
+          `Đã gỡ bản ghi "${file.name}" khỏi Gà Công Nghệ (Dữ liệu trên Google Drive vẫn được giữ nguyên an toàn).`,
         );
         loadData();
       } else {
@@ -2473,8 +2473,8 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
                   }}
                 >
                   Theo dõi trạng thái Resumable Upload, nhân viên phụ trách và
-                  nghiệm thu video. Gỡ bản ghi trên Management Lite không làm
-                  mất tệp trên Google Drive.
+                  nghiệm thu video. Gỡ bản ghi trên Gà Công Nghệ không làm mất
+                  tệp trên Google Drive.
                 </p>
               </div>
 

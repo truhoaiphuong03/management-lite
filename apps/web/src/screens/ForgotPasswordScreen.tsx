@@ -106,7 +106,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 width: '48px',
                 height: '48px',
                 borderRadius: '12px',
-                backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                backgroundColor: 'var(--primary-subtle)',
                 color: 'var(--accent-text)',
                 marginBottom: '16px',
               }}

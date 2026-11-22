@@ -5,7 +5,6 @@ import {
   NAV_ITEMS,
   NAV_GROUPS,
   resolveSidebarUserSummary,
-  BuildingIcon,
   CrownIcon,
   UserIcon,
   LogOutIcon,
@@ -608,22 +607,32 @@ export const AppShell: React.FC<AppShellProps> = ({
             flexShrink: 1,
           }}
         >
-          <BuildingIcon
-            size={18}
-            style={{ color: 'var(--accent-text)', flexShrink: 0 }}
-          />
-          <span
-            className="app-shell-brand-title"
-            style={{
-              color: 'var(--text-color)',
-              fontWeight: 700,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            Management Lite
-          </span>
+          <div className="gcn-brand-logo-wrap">
+            <span className="gcn-brand-logo-pill">
+              <img
+                src="/brand/logo-ngang.svg"
+                alt="Gà Công Nghệ"
+                className="app-shell-brand-logo-desktop"
+              />
+            </span>
+            <img
+              src="/brand/linh-vat.png"
+              alt="Gà Công Nghệ"
+              className="app-shell-brand-logo-mobile"
+            />
+            <span
+              className="app-shell-brand-title app-shell-brand-title-mobile"
+              style={{
+                color: 'var(--text-color)',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              Gà Công Nghệ
+            </span>
+          </div>
           <span
             className="app-shell-role-badge"
             style={{
@@ -631,13 +640,13 @@ export const AppShell: React.FC<AppShellProps> = ({
               borderRadius: '9999px',
               backgroundColor:
                 role === 'owner'
-                  ? 'rgba(20, 184, 166, 0.15)'
+                  ? 'var(--primary-subtle)'
                   : 'rgba(56, 189, 248, 0.15)',
               color:
                 role === 'owner' ? 'var(--accent-text)' : 'var(--info-text)',
               border: `1px solid ${
                 role === 'owner'
-                  ? 'rgba(20, 184, 166, 0.3)'
+                  ? 'var(--primary-border)'
                   : 'rgba(56, 189, 248, 0.3)'
               }`,
               fontSize: '11px',
@@ -728,7 +737,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               border: '1px solid var(--border-color)',
               backgroundColor:
                 currentPath === '/settings'
-                  ? 'rgba(20, 184, 166, 0.2)'
+                  ? 'var(--primary-subtle)'
                   : 'transparent',
               color: 'var(--accent-text)',
               fontSize: '12px',
@@ -1202,11 +1211,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                         border: '1px solid',
                         borderColor:
                           currentPath === item.path
-                            ? 'rgba(20, 184, 166, 0.3)'
+                            ? 'var(--primary-border)'
                             : 'var(--border-color, #334155)',
                         backgroundColor:
                           currentPath === item.path
-                            ? 'rgba(20, 184, 166, 0.15)'
+                            ? 'var(--primary-subtle)'
                             : 'var(--bg-color, #0B1220)',
                         color:
                           currentPath === item.path
@@ -1238,7 +1247,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 color: 'var(--muted-color)',
               }}
             >
-              Management Lite v{SYSTEM_VERSION}
+              Gà Công Nghệ v{SYSTEM_VERSION}
             </div>
           </div>
         </div>

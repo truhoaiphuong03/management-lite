@@ -330,8 +330,8 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
             transition: 'background-color 0.15s ease, border-color 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.15)';
-            e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.4)';
+            e.currentTarget.style.backgroundColor = 'var(--primary-subtle)';
+            e.currentTarget.style.borderColor = 'var(--primary-border)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--surface-subtle)';
@@ -415,14 +415,15 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = 'var(--accent-text)';
                     e.currentTarget.style.backgroundColor =
-                      'rgba(20, 184, 166, 0.08)';
+                      'var(--primary-subtle)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.color = 'var(--text-secondary)';
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.outline = '2px solid #14B8A6';
+                    e.currentTarget.style.outline =
+                      '2px solid var(--primary-color)';
                   }}
                   onBlur={(e) => {
                     e.currentTarget.style.outline = 'none';

@@ -667,7 +667,10 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
       {activeInviteUrl && (
         <AppCard
           padding="16px"
-          style={{ marginBottom: '20px', border: '1px solid #14B8A6' }}
+          style={{
+            marginBottom: '20px',
+            border: '1px solid var(--primary-color)',
+          }}
         >
           <div
             style={{
@@ -799,7 +802,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                         (employee.employee_code === 'OWNER'
                           ? 'owner'
                           : 'staff')) === 'owner'
-                        ? 'rgba(20, 184, 166, 0.15)'
+                        ? 'var(--primary-subtle)'
                         : (employee.role || employee.user?.role) === 'admin'
                           ? 'var(--info-subtle)'
                           : 'var(--surface-hover)',
@@ -846,9 +849,9 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                             fontSize: '11px',
                             padding: '2px 8px',
                             borderRadius: '6px',
-                            backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                            backgroundColor: 'var(--primary-subtle)',
                             color: 'var(--accent-text)',
-                            border: '1px solid rgba(20, 184, 166, 0.25)',
+                            border: '1px solid var(--primary-border)',
                             fontWeight: 500,
                           }}
                         >
@@ -1143,8 +1146,8 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                           });
                         }}
                         style={{
-                          background: 'rgba(20, 184, 166, 0.15)',
-                          border: '1px solid rgba(20, 184, 166, 0.3)',
+                          background: 'var(--primary-subtle)',
+                          border: '1px solid var(--primary-border)',
                           borderRadius: '6px',
                           color: 'var(--accent-text)',
                           fontSize: '12px',
@@ -1369,8 +1372,8 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                           fontSize: '12px',
                           padding: '4px 10px',
                           borderRadius: '6px',
-                          border: '1px solid rgba(20, 184, 166, 0.35)',
-                          backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                          border: '1px solid var(--primary-border)',
+                          backgroundColor: 'var(--primary-subtle)',
                           color: 'var(--accent-text)',
                           cursor: 'pointer',
                           fontWeight: 600,
@@ -1440,7 +1443,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                           borderRadius: '8px',
                           backgroundColor: 'var(--bg-color)',
                           border: isChecked
-                            ? '1px solid rgba(20, 184, 166, 0.45)'
+                            ? '1px solid var(--primary-border)'
                             : '1px solid var(--border-subtle)',
                           cursor:
                             memberRole === 'owner' ? 'default' : 'pointer',
@@ -1464,7 +1467,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                             width: '16px',
                             height: '16px',
                             marginTop: '2px',
-                            accentColor: '#14B8A6',
+                            accentColor: 'var(--primary-color)',
                             flexShrink: 0,
                           }}
                         />
@@ -1919,7 +1922,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailScreenProps> = ({
                     style={{
                       width: '18px',
                       height: '18px',
-                      accentColor: '#14B8A6',
+                      accentColor: 'var(--primary-color)',
                     }}
                   />
                   Đủ điều kiện tính lương ca làm việc (Payroll Eligible)

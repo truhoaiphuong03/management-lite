@@ -1,0 +1,68 @@
+/**
+ * Gà Công Nghệ — Brand Raw Palette & Typography Single Source of Truth
+ * Shared between ql.hoaiphuong.click and hoaiphuong.click.
+ * Contains ONLY raw --gcn-* brand variables and brand font stack.
+ *
+ * Source: https://hoaiphuong.click/assets/css/style.css (:root)
+ *   --nen:       #0D0A09 -> --gcn-ink
+ *   --nen-video: #0B0907 -> --gcn-ink-deep
+ *   --nen-2:     #110D0B -> --gcn-surface-subtle
+ *   --than:      #171210 -> --gcn-surface
+ *   --o-icon:    #221913 -> --gcn-surface-hover
+ *   --vien:      #2A2019 -> --gcn-surface-active / --gcn-border-subtle
+ *   --vien-dam:  #33281F -> --gcn-border
+ *   --vien-ga:   #2A2320 -> --gcn-rooster-outline
+ *   --cam:       #FF6A1A -> --gcn-fire
+ *   --vang:      #FFB347 -> --gcn-gold
+ *   --do:        #E5341D -> --gcn-ember
+ *   --kem:       #FFF1DC -> --gcn-cream
+ *   --chu-phu:   #C9B8A3 -> --gcn-cream-secondary
+ *   --chu-mo:    #B8A590 -> --gcn-cream-muted
+ *   --font:      "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif -> --gcn-font-sans
+ */
+:root {
+  /* Core Fire Accent (source: style.css --cam #FF6A1A & logo-ngang.svg) */
+  --gcn-fire: #ff6a1a;
+  --gcn-fire-hover: #eb6218;
+  --gcn-fire-active: #d65916;
+  --gcn-fire-subtle: rgba(255, 106, 26, 0.15);
+  --gcn-fire-subtle-strong: rgba(255, 106, 26, 0.18);
+  --gcn-fire-subtle-light: rgba(255, 106, 26, 0.12);
+  --gcn-fire-border: rgba(255, 106, 26, 0.35);
+  --gcn-fire-shadow: rgba(255, 106, 26, 0.38);
+
+  /* AA-compliant fire text & light-mode button shades (>= 4.5:1 WCAG 2.1) */
+  --gcn-fire-text-light: #b53d00;
+  --gcn-fire-light-hover: #9e3300;
+  --gcn-fire-light-active: #872a00;
+  --gcn-fire-text-dark: #ff853d;
+
+  /* Supporting brand tones (source: style.css --vang, --do, --vien-ga) */
+  --gcn-gold: #ffb347;
+  --gcn-ember: #e5341d;
+  --gcn-rooster-outline: #2a2320;
+
+  /* Warm dark canvas & surfaces stepping up from --nen #0D0A09 (source: --nen, --nen-video, --nen-2, --than, --o-icon, --vien) */
+  --gcn-ink: #0d0a09;
+  --gcn-ink-deep: #0b0907;
+  --gcn-surface-subtle: #110d0b;
+  --gcn-surface: #171210;
+  --gcn-surface-hover: #221913;
+  --gcn-surface-active: #2a2019;
+  --gcn-overlay: rgba(13, 10, 9, 0.85);
+
+  /* Warm dark borders (source: style.css --vien-dam, --vien, .nut-phu #4A3A2C) */
+  --gcn-border: #33281f;
+  --gcn-border-subtle: #2a2019;
+  --gcn-border-hover: #4a3a2c;
+
+  /* Warm dark typography (source: style.css --kem, --chu-phu, --chu-mo) */
+  --gcn-cream: #fff1dc;
+  --gcn-cream-secondary: #c9b8a3;
+  --gcn-cream-muted: #b8a590;
+  --gcn-cream-disabled: #7d6e5d;
+
+  /* Brand typography (source: style.css --font) */
+  --gcn-font-sans:
+    'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}

@@ -3,37 +3,37 @@
 
 export const TOKENS = {
   colors: {
-    // Core surfaces and canvases
-    background: '#0B1220',
-    surface: '#151F30',
-    surfaceSubtle: '#0F172A',
-    surfaceHover: '#1E293B',
-    surfaceActive: '#24334C',
-    overlay: 'rgba(11, 18, 32, 0.85)',
+    // Core surfaces and canvases (Gà Công Nghệ warm dark scale from --gcn-ink)
+    background: '#0D0A09',
+    surface: '#171210',
+    surfaceSubtle: '#110D0B',
+    surfaceHover: '#221913',
+    surfaceActive: '#2A2019',
+    overlay: 'rgba(13, 10, 9, 0.85)',
 
-    // Primary brand accents (Teal)
-    primary: '#14B8A6',
-    primaryHover: '#0D9488',
-    primaryActive: '#0F766E',
-    primarySubtle: 'rgba(20, 184, 166, 0.15)',
+    // Primary brand accents (Gà Công Nghệ Fire)
+    primary: '#FF6A1A',
+    primaryHover: '#EB6218',
+    primaryActive: '#D65916',
+    primarySubtle: 'rgba(255, 106, 26, 0.15)',
 
     // Secondary surfaces and accents
-    secondary: '#151F30',
-    secondaryHover: '#1E293B',
-    secondaryActive: '#24334C',
+    secondary: '#171210',
+    secondaryHover: '#221913',
+    secondaryActive: '#2A2019',
 
     // Text hierarchy
-    text: '#F8FAFC',
-    textSecondary: '#CBD5E1',
-    muted: '#94A3B8',
-    disabled: '#64748B',
-    inverse: '#0B1220',
+    text: '#FFF1DC',
+    textSecondary: '#C9B8A3',
+    muted: '#B8A590',
+    disabled: '#7D6E5D',
+    inverse: '#0D0A09',
 
     // Borders and focus rings
-    border: '#334155',
-    borderSubtle: '#1E293B',
-    borderHover: '#475569',
-    focusRing: '#14B8A6',
+    border: '#33281F',
+    borderSubtle: '#2A2019',
+    borderHover: '#4A3A2C',
+    focusRing: '#FF6A1A',
 
     // Semantic status colors
     error: '#EF4444',

@@ -2880,7 +2880,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     border: 'none',
                     backgroundColor:
                       ownerViewMode === 'by_employee'
-                        ? 'rgba(20, 184, 166, 0.16)'
+                        ? 'var(--primary-subtle)'
                         : 'transparent',
                     color:
                       ownerViewMode === 'by_employee'
@@ -2903,7 +2903,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     border: 'none',
                     backgroundColor:
                       ownerViewMode === 'by_shift'
-                        ? 'rgba(20, 184, 166, 0.16)'
+                        ? 'var(--primary-subtle)'
                         : 'transparent',
                     color:
                       ownerViewMode === 'by_shift'
@@ -3008,8 +3008,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                   gap: '6px',
                   padding: '6px 10px',
                   borderRadius: '6px',
-                  border: '1px solid rgba(20, 184, 166, 0.35)',
-                  backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                  border: '1px solid var(--primary-border)',
+                  backgroundColor: 'var(--primary-subtle)',
                   color: 'var(--accent-text)',
                   fontSize: '12px',
                   fontWeight: 600,
@@ -3038,7 +3038,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     selectedToDate ||
                     selectedReviewState !== 'all' ||
                     selectedRunState !== 'all'
-                      ? '1px solid #14B8A6'
+                      ? '1px solid var(--primary-color)'
                       : '1px solid var(--border-color)',
                   backgroundColor:
                     showOwnerAdvancedFilters ||
@@ -3047,7 +3047,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     selectedToDate ||
                     selectedReviewState !== 'all' ||
                     selectedRunState !== 'all'
-                      ? 'rgba(20, 184, 166, 0.14)'
+                      ? 'var(--primary-subtle)'
                       : 'var(--surface-subtle)',
                   color:
                     showOwnerAdvancedFilters ||
@@ -3131,11 +3131,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     flexShrink: 0,
                     border:
                       selectedReviewState === pill.id
-                        ? '1px solid #14B8A6'
+                        ? '1px solid var(--primary-color)'
                         : '1px solid var(--border-color)',
                     backgroundColor:
                       selectedReviewState === pill.id
-                        ? 'rgba(20, 184, 166, 0.16)'
+                        ? 'var(--primary-subtle)'
                         : 'var(--surface-color)',
                     color:
                       selectedReviewState === pill.id
@@ -3183,11 +3183,11 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                     borderRadius: '999px',
                     border:
                       selectedEmployeeId === 'all'
-                        ? '1px solid #14B8A6'
+                        ? '1px solid var(--primary-color)'
                         : '1px solid var(--border-color)',
                     backgroundColor:
                       selectedEmployeeId === 'all'
-                        ? 'rgba(20, 184, 166, 0.16)'
+                        ? 'var(--primary-subtle)'
                         : 'var(--surface-color)',
                     color:
                       selectedEmployeeId === 'all'
@@ -3216,10 +3216,10 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                         padding: '5px 10px',
                         borderRadius: '999px',
                         border: isSelected
-                          ? '1px solid #14B8A6'
+                          ? '1px solid var(--primary-color)'
                           : '1px solid var(--border-color)',
                         backgroundColor: isSelected
-                          ? 'rgba(20, 184, 166, 0.16)'
+                          ? 'var(--primary-subtle)'
                           : 'var(--surface-color)',
                         color: isSelected
                           ? 'var(--accent-text)'
@@ -3676,8 +3676,8 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                             height: '32px',
                             padding: '0 10px',
                             borderRadius: '8px',
-                            backgroundColor: 'rgba(20, 184, 166, 0.14)',
-                            border: '1px solid rgba(20, 184, 166, 0.32)',
+                            backgroundColor: 'var(--primary-subtle)',
+                            border: '1px solid var(--primary-border)',
                             color: 'var(--accent-text)',
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -3945,7 +3945,7 @@ export const ClockScreen: React.FC<ClockScreenProps> = ({
                                         padding: '2px 8px',
                                         borderRadius: '6px',
                                         backgroundColor:
-                                          'rgba(20, 184, 166, 0.12)',
+                                          'var(--primary-subtle)',
                                         color: 'var(--accent-text)',
                                         fontWeight: 700,
                                         whiteSpace: 'nowrap',

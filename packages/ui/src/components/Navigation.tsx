@@ -648,6 +648,27 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           </div>
         )}
 
+        {collapsed && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              paddingTop: '2px',
+            }}
+          >
+            <img
+              src="/brand/linh-vat.png"
+              alt="Gà Công Nghệ"
+              style={{
+                width: '24px',
+                height: '24px',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          </div>
+        )}
+
         <div
           className={collapsed ? 'sr-only' : undefined}
           style={
@@ -663,7 +684,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 }
           }
         >
-          <span>Management Lite</span>
+          <span>Gà Công Nghệ</span>
           <span>v{version}</span>
         </div>
       </div>
@@ -784,7 +805,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 ? 'var(--accent-soft)'
                 : 'transparent',
               color: isGroupActive
-                ? 'var(--accent-text, #14B8A6)'
+                ? 'var(--accent-text)'
                 : 'var(--muted-color, #94A3B8)',
               cursor: 'pointer',
               gap: '3px',
@@ -844,7 +865,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             borderRadius: '8px',
             backgroundColor: isMoreOpen ? 'var(--accent-soft)' : 'transparent',
             color: isMoreOpen
-              ? 'var(--accent-text, #14B8A6)'
+              ? 'var(--accent-text)'
               : 'var(--muted-color, #94A3B8)',
             cursor: 'pointer',
             gap: '3px',

@@ -6,8 +6,26 @@ import type { ReleaseNoteItem } from './version.js';
  */
 export const RELEASE_NOTES_CATALOG: ReleaseNoteItem[] = [
   {
-    version: '1.0.1',
+    version: '1.0.2',
     commit: 'latest',
+    released_at: '2026-11-20',
+    summary:
+      'Đồng bộ nhận diện thương hiệu Gà Công Nghệ (GCN-BRAND-01) cho khung giao diện ql.hoaiphuong.click: bảng màu lửa cam --gcn-fire (#FF6A1A) & nền tối ấm --gcn-ink (#0D0A09), nguồn biến dùng chung gcn-brand.css, logo ngang/linh vật chính thức và dọn sạch 100% mã màu teal cũ trên toàn bộ giao diện (giữ nguyên mặc định Sáng, Be Vietnam Pro và PDF báo giá in ấn).',
+    added: [
+      'Tệp nguồn biến thương hiệu duy nhất packages/ui/src/brand/gcn-brand.css (--gcn-*) và tài liệu đối chiếu tương phản WCAG 2.1 AA docs/brand/GCN-PALETTE.md kèm 16 ảnh chụp kiểm chứng Sáng/Tối ở 390px & 1440px.',
+      'Bộ tài nguyên nhận diện chính thức tại apps/web/public/brand/ (logo-ngang.svg, linh-vat.png, favicon.png, og-image.png) cùng 2 thẻ meta theme-color thích ứng Light (#FFFFFF) và Dark (#0D0A09).',
+    ],
+    improved: [
+      'Cập nhật tên hiển thị giao diện sang "Gà Công Nghệ" / "Gà Công Nghệ · Quản lý", thay icon hộp ở Đăng nhập và thanh tiêu đề/sidebar bằng logo ngang (Desktop) và linh vật đầu gà (Mobile & Sidebar thu gọn).',
+      'Trỏ toàn bộ --primary-*, --accent-text, --focus-ring, --brand-color và thang bề mặt tối trong tokens.css & tokens.ts về biến var(--gcn-*) đạt chuẩn WCAG AA >= 4.5:1 ở cả chế độ Sáng và Tối.',
+    ],
+    fixed: [
+      'Thay thế toàn bộ mã màu teal ghi cứng (#14B8A6/#0D9488/#0F766E/#0D6760/rgba(20,184,166,...)) trên toàn bộ màn hình Web và component UI sang biến semantic CSS (giữ nguyên tuyệt đối mẫu PDF báo giá in ấn, tên workspace DB và màu trạng thái ngữ nghĩa).',
+    ],
+  },
+  {
+    version: '1.0.1',
+    commit: '1670a02',
     released_at: '2026-11-16',
     summary:
       'Thiết kế lại giao diện Chấm công cá nhân (/clock) chuẩn Dual-UI V3: bố cục Máy tính 2 cột cân đối (Card Bấm giờ chuyên biệt + Thống kê tháng & Lịch sử ca mở sẵn), Điện thoại 1 cột gọn gàng và làm sạch câu chữ hiển thị.',

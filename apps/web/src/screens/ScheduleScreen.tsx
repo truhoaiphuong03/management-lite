@@ -556,11 +556,11 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               borderRadius: '8px',
               border:
                 activeTab === 'my_schedule'
-                  ? '1px solid #14B8A6'
+                  ? '1px solid var(--primary-color)'
                   : '1px solid var(--border-color)',
               backgroundColor:
                 activeTab === 'my_schedule'
-                  ? 'rgba(20, 184, 166, 0.15)'
+                  ? 'var(--primary-subtle)'
                   : 'var(--surface-hover)',
               color:
                 activeTab === 'my_schedule'
@@ -585,11 +585,11 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               borderRadius: '8px',
               border:
                 activeTab === 'staff_schedules'
-                  ? '1px solid #14B8A6'
+                  ? '1px solid var(--primary-color)'
                   : '1px solid var(--border-color)',
               backgroundColor:
                 activeTab === 'staff_schedules'
-                  ? 'rgba(20, 184, 166, 0.15)'
+                  ? 'var(--primary-subtle)'
                   : 'var(--surface-hover)',
               color:
                 activeTab === 'staff_schedules'
@@ -847,8 +847,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                         style={{
                           fontSize: '12px',
                           color: 'var(--accent-text)',
-                          backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                          border: '1px solid rgba(20, 184, 166, 0.3)',
+                          backgroundColor: 'var(--primary-subtle)',
+                          border: '1px solid var(--primary-border)',
                           borderRadius: '4px',
                           padding: '2px 8px',
                           fontWeight: 600,
@@ -945,7 +945,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                             >
                               <div
                                 style={{
-                                  backgroundColor: 'rgba(20, 184, 166, 0.15)',
+                                  backgroundColor: 'var(--primary-subtle)',
                                   color: 'var(--accent-text)',
                                   width: '40px',
                                   height: '40px',
@@ -1142,9 +1142,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           padding: '14px',
                           borderRadius: '10px',
                           backgroundColor: dayItem.isWorking
-                            ? 'rgba(20, 184, 166, 0.08)'
+                            ? 'var(--primary-subtle)'
                             : 'var(--surface-hover)',
-                          border: `1px solid ${dayItem.isWorking ? 'rgba(20, 184, 166, 0.45)' : '#334155'}`,
+                          border: `1px solid ${dayItem.isWorking ? 'var(--primary-border)' : '#334155'}`,
                           width: '100%',
                           minWidth: 0,
                           boxSizing: 'border-box',
@@ -1190,7 +1190,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 width: '20px',
                                 height: '20px',
                                 cursor: 'pointer',
-                                accentColor: '#14B8A6',
+                                accentColor: 'var(--primary-color)',
                                 flexShrink: 0,
                               }}
                             />
@@ -1206,14 +1206,14 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 fontSize: '12px',
                                 flexShrink: 0,
                                 backgroundColor: dayItem.isWorking
-                                  ? 'rgba(20, 184, 166, 0.18)'
+                                  ? 'var(--primary-subtle)'
                                   : 'rgba(148, 163, 184, 0.12)',
                                 color: dayItem.isWorking
                                   ? 'var(--accent-text)'
                                   : 'var(--muted-color)',
                                 border: `1px solid ${
                                   dayItem.isWorking
-                                    ? 'rgba(20, 184, 166, 0.35)'
+                                    ? 'var(--primary-border)'
                                     : 'rgba(148, 163, 184, 0.2)'
                                 }`,
                               }}
@@ -1322,7 +1322,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 color: dayItem.isWorking
                                   ? 'var(--text-color)'
                                   : 'var(--muted-color)',
-                                border: `1px solid ${dayItem.isWorking ? '#14B8A6' : '#334155'}`,
+                                border: `1px solid ${dayItem.isWorking ? 'var(--primary-color)' : '#334155'}`,
                                 borderRadius: '8px',
                                 padding: '6px 10px',
                                 fontSize: '15px',
@@ -1905,8 +1905,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                         style={{
                           fontSize: '12px',
                           color: 'var(--accent-text)',
-                          backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                          border: '1px solid rgba(20, 184, 166, 0.3)',
+                          backgroundColor: 'var(--primary-subtle)',
+                          border: '1px solid var(--primary-border)',
                           padding: '2px 8px',
                           borderRadius: '4px',
                           fontWeight: 700,
